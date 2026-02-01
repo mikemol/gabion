@@ -1,5 +1,5 @@
 ---
-doc_revision: 36
+doc_revision: 37
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -121,6 +121,15 @@ scripts/audit_snapshot.sh
 Show the latest snapshot paths:
 ```
 scripts/latest_snapshot.sh
+```
+
+Install git hooks (optional):
+```
+scripts/install_hooks.sh
+```
+To bypass hooks for a one-off command:
+```
+GABION_SKIP_HOOKS=1 git commit
 ```
 
 Run the LSP smoke test (optional):
