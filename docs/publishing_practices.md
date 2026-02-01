@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -62,6 +62,9 @@ Use GitHub OIDC trusted publishing for the real release workflow.
 Avoid long-lived API tokens.
 
 Rationale: reduces secret leakage risk and matches current PyPI guidance.
+
+Tag-only trigger constraint: release workflows should trigger only on tag pushes
+(e.g. `v*` for PyPI, `test-v*` for TestPyPI).
 
 ## 6. Harden the release workflow
 Release workflows should:

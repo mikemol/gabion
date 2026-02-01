@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 7
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -230,6 +230,17 @@ applies only to:
 * comments that are purely informational (no code execution side effects).
 
 Self-hosted workflows MUST NOT request any write scopes.
+
+**Narrow exception (Trusted Publishing via OIDC):**
+
+GitHub-hosted release workflows triggered **only** by tag pushes MAY request
+`id-token: write` to support PyPI Trusted Publishing, provided that:
+
+* No other write scopes are requested.
+* The workflow is limited to tag triggers (no PR or branch pushes).
+* The publishing job is the only job requiring `id-token: write`.
+* All actions are allow-listed and pinned to full SHAs.
+* The workflow runs on GitHub-hosted runners only.
 
 ### 4.5 Action Supply Chain
 
