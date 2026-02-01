@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      # Allow-listed actions: actions/checkout, jdx/mise-action
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install mise
+        uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
+      - name: Install toolchain
+        run: mise install
+      - name: Install package
+        run: mise exec -- python -m pip install -e .
+      - name: Install test deps
+        run: mise exec -- python -m pip install pytest
+      - name: Policy check (workflows)
+        run: |
+          mise exec -- python -m pip install pyyaml
+          mise exec -- python scripts/policy_check.py --workflows
+      - name: Policy check (posture)
+        if: github.event_name == 'push' && secrets.POLICY_GITHUB_TOKEN != ''
+        env:
+          POLICY_GITHUB_TOKEN: ${{ secrets.POLICY_GITHUB_TOKEN }}
+        run: mise exec -- python scripts/policy_check.py --posture
+      - name: Dataflow audit
+        run: mise exec -- python -m gabion check
+      - name: Docflow audit
+        run: mise exec -- python scripts/docflow_audit.py --root . --fail-on-violations
+      - name: Tests
+        run: mise exec -- python -m pytest

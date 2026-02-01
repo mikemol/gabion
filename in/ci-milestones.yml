@@ -1,0 +1,542 @@
+name: milestone-tests-and-audit
+
+on:
+  push:
+    branches:
+      - main
+      - stage
+    paths:
+      - ".github/workflows/**"
+      - "ci_trigger.txt"
+      - "**/*.md"
+      - "**/*.agda"
+      - "tests/**"
+      - "scripts/**"
+      - "src/**"
+      - "prism_vm.py"
+      - "ic_vm.py"
+      - "interaction_combinator.py"
+      - "typecheck/**"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.14"
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code_changed: ${{ steps.diff.outputs.code_changed }}
+      changed_files: ${{ steps.diff.outputs.changed_files }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+      - name: Detect code changes
+        id: diff
+        run: |
+          scripts/ci_detect_changes.sh \
+            --base "${{ github.event.before }}" \
+            --head "${{ github.sha }}" \
+            --output "$GITHUB_OUTPUT"
+
+  policy-check:
+    needs: [changes]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install policy check dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+      - name: Diagnose policy token access
+        env:
+          POLICY_GITHUB_TOKEN: ${{ secrets.POLICY_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "${POLICY_GITHUB_TOKEN:-}" ]; then
+            echo "POLICY_GITHUB_TOKEN is empty"
+            exit 1
+          fi
+          token_len=${#POLICY_GITHUB_TOKEN}
+          echo "policy-check diagnostics:"
+          echo "  token length: ${token_len}"
+          case "$POLICY_GITHUB_TOKEN" in
+            github_pat_*) echo "  token prefix: github_pat_" ;;
+            *) echo "  token prefix: (non github_pat)" ;;
+          esac
+          python - <<'PY'
+          import os
+          import hashlib
+          token = os.environ["POLICY_GITHUB_TOKEN"]
+          has_newline = ("\n" in token) or ("\r" in token)
+          print(f"  token contains newline: {'yes' if has_newline else 'no'}")
+          fingerprint = hashlib.sha256(token.encode("utf-8")).hexdigest()[:8]
+          print(f"  token sha256 prefix: {fingerprint}")
+          PY
+          auth_header="Authorization: Bearer ${POLICY_GITHUB_TOKEN}"
+          accept_header="Accept: application/vnd.github+json"
+          base="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          code_user=$(curl -sS -o /dev/null -w "%{http_code}" -H "$accept_header" -H "$auth_header" https://api.github.com/user)
+          echo "  GET /user -> ${code_user}"
+          code_perms=$(curl -sS -o /dev/null -w "%{http_code}" -H "$accept_header" -H "$auth_header" "${base}/actions/permissions")
+          echo "  GET /actions/permissions -> ${code_perms}"
+          code_workflow=$(curl -sS -o /dev/null -w "%{http_code}" -H "$accept_header" -H "$auth_header" "${base}/actions/permissions/workflow")
+          echo "  GET /actions/permissions/workflow -> ${code_workflow}"
+          code_selected=$(curl -sS -o /dev/null -w "%{http_code}" -H "$accept_header" -H "$auth_header" "${base}/actions/permissions/selected-actions")
+          echo "  GET /actions/permissions/selected-actions -> ${code_selected}"
+      - name: Run policy checks
+        env:
+          POLICY_GITHUB_TOKEN: ${{ secrets.POLICY_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/policy_check.py --workflows --posture
+
+  smoke-exports:
+    needs: [changes, policy-check, audit]
+    if: needs.changes.outputs.code_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Smoke-check exports
+        run: |
+          python scripts/smoke_exports.py
+
+  audit:
+    needs: [changes]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Generate audit
+        run: |
+          mkdir -p artifacts
+          python scripts/audit_in_versions.py --output artifacts/audit_in_versions.md
+      - name: Upload audit artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: audit
+          path: artifacts/audit_in_versions.md
+
+  agda-check:
+    needs: [changes, policy-check, audit, smoke-exports]
+    if: needs.changes.outputs.code_changed == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/mikemol/act-ubuntu-agda@sha256:3a38b951385dbd12ea9140137c1d26ac6be62df503e2fed1f1bfe94c14ed6393
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Verify Agda image version
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(tr -d ' \t\r\n' < agda/AGDA_VERSION)"
+          if [[ -z "$expected" ]]; then
+            echo "AGDA_VERSION is empty" >&2
+            exit 1
+          fi
+          actual="$(agda --version | head -n1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Agda image version mismatch: expected ${expected}, got ${actual}" >&2
+            exit 1
+          fi
+      - name: Run Agda checker
+        run: |
+          scripts/check_agda.sh
+
+  preflight-smoke:
+    needs: [changes, policy-check, audit, smoke-exports, agda-check]
+    if: needs.changes.outputs.code_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies (preflight)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest jax jaxlib
+      - name: Import smoke (ic_vm, prism_vm)
+        run: |
+          python -c "import ic_vm; import prism_vm"
+      - name: Collect-only harness import graph
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          pytest -c pytest.baseline.ini \
+            --collect-only tests/harness.py \
+            2>&1 | tee artifacts/pytest-preflight-collect.txt || true
+      - name: Run pytest smokes (preflight)
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          pytest -c pytest.baseline.ini -q \
+            tests/test_harness_jit_cfg_smoke.py \
+            tests/test_harness_cnf2_cfg_smoke.py \
+            tests/test_ic_guard_cfg_smoke.py \
+            --junitxml artifacts/pytest-preflight.xml \
+            2>&1 | tee artifacts/pytest-preflight.txt
+      - name: Upload preflight artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pytest-preflight
+          path: artifacts/
+          if-no-files-found: ignore
+
+  baseline-tests:
+    needs: [changes, policy-check, audit, smoke-exports, agda-check, preflight-smoke]
+    if: needs.changes.outputs.code_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-xdist jax jaxlib
+      - name: Record telemetry metadata (baseline)
+        run: |
+          mkdir -p artifacts
+          python scripts/record_telemetry_metadata.py \
+            --out artifacts/telemetry_metadata_baseline.json \
+            --milestone baseline \
+            --label "pytest-baseline" \
+            --extra job=baseline-tests
+      - name: Run pytest (baseline)
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          pytest -c pytest.baseline.ini \
+            -n auto \
+            --junitxml artifacts/pytest-baseline.xml \
+            2>&1 | tee artifacts/pytest-baseline.txt
+      - name: Upload pytest artifact (baseline)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pytest-baseline
+          path: artifacts/
+          if-no-files-found: ignore
+
+  tests:
+    needs: [changes, policy-check, audit, smoke-exports, agda-check, preflight-smoke, baseline-tests]
+    if: needs.changes.outputs.code_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [m2, m3, m4, m5]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-xdist jax jaxlib
+      - name: Record telemetry metadata (suite)
+        run: |
+          mkdir -p artifacts
+          python scripts/record_telemetry_metadata.py \
+            --out artifacts/telemetry_metadata_${{ matrix.suite }}.json \
+            --milestone ${{ matrix.suite }} \
+            --label "pytest-${{ matrix.suite }}" \
+            --extra job=tests
+      - name: Run pytest (suite)
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          config="pytest.${{ matrix.suite }}.ini"
+          pytest -c "$config" \
+            -n auto \
+            --junitxml artifacts/pytest-${{ matrix.suite }}.xml \
+            2>&1 | tee artifacts/pytest-${{ matrix.suite }}.txt
+      - name: Run damage metrics fixture (arena)
+        if: matrix.suite == 'm4'
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          PRISM_DAMAGE_METRICS=1 PRISM_DAMAGE_TILE_SIZE=2 \
+            python prism_vm.py --mode arena --morton --cycles 2 \
+            tests/damage_metrics.txt 2>&1 | tee artifacts/damage_metrics.txt
+          PRISM_DAMAGE_METRICS=1 PRISM_DAMAGE_TILE_SIZE=32 \
+            python prism_vm.py --mode arena --morton --cycles 2 \
+            tests/damage_metrics.txt 2>&1 | tee artifacts/damage_metrics_tile32.txt
+          PRISM_DAMAGE_METRICS=0 \
+            python prism_vm.py --mode arena --morton --cycles 2 \
+            tests/damage_metrics_off.txt 2>&1 | tee artifacts/damage_metrics_off.txt
+          python scripts/damage_metrics_delta.py \
+            --inputs artifacts/damage_metrics.txt artifacts/damage_metrics_tile32.txt \
+            --out artifacts/damage_metrics_delta.txt
+      - name: Capture host performance baselines
+        if: matrix.suite == 'm4'
+        run: |
+          mkdir -p artifacts
+          python scripts/audit_host_performance.py \
+            --engine intrinsic --iterations 5 --warmup 1 \
+            --json-out artifacts/host_perf_intrinsic.json
+          python scripts/audit_host_performance.py \
+            --engine cnf2 --iterations 5 --warmup 1 \
+            --json-out artifacts/host_perf_cnf2.json
+          python scripts/audit_memory_stability.py \
+            --engine intrinsic --iterations 5 --warmup 1 \
+            --json-out artifacts/host_memory_intrinsic.json
+          python scripts/audit_memory_stability.py \
+            --engine cnf2 --iterations 5 --warmup 1 \
+            --json-out artifacts/host_memory_cnf2.json
+      - name: Capture CPU trace baselines
+        if: matrix.suite == 'm4'
+        run: |
+          mkdir -p artifacts
+          python scripts/capture_trace.py \
+            --engine intrinsic --iterations 10 --warmup 3 \
+            --out-dir /tmp/jax-trace
+          python scripts/trace_analyze.py \
+            --report-only --json-out artifacts/trace_cpu_report.json
+      - name: Capture m5 servo trace baselines
+        if: matrix.suite == 'm5'
+        run: |
+          mkdir -p artifacts
+          rm -rf /tmp/jax-trace
+          PRISM_ENABLE_SERVO=0 python scripts/record_telemetry_metadata.py \
+            --out artifacts/telemetry_metadata_m5_servo_off.json \
+            --milestone m5 \
+            --engine cnf2 \
+            --label "m5-servo-off" \
+            --extra trace=cpu
+          PRISM_ENABLE_SERVO=0 python scripts/capture_trace.py \
+            --engine cnf2 --iterations 10 --warmup 3 \
+            --out-dir /tmp/jax-trace
+          python scripts/trace_analyze.py \
+            --report-only --json-out artifacts/trace_cpu_report_servo_off.json
+          rm -rf /tmp/jax-trace
+          PRISM_ENABLE_SERVO=1 python scripts/record_telemetry_metadata.py \
+            --out artifacts/telemetry_metadata_m5_servo_on.json \
+            --milestone m5 \
+            --engine cnf2 \
+            --label "m5-servo-on" \
+            --extra trace=cpu
+          PRISM_ENABLE_SERVO=1 python scripts/capture_trace.py \
+            --engine cnf2 --iterations 10 --warmup 3 \
+            --out-dir /tmp/jax-trace
+          python scripts/trace_analyze.py \
+            --report-only --json-out artifacts/trace_cpu_report_servo_on.json
+      - name: Upload pytest artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pytest-${{ matrix.suite }}
+          path: artifacts/
+          if-no-files-found: ignore
+
+  baseline-tests-gpu:
+    needs: [changes, policy-check, audit, smoke-exports, agda-check, preflight-smoke, baseline-tests]
+    if: needs.changes.outputs.code_changed == 'true' && github.actor == github.repository_owner && needs.policy-check.result == 'success' && needs.audit.result == 'success'
+    runs-on: [self-hosted, cassian, gpu, local]
+    timeout-minutes: 30
+    env:
+      XLA_FLAGS: "--xla_gpu_enable_command_buffer="
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Ensure mise Python is installed (self-hosted)
+        run: |
+          if ! command -v mise >/dev/null 2>&1; then
+            echo "mise is required on the self-hosted runner" >&2
+            exit 1
+          fi
+          mise install
+      - name: Verify python version (self-hosted)
+        run: |
+          mise exec -- python - <<'PY'
+          import os
+          import sys
+          want = os.environ["PYTHON_VERSION"]
+          version = sys.version.split()[0]
+          if not version.startswith(want):
+              raise SystemExit(f"Expected Python {want}, found {version}")
+          print("Python version:", version)
+          PY
+      - name: Install test dependencies (GPU)
+        run: |
+          mise exec -- python -m pip install --upgrade pip
+          mise exec -- python -m pip install pytest nvidia-ml-py "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+      - name: Verify GPU backend
+        run: |
+          mise exec -- python - <<'PY'
+          import jax
+          gpus = jax.devices("gpu")
+          if not gpus:
+              raise SystemExit("GPU backend required but not available")
+          print("GPU devices:", gpus)
+          PY
+      - name: Record telemetry metadata (gpu baseline)
+        run: |
+          mkdir -p artifacts
+          mise exec -- python scripts/record_telemetry_metadata.py \
+            --out artifacts/telemetry_metadata_gpu_baseline.json \
+            --milestone baseline \
+            --backend gpu \
+            --label "pytest-gpu-baseline" \
+            --extra job=baseline-tests-gpu
+      - name: Run pytest (baseline, gpu)
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          mise exec -- python -m pytest -c pytest.baseline.ini \
+            --junitxml artifacts/pytest-gpu-baseline.xml \
+            2>&1 | tee artifacts/pytest-gpu-baseline.txt
+      - name: Upload pytest artifact (gpu baseline)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pytest-gpu-baseline
+          path: artifacts/
+          if-no-files-found: ignore
+
+  tests-gpu:
+    needs: [changes, policy-check, audit, smoke-exports, agda-check, preflight-smoke, baseline-tests, baseline-tests-gpu]
+    if: needs.changes.outputs.code_changed == 'true' && github.actor == github.repository_owner && needs.policy-check.result == 'success' && needs.audit.result == 'success'
+    runs-on: [self-hosted, cassian, gpu, local]
+    timeout-minutes: 30
+    env:
+      XLA_FLAGS: "--xla_gpu_enable_command_buffer="
+    strategy:
+      fail-fast: false
+      matrix:
+        milestone: [m2]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Ensure mise Python is installed (self-hosted)
+        run: |
+          if ! command -v mise >/dev/null 2>&1; then
+            echo "mise is required on the self-hosted runner" >&2
+            exit 1
+          fi
+          mise install
+      - name: Verify python version (self-hosted)
+        run: |
+          mise exec -- python - <<'PY'
+          import os
+          import sys
+          want = os.environ["PYTHON_VERSION"]
+          version = sys.version.split()[0]
+          if not version.startswith(want):
+              raise SystemExit(f"Expected Python {want}, found {version}")
+          print("Python version:", version)
+          PY
+      - name: Install test dependencies (GPU)
+        run: |
+          mise exec -- python -m pip install --upgrade pip
+          mise exec -- python -m pip install pytest nvidia-ml-py "jax[cuda12]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+      - name: Verify GPU backend
+        run: |
+          mise exec -- python - <<'PY'
+          import jax
+          gpus = jax.devices("gpu")
+          if not gpus:
+              raise SystemExit("GPU backend required but not available")
+          print("GPU devices:", gpus)
+          PY
+      - name: Record telemetry metadata (gpu)
+        run: |
+          mkdir -p artifacts
+          mise exec -- python scripts/record_telemetry_metadata.py \
+            --out artifacts/telemetry_metadata_gpu_m2.json \
+            --milestone m2 \
+            --backend gpu \
+            --label "pytest-gpu-m2" \
+            --extra job=tests-gpu
+      - name: Run pytest (milestone, backend matrix)
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          mise exec -- python -m pytest -c pytest.${{ matrix.milestone }}.ini \
+            --junitxml artifacts/pytest-gpu-${{ matrix.milestone }}.xml \
+            2>&1 | tee artifacts/pytest-gpu-${{ matrix.milestone }}.txt
+      - name: Run damage metrics fixture (arena, gpu)
+        run: |
+          mkdir -p artifacts
+          set -euo pipefail
+          PRISM_DAMAGE_METRICS=1 PRISM_DAMAGE_TILE_SIZE=2 \
+            mise exec -- python prism_vm.py --mode arena --morton --cycles 2 \
+            tests/damage_metrics.txt 2>&1 | tee artifacts/damage_metrics_gpu.txt
+          PRISM_DAMAGE_METRICS=1 PRISM_DAMAGE_TILE_SIZE=32 \
+            mise exec -- python prism_vm.py --mode arena --morton --cycles 2 \
+            tests/damage_metrics.txt 2>&1 | tee artifacts/damage_metrics_tile32_gpu.txt
+          PRISM_DAMAGE_METRICS=0 \
+            mise exec -- python prism_vm.py --mode arena --morton --cycles 2 \
+            tests/damage_metrics_off.txt 2>&1 | tee artifacts/damage_metrics_off_gpu.txt
+          mise exec -- python scripts/damage_metrics_delta.py \
+            --inputs artifacts/damage_metrics_gpu.txt artifacts/damage_metrics_tile32_gpu.txt \
+            --out artifacts/damage_metrics_delta_gpu.txt
+      - name: Upload pytest artifact (gpu)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pytest-gpu-${{ matrix.milestone }}
+          path: artifacts/
+          if-no-files-found: ignore
+
+  collect-report:
+    runs-on: ubuntu-latest
+    needs: [changes, policy-check, audit, smoke-exports, agda-check, preflight-smoke, baseline-tests, baseline-tests-gpu, tests, tests-gpu]
+    if: always() && needs.policy-check.result == 'success' && needs.audit.result == 'success'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          path: collected_report/raw
+          merge-multiple: true
+      - name: Assemble collected report
+        run: |
+          mkdir -p collected_report
+          cp -R collected_report/raw/* collected_report/ || true
+          find collected_report -type f | sort > collected_report/contents.txt
+          printf "Collected report for milestone audit and tests.\n" > collected_report/README.txt
+          printf "Contents:\n" >> collected_report/README.txt
+          sed 's|^|  - |' collected_report/contents.txt >> collected_report/README.txt
+      - name: Summarize damage metrics telemetry
+        run: |
+          python3 scripts/collect_damage_metrics.py \
+            --base collected_report/raw \
+            --out collected_report/damage_metrics_summary.md
+      - name: Summarize host telemetry
+        run: |
+          python3 scripts/collect_host_metrics.py \
+            --base collected_report/raw \
+            --out collected_report/host_metrics_summary.md
+      - name: Assemble telemetry baselines
+        run: |
+          python3 scripts/collect_telemetry_baselines.py \
+            --base collected_report/raw \
+            --damage-summary collected_report/damage_metrics_summary.md \
+            --host-summary collected_report/host_metrics_summary.md \
+            --out collected_report/telemetry_baselines.md
+      - name: Upload collected report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: collected-report
+          path: collected_report/

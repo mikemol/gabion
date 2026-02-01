@@ -1,0 +1,86 @@
+name: pr-dataflow-grammar
+
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "src/**"
+      - "gabion.toml"
+      - ".github/workflows/pr-dataflow-grammar.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dataflow-grammar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install mise
+        uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
+      - name: Install toolchain
+        run: mise install
+      - name: Install package
+        run: mise exec -- python -m pip install -e .
+      - name: Render dataflow grammar report
+        run: |
+          mkdir -p artifacts/dataflow_grammar
+          mise exec -- python -m gabion dataflow-audit . \
+            --root . \
+            --report artifacts/dataflow_grammar/report.md \
+            --dot artifacts/dataflow_grammar/dataflow_graph.dot \
+            --type-audit-report
+      - name: Upload dataflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dataflow-grammar
+          path: artifacts/dataflow_grammar
+      - name: Comment on PR with report
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import urllib.request
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo = os.environ["REPO"]
+          issue = os.environ["PR_NUMBER"]
+          run_url = os.environ["RUN_URL"]
+          report_path = pathlib.Path("artifacts/dataflow_grammar/report.md")
+          if report_path.exists():
+              report = report_path.read_text()
+          else:
+              report = "<!-- dataflow-grammar -->\nDataflow grammar report generated.\n"
+          footer = f"\n\n- Artifact: dataflow-grammar\n- Download: {run_url}\n"
+          body = report + footer
+          if len(body) > 60000:
+              body = body[:60000] + "\n\n(truncated)\n" + footer
+
+          url = f"https://api.github.com/repos/{repo}/issues/{issue}/comments"
+          req = urllib.request.Request(
+              url,
+              data=json.dumps({"body": body}).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req) as resp:
+              resp.read()
+          PY

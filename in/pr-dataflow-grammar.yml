@@ -1,0 +1,78 @@
+name: pr-dataflow-grammar
+
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "src/**"
+      - ".github/workflows/pr-dataflow-grammar.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dataflow-grammar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.14"
+      - name: Install graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+      - name: Render dataflow grammar graph
+        run: |
+          ./scripts/render_dataflow_grammar.sh src artifacts/dataflow_grammar
+      - name: Upload dataflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dataflow-grammar
+          path: artifacts/dataflow_grammar
+      - name: Comment on PR with artifact link
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import urllib.request
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo = os.environ["REPO"]
+          issue = os.environ["PR_NUMBER"]
+          run_url = os.environ["RUN_URL"]
+          report_path = pathlib.Path("artifacts/dataflow_grammar/report.md")
+          if report_path.exists():
+              report = report_path.read_text()
+          else:
+              report = "<!-- dataflow-grammar -->\nDataflow grammar graph generated.\n"
+          footer = f"\n\n- Artifact: dataflow-grammar\n- Download: {run_url}\n"
+          body = report + footer
+          if len(body) > 60000:
+              body = body[:60000] + "\n\n(truncated)\n" + footer
+
+          url = f"https://api.github.com/repos/{repo}/issues/{issue}/comments"
+          req = urllib.request.Request(
+              url,
+              data=json.dumps({"body": body}).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req) as resp:
+              resp.read()
+          PY
