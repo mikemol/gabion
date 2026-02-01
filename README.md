@@ -1,5 +1,5 @@
 ---
-doc_revision: 28
+doc_revision: 29
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -105,6 +105,10 @@ Show the latest snapshot paths:
 ```
 scripts/latest_snapshot.sh
 ```
+
+## Editor integration
+The VS Code extension stub lives in `extensions/vscode` and launches the
+Gabion LSP server over stdio. It is a thin wrapper only.
 
 ## Quick commands (make)
 ```

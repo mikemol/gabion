@@ -1,5 +1,5 @@
 ---
-doc_revision: 38
+doc_revision: 39
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -133,6 +133,10 @@ To bypass hooks for a one-off command:
 ```
 GABION_SKIP_HOOKS=1 git commit
 ```
+
+## Editor integration (optional)
+The VS Code extension stub lives in `extensions/vscode` and launches the
+Gabion LSP server over stdio. It is a thin wrapper only.
 
 Run the LSP smoke test (optional):
 ```

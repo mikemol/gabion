@@ -1,0 +1,47 @@
+{
+  "name": "gabion-vscode",
+  "displayName": "Gabion",
+  "description": "Thin VS Code wrapper that launches the Gabion LSP server.",
+  "version": "0.0.1",
+  "publisher": "mikemol",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:python"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Gabion",
+      "properties": {
+        "gabion.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Python executable that can run the gabion server."
+        },
+        "gabion.serverArgs": {
+          "type": "array",
+          "default": [
+            "-m",
+            "gabion.server"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments passed to the python command for the gabion server."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "scripts": {
+    "lint": "node -c extension.js"
+  }
+}

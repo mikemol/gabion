@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 14
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -48,7 +48,7 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Analysis→diagnostics mapping (basic placeholder ranges).
 - [x] LSP executeCommand smoke test (dataflow command).
 - [x] Pytest wrapper for LSP smoke test (skips if pygls missing).
-- [ ] VS Code extension as thin wrapper (spawn server only).
+- [x] VS Code extension as thin wrapper (spawn server only).
 
 ## Governance/ops glue (optional)
 - [x] Durable logs/artifacts guidance for audits.
