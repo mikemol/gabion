@@ -105,6 +105,9 @@ def dataflow_audit(
         "synthesis_max_tier": opts.synthesis_max_tier,
         "synthesis_min_bundle_size": opts.synthesis_min_bundle_size,
         "synthesis_allow_singletons": opts.synthesis_allow_singletons,
+        "synthesis_protocols": str(opts.synthesis_protocols)
+        if opts.synthesis_protocols
+        else None,
     }
     result = run_command(DATAFLOW_COMMAND, [payload])
     if opts.type_audit:
@@ -122,6 +125,8 @@ def dataflow_audit(
         typer.echo(result["dot"])
     if opts.synthesis_plan == "-" and "synthesis_plan" in result:
         typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
+    if opts.synthesis_protocols == "-" and "synthesis_protocols" in result:
+        typer.echo(result["synthesis_protocols"])
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -172,6 +177,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--synthesis-report",
         action="store_true",
         help="Include synthesis plan summary in the markdown report.",
+    )
+    parser.add_argument(
+        "--synthesis-protocols",
+        default=None,
+        help="Write protocol/dataclass stubs to file or '-' for stdout.",
     )
     parser.add_argument(
         "--synthesis-max-tier",

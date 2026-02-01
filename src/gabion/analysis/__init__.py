@@ -8,6 +8,7 @@ from .dataflow_audit import (
     compute_violations,
     render_dot,
     render_report,
+    render_protocol_stubs,
     render_synthesis_section,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "compute_violations",
     "render_dot",
     "render_report",
+    "render_protocol_stubs",
     "render_synthesis_section",
 ]

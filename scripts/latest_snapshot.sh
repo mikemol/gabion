@@ -23,21 +23,27 @@ fi
 
 report="$snapshot_dir/dataflow_report.md"
 dot="$snapshot_dir/dataflow_graph.dot"
+plan="$snapshot_dir/synthesis_plan.json"
+protocols="$snapshot_dir/protocol_stubs.py"
 docflow="$snapshot_dir/docflow_audit.txt"
 
 case "${1:-}" in
   --report) echo "$report" ;;
   --dot) echo "$dot" ;;
+  --plan) echo "$plan" ;;
+  --protocols) echo "$protocols" ;;
   --docflow) echo "$docflow" ;;
   --dir) echo "$snapshot_dir" ;;
   "")
     echo "Latest snapshot:"
     echo "- $report"
     echo "- $dot"
+    echo "- $plan"
+    echo "- $protocols"
     echo "- $docflow"
     ;;
   *)
-    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--docflow|--dir]" >&2
+    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--docflow|--dir]" >&2
     exit 2
     ;;
 esac

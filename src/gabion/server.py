@@ -19,6 +19,7 @@ from gabion.analysis import (
     compute_violations,
     build_synthesis_plan,
     render_dot,
+    render_protocol_stubs,
     render_report,
     render_synthesis_section,
 )
@@ -95,6 +96,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
+    synthesis_protocols_path = payload.get("synthesis_protocols")
 
     config = AuditConfig(
         project_root=Path(root),
@@ -121,7 +123,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     }
 
     synthesis_plan: dict[str, object] | None = None
-    if synthesis_plan_path or synthesis_report:
+    if synthesis_plan_path or synthesis_report or synthesis_protocols_path:
         synthesis_plan = build_synthesis_plan(
             analysis.groups_by_path,
             project_root=Path(root),
@@ -135,6 +137,12 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 response["synthesis_plan"] = synthesis_plan
             else:
                 Path(synthesis_plan_path).write_text(payload_json)
+        if synthesis_protocols_path:
+            stubs = render_protocol_stubs(synthesis_plan)
+            if synthesis_protocols_path == "-":
+                response["synthesis_protocols"] = stubs
+            else:
+                Path(synthesis_protocols_path).write_text(stubs)
 
     if dot_path:
         dot = render_dot(analysis.groups_by_path)
@@ -153,7 +161,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
         )
-        if synthesis_plan and (synthesis_report or synthesis_plan_path):
+        if synthesis_plan and (
+            synthesis_report or synthesis_plan_path or synthesis_protocols_path
+        ):
             report = report + render_synthesis_section(synthesis_plan)
         Path(report_path).write_text(report)
     else:
