@@ -1,5 +1,5 @@
 ---
-doc_revision: 26
+doc_revision: 27
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -65,6 +65,11 @@ mise install
 Install from source (editable):
 ```
 mise exec -- python -m pip install -e .
+```
+
+Install git hooks (optional):
+```
+scripts/install_hooks.sh
 ```
 
 Commands below assume the package is installed (editable) or `PYTHONPATH=src`.

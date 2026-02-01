@@ -1,5 +1,5 @@
 ---
-doc_revision: 12
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -55,7 +55,7 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Audit snapshot tooling (dataflow report + DOT + docflow summary).
 - [x] Repo config defaults (`gabion.toml`) for dataflow settings.
 - [x] Policy check script references.
-- [ ] Hook installer.
+- [x] Hook installer.
 - [ ] Doer/Judge/Witness framing (optional).
 
 ## Explicit non-goals
