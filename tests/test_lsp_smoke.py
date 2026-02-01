@@ -23,3 +23,16 @@ def test_lsp_execute_command() -> None:
         root=repo_root,
     )
     assert "exit_code" in result
+    synth_result = run_command(
+        "gabion.synthesisPlan",
+        [
+            {
+                "bundles": [{"bundle": ["ctx"], "tier": 2}],
+                "min_bundle_size": 1,
+                "allow_singletons": True,
+                "existing_names": ["CtxBundle"],
+            }
+        ],
+        root=repo_root,
+    )
+    assert "protocols" in synth_result
