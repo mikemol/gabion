@@ -26,12 +26,19 @@ from gabion.analysis import (
     render_synthesis_section,
 )
 from gabion.config import dataflow_defaults, merge_payload
-from gabion.schema import SynthesisRequest, SynthesisResponse
+from gabion.refactor import RefactorEngine, RefactorRequest as RefactorRequestModel
+from gabion.schema import (
+    RefactorRequest,
+    RefactorResponse,
+    SynthesisRequest,
+    TextEditDTO,
+)
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 
 server = LanguageServer("gabion", "0.1.0")
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
+REFACTOR_COMMAND = "gabion.refactorProtocol"
 
 
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
@@ -249,6 +256,45 @@ def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
             }
             for spec in plan.protocols
         ],
+        warnings=plan.warnings,
+        errors=plan.errors,
+    )
+    return response.model_dump()
+
+
+@server.command(REFACTOR_COMMAND)
+def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    try:
+        request = RefactorRequest.model_validate(payload)
+    except Exception as exc:  # pydantic validation
+        return RefactorResponse(errors=[str(exc)]).model_dump()
+
+    project_root = None
+    if ls.workspace.root_path:
+        project_root = Path(ls.workspace.root_path)
+    engine = RefactorEngine(project_root=project_root)
+    plan = engine.plan_protocol_extraction(
+        RefactorRequestModel(
+            protocol_name=request.protocol_name,
+            bundle=request.bundle,
+            target_path=request.target_path,
+            target_functions=request.target_functions,
+            rationale=request.rationale,
+        )
+    )
+    edits = [
+        TextEditDTO(
+            path=edit.path,
+            start=edit.start,
+            end=edit.end,
+            replacement=edit.replacement,
+        )
+        for edit in plan.edits
+    ]
+    response = RefactorResponse(
+        edits=edits,
         warnings=plan.warnings,
         errors=plan.errors,
     )

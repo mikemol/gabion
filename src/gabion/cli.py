@@ -12,6 +12,7 @@ import typer
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
+REFACTOR_COMMAND = "gabion.refactorProtocol"
 from gabion.lsp_client import run_command
 app = typer.Typer(add_completion=False)
 
@@ -355,6 +356,47 @@ def synthesis_plan(
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
     result = run_command(SYNTHESIS_COMMAND, [payload])
+    output = json.dumps(result, indent=2, sort_keys=True)
+    if output_path is None:
+        typer.echo(output)
+    else:
+        output_path.write_text(output)
+
+
+@app.command("refactor-protocol")
+def refactor_protocol(
+    input_path: Optional[Path] = typer.Option(
+        None, "--input", help="JSON payload describing the refactor request."
+    ),
+    output_path: Optional[Path] = typer.Option(
+        None, "--output", help="Write refactor response JSON to this path."
+    ),
+    protocol_name: Optional[str] = typer.Option(None, "--protocol-name"),
+    bundle: Optional[List[str]] = typer.Option(None, "--bundle"),
+    target_path: Optional[Path] = typer.Option(None, "--target-path"),
+    target_functions: Optional[List[str]] = typer.Option(None, "--target-function"),
+    rationale: Optional[str] = typer.Option(None, "--rationale"),
+) -> None:
+    """Generate protocol refactor edits from a JSON payload (prototype)."""
+    payload: dict[str, Any] = {}
+    if input_path is not None:
+        try:
+            payload = json.loads(input_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
+    else:
+        if protocol_name is None or target_path is None:
+            raise typer.BadParameter(
+                "Provide --protocol-name and --target-path or use --input."
+            )
+        payload = {
+            "protocol_name": protocol_name,
+            "bundle": bundle or [],
+            "target_path": str(target_path),
+            "target_functions": target_functions or [],
+            "rationale": rationale,
+        }
+    result = run_command(REFACTOR_COMMAND, [payload])
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)

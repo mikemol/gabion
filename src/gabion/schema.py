@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -53,5 +53,26 @@ class SynthesisProtocolDTO(BaseModel):
 
 class SynthesisResponse(BaseModel):
     protocols: List[SynthesisProtocolDTO]
+    warnings: List[str] = []
+    errors: List[str] = []
+
+
+class RefactorRequest(BaseModel):
+    protocol_name: str
+    bundle: List[str]
+    target_path: str
+    target_functions: List[str] = []
+    rationale: Optional[str] = None
+
+
+class TextEditDTO(BaseModel):
+    path: str
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+    replacement: str
+
+
+class RefactorResponse(BaseModel):
+    edits: List[TextEditDTO] = []
     warnings: List[str] = []
     errors: List[str] = []
