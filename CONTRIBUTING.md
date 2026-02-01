@@ -1,5 +1,5 @@
 ---
-doc_revision: 42
+doc_revision: 43
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -124,6 +124,7 @@ Generate a synthesis plan from a JSON payload (prototype scaffolding):
 ```
 mise exec -- python -m gabion synthesis-plan --input path/to/payload.json --output plan.json
 ```
+Payload schema: `docs/synthesis_payload.md`.
 
 Capture an audit snapshot (reports + DOT graph under `artifacts/`):
 ```

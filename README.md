@@ -1,5 +1,5 @@
 ---
-doc_revision: 33
+doc_revision: 34
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -116,6 +116,7 @@ Example payload:
   }
 }
 ```
+Payload schema: `docs/synthesis_payload.md`.
 
 Capture an audit snapshot (reports + DOT graph under `artifacts/`):
 ```
