@@ -1,5 +1,5 @@
 ---
-doc_revision: 16
+doc_revision: 17
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -61,3 +61,11 @@ wrappers live on the `tooling` axis and should stay consistent with
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).
 - [x] GPU/JAX/Prism VM operational guidance (out of scope).
+
+## Phase 2: Integration (post-scaffold)
+- [x] Synthesis plan available via LSP/CLI (`gabion.synthesisPlan`, `synthesis-plan`).
+- [x] Synthesis payload schema doc (`docs/synthesis_payload.md`).
+- [ ] Dataflow audit can emit synthesis plan outputs (report + JSON).
+- [ ] Protocol/dataclass stub emitter (writes to `artifacts/`).
+- [ ] LSP code action stub for Protocol creation (no edits yet, placeholder only).
+- [ ] `gabion synth` command to run audit + synthesis in one step.
