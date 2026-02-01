@@ -1,5 +1,5 @@
 ---
-doc_revision: 25
+doc_revision: 26
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -43,6 +43,10 @@ integration.
 - Dataflow grammar audit is implemented (prototype).
 - Type-flow, constant-flow, and unused-argument smells are implemented (prototype).
 - Governance layer is active.
+
+## Branching model
+- `stage` is the integration branch for routine pushes; CI runs on every push.
+- `main` is protected and receives changes via PRs from `stage`.
 
 ## Convergence checklist
 Bottom-up convergence targets live in `docs/sppf_checklist.md`.
