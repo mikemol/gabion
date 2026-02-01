@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import os
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -25,6 +26,8 @@ from typing import Iterable, Iterator
 import re
 
 from gabion.config import dataflow_defaults, merge_payload
+from gabion.schema import SynthesisResponse
+from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 
 @dataclass
 class ParamUse:
@@ -1343,6 +1346,133 @@ def _emit_report(
     return "\n".join(lines), violations
 
 
+def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
+    if groups_by_path:
+        common = os.path.commonpath([str(p) for p in groups_by_path])
+        return Path(common)
+    return Path(".")
+
+
+def _bundle_counts(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]]
+) -> dict[tuple[str, ...], int]:
+    counts: dict[tuple[str, ...], int] = defaultdict(int)
+    for groups in groups_by_path.values():
+        for bundles in groups.values():
+            for bundle in bundles:
+                counts[tuple(sorted(bundle))] += 1
+    return counts
+
+
+def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
+    declared: set[tuple[str, ...]] = set()
+    for path in sorted(root.rglob("config.py")):
+        for fields in _iter_config_fields(path).values():
+            declared.add(tuple(sorted(fields)))
+    protocols = root / "prism_vm_core" / "protocols.py"
+    if protocols.exists():
+        for fields in _iter_config_fields(protocols).values():
+            declared.add(tuple(sorted(fields)))
+    return declared
+
+
+def build_synthesis_plan(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    project_root: Path | None = None,
+    max_tier: int = 2,
+    min_bundle_size: int = 2,
+    allow_singletons: bool = False,
+) -> dict[str, object]:
+    root = project_root or _infer_root(groups_by_path)
+    counts = _bundle_counts(groups_by_path)
+    if not counts:
+        response = SynthesisResponse(
+            protocols=[],
+            warnings=["No bundles observed for synthesis."],
+            errors=[],
+        )
+        return response.model_dump()
+
+    declared = _collect_declared_bundles(root)
+    bundle_tiers: dict[frozenset[str], int] = {}
+    frequency: dict[str, int] = defaultdict(int)
+    for bundle, count in counts.items():
+        tier = 1 if bundle in declared else (2 if count > 1 else 3)
+        bundle_tiers[frozenset(bundle)] = tier
+        for field in bundle:
+            frequency[field] += count
+
+    naming_context = NamingContext(frequency=dict(frequency))
+    config = SynthesisConfig(
+        max_tier=max_tier,
+        min_bundle_size=min_bundle_size,
+        allow_singletons=allow_singletons,
+    )
+    plan = Synthesizer(config=config).plan(
+        bundle_tiers=bundle_tiers,
+        field_types={},
+        naming_context=naming_context,
+    )
+    response = SynthesisResponse(
+        protocols=[
+            {
+                "name": spec.name,
+                "fields": [
+                    {
+                        "name": field.name,
+                        "type_hint": field.type_hint,
+                        "source_params": sorted(field.source_params),
+                    }
+                    for field in spec.fields
+                ],
+                "bundle": sorted(spec.bundle),
+                "tier": spec.tier,
+                "rationale": spec.rationale,
+            }
+            for spec in plan.protocols
+        ],
+        warnings=plan.warnings,
+        errors=plan.errors,
+    )
+    return response.model_dump()
+
+
+def render_synthesis_section(plan: dict[str, object]) -> str:
+    protocols = plan.get("protocols", [])
+    warnings = plan.get("warnings", [])
+    errors = plan.get("errors", [])
+    lines = ["", "## Synthesis plan (prototype)", ""]
+    if not protocols:
+        lines.append("No protocol candidates.")
+    else:
+        for spec in protocols:
+            name = spec.get("name", "Bundle")
+            tier = spec.get("tier", "?")
+            fields = spec.get("fields", [])
+            parts = []
+            for field in fields:
+                fname = field.get("name", "")
+                type_hint = field.get("type_hint") or "Any"
+                if fname:
+                    parts.append(f"{fname}: {type_hint}")
+            field_list = ", ".join(parts) if parts else "(no fields)"
+            lines.append(f"- {name} (tier {tier}): {field_list}")
+    if warnings:
+        lines.append("")
+        lines.append("Warnings:")
+        lines.append("```")
+        lines.extend(str(w) for w in warnings)
+        lines.append("```")
+    if errors:
+        lines.append("")
+        lines.append("Errors:")
+        lines.append("```")
+        lines.extend(str(e) for e in errors)
+        lines.append("```")
+    return "\n".join(lines)
+
+
 def _render_type_mermaid(
     suggestions: list[str],
     ambiguities: list[str],
@@ -1558,6 +1688,33 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
     )
+    parser.add_argument(
+        "--synthesis-plan",
+        default=None,
+        help="Write synthesis plan JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--synthesis-report",
+        action="store_true",
+        help="Include synthesis plan summary in the markdown report.",
+    )
+    parser.add_argument(
+        "--synthesis-max-tier",
+        type=int,
+        default=2,
+        help="Max tier to include in synthesis plan.",
+    )
+    parser.add_argument(
+        "--synthesis-min-bundle-size",
+        type=int,
+        default=2,
+        help="Min bundle size to include in synthesis plan.",
+    )
+    parser.add_argument(
+        "--synthesis-allow-singletons",
+        action="store_true",
+        help="Allow single-field bundles in synthesis plan.",
+    )
     return parser
 
 
@@ -1610,6 +1767,21 @@ def run(argv: list[str] | None = None) -> int:
         include_unused_arg_smells=bool(args.report),
         config=config,
     )
+    synthesis_plan: dict[str, object] | None = None
+    if args.synthesis_plan or args.synthesis_report:
+        synthesis_plan = build_synthesis_plan(
+            analysis.groups_by_path,
+            project_root=config.project_root,
+            max_tier=args.synthesis_max_tier,
+            min_bundle_size=args.synthesis_min_bundle_size,
+            allow_singletons=args.synthesis_allow_singletons,
+        )
+        if args.synthesis_plan:
+            payload = json.dumps(synthesis_plan, indent=2, sort_keys=True)
+            if args.synthesis_plan.strip() == "-":
+                print(payload)
+            else:
+                Path(args.synthesis_plan).write_text(payload)
     if args.dot is not None:
         dot = _emit_dot(analysis.groups_by_path)
         if args.dot.strip() == "-":
@@ -1627,7 +1799,8 @@ def run(argv: list[str] | None = None) -> int:
             print("Type ambiguities (conflicting downstream expectations):")
             for line in analysis.type_ambiguities[: args.type_audit_max]:
                 print(f"- {line}")
-        return 0
+        if args.report is None and not (args.synthesis_plan or args.synthesis_report):
+            return 0
     if args.report is not None:
         report, violations = _emit_report(
             analysis.groups_by_path,
@@ -1637,6 +1810,8 @@ def run(argv: list[str] | None = None) -> int:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
         )
+        if synthesis_plan and (args.synthesis_report or args.synthesis_plan):
+            report = report + render_synthesis_section(synthesis_plan)
         Path(args.report).write_text(report)
         if args.fail_on_violations and violations:
             return 1

@@ -1,5 +1,5 @@
 ---
-doc_revision: 18
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -68,7 +68,7 @@ wrappers live on the `tooling` axis and should stay consistent with
 ## Phase 2: Integration (post-scaffold)
 - [x] Synthesis plan available via LSP/CLI (`gabion.synthesisPlan`, `synthesis-plan`).
 - [x] Synthesis payload schema doc (`docs/synthesis_payload.md`).
-- [ ] Dataflow audit can emit synthesis plan outputs (report + JSON).
+- [x] Dataflow audit can emit synthesis plan outputs (report + JSON).
 - [ ] Protocol/dataclass stub emitter (writes to `artifacts/`).
 - [ ] Refactoring plan output (per-component schedule).
 - [ ] `gabion synth` command to run audit + synthesis in one step.

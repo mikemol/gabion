@@ -1,5 +1,5 @@
 ---
-doc_revision: 43
+doc_revision: 44
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -111,6 +111,8 @@ mise exec -- python -m gabion dataflow-audit path/to/project
 ```
 Defaults live in `gabion.toml` (see `[dataflow]`).
 `in/` (inspiration) is excluded from enforcement there by default.
+Use `--synthesis-plan` to emit a JSON plan and `--synthesis-report` to append a
+summary section to the Markdown report.
 
 Run the docflow audit (governance docs only):
 ```

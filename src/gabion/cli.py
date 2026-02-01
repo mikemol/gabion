@@ -100,6 +100,11 @@ def dataflow_audit(
         "ignore_params": ignore_list,
         "allow_external": opts.allow_external,
         "strictness": opts.strictness,
+        "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
+        "synthesis_report": opts.synthesis_report,
+        "synthesis_max_tier": opts.synthesis_max_tier,
+        "synthesis_min_bundle_size": opts.synthesis_min_bundle_size,
+        "synthesis_allow_singletons": opts.synthesis_allow_singletons,
     }
     result = run_command(DATAFLOW_COMMAND, [payload])
     if opts.type_audit:
@@ -115,6 +120,8 @@ def dataflow_audit(
                 typer.echo(f"- {line}")
     if opts.dot == "-" and "dot" in result:
         typer.echo(result["dot"])
+    if opts.synthesis_plan == "-" and "synthesis_plan" in result:
+        typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -155,6 +162,33 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--fail-on-violations",
         action="store_true",
         help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
+    )
+    parser.add_argument(
+        "--synthesis-plan",
+        default=None,
+        help="Write synthesis plan JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--synthesis-report",
+        action="store_true",
+        help="Include synthesis plan summary in the markdown report.",
+    )
+    parser.add_argument(
+        "--synthesis-max-tier",
+        type=int,
+        default=2,
+        help="Max tier to include in synthesis plan.",
+    )
+    parser.add_argument(
+        "--synthesis-min-bundle-size",
+        type=int,
+        default=2,
+        help="Min bundle size to include in synthesis plan.",
+    )
+    parser.add_argument(
+        "--synthesis-allow-singletons",
+        action="store_true",
+        help="Allow single-field bundles in synthesis plan.",
     )
     return parser
 

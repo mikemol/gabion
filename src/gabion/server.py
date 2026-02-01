@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from pygls.lsp.server import LanguageServer
@@ -16,8 +17,10 @@ from gabion.analysis import (
     AuditConfig,
     analyze_paths,
     compute_violations,
+    build_synthesis_plan,
     render_dot,
     render_report,
+    render_synthesis_section,
 )
 from gabion.config import dataflow_defaults, merge_payload
 from gabion.schema import SynthesisRequest, SynthesisResponse
@@ -87,6 +90,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     ignore_params = set(payload.get("ignore_params", []))
     allow_external = payload.get("allow_external", False)
     strictness = payload.get("strictness", "high")
+    synthesis_plan_path = payload.get("synthesis_plan")
+    synthesis_report = payload.get("synthesis_report", False)
+    synthesis_max_tier = payload.get("synthesis_max_tier", 2)
+    synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
+    synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
 
     config = AuditConfig(
         project_root=Path(root),
@@ -112,6 +120,22 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "unused_arg_smells": analysis.unused_arg_smells,
     }
 
+    synthesis_plan: dict[str, object] | None = None
+    if synthesis_plan_path or synthesis_report:
+        synthesis_plan = build_synthesis_plan(
+            analysis.groups_by_path,
+            project_root=Path(root),
+            max_tier=int(synthesis_max_tier),
+            min_bundle_size=int(synthesis_min_bundle_size),
+            allow_singletons=bool(synthesis_allow_singletons),
+        )
+        if synthesis_plan_path:
+            payload_json = json.dumps(synthesis_plan, indent=2, sort_keys=True)
+            if synthesis_plan_path == "-":
+                response["synthesis_plan"] = synthesis_plan
+            else:
+                Path(synthesis_plan_path).write_text(payload_json)
+
     if dot_path:
         dot = render_dot(analysis.groups_by_path)
         if dot_path == "-":
@@ -129,6 +153,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
         )
+        if synthesis_plan and (synthesis_report or synthesis_plan_path):
+            report = report + render_synthesis_section(synthesis_plan)
         Path(report_path).write_text(report)
     else:
         violations = compute_violations(
