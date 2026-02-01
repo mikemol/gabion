@@ -3,12 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional, Any
 import argparse
+import json
 import subprocess
 import sys
 
 import typer
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
+SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 from gabion.lsp_client import run_command
 app = typer.Typer(add_completion=False)
 
@@ -179,3 +181,27 @@ def docflow_audit(
         args.append("--fail-on-violations")
     result = subprocess.run([sys.executable, str(script), *args], check=False)
     raise typer.Exit(code=result.returncode)
+
+
+@app.command("synthesis-plan")
+def synthesis_plan(
+    input_path: Optional[Path] = typer.Option(
+        None, "--input", help="JSON payload describing bundles and synthesis settings."
+    ),
+    output_path: Optional[Path] = typer.Option(
+        None, "--output", help="Write synthesis plan JSON to this path."
+    ),
+) -> None:
+    """Generate a synthesis plan from a JSON payload (prototype)."""
+    payload: dict[str, Any] = {}
+    if input_path is not None:
+        try:
+            payload = json.loads(input_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
+    result = run_command(SYNTHESIS_COMMAND, [payload])
+    output = json.dumps(result, indent=2, sort_keys=True)
+    if output_path is None:
+        typer.echo(output)
+    else:
+        output_path.write_text(output)

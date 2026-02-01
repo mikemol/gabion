@@ -1,5 +1,5 @@
 ---
-doc_revision: 41
+doc_revision: 42
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -119,6 +119,11 @@ mise exec -- python -m gabion docflow-audit
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
+
+Generate a synthesis plan from a JSON payload (prototype scaffolding):
+```
+mise exec -- python -m gabion synthesis-plan --input path/to/payload.json --output plan.json
+```
 
 Capture an audit snapshot (reports + DOT graph under `artifacts/`):
 ```

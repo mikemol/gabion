@@ -20,9 +20,11 @@ from gabion.analysis import (
     render_report,
 )
 from gabion.config import dataflow_defaults, merge_payload
+from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 
 server = LanguageServer("gabion", "0.1.0")
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
+SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 
 
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
@@ -137,6 +139,61 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
 
     response["violations"] = len(violations)
     response["exit_code"] = 1 if (fail_on_violations and violations) else 0
+    return response
+
+
+@server.command(SYNTHESIS_COMMAND)
+def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    bundles_payload = payload.get("bundles") or []
+    bundle_tiers: dict[frozenset[str], int] = {}
+    for entry in bundles_payload:
+        if not isinstance(entry, dict):
+            continue
+        bundle = entry.get("bundle") or []
+        if not bundle:
+            continue
+        tier = int(entry.get("tier", 2))
+        bundle_tiers[frozenset(bundle)] = tier
+
+    field_types = payload.get("field_types") or {}
+    config = SynthesisConfig(
+        max_tier=int(payload.get("max_tier", 2)),
+        min_bundle_size=int(payload.get("min_bundle_size", 2)),
+        allow_singletons=bool(payload.get("allow_singletons", False)),
+    )
+    naming_context = NamingContext(
+        existing_names=set(payload.get("existing_names", [])),
+        frequency=payload.get("frequency", {}) or {},
+        fallback_prefix=payload.get("fallback_prefix", "Bundle"),
+    )
+    plan = Synthesizer(config=config).plan(
+        bundle_tiers=bundle_tiers,
+        field_types=field_types,
+        naming_context=naming_context,
+    )
+    response = {
+        "protocols": [
+            {
+                "name": spec.name,
+                "fields": [
+                    {
+                        "name": field.name,
+                        "type_hint": field.type_hint,
+                        "source_params": sorted(field.source_params),
+                    }
+                    for field in spec.fields
+                ],
+                "bundle": sorted(spec.bundle),
+                "tier": spec.tier,
+                "rationale": spec.rationale,
+            }
+            for spec in plan.protocols
+        ],
+        "warnings": plan.warnings,
+        "errors": plan.errors,
+    }
     return response
 
 
