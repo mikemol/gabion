@@ -7,6 +7,27 @@ name = "gabion"
 version = "0.1.0"
 description = "Architectural linter that stabilizes loose parameters into structural bundles."
 license = { text = "Apache-2.0" }
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Mike Mol", email = "mikemol@gmail.com" }]
+keywords = [
+    "lint",
+    "linter",
+    "static-analysis",
+    "refactoring",
+    "architecture",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+urls = { Repository = "https://github.com/mikemol/gabion", Issues = "https://github.com/mikemol/gabion/issues", Releases = "https://github.com/mikemol/gabion/releases" }
 dependencies = [
     "pygls>=1.3",
     "libcst>=1.1",
