@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Any
 import argparse
@@ -225,6 +226,94 @@ def docflow_audit(
         args.append("--fail-on-violations")
     result = subprocess.run([sys.executable, str(script), *args], check=False)
     raise typer.Exit(code=result.returncode)
+
+
+@app.command("synth")
+def synth(
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    out_dir: Path = typer.Option(Path("artifacts/synthesis"), "--out-dir"),
+    no_timestamp: bool = typer.Option(False, "--no-timestamp"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
+    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    strictness: Optional[str] = typer.Option(None, "--strictness"),
+    no_recursive: bool = typer.Option(False, "--no-recursive"),
+    max_components: int = typer.Option(10, "--max-components"),
+    type_audit_report: bool = typer.Option(
+        True, "--type-audit-report/--no-type-audit-report"
+    ),
+    type_audit_max: int = typer.Option(50, "--type-audit-max"),
+    synthesis_max_tier: int = typer.Option(2, "--synthesis-max-tier"),
+    synthesis_min_bundle_size: int = typer.Option(2, "--synthesis-min-bundle-size"),
+    synthesis_allow_singletons: bool = typer.Option(
+        False, "--synthesis-allow-singletons"
+    ),
+    fail_on_violations: bool = typer.Option(
+        False, "--fail-on-violations/--no-fail-on-violations"
+    ),
+) -> None:
+    """Run the dataflow audit and emit synthesis outputs (prototype)."""
+    if not paths:
+        paths = [Path(".")]
+    exclude_dirs: list[str] | None = None
+    if exclude is not None:
+        exclude_dirs = []
+        for entry in exclude:
+            exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
+    ignore_list: list[str] | None = None
+    if ignore_params is not None:
+        ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
+    if strictness is not None and strictness not in {"high", "low"}:
+        raise typer.BadParameter("strictness must be 'high' or 'low'")
+
+    output_root = out_dir
+    timestamp = None
+    if not no_timestamp:
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+        output_root = out_dir / timestamp
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "LATEST.txt").write_text(timestamp)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    report_path = output_root / "dataflow_report.md"
+    dot_path = output_root / "dataflow_graph.dot"
+    plan_path = output_root / "synthesis_plan.json"
+    protocol_path = output_root / "protocol_stubs.py"
+
+    payload: dict[str, Any] = {
+        "paths": [str(p) for p in paths],
+        "root": str(root),
+        "config": str(config) if config is not None else None,
+        "report": str(report_path),
+        "dot": str(dot_path),
+        "fail_on_violations": fail_on_violations,
+        "no_recursive": no_recursive,
+        "max_components": max_components,
+        "type_audit_report": type_audit_report,
+        "type_audit_max": type_audit_max,
+        "exclude": exclude_dirs,
+        "ignore_params": ignore_list,
+        "allow_external": allow_external,
+        "strictness": strictness,
+        "synthesis_plan": str(plan_path),
+        "synthesis_report": True,
+        "synthesis_protocols": str(protocol_path),
+        "synthesis_max_tier": synthesis_max_tier,
+        "synthesis_min_bundle_size": synthesis_min_bundle_size,
+        "synthesis_allow_singletons": synthesis_allow_singletons,
+    }
+    result = run_command(DATAFLOW_COMMAND, [payload])
+    if timestamp:
+        typer.echo(f"Snapshot: {output_root}")
+    typer.echo(f"- {report_path}")
+    typer.echo(f"- {dot_path}")
+    typer.echo(f"- {plan_path}")
+    typer.echo(f"- {protocol_path}")
+    raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
 @app.command("synthesis-plan")

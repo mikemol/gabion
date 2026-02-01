@@ -1,5 +1,5 @@
 ---
-doc_revision: 46
+doc_revision: 47
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -114,6 +114,11 @@ Defaults live in `gabion.toml` (see `[dataflow]`).
 Use `--synthesis-plan` to emit a JSON plan and `--synthesis-report` to append a
 summary section to the Markdown report. Use `--synthesis-protocols` to emit
 dataclass stubs (prototype) for review.
+
+Run audit + synthesis in one step (timestamped output under `artifacts/synthesis`):
+```
+mise exec -- python -m gabion synth path/to/project
+```
 
 Run the docflow audit (governance docs only):
 ```
