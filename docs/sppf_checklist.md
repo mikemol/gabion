@@ -1,5 +1,5 @@
 ---
-doc_revision: 17
+doc_revision: 18
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -38,9 +38,12 @@ wrappers live on the `tooling` axis and should stay consistent with
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype).
-- [x] Naming heuristics (frequency-based, LLM-ready fallback) (prototype).
+- [x] Naming heuristics (frequency-based) (prototype).
 - [x] Topological refactoring schedule (callee-first order) (prototype).
 - [x] Partial-application merge heuristics (bundle fragmentation control) (prototype).
+- [ ] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
+- [ ] Type aggregation for synthesis (from type-audit + call-site evidence).
+- [ ] Const/default-aware partial-application detection (subset merge by knobs).
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
@@ -67,5 +70,11 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Synthesis payload schema doc (`docs/synthesis_payload.md`).
 - [ ] Dataflow audit can emit synthesis plan outputs (report + JSON).
 - [ ] Protocol/dataclass stub emitter (writes to `artifacts/`).
-- [ ] LSP code action stub for Protocol creation (no edits yet, placeholder only).
+- [ ] Refactoring plan output (per-component schedule).
 - [ ] `gabion synth` command to run audit + synthesis in one step.
+
+## Phase 3: Refactoring & UX
+- [ ] LibCST refactor engine scaffolding (preserve trivia/formatting).
+- [ ] LSP code action + workspace edit stub for Protocol extraction.
+- [ ] Precise diagnostic ranges (metadata-backed positions).
+- [ ] Long-lived LSP server cache / incremental analysis (daemon mode).
