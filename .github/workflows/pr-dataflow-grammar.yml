@@ -60,27 +60,54 @@ jobs:
           repo = os.environ["REPO"]
           issue = os.environ["PR_NUMBER"]
           run_url = os.environ["RUN_URL"]
+          marker = "<!-- dataflow-grammar -->"
           report_path = pathlib.Path("artifacts/dataflow_grammar/report.md")
           if report_path.exists():
               report = report_path.read_text()
           else:
-              report = "<!-- dataflow-grammar -->\nDataflow grammar report generated.\n"
+              report = f"{marker}\nDataflow grammar report generated.\n"
+          if marker not in report:
+              report = f"{marker}\n{report}"
           footer = f"\n\n- Artifact: dataflow-grammar\n- Download: {run_url}\n"
           body = report + footer
           if len(body) > 60000:
               body = body[:60000] + "\n\n(truncated)\n" + footer
 
-          url = f"https://api.github.com/repos/{repo}/issues/{issue}/comments"
-          req = urllib.request.Request(
-              url,
-              data=json.dumps({"body": body}).encode("utf-8"),
-              headers={
-                  "Authorization": f"Bearer {token}",
-                  "Accept": "application/vnd.github+json",
-                  "Content-Type": "application/json",
-              },
-              method="POST",
+          def request(url, method="GET", payload=None):
+              data = None if payload is None else json.dumps(payload).encode("utf-8")
+              req = urllib.request.Request(
+                  url,
+                  data=data,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                  },
+                  method=method,
+              )
+              with urllib.request.urlopen(req) as resp:
+                  return json.loads(resp.read().decode("utf-8"))
+
+          comments = []
+          page = 1
+          while True:
+              url = (
+                  f"https://api.github.com/repos/{repo}/issues/{issue}/comments"
+                  f"?per_page=100&page={page}"
+              )
+              batch = request(url)
+              if not batch:
+                  break
+              comments.extend(batch)
+              page += 1
+
+          existing = next(
+              (c for c in comments if marker in (c.get("body") or "")),
+              None,
           )
-          with urllib.request.urlopen(req) as resp:
-              resp.read()
+          if existing:
+              request(existing["url"], method="PATCH", payload={"body": body})
+          else:
+              url = f"https://api.github.com/repos/{repo}/issues/{issue}/comments"
+              request(url, method="POST", payload={"body": body})
           PY
