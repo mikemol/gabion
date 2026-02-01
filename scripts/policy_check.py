@@ -318,10 +318,24 @@ def check_posture():
         errors.append("only allow-listed actions are permitted (disable broad allowances)")
 
     patterns = selected.get("patterns_allowed") or []
-    allowed_patterns = {f"{name}@*" for name in ALLOWED_ACTIONS}
-    if set(patterns) != allowed_patterns:
+    normalized = []
+    invalid_patterns = []
+    for pattern in patterns:
+        if "@" in pattern:
+            name, ref = pattern.split("@", 1)
+            if ref != "*":
+                invalid_patterns.append(pattern)
+                continue
+            normalized.append(name)
+        else:
+            normalized.append(pattern)
+    if invalid_patterns:
         errors.append(
-            f"allowed action patterns must match {sorted(allowed_patterns)}"
+            f"invalid action patterns (must end with @* or be bare): {sorted(invalid_patterns)}"
+        )
+    if set(normalized) != set(ALLOWED_ACTIONS):
+        errors.append(
+            f"allowed action patterns must match {sorted(ALLOWED_ACTIONS)}"
         )
 
     if errors:
