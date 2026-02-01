@@ -1,5 +1,5 @@
 ---
-doc_revision: 27
+doc_revision: 28
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -47,6 +47,8 @@ integration.
 ## Branching model
 - `stage` is the integration branch for routine pushes; CI runs on every push.
 - `main` is protected and receives changes via PRs from `stage`.
+- Merge commits are allowed; merges to `main` should be regular merges (no squash).
+- `stage` accumulates changes and may include merge commits from `main` as it stays in sync.
 
 ## Convergence checklist
 Bottom-up convergence targets live in `docs/sppf_checklist.md`.
