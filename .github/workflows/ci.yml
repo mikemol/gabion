@@ -32,10 +32,15 @@ jobs:
           mise exec -- python -m pip install pyyaml
           mise exec -- python scripts/policy_check.py --workflows
       - name: Policy check (posture)
-        if: github.event_name == 'push' && secrets.POLICY_GITHUB_TOKEN != ''
+        if: github.event_name == 'push'
         env:
           POLICY_GITHUB_TOKEN: ${{ secrets.POLICY_GITHUB_TOKEN }}
-        run: mise exec -- python scripts/policy_check.py --posture
+        run: |
+          if [ -z "${POLICY_GITHUB_TOKEN:-}" ]; then
+            echo "POLICY_GITHUB_TOKEN not set; skipping posture check."
+            exit 0
+          fi
+          mise exec -- python scripts/policy_check.py --posture
       - name: Dataflow audit
         run: mise exec -- python -m gabion check
       - name: Docflow audit
