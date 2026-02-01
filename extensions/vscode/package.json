@@ -12,10 +12,17 @@
     "Linters"
   ],
   "activationEvents": [
-    "onLanguage:python"
+    "onLanguage:python",
+    "onCommand:gabion.refactorProtocol"
   ],
   "main": "./extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "gabion.refactorProtocol",
+        "title": "Gabion: Extract Protocol (stub)"
+      }
+    ],
     "configuration": {
       "title": "Gabion",
       "properties": {

@@ -11,6 +11,10 @@ It does not embed analysis logic.
 - `gabion.pythonPath`: Python executable that can run the server.
 - `gabion.serverArgs`: Arguments passed to the Python command (default: `-m gabion.server`).
 
+## Commands
+- `Gabion: Extract Protocol (stub)` runs the refactor protocol command against
+  the active file and prints the response in the "Gabion" output channel.
+
 ## Development (local)
 ```
 cd extensions/vscode
