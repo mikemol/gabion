@@ -1,5 +1,5 @@
 ---
-doc_revision: 15
+doc_revision: 16
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -56,7 +56,7 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Repo config defaults (`gabion.toml`) for dataflow settings.
 - [x] Policy check script references.
 - [x] Hook installer.
-- [ ] Doer/Judge/Witness framing (optional).
+- [x] Doer/Judge/Witness framing (optional).
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).

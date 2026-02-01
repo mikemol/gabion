@@ -1,5 +1,5 @@
 ---
-doc_revision: 30
+doc_revision: 31
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -52,6 +52,9 @@ integration.
 
 ## Convergence checklist
 Bottom-up convergence targets live in `docs/sppf_checklist.md`.
+
+## Governance addenda (optional)
+See `docs/doer_judge_witness.md` for optional role framing.
 
 ## Non-goals (for now)
 - Docflow is a repo-local convenience feature, not a Gabion product feature.

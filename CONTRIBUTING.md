@@ -1,5 +1,5 @@
 ---
-doc_revision: 40
+doc_revision: 41
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -41,6 +41,10 @@ valid.
   a thin LSP client and must not import or reimplement analysis logic.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
+
+## Optional governance framing
+See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
+that can be adopted when helpful.
 
 ## Cross-references (normative pointers)
 - `README.md` defines project scope, status, and entry points.
