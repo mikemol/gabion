@@ -113,6 +113,16 @@ def _callee_name(call: ast.Call) -> str:
         return "<call>"
 
 
+def _normalize_callee(name: str, class_name: str | None) -> str:
+    if not class_name:
+        return name
+    if name.startswith("self.") or name.startswith("cls."):
+        parts = name.split(".")
+        if len(parts) == 2:
+            return f"{class_name}.{parts[1]}"
+    return name
+
+
 def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
     out: list[Path] = []
     for p in paths:
@@ -199,6 +209,23 @@ def _param_spans(
     return spans
 
 
+def _function_key(name: str, class_name: str | None) -> str:
+    if class_name:
+        return f"{class_name}.{name}"
+    return name
+
+
+def _enclosing_class(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> str | None:
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, ast.ClassDef):
+            return current.name
+        current = parents.get(current)
+    return None
+
+
 def _param_annotations(
     fn: ast.FunctionDef | ast.AsyncFunctionDef,
     ignore_params: set[str] | None = None,
@@ -260,6 +287,7 @@ def _analyze_function(
     is_test: bool,
     ignore_params: set[str] | None = None,
     strictness: str = "high",
+    class_name: str | None = None,
 ) -> tuple[dict[str, ParamUse], list[CallArgs]]:
     params = _param_names(fn, ignore_params)
     use_map = {p: ParamUse(set(), False, {p}) for p in params}
@@ -274,7 +302,7 @@ def _analyze_function(
         is_test=is_test,
         strictness=strictness,
         const_repr=_const_repr,
-        callee_name=_callee_name,
+        callee_name=lambda call: _normalize_callee(_callee_name(call), class_name),
         call_args_factory=CallArgs,
         call_context=_call_context,
     )
@@ -367,20 +395,25 @@ def analyze_file(
     is_test = _is_test_path(path)
 
     funcs = _collect_functions(tree)
-    fn_param_orders = {f.name: _param_names(f) for f in funcs}
-    fn_param_spans = {f.name: _param_spans(f, config.ignore_params) for f in funcs}
+    fn_param_orders: dict[str, list[str]] = {}
+    fn_param_spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     fn_use = {}
     fn_calls = {}
     for f in funcs:
+        class_name = _enclosing_class(f, parents)
+        fn_key = _function_key(f.name, class_name)
         use_map, call_args = _analyze_function(
             f,
             parents,
             is_test=is_test,
             ignore_params=config.ignore_params,
             strictness=config.strictness,
+            class_name=class_name,
         )
-        fn_use[f.name] = use_map
-        fn_calls[f.name] = call_args
+        fn_use[fn_key] = use_map
+        fn_calls[fn_key] = call_args
+        fn_param_orders[fn_key] = _param_names(f, config.ignore_params)
+        fn_param_spans[fn_key] = _param_spans(f, config.ignore_params)
 
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
 
@@ -427,6 +460,7 @@ class FunctionInfo:
     annots: dict[str, str | None]
     calls: list[CallArgs]
     unused_params: set[str]
+    class_name: str | None = None
 
 
 def _module_name(path: Path, project_root: Path | None = None) -> str:
@@ -483,22 +517,30 @@ def _build_function_index(
         parent_map = parents.parents
         module = _module_name(path, project_root)
         for fn in funcs:
+            class_name = _enclosing_class(fn, parent_map)
             use_map, call_args = _analyze_function(
                 fn,
                 parent_map,
                 is_test=_is_test_path(path),
                 ignore_params=ignore_params,
                 strictness=strictness,
+                class_name=class_name,
             )
             unused_params = _unused_params(use_map)
+            qual = (
+                f"{module}.{class_name}.{fn.name}"
+                if class_name
+                else f"{module}.{fn.name}"
+            )
             info = FunctionInfo(
                 name=fn.name,
-                qual=f"{module}.{fn.name}",
+                qual=qual,
                 path=path,
                 params=_param_names(fn, ignore_params),
                 annots=_param_annotations(fn, ignore_params),
                 calls=call_args,
                 unused_params=unused_params,
+                class_name=class_name,
             )
             by_name[fn.name].append(info)
             by_qual[info.qual] = info
@@ -515,8 +557,8 @@ def _resolve_callee(
 ) -> FunctionInfo | None:
     if not callee_name:
         return None
+    caller_module = _module_name(caller.path, project_root=project_root)
     if symbol_table is not None:
-        caller_module = _module_name(caller.path, project_root=project_root)
         if "." not in callee_name:
             if (caller_module, callee_name) in symbol_table.imports:
                 fqn = symbol_table.resolve(caller_module, callee_name)
@@ -529,7 +571,12 @@ def _resolve_callee(
             base = parts[0]
             if base in ("self", "cls"):
                 method = parts[-1]
-                candidate = f"{caller_module}.{method}"
+                if caller.class_name:
+                    candidate = f"{caller_module}.{caller.class_name}.{method}"
+                    if candidate in by_qual:
+                        return by_qual[candidate]
+            elif len(parts) == 2:
+                candidate = f"{caller_module}.{base}.{parts[1]}"
                 if candidate in by_qual:
                     return by_qual[candidate]
             if (caller_module, base) in symbol_table.imports:
@@ -564,7 +611,9 @@ def _resolve_callee(
             return same_module[0]
         return None
     # Fallback: unique function name across repo.
-    candidates = by_name.get(callee_name, [])
+    candidates = [
+        info for info in by_name.get(callee_name, []) if info.class_name is None
+    ]
     if len(candidates) == 1:
         return candidates[0]
     # Prefer same-module definition when ambiguous.
@@ -574,11 +623,10 @@ def _resolve_callee(
     # If callee is self.foo/cls.foo, prefer same-module foo.
     if callee_name.startswith(("self.", "cls.")):
         func = callee_name.split(".")[-1]
-        same_module = [
-            info for info in by_name.get(func, []) if info.path == caller.path
-        ]
-        if len(same_module) == 1:
-            return same_module[0]
+        if caller.class_name:
+            candidate = f"{caller_module}.{caller.class_name}.{func}"
+            if candidate in by_qual:
+                return by_qual[candidate]
     return None
 
 
@@ -1414,7 +1462,8 @@ def build_refactor_plan(
     info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
     for infos in by_name.values():
         for info in infos:
-            info_by_path_name[(info.path, info.name)] = info
+            key = _function_key(info.name, info.class_name)
+            info_by_path_name[(info.path, key)] = info
 
     bundle_map: dict[tuple[str, ...], dict[str, FunctionInfo]] = defaultdict(dict)
     for path, groups in groups_by_path.items():
