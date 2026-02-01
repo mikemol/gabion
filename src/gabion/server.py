@@ -2,15 +2,22 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
 from lsprotocol.types import (
     TEXT_DOCUMENT_DID_OPEN,
     TEXT_DOCUMENT_DID_SAVE,
+    TEXT_DOCUMENT_CODE_ACTION,
+    CodeAction,
+    CodeActionKind,
+    CodeActionParams,
+    Command,
     Diagnostic,
     DiagnosticSeverity,
     Position,
     Range,
+    WorkspaceEdit,
 )
 
 from gabion.analysis import (
@@ -39,6 +46,13 @@ server = LanguageServer("gabion", "0.1.0")
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
+
+
+def _uri_to_path(uri: str) -> Path:
+    parsed = urlparse(uri)
+    if parsed.scheme == "file":
+        return Path(unquote(parsed.path))
+    return Path(uri)
 
 
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
@@ -299,6 +313,27 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
         errors=plan.errors,
     )
     return response.model_dump()
+
+
+@server.feature(TEXT_DOCUMENT_CODE_ACTION)
+def code_action(ls: LanguageServer, params: CodeActionParams) -> list[CodeAction]:
+    path = _uri_to_path(params.text_document.uri)
+    payload = {
+        "protocol_name": "TODO_Bundle",
+        "bundle": [],
+        "target_path": str(path),
+        "target_functions": [],
+        "rationale": "Stub code action; populate bundle details manually.",
+    }
+    title = "Gabion: Extract Protocol (stub)"
+    return [
+        CodeAction(
+            title=title,
+            kind=CodeActionKind.RefactorExtract,
+            command=Command(title=title, command=REFACTOR_COMMAND, arguments=[payload]),
+            edit=WorkspaceEdit(changes={}),
+        )
+    ]
 
 
 @server.feature(TEXT_DOCUMENT_DID_OPEN)
