@@ -1,5 +1,5 @@
 ---
-doc_revision: 24
+doc_revision: 25
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -76,5 +76,5 @@ wrappers live on the `tooling` axis and should stay consistent with
 ## Phase 3: Refactoring & UX
 - [x] LibCST refactor engine scaffolding (preserve trivia/formatting).
 - [x] LSP code action + workspace edit stub for Protocol extraction.
-- [ ] Precise diagnostic ranges (metadata-backed positions).
+- [x] Precise diagnostic ranges (metadata-backed positions).
 - [ ] Long-lived LSP server cache / incremental analysis (daemon mode).

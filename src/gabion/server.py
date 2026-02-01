@@ -67,21 +67,29 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
         config=AuditConfig(project_root=project_root),
     )
     diagnostics: list[Diagnostic] = []
-    for bundles in result.groups_by_path.values():
-        for _, group_list in bundles.items():
+    for path, bundles in result.groups_by_path.items():
+        span_map = result.param_spans_by_path.get(path, {})
+        for fn_name, group_list in bundles.items():
+            param_spans = span_map.get(fn_name, {})
             for bundle in group_list:
                 message = f"Implicit bundle detected: {', '.join(sorted(bundle))}"
-                diagnostics.append(
-                    Diagnostic(
-                        range=Range(
-                            start=Position(line=0, character=0),
-                            end=Position(line=0, character=1),
-                        ),
-                        message=message,
-                        severity=DiagnosticSeverity.Information,
-                        source="gabion",
+                for name in sorted(bundle):
+                    span = param_spans.get(name)
+                    if span is None:
+                        start = Position(line=0, character=0)
+                        end = Position(line=0, character=1)
+                    else:
+                        start_line, start_col, end_line, end_col = span
+                        start = Position(line=start_line, character=start_col)
+                        end = Position(line=end_line, character=end_col)
+                    diagnostics.append(
+                        Diagnostic(
+                            range=Range(start=start, end=end),
+                            message=message,
+                            severity=DiagnosticSeverity.Information,
+                            source="gabion",
+                        )
                     )
-                )
     return diagnostics
 
 

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 import re
 
+from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 from gabion.config import dataflow_defaults, merge_payload
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -79,16 +80,6 @@ class AuditConfig:
         return bool(self.exclude_dirs & parts)
 
 
-class ParentAnnotator(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.parents: dict[ast.AST, ast.AST] = {}
-
-    def generic_visit(self, node: ast.AST) -> None:
-        for child in ast.iter_child_nodes(node):
-            self.parents[child] = node
-            self.visit(child)
-
-
 def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.Call | None, bool]:
     child = node
     parent = parents.get(child)
@@ -105,40 +96,10 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.C
     return None, False
 
 
-class ImportVisitor(ast.NodeVisitor):
-    def __init__(self, module_name: str, table: SymbolTable) -> None:
-        self.module = module_name
-        self.table = table
-
-    def visit_Import(self, node: ast.Import) -> None:
-        for alias in node.names:
-            local = alias.asname or alias.name
-            self.table.imports[(self.module, local)] = alias.name
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if not node.module and node.level == 0:
-            return
-        if node.level > 0:
-            parts = self.module.split(".")
-            if node.level > len(parts):
-                return
-            base = parts[:-node.level]
-            if node.module:
-                base.append(node.module)
-            source = ".".join(base)
-        else:
-            source = node.module or ""
-        for alias in node.names:
-            if alias.name == "*":
-                continue
-            local = alias.asname or alias.name
-            fqn = f"{source}.{alias.name}" if source else alias.name
-            self.table.imports[(self.module, local)] = fqn
-
-
 @dataclass
 class AnalysisResult:
     groups_by_path: dict[Path, dict[str, list[set[str]]]]
+    param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]]
     type_suggestions: list[str]
     type_ambiguities: list[str]
     constant_smells: list[str]
@@ -193,6 +154,49 @@ def _param_names(
     if ignore_params:
         names = [name for name in names if name not in ignore_params]
     return names
+
+
+def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
+    if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
+        return None
+    start_line = max(getattr(node, "lineno", 1) - 1, 0)
+    start_col = max(getattr(node, "col_offset", 0), 0)
+    end_line = max(getattr(node, "end_lineno", getattr(node, "lineno", 1)) - 1, 0)
+    end_col = getattr(node, "end_col_offset", start_col + 1)
+    if end_line == start_line and end_col <= start_col:
+        end_col = start_col + 1
+    return (start_line, start_col, end_line, end_col)
+
+
+def _param_spans(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> dict[str, tuple[int, int, int, int]]:
+    spans: dict[str, tuple[int, int, int, int]] = {}
+    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
+    names = [a.arg for a in args]
+    if names and names[0] in {"self", "cls"}:
+        args = args[1:]
+        names = names[1:]
+    for arg in args:
+        if ignore_params and arg.arg in ignore_params:
+            continue
+        span = _node_span(arg)
+        if span is not None:
+            spans[arg.arg] = span
+    if fn.args.vararg:
+        name = fn.args.vararg.arg
+        if not ignore_params or name not in ignore_params:
+            span = _node_span(fn.args.vararg)
+            if span is not None:
+                spans[name] = span
+    if fn.args.kwarg:
+        name = fn.args.kwarg.arg
+        if not ignore_params or name not in ignore_params:
+            span = _node_span(fn.args.kwarg)
+            if span is not None:
+                spans[name] = span
+    return spans
 
 
 def _param_annotations(
@@ -262,132 +266,19 @@ def _analyze_function(
     alias_to_param: dict[str, str] = {p: p for p in params}
     call_args: list[CallArgs] = []
 
-    class UseVisitor(ast.NodeVisitor):
-        def visit_Call(self, node: ast.Call) -> None:
-            callee = _callee_name(node)
-            pos_map = {}
-            kw_map = {}
-            const_pos: dict[str, str] = {}
-            const_kw: dict[str, str] = {}
-            non_const_pos: set[str] = set()
-            non_const_kw: set[str] = set()
-            for idx, arg in enumerate(node.args):
-                const = _const_repr(arg)
-                if const is not None:
-                    const_pos[str(idx)] = const
-                    continue
-                if isinstance(arg, ast.Name) and arg.id in alias_to_param:
-                    pos_map[str(idx)] = alias_to_param[arg.id]
-                else:
-                    non_const_pos.add(str(idx))
-            for kw in node.keywords:
-                if kw.arg is None:
-                    continue
-                const = _const_repr(kw.value)
-                if const is not None:
-                    const_kw[kw.arg] = const
-                    continue
-                if isinstance(kw.value, ast.Name) and kw.value.id in alias_to_param:
-                    kw_map[kw.arg] = alias_to_param[kw.value.id]
-                else:
-                    non_const_kw.add(kw.arg)
-            call_args.append(
-                CallArgs(
-                    callee=callee,
-                    pos_map=pos_map,
-                    kw_map=kw_map,
-                    const_pos=const_pos,
-                    const_kw=const_kw,
-                    non_const_pos=non_const_pos,
-                    non_const_kw=non_const_kw,
-                    is_test=is_test,
-                )
-            )
-            self.generic_visit(node)
-
-        def _check_write(self, target: ast.AST) -> None:
-            for node in ast.walk(target):
-                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-                    name = node.id
-                    if name in alias_to_param:
-                        param = alias_to_param.pop(name)
-                        if param in use_map:
-                            use_map[param].current_aliases.discard(name)
-                            use_map[param].non_forward = True
-
-        def visit_Assign(self, node: ast.Assign) -> None:
-            rhs_param = None
-            if isinstance(node.value, ast.Name) and node.value.id in alias_to_param:
-                rhs_param = alias_to_param[node.value.id]
-
-            for target in node.targets:
-                if rhs_param and isinstance(target, ast.Name):
-                    alias_to_param[target.id] = rhs_param
-                    use_map[rhs_param].current_aliases.add(target.id)
-                else:
-                    self._check_write(target)
-
-            self.visit(node.value)
-
-        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-            if node.value is None:
-                return
-            rhs_param = None
-            if isinstance(node.value, ast.Name) and node.value.id in alias_to_param:
-                rhs_param = alias_to_param[node.value.id]
-            if isinstance(node.target, ast.Name) and rhs_param:
-                alias_to_param[node.target.id] = rhs_param
-                use_map[rhs_param].current_aliases.add(node.target.id)
-            else:
-                self._check_write(node.target)
-            self.visit(node.value)
-
-        def visit_AugAssign(self, node: ast.AugAssign) -> None:
-            self._check_write(node.target)
-            self.visit(node.value)
-
-        def visit_Name(self, node: ast.Name) -> None:
-            if not isinstance(node.ctx, ast.Load):
-                return
-            if node.id not in alias_to_param:
-                return
-            parent = parents.get(node)
-            if isinstance(parent, ast.Starred):
-                param_name = alias_to_param[node.id]
-                if strictness == "high":
-                    use_map[param_name].non_forward = True
-                    return
-                use_map[param_name].direct_forward.add(("args[*]", "arg[*]"))
-                return
-            if isinstance(parent, ast.keyword) and parent.arg is None:
-                param_name = alias_to_param[node.id]
-                if strictness == "high":
-                    use_map[param_name].non_forward = True
-                    return
-                use_map[param_name].direct_forward.add(("kwargs[*]", "kw[*]"))
-                return
-            param_name = alias_to_param[node.id]
-            call, direct = _call_context(node, parents)
-            if call is None or not direct:
-                use_map[param_name].non_forward = True
-                return
-            callee = _callee_name(call)
-            # Determine arg slot.
-            slot = None
-            for idx, arg in enumerate(call.args):
-                if arg is node:
-                    slot = f"arg[{idx}]"
-                    break
-            if slot is None:
-                for kw in call.keywords:
-                    if kw.value is node and kw.arg is not None:
-                        slot = f"kw[{kw.arg}]"
-                        break
-            if slot is None:
-                slot = "arg[?]"
-            use_map[param_name].direct_forward.add((callee, slot))
-
-    UseVisitor().visit(fn)
+    visitor = UseVisitor(
+        parents=parents,
+        use_map=use_map,
+        call_args=call_args,
+        alias_to_param=alias_to_param,
+        is_test=is_test,
+        strictness=strictness,
+        const_repr=_const_repr,
+        callee_name=_callee_name,
+        call_args_factory=CallArgs,
+        call_context=_call_context,
+    )
+    visitor.visit(fn)
     return use_map, call_args
 
 
@@ -466,7 +357,7 @@ def analyze_file(
     recursive: bool = True,
     *,
     config: AuditConfig | None = None,
-) -> dict[str, list[set[str]]]:
+) -> tuple[dict[str, list[set[str]]], dict[str, dict[str, tuple[int, int, int, int]]]]:
     if config is None:
         config = AuditConfig()
     tree = ast.parse(path.read_text())
@@ -477,6 +368,7 @@ def analyze_file(
 
     funcs = _collect_functions(tree)
     fn_param_orders = {f.name: _param_names(f) for f in funcs}
+    fn_param_spans = {f.name: _param_spans(f, config.ignore_params) for f in funcs}
     fn_use = {}
     fn_calls = {}
     for f in funcs:
@@ -493,7 +385,7 @@ def analyze_file(
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
 
     if not recursive:
-        return groups_by_fn
+        return groups_by_fn, fn_param_spans
 
     changed = True
     while changed:
@@ -510,7 +402,7 @@ def analyze_file(
             if combined != groups_by_fn.get(fn, []):
                 groups_by_fn[fn] = combined
                 changed = True
-    return groups_by_fn
+    return groups_by_fn, fn_param_spans
 
 
 def _callee_key(name: str) -> str:
@@ -1719,8 +1611,11 @@ def analyze_paths(
         config = AuditConfig()
     file_paths = _iter_paths([str(p) for p in paths], config)
     groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+    param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
     for path in file_paths:
-        groups_by_path[path] = analyze_file(path, recursive=recursive, config=config)
+        groups, spans = analyze_file(path, recursive=recursive, config=config)
+        groups_by_path[path] = groups
+        param_spans_by_path[path] = spans
 
     type_suggestions: list[str] = []
     type_ambiguities: list[str] = []
@@ -1758,6 +1653,7 @@ def analyze_paths(
 
     return AnalysisResult(
         groups_by_path=groups_by_path,
+        param_spans_by_path=param_spans_by_path,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,
