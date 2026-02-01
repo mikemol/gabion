@@ -37,6 +37,7 @@ from gabion.refactor import RefactorEngine, RefactorRequest as RefactorRequestMo
 from gabion.schema import (
     RefactorRequest,
     RefactorResponse,
+    SynthesisResponse,
     SynthesisRequest,
     TextEditDTO,
 )
