@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -16,6 +16,7 @@ doc_requires:
   - CONTRIBUTING.md
   - AGENTS.md
   - glossary.md
+  - docs/publishing_practices.md
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -91,6 +92,7 @@ The governance layer is a bundle of documents that must remain coherent:
 - `CONTRIBUTING.md` defines workflow guardrails and required checks.
 - `AGENTS.md` defines LLM/agent obligations and refusal rules.
 - `glossary.md` defines semantic meanings, axes, and commutation obligations.
+- `docs/publishing_practices.md` reifies release best practices (advisory).
 
 Any change to one must be checked for consistency with the others.
 
