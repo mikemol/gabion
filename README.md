@@ -1,5 +1,5 @@
 ---
-doc_revision: 24
+doc_revision: 25
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -21,6 +21,8 @@ doc_owner: maintainer
 ---
 
 # Gabion
+
+[![CI](https://github.com/mikemol/gabion/actions/workflows/ci.yml/badge.svg)](https://github.com/mikemol/gabion/actions/workflows/ci.yml)
 
 Gabion is an architectural linter that stabilizes loose parameters into
 structural bundles. It discovers recurring argument groups in a Python codebase
