@@ -1,5 +1,5 @@
 ---
-doc_revision: 38
+doc_revision: 39
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -94,6 +94,8 @@ By default, `in/` (inspiration) is excluded from enforcement there.
 Use `--synthesis-plan` to emit a JSON plan and `--synthesis-report` to append a
 summary section to the Markdown report. Use `--synthesis-protocols` to emit
 dataclass stubs (prototype) for review.
+Use `--refactor-plan` to append a per-bundle refactoring schedule and
+`--refactor-plan-json` to emit the JSON plan.
 
 Run audit + synthesis in one step (timestamped output under `artifacts/synthesis`):
 ```

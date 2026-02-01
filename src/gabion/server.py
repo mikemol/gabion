@@ -17,9 +17,11 @@ from gabion.analysis import (
     AuditConfig,
     analyze_paths,
     compute_violations,
+    build_refactor_plan,
     build_synthesis_plan,
     render_dot,
     render_protocol_stubs,
+    render_refactor_plan,
     render_report,
     render_synthesis_section,
 )
@@ -97,6 +99,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
     synthesis_protocols_path = payload.get("synthesis_protocols")
+    refactor_plan = payload.get("refactor_plan", False)
+    refactor_plan_json = payload.get("refactor_plan_json")
 
     config = AuditConfig(
         project_root=Path(root),
@@ -144,6 +148,20 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             else:
                 Path(synthesis_protocols_path).write_text(stubs)
 
+    refactor_plan_payload: dict[str, object] | None = None
+    if refactor_plan or refactor_plan_json:
+        refactor_plan_payload = build_refactor_plan(
+            analysis.groups_by_path,
+            paths,
+            config=config,
+        )
+        if refactor_plan_json:
+            payload_json = json.dumps(refactor_plan_payload, indent=2, sort_keys=True)
+            if refactor_plan_json == "-":
+                response["refactor_plan"] = refactor_plan_payload
+            else:
+                Path(refactor_plan_json).write_text(payload_json)
+
     if dot_path:
         dot = render_dot(analysis.groups_by_path)
         if dot_path == "-":
@@ -165,6 +183,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             synthesis_report or synthesis_plan_path or synthesis_protocols_path
         ):
             report = report + render_synthesis_section(synthesis_plan)
+        if refactor_plan_payload and (refactor_plan or refactor_plan_json):
+            report = report + render_refactor_plan(refactor_plan_payload)
         Path(report_path).write_text(report)
     else:
         violations = compute_violations(

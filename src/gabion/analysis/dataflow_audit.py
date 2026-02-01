@@ -28,6 +28,7 @@ import re
 from gabion.config import dataflow_defaults, merge_payload
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
+from gabion.synthesis.schedule import topological_schedule
 
 @dataclass
 class ParamUse:
@@ -1502,6 +1503,106 @@ def render_protocol_stubs(plan: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def build_refactor_plan(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    paths: list[Path],
+    *,
+    config: AuditConfig,
+) -> dict[str, object]:
+    file_paths = _iter_paths([str(p) for p in paths], config)
+    if not file_paths:
+        return {"bundles": [], "warnings": ["No files available for refactor plan."]}
+
+    by_name, by_qual = _build_function_index(
+        file_paths, config.project_root, config.ignore_params, config.strictness
+    )
+    symbol_table = _build_symbol_table(
+        file_paths, config.project_root, external_filter=config.external_filter
+    )
+    info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
+    for infos in by_name.values():
+        for info in infos:
+            info_by_path_name[(info.path, info.name)] = info
+
+    bundle_map: dict[tuple[str, ...], dict[str, FunctionInfo]] = defaultdict(dict)
+    for path, groups in groups_by_path.items():
+        for fn, bundles in groups.items():
+            for bundle in bundles:
+                key = tuple(sorted(bundle))
+                info = info_by_path_name.get((path, fn))
+                if info is not None:
+                    bundle_map[key][info.qual] = info
+
+    plans: list[dict[str, object]] = []
+    for bundle, infos in sorted(bundle_map.items(), key=lambda item: (len(item[0]), item[0])):
+        if not infos:
+            continue
+        comp = dict(infos)
+        deps: dict[str, set[str]] = {qual: set() for qual in comp}
+        for info in infos.values():
+            for call in info.calls:
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    config.project_root,
+                )
+                if callee is None:
+                    continue
+                if callee.qual in comp:
+                    deps[info.qual].add(callee.qual)
+        schedule = topological_schedule(deps)
+        plans.append(
+            {
+                "bundle": list(bundle),
+                "functions": sorted(comp.keys()),
+                "order": schedule.order,
+                "cycles": [sorted(list(cycle)) for cycle in schedule.cycles],
+            }
+        )
+
+    warnings: list[str] = []
+    if not plans:
+        warnings.append("No bundle components available for refactor plan.")
+    return {"bundles": plans, "warnings": warnings}
+
+
+def render_refactor_plan(plan: dict[str, object]) -> str:
+    bundles = plan.get("bundles", [])
+    warnings = plan.get("warnings", [])
+    lines = ["", "## Refactoring plan (prototype)", ""]
+    if not bundles:
+        lines.append("No refactoring plan available.")
+    else:
+        for entry in bundles:
+            bundle = entry.get("bundle", [])
+            title = ", ".join(bundle) if bundle else "(unknown bundle)"
+            lines.append(f"### Bundle: {title}")
+            order = entry.get("order", [])
+            if order:
+                lines.append("Order (callee-first):")
+                lines.append("```")
+                for item in order:
+                    lines.append(f"- {item}")
+                lines.append("```")
+            cycles = entry.get("cycles", [])
+            if cycles:
+                lines.append("Cycles:")
+                lines.append("```")
+                for cycle in cycles:
+                    lines.append(", ".join(cycle))
+                lines.append("```")
+    if warnings:
+        lines.append("")
+        lines.append("Warnings:")
+        lines.append("```")
+        lines.extend(str(w) for w in warnings)
+        lines.append("```")
+    return "\n".join(lines)
+
+
 def _render_type_mermaid(
     suggestions: list[str],
     ambiguities: list[str],
@@ -1733,6 +1834,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Write protocol/dataclass stubs to file or '-' for stdout.",
     )
     parser.add_argument(
+        "--refactor-plan",
+        action="store_true",
+        help="Include refactoring plan summary in the markdown report.",
+    )
+    parser.add_argument(
+        "--refactor-plan-json",
+        default=None,
+        help="Write refactoring plan JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
         "--synthesis-max-tier",
         type=int,
         default=2,
@@ -1822,6 +1933,19 @@ def run(argv: list[str] | None = None) -> int:
                 print(stubs)
             else:
                 Path(args.synthesis_protocols).write_text(stubs)
+    refactor_plan: dict[str, object] | None = None
+    if args.refactor_plan or args.refactor_plan_json:
+        refactor_plan = build_refactor_plan(
+            analysis.groups_by_path,
+            paths,
+            config=config,
+        )
+        if args.refactor_plan_json:
+            payload = json.dumps(refactor_plan, indent=2, sort_keys=True)
+            if args.refactor_plan_json.strip() == "-":
+                print(payload)
+            else:
+                Path(args.refactor_plan_json).write_text(payload)
     if args.dot is not None:
         dot = _emit_dot(analysis.groups_by_path)
         if args.dot.strip() == "-":
@@ -1840,7 +1964,11 @@ def run(argv: list[str] | None = None) -> int:
             for line in analysis.type_ambiguities[: args.type_audit_max]:
                 print(f"- {line}")
         if args.report is None and not (
-            args.synthesis_plan or args.synthesis_report or args.synthesis_protocols
+            args.synthesis_plan
+            or args.synthesis_report
+            or args.synthesis_protocols
+            or args.refactor_plan
+            or args.refactor_plan_json
         ):
             return 0
     if args.report is not None:
@@ -1856,6 +1984,8 @@ def run(argv: list[str] | None = None) -> int:
             args.synthesis_report or args.synthesis_plan or args.synthesis_protocols
         ):
             report = report + render_synthesis_section(synthesis_plan)
+        if refactor_plan and (args.refactor_plan or args.refactor_plan_json):
+            report = report + render_refactor_plan(refactor_plan)
         Path(args.report).write_text(report)
         if args.fail_on_violations and violations:
             return 1

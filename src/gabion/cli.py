@@ -109,6 +109,10 @@ def dataflow_audit(
         "synthesis_protocols": str(opts.synthesis_protocols)
         if opts.synthesis_protocols
         else None,
+        "refactor_plan": opts.refactor_plan,
+        "refactor_plan_json": str(opts.refactor_plan_json)
+        if opts.refactor_plan_json
+        else None,
     }
     result = run_command(DATAFLOW_COMMAND, [payload])
     if opts.type_audit:
@@ -128,6 +132,8 @@ def dataflow_audit(
         typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
     if opts.synthesis_protocols == "-" and "synthesis_protocols" in result:
         typer.echo(result["synthesis_protocols"])
+    if opts.refactor_plan_json == "-" and "refactor_plan" in result:
+        typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -201,6 +207,16 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Allow single-field bundles in synthesis plan.",
     )
+    parser.add_argument(
+        "--refactor-plan",
+        action="store_true",
+        help="Include refactoring plan summary in the markdown report.",
+    )
+    parser.add_argument(
+        "--refactor-plan-json",
+        default=None,
+        help="Write refactoring plan JSON to file or '-' for stdout.",
+    )
     return parser
 
 
@@ -252,6 +268,7 @@ def synth(
     synthesis_allow_singletons: bool = typer.Option(
         False, "--synthesis-allow-singletons"
     ),
+    refactor_plan: bool = typer.Option(True, "--refactor-plan/--no-refactor-plan"),
     fail_on_violations: bool = typer.Option(
         False, "--fail-on-violations/--no-fail-on-violations"
     ),
@@ -283,6 +300,7 @@ def synth(
     dot_path = output_root / "dataflow_graph.dot"
     plan_path = output_root / "synthesis_plan.json"
     protocol_path = output_root / "protocol_stubs.py"
+    refactor_plan_path = output_root / "refactor_plan.json"
 
     payload: dict[str, Any] = {
         "paths": [str(p) for p in paths],
@@ -305,6 +323,8 @@ def synth(
         "synthesis_max_tier": synthesis_max_tier,
         "synthesis_min_bundle_size": synthesis_min_bundle_size,
         "synthesis_allow_singletons": synthesis_allow_singletons,
+        "refactor_plan": refactor_plan,
+        "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
     }
     result = run_command(DATAFLOW_COMMAND, [payload])
     if timestamp:
@@ -313,6 +333,8 @@ def synth(
     typer.echo(f"- {dot_path}")
     typer.echo(f"- {plan_path}")
     typer.echo(f"- {protocol_path}")
+    if refactor_plan:
+        typer.echo(f"- {refactor_plan_path}")
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
