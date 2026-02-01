@@ -1,5 +1,5 @@
 ---
-doc_revision: 35
+doc_revision: 36
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -59,6 +59,10 @@ config/local bundle), or explicitly documented in-place with:
 
 Tier-2 bundles must be reified before merge (see `glossary.md`).
 Tier-3 bundles must be documented with `# dataflow-bundle:` or reified.
+
+## Branching model (normative)
+- Routine work goes to `stage`; CI runs on every `stage` push and must be green.
+- `main` is protected and receives changes via PRs from `stage`.
 
 ## Current analysis coverage (non-binding)
 These describe current coverage so contributors keep changes aligned:
