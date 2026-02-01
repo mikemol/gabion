@@ -20,6 +20,7 @@ from gabion.analysis import (
     render_report,
 )
 from gabion.config import dataflow_defaults, merge_payload
+from gabion.schema import SynthesisRequest, SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 
 server = LanguageServer("gabion", "0.1.0")
@@ -146,35 +147,36 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
 def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
     if payload is None:
         payload = {}
-    bundles_payload = payload.get("bundles") or []
+    try:
+        request = SynthesisRequest.model_validate(payload)
+    except Exception as exc:  # pydantic validation
+        return {"protocols": [], "warnings": [], "errors": [str(exc)]}
+
     bundle_tiers: dict[frozenset[str], int] = {}
-    for entry in bundles_payload:
-        if not isinstance(entry, dict):
-            continue
-        bundle = entry.get("bundle") or []
+    for entry in request.bundles:
+        bundle = entry.bundle
         if not bundle:
             continue
-        tier = int(entry.get("tier", 2))
-        bundle_tiers[frozenset(bundle)] = tier
+        bundle_tiers[frozenset(bundle)] = entry.tier
 
-    field_types = payload.get("field_types") or {}
+    field_types = request.field_types or {}
     config = SynthesisConfig(
-        max_tier=int(payload.get("max_tier", 2)),
-        min_bundle_size=int(payload.get("min_bundle_size", 2)),
-        allow_singletons=bool(payload.get("allow_singletons", False)),
+        max_tier=request.max_tier,
+        min_bundle_size=request.min_bundle_size,
+        allow_singletons=request.allow_singletons,
     )
     naming_context = NamingContext(
-        existing_names=set(payload.get("existing_names", [])),
-        frequency=payload.get("frequency", {}) or {},
-        fallback_prefix=payload.get("fallback_prefix", "Bundle"),
+        existing_names=set(request.existing_names),
+        frequency=request.frequency or {},
+        fallback_prefix=request.fallback_prefix,
     )
     plan = Synthesizer(config=config).plan(
         bundle_tiers=bundle_tiers,
         field_types=field_types,
         naming_context=naming_context,
     )
-    response = {
-        "protocols": [
+    response = SynthesisResponse(
+        protocols=[
             {
                 "name": spec.name,
                 "fields": [
@@ -191,10 +193,10 @@ def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
             }
             for spec in plan.protocols
         ],
-        "warnings": plan.warnings,
-        "errors": plan.errors,
-    }
-    return response
+        warnings=plan.warnings,
+        errors=plan.errors,
+    )
+    return response.model_dump()
 
 
 @server.feature(TEXT_DOCUMENT_DID_OPEN)
