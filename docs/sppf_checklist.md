@@ -1,5 +1,5 @@
 ---
-doc_revision: 14
+doc_revision: 15
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -37,10 +37,10 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Unused-argument pass detection (non-test call sites).
 
 ## Synthesis + refactoring nodes
-- [ ] Protocol/dataclass synthesis (tier thresholds, field typing).
-- [ ] Naming heuristics (frequency-based, LLM-ready fallback).
-- [ ] Topological refactoring schedule (callee-first order).
-- [ ] Partial-application merge heuristics (bundle fragmentation control).
+- [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype).
+- [x] Naming heuristics (frequency-based, LLM-ready fallback) (prototype).
+- [x] Topological refactoring schedule (callee-first order) (prototype).
+- [x] Partial-application merge heuristics (bundle fragmentation control) (prototype).
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).

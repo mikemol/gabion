@@ -1,5 +1,5 @@
 ---
-doc_revision: 39
+doc_revision: 40
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -76,8 +76,8 @@ These describe current coverage so contributors keep changes aligned:
 - unused-argument pass detection
 
 ## Planned analysis expansions (non-binding)
-- Protocol/dataclass synthesis
-- bundle-merge heuristics (fragmentation control)
+- Protocol/dataclass synthesis (prototype scaffolding in `gabion.synthesis`)
+- bundle-merge heuristics (fragmentation control, prototype scaffolding)
 
 ## Development setup
 This project is currently scaffold-only (core analysis logic is not yet wired).
