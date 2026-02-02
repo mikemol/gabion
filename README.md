@@ -1,5 +1,5 @@
 ---
-doc_revision: 43
+doc_revision: 44
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -189,6 +189,8 @@ same-repo PRs) via `.github/workflows/pr-dataflow-grammar.yml`.
 A composite action wrapper lives at `.github/actions/gabion`.
 It installs Gabion via pip and runs `gabion check` (or another subcommand).
 See `.github/actions/gabion/README.md` for usage and pinning guidance.
+Example workflow (with pinned SHA placeholders):
+`docs/workflows/gabion_action_example.yml`.
 
 ## Architecture (planned shape)
 - **LSP-first:** the language server is the semantic core; the CLI is a thin

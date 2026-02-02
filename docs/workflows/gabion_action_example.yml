@@ -1,0 +1,19 @@
+name: gabion
+on:
+  pull_request:
+  push:
+    branches: [stage]
+jobs:
+  gabion:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@<PINNED_SHA>
+      - uses: actions/setup-python@<PINNED_SHA>
+        with:
+          python-version: "3.11"
+      - uses: mikemol/gabion/.github/actions/gabion@<TAG_OR_SHA>
+        with:
+          command: "check"
+          args: "--fail-on-violations"
