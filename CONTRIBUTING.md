@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 50
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -82,6 +82,18 @@ These describe current coverage so contributors keep changes aligned:
 ## Planned analysis expansions (non-binding)
 - Protocol/dataclass synthesis (prototype scaffolding in `gabion.synthesis`)
 - bundle-merge heuristics (fragmentation control, prototype scaffolding)
+
+## SPPF tracking (non-binding)
+Checklist nodes in `docs/sppf_checklist.md` map to GitHub issues (`GH-####`).
+To keep issue state synced without CI write permissions, use commit trailers
+like `SPPF: GH-17` or `Closes #17`, then run:
+
+```
+scripts/sppf_sync.py --comment
+```
+
+Use `--close` when you want to close the issue on `stage`, or keep it open
+until a merge to `main` with `Closes #17` (GitHub auto-closes on merge).
 
 ## Development setup
 This project is currently scaffold-only (core analysis logic is not yet wired).
