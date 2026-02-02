@@ -1,5 +1,5 @@
 ---
-doc_revision: 58
+doc_revision: 59
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -83,7 +83,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Topological refactoring schedule (callee-first order) (prototype). (GH-12)
 - [x] Refactor schedule: basic topological order.
 - [x] Refactor schedule: SCC-based cycle detection (explicit knots).
-- [~] Partial-application merge heuristics (bundle fragmentation control) (prototype). (GH-13)
+- [x] Partial-application merge heuristics (bundle fragmentation control) (prototype). (GH-13)
 - [x] Bundle merge heuristic: Jaccard overlap merge function.
 - [x] Bundle merge heuristic: integrated into synthesis/refactor pipeline.
 - [x] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
