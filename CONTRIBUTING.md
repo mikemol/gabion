@@ -1,5 +1,5 @@
 ---
-doc_revision: 50
+doc_revision: 51
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -94,6 +94,10 @@ scripts/sppf_sync.py --comment
 
 Use `--close` when you want to close the issue on `stage`, or keep it open
 until a merge to `main` with `Closes #17` (GitHub auto-closes on merge).
+
+To automate this locally on `stage`, set `GABION_SPPF_SYNC=1` and re-run
+`scripts/install_hooks.sh` to enable a pre-push sync (comments + `done-on-stage`
+label) before pushing.
 
 ## Development setup
 This project is currently scaffold-only (core analysis logic is not yet wired).

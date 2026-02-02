@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 50
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -35,6 +35,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
   status remain bidirectionally linked.
 - Use `scripts/sppf_sync.py` locally to sync commit trailers (e.g. `SPPF: GH-17`)
   with GitHub issue comments/labels without CI write permissions.
+- Optional: enable `GABION_SPPF_SYNC=1` and re-run `scripts/install_hooks.sh` to
+  auto-sync on `stage` pushes via the pre-push hook.
 
 ## Analysis pipeline nodes
 - [~] Import resolution / symbol table (deterministic callee resolution). (GH-6)
