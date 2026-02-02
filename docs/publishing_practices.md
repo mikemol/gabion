@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -74,6 +74,7 @@ Release workflows should:
 - Use pinned action SHAs.
 - Request minimal permissions (`id-token: write`, `contents: read`).
 - Run only from trusted branches/tags.
+- Bind Trusted Publishing to a single GitHub environment.
 
 Rationale: publishing is a sensitive surface.
 
