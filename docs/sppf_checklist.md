@@ -1,5 +1,5 @@
 ---
-doc_revision: 59
+doc_revision: 61
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -58,6 +58,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type-flow tightening audit (downstream annotations).
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Constant-flow audit (dead knobs / always-constant params).
+- [x] Constant-flow helper specificity (avoid false positives in internal helpers).
 - [x] Unused-argument pass detection (non-test call sites).
 - [x] Analysis: Decorator transparency/unwrapping. (GH-9)
 - [ ] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
@@ -109,6 +110,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Hook installer.
 - [x] Doer/Judge/Witness framing (optional).
 - [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
+- [x] Redistributable GitHub Action wrapper (composite action for gabion check).
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).

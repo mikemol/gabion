@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -65,6 +65,7 @@ Rationale: reduces secret leakage risk and matches current PyPI guidance.
 
 Tag-only trigger constraint: release workflows should trigger only on tag pushes
 (e.g. `v*` for PyPI, `test-v*` for TestPyPI).
+Release workflows must also verify the tag commit is reachable from `main`.
 
 ## 6. Harden the release workflow
 Release workflows should:
@@ -73,8 +74,13 @@ Release workflows should:
 - Use pinned action SHAs.
 - Request minimal permissions (`id-token: write`, `contents: read`).
 - Run only from trusted branches/tags.
+- Bind Trusted Publishing to a single GitHub environment.
 
 Rationale: publishing is a sensitive surface.
+
+Current workflows:
+- `.github/workflows/release-testpypi.yml` (tag `test-v*`)
+- `.github/workflows/release-pypi.yml` (tag `v*`, excludes `test-v*`)
 
 ## 7. Versioning discipline
 Follow semantic versioning for user-facing releases.

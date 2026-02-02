@@ -1,5 +1,5 @@
 ---
-doc_revision: 42
+doc_revision: 45
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -184,6 +184,14 @@ Allow-listed actions are defined in `docs/allowed_actions.txt`.
 
 Pull requests also get a dataflow-grammar report artifact (and a comment on
 same-repo PRs) via `.github/workflows/pr-dataflow-grammar.yml`.
+
+## GitHub Action (redistributable)
+A composite action wrapper lives at `.github/actions/gabion`.
+It installs Gabion via pip and runs `gabion check` (or another subcommand).
+See `.github/actions/gabion/README.md` for usage and pinning guidance.
+Example workflow (with pinned SHA placeholders):
+`docs/workflows/gabion_action_example.yml`.
+Pinning guide: `docs/pinning_actions.md`.
 
 ## Architecture (planned shape)
 - **LSP-first:** the language server is the semantic core; the CLI is a thin

@@ -1,0 +1,40 @@
+name: "Gabion"
+description: "Run gabion check against a repository"
+inputs:
+  version:
+    description: "Gabion version specifier for pip (default: gabion)"
+    required: false
+    default: "gabion"
+  command:
+    description: "Gabion subcommand to run (default: check)"
+    required: false
+    default: "check"
+  root:
+    description: "Project root for gabion (default: .)"
+    required: false
+    default: "."
+  config:
+    description: "Path to gabion.toml or config file"
+    required: false
+    default: ""
+  report:
+    description: "Path for Markdown report (optional)"
+    required: false
+    default: ""
+  args:
+    description: "Additional CLI args"
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Run Gabion
+      shell: bash
+      run: "${{ github.action_path }}/run.sh"
+      env:
+        GABION_VERSION: "${{ inputs.version }}"
+        GABION_COMMAND: "${{ inputs.command }}"
+        GABION_ROOT: "${{ inputs.root }}"
+        GABION_CONFIG: "${{ inputs.config }}"
+        GABION_REPORT: "${{ inputs.report }}"
+        GABION_ARGS: "${{ inputs.args }}"
