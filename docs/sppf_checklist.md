@@ -1,5 +1,5 @@
 ---
-doc_revision: 53
+doc_revision: 54
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -59,7 +59,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Constant-flow audit (dead knobs / always-constant params).
 - [x] Unused-argument pass detection (non-test call sites).
-- [ ] Analysis: Decorator transparency/unwrapping. (GH-9)
+- [x] Analysis: Decorator transparency/unwrapping. (GH-9)
 - [ ] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
 
 ## Reporting & visualization nodes

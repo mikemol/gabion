@@ -64,6 +64,21 @@ def _uri_to_path(uri: str) -> Path:
     return Path(uri)
 
 
+def _normalize_transparent_decorators(value: object) -> set[str] | None:
+    if value is None:
+        return None
+    items: list[str] = []
+    if isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                items.extend([part.strip() for part in item.split(",") if part.strip()])
+    if not items:
+        return None
+    return set(items)
+
+
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
     result = analyze_paths(
         [Path(path_str)],
@@ -132,6 +147,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     ignore_params = set(payload.get("ignore_params", []))
     allow_external = payload.get("allow_external", False)
     strictness = payload.get("strictness", "high")
+    transparent_decorators = _normalize_transparent_decorators(
+        payload.get("transparent_decorators")
+    )
     baseline_path = resolve_baseline_path(payload.get("baseline"), Path(root))
     baseline_write = bool(payload.get("baseline_write", False)) and baseline_path is not None
     synthesis_plan_path = payload.get("synthesis_plan")
@@ -150,6 +168,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         ignore_params=ignore_params,
         external_filter=not allow_external,
         strictness=strictness,
+        transparent_decorators=transparent_decorators,
     )
     if fail_on_type_ambiguities:
         type_audit = True

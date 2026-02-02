@@ -106,6 +106,7 @@ class AuditConfig:
     ignore_params: set[str] = field(default_factory=set)
     external_filter: bool = True
     strictness: str = "high"
+    transparent_decorators: set[str] | None = None
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -177,6 +178,49 @@ def _collect_functions(tree: ast.AST):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             funcs.append(node)
     return funcs
+
+
+def _decorator_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parts: list[str] = []
+        current: ast.AST = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            return ".".join(reversed(parts))
+        return None
+    if isinstance(node, ast.Call):
+        return _decorator_name(node.func)
+    return None
+
+
+def _decorator_matches(name: str, allowlist: set[str]) -> bool:
+    if name in allowlist:
+        return True
+    if "." in name and name.split(".")[-1] in allowlist:
+        return True
+    return False
+
+
+def _decorators_transparent(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    transparent_decorators: set[str] | None,
+) -> bool:
+    if not fn.decorator_list:
+        return True
+    if not transparent_decorators:
+        return True
+    for deco in fn.decorator_list:
+        name = _decorator_name(deco)
+        if not name:
+            return False
+        if not _decorator_matches(name, transparent_decorators):
+            return False
+    return True
 
 
 def _collect_local_class_bases(
@@ -491,9 +535,12 @@ def _propagate_groups(
     callee_groups: dict[str, list[set[str]]],
     callee_param_orders: dict[str, list[str]],
     strictness: str,
+    opaque_callees: set[str] | None = None,
 ) -> list[set[str]]:
     groups: list[set[str]] = []
     for call in call_args:
+        if opaque_callees and call.callee in opaque_callees:
+            continue
         if call.callee not in callee_groups:
             continue
         callee_params = callee_param_orders[call.callee]
@@ -546,11 +593,14 @@ def analyze_file(
     fn_names: dict[str, str] = {}
     fn_lexical_scopes: dict[str, tuple[str, ...]] = {}
     fn_class_names: dict[str, str | None] = {}
+    opaque_callees: set[str] = set()
     for f in funcs:
         class_name = _enclosing_class(f, parents)
         scopes = _enclosing_scopes(f, parents)
         lexical_scopes = _enclosing_function_scopes(f, parents)
         fn_key = _function_key(scopes, f.name)
+        if not _decorators_transparent(f, config.transparent_decorators):
+            opaque_callees.add(fn_key)
         use_map, call_args = _analyze_function(
             f,
             parents,
@@ -653,6 +703,7 @@ def analyze_file(
                 groups_by_fn,
                 fn_param_orders,
                 config.strictness,
+                opaque_callees,
             )
             if not propagated:
                 continue
@@ -749,6 +800,7 @@ class FunctionInfo:
     annots: dict[str, str | None]
     calls: list[CallArgs]
     unused_params: set[str]
+    transparent: bool = True
     class_name: str | None = None
     scope: tuple[str, ...] = ()
     lexical_scope: tuple[str, ...] = ()
@@ -1020,6 +1072,7 @@ def _build_function_index(
     project_root: Path | None,
     ignore_params: set[str],
     strictness: str,
+    transparent_decorators: set[str] | None = None,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
     by_name: dict[str, list[FunctionInfo]] = defaultdict(list)
     by_qual: dict[str, FunctionInfo] = {}
@@ -1061,6 +1114,7 @@ def _build_function_index(
                 annots=_param_annotations(fn, ignore_params),
                 calls=call_args,
                 unused_params=unused_params,
+                transparent=_decorators_transparent(fn, transparent_decorators),
                 class_name=class_name,
                 scope=tuple(scopes),
                 lexical_scope=tuple(lexical_scopes),
@@ -1187,10 +1241,15 @@ def analyze_type_flow_repo_with_map(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
     by_name, by_qual = _build_function_index(
-        paths, project_root, ignore_params, strictness
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
@@ -1225,6 +1284,8 @@ def analyze_type_flow_repo_with_map(
                         class_index,
                     )
                     if callee is None:
+                        continue
+                    if not callee.transparent:
                         continue
                     callee_params = callee.params
                     mapped_params: set[str] = set()
@@ -1287,6 +1348,7 @@ def analyze_type_flow_repo(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> tuple[list[str], list[str]]:
     inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
         paths,
@@ -1294,6 +1356,7 @@ def analyze_type_flow_repo(
         ignore_params=ignore_params,
         strictness=strictness,
         external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
     )
     return suggestions, ambiguities
 
@@ -1305,10 +1368,15 @@ def analyze_constant_flow_repo(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
     by_name, by_qual = _build_function_index(
-        paths, project_root, ignore_params, strictness
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
@@ -1333,6 +1401,8 @@ def analyze_constant_flow_repo(
                     class_index,
                 )
                 if callee is None:
+                    continue
+                if not callee.transparent:
                     continue
                 callee_params = callee.params
                 mapped_params = set()
@@ -1435,10 +1505,15 @@ def analyze_unused_arg_flow_repo(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
     by_name, by_qual = _build_function_index(
-        paths, project_root, ignore_params, strictness
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
@@ -1473,6 +1548,8 @@ def analyze_unused_arg_flow_repo(
                     class_index,
                 )
                 if callee is None:
+                    continue
+                if not callee.transparent:
                     continue
                 if not callee.unused_params:
                     continue
@@ -2154,6 +2231,7 @@ def build_synthesis_plan(
             ignore_params=audit_config.ignore_params,
             strictness=audit_config.strictness,
             external_filter=audit_config.external_filter,
+            transparent_decorators=audit_config.transparent_decorators,
         )
         type_sets: dict[str, set[str]] = defaultdict(set)
         for annots in inferred.values():
@@ -2316,7 +2394,11 @@ def build_refactor_plan(
         return {"bundles": [], "warnings": ["No files available for refactor plan."]}
 
     by_name, by_qual = _build_function_index(
-        file_paths, config.project_root, config.ignore_params, config.strictness
+        file_paths,
+        config.project_root,
+        config.ignore_params,
+        config.strictness,
+        config.transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         file_paths, config.project_root, external_filter=config.external_filter
@@ -2355,6 +2437,8 @@ def build_refactor_plan(
                     class_index,
                 )
                 if callee is None:
+                    continue
+                if not callee.transparent:
                     continue
                 if callee.qual in comp:
                     deps[info.qual].add(callee.qual)
@@ -2603,6 +2687,7 @@ def analyze_paths(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
         )
         if type_audit_report:
             type_suggestions = type_suggestions[:type_audit_max]
@@ -2616,6 +2701,7 @@ def analyze_paths(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
         )
 
     unused_arg_smells: list[str] = []
@@ -2626,6 +2712,7 @@ def analyze_paths(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
         )
 
     return AnalysisResult(
@@ -2653,6 +2740,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ignore-params",
         default=None,
         help="Comma-separated parameter names to ignore.",
+    )
+    parser.add_argument(
+        "--transparent-decorators",
+        default=None,
+        help="Comma-separated decorator names treated as transparent.",
     )
     parser.add_argument(
         "--allow-external",
@@ -2757,6 +2849,23 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _normalize_transparent_decorators(
+    value: object,
+) -> set[str] | None:
+    if value is None:
+        return None
+    items: list[str] = []
+    if isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                items.extend([part.strip() for part in item.split(",") if part.strip()])
+    if not items:
+        return None
+    return set(items)
+
+
 def run(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -2773,6 +2882,11 @@ def run(argv: list[str] | None = None) -> int:
     ignore_params: list[str] | None = None
     if args.ignore_params is not None:
         ignore_params = [p.strip() for p in args.ignore_params.split(",") if p.strip()]
+    transparent_decorators: list[str] | None = None
+    if args.transparent_decorators is not None:
+        transparent_decorators = [
+            p.strip() for p in args.transparent_decorators.split(",") if p.strip()
+        ]
     config_path = Path(args.config) if args.config else None
     defaults = dataflow_defaults(Path(args.root), config_path)
     merged = merge_payload(
@@ -2782,6 +2896,7 @@ def run(argv: list[str] | None = None) -> int:
             "allow_external": args.allow_external,
             "strictness": args.strictness,
             "baseline": args.baseline,
+            "transparent_decorators": transparent_decorators,
         },
         defaults,
     )
@@ -2791,12 +2906,16 @@ def run(argv: list[str] | None = None) -> int:
     strictness = merged.get("strictness") or "high"
     if strictness not in {"high", "low"}:
         strictness = "high"
+    transparent_decorators = _normalize_transparent_decorators(
+        merged.get("transparent_decorators")
+    )
     config = AuditConfig(
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,
         ignore_params=ignore_params_set,
         external_filter=not allow_external,
         strictness=strictness,
+        transparent_decorators=transparent_decorators,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write
