@@ -1,5 +1,5 @@
 ---
-doc_revision: 45
+doc_revision: 47
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -77,6 +77,8 @@ Install from source (editable):
 ```
 mise exec -- python -m pip install -e .
 ```
+Dependencies are locked in `requirements.lock` (generated via `uv`).
+CI installs from the lockfile inside an explicit venv to prevent drift.
 
 Install git hooks (optional):
 ```

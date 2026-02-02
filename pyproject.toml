@@ -36,6 +36,12 @@ dependencies = [
     "rich>=13.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pyyaml>=6.0",
+]
+
 [project.scripts]
 gabion = "gabion.cli:app"
 gabion-ls = "gabion.server:start"

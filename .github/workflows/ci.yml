@@ -26,14 +26,18 @@ jobs:
         uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
       - name: Install toolchain
         run: mise install
-      - name: Install package
-        run: mise exec -- python -m pip install -e .
-      - name: Install test deps
-        run: mise exec -- python -m pip install pytest
-      - name: Policy check (workflows)
+      - name: Create venv
         run: |
-          mise exec -- python -m pip install pyyaml
-          mise exec -- python scripts/policy_check.py --workflows
+          mise exec -- python -m venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - name: Install dependencies (locked)
+        run: |
+          .venv/bin/python -m pip install --upgrade pip uv
+          .venv/bin/uv pip sync requirements.lock
+          .venv/bin/uv pip install -e .
+      - name: Policy check (workflows)
+        run: .venv/bin/python scripts/policy_check.py --workflows
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:
@@ -43,15 +47,18 @@ jobs:
             echo "POLICY_GITHUB_TOKEN not set; skipping posture check."
             exit 0
           fi
-          mise exec -- python scripts/policy_check.py --posture
+          .venv/bin/python scripts/policy_check.py --posture
       - name: Dataflow audit
-        run: mise exec -- python -m gabion check
+        run: |
+          mkdir -p artifacts/audit_reports
+          .venv/bin/python -m gabion check --report artifacts/audit_reports/dataflow_report.md \
+            || (cat artifacts/audit_reports/dataflow_report.md; exit 1)
       - name: Docflow audit
-        run: mise exec -- python scripts/docflow_audit.py --root . --fail-on-violations
+        run: .venv/bin/python scripts/docflow_audit.py --root . --fail-on-violations
       - name: Tests
         run: |
           mkdir -p artifacts/test_runs
-          mise exec -- python -m pytest \
+          .venv/bin/python -m pytest \
             --junitxml artifacts/test_runs/junit.xml \
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO
@@ -61,3 +68,9 @@ jobs:
         with:
           name: test-runs
           path: artifacts/test_runs
+      - name: Upload dataflow report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dataflow-report
+          path: artifacts/audit_reports/dataflow_report.md
