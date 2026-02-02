@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-USES_RE = re.compile(r"^(\s*-\s+uses:\s+)([^@\s]+)@([^\s]+)\s*$")
+USES_RE = re.compile(r"^(\s*(?:-\s+)?uses:\s+)([^@\s]+)@([^\s]+)\s*$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 

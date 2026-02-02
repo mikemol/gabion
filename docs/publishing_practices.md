@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -75,6 +75,10 @@ Release workflows should:
 - Run only from trusted branches/tags.
 
 Rationale: publishing is a sensitive surface.
+
+Current workflows:
+- `.github/workflows/release-testpypi.yml` (tag `test-v*`)
+- `.github/workflows/release-pypi.yml` (tag `v*`, excludes `test-v*`)
 
 ## 7. Versioning discipline
 Follow semantic versioning for user-facing releases.
