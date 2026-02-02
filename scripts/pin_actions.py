@@ -73,6 +73,8 @@ def _parse_action(ref: str) -> ActionRef | None:
     name, version = ref.split("@", 1)
     if "/" not in name:
         return None
+    if "<" in version or ">" in version:
+        return None
     owner, repo = name.split("/", 1)
     return ActionRef(owner=owner, repo=repo, ref=version)
 
