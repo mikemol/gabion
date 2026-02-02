@@ -1,5 +1,5 @@
 ---
-doc_revision: 56
+doc_revision: 57
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -75,7 +75,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Bundle declarations: external dataclass modules (cross-file).
 
 ## Synthesis + refactoring nodes
-- [~] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
+- [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
 - [x] Synthesis output: dataclass stubs with field typing.
 - [x] Synthesis output: typing.Protocol interface stubs.
 - [x] Synthesis typing: resolve conflicts into `Union`/`Optional`.
