@@ -33,7 +33,11 @@ from gabion.analysis import (
     render_synthesis_section,
 )
 from gabion.config import dataflow_defaults, merge_payload
-from gabion.refactor import RefactorEngine, RefactorRequest as RefactorRequestModel
+from gabion.refactor import (
+    FieldSpec,
+    RefactorEngine,
+    RefactorRequest as RefactorRequestModel,
+)
 from gabion.schema import (
     RefactorRequest,
     RefactorResponse,
@@ -312,6 +316,10 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
         RefactorRequestModel(
             protocol_name=request.protocol_name,
             bundle=request.bundle,
+            fields=[
+                FieldSpec(name=field.name, type_hint=field.type_hint)
+                for field in request.fields or []
+            ],
             target_path=request.target_path,
             target_functions=request.target_functions,
             rationale=request.rationale,

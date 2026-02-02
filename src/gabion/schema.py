@@ -57,9 +57,15 @@ class SynthesisResponse(BaseModel):
     errors: List[str] = []
 
 
+class RefactorFieldDTO(BaseModel):
+    name: str
+    type_hint: Optional[str] = None
+
+
 class RefactorRequest(BaseModel):
     protocol_name: str
     bundle: List[str]
+    fields: List[RefactorFieldDTO] = []
     target_path: str
     target_functions: List[str] = []
     rationale: Optional[str] = None

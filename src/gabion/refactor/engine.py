@@ -4,7 +4,7 @@ from pathlib import Path
 
 import libcst as cst
 
-from gabion.refactor.model import RefactorPlan, RefactorRequest, TextEdit
+from gabion.refactor.model import FieldSpec, RefactorPlan, RefactorRequest, TextEdit
 
 
 class RefactorEngine:
@@ -27,6 +27,22 @@ class RefactorEngine:
         if not protocol:
             return RefactorPlan(errors=["Protocol name is required for extraction."])
         bundle = [name.strip() for name in request.bundle or [] if name.strip()]
+        field_specs: list[FieldSpec] = []
+        seen_fields: set[str] = set()
+        for spec in request.fields or []:
+            name = (spec.name or "").strip()
+            if not name or name in seen_fields:
+                continue
+            seen_fields.add(name)
+            field_specs.append(spec)
+        if bundle:
+            for name in bundle:
+                if name in seen_fields:
+                    continue
+                seen_fields.add(name)
+                field_specs.append(FieldSpec(name=name))
+        elif field_specs:
+            bundle = [spec.name for spec in field_specs]
         if not bundle:
             return RefactorPlan(errors=["Bundle fields are required for extraction."])
 
@@ -98,18 +114,30 @@ class RefactorEngine:
         docstring = cst.SimpleStatementLine(
             [cst.Expr(cst.SimpleString('"""' + "\\n".join(doc_lines) + '"""'))]
         )
-        field_lines = [
-            cst.SimpleStatementLine(
-                [
-                    cst.AnnAssign(
-                        target=cst.Name(field),
-                        annotation=cst.Annotation(cst.Name("object")),
-                        value=None,
-                    )
-                ]
+        warnings: list[str] = []
+
+        def _annotation_for(hint: str | None) -> cst.BaseExpression:
+            if not hint:
+                return cst.Name("object")
+            try:
+                return cst.parse_expression(hint)
+            except Exception as exc:
+                warnings.append(f"Failed to parse type hint '{hint}': {exc}")
+                return cst.Name("object")
+
+        field_lines = []
+        for spec in field_specs:
+            field_lines.append(
+                cst.SimpleStatementLine(
+                    [
+                        cst.AnnAssign(
+                            target=cst.Name(spec.name),
+                            annotation=cst.Annotation(_annotation_for(spec.type_hint)),
+                            value=None,
+                        )
+                    ]
+                )
             )
-            for field in bundle
-        ]
         class_body = [docstring] + field_lines
         class_def = cst.ClassDef(
             name=cst.Name(protocol),
@@ -129,7 +157,8 @@ class RefactorEngine:
         new_module = module.with_changes(body=new_body)
         new_source = new_module.code
         if new_source == source:
-            return RefactorPlan(warnings=["No changes generated for protocol extraction."])
+            warnings.append("No changes generated for protocol extraction.")
+            return RefactorPlan(warnings=warnings)
         end_line = len(source.splitlines())
         return RefactorPlan(
             edits=[
@@ -139,5 +168,6 @@ class RefactorEngine:
                     end=(end_line, 0),
                     replacement=new_source,
                 )
-            ]
+            ],
+            warnings=warnings,
         )

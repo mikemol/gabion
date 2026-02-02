@@ -411,6 +411,11 @@ def refactor_protocol(
     ),
     protocol_name: Optional[str] = typer.Option(None, "--protocol-name"),
     bundle: Optional[List[str]] = typer.Option(None, "--bundle"),
+    field: Optional[List[str]] = typer.Option(
+        None,
+        "--field",
+        help="Field spec in 'name:type' form (repeatable).",
+    ),
     target_path: Optional[Path] = typer.Option(None, "--target-path"),
     target_functions: Optional[List[str]] = typer.Option(None, "--target-function"),
     rationale: Optional[str] = typer.Option(None, "--rationale"),
@@ -427,9 +432,20 @@ def refactor_protocol(
             raise typer.BadParameter(
                 "Provide --protocol-name and --target-path or use --input."
             )
+        field_specs: list[dict[str, str | None]] = []
+        for spec in field or []:
+            name, _, hint = spec.partition(":")
+            name = name.strip()
+            if not name:
+                continue
+            type_hint = hint.strip() or None
+            field_specs.append({"name": name, "type_hint": type_hint})
+        if not bundle and field_specs:
+            bundle = [spec["name"] for spec in field_specs]
         payload = {
             "protocol_name": protocol_name,
             "bundle": bundle or [],
+            "fields": field_specs,
             "target_path": str(target_path),
             "target_functions": target_functions or [],
             "rationale": rationale,
