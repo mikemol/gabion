@@ -26,14 +26,13 @@ jobs:
         uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
       - name: Install toolchain
         run: mise install
-      - name: Install package
-        run: mise exec -- python -m pip install -e .
-      - name: Install test deps
-        run: mise exec -- python -m pip install pytest
-      - name: Policy check (workflows)
+      - name: Install dependencies (locked)
         run: |
-          mise exec -- python -m pip install pyyaml
-          mise exec -- python scripts/policy_check.py --workflows
+          mise exec -- python -m pip install --upgrade pip uv
+          mise exec -- uv pip sync requirements.lock
+          mise exec -- uv pip install -e .
+      - name: Policy check (workflows)
+        run: mise exec -- python scripts/policy_check.py --workflows
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:

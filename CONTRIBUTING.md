@@ -1,5 +1,5 @@
 ---
-doc_revision: 55
+doc_revision: 56
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -176,6 +176,18 @@ To bypass hooks for a one-off command:
 GABION_SKIP_HOOKS=1 git commit
 ```
 
+## Locked dependencies
+Dependencies are locked in `requirements.lock` (generated via `uv`).
+Install the locked set and the editable package:
+```
+mise exec -- uv pip sync requirements.lock
+mise exec -- uv pip install -e .
+```
+Regenerate the lockfile (after updating dependencies):
+```
+uv pip compile pyproject.toml --extra dev -o requirements.lock
+```
+
 ## Editor integration (optional)
 The VS Code extension stub lives in `extensions/vscode` and launches the
 Gabion LSP server over stdio. It is a thin wrapper only.
@@ -188,11 +200,6 @@ mise exec -- python scripts/lsp_smoke_test.py --root .
 ## Testing
 LSP smoke test (pytest) requires `pygls` to be installed. It will be skipped
 automatically if the dependency is missing.
-
-Install pytest (once):
-```
-mise exec -- python -m pip install pytest
-```
 
 Run tests:
 ```
