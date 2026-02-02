@@ -15,7 +15,7 @@ doc_requires:
   - CONTRIBUTING.md
   - README.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 19
+  POLICY_SEED.md: 20
   glossary.md: 9
   CONTRIBUTING.md: 68
   README.md: 58

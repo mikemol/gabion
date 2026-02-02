@@ -1,5 +1,5 @@
 ---
-doc_revision: 14
+doc_revision: 15
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -13,7 +13,7 @@ doc_requires:
   - POLICY_SEED.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 19
+  POLICY_SEED.md: 20
   CONTRIBUTING.md: 68
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
@@ -79,6 +79,8 @@ Tags should be created by the `release-tag` workflow. The workflow enforces:
 - `v*` tags are created only on `release`.
 
 A tag ruleset should limit `v*`/`test-v*` creation to the maintainer and GitHub Actions.
+Note: personal repositories cannot enforce actor-restricted rulesets; rely on
+workflow guardrails until the repo is moved to an organization.
 
 Branch promotion is automated:
 

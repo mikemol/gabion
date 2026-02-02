@@ -1,5 +1,5 @@
 ---
-doc_revision: 19
+doc_revision: 20
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -22,7 +22,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md: 68
   AGENTS.md: 12
   glossary.md: 9
-  docs/publishing_practices.md: 14
+  docs/publishing_practices.md: 15
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -267,6 +267,13 @@ branches, provided that:
   * `mirror-next`: fast-forward `next` only after `main` merges (post-PR checks).
   * `promote-release`: fast-forward `release` only after `test-v*` succeeds.
 * No other write scopes are requested.
+
+**Personal-repo limitation:** GitHub does not allow actor-restricted rulesets or
+push restrictions on personal repositories. Until the repo is hosted in an
+organization, “automation-only” enforcement for `next`/`release` relies on:
+
+* branch rulesets that block deletion and non-fast-forward updates, and
+* workflow guardrails that validate the source branch and actor.
 
 **Narrow exception (Release tag creation):**
 
