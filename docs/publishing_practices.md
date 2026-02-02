@@ -1,5 +1,5 @@
 ---
-doc_revision: 5
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -12,6 +12,9 @@ doc_authority: informative
 doc_requires:
   - POLICY_SEED.md
   - CONTRIBUTING.md
+doc_reviewed_as_of:
+  POLICY_SEED.md: 18
+  CONTRIBUTING.md: 66
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -24,6 +27,7 @@ doc_owner: maintainer
 This document reifies the current best practices for publishing Gabion as a
 Python package. It is **advisory**, but referenced from `POLICY_SEED.md` so the
 practices remain visible and reviewable as policy evolves.
+See `CONTRIBUTING.md` for workflow guardrails and execution constraints.
 
 ## 1. Metadata completeness (PEP 621)
 Provide a complete `pyproject.toml` metadata block before first release:
@@ -65,7 +69,21 @@ Rationale: reduces secret leakage risk and matches current PyPI guidance.
 
 Tag-only trigger constraint: release workflows should trigger only on tag pushes
 (e.g. `v*` for PyPI, `test-v*` for TestPyPI).
-Release workflows must also verify the tag commit is reachable from `main`.
+Release workflows must verify the tag commit is reachable from the mirror chain
+(`main` → `next` → `release`).
+Tags should be created by the `release-tag` workflow. The workflow enforces:
+
+- `next` mirrors `main` before tagging.
+- `release` mirrors `next` before tagging.
+- `test-v*` tags are created only on `next`.
+- `v*` tags are created only on `release`.
+
+A tag ruleset should limit `v*`/`test-v*` creation to the maintainer and GitHub Actions.
+
+Branch promotion is automated:
+
+- `.github/workflows/mirror-next.yml` updates `next` after `main` CI succeeds.
+- `.github/workflows/promote-release.yml` updates `release` after `test-v*` succeeds.
 
 ## 6. Harden the release workflow
 Release workflows should:
@@ -79,6 +97,7 @@ Release workflows should:
 Rationale: publishing is a sensitive surface.
 
 Current workflows:
+- `.github/workflows/release-tag.yml` (creates tags from `next` and `release`)
 - `.github/workflows/release-testpypi.yml` (tag `test-v*`)
 - `.github/workflows/release-pypi.yml` (tag `v*`, excludes `test-v*`)
 

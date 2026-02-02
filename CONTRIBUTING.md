@@ -1,5 +1,5 @@
 ---
-doc_revision: 57
+doc_revision: 66
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -14,6 +14,11 @@ doc_requires:
   - AGENTS.md
   - POLICY_SEED.md
   - glossary.md
+doc_reviewed_as_of:
+  README.md: 56
+  AGENTS.md: 12
+  POLICY_SEED.md: 18
+  glossary.md: 9
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake
@@ -66,9 +71,16 @@ Tier-3 bundles must be documented with `# dataflow-bundle:` or reified.
 
 ## Branching model (normative)
 - Routine work goes to `stage`; CI runs on every `stage` push and must be green.
+- CI also runs on `main` pushes to gate promotion into `next`.
 - `main` is protected and receives changes via PRs from `stage`.
 - Merges to `main` are regular merge commits (no squash).
 - `stage` accumulates changes and may include merge commits from `main`.
+- `next` mirrors `main` (no unique commits) and is updated only after `main` CI succeeds.
+- `release` mirrors `next` (no unique commits) and is updated only after `test-v*` succeeds.
+- Test release tags are created via the `release-tag` workflow on `next`.
+- Release tags are created via the `release-tag` workflow on `release` (no manual tags).
+- `next` and `release` are automation-only branches. Human pushes are forbidden.
+  The `mirror-next` and `promote-release` workflows update them.
 
 ## Current analysis coverage (non-binding)
 These describe current coverage so contributors keep changes aligned:

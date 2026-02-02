@@ -1,5 +1,5 @@
 ---
-doc_revision: 9
+doc_revision: 12
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -13,6 +13,11 @@ doc_requires:
   - CONTRIBUTING.md
   - POLICY_SEED.md
   - glossary.md
+doc_reviewed_as_of:
+  README.md: 56
+  CONTRIBUTING.md: 66
+  POLICY_SEED.md: 18
+  glossary.md: 9
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - read_policy_glossary_first
@@ -62,5 +67,6 @@ Semantic correctness is governed by `glossary.md` (co-equal contract).
 ## Doc hygiene
 - Markdown docs include a YAML front-matter block with `doc_revision`.
 - Bump `doc_revision` for conceptual changes.
+- Record convergence in `doc_reviewed_as_of` (must match dependency revisions).
 
 If unsure, prefer refusal over unsafe compliance.

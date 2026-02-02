@@ -1,0 +1,80 @@
+name: release-tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (vX.Y.Z or test-vX.Y.Z)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/next') && github.actor == github.repository_owner
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+      - name: Validate tag input
+        run: |
+          TAG="${{ inputs.tag }}"
+          case "$TAG" in
+            v[0-9]*|test-v[0-9]*)
+              ;;
+            *)
+              echo "Invalid tag: $TAG (expected v* or test-v*)"
+              exit 1
+              ;;
+          esac
+          git fetch origin main next release --tags
+          MAIN_SHA=$(git rev-parse origin/main)
+          NEXT_SHA=$(git rev-parse origin/next)
+          RELEASE_SHA=$(git rev-parse origin/release)
+          HEAD_SHA=$(git rev-parse HEAD)
+          if [ "$NEXT_SHA" != "$MAIN_SHA" ]; then
+            echo "Next branch must mirror main before tagging."
+            echo "next=$NEXT_SHA"
+            echo "main=$MAIN_SHA"
+            exit 1
+          fi
+          if [ "$RELEASE_SHA" != "$NEXT_SHA" ]; then
+            echo "Release branch must mirror next before tagging."
+            echo "release=$RELEASE_SHA"
+            echo "next=$NEXT_SHA"
+            exit 1
+          fi
+          case "$TAG" in
+            test-v*)
+              if [ "$HEAD_SHA" != "$NEXT_SHA" ]; then
+                echo "Test tags must be created from next."
+                echo "head=$HEAD_SHA"
+                echo "next=$NEXT_SHA"
+                exit 1
+              fi
+              ;;
+            v*)
+              if [ "$HEAD_SHA" != "$RELEASE_SHA" ]; then
+                echo "Release tags must be created from release."
+                echo "head=$HEAD_SHA"
+                echo "release=$RELEASE_SHA"
+                exit 1
+              fi
+              ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag already exists: $TAG"
+            exit 1
+          fi
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Create and push tag
+        run: |
+          TAG="${{ inputs.tag }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
