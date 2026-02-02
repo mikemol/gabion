@@ -1,5 +1,5 @@
 ---
-doc_revision: 52
+doc_revision: 53
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -44,7 +44,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Import resolution: star-import expansion.
 - [x] Import resolution: re-exports / `__all__` handling.
 - [x] Import resolution: class hierarchy dispatch resolution.
-- [~] Alias-aware identity tracking (rename morphisms preserved). (GH-7)
+- [x] Alias-aware identity tracking (rename morphisms preserved). (GH-7)
 - [x] Alias tracking: direct Name-to-Name assignments.
 - [x] Alias tracking: tuple/sequence unpacking.
 - [x] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
