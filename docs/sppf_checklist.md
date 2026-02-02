@@ -1,5 +1,5 @@
 ---
-doc_revision: 45
+doc_revision: 46
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -122,8 +122,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] LSP code action: stub command wiring.
 - [x] LSP workspace edit: real edits for Protocol extraction.
 - [x] Precise diagnostic ranges (metadata-backed positions).
-- [ ] Refactor engine: Signature rewriting (def foo(a, b) -> def foo(bundle)). (GH-17)
+- [x] Refactor engine: Signature rewriting (def foo(a, b) -> def foo(bundle)). (GH-17)
 - [ ] Refactor engine: Call-site rewriting (foo(x, y) -> foo(Bundle(x, y))). (GH-18)
-- [ ] Refactor engine: Preamble injection (unpack bundle to preserve local logic). (GH-19)
+- [x] Refactor engine: Preamble injection (unpack bundle to preserve local logic). (GH-19)
 - [ ] Refactor engine: Import management (inject bundle import at call sites). (GH-20)
 - [ ] Long-lived LSP server cache / incremental analysis (daemon mode). (GH-21)

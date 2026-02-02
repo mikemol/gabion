@@ -67,3 +67,34 @@ def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     replacement = plan.edits[0].replacement
     assert "alpha: int" in replacement
     assert "beta: str" in replacement
+
+
+def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "sample.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def foo(a, b):
+                return a + b
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="BundleProtocol",
+        bundle=["a", "b"],
+        fields=[
+            FieldSpec(name="a", type_hint="int"),
+            FieldSpec(name="b", type_hint="int"),
+        ],
+        target_path=str(target),
+        target_functions=["foo"],
+        rationale="Unit test",
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert plan.edits
+    replacement = plan.edits[0].replacement
+    assert "def foo(bundle: BundleProtocol)" in replacement
+    assert "a = bundle.a" in replacement
+    assert "b = bundle.b" in replacement
