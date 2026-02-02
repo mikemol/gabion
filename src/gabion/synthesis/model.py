@@ -39,3 +39,4 @@ class SynthesisConfig:
     max_tier: int = 2
     min_bundle_size: int = 2
     allow_singletons: bool = False
+    merge_overlap_threshold: float = 0.75

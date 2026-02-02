@@ -321,6 +321,7 @@ def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
         max_tier=request.max_tier,
         min_bundle_size=request.min_bundle_size,
         allow_singletons=request.allow_singletons,
+        merge_overlap_threshold=request.merge_overlap_threshold,
     )
     naming_context = NamingContext(
         existing_names=set(request.existing_names),

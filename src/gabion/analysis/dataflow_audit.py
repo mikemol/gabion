@@ -27,7 +27,7 @@ from typing import Iterable, Iterator
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
-from gabion.config import dataflow_defaults, merge_payload
+from gabion.config import dataflow_defaults, merge_payload, synthesis_defaults
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
@@ -2218,6 +2218,7 @@ def build_synthesis_plan(
     max_tier: int = 2,
     min_bundle_size: int = 2,
     allow_singletons: bool = False,
+    merge_overlap_threshold: float | None = None,
     config: AuditConfig | None = None,
 ) -> dict[str, object]:
     audit_config = config or AuditConfig(
@@ -2246,7 +2247,19 @@ def build_synthesis_plan(
 
     merged_bundle_tiers: dict[frozenset[str], int] = {}
     original_bundles = [set(bundle) for bundle in counts]
-    merged_bundles = merge_bundles(original_bundles)
+    synth_config = SynthesisConfig(
+        max_tier=max_tier,
+        min_bundle_size=min_bundle_size,
+        allow_singletons=allow_singletons,
+        merge_overlap_threshold=(
+            merge_overlap_threshold
+            if merge_overlap_threshold is not None
+            else SynthesisConfig().merge_overlap_threshold
+        ),
+    )
+    merged_bundles = merge_bundles(
+        original_bundles, min_overlap=synth_config.merge_overlap_threshold
+    )
     if merged_bundles:
         for merged in merged_bundles:
             members = [
@@ -2264,11 +2277,6 @@ def build_synthesis_plan(
             bundle_tiers = merged_bundle_tiers
 
     naming_context = NamingContext(frequency=dict(frequency))
-    synth_config = SynthesisConfig(
-        max_tier=max_tier,
-        min_bundle_size=min_bundle_size,
-        allow_singletons=allow_singletons,
-    )
     field_types: dict[str, str] = {}
     type_warnings: list[str] = []
     if bundle_fields:
@@ -2942,6 +2950,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Allow single-field bundles in synthesis plan.",
     )
+    parser.add_argument(
+        "--synthesis-merge-overlap",
+        type=float,
+        default=None,
+        help="Jaccard overlap threshold for merging bundles (0.0-1.0).",
+    )
     return parser
 
 
@@ -2985,6 +2999,7 @@ def run(argv: list[str] | None = None) -> int:
         ]
     config_path = Path(args.config) if args.config else None
     defaults = dataflow_defaults(Path(args.root), config_path)
+    synth_defaults = synthesis_defaults(Path(args.root), config_path)
     merged = merge_payload(
         {
             "exclude": exclude_dirs,
@@ -3030,6 +3045,15 @@ def run(argv: list[str] | None = None) -> int:
         config=config,
     )
     synthesis_plan: dict[str, object] | None = None
+    merge_overlap_threshold = None
+    if args.synthesis_merge_overlap is not None:
+        merge_overlap_threshold = args.synthesis_merge_overlap
+    else:
+        value = synth_defaults.get("merge_overlap_threshold")
+        if isinstance(value, (int, float)):
+            merge_overlap_threshold = float(value)
+    if merge_overlap_threshold is not None:
+        merge_overlap_threshold = max(0.0, min(1.0, merge_overlap_threshold))
     if args.synthesis_plan or args.synthesis_report or args.synthesis_protocols:
         synthesis_plan = build_synthesis_plan(
             analysis.groups_by_path,
@@ -3037,6 +3061,7 @@ def run(argv: list[str] | None = None) -> int:
             max_tier=args.synthesis_max_tier,
             min_bundle_size=args.synthesis_min_bundle_size,
             allow_singletons=args.synthesis_allow_singletons,
+            merge_overlap_threshold=merge_overlap_threshold,
             config=config,
         )
         if args.synthesis_plan:

@@ -36,6 +36,14 @@ def dataflow_defaults(
     return section if isinstance(section, dict) else {}
 
 
+def synthesis_defaults(
+    root: Path | None = None, config_path: Path | None = None
+) -> dict[str, Any]:
+    data = load_config(root=root, config_path=config_path)
+    section = data.get("synthesis", {})
+    return section if isinstance(section, dict) else {}
+
+
 def merge_payload(payload: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
     merged = dict(defaults)
     for key, value in payload.items():

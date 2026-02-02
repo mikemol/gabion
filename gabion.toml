@@ -2,3 +2,6 @@
 exclude = ["in", ".venv"]
 fail_on_type_ambiguities = true
 type_audit = true
+
+[synthesis]
+merge_overlap_threshold = 0.75
