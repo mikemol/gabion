@@ -2,11 +2,8 @@ name: pr-dataflow-grammar
 
 on:
   pull_request:
-    paths:
-      - "scripts/**"
-      - "src/**"
-      - "gabion.toml"
-      - ".github/workflows/pr-dataflow-grammar.yml"
+    branches:
+      - main
 
 permissions:
   contents: read
