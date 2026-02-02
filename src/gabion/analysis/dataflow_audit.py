@@ -802,6 +802,13 @@ def _strip_type(value: str) -> str:
 
 
 def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
+    normalized_sets = []
+    for hint in types:
+        expanded = _expand_type_hint(hint)
+        normalized_sets.append(
+            tuple(sorted(t for t in expanded if t not in _NONE_TYPES))
+        )
+    unique_normalized = {norm for norm in normalized_sets if norm}
     expanded: set[str] = set()
     for hint in types:
         expanded.update(_expand_type_hint(hint))
@@ -813,12 +820,13 @@ def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
     if len(sorted_types) == 1:
         base = sorted_types[0]
         if none_types:
-            return f"Optional[{base}]", True
-        return base, len(types) > 1
+            conflicted = len(unique_normalized) > 1
+            return f"Optional[{base}]", conflicted
+        return base, len(unique_normalized) > 1
     union = f"Union[{', '.join(sorted_types)}]"
     if none_types:
-        return f"Optional[{union}]", True
-    return union, True
+        return f"Optional[{union}]", len(unique_normalized) > 1
+    return union, len(unique_normalized) > 1
 
 
 @dataclass
@@ -1155,7 +1163,7 @@ def _build_function_index(
 
 
 def _resolve_callee(
-    callee_name: str,
+    callee_key: str,
     caller: FunctionInfo,
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
@@ -1164,11 +1172,11 @@ def _resolve_callee(
     class_index: dict[str, ClassInfo] | None = None,
 ) -> FunctionInfo | None:
     # dataflow-bundle: by_name, caller
-    if not callee_name:
+    if not callee_key:
         return None
     caller_module = _module_name(caller.path, project_root=project_root)
-    candidates = by_name.get(_callee_key(callee_name), [])
-    if "." not in callee_name:
+    candidates = by_name.get(_callee_key(callee_key), [])
+    if "." not in callee_key:
         ambiguous = False
         effective_scope = list(caller.lexical_scope) + [caller.name]
         while True:
@@ -1198,18 +1206,18 @@ def _resolve_callee(
         if len(globals_only) == 1:
             return globals_only[0]
     if symbol_table is not None:
-        if "." not in callee_name:
-            if (caller_module, callee_name) in symbol_table.imports:
-                fqn = symbol_table.resolve(caller_module, callee_name)
+        if "." not in callee_key:
+            if (caller_module, callee_key) in symbol_table.imports:
+                fqn = symbol_table.resolve(caller_module, callee_key)
                 if fqn is None:
                     return None
                 if fqn in by_qual:
                     return by_qual[fqn]
-            resolved = symbol_table.resolve_star(caller_module, callee_name)
+            resolved = symbol_table.resolve_star(caller_module, callee_key)
             if resolved is not None and resolved in by_qual:
                 return by_qual[resolved]
         else:
-            parts = callee_name.split(".")
+            parts = callee_key.split(".")
             base = parts[0]
             if base in ("self", "cls"):
                 method = parts[-1]
@@ -1229,10 +1237,10 @@ def _resolve_callee(
                 if candidate in by_qual:
                     return by_qual[candidate]
     # Exact qualified name match.
-    if callee_name in by_qual:
-        return by_qual[callee_name]
-    if class_index is not None and "." in callee_name:
-        parts = callee_name.split(".")
+    if callee_key in by_qual:
+        return by_qual[callee_key]
+    if class_index is not None and "." in callee_key:
+        parts = callee_key.split(".")
         if len(parts) >= 2:
             method = parts[-1]
             class_part = ".".join(parts[:-1])
