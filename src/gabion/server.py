@@ -164,6 +164,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             max_tier=int(synthesis_max_tier),
             min_bundle_size=int(synthesis_min_bundle_size),
             allow_singletons=bool(synthesis_allow_singletons),
+            config=config,
         )
         if synthesis_plan_path:
             payload_json = json.dumps(synthesis_plan, indent=2, sort_keys=True)

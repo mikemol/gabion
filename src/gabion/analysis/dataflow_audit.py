@@ -739,14 +739,14 @@ def _resolve_callee(
     return None
 
 
-def analyze_type_flow_repo(
+def analyze_type_flow_repo_with_map(
     paths: list[Path],
     *,
     project_root: Path | None,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-) -> tuple[list[str], list[str]]:
+) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
     by_name, by_qual = _build_function_index(
         paths, project_root, ignore_params, strictness
@@ -816,7 +816,25 @@ def analyze_type_flow_repo(
                         suggestions.add(
                             f"{info.path.name}:{info.name}.{param} can tighten to {downstream_annot}"
                         )
-    return sorted(suggestions), sorted(ambiguities)
+    return inferred, sorted(suggestions), sorted(ambiguities)
+
+
+def analyze_type_flow_repo(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+) -> tuple[list[str], list[str]]:
+    inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+    )
+    return suggestions, ambiguities
 
 
 def analyze_constant_flow_repo(
@@ -1433,8 +1451,12 @@ def build_synthesis_plan(
     max_tier: int = 2,
     min_bundle_size: int = 2,
     allow_singletons: bool = False,
+    config: AuditConfig | None = None,
 ) -> dict[str, object]:
-    root = project_root or _infer_root(groups_by_path)
+    audit_config = config or AuditConfig(
+        project_root=project_root or _infer_root(groups_by_path)
+    )
+    root = project_root or audit_config.project_root or _infer_root(groups_by_path)
     counts = _bundle_counts(groups_by_path)
     if not counts:
         response = SynthesisResponse(
@@ -1447,21 +1469,46 @@ def build_synthesis_plan(
     declared = _collect_declared_bundles(root)
     bundle_tiers: dict[frozenset[str], int] = {}
     frequency: dict[str, int] = defaultdict(int)
+    bundle_fields: set[str] = set()
     for bundle, count in counts.items():
         tier = 1 if bundle in declared else (2 if count > 1 else 3)
         bundle_tiers[frozenset(bundle)] = tier
         for field in bundle:
             frequency[field] += count
+            bundle_fields.add(field)
 
     naming_context = NamingContext(frequency=dict(frequency))
-    config = SynthesisConfig(
+    synth_config = SynthesisConfig(
         max_tier=max_tier,
         min_bundle_size=min_bundle_size,
         allow_singletons=allow_singletons,
     )
-    plan = Synthesizer(config=config).plan(
+    field_types: dict[str, str] = {}
+    type_warnings: list[str] = []
+    if bundle_fields:
+        inferred, _, _ = analyze_type_flow_repo_with_map(
+            list(groups_by_path.keys()),
+            project_root=root,
+            ignore_params=audit_config.ignore_params,
+            strictness=audit_config.strictness,
+            external_filter=audit_config.external_filter,
+        )
+        type_sets: dict[str, set[str]] = defaultdict(set)
+        for annots in inferred.values():
+            for name, annot in annots.items():
+                if name not in bundle_fields or not annot:
+                    continue
+                type_sets[name].add(annot)
+        for name, types in type_sets.items():
+            if len(types) == 1:
+                field_types[name] = next(iter(types))
+            elif len(types) > 1:
+                type_warnings.append(
+                    f"Conflicting type hints for '{name}': {sorted(types)}"
+                )
+    plan = Synthesizer(config=synth_config).plan(
         bundle_tiers=bundle_tiers,
-        field_types={},
+        field_types=field_types,
         naming_context=naming_context,
     )
     response = SynthesisResponse(
@@ -1482,7 +1529,7 @@ def build_synthesis_plan(
             }
             for spec in plan.protocols
         ],
-        warnings=plan.warnings,
+        warnings=plan.warnings + type_warnings,
         errors=plan.errors,
     )
     return response.model_dump()
@@ -1974,6 +2021,7 @@ def run(argv: list[str] | None = None) -> int:
             max_tier=args.synthesis_max_tier,
             min_bundle_size=args.synthesis_min_bundle_size,
             allow_singletons=args.synthesis_allow_singletons,
+            config=config,
         )
         if args.synthesis_plan:
             payload = json.dumps(synthesis_plan, indent=2, sort_keys=True)

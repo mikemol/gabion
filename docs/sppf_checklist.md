@@ -1,5 +1,5 @@
 ---
-doc_revision: 25
+doc_revision: 26
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -42,7 +42,7 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Topological refactoring schedule (callee-first order) (prototype).
 - [x] Partial-application merge heuristics (bundle fragmentation control) (prototype).
 - [ ] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
-- [ ] Type aggregation for synthesis (from type-audit + call-site evidence).
+- [x] Type aggregation for synthesis (from type-audit + call-site evidence).
 - [ ] Const/default-aware partial-application detection (subset merge by knobs).
 
 ## LSP operational semantics
