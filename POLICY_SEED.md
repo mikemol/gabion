@@ -1,5 +1,5 @@
 ---
-doc_revision: 7
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -125,6 +125,11 @@ trusted inputs. This is a constrained exception and must follow §4.6.
 
 This invariant ensures that the repository's dataflow and semantic contract remain auditable and explicit. Any implicit parameter bundles (Tier-2) must be promoted to formal Protocols before merging, maintaining the integrity and transparency of the codebase. Enforcement is continuous and non-negotiable.
 
+**Ratchet clause (baseline mode):** A baseline may be used only to allowlist
+*existing* violations so that new violations fail. Baseline writes must be
+explicit and local; CI MUST NOT auto-write baselines. Baseline files must be
+tracked and reviewed like code.
+
 ---
 
 ## 2. Trust Boundary Definition
@@ -227,6 +232,7 @@ applies only to:
 * `pull-requests: write` (no other write scopes),
 * actions pinned to full commit SHAs and allow-listed,
 * jobs that do **not** run on self-hosted runners,
+* comments restricted to same-repo PRs only,
 * comments that are purely informational (no code execution side effects).
 
 Self-hosted workflows MUST NOT request any write scopes.

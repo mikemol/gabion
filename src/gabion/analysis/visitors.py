@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import ast
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gabion.analysis.dataflow_audit import CallArgs, ParamUse
 
 
 class ProjectVisitor(ast.NodeVisitor):
@@ -56,14 +59,14 @@ class UseVisitor(ast.NodeVisitor):
         self,
         *,
         parents: dict[ast.AST, ast.AST],
-        use_map: dict[str, object],
-        call_args: list,
+        use_map: dict[str, ParamUse],
+        call_args: list[CallArgs],
         alias_to_param: dict[str, str],
         is_test: bool,
         strictness: str,
         const_repr: Callable[[ast.AST], str | None],
         callee_name: Callable[[ast.Call], str],
-        call_args_factory: Callable[..., object],
+        call_args_factory: Callable[..., CallArgs],
         call_context: Callable[[ast.AST, dict[ast.AST, ast.AST]], tuple[ast.Call | None, bool]],
     ) -> None:
         # dataflow-bundle: alias_to_param, call_args, call_args_factory, call_context, callee_name, const_repr, is_test, parents, strictness, use_map
@@ -299,13 +302,31 @@ class UseVisitor(ast.NodeVisitor):
             slot = "arg[?]"
         self.use_map[param_name].direct_forward.add((callee, slot))
 
+    def _root_name(self, node: ast.AST) -> str | None:
+        current = node
+        while isinstance(current, (ast.Attribute, ast.Subscript)):
+            current = current.value
+        if isinstance(current, ast.Name):
+            return current.id
+        return None
+
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if not isinstance(node.ctx, ast.Load):
             return
         if not isinstance(node.value, ast.Name):
+            root_name = self._root_name(node)
+            if root_name and root_name in self.alias_to_param:
+                param_name = self.alias_to_param[root_name]
+                if param_name not in self._suspend_non_forward:
+                    self.use_map[param_name].non_forward = True
+            self.generic_visit(node)
             return
         key = (node.value.id, node.attr)
         if key not in self._attr_alias_to_param:
+            if node.value.id in self.alias_to_param:
+                param_name = self.alias_to_param[node.value.id]
+                if param_name not in self._suspend_non_forward:
+                    self.use_map[param_name].non_forward = True
             return
         param_name = self._attr_alias_to_param[key]
         if param_name in self._suspend_non_forward:
@@ -333,14 +354,30 @@ class UseVisitor(ast.NodeVisitor):
         if not isinstance(node.ctx, ast.Load):
             return
         if not isinstance(node.value, ast.Name):
+            root_name = self._root_name(node)
+            if root_name and root_name in self.alias_to_param:
+                param_name = self.alias_to_param[root_name]
+                if param_name not in self._suspend_non_forward:
+                    self.use_map[param_name].non_forward = True
+            self.generic_visit(node)
             return
         key_value = None
         if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
             key_value = node.slice.value
         if key_value is None:
+            if node.value.id in self.alias_to_param:
+                param_name = self.alias_to_param[node.value.id]
+                if param_name not in self._suspend_non_forward:
+                    self.use_map[param_name].non_forward = True
+            self.visit(node.slice)
             return
         key = (node.value.id, key_value)
         if key not in self._key_alias_to_param:
+            if node.value.id in self.alias_to_param:
+                param_name = self.alias_to_param[node.value.id]
+                if param_name not in self._suspend_non_forward:
+                    self.use_map[param_name].non_forward = True
+            self.visit(node.slice)
             return
         param_name = self._key_alias_to_param[key]
         if param_name in self._suspend_non_forward:

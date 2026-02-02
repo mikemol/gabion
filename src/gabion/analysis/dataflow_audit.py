@@ -19,6 +19,7 @@ import argparse
 import ast
 import json
 import os
+import sys
 from collections import defaultdict, deque
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -105,6 +106,7 @@ class AuditConfig:
     ignore_params: set[str] = field(default_factory=set)
     external_filter: bool = True
     strictness: str = "high"
+    transparent_decorators: set[str] | None = None
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -176,6 +178,49 @@ def _collect_functions(tree: ast.AST):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             funcs.append(node)
     return funcs
+
+
+def _decorator_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parts: list[str] = []
+        current: ast.AST = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            return ".".join(reversed(parts))
+        return None
+    if isinstance(node, ast.Call):
+        return _decorator_name(node.func)
+    return None
+
+
+def _decorator_matches(name: str, allowlist: set[str]) -> bool:
+    if name in allowlist:
+        return True
+    if "." in name and name.split(".")[-1] in allowlist:
+        return True
+    return False
+
+
+def _decorators_transparent(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    transparent_decorators: set[str] | None,
+) -> bool:
+    if not fn.decorator_list:
+        return True
+    if not transparent_decorators:
+        return True
+    for deco in fn.decorator_list:
+        name = _decorator_name(deco)
+        if not name:
+            return False
+        if not _decorator_matches(name, transparent_decorators):
+            return False
+    return True
 
 
 def _collect_local_class_bases(
@@ -405,6 +450,36 @@ def _const_repr(node: ast.AST) -> str | None:
     return None
 
 
+def _type_from_const_repr(value: str) -> str | None:
+    try:
+        literal = ast.literal_eval(value)
+    except Exception:
+        return None
+    if literal is None:
+        return "None"
+    if isinstance(literal, bool):
+        return "bool"
+    if isinstance(literal, int):
+        return "int"
+    if isinstance(literal, float):
+        return "float"
+    if isinstance(literal, complex):
+        return "complex"
+    if isinstance(literal, str):
+        return "str"
+    if isinstance(literal, bytes):
+        return "bytes"
+    if isinstance(literal, list):
+        return "list"
+    if isinstance(literal, tuple):
+        return "tuple"
+    if isinstance(literal, set):
+        return "set"
+    if isinstance(literal, dict):
+        return "dict"
+    return None
+
+
 def _is_test_path(path: Path) -> bool:
     if "tests" in path.parts:
         return True
@@ -490,9 +565,12 @@ def _propagate_groups(
     callee_groups: dict[str, list[set[str]]],
     callee_param_orders: dict[str, list[str]],
     strictness: str,
+    opaque_callees: set[str] | None = None,
 ) -> list[set[str]]:
     groups: list[set[str]] = []
     for call in call_args:
+        if opaque_callees and call.callee in opaque_callees:
+            continue
         if call.callee not in callee_groups:
             continue
         callee_params = callee_param_orders[call.callee]
@@ -545,11 +623,14 @@ def analyze_file(
     fn_names: dict[str, str] = {}
     fn_lexical_scopes: dict[str, tuple[str, ...]] = {}
     fn_class_names: dict[str, str | None] = {}
+    opaque_callees: set[str] = set()
     for f in funcs:
         class_name = _enclosing_class(f, parents)
         scopes = _enclosing_scopes(f, parents)
         lexical_scopes = _enclosing_function_scopes(f, parents)
         fn_key = _function_key(scopes, f.name)
+        if not _decorators_transparent(f, config.transparent_decorators):
+            opaque_callees.add(fn_key)
         use_map, call_args = _analyze_function(
             f,
             parents,
@@ -652,6 +733,7 @@ def analyze_file(
                 groups_by_fn,
                 fn_param_orders,
                 config.strictness,
+                opaque_callees,
             )
             if not propagated:
                 continue
@@ -720,6 +802,13 @@ def _strip_type(value: str) -> str:
 
 
 def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
+    normalized_sets = []
+    for hint in types:
+        expanded = _expand_type_hint(hint)
+        normalized_sets.append(
+            tuple(sorted(t for t in expanded if t not in _NONE_TYPES))
+        )
+    unique_normalized = {norm for norm in normalized_sets if norm}
     expanded: set[str] = set()
     for hint in types:
         expanded.update(_expand_type_hint(hint))
@@ -731,12 +820,13 @@ def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
     if len(sorted_types) == 1:
         base = sorted_types[0]
         if none_types:
-            return f"Optional[{base}]", True
-        return base, len(types) > 1
+            conflicted = len(unique_normalized) > 1
+            return f"Optional[{base}]", conflicted
+        return base, len(unique_normalized) > 1
     union = f"Union[{', '.join(sorted_types)}]"
     if none_types:
-        return f"Optional[{union}]", True
-    return union, True
+        return f"Optional[{union}]", len(unique_normalized) > 1
+    return union, len(unique_normalized) > 1
 
 
 @dataclass
@@ -748,6 +838,7 @@ class FunctionInfo:
     annots: dict[str, str | None]
     calls: list[CallArgs]
     unused_params: set[str]
+    transparent: bool = True
     class_name: str | None = None
     scope: tuple[str, ...] = ()
     lexical_scope: tuple[str, ...] = ()
@@ -1019,6 +1110,7 @@ def _build_function_index(
     project_root: Path | None,
     ignore_params: set[str],
     strictness: str,
+    transparent_decorators: set[str] | None = None,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
     by_name: dict[str, list[FunctionInfo]] = defaultdict(list)
     by_qual: dict[str, FunctionInfo] = {}
@@ -1060,6 +1152,7 @@ def _build_function_index(
                 annots=_param_annotations(fn, ignore_params),
                 calls=call_args,
                 unused_params=unused_params,
+                transparent=_decorators_transparent(fn, transparent_decorators),
                 class_name=class_name,
                 scope=tuple(scopes),
                 lexical_scope=tuple(lexical_scopes),
@@ -1070,7 +1163,7 @@ def _build_function_index(
 
 
 def _resolve_callee(
-    callee_name: str,
+    callee_key: str,
     caller: FunctionInfo,
     by_name: dict[str, list[FunctionInfo]],
     by_qual: dict[str, FunctionInfo],
@@ -1079,11 +1172,11 @@ def _resolve_callee(
     class_index: dict[str, ClassInfo] | None = None,
 ) -> FunctionInfo | None:
     # dataflow-bundle: by_name, caller
-    if not callee_name:
+    if not callee_key:
         return None
     caller_module = _module_name(caller.path, project_root=project_root)
-    candidates = by_name.get(_callee_key(callee_name), [])
-    if "." not in callee_name:
+    candidates = by_name.get(_callee_key(callee_key), [])
+    if "." not in callee_key:
         ambiguous = False
         effective_scope = list(caller.lexical_scope) + [caller.name]
         while True:
@@ -1106,23 +1199,25 @@ def _resolve_callee(
         globals_only = [
             info
             for info in candidates
-            if not info.lexical_scope and not (info.class_name and not info.lexical_scope)
+            if not info.lexical_scope
+            and not (info.class_name and not info.lexical_scope)
+            and info.path == caller.path
         ]
         if len(globals_only) == 1:
             return globals_only[0]
     if symbol_table is not None:
-        if "." not in callee_name:
-            if (caller_module, callee_name) in symbol_table.imports:
-                fqn = symbol_table.resolve(caller_module, callee_name)
+        if "." not in callee_key:
+            if (caller_module, callee_key) in symbol_table.imports:
+                fqn = symbol_table.resolve(caller_module, callee_key)
                 if fqn is None:
                     return None
                 if fqn in by_qual:
                     return by_qual[fqn]
-            resolved = symbol_table.resolve_star(caller_module, callee_name)
+            resolved = symbol_table.resolve_star(caller_module, callee_key)
             if resolved is not None and resolved in by_qual:
                 return by_qual[resolved]
         else:
-            parts = callee_name.split(".")
+            parts = callee_key.split(".")
             base = parts[0]
             if base in ("self", "cls"):
                 method = parts[-1]
@@ -1142,10 +1237,10 @@ def _resolve_callee(
                 if candidate in by_qual:
                     return by_qual[candidate]
     # Exact qualified name match.
-    if callee_name in by_qual:
-        return by_qual[callee_name]
-    if class_index is not None and "." in callee_name:
-        parts = callee_name.split(".")
+    if callee_key in by_qual:
+        return by_qual[callee_key]
+    if class_index is not None and "." in callee_key:
+        parts = callee_key.split(".")
         if len(parts) >= 2:
             method = parts[-1]
             class_part = ".".join(parts[:-1])
@@ -1174,42 +1269,6 @@ def _resolve_callee(
                 )
                 if resolved is not None:
                     return resolved
-    # If call uses module.func, try match by module suffix.
-    if "." in callee_name:
-        parts = callee_name.split(".")
-        func = parts[-1]
-        module = ".".join(parts[:-1])
-        candidates = [
-            info
-            for info in by_name.get(func, [])
-            if info.qual.endswith(f"{module}.{func}")
-        ]
-        if len(candidates) == 1:
-            return candidates[0]
-        # If caller's module matches a candidate, prefer it.
-        same_module = [
-            info
-            for info in candidates
-            if info.path == caller.path
-        ]
-        if len(same_module) == 1:
-            return same_module[0]
-        return None
-    # Fallback: unique function name across repo.
-    candidates = [info for info in by_name.get(callee_name, []) if info.class_name is None]
-    if len(candidates) == 1:
-        return candidates[0]
-    # Prefer same-module definition when ambiguous.
-    same_module = [info for info in candidates if info.path == caller.path]
-    if len(same_module) == 1:
-        return same_module[0]
-    # If callee is self.foo/cls.foo, prefer same-module foo.
-    if callee_name.startswith(("self.", "cls.")):
-        func = callee_name.split(".")[-1]
-        if caller.class_name:
-            candidate = f"{caller_module}.{caller.class_name}.{func}"
-            if candidate in by_qual:
-                return by_qual[candidate]
     return None
 
 
@@ -1220,10 +1279,15 @@ def analyze_type_flow_repo_with_map(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
     by_name, by_qual = _build_function_index(
-        paths, project_root, ignore_params, strictness
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
@@ -1258,6 +1322,8 @@ def analyze_type_flow_repo_with_map(
                         class_index,
                     )
                     if callee is None:
+                        continue
+                    if not callee.transparent:
                         continue
                     callee_params = callee.params
                     mapped_params: set[str] = set()
@@ -1320,6 +1386,7 @@ def analyze_type_flow_repo(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> tuple[list[str], list[str]]:
     inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
         paths,
@@ -1327,6 +1394,7 @@ def analyze_type_flow_repo(
         ignore_params=ignore_params,
         strictness=strictness,
         external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
     )
     return suggestions, ambiguities
 
@@ -1338,10 +1406,15 @@ def analyze_constant_flow_repo(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
     by_name, by_qual = _build_function_index(
-        paths, project_root, ignore_params, strictness
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
@@ -1366,6 +1439,8 @@ def analyze_constant_flow_repo(
                     class_index,
                 )
                 if callee is None:
+                    continue
+                if not callee.transparent:
                     continue
                 callee_params = callee.params
                 mapped_params = set()
@@ -1468,10 +1543,15 @@ def analyze_unused_arg_flow_repo(
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
     by_name, by_qual = _build_function_index(
-        paths, project_root, ignore_params, strictness
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
@@ -1506,6 +1586,8 @@ def analyze_unused_arg_flow_repo(
                     class_index,
                 )
                 if callee is None:
+                    continue
+                if not callee.transparent:
                     continue
                 if not callee.unused_params:
                     continue
@@ -1641,6 +1723,15 @@ def _iter_config_fields(path: Path) -> dict[str, set[str]]:
         if fields:
             bundles[node.name] = fields
     return bundles
+
+
+def _collect_config_bundles(paths: list[Path]) -> dict[Path, dict[str, set[str]]]:
+    bundles_by_path: dict[Path, dict[str, set[str]]] = {}
+    for path in paths:
+        bundles = _iter_config_fields(path)
+        if bundles:
+            bundles_by_path[path] = bundles
+    return bundles_by_path
 
 
 _BUNDLE_MARKER = re.compile(r"dataflow-bundle:\s*(.*)")
@@ -1935,22 +2026,29 @@ def _render_mermaid_component(
         parts = n.split("::", 2)
         if len(parts) == 3:
             component_paths.add(Path(parts[1]))
-    declared = set()
+    declared_global = set()
+    for bundles in config_bundles_by_path.values():
+        for fields in bundles.values():
+            declared_global.add(tuple(sorted(fields)))
+    declared_local = set()
     documented = set()
     for path in component_paths:
-        config_path = path.parent / "config.py"
-        bundles = config_bundles_by_path.get(config_path)
+        bundles = config_bundles_by_path.get(path)
         if bundles:
             for fields in bundles.values():
-                declared.add(tuple(sorted(fields)))
+                declared_local.add(tuple(sorted(fields)))
         documented |= documented_bundles_by_path.get(path, set())
     observed_norm = {tuple(sorted(b)) for b in observed}
-    observed_only = sorted(observed_norm - declared) if declared else sorted(observed_norm)
-    declared_only = sorted(declared - observed_norm)
+    observed_only = (
+        sorted(observed_norm - declared_global)
+        if declared_global
+        else sorted(observed_norm)
+    )
+    declared_only = sorted(declared_local - observed_norm)
     documented_only = sorted(observed_norm & documented)
     def _tier(bundle: tuple[str, ...]) -> str:
         count = bundle_counts.get(bundle, 1)
-        if declared:
+        if bundle in declared_global:
             return "tier-1"
         if count > 1:
             return "tier-2"
@@ -1959,7 +2057,7 @@ def _render_mermaid_component(
         f"Functions: {len(fn_nodes)}",
         f"Observed bundles: {len(observed_norm)}",
     ]
-    if not declared:
+    if not declared_local:
         summary_lines.append("Declared Config bundles: none found for this component.")
     if observed_only:
         summary_lines.append("Observed-only bundles (not declared in Configs):")
@@ -1997,14 +2095,9 @@ def _emit_report(
         root = Path(common)
     else:
         root = Path(".")
-    config_bundles_by_path = {}
-    documented_bundles_by_path = {}
-    for path in sorted(root.rglob("config.py")):
-        config_bundles_by_path[path] = _iter_config_fields(path)
-    protocols = root / "prism_vm_core" / "protocols.py"
-    if protocols.exists():
-        config_bundles_by_path[protocols] = _iter_config_fields(protocols)
     file_paths = sorted(root.rglob("*.py"))
+    config_bundles_by_path = _collect_config_bundles(file_paths)
+    documented_bundles_by_path = {}
     symbol_table = _build_symbol_table(
         file_paths,
         root,
@@ -2110,12 +2203,10 @@ def _bundle_counts(
 
 def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     declared: set[tuple[str, ...]] = set()
-    for path in sorted(root.rglob("config.py")):
-        for fields in _iter_config_fields(path).values():
-            declared.add(tuple(sorted(fields)))
-    protocols = root / "prism_vm_core" / "protocols.py"
-    if protocols.exists():
-        for fields in _iter_config_fields(protocols).values():
+    file_paths = sorted(root.rglob("*.py"))
+    bundles_by_path = _collect_config_bundles(file_paths)
+    for bundles in bundles_by_path.values():
+        for fields in bundles.values():
             declared.add(tuple(sorted(fields)))
     return declared
 
@@ -2187,6 +2278,7 @@ def build_synthesis_plan(
             ignore_params=audit_config.ignore_params,
             strictness=audit_config.strictness,
             external_filter=audit_config.external_filter,
+            transparent_decorators=audit_config.transparent_decorators,
         )
         type_sets: dict[str, set[str]] = defaultdict(set)
         for annots in inferred.values():
@@ -2194,6 +2286,55 @@ def build_synthesis_plan(
                 if name not in bundle_fields or not annot:
                     continue
                 type_sets[name].add(annot)
+        by_name, by_qual = _build_function_index(
+            list(groups_by_path.keys()),
+            root,
+            audit_config.ignore_params,
+            audit_config.strictness,
+            audit_config.transparent_decorators,
+        )
+        symbol_table = _build_symbol_table(
+            list(groups_by_path.keys()),
+            root,
+            external_filter=audit_config.external_filter,
+        )
+        class_index = _collect_class_index(list(groups_by_path.keys()), root)
+        for infos in by_name.values():
+            for info in infos:
+                for call in info.calls:
+                    if call.is_test:
+                        continue
+                    callee = _resolve_callee(
+                        call.callee,
+                        info,
+                        by_name,
+                        by_qual,
+                        symbol_table,
+                        root,
+                        class_index,
+                    )
+                    if callee is None or not callee.transparent:
+                        continue
+                    callee_params = callee.params
+                    for idx_str, value in call.const_pos.items():
+                        try:
+                            idx = int(idx_str)
+                        except ValueError:
+                            continue
+                        if idx >= len(callee_params):
+                            continue
+                        param = callee_params[idx]
+                        if param not in bundle_fields:
+                            continue
+                        hint = _type_from_const_repr(value)
+                        if hint:
+                            type_sets[param].add(hint)
+                    for kw, value in call.const_kw.items():
+                        if kw not in callee_params or kw not in bundle_fields:
+                            continue
+                        hint = _type_from_const_repr(value)
+                        if hint:
+                            type_sets[kw].add(hint)
         for name, types in type_sets.items():
             if not types:
                 continue
@@ -2349,7 +2490,11 @@ def build_refactor_plan(
         return {"bundles": [], "warnings": ["No files available for refactor plan."]}
 
     by_name, by_qual = _build_function_index(
-        file_paths, config.project_root, config.ignore_params, config.strictness
+        file_paths,
+        config.project_root,
+        config.ignore_params,
+        config.strictness,
+        config.transparent_decorators,
     )
     symbol_table = _build_symbol_table(
         file_paths, config.project_root, external_filter=config.external_filter
@@ -2388,6 +2533,8 @@ def build_refactor_plan(
                     class_index,
                 )
                 if callee is None:
+                    continue
+                if not callee.transparent:
                     continue
                 if callee.qual in comp:
                     deps[info.qual].add(callee.qual)
@@ -2504,6 +2651,70 @@ def _compute_violations(
     return violations
 
 
+def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+    if not path:
+        return None
+    baseline = Path(path)
+    if not baseline.is_absolute():
+        baseline = root / baseline
+    return baseline
+
+
+def _load_baseline(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    try:
+        raw = path.read_text()
+    except OSError:
+        return set()
+    entries: set[str] = set()
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        entries.add(line)
+    return entries
+
+
+def _write_baseline(path: Path, violations: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    unique = sorted(set(violations))
+    header = [
+        "# gabion baseline (ratchet)",
+        "# Lines list known violations to allow; new ones should fail.",
+        "",
+    ]
+    path.write_text("\n".join(header + unique) + "\n")
+
+
+def _apply_baseline(
+    violations: list[str], baseline: set[str]
+) -> tuple[list[str], list[str]]:
+    if not baseline:
+        return violations, []
+    new = [line for line in violations if line not in baseline]
+    suppressed = [line for line in violations if line in baseline]
+    return new, suppressed
+
+
+def resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+    return _resolve_baseline_path(path, root)
+
+
+def load_baseline(path: Path) -> set[str]:
+    return _load_baseline(path)
+
+
+def write_baseline(path: Path, violations: list[str]) -> None:
+    _write_baseline(path, violations)
+
+
+def apply_baseline(
+    violations: list[str], baseline: set[str]
+) -> tuple[list[str], list[str]]:
+    return _apply_baseline(violations, baseline)
+
+
 def render_dot(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> str:
     return _emit_dot(groups_by_path)
 
@@ -2572,6 +2783,7 @@ def analyze_paths(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
         )
         if type_audit_report:
             type_suggestions = type_suggestions[:type_audit_max]
@@ -2585,6 +2797,7 @@ def analyze_paths(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
         )
 
     unused_arg_smells: list[str] = []
@@ -2595,6 +2808,7 @@ def analyze_paths(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
         )
 
     return AnalysisResult(
@@ -2622,6 +2836,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ignore-params",
         default=None,
         help="Comma-separated parameter names to ignore.",
+    )
+    parser.add_argument(
+        "--transparent-decorators",
+        default=None,
+        help="Comma-separated decorator names treated as transparent.",
     )
     parser.add_argument(
         "--allow-external",
@@ -2664,6 +2883,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fail-on-violations",
         action="store_true",
         help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
+    )
+    parser.add_argument(
+        "--baseline",
+        default=None,
+        help="Baseline file of violations to allow (ratchet mode).",
+    )
+    parser.add_argument(
+        "--baseline-write",
+        action="store_true",
+        help="Write the current violations to the baseline file and exit zero.",
     )
     parser.add_argument(
         "--synthesis-plan",
@@ -2716,6 +2945,23 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _normalize_transparent_decorators(
+    value: object,
+) -> set[str] | None:
+    if value is None:
+        return None
+    items: list[str] = []
+    if isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                items.extend([part.strip() for part in item.split(",") if part.strip()])
+    if not items:
+        return None
+    return set(items)
+
+
 def run(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -2732,6 +2978,11 @@ def run(argv: list[str] | None = None) -> int:
     ignore_params: list[str] | None = None
     if args.ignore_params is not None:
         ignore_params = [p.strip() for p in args.ignore_params.split(",") if p.strip()]
+    transparent_decorators: list[str] | None = None
+    if args.transparent_decorators is not None:
+        transparent_decorators = [
+            p.strip() for p in args.transparent_decorators.split(",") if p.strip()
+        ]
     config_path = Path(args.config) if args.config else None
     defaults = dataflow_defaults(Path(args.root), config_path)
     merged = merge_payload(
@@ -2740,6 +2991,8 @@ def run(argv: list[str] | None = None) -> int:
             "ignore_params": ignore_params,
             "allow_external": args.allow_external,
             "strictness": args.strictness,
+            "baseline": args.baseline,
+            "transparent_decorators": transparent_decorators,
         },
         defaults,
     )
@@ -2749,13 +3002,22 @@ def run(argv: list[str] | None = None) -> int:
     strictness = merged.get("strictness") or "high"
     if strictness not in {"high", "low"}:
         strictness = "high"
+    transparent_decorators = _normalize_transparent_decorators(
+        merged.get("transparent_decorators")
+    )
     config = AuditConfig(
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,
         ignore_params=ignore_params_set,
         external_filter=not allow_external,
         strictness=strictness,
+        transparent_decorators=transparent_decorators,
     )
+    baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
+    baseline_write = args.baseline_write
+    if baseline_write and baseline_path is None:
+        print("Baseline path required for --baseline-write.", file=sys.stderr)
+        return 2
     paths = _iter_paths(args.paths, config)
     analysis = analyze_paths(
         paths,
@@ -2838,6 +3100,27 @@ def run(argv: list[str] | None = None) -> int:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
         )
+        suppressed: list[str] = []
+        new_violations = violations
+        if baseline_path is not None:
+            baseline_entries = _load_baseline(baseline_path)
+            if baseline_write:
+                _write_baseline(baseline_path, violations)
+                baseline_entries = set(violations)
+                new_violations = []
+            else:
+                new_violations, suppressed = _apply_baseline(
+                    violations, baseline_entries
+                )
+            report = (
+                report
+                + "\n\nBaseline/Ratchet:\n```\n"
+                + f"Baseline: {baseline_path}\n"
+                + f"Baseline entries: {len(baseline_entries)}\n"
+                + f"Suppressed: {len(suppressed)}\n"
+                + f"New violations: {len(new_violations)}\n"
+                + "```\n"
+            )
         if synthesis_plan and (
             args.synthesis_report or args.synthesis_plan or args.synthesis_protocols
         ):
@@ -2846,7 +3129,10 @@ def run(argv: list[str] | None = None) -> int:
             report = report + render_refactor_plan(refactor_plan)
         Path(args.report).write_text(report)
         if args.fail_on_violations and violations:
-            return 1
+            if baseline_write:
+                return 0
+            if new_violations:
+                return 1
         return 0
     for path, groups in analysis.groups_by_path.items():
         print(f"# {path}")
@@ -2866,7 +3152,15 @@ def run(argv: list[str] | None = None) -> int:
             type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
         )
-        if violations:
+        if baseline_path is not None:
+            baseline_entries = _load_baseline(baseline_path)
+            if baseline_write:
+                _write_baseline(baseline_path, violations)
+                return 0
+            new_violations, _ = _apply_baseline(violations, baseline_entries)
+            if new_violations:
+                return 1
+        elif violations:
             return 1
     return 0
 

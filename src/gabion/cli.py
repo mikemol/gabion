@@ -35,8 +35,17 @@ def check(
     fail_on_violations: bool = typer.Option(True, "--fail-on-violations/--no-fail-on-violations"),
     root: Path = typer.Option(Path("."), "--root"),
     config: Optional[Path] = typer.Option(None, "--config"),
+    baseline: Optional[Path] = typer.Option(
+        None, "--baseline", help="Baseline file of allowed violations."
+    ),
+    baseline_write: bool = typer.Option(
+        False, "--baseline-write", help="Write current violations to baseline."
+    ),
     exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
     ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators: Optional[str] = typer.Option(
+        None, "--transparent-decorators"
+    ),
     allow_external: Optional[bool] = typer.Option(
         None, "--allow-external/--no-allow-external"
     ),
@@ -56,6 +65,11 @@ def check(
     ignore_list: list[str] | None = None
     if ignore_params is not None:
         ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
+    transparent_list: list[str] | None = None
+    if transparent_decorators is not None:
+        transparent_list = [
+            p.strip() for p in transparent_decorators.split(",") if p.strip()
+        ]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
     payload = {
@@ -65,8 +79,11 @@ def check(
         "fail_on_type_ambiguities": fail_on_type_ambiguities,
         "root": str(root),
         "config": str(config) if config is not None else None,
+        "baseline": str(baseline) if baseline is not None else None,
+        "baseline_write": baseline_write if baseline is not None else None,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
+        "transparent_decorators": transparent_list,
         "allow_external": allow_external,
         "strictness": strictness,
         "type_audit": True if fail_on_type_ambiguities else None,
@@ -92,6 +109,11 @@ def _dataflow_audit(
     ignore_list: list[str] | None = None
     if opts.ignore_params is not None:
         ignore_list = [p.strip() for p in opts.ignore_params.split(",") if p.strip()]
+    transparent_list: list[str] | None = None
+    if opts.transparent_decorators is not None:
+        transparent_list = [
+            p.strip() for p in opts.transparent_decorators.split(",") if p.strip()
+        ]
     payload: dict[str, Any] = {
         "paths": [str(p) for p in opts.paths],
         "root": str(opts.root),
@@ -99,6 +121,8 @@ def _dataflow_audit(
         "report": str(opts.report) if opts.report else None,
         "dot": opts.dot,
         "fail_on_violations": opts.fail_on_violations,
+        "baseline": str(opts.baseline) if opts.baseline else None,
+        "baseline_write": opts.baseline_write if opts.baseline else None,
         "no_recursive": opts.no_recursive,
         "max_components": opts.max_components,
         "type_audit": opts.type_audit,
@@ -106,6 +130,7 @@ def _dataflow_audit(
         "type_audit_max": opts.type_audit_max,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
+        "transparent_decorators": transparent_list,
         "allow_external": opts.allow_external,
         "strictness": opts.strictness,
         "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
@@ -162,8 +187,19 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
     parser.add_argument("paths", nargs="+")
     parser.add_argument("--root", default=".")
     parser.add_argument("--config", default=None)
+    parser.add_argument("--baseline", default=None, help="Baseline file for violations.")
+    parser.add_argument(
+        "--baseline-write",
+        action="store_true",
+        help="Write current violations to baseline file.",
+    )
     parser.add_argument("--exclude", action="append", default=None)
     parser.add_argument("--ignore-params", default=None)
+    parser.add_argument(
+        "--transparent-decorators",
+        default=None,
+        help="Comma-separated decorator names treated as transparent.",
+    )
     parser.add_argument(
         "--allow-external",
         action=argparse.BooleanOptionalAction,
@@ -284,6 +320,9 @@ def synth(
     config: Optional[Path] = typer.Option(None, "--config"),
     exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
     ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators: Optional[str] = typer.Option(
+        None, "--transparent-decorators"
+    ),
     allow_external: Optional[bool] = typer.Option(
         None, "--allow-external/--no-allow-external"
     ),
@@ -318,6 +357,11 @@ def synth(
     ignore_list: list[str] | None = None
     if ignore_params is not None:
         ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
+    transparent_list: list[str] | None = None
+    if transparent_decorators is not None:
+        transparent_list = [
+            p.strip() for p in transparent_decorators.split(",") if p.strip()
+        ]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
     if synthesis_protocols_kind not in {"dataclass", "protocol"}:
@@ -353,6 +397,7 @@ def synth(
         "type_audit_max": type_audit_max,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
+        "transparent_decorators": transparent_list,
         "allow_external": allow_external,
         "strictness": strictness,
         "synthesis_plan": str(plan_path),

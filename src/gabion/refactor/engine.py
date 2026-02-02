@@ -52,9 +52,9 @@ class RefactorEngine:
 
         protocol_base: cst.CSTNode
         import_stmt: cst.SimpleStatementLine | None = None
-        if _has_module_import(body, "typing"):
+        if _has_typing_import(body):
             protocol_base = cst.Attribute(cst.Name("typing"), cst.Name("Protocol"))
-        elif _has_import_from(body, "typing", "Protocol"):
+        elif _has_typing_protocol_import(body):
             protocol_base = cst.Name("Protocol")
         else:
             protocol_base = cst.Name("Protocol")
@@ -128,7 +128,6 @@ class RefactorEngine:
                 new_module,
                 file_path=path,
                 target_path=path,
-                project_root=self.project_root,
                 target_module=target_module,
                 protocol_name=protocol,
                 bundle_fields=bundle_fields,
@@ -223,7 +222,7 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
     return None
 
 
-def _has_module_import(body: list[cst.CSTNode], module_name: str) -> bool:
+def _has_typing_import(body: list[cst.CSTNode]) -> bool:
     for stmt in body:
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
@@ -231,17 +230,17 @@ def _has_module_import(body: list[cst.CSTNode], module_name: str) -> bool:
             if isinstance(item, cst.Import):
                 for alias in item.names:
                     if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                        if alias.name.value == module_name:
+                        if alias.name.value == "typing":
                             return True
                     if isinstance(alias, cst.ImportAlias) and isinstance(
                         alias.name, cst.Attribute
                     ):
-                        if _module_expr_to_str(alias.name) == module_name:
+                        if _module_expr_to_str(alias.name) == "typing":
                             return True
     return False
 
 
-def _has_import_from(body: list[cst.CSTNode], module_name: str, name: str) -> bool:
+def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
     for stmt in body:
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
@@ -249,11 +248,11 @@ def _has_import_from(body: list[cst.CSTNode], module_name: str, name: str) -> bo
             if not isinstance(item, cst.ImportFrom):
                 continue
             module = _module_expr_to_str(item.module)
-            if module != module_name:
+            if module != "typing":
                 continue
             for alias in item.names:
                 if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
-                    if alias.name.value == name:
+                    if alias.name.value == "Protocol":
                         return True
     return False
 
@@ -303,7 +302,6 @@ def _rewrite_call_sites(
     *,
     file_path: Path,
     target_path: Path,
-    project_root: Path | None,
     target_module: str,
     protocol_name: str,
     bundle_fields: list[str],
@@ -413,7 +411,6 @@ def _rewrite_call_sites_in_project(
             module,
             file_path=path,
             target_path=target_path,
-            project_root=project_root,
             target_module=target_module,
             protocol_name=protocol_name,
             bundle_fields=bundle_fields,
@@ -445,6 +442,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         bundle_fields: list[str],
         protocol_hint: str,
     ) -> None:
+        # dataflow-bundle: bundle_fields, protocol_hint, targets
         self.targets = targets
         self.bundle_fields = bundle_fields
         self.protocol_hint = protocol_hint
@@ -623,6 +621,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
         bundle_fields: list[str],
         constructor_expr: cst.BaseExpression,
     ) -> None:
+        # dataflow-bundle: bundle_fields, constructor_expr, file_is_target, imported_targets, module_aliases, target_methods, target_simple
         self.file_is_target = file_is_target
         self.target_simple = target_simple
         self.target_methods = target_methods

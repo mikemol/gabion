@@ -1,5 +1,5 @@
 ---
-doc_revision: 50
+doc_revision: 59
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -39,12 +39,12 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
   auto-sync on `stage` pushes via the pre-push hook.
 
 ## Analysis pipeline nodes
-- [~] Import resolution / symbol table (deterministic callee resolution). (GH-6)
+- [x] Import resolution / symbol table (deterministic callee resolution). (GH-6)
 - [x] Import resolution: explicit imports + relative import handling.
 - [x] Import resolution: star-import expansion.
 - [x] Import resolution: re-exports / `__all__` handling.
 - [x] Import resolution: class hierarchy dispatch resolution.
-- [~] Alias-aware identity tracking (rename morphisms preserved). (GH-7)
+- [x] Alias-aware identity tracking (rename morphisms preserved). (GH-7)
 - [x] Alias tracking: direct Name-to-Name assignments.
 - [x] Alias tracking: tuple/sequence unpacking.
 - [x] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
@@ -59,7 +59,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Constant-flow audit (dead knobs / always-constant params).
 - [x] Unused-argument pass detection (non-test call sites).
-- [ ] Analysis: Decorator transparency/unwrapping. (GH-9)
+- [x] Analysis: Decorator transparency/unwrapping. (GH-9)
 - [ ] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
 
 ## Reporting & visualization nodes
@@ -67,7 +67,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Mermaid component diagrams embedded in Markdown report.
 - [x] DOT/Graphviz output for bundle graphs.
 - [x] Tiered bundle classification (declared vs. observed) + violation listing.
-- [~] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls). (GH-10)
+- [x] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls). (GH-10)
 - [x] Bundle declarations: `dataflow-bundle` markers.
 - [x] Bundle declarations: local dataclass constructor calls (Name-only args).
 - [x] Bundle declarations: general dataclass fields beyond `_fn` convention.
@@ -75,19 +75,19 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Bundle declarations: external dataclass modules (cross-file).
 
 ## Synthesis + refactoring nodes
-- [~] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
+- [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
 - [x] Synthesis output: dataclass stubs with field typing.
 - [x] Synthesis output: typing.Protocol interface stubs.
 - [x] Synthesis typing: resolve conflicts into `Union`/`Optional`.
 - [x] Naming heuristics (frequency-based) (prototype).
-- [~] Topological refactoring schedule (callee-first order) (prototype). (GH-12)
+- [x] Topological refactoring schedule (callee-first order) (prototype). (GH-12)
 - [x] Refactor schedule: basic topological order.
 - [x] Refactor schedule: SCC-based cycle detection (explicit knots).
-- [~] Partial-application merge heuristics (bundle fragmentation control) (prototype). (GH-13)
+- [x] Partial-application merge heuristics (bundle fragmentation control) (prototype). (GH-13)
 - [x] Bundle merge heuristic: Jaccard overlap merge function.
 - [x] Bundle merge heuristic: integrated into synthesis/refactor pipeline.
 - [x] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
-- [~] Type aggregation for synthesis (from type-audit + call-site evidence). (GH-14)
+- [x] Type aggregation for synthesis (from type-audit + call-site evidence). (GH-14)
 - [x] Type aggregation: single-type consensus assignment.
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
@@ -108,7 +108,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Policy check script references.
 - [x] Hook installer.
 - [x] Doer/Judge/Witness framing (optional).
-- [ ] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
+- [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).

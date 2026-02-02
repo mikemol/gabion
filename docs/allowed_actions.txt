@@ -1,0 +1,7 @@
+# Allow-listed GitHub Actions (owner/repo).
+# Keep in sync with GitHub Actions allow-list settings and policy checks.
+actions/checkout
+actions/setup-python
+actions/upload-artifact
+jdx/mise-action
+pypa/gh-action-pypi-publish

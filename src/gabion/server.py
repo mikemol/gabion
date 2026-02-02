@@ -23,14 +23,18 @@ from lsprotocol.types import (
 from gabion.analysis import (
     AuditConfig,
     analyze_paths,
+    apply_baseline,
     compute_violations,
     build_refactor_plan,
     build_synthesis_plan,
+    load_baseline,
     render_dot,
     render_protocol_stubs,
     render_refactor_plan,
     render_report,
     render_synthesis_section,
+    resolve_baseline_path,
+    write_baseline,
 )
 from gabion.config import dataflow_defaults, merge_payload
 from gabion.refactor import (
@@ -58,6 +62,21 @@ def _uri_to_path(uri: str) -> Path:
     if parsed.scheme == "file":
         return Path(unquote(parsed.path))
     return Path(uri)
+
+
+def _normalize_transparent_decorators(value: object) -> set[str] | None:
+    if value is None:
+        return None
+    items: list[str] = []
+    if isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                items.extend([part.strip() for part in item.split(",") if part.strip()])
+    if not items:
+        return None
+    return set(items)
 
 
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
@@ -128,6 +147,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     ignore_params = set(payload.get("ignore_params", []))
     allow_external = payload.get("allow_external", False)
     strictness = payload.get("strictness", "high")
+    transparent_decorators = _normalize_transparent_decorators(
+        payload.get("transparent_decorators")
+    )
+    baseline_path = resolve_baseline_path(payload.get("baseline"), Path(root))
+    baseline_write = bool(payload.get("baseline_write", False)) and baseline_path is not None
     synthesis_plan_path = payload.get("synthesis_plan")
     synthesis_report = payload.get("synthesis_report", False)
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
@@ -144,6 +168,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         ignore_params=ignore_params,
         external_filter=not allow_external,
         strictness=strictness,
+        transparent_decorators=transparent_decorators,
     )
     if fail_on_type_ambiguities:
         type_audit = True
@@ -211,6 +236,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             Path(dot_path).write_text(dot)
 
     violations: list[str] = []
+    effective_violations: list[str] | None = None
     if report_path:
         report, violations = render_report(
             analysis.groups_by_path,
@@ -220,6 +246,22 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
         )
+        if baseline_path is not None:
+            baseline_entries = load_baseline(baseline_path)
+            if baseline_write:
+                write_baseline(baseline_path, violations)
+                baseline_entries = set(violations)
+                effective_violations = []
+            else:
+                effective_violations, _ = apply_baseline(violations, baseline_entries)
+            report = (
+                report
+                + "\n\nBaseline/Ratchet:\n```\n"
+                + f"Baseline: {baseline_path}\n"
+                + f"Baseline entries: {len(baseline_entries)}\n"
+                + f"New violations: {len(effective_violations)}\n"
+                + "```\n"
+            )
         if synthesis_plan and (
             synthesis_report or synthesis_plan_path or synthesis_protocols_path
         ):
@@ -234,12 +276,27 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             type_suggestions=analysis.type_suggestions if type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
         )
+        if baseline_path is not None:
+            baseline_entries = load_baseline(baseline_path)
+            if baseline_write:
+                write_baseline(baseline_path, violations)
+                effective_violations = []
+            else:
+                effective_violations, _ = apply_baseline(violations, baseline_entries)
 
-    response["violations"] = len(violations)
+    if effective_violations is None:
+        effective_violations = violations
+    response["violations"] = len(effective_violations)
+    if baseline_path is not None:
+        response["baseline_path"] = str(baseline_path)
+        response["baseline_written"] = bool(baseline_write)
     if fail_on_type_ambiguities and analysis.type_ambiguities:
         response["exit_code"] = 1
     else:
-        response["exit_code"] = 1 if (fail_on_violations and violations) else 0
+        if baseline_write:
+            response["exit_code"] = 0
+        else:
+            response["exit_code"] = 1 if (fail_on_violations and effective_violations) else 0
     return response
 
 

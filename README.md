@@ -1,5 +1,5 @@
 ---
-doc_revision: 40
+doc_revision: 42
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -29,8 +29,8 @@ structural bundles. It discovers recurring argument groups in a Python codebase
 and guides their reification into dataclass-based Protocols.
 
 This repo contains scaffolded infrastructure plus a prototype dataflow audit.
-Synthesis and automated refactoring are intentionally staged for later
-integration.
+Synthesis and refactoring exist as evolving prototypes and are intentionally
+conservative.
 
 ## Why Gabion
 - **Find implicit structure:** detect “dataflow grammar” bundles that repeatedly
@@ -42,6 +42,7 @@ integration.
 - CLI uses the LSP server as its semantic core.
 - Dataflow grammar audit is implemented (prototype).
 - Type-flow, constant-flow, and unused-argument smells are implemented (prototype).
+- Refactor engine can rewrite signatures/call sites for targeted functions (prototype).
 - Governance layer is active.
 
 ## Versioning (pre-1.0)
@@ -63,7 +64,7 @@ See `docs/doer_judge_witness.md` for optional role framing.
 
 ## Non-goals (for now)
 - Docflow is a repo-local convenience feature, not a Gabion product feature.
-- Automated refactoring is not yet in scope; analysis is advisory only.
+- Public-API compatibility shims for refactors are not yet implemented.
 - Multi-language support is out of scope (Python-first).
 
 ## Quick start
@@ -89,6 +90,8 @@ Run the dataflow grammar audit (strict defaults):
 mise exec -- python -m gabion check
 ```
 `gabion check` enforces violations even without `--report` output.
+Use `--baseline path/to/baseline.txt` to ratchet existing violations and
+`--baseline-write` to generate/update the baseline file.
 
 Run the dataflow grammar audit (prototype):
 ```
@@ -102,6 +105,15 @@ dataclass stubs (prototype) for review, or add
 `--synthesis-protocols-kind protocol` for typing.Protocol stubs.
 Use `--refactor-plan` to append a per-bundle refactoring schedule and
 `--refactor-plan-json` to emit the JSON plan.
+
+Generate protocol refactor edits (prototype):
+```
+mise exec -- python -m gabion refactor-protocol \
+  --protocol-name BundleProtocol \
+  --bundle a --bundle b \
+  --target-path path/to/module.py \
+  --target-function foo
+```
 
 Run audit + synthesis in one step (timestamped output under `artifacts/synthesis`):
 ```
@@ -167,6 +179,8 @@ make audit-latest
 GitHub-hosted CI runs `gabion check`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
+
+Allow-listed actions are defined in `docs/allowed_actions.txt`.
 
 Pull requests also get a dataflow-grammar report artifact (and a comment on
 same-repo PRs) via `.github/workflows/pr-dataflow-grammar.yml`.

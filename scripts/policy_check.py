@@ -18,13 +18,7 @@ except ImportError:  # pragma: no cover - handled as a hard error at runtime.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
-ALLOWED_ACTIONS = {
-    "actions/checkout",
-    "actions/setup-python",
-    "actions/upload-artifact",
-    "jdx/mise-action",
-    "pypa/gh-action-pypi-publish",
-}
+ALLOWED_ACTIONS_FILE = REPO_ROOT / "docs" / "allowed_actions.txt"
 REQUIRED_RUNNER_LABELS = {"self-hosted", "gpu", "local"}
 TRUSTED_BRANCHES = {"main", "stage"}
 
@@ -41,6 +35,22 @@ def _fail(errors):
     for err in errors:
         print(f"policy-check: {err}", file=sys.stderr)
     raise SystemExit(2)
+
+
+def _load_allowed_actions(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    try:
+        raw = path.read_text()
+    except OSError:
+        return set()
+    allowed: set[str] = set()
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        allowed.add(line)
+    return allowed
 
 
 def _yaml_loader():
@@ -175,7 +185,7 @@ def _check_job_permissions(
         )
 
 
-def _check_actions(job, job_ctx: JobContext, errors):
+def _check_actions(job, job_ctx: JobContext, errors, allowed_actions: set[str]):
     # dataflow-bundle: errors, job, job_ctx
     steps = job.get("steps", [])
     for idx, step in enumerate(steps):
@@ -197,7 +207,7 @@ def _check_actions(job, job_ctx: JobContext, errors):
             )
             continue
         action_name = "/".join(action_parts[:2])
-        if action_name not in ALLOWED_ACTIONS:
+        if action_name not in allowed_actions:
             errors.append(
                 f"{job_ctx.path}:{job_ctx.job_name}: step {idx} action not allow-listed ({action_name})"
             )
@@ -256,6 +266,9 @@ def _check_self_hosted_constraints(doc, path, errors):
 
 
 def check_workflows():
+    allowed_actions = _load_allowed_actions(ALLOWED_ACTIONS_FILE)
+    if not allowed_actions:
+        _fail([f"allowed actions list is empty or missing: {ALLOWED_ACTIONS_FILE}"])
     errors = []
     for path in sorted(WORKFLOW_DIR.glob("*.yml")):
         doc = _load_yaml(path)
@@ -288,7 +301,7 @@ def check_workflows():
                     allow_pr_write=allow_pr_write,
                     allow_id_token=allow_id_token,
                 )
-                _check_actions(job, job_ctx, errors)
+                _check_actions(job, job_ctx, errors, allowed_actions)
     if errors:
         _fail(errors)
 
@@ -385,9 +398,10 @@ def check_posture():
         errors.append(
             f"invalid action patterns (must end with @* or be bare): {sorted(invalid_patterns)}"
         )
-    if set(normalized) != set(ALLOWED_ACTIONS):
+    allowed_actions = _load_allowed_actions(ALLOWED_ACTIONS_FILE)
+    if set(normalized) != set(allowed_actions):
         errors.append(
-            f"allowed action patterns must match {sorted(ALLOWED_ACTIONS)}"
+            f"allowed action patterns must match {sorted(allowed_actions)}"
         )
 
     if errors:
