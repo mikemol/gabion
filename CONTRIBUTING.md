@@ -1,5 +1,5 @@
 ---
-doc_revision: 56
+doc_revision: 57
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -183,6 +183,7 @@ Install the locked set and the editable package:
 mise exec -- uv pip sync requirements.lock
 mise exec -- uv pip install -e .
 ```
+CI creates an explicit venv and installs the lock into it.
 Regenerate the lockfile (after updating dependencies):
 ```
 uv pip compile pyproject.toml --extra dev -o requirements.lock

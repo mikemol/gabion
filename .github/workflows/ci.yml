@@ -26,13 +26,17 @@ jobs:
         uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
       - name: Install toolchain
         run: mise install
+      - name: Create venv
+        run: |
+          mise exec -- python -m venv .venv
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
       - name: Install dependencies (locked)
         run: |
-          mise exec -- python -m pip install --upgrade pip uv
-          mise exec -- uv pip sync --system requirements.lock
-          mise exec -- uv pip install --system -e .
+          python -m pip install --upgrade pip uv
+          uv pip sync requirements.lock
+          uv pip install -e .
       - name: Policy check (workflows)
-        run: mise exec -- python scripts/policy_check.py --workflows
+        run: python scripts/policy_check.py --workflows
       - name: Policy check (posture)
         if: github.event_name == 'push'
         env:
@@ -42,15 +46,15 @@ jobs:
             echo "POLICY_GITHUB_TOKEN not set; skipping posture check."
             exit 0
           fi
-          mise exec -- python scripts/policy_check.py --posture
+          python scripts/policy_check.py --posture
       - name: Dataflow audit
-        run: mise exec -- python -m gabion check
+        run: python -m gabion check
       - name: Docflow audit
-        run: mise exec -- python scripts/docflow_audit.py --root . --fail-on-violations
+        run: python scripts/docflow_audit.py --root . --fail-on-violations
       - name: Tests
         run: |
           mkdir -p artifacts/test_runs
-          mise exec -- python -m pytest \
+          python -m pytest \
             --junitxml artifacts/test_runs/junit.xml \
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO
