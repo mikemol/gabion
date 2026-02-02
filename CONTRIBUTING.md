@@ -1,5 +1,5 @@
 ---
-doc_revision: 48
+doc_revision: 49
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -103,7 +103,8 @@ Run the dataflow grammar audit (strict defaults):
 ```
 mise exec -- python -m gabion check
 ```
-`gabion check` enforces violations even without `--report` output.
+`gabion check` enforces violations even without `--report` output, and fails on
+type ambiguities for this repo.
 
 Run the dataflow grammar audit (prototype):
 ```

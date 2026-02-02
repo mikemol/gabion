@@ -4,11 +4,18 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 
 class LspClientError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class CommandRequest:
+    command: str
+    arguments: list[dict] | None = None
 
 
 def _read_rpc(stream) -> dict:
@@ -47,13 +54,11 @@ def _read_response(stream, request_id: int) -> dict:
 
 
 def run_command(
-    command: str,
-    arguments: list[dict] | None = None,
+    request: CommandRequest,
     *,
     root: Path | None = None,
     timeout: float = 5.0,
 ) -> dict[str, Any]:
-    # dataflow-bundle: arguments, command
     proc = subprocess.Popen(
         [sys.executable, "-m", "gabion.server"],
         stdin=subprocess.PIPE,
@@ -84,7 +89,7 @@ def run_command(
             "jsonrpc": "2.0",
             "id": cmd_id,
             "method": "workspace/executeCommand",
-            "params": {"command": command, "arguments": arguments or []},
+            "params": {"command": request.command, "arguments": request.arguments or []},
         },
     )
     response = _read_response(proc.stdout, cmd_id)
@@ -93,5 +98,14 @@ def run_command(
     _write_rpc(proc.stdin, {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"})
     _read_response(proc.stdout, shutdown_id)
     _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
-    proc.communicate(timeout=timeout)
+    out, err = proc.communicate(timeout=timeout)
+    if response.get("error"):
+        raise LspClientError(f"LSP error: {response['error']}")
+    if proc.returncode not in (0, None):
+        detail = err.decode("utf-8", errors="replace").strip()
+        raise LspClientError(f"LSP server failed (exit {proc.returncode}): {detail}")
+    if err:
+        detail = err.decode("utf-8", errors="replace").strip()
+        if detail:
+            raise LspClientError(f"LSP server error output: {detail}")
     return response.get("result", {})

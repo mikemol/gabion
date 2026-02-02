@@ -1,5 +1,5 @@
 ---
-doc_revision: 30
+doc_revision: 40
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -31,21 +31,22 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 ## Analysis pipeline nodes
 - [~] Import resolution / symbol table (deterministic callee resolution).
 - [x] Import resolution: explicit imports + relative import handling.
-- [ ] Import resolution: star-import expansion.
-- [ ] Import resolution: re-exports / `__all__` handling.
+- [x] Import resolution: star-import expansion.
+- [x] Import resolution: re-exports / `__all__` handling.
 - [ ] Import resolution: class hierarchy dispatch resolution.
 - [~] Alias-aware identity tracking (rename morphisms preserved).
 - [x] Alias tracking: direct Name-to-Name assignments.
 - [x] Alias tracking: tuple/sequence unpacking.
-- [ ] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
+- [x] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
 - [ ] Alias tracking: alias propagation via call returns.
 - [x] Noise controls: project root anchoring + exclude dirs + ignore params.
 - [x] External-lib filter (ignore non-project imports by default).
-- [~] Wildcard forwarding strictness (`*args/**kwargs`, high/low modes).
+- [x] Wildcard forwarding strictness (`*args/**kwargs`, high/low modes).
 - [x] Wildcard forwarding: detect direct starred name in call site.
-- [ ] Wildcard forwarding: signature-aware mapping for `*args/**kwargs`.
-- [ ] Wildcard forwarding: pass-through via `*args/**kwargs` variables.
+- [x] Wildcard forwarding: signature-aware mapping for `*args/**kwargs`.
+- [x] Wildcard forwarding: pass-through via `*args/**kwargs` variables.
 - [x] Type-flow tightening audit (downstream annotations).
+- [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Constant-flow audit (dead knobs / always-constant params).
 - [x] Unused-argument pass detection (non-test call sites).
 
@@ -57,22 +58,22 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [~] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls).
 - [x] Bundle declarations: `dataflow-bundle` markers.
 - [x] Bundle declarations: local dataclass constructor calls (Name-only args).
-- [ ] Bundle declarations: general dataclass fields beyond `_fn` convention.
-- [ ] Bundle declarations: non-Name args/kwargs in dataclass calls.
-- [ ] Bundle declarations: external dataclass modules (cross-file).
+- [x] Bundle declarations: general dataclass fields beyond `_fn` convention.
+- [x] Bundle declarations: non-Name args/kwargs in dataclass calls.
+- [x] Bundle declarations: external dataclass modules (cross-file).
 
 ## Synthesis + refactoring nodes
 - [~] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype).
 - [x] Synthesis output: dataclass stubs with field typing.
-- [ ] Synthesis output: typing.Protocol interface stubs.
-- [ ] Synthesis typing: resolve conflicts into `Union`/`Optional`.
+- [x] Synthesis output: typing.Protocol interface stubs.
+- [x] Synthesis typing: resolve conflicts into `Union`/`Optional`.
 - [x] Naming heuristics (frequency-based) (prototype).
 - [~] Topological refactoring schedule (callee-first order) (prototype).
 - [x] Refactor schedule: basic topological order.
 - [x] Refactor schedule: SCC-based cycle detection (explicit knots).
 - [~] Partial-application merge heuristics (bundle fragmentation control) (prototype).
 - [x] Bundle merge heuristic: Jaccard overlap merge function.
-- [ ] Bundle merge heuristic: integrated into synthesis/refactor pipeline.
+- [x] Bundle merge heuristic: integrated into synthesis/refactor pipeline.
 - [x] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
 - [~] Type aggregation for synthesis (from type-audit + call-site evidence).
 - [x] Type aggregation: single-type consensus assignment.
@@ -109,8 +110,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 
 ## Phase 3: Refactoring & UX
 - [x] LibCST refactor engine scaffolding (preserve trivia/formatting).
-- [~] LSP code action + workspace edit stub for Protocol extraction.
+- [x] LSP code action + workspace edit stub for Protocol extraction.
 - [x] LSP code action: stub command wiring.
-- [ ] LSP workspace edit: real edits for Protocol extraction.
+- [x] LSP workspace edit: real edits for Protocol extraction.
 - [x] Precise diagnostic ranges (metadata-backed positions).
 - [ ] Long-lived LSP server cache / incremental analysis (daemon mode).

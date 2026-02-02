@@ -7,11 +7,11 @@ import sys
 from pathlib import Path
 
 try:
-    from gabion.lsp_client import run_command
+    from gabion.lsp_client import CommandRequest, run_command
 except ModuleNotFoundError:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
-    from gabion.lsp_client import run_command
+    from gabion.lsp_client import CommandRequest, run_command
 
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
@@ -27,7 +27,9 @@ def main() -> int:
         "paths": [args.root],
         "fail_on_violations": False,
     }
-    result = run_command(DATAFLOW_COMMAND, [payload], root=Path(args.root))
+    result = run_command(
+        CommandRequest(DATAFLOW_COMMAND, [payload]), root=Path(args.root)
+    )
     if "exit_code" not in result:
         raise SystemExit("Missing exit_code in LSP result")
     synth_payload = {
@@ -36,7 +38,9 @@ def main() -> int:
         "allow_singletons": True,
         "existing_names": ["CtxBundle"],
     }
-    synth_result = run_command(SYNTHESIS_COMMAND, [synth_payload], root=Path(args.root))
+    synth_result = run_command(
+        CommandRequest(SYNTHESIS_COMMAND, [synth_payload]), root=Path(args.root)
+    )
     if "protocols" not in synth_result:
         raise SystemExit("Missing protocols in synthesis result")
     return int(result.get("exit_code", 0))

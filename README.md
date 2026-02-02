@@ -98,7 +98,8 @@ Repo defaults are driven by `gabion.toml` (see `[dataflow]`).
 By default, `in/` (inspiration) is excluded from enforcement there.
 Use `--synthesis-plan` to emit a JSON plan and `--synthesis-report` to append a
 summary section to the Markdown report. Use `--synthesis-protocols` to emit
-dataclass stubs (prototype) for review.
+dataclass stubs (prototype) for review, or add
+`--synthesis-protocols-kind protocol` for typing.Protocol stubs.
 Use `--refactor-plan` to append a per-bundle refactoring schedule and
 `--refactor-plan-json` to emit the JSON plan.
 

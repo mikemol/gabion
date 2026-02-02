@@ -1,0 +1,36 @@
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+
+def _load():
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root / "src"))
+    from gabion.analysis.dataflow_audit import _iter_config_fields
+
+    return _iter_config_fields
+
+
+def test_iter_config_fields_expands_config_dataclass(tmp_path: Path) -> None:
+    _iter_config_fields = _load()
+    config_path = tmp_path / "config.py"
+    config_path.write_text(
+        """
+from dataclasses import dataclass
+
+@dataclass
+class AppConfig:
+    foo: int
+    bar_fn: str
+    baz: str = "ok"
+
+@dataclass
+class Other:
+    alpha_fn: int
+    beta: int
+"""
+    )
+    bundles = _iter_config_fields(config_path)
+    assert bundles["AppConfig"] == {"foo", "bar_fn", "baz"}
+    assert bundles["Other"] == {"alpha_fn"}

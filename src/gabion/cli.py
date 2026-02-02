@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Any
@@ -13,8 +14,14 @@ import typer
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
-from gabion.lsp_client import run_command
+from gabion.lsp_client import CommandRequest, run_command
 app = typer.Typer(add_completion=False)
+
+
+@dataclass(frozen=True)
+class DataflowAuditRequest:
+    ctx: typer.Context
+    args: List[str] | None = None
 
 
 def _find_repo_root() -> Path:
@@ -34,6 +41,9 @@ def check(
         None, "--allow-external/--no-allow-external"
     ),
     strictness: Optional[str] = typer.Option(None, "--strictness"),
+    fail_on_type_ambiguities: bool = typer.Option(
+        True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
+    ),
 ) -> None:
     """Run the dataflow grammar audit with strict defaults."""
     if not paths:
@@ -52,28 +62,24 @@ def check(
         "paths": [str(p) for p in paths],
         "report": str(report) if report is not None else None,
         "fail_on_violations": fail_on_violations,
+        "fail_on_type_ambiguities": fail_on_type_ambiguities,
         "root": str(root),
         "config": str(config) if config is not None else None,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "allow_external": allow_external,
         "strictness": strictness,
+        "type_audit": True if fail_on_type_ambiguities else None,
     }
-    result = run_command(DATAFLOW_COMMAND, [payload])
+    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
-@app.command(
-    "dataflow-audit",
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-)
-def dataflow_audit(
-    ctx: typer.Context,
-    args: List[str] = typer.Argument(None),
+def _dataflow_audit(
+    request: "DataflowAuditRequest",
 ) -> None:
     """Run the dataflow grammar audit with explicit options."""
-    # dataflow-bundle: args, ctx
-    argv = list(args or []) + list(ctx.args)
+    argv = list(request.args or []) + list(request.ctx.args)
     if not argv:
         argv = []
     parser = dataflow_cli_parser()
@@ -110,12 +116,13 @@ def dataflow_audit(
         "synthesis_protocols": str(opts.synthesis_protocols)
         if opts.synthesis_protocols
         else None,
+        "synthesis_protocols_kind": opts.synthesis_protocols_kind,
         "refactor_plan": opts.refactor_plan,
         "refactor_plan_json": str(opts.refactor_plan_json)
         if opts.refactor_plan_json
         else None,
     }
-    result = run_command(DATAFLOW_COMMAND, [payload])
+    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
         ambiguities = result.get("type_ambiguities", [])
@@ -136,6 +143,18 @@ def dataflow_audit(
     if opts.refactor_plan_json == "-" and "refactor_plan" in result:
         typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
+
+
+@app.command(
+    "dataflow-audit",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def dataflow_audit(
+    ctx: typer.Context,
+    args: List[str] = typer.Argument(None),
+) -> None:
+    request = DataflowAuditRequest(ctx=ctx, args=args)
+    _dataflow_audit(request)
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:
@@ -172,6 +191,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         help="Include type-flow audit summary in the markdown report.",
     )
     parser.add_argument(
+        "--fail-on-type-ambiguities",
+        action="store_true",
+        help="Exit non-zero if type ambiguities are detected.",
+    )
+    parser.add_argument(
         "--fail-on-violations",
         action="store_true",
         help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
@@ -190,6 +214,12 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--synthesis-protocols",
         default=None,
         help="Write protocol/dataclass stubs to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--synthesis-protocols-kind",
+        choices=["dataclass", "protocol"],
+        default="dataclass",
+        help="Emit dataclass or typing.Protocol stubs (default: dataclass).",
     )
     parser.add_argument(
         "--synthesis-max-tier",
@@ -269,6 +299,9 @@ def synth(
     synthesis_allow_singletons: bool = typer.Option(
         False, "--synthesis-allow-singletons"
     ),
+    synthesis_protocols_kind: str = typer.Option(
+        "dataclass", "--synthesis-protocols-kind"
+    ),
     refactor_plan: bool = typer.Option(True, "--refactor-plan/--no-refactor-plan"),
     fail_on_violations: bool = typer.Option(
         False, "--fail-on-violations/--no-fail-on-violations"
@@ -287,6 +320,10 @@ def synth(
         ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
+    if synthesis_protocols_kind not in {"dataclass", "protocol"}:
+        raise typer.BadParameter(
+            "synthesis-protocols-kind must be 'dataclass' or 'protocol'"
+        )
 
     output_root = out_dir
     timestamp = None
@@ -321,13 +358,14 @@ def synth(
         "synthesis_plan": str(plan_path),
         "synthesis_report": True,
         "synthesis_protocols": str(protocol_path),
+        "synthesis_protocols_kind": synthesis_protocols_kind,
         "synthesis_max_tier": synthesis_max_tier,
         "synthesis_min_bundle_size": synthesis_min_bundle_size,
         "synthesis_allow_singletons": synthesis_allow_singletons,
         "refactor_plan": refactor_plan,
         "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
     }
-    result = run_command(DATAFLOW_COMMAND, [payload])
+    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
     if timestamp:
         typer.echo(f"Snapshot: {output_root}")
     typer.echo(f"- {report_path}")
@@ -355,7 +393,7 @@ def synthesis_plan(
             payload = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-    result = run_command(SYNTHESIS_COMMAND, [payload])
+    result = run_command(CommandRequest(SYNTHESIS_COMMAND, [payload]))
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)
@@ -396,7 +434,7 @@ def refactor_protocol(
             "target_functions": target_functions or [],
             "rationale": rationale,
         }
-    result = run_command(REFACTOR_COMMAND, [payload])
+    result = run_command(CommandRequest(REFACTOR_COMMAND, [payload]))
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)

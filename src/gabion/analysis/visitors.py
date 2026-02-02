@@ -43,6 +43,7 @@ class ImportVisitor(ast.NodeVisitor):
             source = node.module or ""
         for alias in node.names:
             if alias.name == "*":
+                self.table.star_imports.setdefault(self.module, set()).add(source)
                 continue
             local = alias.asname or alias.name
             fqn = f"{source}.{alias.name}" if source else alias.name
@@ -75,6 +76,8 @@ class UseVisitor(ast.NodeVisitor):
         self.call_args_factory = call_args_factory
         self.call_context = call_context
         self._suspend_non_forward: set[str] = set()
+        self._attr_alias_to_param: dict[tuple[str, str], str] = {}
+        self._key_alias_to_param: dict[tuple[str, str], str] = {}
 
     def visit_Call(self, node: ast.Call) -> None:
         callee = self.callee_name(node)
@@ -84,7 +87,15 @@ class UseVisitor(ast.NodeVisitor):
         const_kw: dict[str, str] = {}
         non_const_pos: set[str] = set()
         non_const_kw: set[str] = set()
+        star_pos: list[tuple[int, str]] = []
+        star_kw: list[str] = []
         for idx, arg in enumerate(node.args):
+            if isinstance(arg, ast.Starred):
+                if isinstance(arg.value, ast.Name) and arg.value.id in self.alias_to_param:
+                    star_pos.append((idx, self.alias_to_param[arg.value.id]))
+                else:
+                    non_const_pos.add(str(idx))
+                continue
             const = self.const_repr(arg)
             if const is not None:
                 const_pos[str(idx)] = const
@@ -95,6 +106,10 @@ class UseVisitor(ast.NodeVisitor):
                 non_const_pos.add(str(idx))
         for kw in node.keywords:
             if kw.arg is None:
+                if isinstance(kw.value, ast.Name) and kw.value.id in self.alias_to_param:
+                    star_kw.append(self.alias_to_param[kw.value.id])
+                else:
+                    non_const_kw.add("**")
                 continue
             const = self.const_repr(kw.value)
             if const is not None:
@@ -113,6 +128,8 @@ class UseVisitor(ast.NodeVisitor):
                 const_kw=const_kw,
                 non_const_pos=non_const_pos,
                 non_const_kw=non_const_kw,
+                star_pos=star_pos,
+                star_kw=star_kw,
                 is_test=self.is_test,
             )
         )
@@ -127,22 +144,36 @@ class UseVisitor(ast.NodeVisitor):
                     if param in self.use_map:
                         self.use_map[param].current_aliases.discard(name)
                         self.use_map[param].non_forward = True
+                to_remove = [
+                    key for key in self._attr_alias_to_param if key[0] == name
+                ]
+                for key in to_remove:
+                    param = self._attr_alias_to_param.pop(key, None)
+                    if param in self.use_map:
+                        self.use_map[param].non_forward = True
+                to_remove = [
+                    key for key in self._key_alias_to_param if key[0] == name
+                ]
+                for key in to_remove:
+                    param = self._key_alias_to_param.pop(key, None)
+                    if param in self.use_map:
+                        self.use_map[param].non_forward = True
 
-    def _bind_sequence(self, target: ast.AST, value: ast.AST) -> bool:
-        # dataflow-bundle: target, value
+    def _bind_sequence(self, target: ast.AST, rhs: ast.AST) -> bool:
+        # dataflow-bundle: target, rhs
         if not isinstance(target, (ast.Tuple, ast.List)):
             return False
-        if not isinstance(value, (ast.Tuple, ast.List)):
+        if not isinstance(rhs, (ast.Tuple, ast.List)):
             return False
-        if len(target.elts) != len(value.elts):
+        if len(target.elts) != len(rhs.elts):
             return False
-        for lhs, rhs in zip(target.elts, value.elts):
-            if isinstance(lhs, (ast.Tuple, ast.List)) and isinstance(rhs, (ast.Tuple, ast.List)):
-                if not self._bind_sequence(lhs, rhs):
+        for lhs, rhs_node in zip(target.elts, rhs.elts):
+            if isinstance(lhs, (ast.Tuple, ast.List)) and isinstance(rhs_node, (ast.Tuple, ast.List)):
+                if not self._bind_sequence(lhs, rhs_node):
                     self._check_write(lhs)
                 continue
-            if isinstance(lhs, ast.Name) and isinstance(rhs, ast.Name) and rhs.id in self.alias_to_param:
-                param = self.alias_to_param[rhs.id]
+            if isinstance(lhs, ast.Name) and isinstance(rhs_node, ast.Name) and rhs_node.id in self.alias_to_param:
+                param = self.alias_to_param[rhs_node.id]
                 self.alias_to_param[lhs.id] = param
                 if param in self.use_map:
                     self.use_map[param].current_aliases.add(lhs.id)
@@ -150,12 +181,12 @@ class UseVisitor(ast.NodeVisitor):
                 self._check_write(lhs)
         return True
 
-    def _collect_alias_sources(self, value: ast.AST) -> set[str]:
-        if isinstance(value, ast.Name) and value.id in self.alias_to_param:
-            return {self.alias_to_param[value.id]}
-        if isinstance(value, (ast.Tuple, ast.List)):
+    def _collect_alias_sources(self, rhs: ast.AST) -> set[str]:
+        if isinstance(rhs, ast.Name) and rhs.id in self.alias_to_param:
+            return {self.alias_to_param[rhs.id]}
+        if isinstance(rhs, (ast.Tuple, ast.List)):
             sources: set[str] = set()
-            for elt in value.elts:
+            for elt in rhs.elts:
                 sources.update(self._collect_alias_sources(elt))
             return sources
         return set()
@@ -174,6 +205,20 @@ class UseVisitor(ast.NodeVisitor):
                 self.alias_to_param[target.id] = rhs_param
                 self.use_map[rhs_param].current_aliases.add(target.id)
                 handled_alias = True
+            elif rhs_param and isinstance(target, ast.Attribute):
+                if isinstance(target.value, ast.Name):
+                    self._attr_alias_to_param[(target.value.id, target.attr)] = rhs_param
+                    handled_alias = True
+            elif rhs_param and isinstance(target, ast.Subscript):
+                if (
+                    isinstance(target.value, ast.Name)
+                    and isinstance(target.slice, ast.Constant)
+                    and isinstance(target.slice.value, str)
+                ):
+                    self._key_alias_to_param[
+                        (target.value.id, target.slice.value)
+                    ] = rhs_param
+                    handled_alias = True
             else:
                 self._check_write(target)
 
@@ -231,6 +276,71 @@ class UseVisitor(ast.NodeVisitor):
             self.use_map[param_name].direct_forward.add(("kwargs[*]", "kw[*]"))
             return
         param_name = self.alias_to_param[node.id]
+        if param_name in self._suspend_non_forward:
+            return
+        call, direct = self.call_context(node, self.parents)
+        if call is None or not direct:
+            self.use_map[param_name].non_forward = True
+            return
+        callee = self.callee_name(call)
+        slot = None
+        for idx, arg in enumerate(call.args):
+            if arg is node:
+                slot = f"arg[{idx}]"
+                break
+        if slot is None:
+            for kw in call.keywords:
+                if kw.value is node and kw.arg is not None:
+                    slot = f"kw[{kw.arg}]"
+                    break
+        if slot is None:
+            slot = "arg[?]"
+        self.use_map[param_name].direct_forward.add((callee, slot))
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if not isinstance(node.ctx, ast.Load):
+            return
+        if not isinstance(node.value, ast.Name):
+            return
+        key = (node.value.id, node.attr)
+        if key not in self._attr_alias_to_param:
+            return
+        param_name = self._attr_alias_to_param[key]
+        if param_name in self._suspend_non_forward:
+            return
+        call, direct = self.call_context(node, self.parents)
+        if call is None or not direct:
+            self.use_map[param_name].non_forward = True
+            return
+        callee = self.callee_name(call)
+        slot = None
+        for idx, arg in enumerate(call.args):
+            if arg is node:
+                slot = f"arg[{idx}]"
+                break
+        if slot is None:
+            for kw in call.keywords:
+                if kw.value is node and kw.arg is not None:
+                    slot = f"kw[{kw.arg}]"
+                    break
+        if slot is None:
+            slot = "arg[?]"
+        self.use_map[param_name].direct_forward.add((callee, slot))
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if not isinstance(node.ctx, ast.Load):
+            return
+        if not isinstance(node.value, ast.Name):
+            return
+        key_value = None
+        if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+            key_value = node.slice.value
+        if key_value is None:
+            return
+        key = (node.value.id, key_value)
+        if key not in self._key_alias_to_param:
+            return
+        param_name = self._key_alias_to_param[key]
         if param_name in self._suspend_non_forward:
             return
         call, direct = self.call_context(node, self.parents)
