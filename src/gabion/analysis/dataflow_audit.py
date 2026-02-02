@@ -178,6 +178,66 @@ def _collect_functions(tree: ast.AST):
     return funcs
 
 
+def _collect_local_class_bases(
+    tree: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> dict[str, list[str]]:
+    class_bases: dict[str, list[str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        scopes = _enclosing_class_scopes(node, parents)
+        qual_parts = list(scopes)
+        qual_parts.append(node.name)
+        qual = ".".join(qual_parts)
+        bases: list[str] = []
+        for base in node.bases:
+            base_name = _base_identifier(base)
+            if base_name:
+                bases.append(base_name)
+        class_bases[qual] = bases
+    return class_bases
+
+
+def _local_class_name(base: str, class_bases: dict[str, list[str]]) -> str | None:
+    if base in class_bases:
+        return base
+    if "." in base:
+        tail = base.split(".")[-1]
+        if tail in class_bases:
+            return tail
+    return None
+
+
+def _resolve_local_method_in_hierarchy(
+    class_name: str,
+    method: str,
+    *,
+    class_bases: dict[str, list[str]],
+    local_functions: set[str],
+    seen: set[str],
+) -> str | None:
+    if class_name in seen:
+        return None
+    seen.add(class_name)
+    candidate = f"{class_name}.{method}"
+    if candidate in local_functions:
+        return candidate
+    for base in class_bases.get(class_name, []):
+        base_name = _local_class_name(base, class_bases)
+        if base_name is None:
+            continue
+        resolved = _resolve_local_method_in_hierarchy(
+            base_name,
+            method,
+            class_bases=class_bases,
+            local_functions=local_functions,
+            seen=seen,
+        )
+        if resolved is not None:
+            return resolved
+    return None
+
+
 def _param_names(
     fn: ast.FunctionDef | ast.AsyncFunctionDef,
     ignore_params: set[str] | None = None,
@@ -268,6 +328,18 @@ def _enclosing_scopes(
         if isinstance(current, ast.ClassDef):
             scopes.append(current.name)
         elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scopes.append(current.name)
+        current = parents.get(current)
+    return list(reversed(scopes))
+
+
+def _enclosing_class_scopes(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> list[str]:
+    scopes: list[str] = []
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, ast.ClassDef):
             scopes.append(current.name)
         current = parents.get(current)
     return list(reversed(scopes))
@@ -539,6 +611,33 @@ def analyze_file(
                 resolved_calls.append(call)
         fn_calls[caller_key] = resolved_calls
 
+    class_bases = _collect_local_class_bases(tree, parents)
+    if class_bases:
+        local_functions = set(fn_use.keys())
+
+        def _resolve_local_method(callee: str) -> str | None:
+            if "." not in callee:
+                return None
+            class_part, method = callee.rsplit(".", 1)
+            return _resolve_local_method_in_hierarchy(
+                class_part,
+                method,
+                class_bases=class_bases,
+                local_functions=local_functions,
+                seen=set(),
+            )
+
+        for caller_key, calls in list(fn_calls.items()):
+            resolved_calls = []
+            for call in calls:
+                if "." in call.callee:
+                    resolved = _resolve_local_method(call.callee)
+                    if resolved and resolved != call.callee:
+                        resolved_calls.append(replace(call, callee=resolved))
+                        continue
+                resolved_calls.append(call)
+            fn_calls[caller_key] = resolved_calls
+
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
 
     if not recursive:
@@ -654,6 +753,14 @@ class FunctionInfo:
     lexical_scope: tuple[str, ...] = ()
 
 
+@dataclass
+class ClassInfo:
+    qual: str
+    module: str
+    bases: list[str]
+    methods: set[str]
+
+
 def _module_name(path: Path, project_root: Path | None = None) -> str:
     rel = path.with_suffix("")
     if project_root is not None:
@@ -676,6 +783,21 @@ def _string_list(node: ast.AST) -> list[str] | None:
             else:
                 return None
         return values
+    return None
+
+
+def _base_identifier(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        try:
+            return ast.unparse(node)
+        except Exception:
+            return None
+    if isinstance(node, ast.Subscript):
+        return _base_identifier(node.value)
+    if isinstance(node, ast.Call):
+        return _base_identifier(node.func)
     return None
 
 
@@ -772,6 +894,126 @@ def _build_symbol_table(
     return table
 
 
+def _collect_class_index(
+    paths: list[Path],
+    project_root: Path | None,
+) -> dict[str, ClassInfo]:
+    class_index: dict[str, ClassInfo] = {}
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except Exception:
+            continue
+        parents = ParentAnnotator()
+        parents.visit(tree)
+        module = _module_name(path, project_root)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            scopes = _enclosing_class_scopes(node, parents.parents)
+            qual_parts = [module] if module else []
+            qual_parts.extend(scopes)
+            qual_parts.append(node.name)
+            qual = ".".join(qual_parts)
+            bases: list[str] = []
+            for base in node.bases:
+                base_name = _base_identifier(base)
+                if base_name:
+                    bases.append(base_name)
+            methods: set[str] = set()
+            for stmt in node.body:
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    methods.add(stmt.name)
+            class_index[qual] = ClassInfo(
+                qual=qual,
+                module=module,
+                bases=bases,
+                methods=methods,
+            )
+    return class_index
+
+
+def _resolve_class_candidates(
+    base: str,
+    *,
+    module: str,
+    symbol_table: SymbolTable | None,
+    class_index: dict[str, ClassInfo],
+) -> list[str]:
+    if not base:
+        return []
+    candidates: list[str] = []
+    if "." in base:
+        parts = base.split(".")
+        head = parts[0]
+        tail = ".".join(parts[1:])
+        if symbol_table is not None:
+            resolved_head = symbol_table.resolve(module, head)
+            if resolved_head:
+                candidates.append(f"{resolved_head}.{tail}")
+        if module:
+            candidates.append(f"{module}.{base}")
+        candidates.append(base)
+    else:
+        if symbol_table is not None:
+            resolved = symbol_table.resolve(module, base)
+            if resolved:
+                candidates.append(resolved)
+            resolved_star = symbol_table.resolve_star(module, base)
+            if resolved_star:
+                candidates.append(resolved_star)
+        if module:
+            candidates.append(f"{module}.{base}")
+        candidates.append(base)
+    seen: set[str] = set()
+    resolved: list[str] = []
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate in class_index:
+            resolved.append(candidate)
+    return resolved
+
+
+def _resolve_method_in_hierarchy(
+    class_qual: str,
+    method: str,
+    *,
+    class_index: dict[str, ClassInfo],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table: SymbolTable | None,
+    seen: set[str],
+) -> FunctionInfo | None:
+    if class_qual in seen:
+        return None
+    seen.add(class_qual)
+    candidate = f"{class_qual}.{method}"
+    if candidate in by_qual:
+        return by_qual[candidate]
+    info = class_index.get(class_qual)
+    if info is None:
+        return None
+    for base in info.bases:
+        for base_qual in _resolve_class_candidates(
+            base,
+            module=info.module,
+            symbol_table=symbol_table,
+            class_index=class_index,
+        ):
+            resolved = _resolve_method_in_hierarchy(
+                base_qual,
+                method,
+                class_index=class_index,
+                by_qual=by_qual,
+                symbol_table=symbol_table,
+                seen=seen,
+            )
+            if resolved is not None:
+                return resolved
+    return None
+
+
 def _build_function_index(
     paths: list[Path],
     project_root: Path | None,
@@ -834,6 +1076,7 @@ def _resolve_callee(
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable | None = None,
     project_root: Path | None = None,
+    class_index: dict[str, ClassInfo] | None = None,
 ) -> FunctionInfo | None:
     # dataflow-bundle: by_name, caller
     if not callee_name:
@@ -901,6 +1144,36 @@ def _resolve_callee(
     # Exact qualified name match.
     if callee_name in by_qual:
         return by_qual[callee_name]
+    if class_index is not None and "." in callee_name:
+        parts = callee_name.split(".")
+        if len(parts) >= 2:
+            method = parts[-1]
+            class_part = ".".join(parts[:-1])
+            if class_part in {"self", "cls"} and caller.class_name:
+                class_candidates = _resolve_class_candidates(
+                    caller.class_name,
+                    module=caller_module,
+                    symbol_table=symbol_table,
+                    class_index=class_index,
+                )
+            else:
+                class_candidates = _resolve_class_candidates(
+                    class_part,
+                    module=caller_module,
+                    symbol_table=symbol_table,
+                    class_index=class_index,
+                )
+            for class_qual in class_candidates:
+                resolved = _resolve_method_in_hierarchy(
+                    class_qual,
+                    method,
+                    class_index=class_index,
+                    by_qual=by_qual,
+                    symbol_table=symbol_table,
+                    seen=set(),
+                )
+                if resolved is not None:
+                    return resolved
     # If call uses module.func, try match by module suffix.
     if "." in callee_name:
         parts = callee_name.split(".")
@@ -955,6 +1228,7 @@ def analyze_type_flow_repo_with_map(
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
     )
+    class_index = _collect_class_index(paths, project_root)
     inferred: dict[str, dict[str, str | None]] = {}
     for infos in by_name.values():
         for info in infos:
@@ -981,6 +1255,7 @@ def analyze_type_flow_repo_with_map(
                         by_qual,
                         symbol_table,
                         project_root,
+                        class_index,
                     )
                     if callee is None:
                         continue
@@ -1071,6 +1346,7 @@ def analyze_constant_flow_repo(
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
     )
+    class_index = _collect_class_index(paths, project_root)
     const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
     non_const: dict[tuple[str, str], bool] = defaultdict(bool)
     call_counts: dict[tuple[str, str], int] = defaultdict(int)
@@ -1087,6 +1363,7 @@ def analyze_constant_flow_repo(
                     by_qual,
                     symbol_table,
                     project_root,
+                    class_index,
                 )
                 if callee is None:
                     continue
@@ -1199,6 +1476,7 @@ def analyze_unused_arg_flow_repo(
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
     )
+    class_index = _collect_class_index(paths, project_root)
     smells: set[str] = set()
 
     def _format(
@@ -1225,6 +1503,7 @@ def analyze_unused_arg_flow_repo(
                     by_qual,
                     symbol_table,
                     project_root,
+                    class_index,
                 )
                 if callee is None:
                     continue
@@ -2075,6 +2354,7 @@ def build_refactor_plan(
     symbol_table = _build_symbol_table(
         file_paths, config.project_root, external_filter=config.external_filter
     )
+    class_index = _collect_class_index(file_paths, config.project_root)
     info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
     for infos in by_name.values():
         for info in infos:
@@ -2105,6 +2385,7 @@ def build_refactor_plan(
                     by_qual,
                     symbol_table,
                     config.project_root,
+                    class_index,
                 )
                 if callee is None:
                     continue

@@ -1,5 +1,5 @@
 ---
-doc_revision: 40
+doc_revision: 44
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -28,17 +28,23 @@ wrappers live on the `tooling` axis and should stay consistent with
 
 Legend: [x] done · [ ] planned · [~] partial/heuristic
 
+## GitHub tracking linkage
+- Each `[ ]` or `[~]` node should have a corresponding GitHub issue created from the
+  `SPPF node` issue form.
+- Once the issue exists, append `(GH-####)` to the checklist line so planning and
+  status remain bidirectionally linked.
+
 ## Analysis pipeline nodes
-- [~] Import resolution / symbol table (deterministic callee resolution).
+- [~] Import resolution / symbol table (deterministic callee resolution). (GH-6)
 - [x] Import resolution: explicit imports + relative import handling.
 - [x] Import resolution: star-import expansion.
 - [x] Import resolution: re-exports / `__all__` handling.
-- [ ] Import resolution: class hierarchy dispatch resolution.
-- [~] Alias-aware identity tracking (rename morphisms preserved).
+- [x] Import resolution: class hierarchy dispatch resolution.
+- [~] Alias-aware identity tracking (rename morphisms preserved). (GH-7)
 - [x] Alias tracking: direct Name-to-Name assignments.
 - [x] Alias tracking: tuple/sequence unpacking.
 - [x] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
-- [ ] Alias tracking: alias propagation via call returns.
+- [ ] Alias tracking: alias propagation via call returns. (GH-8)
 - [x] Noise controls: project root anchoring + exclude dirs + ignore params.
 - [x] External-lib filter (ignore non-project imports by default).
 - [x] Wildcard forwarding strictness (`*args/**kwargs`, high/low modes).
@@ -49,13 +55,14 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Constant-flow audit (dead knobs / always-constant params).
 - [x] Unused-argument pass detection (non-test call sites).
+- [ ] Analysis: Decorator transparency/unwrapping. (GH-9)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
 - [x] Mermaid component diagrams embedded in Markdown report.
 - [x] DOT/Graphviz output for bundle graphs.
 - [x] Tiered bundle classification (declared vs. observed) + violation listing.
-- [~] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls).
+- [~] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls). (GH-10)
 - [x] Bundle declarations: `dataflow-bundle` markers.
 - [x] Bundle declarations: local dataclass constructor calls (Name-only args).
 - [x] Bundle declarations: general dataclass fields beyond `_fn` convention.
@@ -63,22 +70,23 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Bundle declarations: external dataclass modules (cross-file).
 
 ## Synthesis + refactoring nodes
-- [~] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype).
+- [~] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
 - [x] Synthesis output: dataclass stubs with field typing.
 - [x] Synthesis output: typing.Protocol interface stubs.
 - [x] Synthesis typing: resolve conflicts into `Union`/`Optional`.
 - [x] Naming heuristics (frequency-based) (prototype).
-- [~] Topological refactoring schedule (callee-first order) (prototype).
+- [~] Topological refactoring schedule (callee-first order) (prototype). (GH-12)
 - [x] Refactor schedule: basic topological order.
 - [x] Refactor schedule: SCC-based cycle detection (explicit knots).
-- [~] Partial-application merge heuristics (bundle fragmentation control) (prototype).
+- [~] Partial-application merge heuristics (bundle fragmentation control) (prototype). (GH-13)
 - [x] Bundle merge heuristic: Jaccard overlap merge function.
 - [x] Bundle merge heuristic: integrated into synthesis/refactor pipeline.
 - [x] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
-- [~] Type aggregation for synthesis (from type-audit + call-site evidence).
+- [~] Type aggregation for synthesis (from type-audit + call-site evidence). (GH-14)
 - [x] Type aggregation: single-type consensus assignment.
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
-- [ ] Const/default-aware partial-application detection (subset merge by knobs).
+- [ ] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
+- [ ] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
@@ -114,4 +122,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] LSP code action: stub command wiring.
 - [x] LSP workspace edit: real edits for Protocol extraction.
 - [x] Precise diagnostic ranges (metadata-backed positions).
-- [ ] Long-lived LSP server cache / incremental analysis (daemon mode).
+- [ ] Refactor engine: Signature rewriting (def foo(a, b) -> def foo(bundle)). (GH-17)
+- [ ] Refactor engine: Call-site rewriting (foo(x, y) -> foo(Bundle(x, y))). (GH-18)
+- [ ] Refactor engine: Preamble injection (unpack bundle to preserve local logic). (GH-19)
+- [ ] Refactor engine: Import management (inject bundle import at call sites). (GH-20)
+- [ ] Long-lived LSP server cache / incremental analysis (daemon mode). (GH-21)
