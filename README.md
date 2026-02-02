@@ -1,5 +1,5 @@
 ---
-doc_revision: 39
+doc_revision: 40
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -43,6 +43,11 @@ integration.
 - Dataflow grammar audit is implemented (prototype).
 - Type-flow, constant-flow, and unused-argument smells are implemented (prototype).
 - Governance layer is active.
+
+## Versioning (pre-1.0)
+Gabion is pre-1.0. Until a 1.0 release, minor version bumps (0.x) may include
+breaking changes; patch releases target fixes. Breaking changes will be called
+out in release notes.
 
 ## Branching model
 - `stage` is the integration branch for routine pushes; CI runs on every push.
@@ -192,4 +197,4 @@ LLM/agent behavior is governed by `AGENTS.md`.
 - `glossary.md` defines semantic meanings, axes, and commutation obligations.
 
 ## License
-TBD.
+Apache-2.0. See `LICENSE`.

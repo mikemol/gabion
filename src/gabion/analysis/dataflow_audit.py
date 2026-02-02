@@ -1583,11 +1583,36 @@ def render_protocol_stubs(plan: dict[str, object]) -> str:
     if not protocols:
         lines.append("# No protocol candidates.")
         return "\n".join(lines)
-    for spec in protocols:
-        name = spec.get("name", "Bundle")
+    placeholder_base = "TODO_Name_Me"
+    for idx, spec in enumerate(protocols, start=1):
+        name = placeholder_base if idx == 1 else f"{placeholder_base}{idx}"
+        suggested = spec.get("name", "Bundle")
+        tier = spec.get("tier", "?")
+        bundle = spec.get("bundle", [])
+        rationale = spec.get("rationale", "")
         lines.append("@dataclass")
         lines.append(f"class {name}:")
+        doc_lines = [
+            "TODO: Rename this Protocol.",
+            f"Suggested name: {suggested}",
+            f"Tier: {tier}",
+        ]
+        if bundle:
+            doc_lines.append(f"Bundle: {', '.join(bundle)}")
+        if rationale:
+            doc_lines.append(f"Rationale: {rationale}")
         fields = spec.get("fields", [])
+        if fields:
+            field_summary = []
+            for field in fields:
+                fname = field.get("name") or "field"
+                type_hint = field.get("type_hint") or "Any"
+                field_summary.append(f"{fname}: {type_hint}")
+            doc_lines.append("Fields: " + ", ".join(field_summary))
+        lines.append('    """')
+        for line in doc_lines:
+            lines.append(f"    {line}")
+        lines.append('    """')
         if not fields:
             lines.append("    pass")
         else:
