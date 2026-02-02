@@ -1,5 +1,5 @@
 ---
-doc_revision: 41
+doc_revision: 42
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -179,6 +179,8 @@ make audit-latest
 GitHub-hosted CI runs `gabion check`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
+
+Allow-listed actions are defined in `docs/allowed_actions.txt`.
 
 Pull requests also get a dataflow-grammar report artifact (and a comment on
 same-repo PRs) via `.github/workflows/pr-dataflow-grammar.yml`.

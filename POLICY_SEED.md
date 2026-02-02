@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -232,6 +232,7 @@ applies only to:
 * `pull-requests: write` (no other write scopes),
 * actions pinned to full commit SHAs and allow-listed,
 * jobs that do **not** run on self-hosted runners,
+* comments restricted to same-repo PRs only,
 * comments that are purely informational (no code execution side effects).
 
 Self-hosted workflows MUST NOT request any write scopes.

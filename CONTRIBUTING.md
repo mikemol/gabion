@@ -1,5 +1,5 @@
 ---
-doc_revision: 54
+doc_revision: 55
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -267,6 +267,8 @@ If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
 - Workflow changes must preserve the Prime Invariant in `POLICY_SEED.md`.
 - Actions must be pinned to full commit SHAs and allow-listed.
 - Self-hosted jobs must use the required labels and actor guard.
+Allow-listed actions are defined in `docs/allowed_actions.txt` and enforced by
+`scripts/policy_check.py`.
 
 Workflow policy checks live in `scripts/policy_check.py` (requires `pyyaml`).
 Run:

@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -44,12 +44,12 @@ Semantic correctness is governed by `glossary.md` (co-equal contract).
 - Keep workflow actions pinned to full commit SHAs and allow-listed.
 - When changing workflows, run the policy checks (once the scripts exist) and
   surface any violations explicitly.
- - Preserve the LSP-first invariant: the server is the semantic core and the
-   CLI remains a thin LSP client.
- - Use `mise exec -- python` for repo-local tooling to ensure the pinned
-   interpreter and dependencies are used.
- - Treat docflow as repo-local convenience only; do not project it as a
-   general Gabion feature without explicit policy change.
+- Preserve the LSP-first invariant: the server is the semantic core and the
+  CLI remains a thin LSP client.
+- Use `mise exec -- python` for repo-local tooling to ensure the pinned
+  interpreter and dependencies are used.
+- Treat docflow as repo-local convenience only; do not project it as a
+  general Gabion feature without explicit policy change.
 
 ## Dataflow grammar invariant
 - Recurring parameter bundles are type-level obligations.
