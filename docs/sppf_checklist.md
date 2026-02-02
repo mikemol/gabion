@@ -1,5 +1,5 @@
 ---
-doc_revision: 51
+doc_revision: 52
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -39,7 +39,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
   auto-sync on `stage` pushes via the pre-push hook.
 
 ## Analysis pipeline nodes
-- [~] Import resolution / symbol table (deterministic callee resolution). (GH-6)
+- [x] Import resolution / symbol table (deterministic callee resolution). (GH-6)
 - [x] Import resolution: explicit imports + relative import handling.
 - [x] Import resolution: star-import expansion.
 - [x] Import resolution: re-exports / `__all__` handling.

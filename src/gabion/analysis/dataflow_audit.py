@@ -1107,7 +1107,9 @@ def _resolve_callee(
         globals_only = [
             info
             for info in candidates
-            if not info.lexical_scope and not (info.class_name and not info.lexical_scope)
+            if not info.lexical_scope
+            and not (info.class_name and not info.lexical_scope)
+            and info.path == caller.path
         ]
         if len(globals_only) == 1:
             return globals_only[0]
@@ -1175,42 +1177,6 @@ def _resolve_callee(
                 )
                 if resolved is not None:
                     return resolved
-    # If call uses module.func, try match by module suffix.
-    if "." in callee_name:
-        parts = callee_name.split(".")
-        func = parts[-1]
-        module = ".".join(parts[:-1])
-        candidates = [
-            info
-            for info in by_name.get(func, [])
-            if info.qual.endswith(f"{module}.{func}")
-        ]
-        if len(candidates) == 1:
-            return candidates[0]
-        # If caller's module matches a candidate, prefer it.
-        same_module = [
-            info
-            for info in candidates
-            if info.path == caller.path
-        ]
-        if len(same_module) == 1:
-            return same_module[0]
-        return None
-    # Fallback: unique function name across repo.
-    candidates = [info for info in by_name.get(callee_name, []) if info.class_name is None]
-    if len(candidates) == 1:
-        return candidates[0]
-    # Prefer same-module definition when ambiguous.
-    same_module = [info for info in candidates if info.path == caller.path]
-    if len(same_module) == 1:
-        return same_module[0]
-    # If callee is self.foo/cls.foo, prefer same-module foo.
-    if callee_name.startswith(("self.", "cls.")):
-        func = callee_name.split(".")[-1]
-        if caller.class_name:
-            candidate = f"{caller_module}.{caller.class_name}.{func}"
-            if candidate in by_qual:
-                return by_qual[candidate]
     return None
 
 
