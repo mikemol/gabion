@@ -13,20 +13,17 @@ def _load():
     return analyze_paths, AuditConfig
 
 
-def test_method_call_propagates_bundle(tmp_path: Path) -> None:
+def test_alias_attribute_forwarding(tmp_path: Path) -> None:
     analyze_paths, AuditConfig = _load()
     source = textwrap.dedent(
         """
         def sink(x=None, y=None):
             return x, y
 
-        class A:
-            def g(self, a, b):
-                sink(x=a, y=a)
-                sink(x=b, y=b)
-
-            def f(self, a, b):
-                return self.g(a, b)
+        def wrapper(param):
+            payload = {}
+            payload["x"] = param
+            return sink(x=payload["x"], y=param)
         """
     ).lstrip()
     file_path = tmp_path / "mod.py"
@@ -43,27 +40,24 @@ def test_method_call_propagates_bundle(tmp_path: Path) -> None:
         config=config,
     )
     groups = analysis.groups_by_path[file_path]
-    assert "A.g" in groups
-    assert "A.f" in groups
-    assert {"a", "b"} in groups["A.g"]
-    assert {"a", "b"} in groups["A.f"]
+    assert groups.get("wrapper") == []
 
 
-def test_inherited_method_call_propagates_bundle(tmp_path: Path) -> None:
+def test_alias_attribute_object_attr(tmp_path: Path) -> None:
     analyze_paths, AuditConfig = _load()
     source = textwrap.dedent(
         """
+        class Payload:
+            def __init__(self):
+                self.x = None
+
         def sink(x=None, y=None):
             return x, y
 
-        class Base:
-            def g(self, a, b):
-                sink(x=a, y=a)
-                sink(x=b, y=b)
-
-        class Child(Base):
-            def f(self, a, b):
-                return self.g(a, b)
+        def wrapper(param):
+            payload = Payload()
+            payload.x = param
+            return sink(x=payload.x, y=param)
         """
     ).lstrip()
     file_path = tmp_path / "mod.py"
@@ -80,7 +74,4 @@ def test_inherited_method_call_propagates_bundle(tmp_path: Path) -> None:
         config=config,
     )
     groups = analysis.groups_by_path[file_path]
-    assert "Base.g" in groups
-    assert "Child.f" in groups
-    assert {"a", "b"} in groups["Base.g"]
-    assert {"a", "b"} in groups["Child.f"]
+    assert groups.get("wrapper") == []

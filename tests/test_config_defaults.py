@@ -23,6 +23,8 @@ def test_dataflow_defaults_reads_toml(tmp_path: Path) -> None:
             ignore_params = ["self", "cls"]
             strictness = "low"
             allow_external = true
+            type_audit = true
+            fail_on_type_ambiguities = true
             """
         ).strip()
         + "\n"
@@ -33,6 +35,8 @@ def test_dataflow_defaults_reads_toml(tmp_path: Path) -> None:
     assert defaults["ignore_params"] == ["self", "cls"]
     assert defaults["strictness"] == "low"
     assert defaults["allow_external"] is True
+    assert defaults["type_audit"] is True
+    assert defaults["fail_on_type_ambiguities"] is True
 
 
 def test_merge_payload_prefers_explicit_values(tmp_path: Path) -> None:

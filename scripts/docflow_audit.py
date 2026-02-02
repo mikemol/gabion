@@ -82,8 +82,8 @@ def _parse_yaml_like(lines: List[str]) -> Dict[str, object]:
     return data
 
 
-def _lower_name(path: str) -> str:
-    return Path(path).stem.lower()
+def _lower_name(path: Path) -> str:
+    return path.stem.lower()
 
 
 def _audit(root: Path) -> Tuple[List[str], List[str]]:
@@ -152,7 +152,7 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
             for req in requires:
                 if req in body:
                     continue
-                req_name = _lower_name(req)
+                req_name = _lower_name(Path(req))
                 if req_name and req_name in body_lower:
                     warnings.append(
                         f"{rel}: implicit reference to {req} (Tier-2); prefer explicit path"

@@ -15,10 +15,17 @@ class TextEdit:
 
 
 @dataclass(frozen=True)
+class FieldSpec:
+    name: str
+    type_hint: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class RefactorRequest:
     protocol_name: str
     bundle: List[str]
     target_path: str
+    fields: List[FieldSpec] = field(default_factory=list)
     target_functions: List[str] = field(default_factory=list)
     rationale: Optional[str] = None
 

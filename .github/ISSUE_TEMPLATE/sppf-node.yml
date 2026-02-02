@@ -1,0 +1,76 @@
+name: "SPPF node"
+description: "Track a node from docs/sppf_checklist.md"
+title: "[SPPF] <node>"
+labels:
+  - "sppf-node"
+  - "planning"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to track an item from `docs/sppf_checklist.md`.
+        Paste the exact checklist line so the linkage is unambiguous.
+  - type: input
+    id: checklist_entry
+    attributes:
+      label: Checklist entry
+      description: Paste the exact checklist line (including [ ] or [~]).
+      placeholder: "- [ ] Refactor engine: Signature rewriting (def foo(a, b) -> def foo(bundle))."
+    validations:
+      required: true
+  - type: input
+    id: checklist_section
+    attributes:
+      label: Checklist section
+      description: Section header containing the entry (e.g., "Phase 3: Refactoring & UX").
+      placeholder: "Phase 3: Refactoring & UX"
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status
+      options:
+        - planned
+        - partial/heuristic
+    validations:
+      required: true
+  - type: input
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Related issues or prerequisites (optional).
+      placeholder: "#123, #456"
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this node to be marked [x]?
+      placeholder: "List objective criteria and expected test evidence."
+    validations:
+      required: true
+  - type: textarea
+    id: test_plan
+    attributes:
+      label: Test plan
+      description: Tests or checks to validate completion (optional).
+      placeholder: "pytest tests/test_..."
+    validations:
+      required: false
+  - type: input
+    id: target_release
+    attributes:
+      label: Target release
+      description: Optional release tag or milestone.
+      placeholder: "v0.1.0-alpha"
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklist_linkback
+    attributes:
+      label: Checklist linkage
+      options:
+        - label: "I will add the GH issue ID to the checklist entry after creation."
+          required: true

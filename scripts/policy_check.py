@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -28,6 +29,12 @@ REQUIRED_RUNNER_LABELS = {"self-hosted", "gpu", "local"}
 TRUSTED_BRANCHES = {"main", "stage"}
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+
+
+@dataclass(frozen=True)
+class JobContext:
+    job_name: str
+    path: Path
 
 
 def _fail(errors):
@@ -112,6 +119,7 @@ def _has_tag_push(on_block) -> bool:
 
 
 def _check_permissions(doc, path, errors, *, allow_pr_write=False, allow_id_token=False):
+    # dataflow-bundle: doc, errors
     permissions = doc.get("permissions")
     if permissions is None:
         errors.append(f"{path}: missing top-level permissions")
@@ -133,18 +141,22 @@ def _check_permissions(doc, path, errors, *, allow_pr_write=False, allow_id_toke
 
 
 def _check_job_permissions(
-    job, path, job_name, errors, *, allow_pr_write=False, allow_id_token=False
+    job, job_ctx: JobContext, errors, *, allow_pr_write=False, allow_id_token=False
 ):
-    # dataflow-bundle: job_name, path
+    # dataflow-bundle: errors, job, job_ctx
     permissions = job.get("permissions")
     if permissions is None:
         return
     if isinstance(permissions, str):
-        errors.append(f"{path}:{job_name}: job permissions must be a mapping")
+        errors.append(
+            f"{job_ctx.path}:{job_ctx.job_name}: job permissions must be a mapping"
+        )
         return
     contents = permissions.get("contents")
     if contents != "read":
-        errors.append(f"{path}:{job_name}: permissions.contents must be 'read'")
+        errors.append(
+            f"{job_ctx.path}:{job_ctx.job_name}: permissions.contents must be 'read'"
+        )
     is_self_hosted = _is_self_hosted(job.get("runs-on"))
     for key, value in permissions.items():
         if value in ("read", "none"):
@@ -159,12 +171,12 @@ def _check_job_permissions(
         if allow_id_token and not is_self_hosted and key == "id-token" and value == "write":
             continue
         errors.append(
-            f"{path}:{job_name}: permissions.{key} must be 'read' or 'none'"
+            f"{job_ctx.path}:{job_ctx.job_name}: permissions.{key} must be 'read' or 'none'"
         )
 
 
-def _check_actions(job, path, job_name, errors):
-    # dataflow-bundle: job_name, path
+def _check_actions(job, job_ctx: JobContext, errors):
+    # dataflow-bundle: errors, job, job_ctx
     steps = job.get("steps", [])
     for idx, step in enumerate(steps):
         uses = step.get("uses")
@@ -173,25 +185,30 @@ def _check_actions(job, path, job_name, errors):
         if uses.startswith("./") or uses.startswith("docker://"):
             continue
         if "@" not in uses:
-            errors.append(f"{path}:{job_name}: step {idx} uses unpinned action {uses!r}")
+            errors.append(
+                f"{job_ctx.path}:{job_ctx.job_name}: step {idx} uses unpinned action {uses!r}"
+            )
             continue
         action_ref, ref = uses.split("@", 1)
         action_parts = action_ref.split("/")
         if len(action_parts) < 2:
-            errors.append(f"{path}:{job_name}: step {idx} invalid action {uses!r}")
+            errors.append(
+                f"{job_ctx.path}:{job_ctx.job_name}: step {idx} invalid action {uses!r}"
+            )
             continue
         action_name = "/".join(action_parts[:2])
         if action_name not in ALLOWED_ACTIONS:
             errors.append(
-                f"{path}:{job_name}: step {idx} action not allow-listed ({action_name})"
+                f"{job_ctx.path}:{job_ctx.job_name}: step {idx} action not allow-listed ({action_name})"
             )
         if not _SHA_RE.match(ref):
             errors.append(
-                f"{path}:{job_name}: step {idx} action not pinned to full SHA ({uses})"
+                f"{job_ctx.path}:{job_ctx.job_name}: step {idx} action not pinned to full SHA ({uses})"
             )
 
 
 def _check_self_hosted_constraints(doc, path, errors):
+    # dataflow-bundle: doc, errors
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
@@ -263,15 +280,15 @@ def check_workflows():
         _check_self_hosted_constraints(doc, path, errors)
         if isinstance(jobs, dict):
             for name, job in jobs.items():
+                job_ctx = JobContext(job_name=str(name), path=path)
                 _check_job_permissions(
                     job,
-                    path,
-                    name,
+                    job_ctx,
                     errors,
                     allow_pr_write=allow_pr_write,
                     allow_id_token=allow_id_token,
                 )
-                _check_actions(job, path, name, errors)
+                _check_actions(job, job_ctx, errors)
     if errors:
         _fail(errors)
 

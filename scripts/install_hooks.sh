@@ -33,6 +33,13 @@ fi
 
 repo_root=$(git rev-parse --show-toplevel)
 "$repo_root/scripts/checks.sh" --no-docflow
+
+if [ -n "${GABION_SPPF_SYNC:-}" ]; then
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+  if [ "$current_branch" = "stage" ]; then
+    "$repo_root/scripts/sppf_sync.py" --comment --label done-on-stage --range origin/stage..HEAD || true
+  fi
+fi
 EOF
 
 chmod +x "$hooks_dir/pre-commit" "$hooks_dir/pre-push"

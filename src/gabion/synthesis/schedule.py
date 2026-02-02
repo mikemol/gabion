@@ -39,5 +39,49 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
     remaining = {node for node, deps in incoming.items() if deps}
     cycles: List[Set[str]] = []
     if remaining:
-        cycles.append(remaining)
+        subgraph = {node: {dep for dep in graph.get(node, set()) if dep in remaining} for node in remaining}
+        cycles = _strongly_connected_components(subgraph)
+        cycles = [
+            comp
+            for comp in cycles
+            if len(comp) > 1 or any(node in subgraph.get(node, set()) for node in comp)
+        ]
     return ScheduleResult(order=order, cycles=cycles)
+
+
+def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]:
+    index = 0
+    indices: Dict[str, int] = {}
+    lowlinks: Dict[str, int] = {}
+    stack: List[str] = []
+    on_stack: Set[str] = set()
+    components: List[Set[str]] = []
+
+    def visit(node: str) -> None:
+        nonlocal index
+        indices[node] = index
+        lowlinks[node] = index
+        index += 1
+        stack.append(node)
+        on_stack.add(node)
+        for neighbor in graph.get(node, set()):
+            if neighbor not in indices:
+                visit(neighbor)
+                lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
+            elif neighbor in on_stack:
+                lowlinks[node] = min(lowlinks[node], indices[neighbor])
+        if lowlinks[node] == indices[node]:
+            component: Set[str] = set()
+            while True:
+                popped = stack.pop()
+                on_stack.discard(popped)
+                component.add(popped)
+                if popped == node:
+                    break
+            components.append(component)
+
+    for node in graph:
+        if node not in indices:
+            visit(node)
+
+    return components

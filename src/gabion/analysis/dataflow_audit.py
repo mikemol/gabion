@@ -29,6 +29,7 @@ from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 from gabion.config import dataflow_defaults, merge_payload
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
+from gabion.synthesis.merge import merge_bundles
 from gabion.synthesis.schedule import topological_schedule
 
 @dataclass
@@ -47,6 +48,8 @@ class CallArgs:
     const_kw: dict[str, str]
     non_const_pos: set[str]
     non_const_kw: set[str]
+    star_pos: list[tuple[int, str]]
+    star_kw: list[str]
     is_test: bool
 
 
@@ -55,6 +58,9 @@ class SymbolTable:
     imports: dict[tuple[str, str], str] = field(default_factory=dict)
     internal_roots: set[str] = field(default_factory=set)
     external_filter: bool = True
+    star_imports: dict[str, set[str]] = field(default_factory=dict)
+    module_exports: dict[str, set[str]] = field(default_factory=dict)
+    module_export_map: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def resolve(self, current_module: str, name: str) -> str | None:
         if (current_module, name) in self.imports:
@@ -65,6 +71,31 @@ class SymbolTable:
                     return None
             return fqn
         return f"{current_module}.{name}"
+
+    def resolve_star(self, current_module: str, name: str) -> str | None:
+        candidates = self.star_imports.get(current_module, set())
+        if not candidates:
+            return None
+        for module in sorted(candidates):
+            exports = self.module_exports.get(module)
+            if exports is None or name not in exports:
+                continue
+            export_map = self.module_export_map.get(module, {})
+            mapped = export_map.get(name)
+            if mapped:
+                if self.external_filter and mapped:
+                    root = mapped.split(".")[0]
+                    if root not in self.internal_roots:
+                        continue
+                return mapped
+            if self.external_filter and module:
+                root = module.split(".")[0]
+                if root not in self.internal_roots:
+                    continue
+            if module:
+                return f"{module}.{name}"
+            return name
+        return None
 
 
 @dataclass
@@ -145,6 +176,66 @@ def _collect_functions(tree: ast.AST):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             funcs.append(node)
     return funcs
+
+
+def _collect_local_class_bases(
+    tree: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> dict[str, list[str]]:
+    class_bases: dict[str, list[str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        scopes = _enclosing_class_scopes(node, parents)
+        qual_parts = list(scopes)
+        qual_parts.append(node.name)
+        qual = ".".join(qual_parts)
+        bases: list[str] = []
+        for base in node.bases:
+            base_name = _base_identifier(base)
+            if base_name:
+                bases.append(base_name)
+        class_bases[qual] = bases
+    return class_bases
+
+
+def _local_class_name(base: str, class_bases: dict[str, list[str]]) -> str | None:
+    if base in class_bases:
+        return base
+    if "." in base:
+        tail = base.split(".")[-1]
+        if tail in class_bases:
+            return tail
+    return None
+
+
+def _resolve_local_method_in_hierarchy(
+    class_name: str,
+    method: str,
+    *,
+    class_bases: dict[str, list[str]],
+    local_functions: set[str],
+    seen: set[str],
+) -> str | None:
+    if class_name in seen:
+        return None
+    seen.add(class_name)
+    candidate = f"{class_name}.{method}"
+    if candidate in local_functions:
+        return candidate
+    for base in class_bases.get(class_name, []):
+        base_name = _local_class_name(base, class_bases)
+        if base_name is None:
+            continue
+        resolved = _resolve_local_method_in_hierarchy(
+            base_name,
+            method,
+            class_bases=class_bases,
+            local_functions=local_functions,
+            seen=seen,
+        )
+        if resolved is not None:
+            return resolved
+    return None
 
 
 def _param_names(
@@ -237,6 +328,18 @@ def _enclosing_scopes(
         if isinstance(current, ast.ClassDef):
             scopes.append(current.name)
         elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scopes.append(current.name)
+        current = parents.get(current)
+    return list(reversed(scopes))
+
+
+def _enclosing_class_scopes(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> list[str]:
+    scopes: list[str] = []
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, ast.ClassDef):
             scopes.append(current.name)
         current = parents.get(current)
     return list(reversed(scopes))
@@ -386,6 +489,7 @@ def _propagate_groups(
     call_args: list[CallArgs],
     callee_groups: dict[str, list[set[str]]],
     callee_param_orders: dict[str, list[str]],
+    strictness: str,
 ) -> list[set[str]]:
     groups: list[set[str]] = []
     for call in call_args:
@@ -400,6 +504,17 @@ def _propagate_groups(
                 callee_to_caller[pname] = call.pos_map[key]
         for kw, caller_name in call.kw_map.items():
             callee_to_caller[kw] = caller_name
+        if strictness == "low":
+            mapped = set(callee_to_caller.keys())
+            remaining = [p for p in callee_params if p not in mapped]
+            if len(call.star_pos) == 1:
+                _, star_param = call.star_pos[0]
+                for param in remaining:
+                    callee_to_caller.setdefault(param, star_param)
+            if len(call.star_kw) == 1:
+                star_param = call.star_kw[0]
+                for param in remaining:
+                    callee_to_caller.setdefault(param, star_param)
         for group in callee_groups[call.callee]:
             mapped = {callee_to_caller.get(p) for p in group}
             mapped.discard(None)
@@ -496,6 +611,33 @@ def analyze_file(
                 resolved_calls.append(call)
         fn_calls[caller_key] = resolved_calls
 
+    class_bases = _collect_local_class_bases(tree, parents)
+    if class_bases:
+        local_functions = set(fn_use.keys())
+
+        def _resolve_local_method(callee: str) -> str | None:
+            if "." not in callee:
+                return None
+            class_part, method = callee.rsplit(".", 1)
+            return _resolve_local_method_in_hierarchy(
+                class_part,
+                method,
+                class_bases=class_bases,
+                local_functions=local_functions,
+                seen=set(),
+            )
+
+        for caller_key, calls in list(fn_calls.items()):
+            resolved_calls = []
+            for call in calls:
+                if "." in call.callee:
+                    resolved = _resolve_local_method(call.callee)
+                    if resolved and resolved != call.callee:
+                        resolved_calls.append(replace(call, callee=resolved))
+                        continue
+                resolved_calls.append(call)
+            fn_calls[caller_key] = resolved_calls
+
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
 
     if not recursive:
@@ -509,6 +651,7 @@ def analyze_file(
                 fn_calls[fn],
                 groups_by_fn,
                 fn_param_orders,
+                config.strictness,
             )
             if not propagated:
                 continue
@@ -532,6 +675,70 @@ def _is_broad_type(annot: str | None) -> bool:
     return base in {"Any", "object"}
 
 
+_NONE_TYPES = {"None", "NoneType", "type(None)"}
+
+
+def _split_top_level(value: str, sep: str) -> list[str]:
+    parts: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    for ch in value:
+        if ch in "[({":
+            depth += 1
+        elif ch in "])}":
+            depth = max(depth - 1, 0)
+        if ch == sep and depth == 0:
+            part = "".join(buf).strip()
+            if part:
+                parts.append(part)
+            buf = []
+            continue
+        buf.append(ch)
+    tail = "".join(buf).strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def _expand_type_hint(hint: str) -> set[str]:
+    hint = hint.strip()
+    if not hint:
+        return set()
+    if hint.startswith("Optional[") and hint.endswith("]"):
+        inner = hint[len("Optional[") : -1]
+        return {_strip_type(t) for t in _split_top_level(inner, ",")} | {"None"}
+    if hint.startswith("Union[") and hint.endswith("]"):
+        inner = hint[len("Union[") : -1]
+        return {_strip_type(t) for t in _split_top_level(inner, ",")}
+    if "|" in hint:
+        return {_strip_type(t) for t in _split_top_level(hint, "|")}
+    return {hint}
+
+
+def _strip_type(value: str) -> str:
+    return value.strip()
+
+
+def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
+    expanded: set[str] = set()
+    for hint in types:
+        expanded.update(_expand_type_hint(hint))
+    none_types = {t for t in expanded if t in _NONE_TYPES}
+    expanded -= none_types
+    if not expanded:
+        return "Any", bool(types)
+    sorted_types = sorted(expanded)
+    if len(sorted_types) == 1:
+        base = sorted_types[0]
+        if none_types:
+            return f"Optional[{base}]", True
+        return base, len(types) > 1
+    union = f"Union[{', '.join(sorted_types)}]"
+    if none_types:
+        return f"Optional[{union}]", True
+    return union, True
+
+
 @dataclass
 class FunctionInfo:
     name: str
@@ -546,6 +753,14 @@ class FunctionInfo:
     lexical_scope: tuple[str, ...] = ()
 
 
+@dataclass
+class ClassInfo:
+    qual: str
+    module: str
+    bases: list[str]
+    methods: set[str]
+
+
 def _module_name(path: Path, project_root: Path | None = None) -> str:
     rel = path.with_suffix("")
     if project_root is not None:
@@ -558,6 +773,93 @@ def _module_name(path: Path, project_root: Path | None = None) -> str:
         parts = parts[1:]
     return ".".join(parts)
 
+
+def _string_list(node: ast.AST) -> list[str] | None:
+    if isinstance(node, (ast.List, ast.Tuple)):
+        values: list[str] = []
+        for elt in node.elts:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                values.append(elt.value)
+            else:
+                return None
+        return values
+    return None
+
+
+def _base_identifier(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        try:
+            return ast.unparse(node)
+        except Exception:
+            return None
+    if isinstance(node, ast.Subscript):
+        return _base_identifier(node.value)
+    if isinstance(node, ast.Call):
+        return _base_identifier(node.func)
+    return None
+
+
+def _collect_module_exports(
+    tree: ast.AST,
+    *,
+    module_name: str,
+    import_map: dict[str, str],
+) -> tuple[set[str], dict[str, str]]:
+    explicit_all: list[str] | None = None
+    for stmt in getattr(tree, "body", []):
+        if isinstance(stmt, ast.Assign):
+            targets = stmt.targets
+            if any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets):
+                values = _string_list(stmt.value)
+                if values is not None:
+                    explicit_all = list(values)
+        elif isinstance(stmt, ast.AnnAssign):
+            if isinstance(stmt.target, ast.Name) and stmt.target.id == "__all__":
+                values = _string_list(stmt.value) if stmt.value is not None else None
+                if values is not None:
+                    explicit_all = list(values)
+        elif isinstance(stmt, ast.AugAssign):
+            if (
+                isinstance(stmt.target, ast.Name)
+                and stmt.target.id == "__all__"
+                and isinstance(stmt.op, ast.Add)
+            ):
+                values = _string_list(stmt.value)
+                if values is not None:
+                    if explicit_all is None:
+                        explicit_all = []
+                    explicit_all.extend(values)
+
+    local_defs: set[str] = set()
+    for stmt in getattr(tree, "body", []):
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if not stmt.name.startswith("_"):
+                local_defs.add(stmt.name)
+        elif isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                if isinstance(target, ast.Name) and not target.id.startswith("_"):
+                    local_defs.add(target.id)
+        elif isinstance(stmt, ast.AnnAssign):
+            if isinstance(stmt.target, ast.Name) and not stmt.target.id.startswith("_"):
+                local_defs.add(stmt.target.id)
+
+    if explicit_all is not None:
+        export_names = set(explicit_all)
+    else:
+        export_names = set(local_defs) | {
+            name for name in import_map.keys() if not name.startswith("_")
+        }
+        export_names = {name for name in export_names if not name.startswith("_")}
+
+    export_map: dict[str, str] = {}
+    for name in export_names:
+        if name in import_map:
+            export_map[name] = import_map[name]
+        elif name in local_defs:
+            export_map[name] = f"{module_name}.{name}" if module_name else name
+    return export_names, export_map
 
 def _build_symbol_table(
     paths: list[Path],
@@ -576,7 +878,140 @@ def _build_symbol_table(
             table.internal_roots.add(module.split(".")[0])
         visitor = ImportVisitor(module, table)
         visitor.visit(tree)
+        if module:
+            import_map = {
+                local: fqn
+                for (mod, local), fqn in table.imports.items()
+                if mod == module
+            }
+            exports, export_map = _collect_module_exports(
+                tree,
+                module_name=module,
+                import_map=import_map,
+            )
+            table.module_exports[module] = exports
+            table.module_export_map[module] = export_map
     return table
+
+
+def _collect_class_index(
+    paths: list[Path],
+    project_root: Path | None,
+) -> dict[str, ClassInfo]:
+    class_index: dict[str, ClassInfo] = {}
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except Exception:
+            continue
+        parents = ParentAnnotator()
+        parents.visit(tree)
+        module = _module_name(path, project_root)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            scopes = _enclosing_class_scopes(node, parents.parents)
+            qual_parts = [module] if module else []
+            qual_parts.extend(scopes)
+            qual_parts.append(node.name)
+            qual = ".".join(qual_parts)
+            bases: list[str] = []
+            for base in node.bases:
+                base_name = _base_identifier(base)
+                if base_name:
+                    bases.append(base_name)
+            methods: set[str] = set()
+            for stmt in node.body:
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    methods.add(stmt.name)
+            class_index[qual] = ClassInfo(
+                qual=qual,
+                module=module,
+                bases=bases,
+                methods=methods,
+            )
+    return class_index
+
+
+def _resolve_class_candidates(
+    base: str,
+    *,
+    module: str,
+    symbol_table: SymbolTable | None,
+    class_index: dict[str, ClassInfo],
+) -> list[str]:
+    if not base:
+        return []
+    candidates: list[str] = []
+    if "." in base:
+        parts = base.split(".")
+        head = parts[0]
+        tail = ".".join(parts[1:])
+        if symbol_table is not None:
+            resolved_head = symbol_table.resolve(module, head)
+            if resolved_head:
+                candidates.append(f"{resolved_head}.{tail}")
+        if module:
+            candidates.append(f"{module}.{base}")
+        candidates.append(base)
+    else:
+        if symbol_table is not None:
+            resolved = symbol_table.resolve(module, base)
+            if resolved:
+                candidates.append(resolved)
+            resolved_star = symbol_table.resolve_star(module, base)
+            if resolved_star:
+                candidates.append(resolved_star)
+        if module:
+            candidates.append(f"{module}.{base}")
+        candidates.append(base)
+    seen: set[str] = set()
+    resolved: list[str] = []
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate in class_index:
+            resolved.append(candidate)
+    return resolved
+
+
+def _resolve_method_in_hierarchy(
+    class_qual: str,
+    method: str,
+    *,
+    class_index: dict[str, ClassInfo],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table: SymbolTable | None,
+    seen: set[str],
+) -> FunctionInfo | None:
+    if class_qual in seen:
+        return None
+    seen.add(class_qual)
+    candidate = f"{class_qual}.{method}"
+    if candidate in by_qual:
+        return by_qual[candidate]
+    info = class_index.get(class_qual)
+    if info is None:
+        return None
+    for base in info.bases:
+        for base_qual in _resolve_class_candidates(
+            base,
+            module=info.module,
+            symbol_table=symbol_table,
+            class_index=class_index,
+        ):
+            resolved = _resolve_method_in_hierarchy(
+                base_qual,
+                method,
+                class_index=class_index,
+                by_qual=by_qual,
+                symbol_table=symbol_table,
+                seen=seen,
+            )
+            if resolved is not None:
+                return resolved
+    return None
 
 
 def _build_function_index(
@@ -641,12 +1076,15 @@ def _resolve_callee(
     by_qual: dict[str, FunctionInfo],
     symbol_table: SymbolTable | None = None,
     project_root: Path | None = None,
+    class_index: dict[str, ClassInfo] | None = None,
 ) -> FunctionInfo | None:
+    # dataflow-bundle: by_name, caller
     if not callee_name:
         return None
     caller_module = _module_name(caller.path, project_root=project_root)
     candidates = by_name.get(_callee_key(callee_name), [])
     if "." not in callee_name:
+        ambiguous = False
         effective_scope = list(caller.lexical_scope) + [caller.name]
         while True:
             scoped = [
@@ -658,10 +1096,13 @@ def _resolve_callee(
             if len(scoped) == 1:
                 return scoped[0]
             if len(scoped) > 1:
-                return None
+                ambiguous = True
+                break
             if not effective_scope:
                 break
             effective_scope = effective_scope[:-1]
+        if ambiguous:
+            pass
         globals_only = [
             info
             for info in candidates
@@ -677,6 +1118,9 @@ def _resolve_callee(
                     return None
                 if fqn in by_qual:
                     return by_qual[fqn]
+            resolved = symbol_table.resolve_star(caller_module, callee_name)
+            if resolved is not None and resolved in by_qual:
+                return by_qual[resolved]
         else:
             parts = callee_name.split(".")
             base = parts[0]
@@ -700,6 +1144,36 @@ def _resolve_callee(
     # Exact qualified name match.
     if callee_name in by_qual:
         return by_qual[callee_name]
+    if class_index is not None and "." in callee_name:
+        parts = callee_name.split(".")
+        if len(parts) >= 2:
+            method = parts[-1]
+            class_part = ".".join(parts[:-1])
+            if class_part in {"self", "cls"} and caller.class_name:
+                class_candidates = _resolve_class_candidates(
+                    caller.class_name,
+                    module=caller_module,
+                    symbol_table=symbol_table,
+                    class_index=class_index,
+                )
+            else:
+                class_candidates = _resolve_class_candidates(
+                    class_part,
+                    module=caller_module,
+                    symbol_table=symbol_table,
+                    class_index=class_index,
+                )
+            for class_qual in class_candidates:
+                resolved = _resolve_method_in_hierarchy(
+                    class_qual,
+                    method,
+                    class_index=class_index,
+                    by_qual=by_qual,
+                    symbol_table=symbol_table,
+                    seen=set(),
+                )
+                if resolved is not None:
+                    return resolved
     # If call uses module.func, try match by module suffix.
     if "." in callee_name:
         parts = callee_name.split(".")
@@ -754,6 +1228,7 @@ def analyze_type_flow_repo_with_map(
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
     )
+    class_index = _collect_class_index(paths, project_root)
     inferred: dict[str, dict[str, str | None]] = {}
     for infos in by_name.values():
         for info in infos:
@@ -780,10 +1255,13 @@ def analyze_type_flow_repo_with_map(
                         by_qual,
                         symbol_table,
                         project_root,
+                        class_index,
                     )
                     if callee is None:
                         continue
                     callee_params = callee.params
+                    mapped_params: set[str] = set()
+                    callee_to_caller: dict[str, set[str]] = defaultdict(set)
                     for pos_idx, param in call.pos_map.items():
                         try:
                             idx = int(pos_idx)
@@ -792,13 +1270,29 @@ def analyze_type_flow_repo_with_map(
                         if idx >= len(callee_params):
                             continue
                         callee_param = callee_params[idx]
-                        annot = _get_annot(callee, callee_param)
-                        if annot:
-                            downstream[param].add(annot)
+                        mapped_params.add(callee_param)
+                        callee_to_caller[callee_param].add(param)
                     for kw_name, param in call.kw_map.items():
-                        annot = _get_annot(callee, kw_name)
-                        if annot:
-                            downstream[param].add(annot)
+                        if kw_name not in callee_params:
+                            continue
+                        mapped_params.add(kw_name)
+                        callee_to_caller[kw_name].add(param)
+                    if strictness == "low":
+                        remaining = [p for p in callee_params if p not in mapped_params]
+                        if len(call.star_pos) == 1:
+                            _, star_param = call.star_pos[0]
+                            for param in remaining:
+                                callee_to_caller[param].add(star_param)
+                        if len(call.star_kw) == 1:
+                            star_param = call.star_kw[0]
+                            for param in remaining:
+                                callee_to_caller[param].add(star_param)
+                    for callee_param, callers in callee_to_caller.items():
+                        annot = _get_annot(callee, callee_param)
+                        if not annot:
+                            continue
+                        for caller_param in callers:
+                            downstream[caller_param].add(annot)
                 for param, annots in downstream.items():
                     if not annots:
                         continue
@@ -852,6 +1346,7 @@ def analyze_constant_flow_repo(
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
     )
+    class_index = _collect_class_index(paths, project_root)
     const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
     non_const: dict[tuple[str, str], bool] = defaultdict(bool)
     call_counts: dict[tuple[str, str], int] = defaultdict(int)
@@ -868,10 +1363,24 @@ def analyze_constant_flow_repo(
                     by_qual,
                     symbol_table,
                     project_root,
+                    class_index,
                 )
                 if callee is None:
                     continue
                 callee_params = callee.params
+                mapped_params = set()
+                for idx_str in call.pos_map:
+                    try:
+                        idx = int(idx_str)
+                    except ValueError:
+                        continue
+                    if idx >= len(callee_params):
+                        continue
+                    mapped_params.add(callee_params[idx])
+                for kw in call.kw_map:
+                    if kw in callee_params:
+                        mapped_params.add(kw)
+                remaining = [p for p in callee_params if p not in mapped_params]
 
                 for idx_str, value in call.const_pos.items():
                     try:
@@ -903,6 +1412,12 @@ def analyze_constant_flow_repo(
                     key = (callee.qual, callee_params[idx])
                     non_const[key] = True
                     call_counts[key] += 1
+                if strictness == "low":
+                    if len(call.star_pos) == 1:
+                        for param in remaining:
+                            key = (callee.qual, param)
+                            non_const[key] = True
+                            call_counts[key] += 1
 
                 for kw, value in call.const_kw.items():
                     if kw not in callee_params:
@@ -922,6 +1437,12 @@ def analyze_constant_flow_repo(
                     key = (callee.qual, kw)
                     non_const[key] = True
                     call_counts[key] += 1
+                if strictness == "low":
+                    if len(call.star_kw) == 1:
+                        for param in remaining:
+                            key = (callee.qual, param)
+                            non_const[key] = True
+                            call_counts[key] += 1
 
     smells: list[str] = []
     for key, values in const_values.items():
@@ -955,6 +1476,7 @@ def analyze_unused_arg_flow_repo(
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=external_filter
     )
+    class_index = _collect_class_index(paths, project_root)
     smells: set[str] = set()
 
     def _format(
@@ -963,6 +1485,7 @@ def analyze_unused_arg_flow_repo(
         callee_param: str,
         arg_desc: str,
     ) -> str:
+        # dataflow-bundle: callee, caller
         return (
             f"{caller.path.name}:{caller.name} passes {arg_desc} "
             f"to unused {callee.path.name}:{callee.name}.{callee_param}"
@@ -980,12 +1503,30 @@ def analyze_unused_arg_flow_repo(
                     by_qual,
                     symbol_table,
                     project_root,
+                    class_index,
                 )
                 if callee is None:
                     continue
                 if not callee.unused_params:
                     continue
                 callee_params = callee.params
+                mapped_params = set()
+                for idx_str in call.pos_map:
+                    try:
+                        idx = int(idx_str)
+                    except ValueError:
+                        continue
+                    if idx >= len(callee_params):
+                        continue
+                    mapped_params.add(callee_params[idx])
+                for kw in call.kw_map:
+                    if kw in callee_params:
+                        mapped_params.add(kw)
+                remaining = [
+                    (idx, name)
+                    for idx, name in enumerate(callee_params)
+                    if name not in mapped_params
+                ]
 
                 for idx_str, caller_param in call.pos_map.items():
                     try:
@@ -1045,11 +1586,34 @@ def analyze_unused_arg_flow_repo(
                                 f"non-constant kw '{kw}'",
                             )
                         )
+                if strictness == "low":
+                    if len(call.star_pos) == 1:
+                        for idx, param in remaining:
+                            if param in callee.unused_params:
+                                smells.add(
+                                    _format(
+                                        info,
+                                        callee,
+                                        param,
+                                        f"non-constant arg at position {idx}",
+                                    )
+                                )
+                    if len(call.star_kw) == 1:
+                        for _, param in remaining:
+                            if param in callee.unused_params:
+                                smells.add(
+                                    _format(
+                                        info,
+                                        callee,
+                                        param,
+                                        f"non-constant kw '{param}'",
+                                    )
+                                )
     return sorted(smells)
 
 
 def _iter_config_fields(path: Path) -> dict[str, set[str]]:
-    """Best-effort extraction of @dataclass config bundles (fields ending with _fn)."""
+    """Best-effort extraction of config bundles from dataclasses."""
     try:
         tree = ast.parse(path.read_text())
     except Exception:
@@ -1059,18 +1623,21 @@ def _iter_config_fields(path: Path) -> dict[str, set[str]]:
         if not isinstance(node, ast.ClassDef):
             continue
         decorators = {getattr(d, "id", None) for d in node.decorator_list}
-        if "dataclass" not in decorators and not node.name.endswith("Config"):
+        is_dataclass = "dataclass" in decorators
+        is_config = node.name.endswith("Config")
+        if not is_dataclass and not is_config:
             continue
         fields: set[str] = set()
         for stmt in node.body:
             if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
                 name = stmt.target.id
-                if name.endswith("_fn"):
+                if is_config or name.endswith("_fn"):
                     fields.add(name)
             elif isinstance(stmt, ast.Assign):
                 for target in stmt.targets:
-                    if isinstance(target, ast.Name) and target.id.endswith("_fn"):
-                        fields.add(target.id)
+                    if isinstance(target, ast.Name):
+                        if is_config or target.id.endswith("_fn"):
+                            fields.add(target.id)
         if fields:
             bundles[node.name] = fields
     return bundles
@@ -1100,14 +1667,59 @@ def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
     return bundles
 
 
-def _iter_dataclass_call_bundles(path: Path) -> set[tuple[str, ...]]:
-    """Return bundles promoted via local @dataclass constructor calls."""
+def _collect_dataclass_registry(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+) -> dict[str, list[str]]:
+    registry: dict[str, list[str]] = {}
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except Exception:
+            continue
+        module = _module_name(path, project_root)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            decorators = {
+                ast.unparse(dec) if hasattr(ast, "unparse") else ""
+                for dec in node.decorator_list
+            }
+            if not any("dataclass" in dec for dec in decorators):
+                continue
+            fields: list[str] = []
+            for stmt in node.body:
+                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                    fields.append(stmt.target.id)
+                elif isinstance(stmt, ast.Assign):
+                    for target in stmt.targets:
+                        if isinstance(target, ast.Name):
+                            fields.append(target.id)
+            if not fields:
+                continue
+            if module:
+                registry[f"{module}.{node.name}"] = fields
+            else:
+                registry[node.name] = fields
+    return registry
+
+
+def _iter_dataclass_call_bundles(
+    path: Path,
+    *,
+    project_root: Path | None = None,
+    symbol_table: SymbolTable | None = None,
+    dataclass_registry: dict[str, list[str]] | None = None,
+) -> set[tuple[str, ...]]:
+    """Return bundles promoted via @dataclass constructor calls."""
     bundles: set[tuple[str, ...]] = set()
     try:
         tree = ast.parse(path.read_text())
     except Exception:
         return bundles
-    dataclass_names: set[str] = set()
+    module = _module_name(path, project_root)
+    local_dataclasses: dict[str, list[str]] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.ClassDef):
             continue
@@ -1116,9 +1728,23 @@ def _iter_dataclass_call_bundles(path: Path) -> set[tuple[str, ...]]:
             for dec in node.decorator_list
         }
         if any("dataclass" in dec for dec in decorators):
-            dataclass_names.add(node.name)
-    if not dataclass_names:
-        return bundles
+            fields: list[str] = []
+            for stmt in node.body:
+                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                    fields.append(stmt.target.id)
+                elif isinstance(stmt, ast.Assign):
+                    for target in stmt.targets:
+                        if isinstance(target, ast.Name):
+                            fields.append(target.id)
+            if fields:
+                local_dataclasses[node.name] = fields
+    if dataclass_registry is None:
+        dataclass_registry = {}
+        for name, fields in local_dataclasses.items():
+            if module:
+                dataclass_registry[f"{module}.{name}"] = fields
+            else:
+                dataclass_registry[name] = fields
 
     def _callee_name(call: ast.Call) -> str | None:
         if isinstance(call.func, ast.Name):
@@ -1127,17 +1753,55 @@ def _iter_dataclass_call_bundles(path: Path) -> set[tuple[str, ...]]:
             return call.func.attr
         return None
 
+    def _resolve_fields(call: ast.Call) -> list[str] | None:
+        if isinstance(call.func, ast.Name):
+            name = call.func.id
+            if name in local_dataclasses:
+                return local_dataclasses[name]
+            if module:
+                candidate = f"{module}.{name}"
+                if candidate in dataclass_registry:
+                    return dataclass_registry[candidate]
+            if symbol_table is not None and module:
+                resolved = symbol_table.resolve(module, name)
+                if resolved in dataclass_registry:
+                    return dataclass_registry[resolved]
+                resolved_star = symbol_table.resolve_star(module, name)
+                if resolved_star in dataclass_registry:
+                    return dataclass_registry[resolved_star]
+            if name in dataclass_registry:
+                return dataclass_registry[name]
+        if isinstance(call.func, ast.Attribute):
+            if isinstance(call.func.value, ast.Name):
+                base = call.func.value.id
+                attr = call.func.attr
+                if symbol_table is not None and module:
+                    base_fqn = symbol_table.resolve(module, base)
+                    if base_fqn:
+                        candidate = f"{base_fqn}.{attr}"
+                        if candidate in dataclass_registry:
+                            return dataclass_registry[candidate]
+                    base_star = symbol_table.resolve_star(module, base)
+                    if base_star:
+                        candidate = f"{base_star}.{attr}"
+                        if candidate in dataclass_registry:
+                            return dataclass_registry[candidate]
+        return None
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        callee = _callee_name(node)
-        if callee not in dataclass_names:
+        fields = _resolve_fields(node)
+        if not fields:
             continue
         names: list[str] = []
         ok = True
-        for arg in node.args:
-            if isinstance(arg, ast.Name):
-                names.append(arg.id)
+        for idx, arg in enumerate(node.args):
+            if isinstance(arg, ast.Starred):
+                ok = False
+                break
+            if idx < len(fields):
+                names.append(fields[idx])
             else:
                 ok = False
                 break
@@ -1147,11 +1811,7 @@ def _iter_dataclass_call_bundles(path: Path) -> set[tuple[str, ...]]:
             if kw.arg is None:
                 ok = False
                 break
-            if isinstance(kw.value, ast.Name):
-                names.append(kw.value.id)
-            else:
-                ok = False
-                break
+            names.append(kw.arg)
         if not ok or len(names) < 2:
             continue
         bundles.add(tuple(sorted(names)))
@@ -1236,6 +1896,7 @@ def _render_mermaid_component(
     config_bundles_by_path: dict[Path, dict[str, set[str]]],
     documented_bundles_by_path: dict[Path, set[tuple[str, ...]]],
 ) -> tuple[str, str]:
+    # dataflow-bundle: adj, config_bundles_by_path, documented_bundles_by_path, nodes
     lines = ["```mermaid", "flowchart LR"]
     fn_nodes = [n for n in component if nodes[n]["kind"] == "fn"]
     bundle_nodes = [n for n in component if nodes[n]["kind"] == "bundle"]
@@ -1343,9 +2004,24 @@ def _emit_report(
     protocols = root / "prism_vm_core" / "protocols.py"
     if protocols.exists():
         config_bundles_by_path[protocols] = _iter_config_fields(protocols)
-    for path in sorted(root.rglob("*.py")):
+    file_paths = sorted(root.rglob("*.py"))
+    symbol_table = _build_symbol_table(
+        file_paths,
+        root,
+        external_filter=True,
+    )
+    dataclass_registry = _collect_dataclass_registry(
+        file_paths,
+        project_root=root,
+    )
+    for path in file_paths:
         documented = _iter_documented_bundles(path)
-        promoted = _iter_dataclass_call_bundles(path)
+        promoted = _iter_dataclass_call_bundles(
+            path,
+            project_root=root,
+            symbol_table=symbol_table,
+            dataclass_registry=dataclass_registry,
+        )
         documented_bundles_by_path[path] = documented | promoted
     lines = [
         "<!-- dataflow-grammar -->",
@@ -1477,6 +2153,25 @@ def build_synthesis_plan(
             frequency[field] += count
             bundle_fields.add(field)
 
+    merged_bundle_tiers: dict[frozenset[str], int] = {}
+    original_bundles = [set(bundle) for bundle in counts]
+    merged_bundles = merge_bundles(original_bundles)
+    if merged_bundles:
+        for merged in merged_bundles:
+            members = [
+                bundle
+                for bundle in original_bundles
+                if bundle and bundle.issubset(merged)
+            ]
+            if not members:
+                continue
+            tier = min(
+                bundle_tiers[frozenset(member)] for member in members
+            )
+            merged_bundle_tiers[frozenset(merged)] = tier
+        if merged_bundle_tiers:
+            bundle_tiers = merged_bundle_tiers
+
     naming_context = NamingContext(frequency=dict(frequency))
     synth_config = SynthesisConfig(
         max_tier=max_tier,
@@ -1500,11 +2195,13 @@ def build_synthesis_plan(
                     continue
                 type_sets[name].add(annot)
         for name, types in type_sets.items():
-            if len(types) == 1:
-                field_types[name] = next(iter(types))
-            elif len(types) > 1:
+            if not types:
+                continue
+            combined, conflicted = _combine_type_hints(types)
+            field_types[name] = combined
+            if conflicted and len(types) > 1:
                 type_warnings.append(
-                    f"Conflicting type hints for '{name}': {sorted(types)}"
+                    f"Conflicting type hints for '{name}': {sorted(types)} -> {combined}"
                 )
     plan = Synthesizer(config=synth_config).plan(
         bundle_tiers=bundle_tiers,
@@ -1570,24 +2267,66 @@ def render_synthesis_section(plan: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
-def render_protocol_stubs(plan: dict[str, object]) -> str:
+def render_protocol_stubs(plan: dict[str, object], kind: str = "dataclass") -> str:
     protocols = plan.get("protocols", [])
+    if kind not in {"dataclass", "protocol"}:
+        kind = "dataclass"
+    typing_names = {"Any"}
+    if kind == "protocol":
+        typing_names.add("Protocol")
+    for spec in protocols:
+        for field in spec.get("fields", []) or []:
+            hint = field.get("type_hint") or "Any"
+            if "Optional[" in hint:
+                typing_names.add("Optional")
+            if "Union[" in hint:
+                typing_names.add("Union")
+    typing_import = ", ".join(sorted(typing_names))
     lines = [
         "# Auto-generated by gabion dataflow audit.",
         "from __future__ import annotations",
         "",
-        "from dataclasses import dataclass",
-        "from typing import Any",
+        f"from typing import {typing_import}",
         "",
     ]
+    if kind == "dataclass":
+        lines.insert(3, "from dataclasses import dataclass")
     if not protocols:
         lines.append("# No protocol candidates.")
         return "\n".join(lines)
-    for spec in protocols:
-        name = spec.get("name", "Bundle")
-        lines.append("@dataclass")
-        lines.append(f"class {name}:")
+    placeholder_base = "TODO_Name_Me"
+    for idx, spec in enumerate(protocols, start=1):
+        name = placeholder_base if idx == 1 else f"{placeholder_base}{idx}"
+        suggested = spec.get("name", "Bundle")
+        tier = spec.get("tier", "?")
+        bundle = spec.get("bundle", [])
+        rationale = spec.get("rationale", "")
+        if kind == "dataclass":
+            lines.append("@dataclass")
+            lines.append(f"class {name}:")
+        else:
+            lines.append(f"class {name}(Protocol):")
+        doc_lines = [
+            "TODO: Rename this Protocol.",
+            f"Suggested name: {suggested}",
+            f"Tier: {tier}",
+        ]
+        if bundle:
+            doc_lines.append(f"Bundle: {', '.join(bundle)}")
+        if rationale:
+            doc_lines.append(f"Rationale: {rationale}")
         fields = spec.get("fields", [])
+        if fields:
+            field_summary = []
+            for field in fields:
+                fname = field.get("name") or "field"
+                type_hint = field.get("type_hint") or "Any"
+                field_summary.append(f"{fname}: {type_hint}")
+            doc_lines.append("Fields: " + ", ".join(field_summary))
+        lines.append('    """')
+        for line in doc_lines:
+            lines.append(f"    {line}")
+        lines.append('    """')
         if not fields:
             lines.append("    pass")
         else:
@@ -1615,6 +2354,7 @@ def build_refactor_plan(
     symbol_table = _build_symbol_table(
         file_paths, config.project_root, external_filter=config.external_filter
     )
+    class_index = _collect_class_index(file_paths, config.project_root)
     info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
     for infos in by_name.values():
         for info in infos:
@@ -1645,6 +2385,7 @@ def build_refactor_plan(
                     by_qual,
                     symbol_table,
                     config.project_root,
+                    class_index,
                 )
                 if callee is None:
                     continue
@@ -1915,6 +2656,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Include type-flow audit summary in the markdown report.",
     )
     parser.add_argument(
+        "--fail-on-type-ambiguities",
+        action="store_true",
+        help="Exit non-zero if type ambiguities are detected.",
+    )
+    parser.add_argument(
         "--fail-on-violations",
         action="store_true",
         help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
@@ -1933,6 +2679,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--synthesis-protocols",
         default=None,
         help="Write protocol/dataclass stubs to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--synthesis-protocols-kind",
+        choices=["dataclass", "protocol"],
+        default="dataclass",
+        help="Emit dataclass or typing.Protocol stubs (default: dataclass).",
     )
     parser.add_argument(
         "--refactor-plan",
@@ -1967,6 +2719,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def run(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.fail_on_type_ambiguities:
+        args.type_audit = True
     exclude_dirs: list[str] | None = None
     if args.exclude is not None:
         exclude_dirs = []
@@ -2030,7 +2784,9 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 Path(args.synthesis_plan).write_text(payload)
         if args.synthesis_protocols:
-            stubs = render_protocol_stubs(synthesis_plan)
+            stubs = render_protocol_stubs(
+                synthesis_plan, kind=args.synthesis_protocols_kind
+            )
             if args.synthesis_protocols.strip() == "-":
                 print(stubs)
             else:
@@ -2101,6 +2857,8 @@ def run(argv: list[str] | None = None) -> int:
             for bundle in bundles:
                 print(f"  bundle: {sorted(bundle)}")
         print()
+    if args.fail_on_type_ambiguities and analysis.type_ambiguities:
+        return 1
     if args.fail_on_violations:
         violations = _compute_violations(
             analysis.groups_by_path,

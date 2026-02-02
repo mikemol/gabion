@@ -15,24 +15,28 @@ def _has_pygls() -> bool:
 def test_lsp_execute_command() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
-    from gabion.lsp_client import run_command
+    from gabion.lsp_client import CommandRequest, run_command
 
     result = run_command(
-        "gabion.dataflowAudit",
-        [{"paths": [str(repo_root)], "fail_on_violations": False}],
+        CommandRequest(
+            "gabion.dataflowAudit",
+            [{"paths": [str(repo_root)], "fail_on_violations": False}],
+        ),
         root=repo_root,
     )
     assert "exit_code" in result
     synth_result = run_command(
-        "gabion.synthesisPlan",
-        [
-            {
-                "bundles": [{"bundle": ["ctx"], "tier": 2}],
-                "min_bundle_size": 1,
-                "allow_singletons": True,
-                "existing_names": ["CtxBundle"],
-            }
-        ],
+        CommandRequest(
+            "gabion.synthesisPlan",
+            [
+                {
+                    "bundles": [{"bundle": ["ctx"], "tier": 2}],
+                    "min_bundle_size": 1,
+                    "allow_singletons": True,
+                    "existing_names": ["CtxBundle"],
+                }
+            ],
+        ),
         root=repo_root,
     )
     assert "protocols" in synth_result

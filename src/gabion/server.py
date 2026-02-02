@@ -33,7 +33,11 @@ from gabion.analysis import (
     render_synthesis_section,
 )
 from gabion.config import dataflow_defaults, merge_payload
-from gabion.refactor import RefactorEngine, RefactorRequest as RefactorRequestModel
+from gabion.refactor import (
+    FieldSpec,
+    RefactorEngine,
+    RefactorRequest as RefactorRequestModel,
+)
 from gabion.schema import (
     RefactorRequest,
     RefactorResponse,
@@ -119,6 +123,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     type_audit = payload.get("type_audit", False)
     type_audit_report = payload.get("type_audit_report", False)
     type_audit_max = payload.get("type_audit_max", 50)
+    fail_on_type_ambiguities = payload.get("fail_on_type_ambiguities", False)
     exclude_dirs = set(payload.get("exclude", []))
     ignore_params = set(payload.get("ignore_params", []))
     allow_external = payload.get("allow_external", False)
@@ -129,6 +134,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
     synthesis_protocols_path = payload.get("synthesis_protocols")
+    synthesis_protocols_kind = payload.get("synthesis_protocols_kind", "dataclass")
     refactor_plan = payload.get("refactor_plan", False)
     refactor_plan_json = payload.get("refactor_plan_json")
 
@@ -139,6 +145,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         external_filter=not allow_external,
         strictness=strictness,
     )
+    if fail_on_type_ambiguities:
+        type_audit = True
     analysis = analyze_paths(
         paths,
         recursive=not no_recursive,
@@ -173,7 +181,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             else:
                 Path(synthesis_plan_path).write_text(payload_json)
         if synthesis_protocols_path:
-            stubs = render_protocol_stubs(synthesis_plan)
+            stubs = render_protocol_stubs(
+                synthesis_plan, kind=str(synthesis_protocols_kind)
+            )
             if synthesis_protocols_path == "-":
                 response["synthesis_protocols"] = stubs
             else:
@@ -226,7 +236,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         )
 
     response["violations"] = len(violations)
-    response["exit_code"] = 1 if (fail_on_violations and violations) else 0
+    if fail_on_type_ambiguities and analysis.type_ambiguities:
+        response["exit_code"] = 1
+    else:
+        response["exit_code"] = 1 if (fail_on_violations and violations) else 0
     return response
 
 
@@ -303,6 +316,10 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
         RefactorRequestModel(
             protocol_name=request.protocol_name,
             bundle=request.bundle,
+            fields=[
+                FieldSpec(name=field.name, type_hint=field.type_hint)
+                for field in request.fields or []
+            ],
             target_path=request.target_path,
             target_functions=request.target_functions,
             rationale=request.rationale,
