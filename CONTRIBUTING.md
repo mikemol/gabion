@@ -1,5 +1,5 @@
 ---
-doc_revision: 37
+doc_revision: 48
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -42,6 +42,10 @@ valid.
 - **Single source of truth:** diagnostics and code actions must be derived from
   the server, not duplicated in client code.
 
+## Optional governance framing
+See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
+that can be adopted when helpful.
+
 ## Cross-references (normative pointers)
 - `README.md` defines project scope, status, and entry points.
 - `AGENTS.md` defines LLM/agent obligations and refusal rules.
@@ -63,6 +67,8 @@ Tier-3 bundles must be documented with `# dataflow-bundle:` or reified.
 ## Branching model (normative)
 - Routine work goes to `stage`; CI runs on every `stage` push and must be green.
 - `main` is protected and receives changes via PRs from `stage`.
+- Merges to `main` are regular merge commits (no squash).
+- `stage` accumulates changes and may include merge commits from `main`.
 
 ## Current analysis coverage (non-binding)
 These describe current coverage so contributors keep changes aligned:
@@ -74,8 +80,8 @@ These describe current coverage so contributors keep changes aligned:
 - unused-argument pass detection
 
 ## Planned analysis expansions (non-binding)
-- Protocol/dataclass synthesis
-- bundle-merge heuristics (fragmentation control)
+- Protocol/dataclass synthesis (prototype scaffolding in `gabion.synthesis`)
+- bundle-merge heuristics (fragmentation control, prototype scaffolding)
 
 ## Development setup
 This project is currently scaffold-only (core analysis logic is not yet wired).
@@ -105,6 +111,16 @@ mise exec -- python -m gabion dataflow-audit path/to/project
 ```
 Defaults live in `gabion.toml` (see `[dataflow]`).
 `in/` (inspiration) is excluded from enforcement there by default.
+Use `--synthesis-plan` to emit a JSON plan and `--synthesis-report` to append a
+summary section to the Markdown report. Use `--synthesis-protocols` to emit
+dataclass stubs (prototype) for review.
+Use `--refactor-plan` to append a per-bundle refactoring schedule and
+`--refactor-plan-json` to emit the JSON plan.
+
+Run audit + synthesis in one step (timestamped output under `artifacts/synthesis`):
+```
+mise exec -- python -m gabion synth path/to/project
+```
 
 Run the docflow audit (governance docs only):
 ```
@@ -114,10 +130,17 @@ mise exec -- python -m gabion docflow-audit
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
 
+Generate a synthesis plan from a JSON payload (prototype scaffolding):
+```
+mise exec -- python -m gabion synthesis-plan --input path/to/payload.json --output plan.json
+```
+Payload schema: `docs/synthesis_payload.md`.
+
 Capture an audit snapshot (reports + DOT graph under `artifacts/`):
 ```
 scripts/audit_snapshot.sh
 ```
+Snapshots now include a synthesis plan JSON and protocol stub file.
 Show the latest snapshot paths:
 ```
 scripts/latest_snapshot.sh
@@ -131,6 +154,10 @@ To bypass hooks for a one-off command:
 ```
 GABION_SKIP_HOOKS=1 git commit
 ```
+
+## Editor integration (optional)
+The VS Code extension stub lives in `extensions/vscode` and launches the
+Gabion LSP server over stdio. It is a thin wrapper only.
 
 Run the LSP smoke test (optional):
 ```

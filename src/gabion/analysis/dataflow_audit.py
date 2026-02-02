@@ -17,14 +17,19 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import os
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Iterable, Iterator
 import re
 
+from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 from gabion.config import dataflow_defaults, merge_payload
+from gabion.schema import SynthesisResponse
+from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
+from gabion.synthesis.schedule import topological_schedule
 
 @dataclass
 class ParamUse:
@@ -75,16 +80,6 @@ class AuditConfig:
         return bool(self.exclude_dirs & parts)
 
 
-class ParentAnnotator(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.parents: dict[ast.AST, ast.AST] = {}
-
-    def generic_visit(self, node: ast.AST) -> None:
-        for child in ast.iter_child_nodes(node):
-            self.parents[child] = node
-            self.visit(child)
-
-
 def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.Call | None, bool]:
     child = node
     parent = parents.get(child)
@@ -101,40 +96,10 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.C
     return None, False
 
 
-class ImportVisitor(ast.NodeVisitor):
-    def __init__(self, module_name: str, table: SymbolTable) -> None:
-        self.module = module_name
-        self.table = table
-
-    def visit_Import(self, node: ast.Import) -> None:
-        for alias in node.names:
-            local = alias.asname or alias.name
-            self.table.imports[(self.module, local)] = alias.name
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if not node.module and node.level == 0:
-            return
-        if node.level > 0:
-            parts = self.module.split(".")
-            if node.level > len(parts):
-                return
-            base = parts[:-node.level]
-            if node.module:
-                base.append(node.module)
-            source = ".".join(base)
-        else:
-            source = node.module or ""
-        for alias in node.names:
-            if alias.name == "*":
-                continue
-            local = alias.asname or alias.name
-            fqn = f"{source}.{alias.name}" if source else alias.name
-            self.table.imports[(self.module, local)] = fqn
-
-
 @dataclass
 class AnalysisResult:
     groups_by_path: dict[Path, dict[str, list[set[str]]]]
+    param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]]
     type_suggestions: list[str]
     type_ambiguities: list[str]
     constant_smells: list[str]
@@ -146,6 +111,16 @@ def _callee_name(call: ast.Call) -> str:
         return ast.unparse(call.func)
     except Exception:
         return "<call>"
+
+
+def _normalize_callee(name: str, class_name: str | None) -> str:
+    if not class_name:
+        return name
+    if name.startswith("self.") or name.startswith("cls."):
+        parts = name.split(".")
+        if len(parts) == 2:
+            return f"{class_name}.{parts[1]}"
+    return name
 
 
 def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
@@ -189,6 +164,94 @@ def _param_names(
     if ignore_params:
         names = [name for name in names if name not in ignore_params]
     return names
+
+
+def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
+    if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
+        return None
+    start_line = max(getattr(node, "lineno", 1) - 1, 0)
+    start_col = max(getattr(node, "col_offset", 0), 0)
+    end_line = max(getattr(node, "end_lineno", getattr(node, "lineno", 1)) - 1, 0)
+    end_col = getattr(node, "end_col_offset", start_col + 1)
+    if end_line == start_line and end_col <= start_col:
+        end_col = start_col + 1
+    return (start_line, start_col, end_line, end_col)
+
+
+def _param_spans(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> dict[str, tuple[int, int, int, int]]:
+    spans: dict[str, tuple[int, int, int, int]] = {}
+    args = fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs
+    names = [a.arg for a in args]
+    if names and names[0] in {"self", "cls"}:
+        args = args[1:]
+        names = names[1:]
+    for arg in args:
+        if ignore_params and arg.arg in ignore_params:
+            continue
+        span = _node_span(arg)
+        if span is not None:
+            spans[arg.arg] = span
+    if fn.args.vararg:
+        name = fn.args.vararg.arg
+        if not ignore_params or name not in ignore_params:
+            span = _node_span(fn.args.vararg)
+            if span is not None:
+                spans[name] = span
+    if fn.args.kwarg:
+        name = fn.args.kwarg.arg
+        if not ignore_params or name not in ignore_params:
+            span = _node_span(fn.args.kwarg)
+            if span is not None:
+                spans[name] = span
+    return spans
+
+
+def _function_key(scope: Iterable[str], name: str) -> str:
+    parts = list(scope)
+    parts.append(name)
+    if not parts:
+        return name
+    return ".".join(parts)
+
+
+def _enclosing_class(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> str | None:
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, ast.ClassDef):
+            return current.name
+        current = parents.get(current)
+    return None
+
+
+def _enclosing_scopes(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> list[str]:
+    scopes: list[str] = []
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, ast.ClassDef):
+            scopes.append(current.name)
+        elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scopes.append(current.name)
+        current = parents.get(current)
+    return list(reversed(scopes))
+
+
+def _enclosing_function_scopes(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> list[str]:
+    scopes: list[str] = []
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scopes.append(current.name)
+        current = parents.get(current)
+    return list(reversed(scopes))
 
 
 def _param_annotations(
@@ -252,138 +315,26 @@ def _analyze_function(
     is_test: bool,
     ignore_params: set[str] | None = None,
     strictness: str = "high",
+    class_name: str | None = None,
 ) -> tuple[dict[str, ParamUse], list[CallArgs]]:
     params = _param_names(fn, ignore_params)
     use_map = {p: ParamUse(set(), False, {p}) for p in params}
     alias_to_param: dict[str, str] = {p: p for p in params}
     call_args: list[CallArgs] = []
 
-    class UseVisitor(ast.NodeVisitor):
-        def visit_Call(self, node: ast.Call) -> None:
-            callee = _callee_name(node)
-            pos_map = {}
-            kw_map = {}
-            const_pos: dict[str, str] = {}
-            const_kw: dict[str, str] = {}
-            non_const_pos: set[str] = set()
-            non_const_kw: set[str] = set()
-            for idx, arg in enumerate(node.args):
-                const = _const_repr(arg)
-                if const is not None:
-                    const_pos[str(idx)] = const
-                    continue
-                if isinstance(arg, ast.Name) and arg.id in alias_to_param:
-                    pos_map[str(idx)] = alias_to_param[arg.id]
-                else:
-                    non_const_pos.add(str(idx))
-            for kw in node.keywords:
-                if kw.arg is None:
-                    continue
-                const = _const_repr(kw.value)
-                if const is not None:
-                    const_kw[kw.arg] = const
-                    continue
-                if isinstance(kw.value, ast.Name) and kw.value.id in alias_to_param:
-                    kw_map[kw.arg] = alias_to_param[kw.value.id]
-                else:
-                    non_const_kw.add(kw.arg)
-            call_args.append(
-                CallArgs(
-                    callee=callee,
-                    pos_map=pos_map,
-                    kw_map=kw_map,
-                    const_pos=const_pos,
-                    const_kw=const_kw,
-                    non_const_pos=non_const_pos,
-                    non_const_kw=non_const_kw,
-                    is_test=is_test,
-                )
-            )
-            self.generic_visit(node)
-
-        def _check_write(self, target: ast.AST) -> None:
-            for node in ast.walk(target):
-                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-                    name = node.id
-                    if name in alias_to_param:
-                        param = alias_to_param.pop(name)
-                        if param in use_map:
-                            use_map[param].current_aliases.discard(name)
-                            use_map[param].non_forward = True
-
-        def visit_Assign(self, node: ast.Assign) -> None:
-            rhs_param = None
-            if isinstance(node.value, ast.Name) and node.value.id in alias_to_param:
-                rhs_param = alias_to_param[node.value.id]
-
-            for target in node.targets:
-                if rhs_param and isinstance(target, ast.Name):
-                    alias_to_param[target.id] = rhs_param
-                    use_map[rhs_param].current_aliases.add(target.id)
-                else:
-                    self._check_write(target)
-
-            self.visit(node.value)
-
-        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-            if node.value is None:
-                return
-            rhs_param = None
-            if isinstance(node.value, ast.Name) and node.value.id in alias_to_param:
-                rhs_param = alias_to_param[node.value.id]
-            if isinstance(node.target, ast.Name) and rhs_param:
-                alias_to_param[node.target.id] = rhs_param
-                use_map[rhs_param].current_aliases.add(node.target.id)
-            else:
-                self._check_write(node.target)
-            self.visit(node.value)
-
-        def visit_AugAssign(self, node: ast.AugAssign) -> None:
-            self._check_write(node.target)
-            self.visit(node.value)
-
-        def visit_Name(self, node: ast.Name) -> None:
-            if not isinstance(node.ctx, ast.Load):
-                return
-            if node.id not in alias_to_param:
-                return
-            parent = parents.get(node)
-            if isinstance(parent, ast.Starred):
-                param_name = alias_to_param[node.id]
-                if strictness == "high":
-                    use_map[param_name].non_forward = True
-                    return
-                use_map[param_name].direct_forward.add(("args[*]", "arg[*]"))
-                return
-            if isinstance(parent, ast.keyword) and parent.arg is None:
-                param_name = alias_to_param[node.id]
-                if strictness == "high":
-                    use_map[param_name].non_forward = True
-                    return
-                use_map[param_name].direct_forward.add(("kwargs[*]", "kw[*]"))
-                return
-            param_name = alias_to_param[node.id]
-            call, direct = _call_context(node, parents)
-            if call is None or not direct:
-                use_map[param_name].non_forward = True
-                return
-            callee = _callee_name(call)
-            # Determine arg slot.
-            slot = None
-            for idx, arg in enumerate(call.args):
-                if arg is node:
-                    slot = f"arg[{idx}]"
-                    break
-            if slot is None:
-                for kw in call.keywords:
-                    if kw.value is node and kw.arg is not None:
-                        slot = f"kw[{kw.arg}]"
-                        break
-            if slot is None:
-                slot = "arg[?]"
-            use_map[param_name].direct_forward.add((callee, slot))
-
-    UseVisitor().visit(fn)
+    visitor = UseVisitor(
+        parents=parents,
+        use_map=use_map,
+        call_args=call_args,
+        alias_to_param=alias_to_param,
+        is_test=is_test,
+        strictness=strictness,
+        const_repr=_const_repr,
+        callee_name=lambda call: _normalize_callee(_callee_name(call), class_name),
+        call_args_factory=CallArgs,
+        call_context=_call_context,
+    )
+    visitor.visit(fn)
     return use_map, call_args
 
 
@@ -462,7 +413,7 @@ def analyze_file(
     recursive: bool = True,
     *,
     config: AuditConfig | None = None,
-) -> dict[str, list[set[str]]]:
+) -> tuple[dict[str, list[set[str]]], dict[str, dict[str, tuple[int, int, int, int]]]]:
     if config is None:
         config = AuditConfig()
     tree = ast.parse(path.read_text())
@@ -472,24 +423,83 @@ def analyze_file(
     is_test = _is_test_path(path)
 
     funcs = _collect_functions(tree)
-    fn_param_orders = {f.name: _param_names(f) for f in funcs}
+    fn_param_orders: dict[str, list[str]] = {}
+    fn_param_spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     fn_use = {}
     fn_calls = {}
+    fn_names: dict[str, str] = {}
+    fn_lexical_scopes: dict[str, tuple[str, ...]] = {}
+    fn_class_names: dict[str, str | None] = {}
     for f in funcs:
+        class_name = _enclosing_class(f, parents)
+        scopes = _enclosing_scopes(f, parents)
+        lexical_scopes = _enclosing_function_scopes(f, parents)
+        fn_key = _function_key(scopes, f.name)
         use_map, call_args = _analyze_function(
             f,
             parents,
             is_test=is_test,
             ignore_params=config.ignore_params,
             strictness=config.strictness,
+            class_name=class_name,
         )
-        fn_use[f.name] = use_map
-        fn_calls[f.name] = call_args
+        fn_use[fn_key] = use_map
+        fn_calls[fn_key] = call_args
+        fn_param_orders[fn_key] = _param_names(f, config.ignore_params)
+        fn_param_spans[fn_key] = _param_spans(f, config.ignore_params)
+        fn_names[fn_key] = f.name
+        fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
+        fn_class_names[fn_key] = class_name
+
+    local_by_name: dict[str, list[str]] = defaultdict(list)
+    for key, name in fn_names.items():
+        local_by_name[name].append(key)
+
+    def _resolve_local_callee(callee: str, caller_key: str) -> str | None:
+        if "." in callee:
+            return None
+        candidates = local_by_name.get(callee, [])
+        if not candidates:
+            return None
+        effective_scope = list(fn_lexical_scopes.get(caller_key, ())) + [fn_names[caller_key]]
+        while True:
+            scoped = [
+                key
+                for key in candidates
+                if fn_lexical_scopes.get(key, ()) == tuple(effective_scope)
+                and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
+            ]
+            if len(scoped) == 1:
+                return scoped[0]
+            if len(scoped) > 1:
+                return None
+            if not effective_scope:
+                break
+            effective_scope = effective_scope[:-1]
+        globals_only = [
+            key
+            for key in candidates
+            if not fn_lexical_scopes.get(key)
+            and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
+        ]
+        if len(globals_only) == 1:
+            return globals_only[0]
+        return None
+
+    for caller_key, calls in list(fn_calls.items()):
+        resolved_calls: list[CallArgs] = []
+        for call in calls:
+            resolved = _resolve_local_callee(call.callee, caller_key)
+            if resolved:
+                resolved_calls.append(replace(call, callee=resolved))
+            else:
+                resolved_calls.append(call)
+        fn_calls[caller_key] = resolved_calls
 
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
 
     if not recursive:
-        return groups_by_fn
+        return groups_by_fn, fn_param_spans
 
     changed = True
     while changed:
@@ -506,7 +516,7 @@ def analyze_file(
             if combined != groups_by_fn.get(fn, []):
                 groups_by_fn[fn] = combined
                 changed = True
-    return groups_by_fn
+    return groups_by_fn, fn_param_spans
 
 
 def _callee_key(name: str) -> str:
@@ -531,6 +541,9 @@ class FunctionInfo:
     annots: dict[str, str | None]
     calls: list[CallArgs]
     unused_params: set[str]
+    class_name: str | None = None
+    scope: tuple[str, ...] = ()
+    lexical_scope: tuple[str, ...] = ()
 
 
 def _module_name(path: Path, project_root: Path | None = None) -> str:
@@ -587,22 +600,34 @@ def _build_function_index(
         parent_map = parents.parents
         module = _module_name(path, project_root)
         for fn in funcs:
+            class_name = _enclosing_class(fn, parent_map)
+            scopes = _enclosing_scopes(fn, parent_map)
+            lexical_scopes = _enclosing_function_scopes(fn, parent_map)
             use_map, call_args = _analyze_function(
                 fn,
                 parent_map,
                 is_test=_is_test_path(path),
                 ignore_params=ignore_params,
                 strictness=strictness,
+                class_name=class_name,
             )
             unused_params = _unused_params(use_map)
+            qual_parts = [module] if module else []
+            if scopes:
+                qual_parts.extend(scopes)
+            qual_parts.append(fn.name)
+            qual = ".".join(qual_parts)
             info = FunctionInfo(
                 name=fn.name,
-                qual=f"{module}.{fn.name}",
+                qual=qual,
                 path=path,
                 params=_param_names(fn, ignore_params),
                 annots=_param_annotations(fn, ignore_params),
                 calls=call_args,
                 unused_params=unused_params,
+                class_name=class_name,
+                scope=tuple(scopes),
+                lexical_scope=tuple(lexical_scopes),
             )
             by_name[fn.name].append(info)
             by_qual[info.qual] = info
@@ -619,8 +644,32 @@ def _resolve_callee(
 ) -> FunctionInfo | None:
     if not callee_name:
         return None
+    caller_module = _module_name(caller.path, project_root=project_root)
+    candidates = by_name.get(_callee_key(callee_name), [])
+    if "." not in callee_name:
+        effective_scope = list(caller.lexical_scope) + [caller.name]
+        while True:
+            scoped = [
+                info
+                for info in candidates
+                if list(info.lexical_scope) == effective_scope
+                and not (info.class_name and not info.lexical_scope)
+            ]
+            if len(scoped) == 1:
+                return scoped[0]
+            if len(scoped) > 1:
+                return None
+            if not effective_scope:
+                break
+            effective_scope = effective_scope[:-1]
+        globals_only = [
+            info
+            for info in candidates
+            if not info.lexical_scope and not (info.class_name and not info.lexical_scope)
+        ]
+        if len(globals_only) == 1:
+            return globals_only[0]
     if symbol_table is not None:
-        caller_module = _module_name(caller.path, project_root=project_root)
         if "." not in callee_name:
             if (caller_module, callee_name) in symbol_table.imports:
                 fqn = symbol_table.resolve(caller_module, callee_name)
@@ -633,7 +682,12 @@ def _resolve_callee(
             base = parts[0]
             if base in ("self", "cls"):
                 method = parts[-1]
-                candidate = f"{caller_module}.{method}"
+                if caller.class_name:
+                    candidate = f"{caller_module}.{caller.class_name}.{method}"
+                    if candidate in by_qual:
+                        return by_qual[candidate]
+            elif len(parts) == 2:
+                candidate = f"{caller_module}.{base}.{parts[1]}"
                 if candidate in by_qual:
                     return by_qual[candidate]
             if (caller_module, base) in symbol_table.imports:
@@ -668,7 +722,7 @@ def _resolve_callee(
             return same_module[0]
         return None
     # Fallback: unique function name across repo.
-    candidates = by_name.get(callee_name, [])
+    candidates = [info for info in by_name.get(callee_name, []) if info.class_name is None]
     if len(candidates) == 1:
         return candidates[0]
     # Prefer same-module definition when ambiguous.
@@ -678,22 +732,21 @@ def _resolve_callee(
     # If callee is self.foo/cls.foo, prefer same-module foo.
     if callee_name.startswith(("self.", "cls.")):
         func = callee_name.split(".")[-1]
-        same_module = [
-            info for info in by_name.get(func, []) if info.path == caller.path
-        ]
-        if len(same_module) == 1:
-            return same_module[0]
+        if caller.class_name:
+            candidate = f"{caller_module}.{caller.class_name}.{func}"
+            if candidate in by_qual:
+                return by_qual[candidate]
     return None
 
 
-def analyze_type_flow_repo(
+def analyze_type_flow_repo_with_map(
     paths: list[Path],
     *,
     project_root: Path | None,
     ignore_params: set[str],
     strictness: str,
     external_filter: bool,
-) -> tuple[list[str], list[str]]:
+) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
     by_name, by_qual = _build_function_index(
         paths, project_root, ignore_params, strictness
@@ -763,7 +816,25 @@ def analyze_type_flow_repo(
                         suggestions.add(
                             f"{info.path.name}:{info.name}.{param} can tighten to {downstream_annot}"
                         )
-    return sorted(suggestions), sorted(ambiguities)
+    return inferred, sorted(suggestions), sorted(ambiguities)
+
+
+def analyze_type_flow_repo(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+) -> tuple[list[str], list[str]]:
+    inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+    )
+    return suggestions, ambiguities
 
 
 def analyze_constant_flow_repo(
@@ -1343,6 +1414,292 @@ def _emit_report(
     return "\n".join(lines), violations
 
 
+def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
+    if groups_by_path:
+        common = os.path.commonpath([str(p) for p in groups_by_path])
+        return Path(common)
+    return Path(".")
+
+
+def _bundle_counts(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]]
+) -> dict[tuple[str, ...], int]:
+    counts: dict[tuple[str, ...], int] = defaultdict(int)
+    for groups in groups_by_path.values():
+        for bundles in groups.values():
+            for bundle in bundles:
+                counts[tuple(sorted(bundle))] += 1
+    return counts
+
+
+def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
+    declared: set[tuple[str, ...]] = set()
+    for path in sorted(root.rglob("config.py")):
+        for fields in _iter_config_fields(path).values():
+            declared.add(tuple(sorted(fields)))
+    protocols = root / "prism_vm_core" / "protocols.py"
+    if protocols.exists():
+        for fields in _iter_config_fields(protocols).values():
+            declared.add(tuple(sorted(fields)))
+    return declared
+
+
+def build_synthesis_plan(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    project_root: Path | None = None,
+    max_tier: int = 2,
+    min_bundle_size: int = 2,
+    allow_singletons: bool = False,
+    config: AuditConfig | None = None,
+) -> dict[str, object]:
+    audit_config = config or AuditConfig(
+        project_root=project_root or _infer_root(groups_by_path)
+    )
+    root = project_root or audit_config.project_root or _infer_root(groups_by_path)
+    counts = _bundle_counts(groups_by_path)
+    if not counts:
+        response = SynthesisResponse(
+            protocols=[],
+            warnings=["No bundles observed for synthesis."],
+            errors=[],
+        )
+        return response.model_dump()
+
+    declared = _collect_declared_bundles(root)
+    bundle_tiers: dict[frozenset[str], int] = {}
+    frequency: dict[str, int] = defaultdict(int)
+    bundle_fields: set[str] = set()
+    for bundle, count in counts.items():
+        tier = 1 if bundle in declared else (2 if count > 1 else 3)
+        bundle_tiers[frozenset(bundle)] = tier
+        for field in bundle:
+            frequency[field] += count
+            bundle_fields.add(field)
+
+    naming_context = NamingContext(frequency=dict(frequency))
+    synth_config = SynthesisConfig(
+        max_tier=max_tier,
+        min_bundle_size=min_bundle_size,
+        allow_singletons=allow_singletons,
+    )
+    field_types: dict[str, str] = {}
+    type_warnings: list[str] = []
+    if bundle_fields:
+        inferred, _, _ = analyze_type_flow_repo_with_map(
+            list(groups_by_path.keys()),
+            project_root=root,
+            ignore_params=audit_config.ignore_params,
+            strictness=audit_config.strictness,
+            external_filter=audit_config.external_filter,
+        )
+        type_sets: dict[str, set[str]] = defaultdict(set)
+        for annots in inferred.values():
+            for name, annot in annots.items():
+                if name not in bundle_fields or not annot:
+                    continue
+                type_sets[name].add(annot)
+        for name, types in type_sets.items():
+            if len(types) == 1:
+                field_types[name] = next(iter(types))
+            elif len(types) > 1:
+                type_warnings.append(
+                    f"Conflicting type hints for '{name}': {sorted(types)}"
+                )
+    plan = Synthesizer(config=synth_config).plan(
+        bundle_tiers=bundle_tiers,
+        field_types=field_types,
+        naming_context=naming_context,
+    )
+    response = SynthesisResponse(
+        protocols=[
+            {
+                "name": spec.name,
+                "fields": [
+                    {
+                        "name": field.name,
+                        "type_hint": field.type_hint,
+                        "source_params": sorted(field.source_params),
+                    }
+                    for field in spec.fields
+                ],
+                "bundle": sorted(spec.bundle),
+                "tier": spec.tier,
+                "rationale": spec.rationale,
+            }
+            for spec in plan.protocols
+        ],
+        warnings=plan.warnings + type_warnings,
+        errors=plan.errors,
+    )
+    return response.model_dump()
+
+
+def render_synthesis_section(plan: dict[str, object]) -> str:
+    protocols = plan.get("protocols", [])
+    warnings = plan.get("warnings", [])
+    errors = plan.get("errors", [])
+    lines = ["", "## Synthesis plan (prototype)", ""]
+    if not protocols:
+        lines.append("No protocol candidates.")
+    else:
+        for spec in protocols:
+            name = spec.get("name", "Bundle")
+            tier = spec.get("tier", "?")
+            fields = spec.get("fields", [])
+            parts = []
+            for field in fields:
+                fname = field.get("name", "")
+                type_hint = field.get("type_hint") or "Any"
+                if fname:
+                    parts.append(f"{fname}: {type_hint}")
+            field_list = ", ".join(parts) if parts else "(no fields)"
+            lines.append(f"- {name} (tier {tier}): {field_list}")
+    if warnings:
+        lines.append("")
+        lines.append("Warnings:")
+        lines.append("```")
+        lines.extend(str(w) for w in warnings)
+        lines.append("```")
+    if errors:
+        lines.append("")
+        lines.append("Errors:")
+        lines.append("```")
+        lines.extend(str(e) for e in errors)
+        lines.append("```")
+    return "\n".join(lines)
+
+
+def render_protocol_stubs(plan: dict[str, object]) -> str:
+    protocols = plan.get("protocols", [])
+    lines = [
+        "# Auto-generated by gabion dataflow audit.",
+        "from __future__ import annotations",
+        "",
+        "from dataclasses import dataclass",
+        "from typing import Any",
+        "",
+    ]
+    if not protocols:
+        lines.append("# No protocol candidates.")
+        return "\n".join(lines)
+    for spec in protocols:
+        name = spec.get("name", "Bundle")
+        lines.append("@dataclass")
+        lines.append(f"class {name}:")
+        fields = spec.get("fields", [])
+        if not fields:
+            lines.append("    pass")
+        else:
+            for field in fields:
+                fname = field.get("name") or "field"
+                type_hint = field.get("type_hint") or "Any"
+                lines.append(f"    {fname}: {type_hint}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def build_refactor_plan(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    paths: list[Path],
+    *,
+    config: AuditConfig,
+) -> dict[str, object]:
+    file_paths = _iter_paths([str(p) for p in paths], config)
+    if not file_paths:
+        return {"bundles": [], "warnings": ["No files available for refactor plan."]}
+
+    by_name, by_qual = _build_function_index(
+        file_paths, config.project_root, config.ignore_params, config.strictness
+    )
+    symbol_table = _build_symbol_table(
+        file_paths, config.project_root, external_filter=config.external_filter
+    )
+    info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
+    for infos in by_name.values():
+        for info in infos:
+            key = _function_key(info.scope, info.name)
+            info_by_path_name[(info.path, key)] = info
+
+    bundle_map: dict[tuple[str, ...], dict[str, FunctionInfo]] = defaultdict(dict)
+    for path, groups in groups_by_path.items():
+        for fn, bundles in groups.items():
+            for bundle in bundles:
+                key = tuple(sorted(bundle))
+                info = info_by_path_name.get((path, fn))
+                if info is not None:
+                    bundle_map[key][info.qual] = info
+
+    plans: list[dict[str, object]] = []
+    for bundle, infos in sorted(bundle_map.items(), key=lambda item: (len(item[0]), item[0])):
+        if not infos:
+            continue
+        comp = dict(infos)
+        deps: dict[str, set[str]] = {qual: set() for qual in comp}
+        for info in infos.values():
+            for call in info.calls:
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    config.project_root,
+                )
+                if callee is None:
+                    continue
+                if callee.qual in comp:
+                    deps[info.qual].add(callee.qual)
+        schedule = topological_schedule(deps)
+        plans.append(
+            {
+                "bundle": list(bundle),
+                "functions": sorted(comp.keys()),
+                "order": schedule.order,
+                "cycles": [sorted(list(cycle)) for cycle in schedule.cycles],
+            }
+        )
+
+    warnings: list[str] = []
+    if not plans:
+        warnings.append("No bundle components available for refactor plan.")
+    return {"bundles": plans, "warnings": warnings}
+
+
+def render_refactor_plan(plan: dict[str, object]) -> str:
+    bundles = plan.get("bundles", [])
+    warnings = plan.get("warnings", [])
+    lines = ["", "## Refactoring plan (prototype)", ""]
+    if not bundles:
+        lines.append("No refactoring plan available.")
+    else:
+        for entry in bundles:
+            bundle = entry.get("bundle", [])
+            title = ", ".join(bundle) if bundle else "(unknown bundle)"
+            lines.append(f"### Bundle: {title}")
+            order = entry.get("order", [])
+            if order:
+                lines.append("Order (callee-first):")
+                lines.append("```")
+                for item in order:
+                    lines.append(f"- {item}")
+                lines.append("```")
+            cycles = entry.get("cycles", [])
+            if cycles:
+                lines.append("Cycles:")
+                lines.append("```")
+                for cycle in cycles:
+                    lines.append(", ".join(cycle))
+                lines.append("```")
+    if warnings:
+        lines.append("")
+        lines.append("Warnings:")
+        lines.append("```")
+        lines.extend(str(w) for w in warnings)
+        lines.append("```")
+    return "\n".join(lines)
+
+
 def _render_type_mermaid(
     suggestions: list[str],
     ambiguities: list[str],
@@ -1459,8 +1816,11 @@ def analyze_paths(
         config = AuditConfig()
     file_paths = _iter_paths([str(p) for p in paths], config)
     groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+    param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
     for path in file_paths:
-        groups_by_path[path] = analyze_file(path, recursive=recursive, config=config)
+        groups, spans = analyze_file(path, recursive=recursive, config=config)
+        groups_by_path[path] = groups
+        param_spans_by_path[path] = spans
 
     type_suggestions: list[str] = []
     type_ambiguities: list[str] = []
@@ -1498,6 +1858,7 @@ def analyze_paths(
 
     return AnalysisResult(
         groups_by_path=groups_by_path,
+        param_spans_by_path=param_spans_by_path,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,
@@ -1558,6 +1919,48 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
     )
+    parser.add_argument(
+        "--synthesis-plan",
+        default=None,
+        help="Write synthesis plan JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--synthesis-report",
+        action="store_true",
+        help="Include synthesis plan summary in the markdown report.",
+    )
+    parser.add_argument(
+        "--synthesis-protocols",
+        default=None,
+        help="Write protocol/dataclass stubs to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--refactor-plan",
+        action="store_true",
+        help="Include refactoring plan summary in the markdown report.",
+    )
+    parser.add_argument(
+        "--refactor-plan-json",
+        default=None,
+        help="Write refactoring plan JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--synthesis-max-tier",
+        type=int,
+        default=2,
+        help="Max tier to include in synthesis plan.",
+    )
+    parser.add_argument(
+        "--synthesis-min-bundle-size",
+        type=int,
+        default=2,
+        help="Min bundle size to include in synthesis plan.",
+    )
+    parser.add_argument(
+        "--synthesis-allow-singletons",
+        action="store_true",
+        help="Allow single-field bundles in synthesis plan.",
+    )
     return parser
 
 
@@ -1610,6 +2013,41 @@ def run(argv: list[str] | None = None) -> int:
         include_unused_arg_smells=bool(args.report),
         config=config,
     )
+    synthesis_plan: dict[str, object] | None = None
+    if args.synthesis_plan or args.synthesis_report or args.synthesis_protocols:
+        synthesis_plan = build_synthesis_plan(
+            analysis.groups_by_path,
+            project_root=config.project_root,
+            max_tier=args.synthesis_max_tier,
+            min_bundle_size=args.synthesis_min_bundle_size,
+            allow_singletons=args.synthesis_allow_singletons,
+            config=config,
+        )
+        if args.synthesis_plan:
+            payload = json.dumps(synthesis_plan, indent=2, sort_keys=True)
+            if args.synthesis_plan.strip() == "-":
+                print(payload)
+            else:
+                Path(args.synthesis_plan).write_text(payload)
+        if args.synthesis_protocols:
+            stubs = render_protocol_stubs(synthesis_plan)
+            if args.synthesis_protocols.strip() == "-":
+                print(stubs)
+            else:
+                Path(args.synthesis_protocols).write_text(stubs)
+    refactor_plan: dict[str, object] | None = None
+    if args.refactor_plan or args.refactor_plan_json:
+        refactor_plan = build_refactor_plan(
+            analysis.groups_by_path,
+            paths,
+            config=config,
+        )
+        if args.refactor_plan_json:
+            payload = json.dumps(refactor_plan, indent=2, sort_keys=True)
+            if args.refactor_plan_json.strip() == "-":
+                print(payload)
+            else:
+                Path(args.refactor_plan_json).write_text(payload)
     if args.dot is not None:
         dot = _emit_dot(analysis.groups_by_path)
         if args.dot.strip() == "-":
@@ -1627,7 +2065,14 @@ def run(argv: list[str] | None = None) -> int:
             print("Type ambiguities (conflicting downstream expectations):")
             for line in analysis.type_ambiguities[: args.type_audit_max]:
                 print(f"- {line}")
-        return 0
+        if args.report is None and not (
+            args.synthesis_plan
+            or args.synthesis_report
+            or args.synthesis_protocols
+            or args.refactor_plan
+            or args.refactor_plan_json
+        ):
+            return 0
     if args.report is not None:
         report, violations = _emit_report(
             analysis.groups_by_path,
@@ -1637,6 +2082,12 @@ def run(argv: list[str] | None = None) -> int:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
         )
+        if synthesis_plan and (
+            args.synthesis_report or args.synthesis_plan or args.synthesis_protocols
+        ):
+            report = report + render_synthesis_section(synthesis_plan)
+        if refactor_plan and (args.refactor_plan or args.refactor_plan_json):
+            report = report + render_refactor_plan(refactor_plan)
         Path(args.report).write_text(report)
         if args.fail_on_violations and violations:
             return 1

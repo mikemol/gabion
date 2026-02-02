@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 26
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -37,10 +37,13 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Unused-argument pass detection (non-test call sites).
 
 ## Synthesis + refactoring nodes
-- [ ] Protocol/dataclass synthesis (tier thresholds, field typing).
-- [ ] Naming heuristics (frequency-based, LLM-ready fallback).
-- [ ] Topological refactoring schedule (callee-first order).
-- [ ] Partial-application merge heuristics (bundle fragmentation control).
+- [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype).
+- [x] Naming heuristics (frequency-based) (prototype).
+- [x] Topological refactoring schedule (callee-first order) (prototype).
+- [x] Partial-application merge heuristics (bundle fragmentation control) (prototype).
+- [ ] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
+- [x] Type aggregation for synthesis (from type-audit + call-site evidence).
+- [ ] Const/default-aware partial-application detection (subset merge by knobs).
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
@@ -48,7 +51,7 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Analysis→diagnostics mapping (basic placeholder ranges).
 - [x] LSP executeCommand smoke test (dataflow command).
 - [x] Pytest wrapper for LSP smoke test (skips if pygls missing).
-- [ ] VS Code extension as thin wrapper (spawn server only).
+- [x] VS Code extension as thin wrapper (spawn server only).
 
 ## Governance/ops glue (optional)
 - [x] Durable logs/artifacts guidance for audits.
@@ -56,8 +59,22 @@ wrappers live on the `tooling` axis and should stay consistent with
 - [x] Repo config defaults (`gabion.toml`) for dataflow settings.
 - [x] Policy check script references.
 - [x] Hook installer.
-- [ ] Doer/Judge/Witness framing (optional).
+- [x] Doer/Judge/Witness framing (optional).
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).
 - [x] GPU/JAX/Prism VM operational guidance (out of scope).
+
+## Phase 2: Integration (post-scaffold)
+- [x] Synthesis plan available via LSP/CLI (`gabion.synthesisPlan`, `synthesis-plan`).
+- [x] Synthesis payload schema doc (`docs/synthesis_payload.md`).
+- [x] Dataflow audit can emit synthesis plan outputs (report + JSON).
+- [x] Protocol/dataclass stub emitter (writes to `artifacts/`).
+- [x] Refactoring plan output (per-bundle schedule).
+- [x] `gabion synth` command to run audit + synthesis in one step.
+
+## Phase 3: Refactoring & UX
+- [x] LibCST refactor engine scaffolding (preserve trivia/formatting).
+- [x] LSP code action + workspace edit stub for Protocol extraction.
+- [x] Precise diagnostic ranges (metadata-backed positions).
+- [ ] Long-lived LSP server cache / incremental analysis (daemon mode).

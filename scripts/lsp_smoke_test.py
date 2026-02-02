@@ -15,6 +15,7 @@ except ModuleNotFoundError:
 
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
+SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 
 
 def main() -> int:
@@ -29,6 +30,15 @@ def main() -> int:
     result = run_command(DATAFLOW_COMMAND, [payload], root=Path(args.root))
     if "exit_code" not in result:
         raise SystemExit("Missing exit_code in LSP result")
+    synth_payload = {
+        "bundles": [{"bundle": ["ctx"], "tier": 2}],
+        "min_bundle_size": 1,
+        "allow_singletons": True,
+        "existing_names": ["CtxBundle"],
+    }
+    synth_result = run_command(SYNTHESIS_COMMAND, [synth_payload], root=Path(args.root))
+    if "protocols" not in synth_result:
+        raise SystemExit("Missing protocols in synthesis result")
     return int(result.get("exit_code", 0))
 
 

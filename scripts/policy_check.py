@@ -19,8 +19,10 @@ WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
 ALLOWED_ACTIONS = {
     "actions/checkout",
+    "actions/setup-python",
     "actions/upload-artifact",
     "jdx/mise-action",
+    "pypa/gh-action-pypi-publish",
 }
 REQUIRED_RUNNER_LABELS = {"self-hosted", "gpu", "local"}
 TRUSTED_BRANCHES = {"main", "stage"}
@@ -94,7 +96,22 @@ def _event_names(on_block):
     return set()
 
 
-def _check_permissions(doc, path, errors, *, allow_pr_write=False):
+def _has_tag_push(on_block) -> bool:
+    if not isinstance(on_block, dict):
+        return False
+    push_block = on_block.get("push")
+    if push_block is None:
+        return False
+    if isinstance(push_block, dict):
+        tags = push_block.get("tags")
+        if isinstance(tags, list):
+            return len(tags) > 0
+        if isinstance(tags, str):
+            return True
+    return False
+
+
+def _check_permissions(doc, path, errors, *, allow_pr_write=False, allow_id_token=False):
     permissions = doc.get("permissions")
     if permissions is None:
         errors.append(f"{path}: missing top-level permissions")
@@ -110,10 +127,14 @@ def _check_permissions(doc, path, errors, *, allow_pr_write=False):
             continue
         if allow_pr_write and key == "pull-requests" and value == "write":
             continue
+        if allow_id_token and key == "id-token" and value == "write":
+            continue
         errors.append(f"{path}: permissions.{key} must be 'read' or 'none'")
 
 
-def _check_job_permissions(job, path, job_name, errors, *, allow_pr_write=False):
+def _check_job_permissions(
+    job, path, job_name, errors, *, allow_pr_write=False, allow_id_token=False
+):
     # dataflow-bundle: job_name, path
     permissions = job.get("permissions")
     if permissions is None:
@@ -134,6 +155,8 @@ def _check_job_permissions(job, path, job_name, errors, *, allow_pr_write=False)
             and key == "pull-requests"
             and value == "write"
         ):
+            continue
+        if allow_id_token and not is_self_hosted and key == "id-token" and value == "write":
             continue
         errors.append(
             f"{path}:{job_name}: permissions.{key} must be 'read' or 'none'"
@@ -226,15 +249,27 @@ def check_workflows():
                 if _is_self_hosted(job.get("runs-on")):
                     has_self_hosted = True
         events = _event_names(doc.get("on"))
+        allow_id_token = _has_tag_push(doc.get("on")) and (not has_self_hosted)
         allow_pr_write = (("pull_request" in events) or ("pull_request_target" in events)) and (
             not has_self_hosted
         )
-        _check_permissions(doc, path, errors, allow_pr_write=allow_pr_write)
+        _check_permissions(
+            doc,
+            path,
+            errors,
+            allow_pr_write=allow_pr_write,
+            allow_id_token=allow_id_token,
+        )
         _check_self_hosted_constraints(doc, path, errors)
         if isinstance(jobs, dict):
             for name, job in jobs.items():
                 _check_job_permissions(
-                    job, path, name, errors, allow_pr_write=allow_pr_write
+                    job,
+                    path,
+                    name,
+                    errors,
+                    allow_pr_write=allow_pr_write,
+                    allow_id_token=allow_id_token,
                 )
                 _check_actions(job, path, name, errors)
     if errors:

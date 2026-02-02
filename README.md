@@ -1,5 +1,5 @@
 ---
-doc_revision: 27
+doc_revision: 39
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -47,9 +47,14 @@ integration.
 ## Branching model
 - `stage` is the integration branch for routine pushes; CI runs on every push.
 - `main` is protected and receives changes via PRs from `stage`.
+- Merge commits are allowed; merges to `main` should be regular merges (no squash).
+- `stage` accumulates changes and may include merge commits from `main` as it stays in sync.
 
 ## Convergence checklist
 Bottom-up convergence targets live in `docs/sppf_checklist.md`.
+
+## Governance addenda (optional)
+See `docs/doer_judge_witness.md` for optional role framing.
 
 ## Non-goals (for now)
 - Docflow is a repo-local convenience feature, not a Gabion product feature.
@@ -86,6 +91,16 @@ mise exec -- python -m gabion dataflow-audit path/to/project
 ```
 Repo defaults are driven by `gabion.toml` (see `[dataflow]`).
 By default, `in/` (inspiration) is excluded from enforcement there.
+Use `--synthesis-plan` to emit a JSON plan and `--synthesis-report` to append a
+summary section to the Markdown report. Use `--synthesis-protocols` to emit
+dataclass stubs (prototype) for review.
+Use `--refactor-plan` to append a per-bundle refactoring schedule and
+`--refactor-plan-json` to emit the JSON plan.
+
+Run audit + synthesis in one step (timestamped output under `artifacts/synthesis`):
+```
+mise exec -- python -m gabion synth path/to/project
+```
 
 Run the docflow audit (governance docs only):
 ```
@@ -95,14 +110,37 @@ mise exec -- python -m gabion docflow-audit
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
 
+Generate a synthesis plan from a JSON payload (prototype scaffolding):
+```
+mise exec -- python -m gabion synthesis-plan --input path/to/payload.json --output plan.json
+```
+Example payload:
+```json
+{
+  "bundles": [
+    { "bundle": ["ctx", "config"], "tier": 2 }
+  ],
+  "field_types": {
+    "ctx": "Context",
+    "config": "Config"
+  }
+}
+```
+Payload schema: `docs/synthesis_payload.md`.
+
 Capture an audit snapshot (reports + DOT graph under `artifacts/`):
 ```
 scripts/audit_snapshot.sh
 ```
+Snapshots now include a synthesis plan JSON and protocol stub file.
 Show the latest snapshot paths:
 ```
 scripts/latest_snapshot.sh
 ```
+
+## Editor integration
+The VS Code extension stub lives in `extensions/vscode` and launches the
+Gabion LSP server over stdio. It is a thin wrapper only.
 
 ## Quick commands (make)
 ```
