@@ -442,6 +442,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         bundle_fields: list[str],
         protocol_hint: str,
     ) -> None:
+        # dataflow-bundle: bundle_fields, protocol_hint, targets
         self.targets = targets
         self.bundle_fields = bundle_fields
         self.protocol_hint = protocol_hint
@@ -620,6 +621,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
         bundle_fields: list[str],
         constructor_expr: cst.BaseExpression,
     ) -> None:
+        # dataflow-bundle: bundle_fields, constructor_expr, file_is_target, imported_targets, module_aliases, target_methods, target_simple
         self.file_is_target = file_is_target
         self.target_simple = target_simple
         self.target_methods = target_methods
