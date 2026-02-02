@@ -19,6 +19,7 @@ import argparse
 import ast
 import json
 import os
+import sys
 from collections import defaultdict, deque
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -2504,6 +2505,70 @@ def _compute_violations(
     return violations
 
 
+def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+    if not path:
+        return None
+    baseline = Path(path)
+    if not baseline.is_absolute():
+        baseline = root / baseline
+    return baseline
+
+
+def _load_baseline(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    try:
+        raw = path.read_text()
+    except OSError:
+        return set()
+    entries: set[str] = set()
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        entries.add(line)
+    return entries
+
+
+def _write_baseline(path: Path, violations: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    unique = sorted(set(violations))
+    header = [
+        "# gabion baseline (ratchet)",
+        "# Lines list known violations to allow; new ones should fail.",
+        "",
+    ]
+    path.write_text("\n".join(header + unique) + "\n")
+
+
+def _apply_baseline(
+    violations: list[str], baseline: set[str]
+) -> tuple[list[str], list[str]]:
+    if not baseline:
+        return violations, []
+    new = [line for line in violations if line not in baseline]
+    suppressed = [line for line in violations if line in baseline]
+    return new, suppressed
+
+
+def resolve_baseline_path(path: str | None, root: Path) -> Path | None:
+    return _resolve_baseline_path(path, root)
+
+
+def load_baseline(path: Path) -> set[str]:
+    return _load_baseline(path)
+
+
+def write_baseline(path: Path, violations: list[str]) -> None:
+    _write_baseline(path, violations)
+
+
+def apply_baseline(
+    violations: list[str], baseline: set[str]
+) -> tuple[list[str], list[str]]:
+    return _apply_baseline(violations, baseline)
+
+
 def render_dot(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> str:
     return _emit_dot(groups_by_path)
 
@@ -2666,6 +2731,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Exit non-zero if undocumented/undeclared bundle violations are detected.",
     )
     parser.add_argument(
+        "--baseline",
+        default=None,
+        help="Baseline file of violations to allow (ratchet mode).",
+    )
+    parser.add_argument(
+        "--baseline-write",
+        action="store_true",
+        help="Write the current violations to the baseline file and exit zero.",
+    )
+    parser.add_argument(
         "--synthesis-plan",
         default=None,
         help="Write synthesis plan JSON to file or '-' for stdout.",
@@ -2740,6 +2815,7 @@ def run(argv: list[str] | None = None) -> int:
             "ignore_params": ignore_params,
             "allow_external": args.allow_external,
             "strictness": args.strictness,
+            "baseline": args.baseline,
         },
         defaults,
     )
@@ -2756,6 +2832,11 @@ def run(argv: list[str] | None = None) -> int:
         external_filter=not allow_external,
         strictness=strictness,
     )
+    baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
+    baseline_write = args.baseline_write
+    if baseline_write and baseline_path is None:
+        print("Baseline path required for --baseline-write.", file=sys.stderr)
+        return 2
     paths = _iter_paths(args.paths, config)
     analysis = analyze_paths(
         paths,
@@ -2838,6 +2919,27 @@ def run(argv: list[str] | None = None) -> int:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
         )
+        suppressed: list[str] = []
+        new_violations = violations
+        if baseline_path is not None:
+            baseline_entries = _load_baseline(baseline_path)
+            if baseline_write:
+                _write_baseline(baseline_path, violations)
+                baseline_entries = set(violations)
+                new_violations = []
+            else:
+                new_violations, suppressed = _apply_baseline(
+                    violations, baseline_entries
+                )
+            report = (
+                report
+                + "\n\nBaseline/Ratchet:\n```\n"
+                + f"Baseline: {baseline_path}\n"
+                + f"Baseline entries: {len(baseline_entries)}\n"
+                + f"Suppressed: {len(suppressed)}\n"
+                + f"New violations: {len(new_violations)}\n"
+                + "```\n"
+            )
         if synthesis_plan and (
             args.synthesis_report or args.synthesis_plan or args.synthesis_protocols
         ):
@@ -2846,7 +2948,10 @@ def run(argv: list[str] | None = None) -> int:
             report = report + render_refactor_plan(refactor_plan)
         Path(args.report).write_text(report)
         if args.fail_on_violations and violations:
-            return 1
+            if baseline_write:
+                return 0
+            if new_violations:
+                return 1
         return 0
     for path, groups in analysis.groups_by_path.items():
         print(f"# {path}")
@@ -2866,7 +2971,15 @@ def run(argv: list[str] | None = None) -> int:
             type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
         )
-        if violations:
+        if baseline_path is not None:
+            baseline_entries = _load_baseline(baseline_path)
+            if baseline_write:
+                _write_baseline(baseline_path, violations)
+                return 0
+            new_violations, _ = _apply_baseline(violations, baseline_entries)
+            if new_violations:
+                return 1
+        elif violations:
             return 1
     return 0
 

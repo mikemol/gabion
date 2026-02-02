@@ -1,5 +1,5 @@
 ---
-doc_revision: 50
+doc_revision: 51
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -108,7 +108,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Policy check script references.
 - [x] Hook installer.
 - [x] Doer/Judge/Witness framing (optional).
-- [ ] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
+- [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).
