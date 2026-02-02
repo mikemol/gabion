@@ -1,5 +1,5 @@
 ---
-doc_revision: 53
+doc_revision: 54
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -123,7 +123,8 @@ mise exec -- python -m gabion check
 `gabion check` enforces violations even without `--report` output, and fails on
 type ambiguities for this repo.
 Use `--baseline path/to/baseline.txt` to allowlist existing violations and
-`--baseline-write` to generate/update the baseline (ratchet mode).
+`--baseline-write` to generate/update the baseline (ratchet mode). Baseline
+writes are a local, explicit action and should not run in CI.
 
 Run the dataflow grammar audit (prototype):
 ```

@@ -49,4 +49,15 @@ jobs:
       - name: Docflow audit
         run: mise exec -- python scripts/docflow_audit.py --root . --fail-on-violations
       - name: Tests
-        run: mise exec -- python -m pytest
+        run: |
+          mkdir -p artifacts/test_runs
+          mise exec -- python -m pytest \
+            --junitxml artifacts/test_runs/junit.xml \
+            --log-file artifacts/test_runs/pytest.log \
+            --log-file-level=INFO
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: test-runs
+          path: artifacts/test_runs

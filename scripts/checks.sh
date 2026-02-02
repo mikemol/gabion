@@ -41,5 +41,10 @@ if $run_docflow; then
   mise exec -- python -m gabion docflow-audit
 fi
 if $run_tests; then
-  mise exec -- python -m pytest
+  test_dir="${TEST_ARTIFACTS_DIR:-artifacts/test_runs}"
+  mkdir -p "$test_dir"
+  mise exec -- python -m pytest \
+    --junitxml "$test_dir/junit.xml" \
+    --log-file "$test_dir/pytest.log" \
+    --log-file-level=INFO
 fi
