@@ -22,6 +22,7 @@ ALLOWED_ACTIONS_FILE = REPO_ROOT / "docs" / "allowed_actions.txt"
 REQUIRED_RUNNER_LABELS = {"self-hosted", "gpu", "local"}
 TRUSTED_BRANCHES = {"main", "stage", "next", "release"}
 CONTENT_WRITE_WORKFLOWS = {
+    "auto-test-tag.yml",
     "release-tag.yml",
     "mirror-next.yml",
     "promote-release.yml",
@@ -243,6 +244,37 @@ def _check_release_tag_workflow(doc, path, errors):
                 f"{path}:{name}: release tag workflow must guard on repository owner"
             )
 
+
+def _check_auto_test_tag_workflow(doc, path, errors):
+    events = _event_names(doc.get("on"))
+    if events != {"push"}:
+        errors.append(f"{path}: auto test tag workflow must use push only")
+    push_block = None
+    if isinstance(doc.get("on"), dict):
+        push_block = doc.get("on").get("push")
+    branches = None
+    if isinstance(push_block, dict):
+        branches = push_block.get("branches")
+    if not branches or ("next" not in branches):
+        errors.append(f"{path}: auto test tag workflow must target next branch pushes")
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    for name, job in jobs.items():
+        if _is_self_hosted(job.get("runs-on")):
+            errors.append(f"{path}:{name}: auto test tag workflow must not use self-hosted")
+        cond = _normalize_if(job.get("if"))
+        if "github.ref=='refs/heads/next'" not in cond:
+            errors.append(f"{path}:{name}: auto test tag workflow must guard on next")
+        if (
+            "github.actor=='github-actions[bot]'" not in cond
+            and "github.actor==github.repository_owner" not in cond
+        ):
+            errors.append(
+                f"{path}:{name}: auto test tag workflow must guard on actor"
+            )
+
+
 def _check_mirror_next_workflow(doc, path, errors):
     events = _event_names(doc.get("on"))
     if events != {"push"}:
@@ -407,6 +439,8 @@ def check_workflows():
         if allow_contents_write:
             if path.name == "release-tag.yml":
                 _check_release_tag_workflow(doc, path, errors)
+            if path.name == "auto-test-tag.yml":
+                _check_auto_test_tag_workflow(doc, path, errors)
             if path.name == "mirror-next.yml":
                 _check_mirror_next_workflow(doc, path, errors)
             if path.name == "promote-release.yml":
