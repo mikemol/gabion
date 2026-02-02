@@ -1,5 +1,5 @@
 ---
-doc_revision: 60
+doc_revision: 61
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -110,6 +110,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Hook installer.
 - [x] Doer/Judge/Witness framing (optional).
 - [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
+- [x] Redistributable GitHub Action wrapper (composite action for gabion check).
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).
