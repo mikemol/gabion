@@ -1,5 +1,5 @@
 ---
-doc_revision: 21
+doc_revision: 22
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -22,7 +22,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md: 68
   AGENTS.md: 12
   glossary.md: 9
-  docs/publishing_practices.md: 16
+  docs/publishing_practices.md: 17
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -294,12 +294,12 @@ tags, provided that:
 **Narrow exception (Automatic TestPyPI tagging):**
 
 GitHub-hosted workflows may request `contents: write` to create `test-v*` tags
-*automatically* on `next`, provided that:
+*automatically* after `next` is updated, provided that:
 
-* The workflow triggers only on `push` to `next`.
-* The job explicitly guards on `github.ref == 'refs/heads/next'`.
-* The job explicitly guards on `github.actor == 'github-actions[bot]'` or the
-  repository owner.
+* The workflow triggers only on `workflow_run` success from `mirror-next`.
+* The job explicitly guards on `github.event.workflow_run.head_branch == 'main'`.
+* The job explicitly guards on the workflow-run actor being the repository
+  owner or `github-actions[bot]`.
 * The workflow verifies `next` mirrors `main` before tagging.
 * The workflow derives the tag from `pyproject.toml` (`project.version`) and
   skips if the tag already exists.
