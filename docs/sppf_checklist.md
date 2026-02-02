@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 30
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -36,7 +36,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [ ] Import resolution: class hierarchy dispatch resolution.
 - [~] Alias-aware identity tracking (rename morphisms preserved).
 - [x] Alias tracking: direct Name-to-Name assignments.
-- [ ] Alias tracking: tuple/sequence unpacking.
+- [x] Alias tracking: tuple/sequence unpacking.
 - [ ] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
 - [ ] Alias tracking: alias propagation via call returns.
 - [x] Noise controls: project root anchoring + exclude dirs + ignore params.
@@ -69,14 +69,14 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Naming heuristics (frequency-based) (prototype).
 - [~] Topological refactoring schedule (callee-first order) (prototype).
 - [x] Refactor schedule: basic topological order.
-- [ ] Refactor schedule: SCC-based cycle detection (explicit knots).
+- [x] Refactor schedule: SCC-based cycle detection (explicit knots).
 - [~] Partial-application merge heuristics (bundle fragmentation control) (prototype).
 - [x] Bundle merge heuristic: Jaccard overlap merge function.
 - [ ] Bundle merge heuristic: integrated into synthesis/refactor pipeline.
 - [x] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
 - [~] Type aggregation for synthesis (from type-audit + call-site evidence).
 - [x] Type aggregation: single-type consensus assignment.
-- [ ] Type aggregation: conflict resolution into `Union`/`Any` guidance.
+- [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [ ] Const/default-aware partial-application detection (subset merge by knobs).
 
 ## LSP operational semantics

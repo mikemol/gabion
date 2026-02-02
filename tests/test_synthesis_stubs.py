@@ -26,6 +26,7 @@ def test_render_protocol_stubs_emits_dataclass() -> None:
         ]
     }
     stub = render_protocol_stubs(plan)
-    assert "class ExampleBundle" in stub
+    assert "from typing import Any" in stub
+    assert "class TODO_Name_Me" in stub
     assert "ctx: Context" in stub
     assert "config: Any" in stub
