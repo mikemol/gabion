@@ -1,5 +1,5 @@
 ---
-doc_revision: 52
+doc_revision: 53
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -100,7 +100,8 @@ To automate this locally on `stage`, set `GABION_SPPF_SYNC=1` and re-run
 label) before pushing.
 
 ## Development setup
-This project is currently scaffold-only (core analysis logic is not yet wired).
+This project ships prototype analysis + refactor features. Treat outputs as
+advisory outside this repo until the convergence checklist says otherwise.
 
 Local environment (via `mise`):
 ```
