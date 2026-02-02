@@ -1,0 +1,44 @@
+name: promote-release
+
+on:
+  workflow_run:
+    workflows: ["release-testpypi"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'test-v') &&
+      (github.event.workflow_run.actor.login == github.repository_owner ||
+        github.event.workflow_run.actor.login == 'github-actions[bot]')
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Promote next to release
+        run: |
+          git fetch origin main next release --tags
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          HEAD_SHA=$(git rev-parse HEAD)
+          NEXT_SHA=$(git rev-parse origin/next)
+          TAG_SHA=$(git rev-parse "refs/tags/$TAG")
+          if [ "$HEAD_SHA" != "$TAG_SHA" ]; then
+            echo "Workflow head sha must match tag."
+            exit 1
+          fi
+          if [ "$NEXT_SHA" != "$HEAD_SHA" ]; then
+            echo "Next must mirror tested commit before promoting release."
+            echo "next=$NEXT_SHA"
+            echo "tested=$HEAD_SHA"
+            exit 1
+          fi
+          git merge-base --is-ancestor "$HEAD_SHA" origin/main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git push --force-with-lease origin "$HEAD_SHA":refs/heads/release

@@ -11,12 +11,17 @@ from pathlib import Path
 import sys
 from typing import Dict, List, Tuple
 
-GOVERNANCE_DOCS = [
+CORE_GOVERNANCE_DOCS = [
     "POLICY_SEED.md",
     "glossary.md",
     "README.md",
     "CONTRIBUTING.md",
     "AGENTS.md",
+]
+
+GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
+    "docs/publishing_practices.md",
+    "docs/influence_index.md",
 ]
 
 REQUIRED_FIELDS = [
@@ -25,8 +30,19 @@ REQUIRED_FIELDS = [
     "doc_scope",
     "doc_authority",
     "doc_requires",
+    "doc_reviewed_as_of",
     "doc_change_protocol",
 ]
+LIST_FIELDS = {
+    "doc_scope",
+    "doc_requires",
+    "doc_commutes_with",
+    "doc_invariants",
+    "doc_erasure",
+}
+MAP_FIELDS = {
+    "doc_reviewed_as_of",
+}
 
 
 def _parse_frontmatter(text: str) -> Tuple[Dict[str, object], str]:
@@ -51,11 +67,28 @@ def _parse_frontmatter(text: str) -> Tuple[Dict[str, object], str]:
 def _parse_yaml_like(lines: List[str]) -> Dict[str, object]:
     data: Dict[str, object] = {}
     current_list_key: str | None = None
+    current_map_key: str | None = None
     for raw in lines:
         line = raw.rstrip()
         if not line.strip():
             continue
         if line.lstrip().startswith("#"):
+            continue
+        if current_map_key is not None and line.startswith("  ") and ":" in line:
+            key, value = line.strip().split(":", 1)
+            key = key.strip()
+            value = value.strip()
+            if value.startswith("\"") and value.endswith("\""):
+                value = value[1:-1]
+            if value.isdigit():
+                parsed: object = int(value)
+            else:
+                parsed = value
+            mapping = data.get(current_map_key)
+            if not isinstance(mapping, dict):
+                mapping = {}
+            mapping[key] = parsed
+            data[current_map_key] = mapping
             continue
         if line.lstrip().startswith("- "):
             if current_list_key is None:
@@ -69,8 +102,14 @@ def _parse_yaml_like(lines: List[str]) -> Dict[str, object]:
             key = key.strip()
             value = value.strip()
             if value == "":
-                data[key] = []
-                current_list_key = key
+                if key in MAP_FIELDS:
+                    data[key] = {}
+                    current_map_key = key
+                    current_list_key = None
+                else:
+                    data[key] = []
+                    current_list_key = key
+                    current_map_key = None
                 continue
             if value.startswith("\"") and value.endswith("\""):
                 value = value[1:-1]
@@ -79,6 +118,7 @@ def _parse_yaml_like(lines: List[str]) -> Dict[str, object]:
             else:
                 data[key] = value
             current_list_key = None
+            current_map_key = None
     return data
 
 
@@ -111,6 +151,13 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
                 doc_ids[doc_id] = rel
 
     governance_set = set(GOVERNANCE_DOCS)
+    core_set = set(CORE_GOVERNANCE_DOCS)
+
+    revisions: Dict[str, int] = {}
+    for rel, payload in docs.items():
+        fm = payload["frontmatter"]
+        if isinstance(fm.get("doc_revision"), int):
+            revisions[rel] = fm["doc_revision"]
 
     for rel, payload in docs.items():
         fm = payload["frontmatter"]
@@ -123,10 +170,12 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
         for field in ("doc_scope", "doc_requires"):
             if field in fm and not isinstance(fm[field], list):
                 violations.append(f"{rel}: frontmatter field '{field}' must be a list")
+        if "doc_reviewed_as_of" in fm and not isinstance(fm["doc_reviewed_as_of"], dict):
+            violations.append(f"{rel}: frontmatter field 'doc_reviewed_as_of' must be a map")
         # Normative docs must require the governance bundle.
         if fm.get("doc_authority") == "normative":
             requires = set(fm.get("doc_requires", []))
-            expected = governance_set - {rel}
+            expected = core_set - {rel}
             missing = sorted(expected - requires)
             if missing:
                 violations.append(
@@ -159,8 +208,31 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
                     )
                 else:
                     violations.append(f"{rel}: missing explicit reference to {req}")
+        # Convergence check (re-reviewed as of)
+        reviewed = fm.get("doc_reviewed_as_of")
+        if isinstance(requires, list) and requires:
+            if not isinstance(reviewed, dict):
+                violations.append(f"{rel}: doc_reviewed_as_of missing or invalid")
+            else:
+                for req in requires:
+                    expected = revisions.get(req)
+                    if expected is None:
+                        violations.append(
+                            f"{rel}: doc_reviewed_as_of cannot resolve {req}"
+                        )
+                        continue
+                    seen = reviewed.get(req)
+                    if not isinstance(seen, int):
+                        violations.append(
+                            f"{rel}: doc_reviewed_as_of[{req}] must be an integer"
+                        )
+                    elif seen != expected:
+                        violations.append(
+                            f"{rel}: doc_reviewed_as_of[{req}]={seen} does not match {expected}"
+                        )
 
     warnings.extend(_tooling_warnings(root, docs))
+    warnings.extend(_influence_warnings(root))
 
     return violations, warnings
 
@@ -182,6 +254,23 @@ def _tooling_warnings(root: Path, docs: Dict[str, Dict[str, object]]) -> List[st
             warnings.append(
                 "CONTRIBUTING.md: scripts/checks.sh present but not documented"
             )
+    return warnings
+
+
+def _influence_warnings(root: Path) -> List[str]:
+    warnings: List[str] = []
+    inbox = root / "in"
+    index_path = root / "docs" / "influence_index.md"
+    if not inbox.exists():
+        return warnings
+    if not index_path.exists():
+        warnings.append("docs/influence_index.md: missing influence index for in/")
+        return warnings
+    index_text = index_path.read_text(encoding="utf-8")
+    for path in sorted(inbox.glob("in-*.md")):
+        rel = path.as_posix()
+        if rel not in index_text:
+            warnings.append(f"docs/influence_index.md: missing {rel}")
     return warnings
 
 

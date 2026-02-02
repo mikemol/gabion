@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 9
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -13,6 +13,11 @@ doc_requires:
   - CONTRIBUTING.md
   - AGENTS.md
   - POLICY_SEED.md
+doc_reviewed_as_of:
+  README.md: 58
+  CONTRIBUTING.md: 68
+  AGENTS.md: 12
+  POLICY_SEED.md: 19
 doc_commutes_with:
   - POLICY_SEED.md
 doc_change_protocol: "POLICY_SEED.md §6"

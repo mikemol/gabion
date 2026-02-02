@@ -1,5 +1,5 @@
 ---
-doc_revision: 9
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -17,6 +17,12 @@ doc_requires:
   - AGENTS.md
   - glossary.md
   - docs/publishing_practices.md
+doc_reviewed_as_of:
+  README.md: 58
+  CONTRIBUTING.md: 68
+  AGENTS.md: 12
+  glossary.md: 9
+  docs/publishing_practices.md: 14
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -96,6 +102,11 @@ The governance layer is a bundle of documents that must remain coherent:
 
 Any change to one must be checked for consistency with the others.
 
+**Convergence rule (normative):** Any governance or documentation change is
+incomplete until the dependent documents have been **re‑reviewed as of** the
+new `doc_revision`. Each document must record this in `doc_reviewed_as_of`.
+If `doc_reviewed_as_of[X] != doc_revision(X)`, the document is stale.
+
 ---
 
 ## 1. Prime Invariant (Unbreakable)
@@ -136,9 +147,11 @@ tracked and reviewed like code.
 
 ### 2.1 Trusted Sources
 
-* Direct pushes to `main` and `stage` (explicitly trusted branches).
+* Direct pushes to `main`, `stage`, `next`, and `release` (explicitly trusted branches).
 * Commits authored by the maintainer or explicitly trusted collaborators.
 * Allow-listed dependency registries when used by trusted workflows (§4.6).
+* Tags created by the release tagging workflow on `next`/`release` (§4.4),
+  where `next` mirrors `main` and `release` mirrors `next` (no unique commits).
 
 ### 2.2 Untrusted Sources
 
@@ -236,6 +249,42 @@ applies only to:
 * comments that are purely informational (no code execution side effects).
 
 Self-hosted workflows MUST NOT request any write scopes.
+
+**Narrow exception (Branch promotion):**
+
+GitHub-hosted workflows may request `contents: write` **only** to mirror trusted
+branches, provided that:
+
+* The workflow triggers only on trusted events:
+  * `mirror-next`: `push` to `main`.
+  * `promote-release`: `workflow_run` success from `release-testpypi`.
+* The job explicitly guards on the expected source (`main` or `test-v*` tag).
+* The job explicitly guards on the actor:
+  * `mirror-next`: `github.actor == github.repository_owner`.
+  * `promote-release`: repository owner or `github-actions[bot]`.
+* The workflow uses allow-listed actions pinned to full SHAs.
+* The workflow force-updates `next` or `release` based on the validated source:
+  * `mirror-next`: fast-forward `next` only after `main` merges (post-PR checks).
+  * `promote-release`: fast-forward `release` only after `test-v*` succeeds.
+* No other write scopes are requested.
+
+**Narrow exception (Release tag creation):**
+
+GitHub-hosted workflows may request `contents: write` **only** to create release
+tags, provided that:
+
+* The workflow triggers only on `workflow_dispatch`.
+* The job explicitly guards on `github.ref == 'refs/heads/release'` or
+  `github.ref == 'refs/heads/next'`.
+* The job explicitly guards on `github.actor == github.repository_owner`.
+* The workflow verifies `next` matches `main` and `release` matches `next`
+  before tagging.
+* The workflow uses allow-listed actions pinned to full SHAs.
+* The workflow creates `test-v*` tags only from `next`, and `v*` tags only from
+  `release`.
+* No other write scopes are requested.
+
+Self-hosted workflows MUST NOT create tags or request `contents: write`.
 
 **Narrow exception (Trusted Publishing via OIDC):**
 

@@ -1,0 +1,32 @@
+name: mirror-next
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+      - name: Mirror main to next
+        run: |
+          git fetch origin main next
+          HEAD_SHA=$(git rev-parse HEAD)
+          MAIN_SHA=$(git rev-parse origin/main)
+          if [ "$HEAD_SHA" != "$MAIN_SHA" ]; then
+            echo "Mirror blocked: workflow SHA must equal current main."
+            echo "workflow=$HEAD_SHA"
+            echo "main=$MAIN_SHA"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git push --force-with-lease origin "$HEAD_SHA":refs/heads/next

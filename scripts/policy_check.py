@@ -20,7 +20,12 @@ WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
 ALLOWED_ACTIONS_FILE = REPO_ROOT / "docs" / "allowed_actions.txt"
 REQUIRED_RUNNER_LABELS = {"self-hosted", "gpu", "local"}
-TRUSTED_BRANCHES = {"main", "stage"}
+TRUSTED_BRANCHES = {"main", "stage", "next", "release"}
+CONTENT_WRITE_WORKFLOWS = {
+    "release-tag.yml",
+    "mirror-next.yml",
+    "promote-release.yml",
+}
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
@@ -128,7 +133,15 @@ def _has_tag_push(on_block) -> bool:
     return False
 
 
-def _check_permissions(doc, path, errors, *, allow_pr_write=False, allow_id_token=False):
+def _check_permissions(
+    doc,
+    path,
+    errors,
+    *,
+    allow_pr_write=False,
+    allow_id_token=False,
+    allow_contents_write=False,
+):
     # dataflow-bundle: doc, errors
     permissions = doc.get("permissions")
     if permissions is None:
@@ -138,20 +151,33 @@ def _check_permissions(doc, path, errors, *, allow_pr_write=False, allow_id_toke
         errors.append(f"{path}: permissions must be a mapping, not {permissions!r}")
         return
     contents = permissions.get("contents")
-    if contents != "read":
+    if allow_contents_write:
+        if contents != "write":
+            errors.append(f"{path}: permissions.contents must be 'write'")
+    elif contents != "read":
         errors.append(f"{path}: permissions.contents must be 'read'")
     for key, value in permissions.items():
+        if key == "contents":
+            continue
         if value in ("read", "none"):
             continue
         if allow_pr_write and key == "pull-requests" and value == "write":
             continue
         if allow_id_token and key == "id-token" and value == "write":
             continue
+        if allow_contents_write and key == "contents" and value == "write":
+            continue
         errors.append(f"{path}: permissions.{key} must be 'read' or 'none'")
 
 
 def _check_job_permissions(
-    job, job_ctx: JobContext, errors, *, allow_pr_write=False, allow_id_token=False
+    job,
+    job_ctx: JobContext,
+    errors,
+    *,
+    allow_pr_write=False,
+    allow_id_token=False,
+    allow_contents_write=False,
 ):
     # dataflow-bundle: errors, job, job_ctx
     permissions = job.get("permissions")
@@ -163,12 +189,19 @@ def _check_job_permissions(
         )
         return
     contents = permissions.get("contents")
-    if contents != "read":
+    if allow_contents_write:
+        if contents != "write":
+            errors.append(
+                f"{job_ctx.path}:{job_ctx.job_name}: permissions.contents must be 'write'"
+            )
+    elif contents != "read":
         errors.append(
             f"{job_ctx.path}:{job_ctx.job_name}: permissions.contents must be 'read'"
         )
     is_self_hosted = _is_self_hosted(job.get("runs-on"))
     for key, value in permissions.items():
+        if key == "contents":
+            continue
         if value in ("read", "none"):
             continue
         if (
@@ -180,9 +213,96 @@ def _check_job_permissions(
             continue
         if allow_id_token and not is_self_hosted and key == "id-token" and value == "write":
             continue
+        if allow_contents_write and key == "contents" and value == "write":
+            continue
         errors.append(
             f"{job_ctx.path}:{job_ctx.job_name}: permissions.{key} must be 'read' or 'none'"
         )
+
+
+def _check_release_tag_workflow(doc, path, errors):
+    events = _event_names(doc.get("on"))
+    if events != {"workflow_dispatch"}:
+        errors.append(f"{path}: release tag workflow must use workflow_dispatch only")
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    for name, job in jobs.items():
+        if _is_self_hosted(job.get("runs-on")):
+            errors.append(f"{path}:{name}: release tag workflow must not use self-hosted")
+        cond = _normalize_if(job.get("if"))
+        if (
+            "github.ref=='refs/heads/release'" not in cond
+            and "github.ref=='refs/heads/next'" not in cond
+        ):
+            errors.append(
+                f"{path}:{name}: release tag workflow must guard on refs/heads/release or refs/heads/next"
+            )
+        if "github.actor==github.repository_owner" not in cond:
+            errors.append(
+                f"{path}:{name}: release tag workflow must guard on repository owner"
+            )
+
+def _check_mirror_next_workflow(doc, path, errors):
+    events = _event_names(doc.get("on"))
+    if events != {"push"}:
+        errors.append(f"{path}: mirror workflow must use push only")
+    push_block = None
+    if isinstance(doc.get("on"), dict):
+        push_block = doc.get("on").get("push")
+    branches = None
+    if isinstance(push_block, dict):
+        branches = push_block.get("branches")
+    if not branches or ("main" not in branches):
+        errors.append(f"{path}: mirror workflow must target main branch pushes")
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    for name, job in jobs.items():
+        if _is_self_hosted(job.get("runs-on")):
+            errors.append(f"{path}:{name}: mirror workflow must not use self-hosted")
+        cond = _normalize_if(job.get("if"))
+        if "github.ref=='refs/heads/main'" not in cond:
+            errors.append(f"{path}:{name}: mirror workflow must guard on main")
+        if "github.actor==github.repository_owner" not in cond:
+            errors.append(
+                f"{path}:{name}: mirror workflow must guard on repository owner"
+            )
+
+
+def _check_promote_release_workflow(doc, path, errors):
+    events = _event_names(doc.get("on"))
+    if events != {"workflow_run"}:
+        errors.append(f"{path}: promote workflow must use workflow_run only")
+    workflow_run = None
+    if isinstance(doc.get("on"), dict):
+        workflow_run = doc.get("on").get("workflow_run")
+    workflows = None
+    if isinstance(workflow_run, dict):
+        workflows = workflow_run.get("workflows")
+    if not workflows:
+        errors.append(f"{path}: promote workflow must specify workflows")
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    for name, job in jobs.items():
+        if _is_self_hosted(job.get("runs-on")):
+            errors.append(f"{path}:{name}: promote workflow must not use self-hosted")
+        cond = _normalize_if(job.get("if"))
+        if "github.event.workflow_run.conclusion=='success'" not in cond:
+            errors.append(f"{path}:{name}: promote workflow must guard on success")
+        if (
+            "startswith(github.event.workflow_run.head_branch,'test-v')" not in cond
+            and "startsWith(github.event.workflow_run.head_branch,'test-v')" not in cond
+        ):
+            errors.append(f"{path}:{name}: promote workflow must guard on test-v tags")
+        if (
+            "github.event.workflow_run.actor.login==github.repository_owner" not in cond
+            and "github.event.workflow_run.actor.login=='github-actions[bot]'" not in cond
+        ):
+            errors.append(
+                f"{path}:{name}: promote workflow must guard on repository owner or github-actions[bot]"
+            )
 
 
 def _check_actions(job, job_ctx: JobContext, errors, allowed_actions: set[str]):
@@ -283,12 +403,21 @@ def check_workflows():
         allow_pr_write = (("pull_request" in events) or ("pull_request_target" in events)) and (
             not has_self_hosted
         )
+        allow_contents_write = path.name in CONTENT_WRITE_WORKFLOWS
+        if allow_contents_write:
+            if path.name == "release-tag.yml":
+                _check_release_tag_workflow(doc, path, errors)
+            if path.name == "mirror-next.yml":
+                _check_mirror_next_workflow(doc, path, errors)
+            if path.name == "promote-release.yml":
+                _check_promote_release_workflow(doc, path, errors)
         _check_permissions(
             doc,
             path,
             errors,
             allow_pr_write=allow_pr_write,
             allow_id_token=allow_id_token,
+            allow_contents_write=allow_contents_write,
         )
         _check_self_hosted_constraints(doc, path, errors)
         if isinstance(jobs, dict):
@@ -300,6 +429,7 @@ def check_workflows():
                     errors,
                     allow_pr_write=allow_pr_write,
                     allow_id_token=allow_id_token,
+                    allow_contents_write=allow_contents_write,
                 )
                 _check_actions(job, job_ctx, errors, allowed_actions)
     if errors:
