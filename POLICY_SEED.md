@@ -1,5 +1,5 @@
 ---
-doc_revision: 22
+doc_revision: 23
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -22,7 +22,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md: 68
   AGENTS.md: 12
   glossary.md: 9
-  docs/publishing_practices.md: 17
+  docs/publishing_practices.md: 18
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -302,7 +302,7 @@ GitHub-hosted workflows may request `contents: write` to create `test-v*` tags
   owner or `github-actions[bot]`.
 * The workflow verifies `next` mirrors `main` before tagging.
 * The workflow derives the tag from `pyproject.toml` (`project.version`) and
-  skips if the tag already exists.
+  appends `+YYYYMMDDTHHMMSSZ` (UTC ISO8601 basic). It skips if the tag exists.
 * The workflow creates only `test-v*` tags (no `v*` tags).
 * The workflow uses allow-listed actions pinned to full SHAs.
 * No other write scopes are requested.
