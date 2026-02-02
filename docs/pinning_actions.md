@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: pinning_actions
 doc_role: guide
@@ -39,6 +39,12 @@ If the tag points to an annotated tag, resolve again:
 ```bash
 sha=$(gh api repos/actions/checkout/git/ref/tags/v4 --jq .object.sha)
 gh api repos/actions/checkout/git/tags/$sha --jq .object.sha
+```
+
+## Repo helper (recommended)
+Use `scripts/pin_actions.py` to pin `uses:` lines in place:
+```bash
+scripts/pin_actions.py docs/workflows/gabion_action_example.yml
 ```
 
 ## Notes
