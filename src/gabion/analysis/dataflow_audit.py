@@ -1687,6 +1687,15 @@ def _iter_config_fields(path: Path) -> dict[str, set[str]]:
     return bundles
 
 
+def _collect_config_bundles(paths: list[Path]) -> dict[Path, dict[str, set[str]]]:
+    bundles_by_path: dict[Path, dict[str, set[str]]] = {}
+    for path in paths:
+        bundles = _iter_config_fields(path)
+        if bundles:
+            bundles_by_path[path] = bundles
+    return bundles_by_path
+
+
 _BUNDLE_MARKER = re.compile(r"dataflow-bundle:\s*(.*)")
 
 
@@ -1979,22 +1988,29 @@ def _render_mermaid_component(
         parts = n.split("::", 2)
         if len(parts) == 3:
             component_paths.add(Path(parts[1]))
-    declared = set()
+    declared_global = set()
+    for bundles in config_bundles_by_path.values():
+        for fields in bundles.values():
+            declared_global.add(tuple(sorted(fields)))
+    declared_local = set()
     documented = set()
     for path in component_paths:
-        config_path = path.parent / "config.py"
-        bundles = config_bundles_by_path.get(config_path)
+        bundles = config_bundles_by_path.get(path)
         if bundles:
             for fields in bundles.values():
-                declared.add(tuple(sorted(fields)))
+                declared_local.add(tuple(sorted(fields)))
         documented |= documented_bundles_by_path.get(path, set())
     observed_norm = {tuple(sorted(b)) for b in observed}
-    observed_only = sorted(observed_norm - declared) if declared else sorted(observed_norm)
-    declared_only = sorted(declared - observed_norm)
+    observed_only = (
+        sorted(observed_norm - declared_global)
+        if declared_global
+        else sorted(observed_norm)
+    )
+    declared_only = sorted(declared_local - observed_norm)
     documented_only = sorted(observed_norm & documented)
     def _tier(bundle: tuple[str, ...]) -> str:
         count = bundle_counts.get(bundle, 1)
-        if declared:
+        if bundle in declared_global:
             return "tier-1"
         if count > 1:
             return "tier-2"
@@ -2003,7 +2019,7 @@ def _render_mermaid_component(
         f"Functions: {len(fn_nodes)}",
         f"Observed bundles: {len(observed_norm)}",
     ]
-    if not declared:
+    if not declared_local:
         summary_lines.append("Declared Config bundles: none found for this component.")
     if observed_only:
         summary_lines.append("Observed-only bundles (not declared in Configs):")
@@ -2041,14 +2057,9 @@ def _emit_report(
         root = Path(common)
     else:
         root = Path(".")
-    config_bundles_by_path = {}
-    documented_bundles_by_path = {}
-    for path in sorted(root.rglob("config.py")):
-        config_bundles_by_path[path] = _iter_config_fields(path)
-    protocols = root / "prism_vm_core" / "protocols.py"
-    if protocols.exists():
-        config_bundles_by_path[protocols] = _iter_config_fields(protocols)
     file_paths = sorted(root.rglob("*.py"))
+    config_bundles_by_path = _collect_config_bundles(file_paths)
+    documented_bundles_by_path = {}
     symbol_table = _build_symbol_table(
         file_paths,
         root,
@@ -2154,12 +2165,10 @@ def _bundle_counts(
 
 def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     declared: set[tuple[str, ...]] = set()
-    for path in sorted(root.rglob("config.py")):
-        for fields in _iter_config_fields(path).values():
-            declared.add(tuple(sorted(fields)))
-    protocols = root / "prism_vm_core" / "protocols.py"
-    if protocols.exists():
-        for fields in _iter_config_fields(protocols).values():
+    file_paths = sorted(root.rglob("*.py"))
+    bundles_by_path = _collect_config_bundles(file_paths)
+    for bundles in bundles_by_path.values():
+        for fields in bundles.values():
             declared.add(tuple(sorted(fields)))
     return declared
 

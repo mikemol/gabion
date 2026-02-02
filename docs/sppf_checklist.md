@@ -1,5 +1,5 @@
 ---
-doc_revision: 54
+doc_revision: 55
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -67,7 +67,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Mermaid component diagrams embedded in Markdown report.
 - [x] DOT/Graphviz output for bundle graphs.
 - [x] Tiered bundle classification (declared vs. observed) + violation listing.
-- [~] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls). (GH-10)
+- [x] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls). (GH-10)
 - [x] Bundle declarations: `dataflow-bundle` markers.
 - [x] Bundle declarations: local dataclass constructor calls (Name-only args).
 - [x] Bundle declarations: general dataclass fields beyond `_fn` convention.
