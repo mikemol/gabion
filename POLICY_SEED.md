@@ -1,5 +1,5 @@
 ---
-doc_revision: 20
+doc_revision: 21
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -22,7 +22,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md: 68
   AGENTS.md: 12
   glossary.md: 9
-  docs/publishing_practices.md: 15
+  docs/publishing_practices.md: 16
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -289,6 +289,22 @@ tags, provided that:
 * The workflow uses allow-listed actions pinned to full SHAs.
 * The workflow creates `test-v*` tags only from `next`, and `v*` tags only from
   `release`.
+* No other write scopes are requested.
+
+**Narrow exception (Automatic TestPyPI tagging):**
+
+GitHub-hosted workflows may request `contents: write` to create `test-v*` tags
+*automatically* on `next`, provided that:
+
+* The workflow triggers only on `push` to `next`.
+* The job explicitly guards on `github.ref == 'refs/heads/next'`.
+* The job explicitly guards on `github.actor == 'github-actions[bot]'` or the
+  repository owner.
+* The workflow verifies `next` mirrors `main` before tagging.
+* The workflow derives the tag from `pyproject.toml` (`project.version`) and
+  skips if the tag already exists.
+* The workflow creates only `test-v*` tags (no `v*` tags).
+* The workflow uses allow-listed actions pinned to full SHAs.
 * No other write scopes are requested.
 
 Self-hosted workflows MUST NOT create tags or request `contents: write`.
