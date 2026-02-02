@@ -450,6 +450,36 @@ def _const_repr(node: ast.AST) -> str | None:
     return None
 
 
+def _type_from_const_repr(value: str) -> str | None:
+    try:
+        literal = ast.literal_eval(value)
+    except Exception:
+        return None
+    if literal is None:
+        return "None"
+    if isinstance(literal, bool):
+        return "bool"
+    if isinstance(literal, int):
+        return "int"
+    if isinstance(literal, float):
+        return "float"
+    if isinstance(literal, complex):
+        return "complex"
+    if isinstance(literal, str):
+        return "str"
+    if isinstance(literal, bytes):
+        return "bytes"
+    if isinstance(literal, list):
+        return "list"
+    if isinstance(literal, tuple):
+        return "tuple"
+    if isinstance(literal, set):
+        return "set"
+    if isinstance(literal, dict):
+        return "dict"
+    return None
+
+
 def _is_test_path(path: Path) -> bool:
     if "tests" in path.parts:
         return True
@@ -2248,6 +2278,55 @@ def build_synthesis_plan(
                 if name not in bundle_fields or not annot:
                     continue
                 type_sets[name].add(annot)
+        by_name, by_qual = _build_function_index(
+            list(groups_by_path.keys()),
+            root,
+            audit_config.ignore_params,
+            audit_config.strictness,
+            audit_config.transparent_decorators,
+        )
+        symbol_table = _build_symbol_table(
+            list(groups_by_path.keys()),
+            root,
+            external_filter=audit_config.external_filter,
+        )
+        class_index = _collect_class_index(list(groups_by_path.keys()), root)
+        for infos in by_name.values():
+            for info in infos:
+                for call in info.calls:
+                    if call.is_test:
+                        continue
+                    callee = _resolve_callee(
+                        call.callee,
+                        info,
+                        by_name,
+                        by_qual,
+                        symbol_table,
+                        root,
+                        class_index,
+                    )
+                    if callee is None or not callee.transparent:
+                        continue
+                    callee_params = callee.params
+                    for idx_str, value in call.const_pos.items():
+                        try:
+                            idx = int(idx_str)
+                        except ValueError:
+                            continue
+                        if idx >= len(callee_params):
+                            continue
+                        param = callee_params[idx]
+                        if param not in bundle_fields:
+                            continue
+                        hint = _type_from_const_repr(value)
+                        if hint:
+                            type_sets[param].add(hint)
+                    for kw, value in call.const_kw.items():
+                        if kw not in callee_params or kw not in bundle_fields:
+                            continue
+                        hint = _type_from_const_repr(value)
+                        if hint:
+                            type_sets[kw].add(hint)
         for name, types in type_sets.items():
             if not types:
                 continue

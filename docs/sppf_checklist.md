@@ -1,5 +1,5 @@
 ---
-doc_revision: 55
+doc_revision: 56
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -87,7 +87,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Bundle merge heuristic: Jaccard overlap merge function.
 - [x] Bundle merge heuristic: integrated into synthesis/refactor pipeline.
 - [x] LLM-ready naming stubs (TODO_Name_Me + context docstrings).
-- [~] Type aggregation for synthesis (from type-audit + call-site evidence). (GH-14)
+- [x] Type aggregation for synthesis (from type-audit + call-site evidence). (GH-14)
 - [x] Type aggregation: single-type consensus assignment.
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
