@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -65,6 +65,7 @@ Rationale: reduces secret leakage risk and matches current PyPI guidance.
 
 Tag-only trigger constraint: release workflows should trigger only on tag pushes
 (e.g. `v*` for PyPI, `test-v*` for TestPyPI).
+Release workflows must also verify the tag commit is reachable from `main`.
 
 ## 6. Harden the release workflow
 Release workflows should:
