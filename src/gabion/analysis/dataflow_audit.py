@@ -20,7 +20,7 @@ import ast
 import json
 import os
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Iterable, Iterator
 import re
@@ -209,10 +209,12 @@ def _param_spans(
     return spans
 
 
-def _function_key(name: str, class_name: str | None) -> str:
-    if class_name:
-        return f"{class_name}.{name}"
-    return name
+def _function_key(scope: Iterable[str], name: str) -> str:
+    parts = list(scope)
+    parts.append(name)
+    if not parts:
+        return name
+    return ".".join(parts)
 
 
 def _enclosing_class(
@@ -224,6 +226,32 @@ def _enclosing_class(
             return current.name
         current = parents.get(current)
     return None
+
+
+def _enclosing_scopes(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> list[str]:
+    scopes: list[str] = []
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, ast.ClassDef):
+            scopes.append(current.name)
+        elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scopes.append(current.name)
+        current = parents.get(current)
+    return list(reversed(scopes))
+
+
+def _enclosing_function_scopes(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> list[str]:
+    scopes: list[str] = []
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scopes.append(current.name)
+        current = parents.get(current)
+    return list(reversed(scopes))
 
 
 def _param_annotations(
@@ -399,9 +427,14 @@ def analyze_file(
     fn_param_spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     fn_use = {}
     fn_calls = {}
+    fn_names: dict[str, str] = {}
+    fn_lexical_scopes: dict[str, tuple[str, ...]] = {}
+    fn_class_names: dict[str, str | None] = {}
     for f in funcs:
         class_name = _enclosing_class(f, parents)
-        fn_key = _function_key(f.name, class_name)
+        scopes = _enclosing_scopes(f, parents)
+        lexical_scopes = _enclosing_function_scopes(f, parents)
+        fn_key = _function_key(scopes, f.name)
         use_map, call_args = _analyze_function(
             f,
             parents,
@@ -414,6 +447,54 @@ def analyze_file(
         fn_calls[fn_key] = call_args
         fn_param_orders[fn_key] = _param_names(f, config.ignore_params)
         fn_param_spans[fn_key] = _param_spans(f, config.ignore_params)
+        fn_names[fn_key] = f.name
+        fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
+        fn_class_names[fn_key] = class_name
+
+    local_by_name: dict[str, list[str]] = defaultdict(list)
+    for key, name in fn_names.items():
+        local_by_name[name].append(key)
+
+    def _resolve_local_callee(callee: str, caller_key: str) -> str | None:
+        if "." in callee:
+            return None
+        candidates = local_by_name.get(callee, [])
+        if not candidates:
+            return None
+        effective_scope = list(fn_lexical_scopes.get(caller_key, ())) + [fn_names[caller_key]]
+        while True:
+            scoped = [
+                key
+                for key in candidates
+                if fn_lexical_scopes.get(key, ()) == tuple(effective_scope)
+                and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
+            ]
+            if len(scoped) == 1:
+                return scoped[0]
+            if len(scoped) > 1:
+                return None
+            if not effective_scope:
+                break
+            effective_scope = effective_scope[:-1]
+        globals_only = [
+            key
+            for key in candidates
+            if not fn_lexical_scopes.get(key)
+            and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
+        ]
+        if len(globals_only) == 1:
+            return globals_only[0]
+        return None
+
+    for caller_key, calls in list(fn_calls.items()):
+        resolved_calls: list[CallArgs] = []
+        for call in calls:
+            resolved = _resolve_local_callee(call.callee, caller_key)
+            if resolved:
+                resolved_calls.append(replace(call, callee=resolved))
+            else:
+                resolved_calls.append(call)
+        fn_calls[caller_key] = resolved_calls
 
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
 
@@ -461,6 +542,8 @@ class FunctionInfo:
     calls: list[CallArgs]
     unused_params: set[str]
     class_name: str | None = None
+    scope: tuple[str, ...] = ()
+    lexical_scope: tuple[str, ...] = ()
 
 
 def _module_name(path: Path, project_root: Path | None = None) -> str:
@@ -518,6 +601,8 @@ def _build_function_index(
         module = _module_name(path, project_root)
         for fn in funcs:
             class_name = _enclosing_class(fn, parent_map)
+            scopes = _enclosing_scopes(fn, parent_map)
+            lexical_scopes = _enclosing_function_scopes(fn, parent_map)
             use_map, call_args = _analyze_function(
                 fn,
                 parent_map,
@@ -527,11 +612,11 @@ def _build_function_index(
                 class_name=class_name,
             )
             unused_params = _unused_params(use_map)
-            qual = (
-                f"{module}.{class_name}.{fn.name}"
-                if class_name
-                else f"{module}.{fn.name}"
-            )
+            qual_parts = [module] if module else []
+            if scopes:
+                qual_parts.extend(scopes)
+            qual_parts.append(fn.name)
+            qual = ".".join(qual_parts)
             info = FunctionInfo(
                 name=fn.name,
                 qual=qual,
@@ -541,6 +626,8 @@ def _build_function_index(
                 calls=call_args,
                 unused_params=unused_params,
                 class_name=class_name,
+                scope=tuple(scopes),
+                lexical_scope=tuple(lexical_scopes),
             )
             by_name[fn.name].append(info)
             by_qual[info.qual] = info
@@ -558,6 +645,30 @@ def _resolve_callee(
     if not callee_name:
         return None
     caller_module = _module_name(caller.path, project_root=project_root)
+    candidates = by_name.get(_callee_key(callee_name), [])
+    if "." not in callee_name:
+        effective_scope = list(caller.lexical_scope) + [caller.name]
+        while True:
+            scoped = [
+                info
+                for info in candidates
+                if list(info.lexical_scope) == effective_scope
+                and not (info.class_name and not info.lexical_scope)
+            ]
+            if len(scoped) == 1:
+                return scoped[0]
+            if len(scoped) > 1:
+                return None
+            if not effective_scope:
+                break
+            effective_scope = effective_scope[:-1]
+        globals_only = [
+            info
+            for info in candidates
+            if not info.lexical_scope and not (info.class_name and not info.lexical_scope)
+        ]
+        if len(globals_only) == 1:
+            return globals_only[0]
     if symbol_table is not None:
         if "." not in callee_name:
             if (caller_module, callee_name) in symbol_table.imports:
@@ -611,9 +722,7 @@ def _resolve_callee(
             return same_module[0]
         return None
     # Fallback: unique function name across repo.
-    candidates = [
-        info for info in by_name.get(callee_name, []) if info.class_name is None
-    ]
+    candidates = [info for info in by_name.get(callee_name, []) if info.class_name is None]
     if len(candidates) == 1:
         return candidates[0]
     # Prefer same-module definition when ambiguous.
@@ -1462,7 +1571,7 @@ def build_refactor_plan(
     info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
     for infos in by_name.values():
         for info in infos:
-            key = _function_key(info.name, info.class_name)
+            key = _function_key(info.scope, info.name)
             info_by_path_name[(info.path, key)] = info
 
     bundle_map: dict[tuple[str, ...], dict[str, FunctionInfo]] = defaultdict(dict)
