@@ -146,6 +146,7 @@ def _dataflow_audit(
         "refactor_plan_json": str(opts.refactor_plan_json)
         if opts.refactor_plan_json
         else None,
+        "synthesis_merge_overlap": opts.synthesis_merge_overlap,
     }
     result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
     if opts.type_audit:
@@ -273,6 +274,12 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--synthesis-allow-singletons",
         action="store_true",
         help="Allow single-field bundles in synthesis plan.",
+    )
+    parser.add_argument(
+        "--synthesis-merge-overlap",
+        type=float,
+        default=None,
+        help="Jaccard overlap threshold for merging bundles (0.0-1.0).",
     )
     parser.add_argument(
         "--refactor-plan",

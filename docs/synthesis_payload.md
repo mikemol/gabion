@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: synthesis_payload
 doc_role: schema
@@ -45,7 +45,8 @@ and the LSP command `gabion.synthesisPlan`.
   "fallback_prefix": "Bundle",
   "max_tier": 2,
   "min_bundle_size": 2,
-  "allow_singletons": false
+  "allow_singletons": false,
+  "merge_overlap_threshold": 0.75
 }
 ```
 
@@ -61,6 +62,8 @@ and the LSP command `gabion.synthesisPlan`.
 - `max_tier` (optional): highest tier to synthesize (default: 2).
 - `min_bundle_size` (optional): minimum bundle size to synthesize (default: 2).
 - `allow_singletons` (optional): allow 1-field bundles when true (default: false).
+- `merge_overlap_threshold` (optional): Jaccard overlap threshold for merging bundles
+  before synthesis (default: 0.75).
 
 ## Response shape (summary)
 

@@ -1,5 +1,5 @@
 ---
-doc_revision: 62
+doc_revision: 63
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -81,6 +81,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Synthesis output: typing.Protocol interface stubs.
 - [x] Synthesis typing: resolve conflicts into `Union`/`Optional`.
 - [x] Naming heuristics (frequency-based) (prototype).
+- [x] Merge overlap threshold is configurable (no hardcoded axiom).
 - [x] Topological refactoring schedule (callee-first order) (prototype). (GH-12)
 - [x] Refactor schedule: basic topological order.
 - [x] Refactor schedule: SCC-based cycle detection (explicit knots).
