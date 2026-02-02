@@ -247,16 +247,16 @@ def _check_release_tag_workflow(doc, path, errors):
 
 def _check_auto_test_tag_workflow(doc, path, errors):
     events = _event_names(doc.get("on"))
-    if events != {"push"}:
-        errors.append(f"{path}: auto test tag workflow must use push only")
-    push_block = None
+    if events != {"workflow_run"}:
+        errors.append(f"{path}: auto test tag workflow must use workflow_run only")
+    workflow_run = None
     if isinstance(doc.get("on"), dict):
-        push_block = doc.get("on").get("push")
-    branches = None
-    if isinstance(push_block, dict):
-        branches = push_block.get("branches")
-    if not branches or ("next" not in branches):
-        errors.append(f"{path}: auto test tag workflow must target next branch pushes")
+        workflow_run = doc.get("on").get("workflow_run")
+    workflows = None
+    if isinstance(workflow_run, dict):
+        workflows = workflow_run.get("workflows")
+    if not workflows:
+        errors.append(f"{path}: auto test tag workflow must specify workflows")
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
@@ -264,15 +264,15 @@ def _check_auto_test_tag_workflow(doc, path, errors):
         if _is_self_hosted(job.get("runs-on")):
             errors.append(f"{path}:{name}: auto test tag workflow must not use self-hosted")
         cond = _normalize_if(job.get("if"))
-        if "github.ref=='refs/heads/next'" not in cond:
-            errors.append(f"{path}:{name}: auto test tag workflow must guard on next")
+        if "github.event.workflow_run.conclusion=='success'" not in cond:
+            errors.append(f"{path}:{name}: auto test tag workflow must guard on success")
+        if "github.event.workflow_run.head_branch=='main'" not in cond:
+            errors.append(f"{path}:{name}: auto test tag workflow must guard on main")
         if (
-            "github.actor=='github-actions[bot]'" not in cond
-            and "github.actor==github.repository_owner" not in cond
+            "github.event.workflow_run.actor.login==github.repository_owner" not in cond
+            and "github.event.workflow_run.actor.login=='github-actions[bot]'" not in cond
         ):
-            errors.append(
-                f"{path}:{name}: auto test tag workflow must guard on actor"
-            )
+            errors.append(f"{path}:{name}: auto test tag workflow must guard on actor")
 
 
 def _check_mirror_next_workflow(doc, path, errors):
