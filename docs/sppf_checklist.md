@@ -1,5 +1,5 @@
 ---
-doc_revision: 47
+doc_revision: 48
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -56,6 +56,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Constant-flow audit (dead knobs / always-constant params).
 - [x] Unused-argument pass detection (non-test call sites).
 - [ ] Analysis: Decorator transparency/unwrapping. (GH-9)
+- [ ] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -103,6 +104,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Policy check script references.
 - [x] Hook installer.
 - [x] Doer/Judge/Witness framing (optional).
+- [ ] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).
@@ -126,4 +128,5 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Refactor engine: Call-site rewriting (foo(x, y) -> foo(Bundle(x, y))). (GH-18)
 - [x] Refactor engine: Preamble injection (unpack bundle to preserve local logic). (GH-19)
 - [x] Refactor engine: Import management (inject bundle import at call sites). (GH-20)
+- [ ] Refactor strategy: Compatibility shims (generate @overload + DeprecationWarning wrapper). (GH-24)
 - [ ] Long-lived LSP server cache / incremental analysis (daemon mode). (GH-21)
