@@ -119,6 +119,7 @@ def _has_tag_push(on_block) -> bool:
 
 
 def _check_permissions(doc, path, errors, *, allow_pr_write=False, allow_id_token=False):
+    # dataflow-bundle: doc, errors
     permissions = doc.get("permissions")
     if permissions is None:
         errors.append(f"{path}: missing top-level permissions")
@@ -142,6 +143,7 @@ def _check_permissions(doc, path, errors, *, allow_pr_write=False, allow_id_toke
 def _check_job_permissions(
     job, job_ctx: JobContext, errors, *, allow_pr_write=False, allow_id_token=False
 ):
+    # dataflow-bundle: errors, job, job_ctx
     permissions = job.get("permissions")
     if permissions is None:
         return
@@ -174,6 +176,7 @@ def _check_job_permissions(
 
 
 def _check_actions(job, job_ctx: JobContext, errors):
+    # dataflow-bundle: errors, job, job_ctx
     steps = job.get("steps", [])
     for idx, step in enumerate(steps):
         uses = step.get("uses")
@@ -205,6 +208,7 @@ def _check_actions(job, job_ctx: JobContext, errors):
 
 
 def _check_self_hosted_constraints(doc, path, errors):
+    # dataflow-bundle: doc, errors
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return

@@ -835,6 +835,7 @@ def _resolve_callee(
     symbol_table: SymbolTable | None = None,
     project_root: Path | None = None,
 ) -> FunctionInfo | None:
+    # dataflow-bundle: by_name, caller
     if not callee_name:
         return None
     caller_module = _module_name(caller.path, project_root=project_root)
@@ -1206,6 +1207,7 @@ def analyze_unused_arg_flow_repo(
         callee_param: str,
         arg_desc: str,
     ) -> str:
+        # dataflow-bundle: callee, caller
         return (
             f"{caller.path.name}:{caller.name} passes {arg_desc} "
             f"to unused {callee.path.name}:{callee.name}.{callee_param}"
@@ -1615,6 +1617,7 @@ def _render_mermaid_component(
     config_bundles_by_path: dict[Path, dict[str, set[str]]],
     documented_bundles_by_path: dict[Path, set[tuple[str, ...]]],
 ) -> tuple[str, str]:
+    # dataflow-bundle: adj, config_bundles_by_path, documented_bundles_by_path, nodes
     lines = ["```mermaid", "flowchart LR"]
     fn_nodes = [n for n in component if nodes[n]["kind"] == "fn"]
     bundle_nodes = [n for n in component if nodes[n]["kind"] == "bundle"]

@@ -20,6 +20,7 @@ class ParentAnnotator(ast.NodeVisitor):
 
 class ImportVisitor(ast.NodeVisitor):
     def __init__(self, module_name: str, table) -> None:
+        # dataflow-bundle: module_name, table
         self.module = module_name
         self.table = table
 
@@ -65,6 +66,7 @@ class UseVisitor(ast.NodeVisitor):
         call_args_factory: Callable[..., object],
         call_context: Callable[[ast.AST, dict[ast.AST, ast.AST]], tuple[ast.Call | None, bool]],
     ) -> None:
+        # dataflow-bundle: alias_to_param, call_args, call_args_factory, call_context, callee_name, const_repr, is_test, parents, strictness, use_map
         self.parents = parents
         self.use_map = use_map
         self.call_args = call_args
