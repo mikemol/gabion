@@ -129,6 +129,7 @@ class UseVisitor(ast.NodeVisitor):
                         self.use_map[param].non_forward = True
 
     def _bind_sequence(self, target: ast.AST, value: ast.AST) -> bool:
+        # dataflow-bundle: target, value
         if not isinstance(target, (ast.Tuple, ast.List)):
             return False
         if not isinstance(value, (ast.Tuple, ast.List)):
