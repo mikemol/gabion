@@ -14,10 +14,10 @@ doc_requires:
   - AGENTS.md
   - POLICY_SEED.md
 doc_reviewed_as_of:
-  README.md: 56
-  CONTRIBUTING.md: 66
+  README.md: 58
+  CONTRIBUTING.md: 68
   AGENTS.md: 12
-  POLICY_SEED.md: 18
+  POLICY_SEED.md: 19
 doc_commutes_with:
   - POLICY_SEED.md
 doc_change_protocol: "POLICY_SEED.md §6"

@@ -15,10 +15,10 @@ doc_requires:
   - CONTRIBUTING.md
   - README.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 18
+  POLICY_SEED.md: 19
   glossary.md: 9
-  CONTRIBUTING.md: 66
-  README.md: 56
+  CONTRIBUTING.md: 68
+  README.md: 58
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

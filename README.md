@@ -1,5 +1,5 @@
 ---
-doc_revision: 56
+doc_revision: 58
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -14,10 +14,10 @@ doc_requires:
   - AGENTS.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 18
+  POLICY_SEED.md: 19
   glossary.md: 9
   AGENTS.md: 12
-  CONTRIBUTING.md: 66
+  CONTRIBUTING.md: 68
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -56,12 +56,11 @@ breaking changes; patch releases target fixes. Breaking changes will be called
 out in release notes.
 
 ## Branching model
-- `stage` is the integration branch for routine pushes; CI runs on `stage` and `main` pushes.
+- `stage` is the integration branch for routine pushes; CI runs on `stage` pushes.
 - `main` is protected and receives changes via PRs from `stage`.
-- CI runs on `main` pushes to gate promotion into `next`.
-- Merge commits are allowed; merges to `main` should be regular merges (no squash).
+- Merges to `main` are regular merge commits (no squash or rebase).
 - `stage` accumulates changes and may include merge commits from `main` as it stays in sync.
-- `next` mirrors `main` (no unique commits) and is updated only after `main` CI succeeds.
+- `next` mirrors `main` (no unique commits) and is updated after `main` merges.
 - `release` mirrors `next` (no unique commits) and is updated only after `test-v*` succeeds.
 - Tags are cut via the `release-tag` workflow on `next` (test) and `release` (prod).
 - `next` and `release` are automation-only branches; `mirror-next` and

@@ -245,16 +245,16 @@ def _check_release_tag_workflow(doc, path, errors):
 
 def _check_mirror_next_workflow(doc, path, errors):
     events = _event_names(doc.get("on"))
-    if events != {"workflow_run"}:
-        errors.append(f"{path}: mirror workflow must use workflow_run only")
-    workflow_run = None
+    if events != {"push"}:
+        errors.append(f"{path}: mirror workflow must use push only")
+    push_block = None
     if isinstance(doc.get("on"), dict):
-        workflow_run = doc.get("on").get("workflow_run")
-    workflows = None
-    if isinstance(workflow_run, dict):
-        workflows = workflow_run.get("workflows")
-    if not workflows:
-        errors.append(f"{path}: mirror workflow must specify workflows")
+        push_block = doc.get("on").get("push")
+    branches = None
+    if isinstance(push_block, dict):
+        branches = push_block.get("branches")
+    if not branches or ("main" not in branches):
+        errors.append(f"{path}: mirror workflow must target main branch pushes")
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
@@ -262,11 +262,9 @@ def _check_mirror_next_workflow(doc, path, errors):
         if _is_self_hosted(job.get("runs-on")):
             errors.append(f"{path}:{name}: mirror workflow must not use self-hosted")
         cond = _normalize_if(job.get("if"))
-        if "github.event.workflow_run.conclusion=='success'" not in cond:
-            errors.append(f"{path}:{name}: mirror workflow must guard on success")
-        if "github.event.workflow_run.head_branch=='main'" not in cond:
+        if "github.ref=='refs/heads/main'" not in cond:
             errors.append(f"{path}:{name}: mirror workflow must guard on main")
-        if "github.event.workflow_run.actor.login==github.repository_owner" not in cond:
+        if "github.actor==github.repository_owner" not in cond:
             errors.append(
                 f"{path}:{name}: mirror workflow must guard on repository owner"
             )

@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 14
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -13,8 +13,8 @@ doc_requires:
   - POLICY_SEED.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 18
-  CONTRIBUTING.md: 66
+  POLICY_SEED.md: 19
+  CONTRIBUTING.md: 68
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -82,7 +82,7 @@ A tag ruleset should limit `v*`/`test-v*` creation to the maintainer and GitHub 
 
 Branch promotion is automated:
 
-- `.github/workflows/mirror-next.yml` updates `next` after `main` CI succeeds.
+- `.github/workflows/mirror-next.yml` updates `next` after `main` merges (post-PR checks).
 - `.github/workflows/promote-release.yml` updates `release` after `test-v*` succeeds.
 
 ## 6. Harden the release workflow

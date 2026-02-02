@@ -1,5 +1,5 @@
 ---
-doc_revision: 18
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -18,11 +18,11 @@ doc_requires:
   - glossary.md
   - docs/publishing_practices.md
 doc_reviewed_as_of:
-  README.md: 56
-  CONTRIBUTING.md: 66
+  README.md: 58
+  CONTRIBUTING.md: 68
   AGENTS.md: 12
   glossary.md: 9
-  docs/publishing_practices.md: 13
+  docs/publishing_practices.md: 14
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -255,14 +255,16 @@ Self-hosted workflows MUST NOT request any write scopes.
 GitHub-hosted workflows may request `contents: write` **only** to mirror trusted
 branches, provided that:
 
-* The workflow triggers only on `workflow_run` success.
+* The workflow triggers only on trusted events:
+  * `mirror-next`: `push` to `main`.
+  * `promote-release`: `workflow_run` success from `release-testpypi`.
 * The job explicitly guards on the expected source (`main` or `test-v*` tag).
-* The job explicitly guards on the workflow-run actor:
-  * `mirror-next`: `github.event.workflow_run.actor.login == github.repository_owner`.
+* The job explicitly guards on the actor:
+  * `mirror-next`: `github.actor == github.repository_owner`.
   * `promote-release`: repository owner or `github-actions[bot]`.
 * The workflow uses allow-listed actions pinned to full SHAs.
 * The workflow force-updates `next` or `release` based on the validated source:
-  * `mirror-next`: fast-forward `next` only after `main` CI succeeds.
+  * `mirror-next`: fast-forward `next` only after `main` merges (post-PR checks).
   * `promote-release`: fast-forward `release` only after `test-v*` succeeds.
 * No other write scopes are requested.
 
