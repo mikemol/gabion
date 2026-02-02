@@ -29,8 +29,8 @@ jobs:
       - name: Install dependencies (locked)
         run: |
           mise exec -- python -m pip install --upgrade pip uv
-          mise exec -- uv pip sync requirements.lock
-          mise exec -- uv pip install -e .
+          mise exec -- uv pip sync --system requirements.lock
+          mise exec -- uv pip install --system -e .
       - name: Policy check (workflows)
         run: mise exec -- python scripts/policy_check.py --workflows
       - name: Policy check (posture)
