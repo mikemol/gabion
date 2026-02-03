@@ -22,7 +22,7 @@ doc_reviewed_as_of:
   README.md: 58
   CONTRIBUTING.md: 69
   AGENTS.md: 12
-  glossary.md: 9
+  glossary.md: 11
   docs/publishing_practices.md: 22
   docs/coverage_semantics.md: 3
 doc_commutes_with:
