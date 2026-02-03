@@ -1,5 +1,5 @@
 ---
-doc_revision: 69
+doc_revision: 70
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -83,6 +83,10 @@ Tier-3 bundles must be documented with `# dataflow-bundle:` or reified.
 - Release tags are created via the `release-tag` workflow on `release` (no manual tags).
 - `next` and `release` are automation-only branches. Human pushes are forbidden.
   The `mirror-next` and `promote-release` workflows update them.
+
+## Workflow authoring (normative)
+Workflow logic lives in `scripts/`. YAML files should only orchestrate steps
+and invoke scripts rather than embed long inline logic.
 
 ## Current analysis coverage (non-binding)
 These describe current coverage so contributors keep changes aligned:
