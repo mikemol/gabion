@@ -1,5 +1,5 @@
 ---
-doc_revision: 22
+doc_revision: 23
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -102,6 +102,7 @@ Release workflows should:
 - Request minimal permissions (`id-token: write`, `contents: read`).
 - Run only from trusted branches/tags.
 - Bind Trusted Publishing to a single GitHub environment.
+- Keep workflow logic in `scripts/`; YAML should only orchestrate steps.
 
 Rationale: publishing is a sensitive surface.
 
