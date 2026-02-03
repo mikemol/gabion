@@ -1,5 +1,5 @@
 ---
-doc_revision: 63
+doc_revision: 64
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -61,7 +61,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Constant-flow helper specificity (avoid false positives in internal helpers).
 - [x] Unused-argument pass detection (non-test call sites).
 - [x] Analysis: Decorator transparency/unwrapping. (GH-9)
-- [ ] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
+- [x] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
