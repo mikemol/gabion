@@ -14,7 +14,7 @@ doc_requires:
   - CONTRIBUTING.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 28
-  CONTRIBUTING.md: 69
+  CONTRIBUTING.md: 70
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

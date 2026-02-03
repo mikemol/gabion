@@ -20,7 +20,7 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 69
+  CONTRIBUTING.md: 70
   AGENTS.md: 12
   glossary.md: 13
   docs/publishing_practices.md: 23
