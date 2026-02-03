@@ -1,5 +1,5 @@
 ---
-doc_revision: 21
+doc_revision: 22
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -13,7 +13,7 @@ doc_requires:
   - POLICY_SEED.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 26
+  POLICY_SEED.md: 27
   CONTRIBUTING.md: 68
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
@@ -81,8 +81,9 @@ Tags should be created by the `release-tag` workflow. The workflow enforces:
 An optional automation can create `test-v*` tags after `mirror-next` succeeds.
 This is allowed only when `next` mirrors `main` and the tag is derived from the
 current `project.version` in `pyproject.toml`, with a `+YYYYMMDDTHHMMSSZ` suffix.
-The TestPyPI workflow rewrites `project.version` to match the tag so uploads
-remain unique.
+The TestPyPI workflow normalizes the tag into a PEP 440 dev release
+(`X.Y.Z.devYYYYMMDDHHMMSS`) before rewriting `project.version` so uploads remain
+unique and acceptable to PyPI.
 
 A tag ruleset should limit `v*`/`test-v*` creation to the maintainer and GitHub Actions.
 Note: personal repositories cannot enforce actor-restricted rulesets; rely on
