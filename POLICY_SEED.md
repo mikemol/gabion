@@ -1,5 +1,5 @@
 ---
-doc_revision: 27
+doc_revision: 28
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -17,12 +17,14 @@ doc_requires:
   - AGENTS.md
   - glossary.md
   - docs/publishing_practices.md
+  - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 68
+  CONTRIBUTING.md: 69
   AGENTS.md: 12
   glossary.md: 9
   docs/publishing_practices.md: 22
+  docs/coverage_semantics.md: 2
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -410,6 +412,20 @@ Failures must be **mapped, understood, and surfaced**, not suppressed.
   determine whether the fault is environment, dependency, or code.
 * **Durable logs.** Test failures MUST be recorded in `artifacts/` (e.g.
   `artifacts/test_runs/...`) so regressions can be reviewed without re‑running.
+
+### 5.5 Coverage Semantics (Evidence)
+
+Coverage in this repository is treated as **evidence of invariant enforcement**,
+not as a standalone numeric target.
+
+* Rule coverage is required for new or modified invariants (positive, negative,
+  and edge-case tests).
+* Grammar/AST feature coverage is required when introducing new language
+  feature handling.
+* Convergence/commutation coverage is required for semantic stability claims.
+* Execution coverage (line/branch %) is advisory and may be ratcheted.
+
+The coverage semantics policy is defined in `docs/coverage_semantics.md`.
 
 ---
 

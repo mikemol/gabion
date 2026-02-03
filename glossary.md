@@ -15,9 +15,9 @@ doc_requires:
   - POLICY_SEED.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 68
+  CONTRIBUTING.md: 69
   AGENTS.md: 12
-  POLICY_SEED.md: 27
+  POLICY_SEED.md: 28
 doc_commutes_with:
   - POLICY_SEED.md
 doc_change_protocol: "POLICY_SEED.md §6"
