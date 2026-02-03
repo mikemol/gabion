@@ -85,6 +85,46 @@ def test_execute_command_baseline_write(tmp_path: Path) -> None:
     assert baseline_text.startswith("# gabion baseline")
 
 
+def test_execute_command_report_and_dot(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    report_path = tmp_path / "report.md"
+    dot_path = tmp_path / "graph.dot"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "report": str(report_path),
+            "dot": str(dot_path),
+        },
+    )
+    assert report_path.exists()
+    assert dot_path.exists()
+    assert "violations" in result
+
+
+def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    plan_path = tmp_path / "plan.json"
+    protocol_path = tmp_path / "protocols.py"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "synthesis_plan": str(plan_path),
+            "synthesis_protocols": str(protocol_path),
+        },
+    )
+    assert plan_path.exists()
+    assert protocol_path.exists()
+    assert "violations" in result
+
+
 def test_execute_synthesis_minimal_payload() -> None:
     result = server.execute_synthesis(None, {"bundles": []})
     assert result["protocols"] == []

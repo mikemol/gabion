@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Callable
 import argparse
 import json
 import subprocess
@@ -172,6 +172,52 @@ def build_refactor_payload(
     }
 
 
+def dispatch_command(
+    *,
+    command: str,
+    payload: dict[str, Any],
+    root: Path | None = None,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> dict[str, Any]:
+    request = CommandRequest(command, [payload])
+    return runner(request, root=root)
+
+
+def run_check(
+    *,
+    paths: Optional[List[Path]],
+    report: Optional[Path],
+    fail_on_violations: bool,
+    root: Path,
+    config: Optional[Path],
+    baseline: Optional[Path],
+    baseline_write: bool,
+    exclude: Optional[List[str]],
+    ignore_params: Optional[str],
+    transparent_decorators: Optional[str],
+    allow_external: Optional[bool],
+    strictness: Optional[str],
+    fail_on_type_ambiguities: bool,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> dict[str, Any]:
+    payload = build_check_payload(
+        paths=paths,
+        report=report,
+        fail_on_violations=fail_on_violations,
+        root=root,
+        config=config,
+        baseline=baseline,
+        baseline_write=baseline_write if baseline is not None else False,
+        exclude=exclude,
+        ignore_params=ignore_params,
+        transparent_decorators=transparent_decorators,
+        allow_external=allow_external,
+        strictness=strictness,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+    )
+    return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
+
+
 @app.command()
 def check(
     paths: List[Path] = typer.Argument(None),
@@ -199,14 +245,14 @@ def check(
     ),
 ) -> None:
     """Run the dataflow grammar audit with strict defaults."""
-    payload = build_check_payload(
+    result = run_check(
         paths=paths,
         report=report,
         fail_on_violations=fail_on_violations,
         root=root,
         config=config,
         baseline=baseline,
-        baseline_write=baseline_write if baseline is not None else False,
+        baseline_write=baseline_write,
         exclude=exclude,
         ignore_params=ignore_params,
         transparent_decorators=transparent_decorators,
@@ -214,7 +260,6 @@ def check(
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
     )
-    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -227,7 +272,11 @@ def _dataflow_audit(
         argv = []
     opts = parse_dataflow_args(argv)
     payload = build_dataflow_payload(opts)
-    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
+    result = dispatch_command(
+        command=DATAFLOW_COMMAND,
+        payload=payload,
+        root=Path(opts.root),
+    )
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
         ambiguities = result.get("type_ambiguities", [])
@@ -496,7 +545,11 @@ def synth(
         "refactor_plan": refactor_plan,
         "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
     }
-    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
+    result = dispatch_command(
+        command=DATAFLOW_COMMAND,
+        payload=payload,
+        root=root,
+    )
     if timestamp:
         typer.echo(f"Snapshot: {output_root}")
     typer.echo(f"- {report_path}")
@@ -524,7 +577,11 @@ def synthesis_plan(
             payload = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-    result = run_command(CommandRequest(SYNTHESIS_COMMAND, [payload]))
+    result = dispatch_command(
+        command=SYNTHESIS_COMMAND,
+        payload=payload,
+        root=None,
+    )
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)
@@ -571,7 +628,11 @@ def refactor_protocol(
         compatibility_shim=compatibility_shim,
         rationale=rationale,
     )
-    result = run_command(CommandRequest(REFACTOR_COMMAND, [payload]))
+    result = dispatch_command(
+        command=REFACTOR_COMMAND,
+        payload=payload,
+        root=None,
+    )
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)
