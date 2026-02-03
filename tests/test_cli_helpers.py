@@ -185,3 +185,26 @@ def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
     )
     assert captured["root"] is None
     assert output_path.read_text().strip()
+
+
+def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"added_bundles": []}
+
+    baseline = tmp_path / "base.json"
+    current = tmp_path / "current.json"
+    result = cli.run_structure_diff(
+        baseline=baseline,
+        current=current,
+        root=tmp_path,
+        runner=runner,
+    )
+    assert captured["command"] == cli.STRUCTURE_DIFF_COMMAND
+    assert captured["payload"] == {"baseline": str(baseline), "current": str(current)}
+    assert captured["root"] == tmp_path
+    assert result == {"added_bundles": []}

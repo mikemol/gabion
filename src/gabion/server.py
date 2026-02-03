@@ -28,6 +28,8 @@ from gabion.analysis import (
     compute_violations,
     build_refactor_plan,
     build_synthesis_plan,
+    diff_structure_snapshots,
+    load_structure_snapshot,
     load_baseline,
     render_dot,
     render_structure_snapshot,
@@ -57,6 +59,7 @@ server = LanguageServer("gabion", "0.1.0")
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
+STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 
 
 def _uri_to_path(uri: str) -> Path:
@@ -412,6 +415,19 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
         errors=plan.errors,
     )
     return response.model_dump()
+
+
+@server.command(STRUCTURE_DIFF_COMMAND)
+def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    baseline_path = payload.get("baseline")
+    current_path = payload.get("current")
+    if not baseline_path or not current_path:
+        return {"errors": ["baseline and current snapshot paths are required"]}
+    baseline = load_structure_snapshot(Path(baseline_path))
+    current = load_structure_snapshot(Path(current_path))
+    return diff_structure_snapshots(baseline, current)
 
 
 @server.feature(TEXT_DOCUMENT_CODE_ACTION)

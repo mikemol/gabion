@@ -122,6 +122,18 @@ def test_execute_command_structure_tree(tmp_path: Path) -> None:
     assert "violations" in result
 
 
+def test_execute_structure_diff(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    baseline.write_text("{\"files\": [{\"path\": \"a.py\", \"functions\": []}]}")
+    current.write_text("{\"files\": [{\"path\": \"a.py\", \"functions\": [{\"name\": \"f\", \"bundles\": [[\"a\"]]}]}]}")
+    result = server.execute_structure_diff(
+        None,
+        {"baseline": str(baseline), "current": str(current)},
+    )
+    assert result["added_bundles"] == [["a"]]
+
+
 def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)

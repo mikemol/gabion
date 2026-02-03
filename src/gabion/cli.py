@@ -14,6 +14,7 @@ import typer
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
+STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 from gabion.lsp_client import CommandRequest, run_command
 app = typer.Typer(add_completion=False)
 
@@ -683,6 +684,33 @@ def _run_synthesis_plan(
         typer.echo(output)
     else:
         output_path.write_text(output)
+
+
+def run_structure_diff(
+    *,
+    baseline: Path,
+    current: Path,
+    root: Path | None = None,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> dict[str, Any]:
+    payload = {"baseline": str(baseline), "current": str(current)}
+    return dispatch_command(
+        command=STRUCTURE_DIFF_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+    )
+
+
+@app.command("structure-diff")
+def structure_diff(
+    baseline: Path = typer.Option(..., "--baseline"),
+    current: Path = typer.Option(..., "--current"),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Compare two structure snapshots and emit a JSON diff."""
+    result = run_structure_diff(baseline=baseline, current=current, root=root)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
 
 @app.command("refactor-protocol")

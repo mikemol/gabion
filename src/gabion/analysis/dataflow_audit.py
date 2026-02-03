@@ -2377,6 +2377,57 @@ def _normalize_snapshot_path(path: Path, root: Path | None) -> str:
     return str(path)
 
 
+def load_structure_snapshot(path: Path) -> dict[str, object]:
+    return json.loads(path.read_text())
+
+
+def _extract_snapshot_bundles(snapshot: dict[str, object]) -> set[tuple[str, ...]]:
+    files = snapshot.get("files", [])
+    if not isinstance(files, list):
+        raise ValueError("structure snapshot missing files list")
+    bundles: set[tuple[str, ...]] = set()
+    for entry in files:
+        if not isinstance(entry, dict):
+            continue
+        functions = entry.get("functions", [])
+        if not isinstance(functions, list):
+            continue
+        for fn_entry in functions:
+            if not isinstance(fn_entry, dict):
+                continue
+            fn_bundles = fn_entry.get("bundles", [])
+            if not isinstance(fn_bundles, list):
+                continue
+            for bundle in fn_bundles:
+                if not isinstance(bundle, list):
+                    continue
+                if not all(isinstance(item, str) for item in bundle):
+                    continue
+                bundles.add(tuple(sorted(bundle)))
+    return bundles
+
+
+def diff_structure_snapshots(
+    baseline: dict[str, object],
+    current: dict[str, object],
+) -> dict[str, object]:
+    baseline_bundles = _extract_snapshot_bundles(baseline)
+    current_bundles = _extract_snapshot_bundles(current)
+    added = current_bundles - baseline_bundles
+    removed = baseline_bundles - current_bundles
+    unchanged = baseline_bundles & current_bundles
+
+    def _sorted_list(values: set[tuple[str, ...]]) -> list[list[str]]:
+        ordered = sorted(values, key=lambda bundle: (len(bundle), bundle))
+        return [list(bundle) for bundle in ordered]
+
+    return {
+        "added_bundles": _sorted_list(added),
+        "removed_bundles": _sorted_list(removed),
+        "unchanged_bundles": _sorted_list(unchanged),
+    }
+
+
 def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
