@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -57,3 +57,10 @@ Status legend:
 - in/in-12.md — **partial** (LSP integration + LibCST refactor engine present; analysis still AST‑based.)
 - in/in-13.md — **adopted** (LSP‑first architecture + CLI as thin client implemented.)
 - in/in-14.md — **adopted** (repo scaffold + CLI/LSP split aligned with current structure.)
+- in/in-15.md — **queued** (decision surfaces + tier boundary elevation; tracked in SPPF.)
+- in/in-16.md — **queued** (structural snapshots/diffing/metrics; tracked in SPPF.)
+- in/in-17.md — **queued** (subtree reuse + lemma synthesis hooks; tracked in SPPF.)
+- in/in-18.md — **queued** (value‑encoded decision surfaces; tracked in SPPF.)
+- in/in-19.md — **queued** (invariant extraction + dependent‑type synthesis; tracked in SPPF.)
+- in/in-20.md — **queued** (prime‑labeled type fingerprints; tracked in SPPF.)
+- in/in-21.md — **queued** (prime‑labeled grammar compression; tracked in SPPF.)
