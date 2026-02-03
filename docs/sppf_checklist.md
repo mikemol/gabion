@@ -116,9 +116,9 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [ ] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests). (GH-42)
 
 ## Decision-flow tier nodes
-- [ ] Decision Table documentation for branch-heavy modules (Tier-3 evidence). (GH-TBD)
-- [ ] Decision Bundle centralization for repeated guard patterns (Tier-2 evidence). (GH-TBD)
-- [ ] Decision Protocol schema enforcement for critical decision paths (Tier-1 evidence). (GH-TBD)
+- [ ] Decision Table documentation for branch-heavy modules (Tier-3 evidence). (GH-47)
+- [ ] Decision Bundle centralization for repeated guard patterns (Tier-2 evidence). (GH-48)
+- [ ] Decision Protocol schema enforcement for critical decision paths (Tier-1 evidence). (GH-49)
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).
