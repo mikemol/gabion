@@ -105,6 +105,23 @@ def test_execute_command_report_and_dot(tmp_path: Path) -> None:
     assert "violations" in result
 
 
+def test_execute_command_structure_tree(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    snapshot_path = tmp_path / "snapshot.json"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_tree": str(snapshot_path),
+        },
+    )
+    assert snapshot_path.exists()
+    assert "violations" in result
+
+
 def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
