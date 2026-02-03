@@ -47,7 +47,7 @@ jobs:
           fi
           HEAD_SHA=$(git rev-parse HEAD)
           NEXT_SHA=$(git rev-parse origin/next)
-          TAG_SHA=$(git rev-parse "refs/tags/$TAG")
+          TAG_SHA=$(git rev-parse "refs/tags/$TAG^{commit}")
           if [ "$HEAD_SHA" != "$TAG_SHA" ]; then
             echo "Workflow head sha must match tag."
             exit 1
