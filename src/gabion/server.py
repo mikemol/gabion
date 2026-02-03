@@ -25,6 +25,7 @@ from gabion.analysis import (
     AuditConfig,
     analyze_paths,
     apply_baseline,
+    compute_structure_metrics,
     compute_violations,
     build_refactor_plan,
     build_synthesis_plan,
@@ -160,6 +161,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     synthesis_plan_path = payload.get("synthesis_plan")
     synthesis_report = payload.get("synthesis_report", False)
     structure_tree_path = payload.get("structure_tree")
+    structure_metrics_path = payload.get("structure_metrics")
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -250,6 +252,13 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["structure_tree"] = snapshot
         else:
             Path(structure_tree_path).write_text(payload_json)
+    if structure_metrics_path:
+        metrics = compute_structure_metrics(analysis.groups_by_path)
+        payload_json = json.dumps(metrics, indent=2, sort_keys=True)
+        if structure_metrics_path == "-":
+            response["structure_metrics"] = metrics
+        else:
+            Path(structure_metrics_path).write_text(payload_json)
 
     violations: list[str] = []
     effective_violations: list[str] | None = None

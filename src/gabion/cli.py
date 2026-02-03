@@ -137,6 +137,9 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "structure_tree": str(opts.emit_structure_tree)
         if opts.emit_structure_tree
         else None,
+        "structure_metrics": str(opts.emit_structure_metrics)
+        if opts.emit_structure_metrics
+        else None,
     }
     return payload
 
@@ -309,6 +312,8 @@ def _dataflow_audit(
         typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
     if opts.emit_structure_tree == "-" and "structure_tree" in result:
         typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
+    if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
+        typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -354,6 +359,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--emit-structure-tree",
         default=None,
         help="Write canonical structure snapshot JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--emit-structure-metrics",
+        default=None,
+        help="Write structure metrics JSON to file or '-' for stdout.",
     )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")

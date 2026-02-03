@@ -35,12 +35,14 @@ def test_lsp_execute_command(tmp_path: Path) -> None:
                     "paths": [str(tmp_path)],
                     "fail_on_violations": False,
                     "structure_tree": "-",
+                    "structure_metrics": "-",
                 }
             ],
         ),
         root=tmp_path,
     )
     assert "structure_tree" in snapshot_result
+    assert "structure_metrics" in snapshot_result
     synth_result = run_command(
         CommandRequest(
             "gabion.synthesisPlan",

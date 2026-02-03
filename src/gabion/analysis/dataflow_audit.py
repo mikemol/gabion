@@ -2378,53 +2378,38 @@ def _normalize_snapshot_path(path: Path, root: Path | None) -> str:
 
 
 def load_structure_snapshot(path: Path) -> dict[str, object]:
-    return json.loads(path.read_text())
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid snapshot JSON: {path}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"Snapshot must be a JSON object: {path}")
+    return data
 
 
-def _extract_snapshot_bundles(snapshot: dict[str, object]) -> set[tuple[str, ...]]:
-    files = snapshot.get("files", [])
-    if not isinstance(files, list):
-        raise ValueError("structure snapshot missing files list")
-    bundles: set[tuple[str, ...]] = set()
-    for entry in files:
-        if not isinstance(entry, dict):
-            continue
-        functions = entry.get("functions", [])
-        if not isinstance(functions, list):
-            continue
-        for fn_entry in functions:
-            if not isinstance(fn_entry, dict):
-                continue
-            fn_bundles = fn_entry.get("bundles", [])
-            if not isinstance(fn_bundles, list):
-                continue
-            for bundle in fn_bundles:
-                if not isinstance(bundle, list):
-                    continue
-                if not all(isinstance(item, str) for item in bundle):
-                    continue
-                bundles.add(tuple(sorted(bundle)))
-    return bundles
-
-
-def diff_structure_snapshots(
-    baseline: dict[str, object],
-    current: dict[str, object],
+def compute_structure_metrics(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]]
 ) -> dict[str, object]:
-    baseline_bundles = _extract_snapshot_bundles(baseline)
-    current_bundles = _extract_snapshot_bundles(current)
-    added = current_bundles - baseline_bundles
-    removed = baseline_bundles - current_bundles
-    unchanged = baseline_bundles & current_bundles
-
-    def _sorted_list(values: set[tuple[str, ...]]) -> list[list[str]]:
-        ordered = sorted(values, key=lambda bundle: (len(bundle), bundle))
-        return [list(bundle) for bundle in ordered]
-
+    file_count = len(groups_by_path)
+    function_count = sum(len(groups) for groups in groups_by_path.values())
+    bundle_sizes: list[int] = []
+    for groups in groups_by_path.values():
+        for bundles in groups.values():
+            for bundle in bundles:
+                bundle_sizes.append(len(bundle))
+    bundle_count = len(bundle_sizes)
+    mean_bundle_size = (sum(bundle_sizes) / bundle_count) if bundle_count else 0.0
+    max_bundle_size = max(bundle_sizes) if bundle_sizes else 0
+    size_histogram: dict[int, int] = defaultdict(int)
+    for size in bundle_sizes:
+        size_histogram[size] += 1
     return {
-        "added_bundles": _sorted_list(added),
-        "removed_bundles": _sorted_list(removed),
-        "unchanged_bundles": _sorted_list(unchanged),
+        "files": file_count,
+        "functions": function_count,
+        "bundles": bundle_count,
+        "mean_bundle_size": mean_bundle_size,
+        "max_bundle_size": max_bundle_size,
+        "bundle_size_histogram": dict(sorted(size_histogram.items())),
     }
 
 
@@ -2451,6 +2436,80 @@ def render_structure_snapshot(
         "root": str(root) if root is not None else None,
         "files": files,
     }
+
+
+def _bundle_counts_from_snapshot(snapshot: dict[str, object]) -> dict[tuple[str, ...], int]:
+    counts: dict[tuple[str, ...], int] = defaultdict(int)
+    files = snapshot.get("files") or []
+    for file_entry in files:
+        if not isinstance(file_entry, dict):
+            continue
+        functions = file_entry.get("functions") or []
+        for fn_entry in functions:
+            if not isinstance(fn_entry, dict):
+                continue
+            bundles = fn_entry.get("bundles") or []
+            for bundle in bundles:
+                if not isinstance(bundle, list):
+                    continue
+                counts[tuple(bundle)] += 1
+    return counts
+
+
+def diff_structure_snapshots(
+    baseline: dict[str, object],
+    current: dict[str, object],
+) -> dict[str, object]:
+    baseline_counts = _bundle_counts_from_snapshot(baseline)
+    current_counts = _bundle_counts_from_snapshot(current)
+    all_bundles = sorted(
+        set(baseline_counts) | set(current_counts),
+        key=lambda bundle: (len(bundle), list(bundle)),
+    )
+    added: list[dict[str, object]] = []
+    removed: list[dict[str, object]] = []
+    changed: list[dict[str, object]] = []
+    for bundle in all_bundles:
+        before = baseline_counts.get(bundle, 0)
+        after = current_counts.get(bundle, 0)
+        if before == 0 and after == 0:
+            continue
+        entry = {
+            "bundle": list(bundle),
+            "before": before,
+            "after": after,
+            "delta": after - before,
+        }
+        if before == 0:
+            added.append(entry)
+        elif after == 0:
+            removed.append(entry)
+        elif before != after:
+            changed.append(entry)
+    return {
+        "format_version": 1,
+        "baseline_root": baseline.get("root"),
+        "current_root": current.get("root"),
+        "added": added,
+        "removed": removed,
+        "changed": changed,
+        "summary": {
+            "added": len(added),
+            "removed": len(removed),
+            "changed": len(changed),
+            "baseline_total": sum(baseline_counts.values()),
+            "current_total": sum(current_counts.values()),
+        },
+    }
+
+
+def diff_structure_snapshot_files(
+    baseline_path: Path,
+    current_path: Path,
+) -> dict[str, object]:
+    baseline = load_structure_snapshot(baseline_path)
+    current = load_structure_snapshot(current_path)
+    return diff_structure_snapshots(baseline, current)
 
 
 def _bundle_counts(
@@ -3156,6 +3215,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Write canonical structure snapshot JSON to file or '-' for stdout.",
     )
+    parser.add_argument(
+        "--emit-structure-metrics",
+        default=None,
+        help="Write structure metrics JSON to file or '-' for stdout.",
+    )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(
@@ -3337,6 +3401,7 @@ def run(argv: list[str] | None = None) -> int:
         config=config,
     )
     structure_tree_path = args.emit_structure_tree
+    structure_metrics_path = args.emit_structure_metrics
     if structure_tree_path:
         snapshot = render_structure_snapshot(
             analysis.groups_by_path,
@@ -3347,6 +3412,27 @@ def run(argv: list[str] | None = None) -> int:
             print(payload_json)
         else:
             Path(structure_tree_path).write_text(payload_json)
+        if (
+            args.report is None
+            and args.dot is None
+            and structure_metrics_path is None
+            and not (
+                args.type_audit
+                or args.synthesis_plan
+                or args.synthesis_report
+                or args.synthesis_protocols
+                or args.refactor_plan
+                or args.refactor_plan_json
+            )
+        ):
+            return 0
+    if structure_metrics_path:
+        metrics = compute_structure_metrics(analysis.groups_by_path)
+        payload_json = json.dumps(metrics, indent=2, sort_keys=True)
+        if structure_metrics_path.strip() == "-":
+            print(payload_json)
+        else:
+            Path(structure_metrics_path).write_text(payload_json)
         if args.report is None and args.dot is None and not (
             args.type_audit
             or args.synthesis_plan
@@ -3354,6 +3440,7 @@ def run(argv: list[str] | None = None) -> int:
             or args.synthesis_protocols
             or args.refactor_plan
             or args.refactor_plan_json
+            or structure_tree_path
         ):
             return 0
     synthesis_plan: dict[str, object] | None = None

@@ -26,9 +26,9 @@ def test_diff_structure_snapshots_detects_changes() -> None:
         ]
     }
     diff = da.diff_structure_snapshots(baseline, current)
-    assert diff["added_bundles"] == [["c"]]
-    assert diff["removed_bundles"] == []
-    assert diff["unchanged_bundles"] == [["a", "b"]]
+    assert diff["added"][0]["bundle"] == ["c"]
+    assert diff["removed"] == []
+    assert diff["summary"]["added"] == 1
 
 
 def test_load_structure_snapshot_reads_json(tmp_path: Path) -> None:

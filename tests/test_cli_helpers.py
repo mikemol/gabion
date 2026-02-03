@@ -136,6 +136,36 @@ def test_dataflow_audit_emits_structure_tree(capsys) -> None:
     assert "\"format_version\": 1" in captured.out
 
 
+def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "structure_metrics": {
+                "files": 0,
+                "functions": 0,
+                "bundles": 0,
+                "mean_bundle_size": 0.0,
+                "max_bundle_size": 0,
+                "bundle_size_histogram": {},
+            },
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=["sample.py", "--emit-structure-metrics", "-"],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"bundle_size_histogram\"" in captured.out
+
+
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs

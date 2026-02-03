@@ -131,7 +131,24 @@ def test_execute_structure_diff(tmp_path: Path) -> None:
         None,
         {"baseline": str(baseline), "current": str(current)},
     )
-    assert result["added_bundles"] == [["a"]]
+    assert result["added"][0]["bundle"] == ["a"]
+
+
+def test_execute_command_structure_metrics(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    metrics_path = tmp_path / "metrics.json"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_metrics": str(metrics_path),
+        },
+    )
+    assert metrics_path.exists()
+    assert "violations" in result
 
 
 def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:
