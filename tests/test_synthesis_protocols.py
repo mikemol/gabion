@@ -38,3 +38,18 @@ def test_synthesizer_uses_existing_names() -> None:
     context = NamingContext(existing_names={"CtxBundle"})
     plan = synth.plan(bundle_tiers, naming_context=context)
     assert plan.protocols[0].name == "CtxBundle2"
+
+
+def test_synthesizer_warns_on_empty() -> None:
+    NamingContext, SynthesisConfig, Synthesizer = _load()
+    synth = Synthesizer(config=SynthesisConfig(max_tier=1, min_bundle_size=2))
+    plan = synth.plan({})
+    assert plan.protocols == []
+    assert plan.warnings
+
+
+def test_synthesizer_skips_empty_bundle() -> None:
+    NamingContext, SynthesisConfig, Synthesizer = _load()
+    synth = Synthesizer(config=SynthesisConfig(max_tier=1, min_bundle_size=1))
+    plan = synth.plan({frozenset(): 1})
+    assert plan.protocols == []

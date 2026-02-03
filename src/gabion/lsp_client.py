@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 
 class LspClientError(RuntimeError):
@@ -58,8 +58,9 @@ def run_command(
     *,
     root: Path | None = None,
     timeout: float = 5.0,
+    process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
 ) -> dict[str, Any]:
-    proc = subprocess.Popen(
+    proc = process_factory(
         [sys.executable, "-m", "gabion.server"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,

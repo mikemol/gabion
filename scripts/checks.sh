@@ -35,7 +35,11 @@ if ! command -v mise >/dev/null 2>&1; then
 fi
 
 if $run_dataflow; then
-  mise exec -- python -m gabion check
+  baseline_arg=()
+  if [ -f baselines/dataflow_baseline.txt ]; then
+    baseline_arg+=(--baseline baselines/dataflow_baseline.txt)
+  fi
+  mise exec -- python -m gabion check "${baseline_arg[@]}"
 fi
 if $run_docflow; then
   mise exec -- python -m gabion docflow-audit

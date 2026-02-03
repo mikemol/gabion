@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Callable
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
@@ -99,9 +100,9 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
                 message = f"Implicit bundle detected: {', '.join(sorted(bundle))}"
                 for name in sorted(bundle):
                     span = param_spans.get(name)
-                    if span is None:
-                        start = Position(line=0, character=0)
-                        end = Position(line=0, character=1)
+                    if span is None:  # pragma: no cover - spans are derived from parsed params
+                        start = Position(line=0, character=0)  # pragma: no cover
+                        end = Position(line=0, character=1)  # pragma: no cover
                     else:
                         start_line, start_col, end_line, end_col = span
                         start = Position(line=start_line, character=start_col)
@@ -380,6 +381,7 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
             ],
             target_path=request.target_path,
             target_functions=request.target_functions,
+            compatibility_shim=request.compatibility_shim,
             rationale=request.rationale,
         )
     )
@@ -439,10 +441,10 @@ def did_save(ls: LanguageServer, params) -> None:
     ls.publish_diagnostics(uri, diagnostics)
 
 
-def start() -> None:
+def start(start_fn: Callable[[], None] | None = None) -> None:
     """Start the language server (stub)."""
-    server.start_io()
+    (start_fn or server.start_io)()
 
 
-if __name__ == "__main__":
-    start()
+if __name__ == "__main__":  # pragma: no cover
+    start()  # pragma: no cover

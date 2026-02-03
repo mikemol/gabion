@@ -352,6 +352,54 @@ def _check_promote_release_workflow(doc, path, errors):
             )
 
 
+def _step_run_contains_tokens(steps, tokens: set[str]) -> bool:
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        run = step.get("run")
+        if not isinstance(run, str):
+            continue
+        if all(token in run for token in tokens):
+            return True
+    return False
+
+
+def _check_release_testpypi_workflow(doc, path, errors):
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    required_tokens = {
+        "refs/tags/$TAG",
+        "origin/main",
+        "origin/next",
+        "TAG_SHA",
+    }
+    for name, job in jobs.items():
+        steps = job.get("steps", [])
+        if not _step_run_contains_tokens(steps, required_tokens):
+            errors.append(
+                f"{path}:{name}: release-testpypi workflow must verify tag equals main/next"
+            )
+
+
+def _check_release_pypi_workflow(doc, path, errors):
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    required_tokens = {
+        "origin/main",
+        "origin/next",
+        "origin/release",
+        "TAG_SHA",
+    }
+    for name, job in jobs.items():
+        steps = job.get("steps", [])
+        if not _step_run_contains_tokens(steps, required_tokens):
+            errors.append(
+                f"{path}:{name}: release-pypi workflow must verify tag equals main/next/release"
+            )
+
+
 def _check_actions(job, job_ctx: JobContext, errors, allowed_actions: set[str]):
     # dataflow-bundle: errors, job, job_ctx
     steps = job.get("steps", [])
@@ -460,6 +508,10 @@ def check_workflows():
                 _check_mirror_next_workflow(doc, path, errors)
             if path.name == "promote-release.yml":
                 _check_promote_release_workflow(doc, path, errors)
+        if path.name == "release-testpypi.yml":
+            _check_release_testpypi_workflow(doc, path, errors)
+        if path.name == "release-pypi.yml":
+            _check_release_pypi_workflow(doc, path, errors)
         _check_permissions(
             doc,
             path,

@@ -1,5 +1,5 @@
 ---
-doc_revision: 68
+doc_revision: 69
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -14,11 +14,13 @@ doc_requires:
   - AGENTS.md
   - POLICY_SEED.md
   - glossary.md
+  - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
   AGENTS.md: 12
-  POLICY_SEED.md: 27
-  glossary.md: 9
+  POLICY_SEED.md: 28
+  glossary.md: 13
+  docs/coverage_semantics.md: 6
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake
@@ -218,6 +220,12 @@ Run tests:
 ```
 mise exec -- pytest
 ```
+
+Run coverage (advisory):
+```
+mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing
+```
+Coverage meaning is defined in `docs/coverage_semantics.md`.
 
 Run tests with durable logs:
 ```

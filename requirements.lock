@@ -13,6 +13,10 @@ cattrs==25.3.0
     #   pygls
 click==8.3.1
     # via typer
+coverage==7.13.2
+    # via pytest-cov
+execnet==2.1.2
+    # via pytest-xdist
 iniconfig==2.3.0
     # via pytest
 libcst==1.8.6
@@ -26,7 +30,9 @@ mdurl==0.1.2
 packaging==26.0
     # via pytest
 pluggy==1.6.0
-    # via pytest
+    # via
+    #   pytest
+    #   pytest-cov
 pydantic==2.12.5
     # via gabion (pyproject.toml)
 pydantic-core==2.41.5
@@ -38,6 +44,13 @@ pygments==2.19.2
     #   pytest
     #   rich
 pytest==9.0.2
+    # via
+    #   gabion (pyproject.toml)
+    #   pytest-cov
+    #   pytest-xdist
+pytest-cov==7.0.0
+    # via gabion (pyproject.toml)
+pytest-xdist==3.8.0
     # via gabion (pyproject.toml)
 pyyaml==6.0.3
     # via

@@ -27,6 +27,7 @@ class RefactorRequest:
     target_path: str
     fields: List[FieldSpec] = field(default_factory=list)
     target_functions: List[str] = field(default_factory=list)
+    compatibility_shim: bool = False
     rationale: Optional[str] = None
 
 

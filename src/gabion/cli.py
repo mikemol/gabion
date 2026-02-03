@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Callable
 import argparse
 import json
 import subprocess
@@ -22,10 +22,204 @@ app = typer.Typer(add_completion=False)
 class DataflowAuditRequest:
     ctx: typer.Context
     args: List[str] | None = None
+    runner: Callable[..., dict[str, Any]] | None = None
 
 
 def _find_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _split_csv_entries(entries: Optional[List[str]]) -> list[str] | None:
+    if entries is None:
+        return None
+    merged: list[str] = []
+    for entry in entries:
+        merged.extend([part.strip() for part in entry.split(",") if part.strip()])
+    return merged or None
+
+
+def _split_csv(value: Optional[str]) -> list[str] | None:
+    if value is None:
+        return None
+    items = [part.strip() for part in value.split(",") if part.strip()]
+    return items or None
+
+
+def build_check_payload(
+    *,
+    paths: Optional[List[Path]],
+    report: Optional[Path],
+    fail_on_violations: bool,
+    root: Path | None,
+    config: Optional[Path],
+    baseline: Optional[Path],
+    baseline_write: bool,
+    exclude: Optional[List[str]],
+    ignore_params: Optional[str],
+    transparent_decorators: Optional[str],
+    allow_external: Optional[bool],
+    strictness: Optional[str],
+    fail_on_type_ambiguities: bool,
+) -> dict[str, Any]:
+    # dataflow-bundle: ignore_params, transparent_decorators
+    if not paths:
+        paths = [Path(".")]
+    if strictness is not None and strictness not in {"high", "low"}:
+        raise typer.BadParameter("strictness must be 'high' or 'low'")
+    exclude_dirs = _split_csv_entries(exclude)
+    ignore_list = _split_csv(ignore_params)
+    transparent_list = _split_csv(transparent_decorators)
+    baseline_write_value: bool | None = baseline_write if baseline is not None else None
+    root = root or Path(".")
+    payload = {
+        "paths": [str(p) for p in paths],
+        "report": str(report) if report is not None else None,
+        "fail_on_violations": fail_on_violations,
+        "fail_on_type_ambiguities": fail_on_type_ambiguities,
+        "root": str(root),
+        "config": str(config) if config is not None else None,
+        "baseline": str(baseline) if baseline is not None else None,
+        "baseline_write": baseline_write_value,
+        "exclude": exclude_dirs,
+        "ignore_params": ignore_list,
+        "transparent_decorators": transparent_list,
+        "allow_external": allow_external,
+        "strictness": strictness,
+        "type_audit": True if fail_on_type_ambiguities else None,
+    }
+    return payload
+
+
+def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
+    parser = dataflow_cli_parser()
+    return parser.parse_args(argv)
+
+
+def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
+    exclude_dirs = _split_csv_entries(opts.exclude)
+    ignore_list = _split_csv(opts.ignore_params)
+    transparent_list = _split_csv(opts.transparent_decorators)
+    payload: dict[str, Any] = {
+        "paths": [str(p) for p in opts.paths],
+        "root": str(opts.root),
+        "config": str(opts.config) if opts.config is not None else None,
+        "report": str(opts.report) if opts.report else None,
+        "dot": opts.dot,
+        "fail_on_violations": opts.fail_on_violations,
+        "fail_on_type_ambiguities": opts.fail_on_type_ambiguities,
+        "baseline": str(opts.baseline) if opts.baseline else None,
+        "baseline_write": opts.baseline_write if opts.baseline else None,
+        "no_recursive": opts.no_recursive,
+        "max_components": opts.max_components,
+        "type_audit": opts.type_audit,
+        "type_audit_report": opts.type_audit_report,
+        "type_audit_max": opts.type_audit_max,
+        "exclude": exclude_dirs,
+        "ignore_params": ignore_list,
+        "transparent_decorators": transparent_list,
+        "allow_external": opts.allow_external,
+        "strictness": opts.strictness,
+        "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
+        "synthesis_report": opts.synthesis_report,
+        "synthesis_max_tier": opts.synthesis_max_tier,
+        "synthesis_min_bundle_size": opts.synthesis_min_bundle_size,
+        "synthesis_allow_singletons": opts.synthesis_allow_singletons,
+        "synthesis_protocols": str(opts.synthesis_protocols)
+        if opts.synthesis_protocols
+        else None,
+        "synthesis_protocols_kind": opts.synthesis_protocols_kind,
+        "refactor_plan": opts.refactor_plan,
+        "refactor_plan_json": str(opts.refactor_plan_json)
+        if opts.refactor_plan_json
+        else None,
+        "synthesis_merge_overlap": opts.synthesis_merge_overlap,
+    }
+    return payload
+
+
+def build_refactor_payload(
+    *,
+    input_payload: Optional[dict[str, Any]] = None,
+    protocol_name: Optional[str],
+    bundle: Optional[List[str]],
+    field: Optional[List[str]],
+    target_path: Optional[Path],
+    target_functions: Optional[List[str]],
+    compatibility_shim: bool,
+    rationale: Optional[str],
+) -> dict[str, Any]:
+    if input_payload is not None:
+        return input_payload
+    if protocol_name is None or target_path is None:
+        raise typer.BadParameter(
+            "Provide --protocol-name and --target-path or use --input."
+        )
+    field_specs: list[dict[str, str | None]] = []
+    for spec in field or []:
+        name, _, hint = spec.partition(":")
+        name = name.strip()
+        if not name:
+            continue
+        type_hint = hint.strip() or None
+        field_specs.append({"name": name, "type_hint": type_hint})
+    if not bundle and field_specs:
+        bundle = [spec["name"] for spec in field_specs]
+    return {
+        "protocol_name": protocol_name,
+        "bundle": bundle or [],
+        "fields": field_specs,
+        "target_path": str(target_path),
+        "target_functions": target_functions or [],
+        "compatibility_shim": compatibility_shim,
+        "rationale": rationale,
+    }
+
+
+def dispatch_command(
+    *,
+    command: str,
+    payload: dict[str, Any],
+    root: Path | None = None,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> dict[str, Any]:
+    request = CommandRequest(command, [payload])
+    return runner(request, root=root)
+
+
+def run_check(
+    *,
+    paths: Optional[List[Path]],
+    report: Optional[Path],
+    fail_on_violations: bool,
+    root: Path,
+    config: Optional[Path],
+    baseline: Optional[Path],
+    baseline_write: bool,
+    exclude: Optional[List[str]],
+    ignore_params: Optional[str],
+    transparent_decorators: Optional[str],
+    allow_external: Optional[bool],
+    strictness: Optional[str],
+    fail_on_type_ambiguities: bool,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> dict[str, Any]:
+    # dataflow-bundle: ignore_params, transparent_decorators
+    payload = build_check_payload(
+        paths=paths,
+        report=report,
+        fail_on_violations=fail_on_violations,
+        root=root,
+        config=config,
+        baseline=baseline,
+        baseline_write=baseline_write if baseline is not None else False,
+        exclude=exclude,
+        ignore_params=ignore_params,
+        transparent_decorators=transparent_decorators,
+        allow_external=allow_external,
+        strictness=strictness,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+    )
+    return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
 
 
 @app.command()
@@ -54,41 +248,23 @@ def check(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
 ) -> None:
+    # dataflow-bundle: ignore_params, transparent_decorators
     """Run the dataflow grammar audit with strict defaults."""
-    if not paths:
-        paths = [Path(".")]
-    exclude_dirs: list[str] | None = None
-    if exclude is not None:
-        exclude_dirs = []
-        for entry in exclude:
-            exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
-    ignore_list: list[str] | None = None
-    if ignore_params is not None:
-        ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
-    transparent_list: list[str] | None = None
-    if transparent_decorators is not None:
-        transparent_list = [
-            p.strip() for p in transparent_decorators.split(",") if p.strip()
-        ]
-    if strictness is not None and strictness not in {"high", "low"}:
-        raise typer.BadParameter("strictness must be 'high' or 'low'")
-    payload = {
-        "paths": [str(p) for p in paths],
-        "report": str(report) if report is not None else None,
-        "fail_on_violations": fail_on_violations,
-        "fail_on_type_ambiguities": fail_on_type_ambiguities,
-        "root": str(root),
-        "config": str(config) if config is not None else None,
-        "baseline": str(baseline) if baseline is not None else None,
-        "baseline_write": baseline_write if baseline is not None else None,
-        "exclude": exclude_dirs,
-        "ignore_params": ignore_list,
-        "transparent_decorators": transparent_list,
-        "allow_external": allow_external,
-        "strictness": strictness,
-        "type_audit": True if fail_on_type_ambiguities else None,
-    }
-    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
+    result = run_check(
+        paths=paths,
+        report=report,
+        fail_on_violations=fail_on_violations,
+        root=root,
+        config=config,
+        baseline=baseline,
+        baseline_write=baseline_write,
+        exclude=exclude,
+        ignore_params=ignore_params,
+        transparent_decorators=transparent_decorators,
+        allow_external=allow_external,
+        strictness=strictness,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+    )
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -99,56 +275,15 @@ def _dataflow_audit(
     argv = list(request.args or []) + list(request.ctx.args)
     if not argv:
         argv = []
-    parser = dataflow_cli_parser()
-    opts = parser.parse_args(argv)
-    exclude_dirs: list[str] | None = None
-    if opts.exclude is not None:
-        exclude_dirs = []
-        for entry in opts.exclude:
-            exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
-    ignore_list: list[str] | None = None
-    if opts.ignore_params is not None:
-        ignore_list = [p.strip() for p in opts.ignore_params.split(",") if p.strip()]
-    transparent_list: list[str] | None = None
-    if opts.transparent_decorators is not None:
-        transparent_list = [
-            p.strip() for p in opts.transparent_decorators.split(",") if p.strip()
-        ]
-    payload: dict[str, Any] = {
-        "paths": [str(p) for p in opts.paths],
-        "root": str(opts.root),
-        "config": str(opts.config) if opts.config is not None else None,
-        "report": str(opts.report) if opts.report else None,
-        "dot": opts.dot,
-        "fail_on_violations": opts.fail_on_violations,
-        "baseline": str(opts.baseline) if opts.baseline else None,
-        "baseline_write": opts.baseline_write if opts.baseline else None,
-        "no_recursive": opts.no_recursive,
-        "max_components": opts.max_components,
-        "type_audit": opts.type_audit,
-        "type_audit_report": opts.type_audit_report,
-        "type_audit_max": opts.type_audit_max,
-        "exclude": exclude_dirs,
-        "ignore_params": ignore_list,
-        "transparent_decorators": transparent_list,
-        "allow_external": opts.allow_external,
-        "strictness": opts.strictness,
-        "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
-        "synthesis_report": opts.synthesis_report,
-        "synthesis_max_tier": opts.synthesis_max_tier,
-        "synthesis_min_bundle_size": opts.synthesis_min_bundle_size,
-        "synthesis_allow_singletons": opts.synthesis_allow_singletons,
-        "synthesis_protocols": str(opts.synthesis_protocols)
-        if opts.synthesis_protocols
-        else None,
-        "synthesis_protocols_kind": opts.synthesis_protocols_kind,
-        "refactor_plan": opts.refactor_plan,
-        "refactor_plan_json": str(opts.refactor_plan_json)
-        if opts.refactor_plan_json
-        else None,
-        "synthesis_merge_overlap": opts.synthesis_merge_overlap,
-    }
-    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
+    opts = parse_dataflow_args(argv)
+    payload = build_dataflow_payload(opts)
+    runner = request.runner or run_command
+    result = dispatch_command(
+        command=DATAFLOW_COMMAND,
+        payload=payload,
+        root=Path(opts.root),
+        runner=runner,
+    )
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
         ambiguities = result.get("type_ambiguities", [])
@@ -294,6 +429,28 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_docflow_audit(
+    *,
+    root: Path,
+    fail_on_violations: bool,
+    script: Path | None = None,
+) -> int:
+    repo_root = _find_repo_root()
+    script_path = script or (repo_root / "scripts" / "docflow_audit.py")
+    if not script_path.exists():
+        typer.secho(
+            "docflow audit script not found; repository layout required",
+            err=True,
+            fg=typer.colors.RED,
+        )
+        return 2
+    args = ["--root", str(root)]
+    if fail_on_violations:
+        args.append("--fail-on-violations")
+    result = subprocess.run([sys.executable, str(script_path), *args], check=False)
+    return result.returncode
+
+
 @app.command("docflow-audit")
 def docflow_audit(
     root: Path = typer.Option(Path("."), "--root"),
@@ -302,58 +459,34 @@ def docflow_audit(
     ),
 ) -> None:
     """Run the docflow audit (governance docs only)."""
-    repo_root = _find_repo_root()
-    script = repo_root / "scripts" / "docflow_audit.py"
-    if not script.exists():
-        typer.secho(
-            "docflow audit script not found; repository layout required",
-            err=True,
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=2)
-    args = ["--root", str(root)]
-    if fail_on_violations:
-        args.append("--fail-on-violations")
-    result = subprocess.run([sys.executable, str(script), *args], check=False)
-    raise typer.Exit(code=result.returncode)
+    exit_code = _run_docflow_audit(root=root, fail_on_violations=fail_on_violations)
+    raise typer.Exit(code=exit_code)
 
 
-@app.command("synth")
-def synth(
-    paths: List[Path] = typer.Argument(None),
-    root: Path = typer.Option(Path("."), "--root"),
-    out_dir: Path = typer.Option(Path("artifacts/synthesis"), "--out-dir"),
-    no_timestamp: bool = typer.Option(False, "--no-timestamp"),
-    config: Optional[Path] = typer.Option(None, "--config"),
-    exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators: Optional[str] = typer.Option(
-        None, "--transparent-decorators"
-    ),
-    allow_external: Optional[bool] = typer.Option(
-        None, "--allow-external/--no-allow-external"
-    ),
-    strictness: Optional[str] = typer.Option(None, "--strictness"),
-    no_recursive: bool = typer.Option(False, "--no-recursive"),
-    max_components: int = typer.Option(10, "--max-components"),
-    type_audit_report: bool = typer.Option(
-        True, "--type-audit-report/--no-type-audit-report"
-    ),
-    type_audit_max: int = typer.Option(50, "--type-audit-max"),
-    synthesis_max_tier: int = typer.Option(2, "--synthesis-max-tier"),
-    synthesis_min_bundle_size: int = typer.Option(2, "--synthesis-min-bundle-size"),
-    synthesis_allow_singletons: bool = typer.Option(
-        False, "--synthesis-allow-singletons"
-    ),
-    synthesis_protocols_kind: str = typer.Option(
-        "dataclass", "--synthesis-protocols-kind"
-    ),
-    refactor_plan: bool = typer.Option(True, "--refactor-plan/--no-refactor-plan"),
-    fail_on_violations: bool = typer.Option(
-        False, "--fail-on-violations/--no-fail-on-violations"
-    ),
-) -> None:
-    """Run the dataflow audit and emit synthesis outputs (prototype)."""
+def _run_synth(
+    *,
+    paths: List[Path] | None,
+    root: Path,
+    out_dir: Path,
+    no_timestamp: bool,
+    config: Optional[Path],
+    exclude: Optional[List[str]],
+    ignore_params: Optional[str],
+    transparent_decorators: Optional[str],
+    allow_external: Optional[bool],
+    strictness: Optional[str],
+    no_recursive: bool,
+    max_components: int,
+    type_audit_report: bool,
+    type_audit_max: int,
+    synthesis_max_tier: int,
+    synthesis_min_bundle_size: int,
+    synthesis_allow_singletons: bool,
+    synthesis_protocols_kind: str,
+    refactor_plan: bool,
+    fail_on_violations: bool,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> tuple[dict[str, Any], dict[str, Path], Path | None]:
     if not paths:
         paths = [Path(".")]
     exclude_dirs: list[str] | None = None
@@ -417,15 +550,89 @@ def synth(
         "refactor_plan": refactor_plan,
         "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
     }
-    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
+    result = dispatch_command(
+        command=DATAFLOW_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+    )
+    paths_out = {
+        "report": report_path,
+        "dot": dot_path,
+        "plan": plan_path,
+        "protocol": protocol_path,
+        "refactor": refactor_plan_path,
+        "output_root": output_root,
+    }
+    return result, paths_out, timestamp
+
+
+@app.command("synth")
+def synth(
+    paths: List[Path] = typer.Argument(None),
+    root: Path = typer.Option(Path("."), "--root"),
+    out_dir: Path = typer.Option(Path("artifacts/synthesis"), "--out-dir"),
+    no_timestamp: bool = typer.Option(False, "--no-timestamp"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
+    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators: Optional[str] = typer.Option(
+        None, "--transparent-decorators"
+    ),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    strictness: Optional[str] = typer.Option(None, "--strictness"),
+    no_recursive: bool = typer.Option(False, "--no-recursive"),
+    max_components: int = typer.Option(10, "--max-components"),
+    type_audit_report: bool = typer.Option(
+        True, "--type-audit-report/--no-type-audit-report"
+    ),
+    type_audit_max: int = typer.Option(50, "--type-audit-max"),
+    synthesis_max_tier: int = typer.Option(2, "--synthesis-max-tier"),
+    synthesis_min_bundle_size: int = typer.Option(2, "--synthesis-min-bundle-size"),
+    synthesis_allow_singletons: bool = typer.Option(
+        False, "--synthesis-allow-singletons"
+    ),
+    synthesis_protocols_kind: str = typer.Option(
+        "dataclass", "--synthesis-protocols-kind"
+    ),
+    refactor_plan: bool = typer.Option(True, "--refactor-plan/--no-refactor-plan"),
+    fail_on_violations: bool = typer.Option(
+        False, "--fail-on-violations/--no-fail-on-violations"
+    ),
+) -> None:
+    """Run the dataflow audit and emit synthesis outputs (prototype)."""
+    result, paths_out, timestamp = _run_synth(
+        paths=paths,
+        root=root,
+        out_dir=out_dir,
+        no_timestamp=no_timestamp,
+        config=config,
+        exclude=exclude,
+        ignore_params=ignore_params,
+        transparent_decorators=transparent_decorators,
+        allow_external=allow_external,
+        strictness=strictness,
+        no_recursive=no_recursive,
+        max_components=max_components,
+        type_audit_report=type_audit_report,
+        type_audit_max=type_audit_max,
+        synthesis_max_tier=synthesis_max_tier,
+        synthesis_min_bundle_size=synthesis_min_bundle_size,
+        synthesis_allow_singletons=synthesis_allow_singletons,
+        synthesis_protocols_kind=synthesis_protocols_kind,
+        refactor_plan=refactor_plan,
+        fail_on_violations=fail_on_violations,
+    )
     if timestamp:
-        typer.echo(f"Snapshot: {output_root}")
-    typer.echo(f"- {report_path}")
-    typer.echo(f"- {dot_path}")
-    typer.echo(f"- {plan_path}")
-    typer.echo(f"- {protocol_path}")
+        typer.echo(f"Snapshot: {paths_out['output_root']}")
+    typer.echo(f"- {paths_out['report']}")
+    typer.echo(f"- {paths_out['dot']}")
+    typer.echo(f"- {paths_out['plan']}")
+    typer.echo(f"- {paths_out['protocol']}")
     if refactor_plan:
-        typer.echo(f"- {refactor_plan_path}")
+        typer.echo(f"- {paths_out['refactor']}")
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -439,13 +646,28 @@ def synthesis_plan(
     ),
 ) -> None:
     """Generate a synthesis plan from a JSON payload (prototype)."""
+    _run_synthesis_plan(input_path=input_path, output_path=output_path)
+
+
+def _run_synthesis_plan(
+    *,
+    input_path: Optional[Path],
+    output_path: Optional[Path],
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> None:
+    """Generate a synthesis plan from a JSON payload (prototype)."""
     payload: dict[str, Any] = {}
     if input_path is not None:
         try:
             payload = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-    result = run_command(CommandRequest(SYNTHESIS_COMMAND, [payload]))
+    result = dispatch_command(
+        command=SYNTHESIS_COMMAND,
+        payload=payload,
+        root=None,
+        runner=runner,
+    )
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)
@@ -470,39 +692,33 @@ def refactor_protocol(
     ),
     target_path: Optional[Path] = typer.Option(None, "--target-path"),
     target_functions: Optional[List[str]] = typer.Option(None, "--target-function"),
+    compatibility_shim: bool = typer.Option(
+        False, "--compat-shim/--no-compat-shim"
+    ),
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
-    payload: dict[str, Any] = {}
+    input_payload: dict[str, Any] | None = None
     if input_path is not None:
         try:
-            payload = json.loads(input_path.read_text())
+            input_payload = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-    else:
-        if protocol_name is None or target_path is None:
-            raise typer.BadParameter(
-                "Provide --protocol-name and --target-path or use --input."
-            )
-        field_specs: list[dict[str, str | None]] = []
-        for spec in field or []:
-            name, _, hint = spec.partition(":")
-            name = name.strip()
-            if not name:
-                continue
-            type_hint = hint.strip() or None
-            field_specs.append({"name": name, "type_hint": type_hint})
-        if not bundle and field_specs:
-            bundle = [spec["name"] for spec in field_specs]
-        payload = {
-            "protocol_name": protocol_name,
-            "bundle": bundle or [],
-            "fields": field_specs,
-            "target_path": str(target_path),
-            "target_functions": target_functions or [],
-            "rationale": rationale,
-        }
-    result = run_command(CommandRequest(REFACTOR_COMMAND, [payload]))
+    payload = build_refactor_payload(
+        input_payload=input_payload,
+        protocol_name=protocol_name,
+        bundle=bundle,
+        field=field,
+        target_path=target_path,
+        target_functions=target_functions,
+        compatibility_shim=compatibility_shim,
+        rationale=rationale,
+    )
+    result = dispatch_command(
+        command=REFACTOR_COMMAND,
+        payload=payload,
+        root=None,
+    )
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)

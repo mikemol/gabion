@@ -1,5 +1,5 @@
 ---
-doc_revision: 64
+doc_revision: 69
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -48,7 +48,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Alias tracking: direct Name-to-Name assignments.
 - [x] Alias tracking: tuple/sequence unpacking.
 - [x] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
-- [ ] Alias tracking: alias propagation via call returns. (GH-8)
+- [x] Alias tracking: alias propagation via call returns. (GH-8)
 - [x] Noise controls: project root anchoring + exclude dirs + ignore params.
 - [x] External-lib filter (ignore non-project imports by default).
 - [x] Wildcard forwarding strictness (`*args/**kwargs`, high/low modes).
@@ -93,7 +93,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type aggregation: single-type consensus assignment.
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
-- [ ] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
+- [x] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
@@ -113,6 +113,12 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 - [x] Redistributable GitHub Action wrapper (composite action for gabion check).
 - [x] Locked dependency set for CI (`requirements.lock`).
+- [ ] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests). (GH-42)
+
+## Decision-flow tier nodes
+- [ ] Decision Table documentation for branch-heavy modules (Tier-3 evidence). (GH-47)
+- [ ] Decision Bundle centralization for repeated guard patterns (Tier-2 evidence). (GH-48)
+- [ ] Decision Protocol schema enforcement for critical decision paths (Tier-1 evidence). (GH-49)
 
 ## Explicit non-goals
 - [x] Agda proof kernel (deferred).
@@ -136,5 +142,5 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Refactor engine: Call-site rewriting (foo(x, y) -> foo(Bundle(x, y))). (GH-18)
 - [x] Refactor engine: Preamble injection (unpack bundle to preserve local logic). (GH-19)
 - [x] Refactor engine: Import management (inject bundle import at call sites). (GH-20)
-- [ ] Refactor strategy: Compatibility shims (generate @overload + DeprecationWarning wrapper). (GH-24)
+- [x] Refactor strategy: Compatibility shims (generate @overload + DeprecationWarning wrapper). (GH-24)
 - [ ] Long-lived LSP server cache / incremental analysis (daemon mode). (GH-21)

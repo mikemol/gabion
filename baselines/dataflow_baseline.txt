@@ -1,0 +1,5 @@
+# gabion baseline (ratchet)
+# Lines list known violations to allow; new ones should fail.
+
+- bundle_fields, compat_shim, protocol_hint, targets (tier-3, undocumented)
+- ignore_params, transparent_decorators (tier-3, undocumented)

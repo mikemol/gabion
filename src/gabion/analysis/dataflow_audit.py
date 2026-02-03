@@ -348,8 +348,6 @@ def _param_spans(
 def _function_key(scope: Iterable[str], name: str) -> str:
     parts = list(scope)
     parts.append(name)
-    if not parts:
-        return name
     return ".".join(parts)
 
 
@@ -430,6 +428,117 @@ def _param_annotations(
     return annots
 
 
+def _param_defaults(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> set[str]:
+    defaults: set[str] = set()
+    args = fn.args.posonlyargs + fn.args.args
+    names = [a.arg for a in args]
+    if fn.args.defaults:
+        defaulted = names[-len(fn.args.defaults) :]
+        defaults.update(defaulted)
+    for kw_arg, default in zip(fn.args.kwonlyargs, fn.args.kw_defaults):
+        if default is not None:
+            defaults.add(kw_arg.arg)
+    if names and names[0] in {"self", "cls"}:
+        defaults.discard(names[0])
+    if ignore_params:
+        defaults = {name for name in defaults if name not in ignore_params}
+    return defaults
+
+
+class _ReturnAliasCollector(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.returns: list[ast.AST | None] = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return
+
+    def visit_Return(self, node: ast.Return) -> None:
+        self.returns.append(node.value)
+
+
+def _return_aliases(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> list[str] | None:
+    params = _param_names(fn, ignore_params)
+    if not params:
+        return None
+    param_set = set(params)
+    collector = _ReturnAliasCollector()
+    for stmt in fn.body:
+        collector.visit(stmt)
+    if not collector.returns:
+        return None
+    alias: list[str] | None = None
+
+    def _alias_from_expr(expr: ast.AST | None) -> list[str] | None:
+        if expr is None:
+            return None
+        if isinstance(expr, ast.Name) and expr.id in param_set:
+            return [expr.id]
+        if isinstance(expr, (ast.Tuple, ast.List)):
+            names: list[str] = []
+            for elt in expr.elts:
+                if isinstance(elt, ast.Name) and elt.id in param_set:
+                    names.append(elt.id)
+                else:
+                    return None
+            return names
+        return None
+
+    for expr in collector.returns:
+        candidate = _alias_from_expr(expr)
+        if candidate is None:
+            return None
+        if alias is None:
+            alias = candidate
+            continue
+        if alias != candidate:
+            return None
+    return alias
+
+
+def _collect_return_aliases(
+    funcs: list[ast.FunctionDef | ast.AsyncFunctionDef],
+    parents: dict[ast.AST, ast.AST],
+    *,
+    ignore_params: set[str] | None,
+) -> dict[str, tuple[list[str], list[str]]]:
+    aliases: dict[str, tuple[list[str], list[str]]] = {}
+    conflicts: set[str] = set()
+    for fn in funcs:
+        alias = _return_aliases(fn, ignore_params)
+        if not alias:
+            continue
+        params = _param_names(fn, ignore_params)
+        class_name = _enclosing_class(fn, parents)
+        scopes = _enclosing_scopes(fn, parents)
+        keys = {fn.name}
+        if class_name:
+            keys.add(f"{class_name}.{fn.name}")
+        if scopes:
+            keys.add(_function_key(scopes, fn.name))
+        info = (params, alias)
+        for key in keys:
+            if key in conflicts:
+                continue
+            if key in aliases:
+                aliases.pop(key, None)
+                conflicts.add(key)
+                continue
+            aliases[key] = info
+    return aliases
+
+
 def _const_repr(node: ast.AST) -> str | None:
     if isinstance(node, ast.Constant):
         return repr(node.value)
@@ -494,6 +603,7 @@ def _analyze_function(
     ignore_params: set[str] | None = None,
     strictness: str = "high",
     class_name: str | None = None,
+    return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
 ) -> tuple[dict[str, ParamUse], list[CallArgs]]:
     params = _param_names(fn, ignore_params)
     use_map = {p: ParamUse(set(), False, {p}) for p in params}
@@ -511,6 +621,7 @@ def _analyze_function(
         callee_name=lambda call: _normalize_callee(_callee_name(call), class_name),
         call_args_factory=CallArgs,
         call_context=_call_context,
+        return_aliases=return_aliases,
     )
     visitor.visit(fn)
     return use_map, call_args
@@ -616,6 +727,9 @@ def analyze_file(
     is_test = _is_test_path(path)
 
     funcs = _collect_functions(tree)
+    return_aliases = _collect_return_aliases(
+        funcs, parents, ignore_params=config.ignore_params
+    )
     fn_param_orders: dict[str, list[str]] = {}
     fn_param_spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     fn_use = {}
@@ -638,6 +752,7 @@ def analyze_file(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             class_name=class_name,
+            return_aliases=return_aliases,
         )
         fn_use[fn_key] = use_map
         fn_calls[fn_key] = call_args
@@ -672,14 +787,6 @@ def analyze_file(
             if not effective_scope:
                 break
             effective_scope = effective_scope[:-1]
-        globals_only = [
-            key
-            for key in candidates
-            if not fn_lexical_scopes.get(key)
-            and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
-        ]
-        if len(globals_only) == 1:
-            return globals_only[0]
         return None
 
     for caller_key, calls in list(fn_calls.items()):
@@ -697,8 +804,6 @@ def analyze_file(
         local_functions = set(fn_use.keys())
 
         def _resolve_local_method(callee: str) -> str | None:
-            if "." not in callee:
-                return None
             class_part, method = callee.rsplit(".", 1)
             return _resolve_local_method_in_hierarchy(
                 class_part,
@@ -838,6 +943,7 @@ class FunctionInfo:
     annots: dict[str, str | None]
     calls: list[CallArgs]
     unused_params: set[str]
+    defaults: set[str] = field(default_factory=set)
     transparent: bool = True
     class_name: str | None = None
     scope: tuple[str, ...] = ()
@@ -1126,6 +1232,9 @@ def _build_function_index(
         parents.visit(tree)
         parent_map = parents.parents
         module = _module_name(path, project_root)
+        return_aliases = _collect_return_aliases(
+            funcs, parent_map, ignore_params=ignore_params
+        )
         for fn in funcs:
             class_name = _enclosing_class(fn, parent_map)
             scopes = _enclosing_scopes(fn, parent_map)
@@ -1137,6 +1246,7 @@ def _build_function_index(
                 ignore_params=ignore_params,
                 strictness=strictness,
                 class_name=class_name,
+                return_aliases=return_aliases,
             )
             unused_params = _unused_params(use_map)
             qual_parts = [module] if module else []
@@ -1150,6 +1260,7 @@ def _build_function_index(
                 path=path,
                 params=_param_names(fn, ignore_params),
                 annots=_param_annotations(fn, ignore_params),
+                defaults=_param_defaults(fn, ignore_params),
                 calls=call_args,
                 unused_params=unused_params,
                 transparent=_decorators_transparent(fn, transparent_decorators),
@@ -1329,10 +1440,7 @@ def analyze_type_flow_repo_with_map(
                     mapped_params: set[str] = set()
                     callee_to_caller: dict[str, set[str]] = defaultdict(set)
                     for pos_idx, param in call.pos_map.items():
-                        try:
-                            idx = int(pos_idx)
-                        except ValueError:
-                            continue
+                        idx = int(pos_idx)
                         if idx >= len(callee_params):
                             continue
                         callee_param = callee_params[idx]
@@ -1360,8 +1468,6 @@ def analyze_type_flow_repo_with_map(
                         for caller_param in callers:
                             downstream[caller_param].add(annot)
                 for param, annots in downstream.items():
-                    if not annots:
-                        continue
                     if len(annots) > 1:
                         ambiguities.add(
                             f"{info.path.name}:{info.name}.{param} downstream types conflict: {sorted(annots)}"
@@ -1445,10 +1551,7 @@ def analyze_constant_flow_repo(
                 callee_params = callee.params
                 mapped_params = set()
                 for idx_str in call.pos_map:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     mapped_params.add(callee_params[idx])
@@ -1458,30 +1561,21 @@ def analyze_constant_flow_repo(
                 remaining = [p for p in callee_params if p not in mapped_params]
 
                 for idx_str, value in call.const_pos.items():
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     key = (callee.qual, callee_params[idx])
                     const_values[key].add(value)
                     call_counts[key] += 1
                 for idx_str in call.pos_map:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     key = (callee.qual, callee_params[idx])
                     non_const[key] = True
                     call_counts[key] += 1
                 for idx_str in call.non_const_pos:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     key = (callee.qual, callee_params[idx])
@@ -1523,8 +1617,6 @@ def analyze_constant_flow_repo(
     for key, values in const_values.items():
         if non_const.get(key):
             continue
-        if not values:
-            continue
         if len(values) == 1:
             qual, param = key
             info = by_qual.get(qual)
@@ -1534,6 +1626,110 @@ def analyze_constant_flow_repo(
                 f"{path_name}:{qual.split('.')[-1]}.{param} only observed constant {next(iter(values))} across {count} non-test call(s)"
             )
     return sorted(smells)
+
+
+def _compute_knob_param_names(
+    *,
+    by_name: dict[str, list[FunctionInfo]],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table: SymbolTable,
+    project_root: Path | None,
+    class_index: dict[str, ClassInfo],
+    strictness: str,
+) -> set[str]:
+    const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
+    non_const: dict[tuple[str, str], bool] = defaultdict(bool)
+    explicit_passed: dict[tuple[str, str], bool] = defaultdict(bool)
+    call_counts: dict[str, int] = defaultdict(int)
+    for infos in by_name.values():
+        for info in infos:
+            for call in info.calls:
+                if call.is_test:
+                    continue
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                )
+                if callee is None or not callee.transparent:
+                    continue
+                call_counts[callee.qual] += 1
+                callee_params = callee.params
+                remaining = [p for p in callee_params]
+                for idx_str, value in call.const_pos.items():
+                    idx = int(idx_str)
+                    if idx >= len(callee_params):
+                        continue
+                    param = callee_params[idx]
+                    const_values[(callee.qual, param)].add(value)
+                    explicit_passed[(callee.qual, param)] = True
+                    if param in remaining:
+                        remaining.remove(param)
+                for idx_str in call.pos_map:
+                    idx = int(idx_str)
+                    if idx >= len(callee_params):
+                        continue
+                    param = callee_params[idx]
+                    non_const[(callee.qual, param)] = True
+                    explicit_passed[(callee.qual, param)] = True
+                    if param in remaining:
+                        remaining.remove(param)
+                for idx_str in call.non_const_pos:
+                    idx = int(idx_str)
+                    if idx >= len(callee_params):
+                        continue
+                    param = callee_params[idx]
+                    non_const[(callee.qual, param)] = True
+                    explicit_passed[(callee.qual, param)] = True
+                    if param in remaining:
+                        remaining.remove(param)
+                for kw, value in call.const_kw.items():
+                    if kw not in callee_params:
+                        continue
+                    const_values[(callee.qual, kw)].add(value)
+                    explicit_passed[(callee.qual, kw)] = True
+                    if kw in remaining:
+                        remaining.remove(kw)
+                for kw in call.kw_map:
+                    if kw not in callee_params:
+                        continue
+                    non_const[(callee.qual, kw)] = True
+                    explicit_passed[(callee.qual, kw)] = True
+                    if kw in remaining:
+                        remaining.remove(kw)
+                for kw in call.non_const_kw:
+                    if kw not in callee_params:
+                        continue
+                    non_const[(callee.qual, kw)] = True
+                    explicit_passed[(callee.qual, kw)] = True
+                    if kw in remaining:
+                        remaining.remove(kw)
+                if strictness == "low":
+                    if len(call.star_pos) == 1:
+                        for param in remaining:
+                            non_const[(callee.qual, param)] = True
+                            explicit_passed[(callee.qual, param)] = True
+                    if len(call.star_kw) == 1:
+                        for param in remaining:
+                            non_const[(callee.qual, param)] = True
+                            explicit_passed[(callee.qual, param)] = True
+    knob_names: set[str] = set()
+    for key, values in const_values.items():
+        if non_const.get(key):
+            continue
+        if len(values) == 1:
+            knob_names.add(key[1])
+    for qual, info in by_qual.items():
+        if call_counts.get(qual, 0) == 0:
+            continue
+        for param in info.defaults:
+            if not explicit_passed.get((qual, param), False):
+                knob_names.add(param)
+    return knob_names
 
 
 def analyze_unused_arg_flow_repo(
@@ -1594,10 +1790,7 @@ def analyze_unused_arg_flow_repo(
                 callee_params = callee.params
                 mapped_params = set()
                 for idx_str in call.pos_map:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     mapped_params.add(callee_params[idx])
@@ -1611,10 +1804,7 @@ def analyze_unused_arg_flow_repo(
                 ]
 
                 for idx_str, caller_param in call.pos_map.items():
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     callee_param = callee_params[idx]
@@ -1628,10 +1818,7 @@ def analyze_unused_arg_flow_repo(
                             )
                         )
                 for idx_str in call.non_const_pos:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     callee_param = callee_params[idx]
@@ -1791,7 +1978,7 @@ def _collect_dataclass_registry(
                 continue
             if module:
                 registry[f"{module}.{node.name}"] = fields
-            else:
+            else:  # pragma: no cover - module name is always non-empty for file paths
                 registry[node.name] = fields
     return registry
 
@@ -1834,15 +2021,8 @@ def _iter_dataclass_call_bundles(
         for name, fields in local_dataclasses.items():
             if module:
                 dataclass_registry[f"{module}.{name}"] = fields
-            else:
+            else:  # pragma: no cover - module name is always non-empty for file paths
                 dataclass_registry[name] = fields
-
-    def _callee_name(call: ast.Call) -> str | None:
-        if isinstance(call.func, ast.Name):
-            return call.func.id
-        if isinstance(call.func, ast.Attribute):
-            return call.func.attr
-        return None
 
     def _resolve_fields(call: ast.Call) -> list[str] | None:
         if isinstance(call.func, ast.Name):
@@ -2048,8 +2228,6 @@ def _render_mermaid_component(
     documented_only = sorted(observed_norm & documented)
     def _tier(bundle: tuple[str, ...]) -> str:
         count = bundle_counts.get(bundle, 1)
-        if bundle in declared_global:
-            return "tier-1"
         if count > 1:
             return "tier-2"
         return "tier-3"
@@ -2201,6 +2379,27 @@ def _bundle_counts(
     return counts
 
 
+def _merge_counts_by_knobs(
+    counts: dict[tuple[str, ...], int],
+    knob_names: set[str],
+) -> dict[tuple[str, ...], int]:
+    if not knob_names:
+        return counts
+    bundles = [set(bundle) for bundle in counts]
+    merged: dict[tuple[str, ...], int] = defaultdict(int)
+    for bundle_key, count in counts.items():
+        bundle = set(bundle_key)
+        target = bundle
+        for other in bundles:
+            if bundle and bundle.issubset(other):
+                extra = set(other) - bundle
+                if extra and extra.issubset(knob_names):
+                    if len(other) < len(target) or target == bundle:
+                        target = set(other)
+        merged[tuple(sorted(target))] += count
+    return merged
+
+
 def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     declared: set[tuple[str, ...]] = set()
     file_paths = sorted(root.rglob("*.py"))
@@ -2225,7 +2424,30 @@ def build_synthesis_plan(
         project_root=project_root or _infer_root(groups_by_path)
     )
     root = project_root or audit_config.project_root or _infer_root(groups_by_path)
+    path_list = list(groups_by_path.keys())
+    by_name, by_qual = _build_function_index(
+        path_list,
+        root,
+        audit_config.ignore_params,
+        audit_config.strictness,
+        audit_config.transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        path_list,
+        root,
+        external_filter=audit_config.external_filter,
+    )
+    class_index = _collect_class_index(path_list, root)
+    knob_names = _compute_knob_param_names(
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        project_root=root,
+        class_index=class_index,
+        strictness=audit_config.strictness,
+    )
     counts = _bundle_counts(groups_by_path)
+    counts = _merge_counts_by_knobs(counts, knob_names)
     if not counts:
         response = SynthesisResponse(
             protocols=[],
@@ -2281,7 +2503,7 @@ def build_synthesis_plan(
     type_warnings: list[str] = []
     if bundle_fields:
         inferred, _, _ = analyze_type_flow_repo_with_map(
-            list(groups_by_path.keys()),
+            path_list,
             project_root=root,
             ignore_params=audit_config.ignore_params,
             strictness=audit_config.strictness,
@@ -2294,19 +2516,6 @@ def build_synthesis_plan(
                 if name not in bundle_fields or not annot:
                     continue
                 type_sets[name].add(annot)
-        by_name, by_qual = _build_function_index(
-            list(groups_by_path.keys()),
-            root,
-            audit_config.ignore_params,
-            audit_config.strictness,
-            audit_config.transparent_decorators,
-        )
-        symbol_table = _build_symbol_table(
-            list(groups_by_path.keys()),
-            root,
-            external_filter=audit_config.external_filter,
-        )
-        class_index = _collect_class_index(list(groups_by_path.keys()), root)
         for infos in by_name.values():
             for info in infos:
                 for call in info.calls:
@@ -2325,10 +2534,7 @@ def build_synthesis_plan(
                         continue
                     callee_params = callee.params
                     for idx_str, value in call.const_pos.items():
-                        try:
-                            idx = int(idx_str)
-                        except ValueError:
-                            continue
+                        idx = int(idx_str)
                         if idx >= len(callee_params):
                             continue
                         param = callee_params[idx]
@@ -2344,8 +2550,6 @@ def build_synthesis_plan(
                         if hint:
                             type_sets[kw].add(hint)
         for name, types in type_sets.items():
-            if not types:
-                continue
             combined, conflicted = _combine_type_hints(types)
             field_types[name] = combined
             if conflicted and len(types) > 1:
@@ -2525,8 +2729,6 @@ def build_refactor_plan(
 
     plans: list[dict[str, object]] = []
     for bundle, infos in sorted(bundle_map.items(), key=lambda item: (len(item[0]), item[0])):
-        if not infos:
-            continue
         comp = dict(infos)
         deps: dict[str, set[str]] = {qual: set() for qual in comp}
         for info in infos.values():

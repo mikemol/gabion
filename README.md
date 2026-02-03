@@ -14,10 +14,10 @@ doc_requires:
   - AGENTS.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 27
-  glossary.md: 9
+  POLICY_SEED.md: 28
+  glossary.md: 13
   AGENTS.md: 12
-  CONTRIBUTING.md: 68
+  CONTRIBUTING.md: 69
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

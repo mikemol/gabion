@@ -179,3 +179,35 @@ def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     caller_replacement = _normalize(edits_by_path["caller.py"])
     assert "frompkg.modimportBundleProtocol" in caller_replacement
     assert "returnfoo(BundleProtocol(a=x,b=y))" in caller_replacement
+
+
+def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "sample.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def foo(a, b):
+                return a + b
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="BundleProtocol",
+        bundle=["a", "b"],
+        fields=[
+            FieldSpec(name="a", type_hint="int"),
+            FieldSpec(name="b", type_hint="int"),
+        ],
+        target_path=str(target),
+        target_functions=["foo"],
+        compatibility_shim=True,
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert plan.edits
+    replacement = plan.edits[0].replacement
+    assert "def _foo_bundle" in replacement
+    assert "def foo(*args, **kwargs)" in replacement
+    assert "warnings.warn" in replacement
+    assert "@overload" in replacement

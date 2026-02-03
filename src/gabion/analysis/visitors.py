@@ -68,6 +68,7 @@ class UseVisitor(ast.NodeVisitor):
         callee_name: Callable[[ast.Call], str],
         call_args_factory: Callable[..., CallArgs],
         call_context: Callable[[ast.AST, dict[ast.AST, ast.AST]], tuple[ast.Call | None, bool]],
+        return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
     ) -> None:
         # dataflow-bundle: alias_to_param, call_args, call_args_factory, call_context, callee_name, const_repr, is_test, parents, strictness, use_map
         self.parents = parents
@@ -80,6 +81,7 @@ class UseVisitor(ast.NodeVisitor):
         self.callee_name = callee_name
         self.call_args_factory = call_args_factory
         self.call_context = call_context
+        self.return_aliases = return_aliases or {}
         self._suspend_non_forward: set[str] = set()
         self._attr_alias_to_param: dict[tuple[str, str], str] = {}
         self._key_alias_to_param: dict[tuple[str, str], str] = {}
@@ -196,7 +198,76 @@ class UseVisitor(ast.NodeVisitor):
             return sources
         return set()
 
+    def _alias_from_call(self, call: ast.Call) -> list[str] | None:
+        if not self.return_aliases:
+            return None
+        callee = self.callee_name(call)
+        info = self.return_aliases.get(callee)
+        if info is None:
+            return None
+        params, aliases = info
+        if not aliases:
+            return None
+        mapping: dict[str, str | None] = {}
+        for idx, arg in enumerate(call.args):
+            if isinstance(arg, ast.Starred):
+                return None
+            if idx >= len(params):
+                return None
+            if isinstance(arg, ast.Name) and arg.id in self.alias_to_param:
+                mapping[params[idx]] = self.alias_to_param[arg.id]
+            else:
+                mapping[params[idx]] = None
+        for kw in call.keywords:
+            if kw.arg is None:
+                return None
+            if kw.arg not in params:
+                continue
+            if isinstance(kw.value, ast.Name) and kw.value.id in self.alias_to_param:
+                mapping[kw.arg] = self.alias_to_param[kw.value.id]
+            else:
+                mapping[kw.arg] = None
+        resolved: list[str] = []
+        for param in aliases:
+            mapped = mapping.get(param)
+            if not mapped:
+                return None
+            resolved.append(mapped)
+        return resolved
+
+    def _bind_return_alias(
+        self, targets: list[ast.AST], aliases: list[str]
+    ) -> bool:
+        if len(targets) != 1:
+            return False
+        target = targets[0]
+        if isinstance(target, ast.Name):
+            if len(aliases) != 1:
+                return False
+            param = aliases[0]
+            self.alias_to_param[target.id] = param
+            if param in self.use_map:
+                self.use_map[param].current_aliases.add(target.id)
+            return True
+        if isinstance(target, (ast.Tuple, ast.List)):
+            if len(target.elts) != len(aliases):
+                return False
+            if not all(isinstance(elt, ast.Name) for elt in target.elts):
+                return False
+            for elt, param in zip(target.elts, aliases):
+                if isinstance(elt, ast.Name):
+                    self.alias_to_param[elt.id] = param
+                    if param in self.use_map:
+                        self.use_map[param].current_aliases.add(elt.id)
+            return True
+        return False
+
     def visit_Assign(self, node: ast.Assign) -> None:
+        if isinstance(node.value, ast.Call):
+            aliases = self._alias_from_call(node.value)
+            if aliases and self._bind_return_alias(node.targets, aliases):
+                self.visit(node.value)
+                return
         rhs_param = None
         if isinstance(node.value, ast.Name) and node.value.id in self.alias_to_param:
             rhs_param = self.alias_to_param[node.value.id]
@@ -238,6 +309,15 @@ class UseVisitor(ast.NodeVisitor):
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if node.value is None:
             return
+        if isinstance(node.value, ast.Call) and isinstance(node.target, ast.Name):
+            aliases = self._alias_from_call(node.value)
+            if aliases and len(aliases) == 1:
+                param = aliases[0]
+                self.alias_to_param[node.target.id] = param
+                if param in self.use_map:
+                    self.use_map[param].current_aliases.add(node.target.id)
+                self.visit(node.value)
+                return
         rhs_param = None
         if isinstance(node.value, ast.Name) and node.value.id in self.alias_to_param:
             rhs_param = self.alias_to_param[node.value.id]

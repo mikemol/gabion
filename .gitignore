@@ -7,5 +7,6 @@ dist/
 venv/
 .env
 .pytest_cache/
+.coverage
 artifacts/*
 !artifacts/.gitkeep
