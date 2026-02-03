@@ -109,6 +109,17 @@ jobs:
           if updated == text:
               raise SystemExit("Failed to update project.version in pyproject.toml")
           path.write_text(updated)
+          init_path = Path("src/gabion/__init__.py")
+          init_text = init_path.read_text()
+          init_updated = re.sub(
+              r'(?m)^__version__\\s*=\\s*"[^"]+"\\s*$',
+              f'__version__ = "{version}"',
+              init_text,
+              count=1,
+          )
+          if init_updated == init_text:
+              raise SystemExit("Failed to update __version__ in src/gabion/__init__.py")
+          init_path.write_text(init_updated)
           print(f"Set project.version to {version}")
           PY
         env:
