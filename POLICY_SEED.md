@@ -23,7 +23,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md: 69
   AGENTS.md: 12
   glossary.md: 13
-  docs/publishing_practices.md: 22
+  docs/publishing_practices.md: 23
   docs/coverage_semantics.md: 6
 doc_commutes_with:
   - glossary.md
