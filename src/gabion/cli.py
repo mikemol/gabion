@@ -133,6 +133,9 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         if opts.refactor_plan_json
         else None,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
+        "structure_tree": str(opts.emit_structure_tree)
+        if opts.emit_structure_tree
+        else None,
     }
     return payload
 
@@ -303,6 +306,8 @@ def _dataflow_audit(
         typer.echo(result["synthesis_protocols"])
     if opts.refactor_plan_json == "-" and "refactor_plan" in result:
         typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
+    if opts.emit_structure_tree == "-" and "structure_tree" in result:
+        typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -344,6 +349,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
     parser.add_argument("--strictness", choices=["high", "low"], default=None)
     parser.add_argument("--no-recursive", action="store_true")
     parser.add_argument("--dot", default=None, help="Write DOT graph to file or '-' for stdout.")
+    parser.add_argument(
+        "--emit-structure-tree",
+        default=None,
+        help="Write canonical structure snapshot JSON to file or '-' for stdout.",
+    )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(

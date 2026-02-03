@@ -80,6 +80,8 @@ def test_dataflow_audit_payload_parsing() -> None:
             "x,y",
             "--no-recursive",
             "--fail-on-violations",
+            "--emit-structure-tree",
+            "snapshot.json",
         ]
     )
     payload = cli.build_dataflow_payload(opts)
@@ -89,6 +91,7 @@ def test_dataflow_audit_payload_parsing() -> None:
     assert payload["ignore_params"] == ["x", "y"]
     assert payload["no_recursive"] is True
     assert payload["fail_on_violations"] is True
+    assert payload["structure_tree"] == "snapshot.json"
 
 
 def test_dataflow_payload_baseline_and_transparent() -> None:

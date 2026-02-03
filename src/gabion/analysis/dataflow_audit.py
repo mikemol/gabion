@@ -2368,6 +2368,40 @@ def _infer_root(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> Path:
     return Path(".")
 
 
+def _normalize_snapshot_path(path: Path, root: Path | None) -> str:
+    if root is not None:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            pass
+    return str(path)
+
+
+def render_structure_snapshot(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    project_root: Path | None = None,
+) -> dict[str, object]:
+    root = project_root or _infer_root(groups_by_path)
+    files: list[dict[str, object]] = []
+    for path in sorted(
+        groups_by_path, key=lambda p: _normalize_snapshot_path(p, root)
+    ):
+        groups = groups_by_path[path]
+        functions: list[dict[str, object]] = []
+        for fn_name in sorted(groups):
+            bundles = groups[fn_name]
+            normalized = [sorted(bundle) for bundle in bundles]
+            normalized.sort(key=lambda bundle: (len(bundle), bundle))
+            functions.append({"name": fn_name, "bundles": normalized})
+        files.append({"path": _normalize_snapshot_path(path, root), "functions": functions})
+    return {
+        "format_version": 1,
+        "root": str(root) if root is not None else None,
+        "files": files,
+    }
+
+
 def _bundle_counts(
     groups_by_path: dict[Path, dict[str, list[set[str]]]]
 ) -> dict[tuple[str, ...], int]:
@@ -3066,6 +3100,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--no-recursive", action="store_true")
     parser.add_argument("--dot", default=None, help="Write DOT graph to file or '-' for stdout.")
+    parser.add_argument(
+        "--emit-structure-tree",
+        default=None,
+        help="Write canonical structure snapshot JSON to file or '-' for stdout.",
+    )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(
@@ -3246,6 +3285,26 @@ def run(argv: list[str] | None = None) -> int:
         include_unused_arg_smells=bool(args.report),
         config=config,
     )
+    structure_tree_path = args.emit_structure_tree
+    if structure_tree_path:
+        snapshot = render_structure_snapshot(
+            analysis.groups_by_path,
+            project_root=config.project_root,
+        )
+        payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
+        if structure_tree_path.strip() == "-":
+            print(payload_json)
+        else:
+            Path(structure_tree_path).write_text(payload_json)
+        if args.report is None and args.dot is None and not (
+            args.type_audit
+            or args.synthesis_plan
+            or args.synthesis_report
+            or args.synthesis_protocols
+            or args.refactor_plan
+            or args.refactor_plan_json
+        ):
+            return 0
     synthesis_plan: dict[str, object] | None = None
     merge_overlap_threshold = None
     if args.synthesis_merge_overlap is not None:
@@ -3299,7 +3358,15 @@ def run(argv: list[str] | None = None) -> int:
             print(dot)
         else:
             Path(args.dot).write_text(dot)
-        if args.report is None:
+        if args.report is None and not (
+            args.type_audit
+            or args.synthesis_plan
+            or args.synthesis_report
+            or args.synthesis_protocols
+            or args.refactor_plan
+            or args.refactor_plan_json
+            or structure_tree_path
+        ):
             return 0
     if args.type_audit:
         if analysis.type_suggestions:

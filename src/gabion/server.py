@@ -30,6 +30,7 @@ from gabion.analysis import (
     build_synthesis_plan,
     load_baseline,
     render_dot,
+    render_structure_snapshot,
     render_protocol_stubs,
     render_refactor_plan,
     render_report,
@@ -155,6 +156,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     baseline_write = bool(payload.get("baseline_write", False)) and baseline_path is not None
     synthesis_plan_path = payload.get("synthesis_plan")
     synthesis_report = payload.get("synthesis_report", False)
+    structure_tree_path = payload.get("structure_tree")
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -235,6 +237,16 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["dot"] = dot
         else:
             Path(dot_path).write_text(dot)
+    if structure_tree_path:
+        snapshot = render_structure_snapshot(
+            analysis.groups_by_path,
+            project_root=config.project_root,
+        )
+        payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
+        if structure_tree_path == "-":
+            response["structure_tree"] = snapshot
+        else:
+            Path(structure_tree_path).write_text(payload_json)
 
     violations: list[str] = []
     effective_violations: list[str] | None = None

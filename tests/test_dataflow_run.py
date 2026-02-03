@@ -32,6 +32,7 @@ def test_run_generates_outputs(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     protocols = tmp_path / "protocols.py"
     refactor = tmp_path / "refactor.json"
+    snapshot = tmp_path / "structure.json"
     argv = [
         str(tmp_path),
         "--root",
@@ -52,6 +53,8 @@ def test_run_generates_outputs(tmp_path: Path) -> None:
         "--refactor-plan",
         "--refactor-plan-json",
         str(refactor),
+        "--emit-structure-tree",
+        str(snapshot),
         "--type-audit-report",
         "--type-audit-max",
         "5",
@@ -65,6 +68,7 @@ def test_run_generates_outputs(tmp_path: Path) -> None:
     assert plan.exists()
     assert protocols.exists()
     assert refactor.exists()
+    assert snapshot.exists()
 
 
 def test_run_baseline_write_and_apply(tmp_path: Path) -> None:
