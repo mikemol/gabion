@@ -1,5 +1,5 @@
 ---
-doc_revision: 23
+doc_revision: 24
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -22,7 +22,7 @@ doc_reviewed_as_of:
   CONTRIBUTING.md: 68
   AGENTS.md: 12
   glossary.md: 9
-  docs/publishing_practices.md: 18
+  docs/publishing_practices.md: 19
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -319,6 +319,17 @@ GitHub-hosted release workflows triggered **only** by tag pushes MAY request
 * The publishing job is the only job requiring `id-token: write`.
 * All actions are allow-listed and pinned to full SHAs.
 * The workflow runs on GitHub-hosted runners only.
+
+**Narrow exception (TestPyPI workflow-run trigger):**
+
+The TestPyPI release workflow may also trigger on `workflow_run` from the
+auto-test-tag workflow, provided that:
+
+* The workflow-run conclusion is `success`.
+* The workflow-run actor is the repository owner or `github-actions[bot]`.
+* The workflow verifies the `test-v*` tag is reachable from `main` and `next`.
+* The workflow uses allow-listed actions pinned to full SHAs.
+* The workflow requests only `contents: read`, `actions: read`, and `id-token: write`.
 
 ### 4.5 Action Supply Chain
 

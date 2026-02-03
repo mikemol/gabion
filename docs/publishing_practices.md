@@ -1,5 +1,5 @@
 ---
-doc_revision: 18
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -13,7 +13,7 @@ doc_requires:
   - POLICY_SEED.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 23
+  POLICY_SEED.md: 24
   CONTRIBUTING.md: 68
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
@@ -106,7 +106,7 @@ Rationale: publishing is a sensitive surface.
 
 Current workflows:
 - `.github/workflows/release-tag.yml` (creates tags from `next` and `release`)
-- `.github/workflows/release-testpypi.yml` (tag `test-v*`)
+- `.github/workflows/release-testpypi.yml` (tag `test-v*` or workflow_run from auto-test-tag)
 - `.github/workflows/release-pypi.yml` (tag `v*`, excludes `test-v*`)
 
 ## 7. Versioning discipline
