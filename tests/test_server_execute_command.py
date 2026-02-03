@@ -1,6 +1,25 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+
 from gabion import server
+
+
+class _DummyWorkspace:
+    def __init__(self, root_path: str) -> None:
+        self.root_path = root_path
+
+
+class _DummyServer:
+    def __init__(self, root_path: str) -> None:
+        self.workspace = _DummyWorkspace(root_path)
+
+
+@dataclass
+class _CommandResult:
+    exit_code: int
+    violations: int
 
 
 def test_normalize_transparent_decorators() -> None:
@@ -18,3 +37,60 @@ def test_uri_to_path_file_scheme() -> None:
 def test_uri_to_path_plain_path() -> None:
     path = server._uri_to_path("/tmp/example.py")
     assert str(path).endswith("/tmp/example.py")
+
+
+def _write_minimal_module(path: Path) -> None:
+    path.write_text(
+        "def alpha():\n"
+        "    return 1\n"
+    )
+
+
+def test_execute_command_no_violations(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "fail_on_violations": True,
+            "type_audit": False,
+        },
+    )
+    assert _CommandResult(
+        exit_code=result.get("exit_code", -1),
+        violations=result.get("violations", -1),
+    ) == _CommandResult(exit_code=0, violations=0)
+
+
+def test_execute_command_baseline_write(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    baseline_path = tmp_path / "baseline.txt"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "baseline": str(baseline_path),
+            "baseline_write": True,
+        },
+    )
+    assert result.get("baseline_written") is True
+    assert baseline_path.exists()
+    baseline_text = baseline_path.read_text()
+    assert baseline_text.startswith("# gabion baseline")
+
+
+def test_execute_synthesis_minimal_payload() -> None:
+    result = server.execute_synthesis(None, {"bundles": []})
+    assert result["protocols"] == []
+    assert result["errors"] == []
+
+
+def test_execute_refactor_invalid_payload() -> None:
+    result = server.execute_refactor(None, {})
+    assert result["errors"]
