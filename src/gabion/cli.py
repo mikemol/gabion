@@ -61,6 +61,7 @@ def build_check_payload(
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
 ) -> dict[str, Any]:
+    # dataflow-bundle: ignore_params, transparent_decorators
     if not paths:
         paths = [Path(".")]
     if strictness is not None and strictness not in {"high", "low"}:
@@ -202,6 +203,7 @@ def run_check(
     fail_on_type_ambiguities: bool,
     runner: Callable[..., dict[str, Any]] = run_command,
 ) -> dict[str, Any]:
+    # dataflow-bundle: ignore_params, transparent_decorators
     payload = build_check_payload(
         paths=paths,
         report=report,
@@ -246,6 +248,7 @@ def check(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
 ) -> None:
+    # dataflow-bundle: ignore_params, transparent_decorators
     """Run the dataflow grammar audit with strict defaults."""
     result = run_check(
         paths=paths,

@@ -127,6 +127,7 @@ def test_server_code_actions_and_diagnostics(tmp_path: Path) -> None:
             self.published: list[tuple[str, list]] = []
 
         def publish_diagnostics(self, uri: str, diagnostics: list) -> None:
+            # dataflow-bundle: diagnostics, uri
             self.published.append((uri, diagnostics))
 
     ls = _Server(str(tmp_path), str(sample))

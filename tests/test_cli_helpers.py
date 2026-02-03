@@ -86,6 +86,7 @@ def test_dataflow_audit_skips_type_audit_output() -> None:
         args: list[str] = []
 
     def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
         return {"exit_code": 0}
 
     request = cli.DataflowAuditRequest(ctx=DummyCtx(), args=["sample.py"], runner=runner)
@@ -99,6 +100,7 @@ def test_dataflow_audit_type_audit_empty_findings() -> None:
         args: list[str] = []
 
     def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
         return {"exit_code": 0, "type_suggestions": [], "type_ambiguities": []}
 
     request = cli.DataflowAuditRequest(
@@ -113,6 +115,7 @@ def test_dataflow_audit_type_audit_empty_findings() -> None:
 
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
         return {"exit_code": 0}
 
     result, paths_out, timestamp = cli._run_synth(

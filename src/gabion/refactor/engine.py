@@ -504,7 +504,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         protocol_hint: str,
         compat_shim: bool = False,
     ) -> None:
-        # dataflow-bundle: bundle_fields, protocol_hint, targets
+        # dataflow-bundle: bundle_fields, compat_shim, protocol_hint, targets
         self.targets = targets
         self.bundle_fields = bundle_fields
         self.protocol_hint = protocol_hint
