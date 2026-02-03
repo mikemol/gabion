@@ -364,6 +364,18 @@ def _step_run_contains_tokens(steps, tokens: set[str]) -> bool:
     return False
 
 
+def _step_run_contains_any(steps, tokens: set[str]) -> bool:
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        run = step.get("run")
+        if not isinstance(run, str):
+            continue
+        if any(token in run for token in tokens):
+            return True
+    return False
+
+
 def _check_release_testpypi_workflow(doc, path, errors):
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
@@ -374,9 +386,15 @@ def _check_release_testpypi_workflow(doc, path, errors):
         "origin/next",
         "TAG_SHA",
     }
+    required_scripts = {
+        "scripts/release_verify_test_tag.py",
+    }
     for name, job in jobs.items():
         steps = job.get("steps", [])
-        if not _step_run_contains_tokens(steps, required_tokens):
+        if not (
+            _step_run_contains_tokens(steps, required_tokens)
+            or _step_run_contains_any(steps, required_scripts)
+        ):
             errors.append(
                 f"{path}:{name}: release-testpypi workflow must verify tag equals main/next"
             )
@@ -392,9 +410,15 @@ def _check_release_pypi_workflow(doc, path, errors):
         "origin/release",
         "TAG_SHA",
     }
+    required_scripts = {
+        "scripts/release_verify_pypi_tag.py",
+    }
     for name, job in jobs.items():
         steps = job.get("steps", [])
-        if not _step_run_contains_tokens(steps, required_tokens):
+        if not (
+            _step_run_contains_tokens(steps, required_tokens)
+            or _step_run_contains_any(steps, required_scripts)
+        ):
             errors.append(
                 f"{path}:{name}: release-pypi workflow must verify tag equals main/next/release"
             )

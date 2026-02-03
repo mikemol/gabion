@@ -65,71 +65,10 @@ jobs:
           path: artifacts/release-testpypi/tag.txt
       - name: Ensure tag is on main/next
         if: steps.tag.outputs.tag != ''
-        run: |
-          git fetch origin main next
-          TAG="${{ steps.tag.outputs.tag }}"
-          TAG_SHA=$(git rev-parse "refs/tags/$TAG^{commit}")
-          MAIN_SHA=$(git rev-parse origin/main)
-          NEXT_SHA=$(git rev-parse origin/next)
-          if [ "$TAG_SHA" != "$MAIN_SHA" ]; then
-            echo "Test tag must point at main."
-            echo "tag=$TAG_SHA"
-            echo "main=$MAIN_SHA"
-            exit 1
-          fi
-          if [ "$TAG_SHA" != "$NEXT_SHA" ]; then
-            echo "Test tag must point at next."
-            echo "tag=$TAG_SHA"
-            echo "next=$NEXT_SHA"
-            exit 1
-          fi
+        run: python scripts/release_verify_test_tag.py --tag "${{ steps.tag.outputs.tag }}"
       - name: Set version from test tag
         if: steps.tag.outputs.tag != ''
-        run: |
-          python - <<'PY'
-          import os
-          import re
-          from pathlib import Path
-
-          tag = os.environ.get("TEST_TAG", "")
-          if not tag.startswith("test-v"):
-              raise SystemExit(f"Unexpected tag: {tag}")
-          version = tag[len("test-v") :]
-          if not version:
-              raise SystemExit("Missing version in tag")
-          if "+" in version:
-              base, local = version.split("+", 1)
-              digits = "".join(ch for ch in local if ch.isdigit())
-              if not digits:
-                  raise SystemExit("Missing timestamp digits in test tag")
-              version = f"{base}.dev{digits}"
-          path = Path("pyproject.toml")
-          text = path.read_text()
-          updated = re.sub(r'(?m)^version = ".*"$', f'version = "{version}"', text, count=1)
-          if updated == text:
-              raise SystemExit("Failed to update project.version in pyproject.toml")
-          path.write_text(updated)
-          init_path = Path("src/gabion/__init__.py")
-          init_text = init_path.read_text()
-          init_text = init_text.replace("\\r\\n", "\\n")
-          pattern = r'(?m)^__version__\\s*=\\s*([\\\'\\"]).*?\\1\\s*$'
-          init_updated, count = re.subn(
-              pattern,
-              f'__version__ = "{version}"',
-              init_text,
-              count=1,
-          )
-          if count != 1:
-              print(
-                  "Warning: __version__ update skipped "
-                  f"(matches={count})"
-              )
-          else:
-              init_path.write_text(init_updated)
-          print(f"Set project.version to {version}")
-          PY
-        env:
-          TEST_TAG: ${{ steps.tag.outputs.tag }}
+        run: python scripts/release_set_test_version.py --tag "${{ steps.tag.outputs.tag }}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         if: steps.tag.outputs.tag != ''
         with:
