@@ -28,50 +28,46 @@ def _find_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-@app.command()
-def check(
-    paths: List[Path] = typer.Argument(None),
-    report: Optional[Path] = typer.Option(None, "--report"),
-    fail_on_violations: bool = typer.Option(True, "--fail-on-violations/--no-fail-on-violations"),
-    root: Path = typer.Option(Path("."), "--root"),
-    config: Optional[Path] = typer.Option(None, "--config"),
-    baseline: Optional[Path] = typer.Option(
-        None, "--baseline", help="Baseline file of allowed violations."
-    ),
-    baseline_write: bool = typer.Option(
-        False, "--baseline-write", help="Write current violations to baseline."
-    ),
-    exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators: Optional[str] = typer.Option(
-        None, "--transparent-decorators"
-    ),
-    allow_external: Optional[bool] = typer.Option(
-        None, "--allow-external/--no-allow-external"
-    ),
-    strictness: Optional[str] = typer.Option(None, "--strictness"),
-    fail_on_type_ambiguities: bool = typer.Option(
-        True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
-    ),
-) -> None:
-    """Run the dataflow grammar audit with strict defaults."""
+def _split_csv_entries(entries: Optional[List[str]]) -> list[str] | None:
+    if entries is None:
+        return None
+    merged: list[str] = []
+    for entry in entries:
+        merged.extend([part.strip() for part in entry.split(",") if part.strip()])
+    return merged or None
+
+
+def _split_csv(value: Optional[str]) -> list[str] | None:
+    if value is None:
+        return None
+    items = [part.strip() for part in value.split(",") if part.strip()]
+    return items or None
+
+
+def build_check_payload(
+    *,
+    paths: Optional[List[Path]],
+    report: Optional[Path],
+    fail_on_violations: bool,
+    root: Path,
+    config: Optional[Path],
+    baseline: Optional[Path],
+    baseline_write: bool,
+    exclude: Optional[List[str]],
+    ignore_params: Optional[str],
+    transparent_decorators: Optional[str],
+    allow_external: Optional[bool],
+    strictness: Optional[str],
+    fail_on_type_ambiguities: bool,
+) -> dict[str, Any]:
     if not paths:
         paths = [Path(".")]
-    exclude_dirs: list[str] | None = None
-    if exclude is not None:
-        exclude_dirs = []
-        for entry in exclude:
-            exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
-    ignore_list: list[str] | None = None
-    if ignore_params is not None:
-        ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
-    transparent_list: list[str] | None = None
-    if transparent_decorators is not None:
-        transparent_list = [
-            p.strip() for p in transparent_decorators.split(",") if p.strip()
-        ]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
+    exclude_dirs = _split_csv_entries(exclude)
+    ignore_list = _split_csv(ignore_params)
+    transparent_list = _split_csv(transparent_decorators)
+    baseline_write_value: bool | None = baseline_write if baseline is not None else None
     payload = {
         "paths": [str(p) for p in paths],
         "report": str(report) if report is not None else None,
@@ -80,7 +76,7 @@ def check(
         "root": str(root),
         "config": str(config) if config is not None else None,
         "baseline": str(baseline) if baseline is not None else None,
-        "baseline_write": baseline_write if baseline is not None else None,
+        "baseline_write": baseline_write_value,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -88,32 +84,18 @@ def check(
         "strictness": strictness,
         "type_audit": True if fail_on_type_ambiguities else None,
     }
-    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
-    raise typer.Exit(code=int(result.get("exit_code", 0)))
+    return payload
 
 
-def _dataflow_audit(
-    request: "DataflowAuditRequest",
-) -> None:
-    """Run the dataflow grammar audit with explicit options."""
-    argv = list(request.args or []) + list(request.ctx.args)
-    if not argv:
-        argv = []
+def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
     parser = dataflow_cli_parser()
-    opts = parser.parse_args(argv)
-    exclude_dirs: list[str] | None = None
-    if opts.exclude is not None:
-        exclude_dirs = []
-        for entry in opts.exclude:
-            exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
-    ignore_list: list[str] | None = None
-    if opts.ignore_params is not None:
-        ignore_list = [p.strip() for p in opts.ignore_params.split(",") if p.strip()]
-    transparent_list: list[str] | None = None
-    if opts.transparent_decorators is not None:
-        transparent_list = [
-            p.strip() for p in opts.transparent_decorators.split(",") if p.strip()
-        ]
+    return parser.parse_args(argv)
+
+
+def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
+    exclude_dirs = _split_csv_entries(opts.exclude)
+    ignore_list = _split_csv(opts.ignore_params)
+    transparent_list = _split_csv(opts.transparent_decorators)
     payload: dict[str, Any] = {
         "paths": [str(p) for p in opts.paths],
         "root": str(opts.root),
@@ -121,6 +103,7 @@ def _dataflow_audit(
         "report": str(opts.report) if opts.report else None,
         "dot": opts.dot,
         "fail_on_violations": opts.fail_on_violations,
+        "fail_on_type_ambiguities": opts.fail_on_type_ambiguities,
         "baseline": str(opts.baseline) if opts.baseline else None,
         "baseline_write": opts.baseline_write if opts.baseline else None,
         "no_recursive": opts.no_recursive,
@@ -148,6 +131,102 @@ def _dataflow_audit(
         else None,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
     }
+    return payload
+
+
+def build_refactor_payload(
+    *,
+    input_payload: Optional[dict[str, Any]] = None,
+    protocol_name: Optional[str],
+    bundle: Optional[List[str]],
+    field: Optional[List[str]],
+    target_path: Optional[Path],
+    target_functions: Optional[List[str]],
+    compatibility_shim: bool,
+    rationale: Optional[str],
+) -> dict[str, Any]:
+    if input_payload is not None:
+        return input_payload
+    if protocol_name is None or target_path is None:
+        raise typer.BadParameter(
+            "Provide --protocol-name and --target-path or use --input."
+        )
+    field_specs: list[dict[str, str | None]] = []
+    for spec in field or []:
+        name, _, hint = spec.partition(":")
+        name = name.strip()
+        if not name:
+            continue
+        type_hint = hint.strip() or None
+        field_specs.append({"name": name, "type_hint": type_hint})
+    if not bundle and field_specs:
+        bundle = [spec["name"] for spec in field_specs]
+    return {
+        "protocol_name": protocol_name,
+        "bundle": bundle or [],
+        "fields": field_specs,
+        "target_path": str(target_path),
+        "target_functions": target_functions or [],
+        "compatibility_shim": compatibility_shim,
+        "rationale": rationale,
+    }
+
+
+@app.command()
+def check(
+    paths: List[Path] = typer.Argument(None),
+    report: Optional[Path] = typer.Option(None, "--report"),
+    fail_on_violations: bool = typer.Option(True, "--fail-on-violations/--no-fail-on-violations"),
+    root: Path = typer.Option(Path("."), "--root"),
+    config: Optional[Path] = typer.Option(None, "--config"),
+    baseline: Optional[Path] = typer.Option(
+        None, "--baseline", help="Baseline file of allowed violations."
+    ),
+    baseline_write: bool = typer.Option(
+        False, "--baseline-write", help="Write current violations to baseline."
+    ),
+    exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
+    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators: Optional[str] = typer.Option(
+        None, "--transparent-decorators"
+    ),
+    allow_external: Optional[bool] = typer.Option(
+        None, "--allow-external/--no-allow-external"
+    ),
+    strictness: Optional[str] = typer.Option(None, "--strictness"),
+    fail_on_type_ambiguities: bool = typer.Option(
+        True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
+    ),
+) -> None:
+    """Run the dataflow grammar audit with strict defaults."""
+    payload = build_check_payload(
+        paths=paths,
+        report=report,
+        fail_on_violations=fail_on_violations,
+        root=root,
+        config=config,
+        baseline=baseline,
+        baseline_write=baseline_write if baseline is not None else False,
+        exclude=exclude,
+        ignore_params=ignore_params,
+        transparent_decorators=transparent_decorators,
+        allow_external=allow_external,
+        strictness=strictness,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+    )
+    result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
+    raise typer.Exit(code=int(result.get("exit_code", 0)))
+
+
+def _dataflow_audit(
+    request: "DataflowAuditRequest",
+) -> None:
+    """Run the dataflow grammar audit with explicit options."""
+    argv = list(request.args or []) + list(request.ctx.args)
+    if not argv:
+        argv = []
+    opts = parse_dataflow_args(argv)
+    payload = build_dataflow_payload(opts)
     result = run_command(CommandRequest(DATAFLOW_COMMAND, [payload]))
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
@@ -476,36 +555,22 @@ def refactor_protocol(
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
-    payload: dict[str, Any] = {}
+    input_payload: dict[str, Any] | None = None
     if input_path is not None:
         try:
-            payload = json.loads(input_path.read_text())
+            input_payload = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
-    else:
-        if protocol_name is None or target_path is None:
-            raise typer.BadParameter(
-                "Provide --protocol-name and --target-path or use --input."
-            )
-        field_specs: list[dict[str, str | None]] = []
-        for spec in field or []:
-            name, _, hint = spec.partition(":")
-            name = name.strip()
-            if not name:
-                continue
-            type_hint = hint.strip() or None
-            field_specs.append({"name": name, "type_hint": type_hint})
-        if not bundle and field_specs:
-            bundle = [spec["name"] for spec in field_specs]
-        payload = {
-            "protocol_name": protocol_name,
-            "bundle": bundle or [],
-            "fields": field_specs,
-            "target_path": str(target_path),
-            "target_functions": target_functions or [],
-            "compatibility_shim": compatibility_shim,
-            "rationale": rationale,
-        }
+    payload = build_refactor_payload(
+        input_payload=input_payload,
+        protocol_name=protocol_name,
+        bundle=bundle,
+        field=field,
+        target_path=target_path,
+        target_functions=target_functions,
+        compatibility_shim=compatibility_shim,
+        rationale=rationale,
+    )
     result = run_command(CommandRequest(REFACTOR_COMMAND, [payload]))
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:
