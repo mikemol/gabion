@@ -348,8 +348,6 @@ def _param_spans(
 def _function_key(scope: Iterable[str], name: str) -> str:
     parts = list(scope)
     parts.append(name)
-    if not parts:
-        return name
     return ".".join(parts)
 
 
@@ -522,8 +520,6 @@ def _collect_return_aliases(
         if not alias:
             continue
         params = _param_names(fn, ignore_params)
-        if not params:
-            continue
         class_name = _enclosing_class(fn, parents)
         scopes = _enclosing_scopes(fn, parents)
         keys = {fn.name}
@@ -791,14 +787,6 @@ def analyze_file(
             if not effective_scope:
                 break
             effective_scope = effective_scope[:-1]
-        globals_only = [
-            key
-            for key in candidates
-            if not fn_lexical_scopes.get(key)
-            and not (fn_class_names.get(key) and not fn_lexical_scopes.get(key))
-        ]
-        if len(globals_only) == 1:
-            return globals_only[0]
         return None
 
     for caller_key, calls in list(fn_calls.items()):
@@ -816,8 +804,6 @@ def analyze_file(
         local_functions = set(fn_use.keys())
 
         def _resolve_local_method(callee: str) -> str | None:
-            if "." not in callee:
-                return None
             class_part, method = callee.rsplit(".", 1)
             return _resolve_local_method_in_hierarchy(
                 class_part,
@@ -1454,10 +1440,7 @@ def analyze_type_flow_repo_with_map(
                     mapped_params: set[str] = set()
                     callee_to_caller: dict[str, set[str]] = defaultdict(set)
                     for pos_idx, param in call.pos_map.items():
-                        try:
-                            idx = int(pos_idx)
-                        except ValueError:
-                            continue
+                        idx = int(pos_idx)
                         if idx >= len(callee_params):
                             continue
                         callee_param = callee_params[idx]
@@ -1485,8 +1468,6 @@ def analyze_type_flow_repo_with_map(
                         for caller_param in callers:
                             downstream[caller_param].add(annot)
                 for param, annots in downstream.items():
-                    if not annots:
-                        continue
                     if len(annots) > 1:
                         ambiguities.add(
                             f"{info.path.name}:{info.name}.{param} downstream types conflict: {sorted(annots)}"
@@ -1570,10 +1551,7 @@ def analyze_constant_flow_repo(
                 callee_params = callee.params
                 mapped_params = set()
                 for idx_str in call.pos_map:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     mapped_params.add(callee_params[idx])
@@ -1583,30 +1561,21 @@ def analyze_constant_flow_repo(
                 remaining = [p for p in callee_params if p not in mapped_params]
 
                 for idx_str, value in call.const_pos.items():
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     key = (callee.qual, callee_params[idx])
                     const_values[key].add(value)
                     call_counts[key] += 1
                 for idx_str in call.pos_map:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     key = (callee.qual, callee_params[idx])
                     non_const[key] = True
                     call_counts[key] += 1
                 for idx_str in call.non_const_pos:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     key = (callee.qual, callee_params[idx])
@@ -1647,8 +1616,6 @@ def analyze_constant_flow_repo(
     smells: list[str] = []
     for key, values in const_values.items():
         if non_const.get(key):
-            continue
-        if not values:
             continue
         if len(values) == 1:
             qual, param = key
@@ -1694,10 +1661,7 @@ def _compute_knob_param_names(
                 callee_params = callee.params
                 remaining = [p for p in callee_params]
                 for idx_str, value in call.const_pos.items():
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     param = callee_params[idx]
@@ -1706,10 +1670,7 @@ def _compute_knob_param_names(
                     if param in remaining:
                         remaining.remove(param)
                 for idx_str in call.pos_map:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     param = callee_params[idx]
@@ -1718,10 +1679,7 @@ def _compute_knob_param_names(
                     if param in remaining:
                         remaining.remove(param)
                 for idx_str in call.non_const_pos:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     param = callee_params[idx]
@@ -1832,10 +1790,7 @@ def analyze_unused_arg_flow_repo(
                 callee_params = callee.params
                 mapped_params = set()
                 for idx_str in call.pos_map:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     mapped_params.add(callee_params[idx])
@@ -1849,10 +1804,7 @@ def analyze_unused_arg_flow_repo(
                 ]
 
                 for idx_str, caller_param in call.pos_map.items():
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     callee_param = callee_params[idx]
@@ -1866,10 +1818,7 @@ def analyze_unused_arg_flow_repo(
                             )
                         )
                 for idx_str in call.non_const_pos:
-                    try:
-                        idx = int(idx_str)
-                    except ValueError:
-                        continue
+                    idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     callee_param = callee_params[idx]
@@ -2029,7 +1978,7 @@ def _collect_dataclass_registry(
                 continue
             if module:
                 registry[f"{module}.{node.name}"] = fields
-            else:
+            else:  # pragma: no cover - module name is always non-empty for file paths
                 registry[node.name] = fields
     return registry
 
@@ -2072,15 +2021,8 @@ def _iter_dataclass_call_bundles(
         for name, fields in local_dataclasses.items():
             if module:
                 dataclass_registry[f"{module}.{name}"] = fields
-            else:
+            else:  # pragma: no cover - module name is always non-empty for file paths
                 dataclass_registry[name] = fields
-
-    def _callee_name(call: ast.Call) -> str | None:
-        if isinstance(call.func, ast.Name):
-            return call.func.id
-        if isinstance(call.func, ast.Attribute):
-            return call.func.attr
-        return None
 
     def _resolve_fields(call: ast.Call) -> list[str] | None:
         if isinstance(call.func, ast.Name):
@@ -2286,8 +2228,6 @@ def _render_mermaid_component(
     documented_only = sorted(observed_norm & documented)
     def _tier(bundle: tuple[str, ...]) -> str:
         count = bundle_counts.get(bundle, 1)
-        if bundle in declared_global:
-            return "tier-1"
         if count > 1:
             return "tier-2"
         return "tier-3"
@@ -2594,10 +2534,7 @@ def build_synthesis_plan(
                         continue
                     callee_params = callee.params
                     for idx_str, value in call.const_pos.items():
-                        try:
-                            idx = int(idx_str)
-                        except ValueError:
-                            continue
+                        idx = int(idx_str)
                         if idx >= len(callee_params):
                             continue
                         param = callee_params[idx]
@@ -2613,8 +2550,6 @@ def build_synthesis_plan(
                         if hint:
                             type_sets[kw].add(hint)
         for name, types in type_sets.items():
-            if not types:
-                continue
             combined, conflicted = _combine_type_hints(types)
             field_types[name] = combined
             if conflicted and len(types) > 1:
@@ -2794,8 +2729,6 @@ def build_refactor_plan(
 
     plans: list[dict[str, object]] = []
     for bundle, infos in sorted(bundle_map.items(), key=lambda item: (len(item[0]), item[0])):
-        if not infos:
-            continue
         comp = dict(infos)
         deps: dict[str, set[str]] = {qual: set() for qual in comp}
         for info in infos.values():

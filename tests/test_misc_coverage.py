@@ -32,6 +32,13 @@ def test_main_entrypoint_invokes_app() -> None:
         sys.argv = old_argv
 
 
+def test_main_module_import() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root / "src"))
+    module = __import__("gabion.__main__", fromlist=["main"])
+    assert hasattr(module, "main")
+
+
 def test_analysis_engine_and_model_defaults() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
