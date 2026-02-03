@@ -49,7 +49,7 @@ def build_check_payload(
     paths: Optional[List[Path]],
     report: Optional[Path],
     fail_on_violations: bool,
-    root: Path,
+    root: Path | None,
     config: Optional[Path],
     baseline: Optional[Path],
     baseline_write: bool,
@@ -68,6 +68,7 @@ def build_check_payload(
     ignore_list = _split_csv(ignore_params)
     transparent_list = _split_csv(transparent_decorators)
     baseline_write_value: bool | None = baseline_write if baseline is not None else None
+    root = root or Path(".")
     payload = {
         "paths": [str(p) for p in paths],
         "report": str(report) if report is not None else None,
