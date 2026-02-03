@@ -52,6 +52,17 @@ jobs:
             exit 0
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Persist test tag
+        if: steps.tag.outputs.tag != ''
+        run: |
+          mkdir -p artifacts/release-testpypi
+          echo "${{ steps.tag.outputs.tag }}" > artifacts/release-testpypi/tag.txt
+      - name: Upload test tag artifact
+        if: steps.tag.outputs.tag != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-testpypi-tag
+          path: artifacts/release-testpypi/tag.txt
       - name: Ensure tag is on main/next
         if: steps.tag.outputs.tag != ''
         run: |

@@ -7,13 +7,13 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   promote:
     runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'test-v') &&
       (github.event.workflow_run.actor.login == github.repository_owner ||
         github.event.workflow_run.actor.login == 'github-actions[bot]')
     steps:
@@ -21,10 +21,26 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Download test tag artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-testpypi-tag
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/release-testpypi
       - name: Promote next to release
         run: |
           git fetch origin main next release --tags
-          TAG="${{ github.event.workflow_run.head_branch }}"
+          TAG=""
+          if [ -f artifacts/release-testpypi/tag.txt ]; then
+            TAG="$(cat artifacts/release-testpypi/tag.txt)"
+          elif [[ "${{ github.event.workflow_run.head_branch }}" == test-v* ]]; then
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "Missing test tag for promotion."
+            exit 1
+          fi
           HEAD_SHA=$(git rev-parse HEAD)
           NEXT_SHA=$(git rev-parse origin/next)
           TAG_SHA=$(git rev-parse "refs/tags/$TAG")
