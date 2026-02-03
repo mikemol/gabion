@@ -1,5 +1,5 @@
 ---
-doc_revision: 73
+doc_revision: 74
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -80,7 +80,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Bundle declarations: non-Name args/kwargs in dataclass calls.
 - [x] Bundle declarations: external dataclass modules (cross-file).
 - [x] FactorizationTree snapshot emission (canonical JSON). (in-16, GH-62)
-- [ ] Structural diff command + baseline comparison. (in-16, GH-63)
+- [x] Structural diff command + baseline comparison. (in-16, GH-63)
 - [ ] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64)
 
 ## Synthesis + refactoring nodes
