@@ -7,20 +7,22 @@ import sys
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
-    from gabion.synthesis.merge import merge_bundles
+    from gabion.synthesis.merge import _jaccard, merge_bundles
 
-    return merge_bundles
+    return _jaccard, merge_bundles
 
 
 def test_merge_bundles_combines_overlaps() -> None:
-    merge_bundles = _load()
+    _jaccard, merge_bundles = _load()
     bundles = [{"a", "b"}, {"a", "b", "c"}]
     merged = merge_bundles(bundles, min_overlap=0.66)
     assert merged == [{"a", "b", "c"}]
+    assert _jaccard(set(), set()) == 1.0
 
 
 def test_merge_bundles_keeps_distinct() -> None:
-    merge_bundles = _load()
+    _jaccard, merge_bundles = _load()
     bundles = [{"a", "b"}, {"c", "d"}]
     merged = merge_bundles(bundles, min_overlap=0.5)
     assert merged == [{"a", "b"}, {"c", "d"}]
+    assert _jaccard(set(), {"x"}) == 0.0

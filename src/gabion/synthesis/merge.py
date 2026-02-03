@@ -7,8 +7,6 @@ def _jaccard(left: Set[str], right: Set[str]) -> float:
     if not left and not right:
         return 1.0
     union = left | right
-    if not union:
-        return 0.0
     return len(left & right) / len(union)
 
 
