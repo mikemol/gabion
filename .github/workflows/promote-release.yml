@@ -32,8 +32,12 @@ jobs:
         run: |
           git fetch origin main next release --tags
           TAG=""
-          if [ -f artifacts/release-testpypi/tag.txt ]; then
-            TAG="$(cat artifacts/release-testpypi/tag.txt)"
+          TAG_FILE=""
+          if [ -d artifacts/release-testpypi ]; then
+            TAG_FILE="$(find artifacts/release-testpypi -name tag.txt | head -n 1 || true)"
+          fi
+          if [ -n "$TAG_FILE" ] && [ -f "$TAG_FILE" ]; then
+            TAG="$(cat "$TAG_FILE")"
           elif [[ "${{ github.event.workflow_run.head_branch }}" == test-v* ]]; then
             TAG="${{ github.event.workflow_run.head_branch }}"
           fi
