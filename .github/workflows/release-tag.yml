@@ -21,3 +21,10 @@ jobs:
           fetch-depth: 0
       - name: Create and push tag
         run: python scripts/release_tag.py --tag "${{ inputs.tag }}"
+      - name: Write release tag artifact
+        run: echo "${{ inputs.tag }}" > tag.txt
+      - name: Upload release tag artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-pypi-tag
+          path: tag.txt
