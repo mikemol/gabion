@@ -44,17 +44,7 @@ jobs:
           fi
       - name: Read version
         id: version
-        run: |
-          python - <<'PY' > "$GITHUB_OUTPUT"
-          import tomllib
-          from pathlib import Path
-
-          data = tomllib.loads(Path("pyproject.toml").read_text())
-          version = data.get("project", {}).get("version")
-          if not version:
-            raise SystemExit("pyproject.toml missing project.version")
-          print(f"version={version}")
-          PY
+        run: python scripts/release_read_project_version.py --output "$GITHUB_OUTPUT"
       - name: Create test tag if missing
         id: tag
         run: |
