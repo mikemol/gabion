@@ -68,7 +68,7 @@ jobs:
         run: |
           git fetch origin main next
           TAG="${{ steps.tag.outputs.tag }}"
-          TAG_SHA=$(git rev-parse "refs/tags/$TAG")
+          TAG_SHA=$(git rev-parse "refs/tags/$TAG^{commit}")
           git merge-base --is-ancestor "$TAG_SHA" origin/main
           git merge-base --is-ancestor "$TAG_SHA" origin/next
       - name: Set version from test tag
