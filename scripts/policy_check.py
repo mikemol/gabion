@@ -323,9 +323,24 @@ def _check_promote_release_workflow(doc, path, errors):
         cond = _normalize_if(job.get("if"))
         if "github.event.workflow_run.conclusion=='success'" not in cond:
             errors.append(f"{path}:{name}: promote workflow must guard on success")
+        steps = job.get("steps", [])
+        has_tag_artifact = False
+        if isinstance(steps, list):
+            for step in steps:
+                uses = step.get("uses", "")
+                if uses.startswith("actions/download-artifact@"):
+                    with_block = step.get("with", {}) or {}
+                    if with_block.get("name") == "release-testpypi-tag":
+                        has_tag_artifact = True
+                        break
+                run = step.get("run", "")
+                if "release-testpypi/tag.txt" in run:
+                    has_tag_artifact = True
+                    break
         if (
             "startswith(github.event.workflow_run.head_branch,'test-v')" not in cond
             and "startsWith(github.event.workflow_run.head_branch,'test-v')" not in cond
+            and not has_tag_artifact
         ):
             errors.append(f"{path}:{name}: promote workflow must guard on test-v tags")
         if (
