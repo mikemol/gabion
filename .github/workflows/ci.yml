@@ -58,6 +58,10 @@ jobs:
         run: |
           mkdir -p artifacts/test_runs
           .venv/bin/python -m pytest \
+            --cov=src/gabion \
+            --cov-report=term-missing \
+            --cov-report=xml:artifacts/test_runs/coverage.xml \
+            --cov-report=html:artifacts/test_runs/htmlcov \
             --junitxml artifacts/test_runs/junit.xml \
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO

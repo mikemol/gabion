@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -82,6 +82,10 @@ Measurement command (advisory, not gating by default):
 ```
 mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing
 ```
+
+CI stores coverage artifacts under `artifacts/test_runs/`:
+- `coverage.xml` (machine-readable)
+- `htmlcov/` (human-readable)
 
 Coverage reports may be stored under `artifacts/` for review, but enforcement
 gates are policy decisions and should follow the ratchet rule above.
