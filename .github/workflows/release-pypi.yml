@@ -34,6 +34,6 @@ jobs:
           python -m pip install --upgrade twine pkginfo
           python -m twine check dist/*
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@8a08d616893759ef8e1aa1f2785787c0b97e20d6
+        uses: pypa/gh-action-pypi-publish@03f86fee9ac21f854951f5c6e2a02c2a1324aec7
         with:
-          verify_metadata: false
+          verify-metadata: false
