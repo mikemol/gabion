@@ -1,5 +1,5 @@
 ---
-doc_revision: 19
+doc_revision: 20
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -13,7 +13,7 @@ doc_requires:
   - POLICY_SEED.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 24
+  POLICY_SEED.md: 25
   CONTRIBUTING.md: 68
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
@@ -103,6 +103,11 @@ Release workflows should:
 - Bind Trusted Publishing to a single GitHub environment.
 
 Rationale: publishing is a sensitive surface.
+
+Metadata checks: `hatchling` emits core metadata version 2.4, which older
+`pkginfo` versions cannot parse. The release workflows run `twine check dist/*`
+with an up-to-date `twine/pkginfo` and disable the action’s built-in metadata
+check (`verify_metadata: false`) to avoid false failures.
 
 Current workflows:
 - `.github/workflows/release-tag.yml` (creates tags from `next` and `release`)
