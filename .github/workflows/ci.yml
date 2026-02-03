@@ -48,7 +48,9 @@ jobs:
       - name: Dataflow audit
         run: |
           mkdir -p artifacts/audit_reports
-          .venv/bin/python -m gabion check --report artifacts/audit_reports/dataflow_report.md \
+          .venv/bin/python -m gabion check \
+            --report artifacts/audit_reports/dataflow_report.md \
+            --baseline baselines/dataflow_baseline.txt \
             || (cat artifacts/audit_reports/dataflow_report.md; exit 1)
       - name: Docflow audit
         run: .venv/bin/python scripts/docflow_audit.py --root . --fail-on-violations
