@@ -17,7 +17,7 @@ doc_requires:
 doc_reviewed_as_of:
   README.md: 58
   AGENTS.md: 12
-  POLICY_SEED.md: 23
+  POLICY_SEED.md: 24
   glossary.md: 9
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:

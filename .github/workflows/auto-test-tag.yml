@@ -56,15 +56,27 @@ jobs:
           print(f"version={version}")
           PY
       - name: Create test tag if missing
+        id: tag
         run: |
           STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
           TAG="test-v${{ steps.version.outputs.version }}+${STAMP}"
           TARGET="$(git rev-parse origin/next)"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
             echo "Tag already exists: $TAG"
+            echo "tag=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Test release $TAG" "$TARGET"
           git push origin "refs/tags/$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Write tag artifact
+        if: steps.tag.outputs.tag != ''
+        run: echo "${{ steps.tag.outputs.tag }}" > tag.txt
+      - name: Upload tag artifact
+        if: steps.tag.outputs.tag != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: auto-test-tag
+          path: tag.txt
