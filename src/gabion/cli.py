@@ -470,6 +470,9 @@ def refactor_protocol(
     ),
     target_path: Optional[Path] = typer.Option(None, "--target-path"),
     target_functions: Optional[List[str]] = typer.Option(None, "--target-function"),
+    compatibility_shim: bool = typer.Option(
+        False, "--compat-shim/--no-compat-shim"
+    ),
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
@@ -500,6 +503,7 @@ def refactor_protocol(
             "fields": field_specs,
             "target_path": str(target_path),
             "target_functions": target_functions or [],
+            "compatibility_shim": compatibility_shim,
             "rationale": rationale,
         }
     result = run_command(CommandRequest(REFACTOR_COMMAND, [payload]))

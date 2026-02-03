@@ -1,5 +1,5 @@
 ---
-doc_revision: 66
+doc_revision: 67
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -136,5 +136,5 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Refactor engine: Call-site rewriting (foo(x, y) -> foo(Bundle(x, y))). (GH-18)
 - [x] Refactor engine: Preamble injection (unpack bundle to preserve local logic). (GH-19)
 - [x] Refactor engine: Import management (inject bundle import at call sites). (GH-20)
-- [ ] Refactor strategy: Compatibility shims (generate @overload + DeprecationWarning wrapper). (GH-24)
+- [x] Refactor strategy: Compatibility shims (generate @overload + DeprecationWarning wrapper). (GH-24)
 - [ ] Long-lived LSP server cache / incremental analysis (daemon mode). (GH-21)

@@ -115,10 +115,14 @@ class RefactorEngine:
         bundle_fields = [spec.name for spec in field_specs]
         protocol_hint = protocol
         if targets:
+            compat_shim = bool(request.compatibility_shim)
+            if compat_shim:
+                new_module = _ensure_compat_imports(new_module)
             transformer = _RefactorTransformer(
                 targets=targets,
                 bundle_fields=bundle_fields,
                 protocol_hint=protocol_hint,
+                compat_shim=compat_shim,
             )
             new_module = new_module.visit(transformer)
             warnings.extend(transformer.warnings)
@@ -255,6 +259,63 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
                     if alias.name.value == "Protocol":
                         return True
     return False
+
+
+def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
+    for stmt in body:
+        if not isinstance(stmt, cst.SimpleStatementLine):
+            continue
+        for item in stmt.body:
+            if not isinstance(item, cst.ImportFrom):
+                continue
+            module = _module_expr_to_str(item.module)
+            if module != "typing":
+                continue
+            for alias in item.names:
+                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
+                    if alias.name.value == "overload":
+                        return True
+    return False
+
+
+def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
+    for stmt in body:
+        if not isinstance(stmt, cst.SimpleStatementLine):
+            continue
+        for item in stmt.body:
+            if isinstance(item, cst.Import):
+                for alias in item.names:
+                    if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
+                        if alias.name.value == "warnings":
+                            return True
+    return False
+
+
+def _ensure_compat_imports(module: cst.Module) -> cst.Module:
+    body = list(module.body)
+    insert_idx = _find_import_insert_index(body)
+    if not _has_warnings_import(body):
+        body.insert(
+            insert_idx,
+            cst.SimpleStatementLine(
+                [cst.Import(names=[cst.ImportAlias(name=cst.Name("warnings"))])]
+            ),
+        )
+        insert_idx += 1
+    if not _has_typing_overload_import(body):
+        body.insert(
+            insert_idx,
+            cst.SimpleStatementLine(
+                [
+                    cst.ImportFrom(
+                        module=cst.Name("typing"),
+                        names=[cst.ImportAlias(name=cst.Name("overload"))],
+                    )
+                ]
+            ),
+        )
+        insert_idx += 1
+    return module.with_changes(body=body)
 
 
 def _collect_import_context(
@@ -441,11 +502,13 @@ class _RefactorTransformer(cst.CSTTransformer):
         targets: set[str],
         bundle_fields: list[str],
         protocol_hint: str,
+        compat_shim: bool = False,
     ) -> None:
         # dataflow-bundle: bundle_fields, protocol_hint, targets
         self.targets = targets
         self.bundle_fields = bundle_fields
         self.protocol_hint = protocol_hint
+        self.compat_shim = compat_shim
         self.warnings: list[str] = []
         self._stack: list[str] = []
 
@@ -486,7 +549,7 @@ class _RefactorTransformer(cst.CSTTransformer):
 
     def _maybe_rewrite_function(
         self,
-        original_node: cst.FunctionDef | cst.AsyncFunctionDef,
+        original_node: cst.FunctionDef,
         updated_node: cst.FunctionDef | cst.AsyncFunctionDef,
     ) -> cst.CSTNode:
         qualname = ".".join(self._stack)
@@ -515,7 +578,135 @@ class _RefactorTransformer(cst.CSTTransformer):
         new_body = self._inject_preamble(
             updated_node.body, bundle_param_name, target_fields
         )
-        return updated_node.with_changes(params=new_params, body=new_body)
+        updated_impl = updated_node.with_changes(params=new_params, body=new_body)
+        if not self.compat_shim:
+            return updated_impl
+        impl_name = f"_{name}_bundle"
+        impl_node = updated_impl.with_changes(
+            name=cst.Name(impl_name),
+            decorators=[],
+        )
+        shim_nodes = self._build_compat_shim(
+            original_node=original_node,
+            impl_name=impl_name,
+            bundle_param=bundle_param_name,
+            self_param=self_param,
+        )
+        return cst.FlattenSentinel([*shim_nodes, impl_node])
+
+    def _build_compat_shim(
+        self,
+        *,
+        original_node: cst.FunctionDef | cst.AsyncFunctionDef,
+        impl_name: str,
+        bundle_param: str,
+        self_param: cst.Param | None,
+    ) -> list[cst.CSTNode]:
+        decorators = list(original_node.decorators)
+        overload_decorators = [cst.Decorator(cst.Name("overload")), *decorators]
+        bundle_params = self._build_parameters(self_param, bundle_param)
+        legacy_params = original_node.params
+        bundle_stub = self._build_overload_stub(
+            original_node=original_node,
+            params=bundle_params,
+            decorators=overload_decorators,
+        )
+        legacy_stub = self._build_overload_stub(
+            original_node=original_node,
+            params=legacy_params,
+            decorators=overload_decorators,
+        )
+        wrapper_params = self._build_shim_parameters(self_param)
+        wrapper_body = self._build_shim_body(
+            impl_name=impl_name,
+            bundle_type=self.protocol_hint,
+            self_param=self_param,
+            is_async=bool(original_node.asynchronous),
+            public_name=original_node.name.value,
+        )
+        wrapper = self._build_wrapper(
+            original_node=original_node,
+            params=wrapper_params,
+            body=wrapper_body,
+            decorators=decorators,
+        )
+        return [bundle_stub, legacy_stub, wrapper]
+
+    def _build_overload_stub(
+        self,
+        *,
+        original_node: cst.FunctionDef,
+        params: cst.Parameters,
+        decorators: list[cst.Decorator],
+    ) -> cst.CSTNode:
+        body = cst.IndentedBlock(
+            body=[cst.SimpleStatementLine([cst.Expr(cst.Ellipsis())])]
+        )
+        return original_node.with_changes(
+            params=params,
+            body=body,
+            decorators=decorators,
+        )
+
+    def _build_wrapper(
+        self,
+        *,
+        original_node: cst.FunctionDef,
+        params: cst.Parameters,
+        body: cst.BaseSuite,
+        decorators: list[cst.Decorator],
+    ) -> cst.CSTNode:
+        return original_node.with_changes(
+            params=params,
+            body=body,
+            decorators=decorators,
+        )
+
+    def _build_shim_parameters(self, self_param: cst.Param | None) -> cst.Parameters:
+        params: list[cst.Param] = []
+        if self_param is not None:
+            params.append(self_param)
+        return cst.Parameters(
+            params=params,
+            star_arg=cst.Param(name=cst.Name("args")),
+            kwonly_params=[],
+            star_kwarg=cst.Param(name=cst.Name("kwargs")),
+            posonly_params=[],
+            posonly_ind=cst.MaybeSentinel.DEFAULT,
+        )
+
+    def _build_shim_body(
+        self,
+        *,
+        impl_name: str,
+        bundle_type: str,
+        self_param: cst.Param | None,
+        is_async: bool,
+        public_name: str,
+    ) -> cst.BaseSuite:
+        receiver = self_param.name.value if self_param is not None else None
+        impl_call = f"{receiver}.{impl_name}" if receiver else impl_name
+        return_prefix = "return await" if is_async else "return"
+        guard = (
+            f"if args and isinstance(args[0], {bundle_type}):\n"
+            f"    if len(args) != 1 or kwargs:\n"
+            f"        raise TypeError(\"{public_name}() bundle call expects a single {bundle_type} argument\")\n"
+            f"    {return_prefix} {impl_call}(args[0])\n"
+        )
+        warn = (
+            f"warnings.warn(\"{public_name}() is deprecated; use {public_name}({bundle_type}(...))\", "
+            "DeprecationWarning, stacklevel=2)"
+        )
+        build = f"bundle = {bundle_type}(*args, **kwargs)"
+        tail = f"{return_prefix} {impl_call}(bundle)"
+        return cst.IndentedBlock(
+            body=[
+                cst.parse_statement(guard),
+                cst.parse_statement(warn),
+                cst.parse_statement(build),
+                cst.parse_statement(tail),
+            ]
+        )
 
     def _ordered_param_names(self, params: cst.Parameters) -> list[str]:
         names: list[str] = []

@@ -69,6 +69,7 @@ class RefactorRequest(BaseModel):
     fields: List[RefactorFieldDTO] = []
     target_path: str
     target_functions: List[str] = []
+    compatibility_shim: bool = False
     rationale: Optional[str] = None
 
 

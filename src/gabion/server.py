@@ -380,6 +380,7 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
             ],
             target_path=request.target_path,
             target_functions=request.target_functions,
+            compatibility_shim=request.compatibility_shim,
             rationale=request.rationale,
         )
     )
