@@ -62,6 +62,7 @@ jobs:
             --cov-report=term-missing \
             --cov-report=xml:artifacts/test_runs/coverage.xml \
             --cov-report=html:artifacts/test_runs/htmlcov \
+            --cov-fail-under=100 \
             --junitxml artifacts/test_runs/junit.xml \
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO

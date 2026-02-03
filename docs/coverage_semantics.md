@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 6
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -18,7 +18,7 @@ doc_requires:
   - AGENTS.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 28
-  glossary.md: 11
+  glossary.md: 13
   README.md: 58
   CONTRIBUTING.md: 69
   AGENTS.md: 12
@@ -69,6 +69,14 @@ Metamorphic tests must cover commutation laws in `glossary.md`:
 - rename/alias invariance of bundle identity
 - fixed-point stability of analysis/refactor loops
 
+### 1.5 Decision-flow tier coverage (required when refactoring control-flow)
+When control-flow is refactored into decision structures, tests must include:
+- **Tier-3 (Decision Table):** documentation aligned with code paths.
+- **Tier-2 (Decision Bundle):** centralized guard map with positive/negative cases.
+- **Tier-1 (Decision Protocol):** schema validation + edge cases derived from the protocol.
+
+See `glossary.md` §§12–14 for decision-flow tier definitions.
+
 ## 2. Ratchet Policy (No Regression)
 
 Coverage is ratcheted:
@@ -81,6 +89,12 @@ Coverage is ratcheted:
 Measurement command (advisory, not gating by default):
 ```
 mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing
+```
+
+CI enforces **100% line coverage** for execution coverage (fail-under=100).
+Branch coverage remains **advisory** and may be measured locally:
+```
+mise exec -- python -m pytest --cov=src/gabion --cov-branch --cov-report=term-missing
 ```
 
 CI stores coverage artifacts under `artifacts/test_runs/`:
