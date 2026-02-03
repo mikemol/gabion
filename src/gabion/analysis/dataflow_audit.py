@@ -430,6 +430,99 @@ def _param_annotations(
     return annots
 
 
+class _ReturnAliasCollector(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.returns: list[ast.AST | None] = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return
+
+    def visit_Return(self, node: ast.Return) -> None:
+        self.returns.append(node.value)
+
+
+def _return_aliases(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> list[str] | None:
+    params = _param_names(fn, ignore_params)
+    if not params:
+        return None
+    param_set = set(params)
+    collector = _ReturnAliasCollector()
+    for stmt in fn.body:
+        collector.visit(stmt)
+    if not collector.returns:
+        return None
+    alias: list[str] | None = None
+
+    def _alias_from_expr(expr: ast.AST | None) -> list[str] | None:
+        if expr is None:
+            return None
+        if isinstance(expr, ast.Name) and expr.id in param_set:
+            return [expr.id]
+        if isinstance(expr, (ast.Tuple, ast.List)):
+            names: list[str] = []
+            for elt in expr.elts:
+                if isinstance(elt, ast.Name) and elt.id in param_set:
+                    names.append(elt.id)
+                else:
+                    return None
+            return names
+        return None
+
+    for expr in collector.returns:
+        candidate = _alias_from_expr(expr)
+        if candidate is None:
+            return None
+        if alias is None:
+            alias = candidate
+            continue
+        if alias != candidate:
+            return None
+    return alias
+
+
+def _collect_return_aliases(
+    funcs: list[ast.FunctionDef | ast.AsyncFunctionDef],
+    parents: dict[ast.AST, ast.AST],
+    *,
+    ignore_params: set[str] | None,
+) -> dict[str, tuple[list[str], list[str]]]:
+    aliases: dict[str, tuple[list[str], list[str]]] = {}
+    conflicts: set[str] = set()
+    for fn in funcs:
+        alias = _return_aliases(fn, ignore_params)
+        if not alias:
+            continue
+        params = _param_names(fn, ignore_params)
+        if not params:
+            continue
+        class_name = _enclosing_class(fn, parents)
+        scopes = _enclosing_scopes(fn, parents)
+        keys = {fn.name}
+        if class_name:
+            keys.add(f"{class_name}.{fn.name}")
+        if scopes:
+            keys.add(_function_key(scopes, fn.name))
+        info = (params, alias)
+        for key in keys:
+            if key in conflicts:
+                continue
+            if key in aliases:
+                aliases.pop(key, None)
+                conflicts.add(key)
+                continue
+            aliases[key] = info
+    return aliases
+
+
 def _const_repr(node: ast.AST) -> str | None:
     if isinstance(node, ast.Constant):
         return repr(node.value)
@@ -494,6 +587,7 @@ def _analyze_function(
     ignore_params: set[str] | None = None,
     strictness: str = "high",
     class_name: str | None = None,
+    return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
 ) -> tuple[dict[str, ParamUse], list[CallArgs]]:
     params = _param_names(fn, ignore_params)
     use_map = {p: ParamUse(set(), False, {p}) for p in params}
@@ -511,6 +605,7 @@ def _analyze_function(
         callee_name=lambda call: _normalize_callee(_callee_name(call), class_name),
         call_args_factory=CallArgs,
         call_context=_call_context,
+        return_aliases=return_aliases,
     )
     visitor.visit(fn)
     return use_map, call_args
@@ -616,6 +711,9 @@ def analyze_file(
     is_test = _is_test_path(path)
 
     funcs = _collect_functions(tree)
+    return_aliases = _collect_return_aliases(
+        funcs, parents, ignore_params=config.ignore_params
+    )
     fn_param_orders: dict[str, list[str]] = {}
     fn_param_spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
     fn_use = {}
@@ -638,6 +736,7 @@ def analyze_file(
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             class_name=class_name,
+            return_aliases=return_aliases,
         )
         fn_use[fn_key] = use_map
         fn_calls[fn_key] = call_args
@@ -1126,6 +1225,9 @@ def _build_function_index(
         parents.visit(tree)
         parent_map = parents.parents
         module = _module_name(path, project_root)
+        return_aliases = _collect_return_aliases(
+            funcs, parent_map, ignore_params=ignore_params
+        )
         for fn in funcs:
             class_name = _enclosing_class(fn, parent_map)
             scopes = _enclosing_scopes(fn, parent_map)
@@ -1137,6 +1239,7 @@ def _build_function_index(
                 ignore_params=ignore_params,
                 strictness=strictness,
                 class_name=class_name,
+                return_aliases=return_aliases,
             )
             unused_params = _unused_params(use_map)
             qual_parts = [module] if module else []

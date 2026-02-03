@@ -1,5 +1,5 @@
 ---
-doc_revision: 64
+doc_revision: 65
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -48,7 +48,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Alias tracking: direct Name-to-Name assignments.
 - [x] Alias tracking: tuple/sequence unpacking.
 - [x] Alias tracking: attribute/collection aliasing (obj.attr, dict["key"]).
-- [ ] Alias tracking: alias propagation via call returns. (GH-8)
+- [x] Alias tracking: alias propagation via call returns. (GH-8)
 - [x] Noise controls: project root anchoring + exclude dirs + ignore params.
 - [x] External-lib filter (ignore non-project imports by default).
 - [x] Wildcard forwarding strictness (`*args/**kwargs`, high/low modes).
