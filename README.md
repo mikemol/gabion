@@ -15,7 +15,7 @@ doc_requires:
   - CONTRIBUTING.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 28
-  glossary.md: 11
+  glossary.md: 13
   AGENTS.md: 12
   CONTRIBUTING.md: 69
 doc_change_protocol: "POLICY_SEED.md §6"

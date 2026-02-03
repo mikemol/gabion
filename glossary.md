@@ -1,5 +1,5 @@
 ---
-doc_revision: 11
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -143,6 +143,13 @@ Renaming variables erases the symbol but preserves the bundle identity.
 - **Tier-1 (explicit):** a Protocol/config dataclass exists for the bundle.
 - **Tier-2 (implicit strong):** repeated more than once within scope.
 - **Tier-3 (implicit weak):** single occurrence within scope.
+
+**Decision-flow analogs (control-flow axis):**
+- **Decision Protocol** ↔ Tier-1 (explicit control schema).
+- **Decision Bundle** ↔ Tier-2 (recurring guard structure).
+- **Decision Table** ↔ Tier-3 (documented, weak evidence).
+
+These analogs live on the control-flow axis; see §§12–14.
 
 ### Desired Commutation (Rename Invariance)
 
@@ -546,3 +553,127 @@ Layout choices, rendering engines, and styling are erased.
 ### Test Obligations (to be mapped)
 
 - Graph outputs are validated as projections, not inputs.
+
+---
+
+## 12. Decision Table (Control-Flow Documentation)
+
+### Meaning
+
+**Definition:** A tabular mapping from guard predicates to outcomes for a
+control-flow decision space.
+
+**Tier analog:** Tier-3 (implicit weak). Documented, not enforced.
+
+### Axis
+
+**Axis:** Control-flow (documentation / presentation).
+
+### Desired Commutation (Row Order + Predicate Renaming)
+
+Reordering rows or renaming predicates **without changing semantics** must not
+change the decision table’s meaning.
+
+### Failure Modes
+
+- Decision table diverges from code.
+- Overlapping rows without declared precedence.
+- Missing rows for reachable outcomes.
+
+### Normative Rule
+
+> Decision tables are Tier-3 evidence only. They must declare scope and be
+> re-reviewed when the corresponding code changes.
+
+### Erasure
+
+Row order, formatting, and whitespace are erased.
+
+### Test Obligations (to be mapped)
+
+- Table ↔ code alignment check (spot-test).
+- At least one negative case (false positive avoidance).
+
+---
+
+## 13. Decision Bundle (Control-Flow Structural)
+
+### Meaning
+
+**Definition:** A recurring cluster of guard predicates or branch patterns that
+can be centralized into a single decision map or dispatcher without changing
+behavior.
+
+**Tier analog:** Tier-2 (implicit strong). Repeated, centralized, but not
+formally declared.
+
+### Axis
+
+**Axis:** Control-flow (structural grouping).
+
+### Desired Commutation (Guard Renaming)
+
+Renaming guard predicates or reordering equivalent checks must not change the
+bundle identity.
+
+### Failure Modes
+
+- Same decision logic duplicated in multiple functions.
+- Bundles are implied but never centralized.
+- Centralization changes behavior due to hidden precedence.
+
+### Normative Rule
+
+> Repeated decision logic must be centralized into a decision bundle before
+> merge, or explicitly documented as Tier-3 (decision table).
+
+### Erasure
+
+Predicate names and order are erased if semantics are preserved.
+
+### Test Obligations (to be mapped)
+
+- Positive/negative cases for a centralized guard map.
+- Metamorphic test showing invariant behavior under guard reordering.
+
+---
+
+## 14. Decision Protocol (Control-Flow Explicit)
+
+### Meaning
+
+**Definition:** A declared schema for decision logic whose execution is derived
+or validated against the schema.
+
+**Tier analog:** Tier-1 (explicit). Enforced and validated.
+
+### Axis
+
+**Axis:** Control-flow (governance / explicit schema).
+
+### Desired Commutation (Spec ↔ Implementation)
+
+Implementations must commute with the declared decision schema:
+changes to the schema must be reflected in execution, and execution must not
+exceed the schema.
+
+### Failure Modes
+
+- Ad-hoc branches outside the declared protocol.
+- Schema exists but is not validated or enforced.
+- Protocol references ambiguous or overlapping guard cases.
+
+### Normative Rule
+
+> Critical decision logic must be expressed as a Decision Protocol when it
+> crosses module boundaries or affects external behavior.
+
+### Erasure
+
+Serialization format, transport, and layout are erased if the schema is
+equivalent.
+
+### Test Obligations (to be mapped)
+
+- Schema validation (reject invalid decision states).
+- Positive/negative/edge cases derived from the protocol.
