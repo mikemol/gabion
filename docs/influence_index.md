@@ -1,5 +1,5 @@
 ---
-doc_revision: 4
+doc_revision: 5
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -62,5 +62,5 @@ Status legend:
 - in/in-17.md — **queued** (subtree reuse + lemma synthesis hooks; tracked in SPPF.)
 - in/in-18.md — **queued** (value‑encoded decision surfaces; tracked in SPPF.)
 - in/in-19.md — **queued** (invariant extraction + dependent‑type synthesis; tracked in SPPF.)
-- in/in-20.md — **queued** (prime‑labeled type fingerprints; tracked in SPPF.)
-- in/in-21.md — **queued** (prime‑labeled grammar compression; tracked in SPPF.)
+- in/in-20.md — **queued** (prime‑labeled type fingerprints; tracked in SPPF as GH-68.)
+- in/in-21.md — **queued** (longform expansion of in-20; tracked in SPPF as GH-68.)

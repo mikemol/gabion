@@ -1,5 +1,5 @@
 ---
-doc_revision: 70
+doc_revision: 71
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -62,9 +62,9 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Unused-argument pass detection (non-test call sites).
 - [x] Analysis: Decorator transparency/unwrapping. (GH-9)
 - [x] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
-- [ ] Decision surface detection + boundary elevation (tier enforcement). (GH-60)
-- [ ] Value-encoded decision surface detection (branchless / algebraic control). (GH-66)
-- [ ] Prime-labeled type fingerprints (algebraic bundle matching). (GH-68)
+- [ ] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60)
+- [ ] Value-encoded decision surface detection (branchless / algebraic control). (in-18, GH-66)
+- [ ] Prime-labeled type fingerprints (algebraic bundle matching). (in-20/in-21, GH-68)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -77,9 +77,9 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Bundle declarations: general dataclass fields beyond `_fn` convention.
 - [x] Bundle declarations: non-Name args/kwargs in dataclass calls.
 - [x] Bundle declarations: external dataclass modules (cross-file).
-- [ ] FactorizationTree snapshot emission (canonical JSON). (GH-62)
-- [ ] Structural diff command + baseline comparison. (GH-63)
-- [ ] Structural metrics export (bundle/tier/violation stats). (GH-64)
+- [ ] FactorizationTree snapshot emission (canonical JSON). (in-16, GH-62)
+- [ ] Structural diff command + baseline comparison. (in-16, GH-63)
+- [ ] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64)
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
@@ -100,9 +100,9 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
 - [x] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
-- [ ] Contextvar/ambient context rewrite suggestions. (GH-61)
-- [ ] Subtree reuse detection + lemma synthesis hooks. (GH-65)
-- [ ] Invariant extraction + dependent-type synthesis (Agda). (GH-67)
+- [ ] Contextvar/ambient context rewrite suggestions. (in-15, GH-61)
+- [ ] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65)
+- [ ] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
