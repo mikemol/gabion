@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 14
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -677,3 +677,287 @@ equivalent.
 
 - Schema validation (reject invalid decision states).
 - Positive/negative/edge cases derived from the protocol.
+
+---
+
+## 15. Decision Surface (Control-Flow Boundary)
+
+### Meaning
+
+**Definition:** An input, predicate, or derived value that bifurcates behavior
+and therefore defines a control boundary (e.g., API surface decisions).
+
+### Axis
+
+**Axis:** Control-flow (semantic boundary).
+
+### Desired Commutation (Surface Equivalence)
+
+Equivalent decision expressions (e.g., `if x` vs `if x is True`) must not change
+the identity of the decision surface.
+
+### Failure Modes
+
+- Decision surfaces appear deep in internal helpers instead of boundary layers.
+- Tier-2/Tier-3 decision variables used below permitted scope.
+- Decision logic hidden by refactors (loss of surface visibility).
+
+### Normative Rule
+
+> Decision surfaces must be documented or elevated to the appropriate boundary.
+> Tier rules for decision surfaces follow the Decision Table/Bundle/Protocol
+> ladder (Tier-3/2/1 respectively).
+
+### Erasure
+
+Predicate naming and formatting are erased if semantics are preserved.
+
+### Test Obligations (to be mapped)
+
+- Boundary placement checks for declared decision surfaces.
+
+---
+
+## 16. Value-Encoded Decision (Branchless Control)
+
+### Meaning
+
+**Definition:** Control-flow encoded in arithmetic or bitwise expressions rather
+than explicit branches (e.g., `min/max`, masks, boolean arithmetic).
+
+### Axis
+
+**Axis:** Control-flow (algebraic encoding).
+
+### Desired Commutation (Branchless ↔ Branched)
+
+Replacing value-encoded control with an equivalent `if`/`else` must not change
+semantic classification or tier enforcement.
+
+### Failure Modes
+
+- Decision audits miss algebraic control paths.
+- Tier violations bypassed due to branchless encoding.
+- Algebraic rewrites change behavior (non-equivalence).
+
+### Normative Rule
+
+> Value-encoded decisions are decision surfaces and inherit all tier rules.
+> Detection must be semantics-driven, not syntax-only.
+
+### Erasure
+
+Choice of algebraic encoding is erased if behavior is equivalent.
+
+### Test Obligations (to be mapped)
+
+- Spot checks that branchless forms are detected as decision surfaces.
+
+---
+
+## 17. Structural Snapshot (Audit Artifact)
+
+### Meaning
+
+**Definition:** A canonical, serialized representation of an analysis result
+(e.g., factorization tree, bundle/tier listings) suitable for diffing.
+
+### Axis
+
+**Axis:** Evidence (audit artifact).
+
+### Desired Commutation (Canonicalization)
+
+Snapshot contents must be invariant to ordering, formatting, and stable renames.
+
+### Failure Modes
+
+- Non-canonical ordering causing noisy diffs.
+- Snapshot treated as semantic source of truth (instead of audit artifact).
+- Missing glossary/tier context in snapshots.
+
+### Normative Rule
+
+> Snapshots must be canonical and treated as evidence only. Baselines may
+> allowlist existing violations but must be explicit and reviewed.
+
+### Erasure
+
+Formatting and serialization choices are erased.
+
+### Test Obligations (to be mapped)
+
+- Snapshot stability under deterministic re-runs.
+
+---
+
+## 18. Structural Diff (Audit Delta)
+
+### Meaning
+
+**Definition:** A comparison between two structural snapshots to identify new
+bundles, tier shifts, or violations.
+
+### Axis
+
+**Axis:** Evidence (change detection).
+
+### Desired Commutation (Order Independence)
+
+Diff results must depend only on snapshot contents, not creation order.
+
+### Failure Modes
+
+- Diffs driven by non-canonical snapshot noise.
+- Baseline updates performed implicitly in CI.
+
+### Normative Rule
+
+> Structural diffs are used to detect regressions; baseline updates are manual
+> and must be reviewed.
+
+### Erasure
+
+Diff presentation is erased; only semantic deltas matter.
+
+### Test Obligations (to be mapped)
+
+- Diff detects new bundles and tier changes in fixtures.
+
+---
+
+## 19. Structural Metrics (Audit Summary)
+
+### Meaning
+
+**Definition:** Aggregate statistics derived from structural snapshots
+(bundle counts, tier counts, violations).
+
+### Axis
+
+**Axis:** Evidence (summary reporting).
+
+### Desired Commutation (Derivation Invariance)
+
+Metrics must be derived deterministically from snapshots.
+
+### Failure Modes
+
+- Metrics computed from non-canonical inputs.
+- Metrics treated as semantic truth rather than indicators.
+
+### Normative Rule
+
+> Metrics are advisory summaries and must be traceable to snapshots.
+
+### Erasure
+
+Presentation format and dashboard tooling are erased.
+
+### Test Obligations (to be mapped)
+
+- Metric totals reconcile with snapshot contents.
+
+---
+
+## 20. Structural Fingerprint (Algebraic Encoding)
+
+### Meaning
+
+**Definition:** A canonical algebraic encoding of a bundle or type structure
+(e.g., prime products or bitmask fingerprints).
+
+### Axis
+
+**Axis:** Structural (algebraic identity).
+
+### Desired Commutation (Order + Alias Invariance)
+
+Permuting fields or renaming aliases must not change the fingerprint.
+
+### Failure Modes
+
+- Collisions or lossy encodings without declaration.
+- Fingerprints diverge from glossary-defined bundle identity.
+
+### Normative Rule
+
+> Fingerprints must be declared invertible or explicitly marked as lossy.
+> Glossary mappings must state whether multiplicity is preserved.
+
+### Erasure
+
+Ordering and superficial naming are erased.
+
+### Test Obligations (to be mapped)
+
+- Fingerprint equality for equivalent structures.
+
+---
+
+## 21. Invariant Proposition (Dependent Constraint)
+
+### Meaning
+
+**Definition:** A declared relationship between bundle fields or tree nodes
+(e.g., length equality, ordering, alignment).
+
+### Axis
+
+**Axis:** Semantic (constraint).
+
+### Desired Commutation (Refactor Preservation)
+
+Refactors must preserve declared invariants.
+
+### Failure Modes
+
+- Invariants lost during synthesis.
+- Constraints inferred but not recorded.
+
+### Normative Rule
+
+> Extracted invariants must be preserved by refactors and surfaced in
+> synthesis outputs when available.
+
+### Erasure
+
+Constraint serialization and syntax are erased if meaning is preserved.
+
+### Test Obligations (to be mapped)
+
+- Property tests or proofs aligned with invariant propositions.
+
+---
+
+## 22. Structural Lemma (Reuse Candidate)
+
+### Meaning
+
+**Definition:** A reusable subtree or structural fragment extracted from the
+factorization tree to reduce duplication.
+
+### Axis
+
+**Axis:** Synthesis (reuse).
+
+### Desired Commutation (Factor ↔ Expand)
+
+Factoring a lemma out and expanding it inline must commute.
+
+### Failure Modes
+
+- Lemma extraction changes semantics.
+- Reuse suggested without glossary alignment where appropriate.
+
+### Normative Rule
+
+> Lemma suggestions are advisory unless promoted to explicit refactor plans.
+
+### Erasure
+
+Lemma naming and placement are erased if semantics are preserved.
+
+### Test Obligations (to be mapped)
+
+- Equivalence checks between factored and unfactored forms.
