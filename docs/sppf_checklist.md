@@ -1,5 +1,5 @@
 ---
-doc_revision: 65
+doc_revision: 66
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -93,7 +93,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type aggregation: single-type consensus assignment.
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
-- [ ] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
+- [x] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).

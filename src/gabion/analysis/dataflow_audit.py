@@ -430,6 +430,26 @@ def _param_annotations(
     return annots
 
 
+def _param_defaults(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> set[str]:
+    defaults: set[str] = set()
+    args = fn.args.posonlyargs + fn.args.args
+    names = [a.arg for a in args]
+    if fn.args.defaults:
+        defaulted = names[-len(fn.args.defaults) :]
+        defaults.update(defaulted)
+    for kw_arg, default in zip(fn.args.kwonlyargs, fn.args.kw_defaults):
+        if default is not None:
+            defaults.add(kw_arg.arg)
+    if names and names[0] in {"self", "cls"}:
+        defaults.discard(names[0])
+    if ignore_params:
+        defaults = {name for name in defaults if name not in ignore_params}
+    return defaults
+
+
 class _ReturnAliasCollector(ast.NodeVisitor):
     def __init__(self) -> None:
         self.returns: list[ast.AST | None] = []
@@ -937,6 +957,7 @@ class FunctionInfo:
     annots: dict[str, str | None]
     calls: list[CallArgs]
     unused_params: set[str]
+    defaults: set[str] = field(default_factory=set)
     transparent: bool = True
     class_name: str | None = None
     scope: tuple[str, ...] = ()
@@ -1253,6 +1274,7 @@ def _build_function_index(
                 path=path,
                 params=_param_names(fn, ignore_params),
                 annots=_param_annotations(fn, ignore_params),
+                defaults=_param_defaults(fn, ignore_params),
                 calls=call_args,
                 unused_params=unused_params,
                 transparent=_decorators_transparent(fn, transparent_decorators),
@@ -1637,6 +1659,119 @@ def analyze_constant_flow_repo(
                 f"{path_name}:{qual.split('.')[-1]}.{param} only observed constant {next(iter(values))} across {count} non-test call(s)"
             )
     return sorted(smells)
+
+
+def _compute_knob_param_names(
+    *,
+    by_name: dict[str, list[FunctionInfo]],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table: SymbolTable,
+    project_root: Path | None,
+    class_index: dict[str, ClassInfo],
+    strictness: str,
+) -> set[str]:
+    const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
+    non_const: dict[tuple[str, str], bool] = defaultdict(bool)
+    explicit_passed: dict[tuple[str, str], bool] = defaultdict(bool)
+    call_counts: dict[str, int] = defaultdict(int)
+    for infos in by_name.values():
+        for info in infos:
+            for call in info.calls:
+                if call.is_test:
+                    continue
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                )
+                if callee is None or not callee.transparent:
+                    continue
+                call_counts[callee.qual] += 1
+                callee_params = callee.params
+                remaining = [p for p in callee_params]
+                for idx_str, value in call.const_pos.items():
+                    try:
+                        idx = int(idx_str)
+                    except ValueError:
+                        continue
+                    if idx >= len(callee_params):
+                        continue
+                    param = callee_params[idx]
+                    const_values[(callee.qual, param)].add(value)
+                    explicit_passed[(callee.qual, param)] = True
+                    if param in remaining:
+                        remaining.remove(param)
+                for idx_str in call.pos_map:
+                    try:
+                        idx = int(idx_str)
+                    except ValueError:
+                        continue
+                    if idx >= len(callee_params):
+                        continue
+                    param = callee_params[idx]
+                    non_const[(callee.qual, param)] = True
+                    explicit_passed[(callee.qual, param)] = True
+                    if param in remaining:
+                        remaining.remove(param)
+                for idx_str in call.non_const_pos:
+                    try:
+                        idx = int(idx_str)
+                    except ValueError:
+                        continue
+                    if idx >= len(callee_params):
+                        continue
+                    param = callee_params[idx]
+                    non_const[(callee.qual, param)] = True
+                    explicit_passed[(callee.qual, param)] = True
+                    if param in remaining:
+                        remaining.remove(param)
+                for kw, value in call.const_kw.items():
+                    if kw not in callee_params:
+                        continue
+                    const_values[(callee.qual, kw)].add(value)
+                    explicit_passed[(callee.qual, kw)] = True
+                    if kw in remaining:
+                        remaining.remove(kw)
+                for kw in call.kw_map:
+                    if kw not in callee_params:
+                        continue
+                    non_const[(callee.qual, kw)] = True
+                    explicit_passed[(callee.qual, kw)] = True
+                    if kw in remaining:
+                        remaining.remove(kw)
+                for kw in call.non_const_kw:
+                    if kw not in callee_params:
+                        continue
+                    non_const[(callee.qual, kw)] = True
+                    explicit_passed[(callee.qual, kw)] = True
+                    if kw in remaining:
+                        remaining.remove(kw)
+                if strictness == "low":
+                    if len(call.star_pos) == 1:
+                        for param in remaining:
+                            non_const[(callee.qual, param)] = True
+                            explicit_passed[(callee.qual, param)] = True
+                    if len(call.star_kw) == 1:
+                        for param in remaining:
+                            non_const[(callee.qual, param)] = True
+                            explicit_passed[(callee.qual, param)] = True
+    knob_names: set[str] = set()
+    for key, values in const_values.items():
+        if non_const.get(key):
+            continue
+        if len(values) == 1:
+            knob_names.add(key[1])
+    for qual, info in by_qual.items():
+        if call_counts.get(qual, 0) == 0:
+            continue
+        for param in info.defaults:
+            if not explicit_passed.get((qual, param), False):
+                knob_names.add(param)
+    return knob_names
 
 
 def analyze_unused_arg_flow_repo(
@@ -2304,6 +2439,27 @@ def _bundle_counts(
     return counts
 
 
+def _merge_counts_by_knobs(
+    counts: dict[tuple[str, ...], int],
+    knob_names: set[str],
+) -> dict[tuple[str, ...], int]:
+    if not knob_names:
+        return counts
+    bundles = [set(bundle) for bundle in counts]
+    merged: dict[tuple[str, ...], int] = defaultdict(int)
+    for bundle_key, count in counts.items():
+        bundle = set(bundle_key)
+        target = bundle
+        for other in bundles:
+            if bundle and bundle.issubset(other):
+                extra = set(other) - bundle
+                if extra and extra.issubset(knob_names):
+                    if len(other) < len(target) or target == bundle:
+                        target = set(other)
+        merged[tuple(sorted(target))] += count
+    return merged
+
+
 def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     declared: set[tuple[str, ...]] = set()
     file_paths = sorted(root.rglob("*.py"))
@@ -2328,7 +2484,30 @@ def build_synthesis_plan(
         project_root=project_root or _infer_root(groups_by_path)
     )
     root = project_root or audit_config.project_root or _infer_root(groups_by_path)
+    path_list = list(groups_by_path.keys())
+    by_name, by_qual = _build_function_index(
+        path_list,
+        root,
+        audit_config.ignore_params,
+        audit_config.strictness,
+        audit_config.transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        path_list,
+        root,
+        external_filter=audit_config.external_filter,
+    )
+    class_index = _collect_class_index(path_list, root)
+    knob_names = _compute_knob_param_names(
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        project_root=root,
+        class_index=class_index,
+        strictness=audit_config.strictness,
+    )
     counts = _bundle_counts(groups_by_path)
+    counts = _merge_counts_by_knobs(counts, knob_names)
     if not counts:
         response = SynthesisResponse(
             protocols=[],
@@ -2384,7 +2563,7 @@ def build_synthesis_plan(
     type_warnings: list[str] = []
     if bundle_fields:
         inferred, _, _ = analyze_type_flow_repo_with_map(
-            list(groups_by_path.keys()),
+            path_list,
             project_root=root,
             ignore_params=audit_config.ignore_params,
             strictness=audit_config.strictness,
@@ -2397,19 +2576,6 @@ def build_synthesis_plan(
                 if name not in bundle_fields or not annot:
                     continue
                 type_sets[name].add(annot)
-        by_name, by_qual = _build_function_index(
-            list(groups_by_path.keys()),
-            root,
-            audit_config.ignore_params,
-            audit_config.strictness,
-            audit_config.transparent_decorators,
-        )
-        symbol_table = _build_symbol_table(
-            list(groups_by_path.keys()),
-            root,
-            external_filter=audit_config.external_filter,
-        )
-        class_index = _collect_class_index(list(groups_by_path.keys()), root)
         for infos in by_name.values():
             for info in infos:
                 for call in info.calls:
