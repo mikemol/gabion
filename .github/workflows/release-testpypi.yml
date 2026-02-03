@@ -74,6 +74,12 @@ jobs:
           version = tag[len("test-v") :]
           if not version:
               raise SystemExit("Missing version in tag")
+          if "+" in version:
+              base, local = version.split("+", 1)
+              digits = "".join(ch for ch in local if ch.isdigit())
+              if not digits:
+                  raise SystemExit("Missing timestamp digits in test tag")
+              version = f"{base}.dev{digits}"
           path = Path("pyproject.toml")
           text = path.read_text()
           updated = re.sub(r'(?m)^version = ".*"$', f'version = "{version}"', text, count=1)
