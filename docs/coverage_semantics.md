@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -13,9 +13,15 @@ doc_authority: normative
 doc_requires:
   - POLICY_SEED.md
   - glossary.md
+  - README.md
+  - CONTRIBUTING.md
+  - AGENTS.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 28
   glossary.md: 9
+  README.md: 58
+  CONTRIBUTING.md: 69
+  AGENTS.md: 12
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - coverage_is_evidence
@@ -33,6 +39,9 @@ doc_owner: maintainer
 Coverage is not a vanity metric in this repository. It is **evidence** that the
 semantic invariants described in `glossary.md` and `POLICY_SEED.md` are actually
 enforced by tests.
+
+This policy is scoped by the repository contract (`README.md`), the workflow
+rules (`CONTRIBUTING.md`), and agent obligations (`AGENTS.md`).
 
 ## 1. Coverage Axes (Evidence Types)
 

@@ -20,7 +20,7 @@ doc_reviewed_as_of:
   AGENTS.md: 12
   POLICY_SEED.md: 28
   glossary.md: 9
-  docs/coverage_semantics.md: 2
+  docs/coverage_semantics.md: 3
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake

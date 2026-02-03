@@ -24,7 +24,7 @@ doc_reviewed_as_of:
   AGENTS.md: 12
   glossary.md: 9
   docs/publishing_practices.md: 22
-  docs/coverage_semantics.md: 2
+  docs/coverage_semantics.md: 3
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
