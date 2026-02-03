@@ -131,7 +131,27 @@ def test_execute_structure_diff(tmp_path: Path) -> None:
         None,
         {"baseline": str(baseline), "current": str(current)},
     )
-    assert result["added"][0]["bundle"] == ["a"]
+    assert result["exit_code"] == 0
+    assert result["diff"]["added"][0]["bundle"] == ["a"]
+
+
+def test_execute_structure_diff_missing_paths() -> None:
+    result = server.execute_structure_diff(None, {})
+    assert result["exit_code"] == 2
+    assert "required" in result["errors"][0]
+
+
+def test_execute_structure_diff_invalid_snapshot(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    baseline.write_text("{bad-json")
+    current.write_text("{\"files\": []}")
+    result = server.execute_structure_diff(
+        None,
+        {"baseline": str(baseline), "current": str(current)},
+    )
+    assert result["exit_code"] == 2
+    assert "Invalid snapshot JSON" in result["errors"][0]
 
 
 def test_execute_command_structure_metrics(tmp_path: Path) -> None:

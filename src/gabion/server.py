@@ -433,10 +433,16 @@ def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> d
     baseline_path = payload.get("baseline")
     current_path = payload.get("current")
     if not baseline_path or not current_path:
-        return {"errors": ["baseline and current snapshot paths are required"]}
-    baseline = load_structure_snapshot(Path(baseline_path))
-    current = load_structure_snapshot(Path(current_path))
-    return diff_structure_snapshots(baseline, current)
+        return {
+            "exit_code": 2,
+            "errors": ["baseline and current snapshot paths are required"],
+        }
+    try:
+        baseline = load_structure_snapshot(Path(baseline_path))
+        current = load_structure_snapshot(Path(current_path))
+    except ValueError as exc:
+        return {"exit_code": 2, "errors": [str(exc)]}
+    return {"exit_code": 0, "diff": diff_structure_snapshots(baseline, current)}
 
 
 @server.feature(TEXT_DOCUMENT_CODE_ACTION)

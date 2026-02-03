@@ -238,3 +238,21 @@ def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
     assert captured["payload"] == {"baseline": str(baseline), "current": str(current)}
     assert captured["root"] == tmp_path
     assert result == {"added_bundles": []}
+
+
+def test_emit_structure_diff_success(capsys) -> None:
+    result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
+    cli._emit_structure_diff(result)
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 0" in captured.out
+    assert captured.err == ""
+
+
+def test_emit_structure_diff_errors_exit(capsys) -> None:
+    result = {"exit_code": 2, "errors": ["bad snapshot"], "diff": {}}
+    with pytest.raises(typer.Exit) as exc:
+        cli._emit_structure_diff(result)
+    assert exc.value.exit_code == 2
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 2" in captured.out
+    assert "bad snapshot" in captured.err

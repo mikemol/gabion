@@ -712,6 +712,17 @@ def run_structure_diff(
     )
 
 
+def _emit_structure_diff(result: dict[str, Any]) -> None:
+    errors = result.get("errors")
+    exit_code = int(result.get("exit_code", 0))
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    if errors:
+        for error in errors:
+            typer.secho(str(error), err=True, fg=typer.colors.RED)
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
 @app.command("structure-diff")
 def structure_diff(
     baseline: Path = typer.Option(..., "--baseline"),
@@ -720,7 +731,7 @@ def structure_diff(
 ) -> None:
     """Compare two structure snapshots and emit a JSON diff."""
     result = run_structure_diff(baseline=baseline, current=current, root=root)
-    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    _emit_structure_diff(result)
 
 
 @app.command("refactor-protocol")
