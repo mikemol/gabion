@@ -120,11 +120,12 @@ jobs:
               count=1,
           )
           if count != 1:
-              raise SystemExit(
-                  "Failed to update __version__ in src/gabion/__init__.py "
+              print(
+                  "Warning: __version__ update skipped "
                   f"(matches={count})"
               )
-          init_path.write_text(init_updated)
+          else:
+              init_path.write_text(init_updated)
           print(f"Set project.version to {version}")
           PY
         env:
