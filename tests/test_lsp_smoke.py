@@ -25,6 +25,20 @@ def test_lsp_execute_command() -> None:
         root=repo_root,
     )
     assert "exit_code" in result
+    snapshot_result = run_command(
+        CommandRequest(
+            "gabion.dataflowAudit",
+            [
+                {
+                    "paths": [str(repo_root)],
+                    "fail_on_violations": False,
+                    "structure_tree": "-",
+                }
+            ],
+        ),
+        root=repo_root,
+    )
+    assert "structure_tree" in snapshot_result
     synth_result = run_command(
         CommandRequest(
             "gabion.synthesisPlan",

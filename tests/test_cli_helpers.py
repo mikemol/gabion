@@ -113,6 +113,29 @@ def test_dataflow_audit_type_audit_empty_findings() -> None:
     assert exc.value.exit_code == 0
 
 
+def test_dataflow_audit_emits_structure_tree(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "structure_tree": {"format_version": 1, "root": ".", "files": []},
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=["sample.py", "--emit-structure-tree", "-"],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"format_version\": 1" in captured.out
+
+
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs

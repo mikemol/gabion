@@ -28,3 +28,13 @@ def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
     assert fn_entry["name"] == "f"
     assert fn_entry["bundles"][0] == ["a"]
     assert fn_entry["bundles"][1] == ["c", "d"]
+
+
+def test_render_structure_snapshot_handles_outside_root(tmp_path: Path) -> None:
+    da = _load()
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.py"
+    groups_by_path = {outside: {"f": [set(["a"])]}}
+    snapshot = da.render_structure_snapshot(groups_by_path, project_root=root)
+    assert snapshot["files"][0]["path"] == str(outside)
