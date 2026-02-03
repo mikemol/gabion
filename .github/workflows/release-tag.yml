@@ -73,14 +73,14 @@ jobs:
         run: |
           TAG="${{ inputs.tag }}"
           PROJECT_VERSION="$(python - <<'PY'
-          import re
+          import tomllib
           from pathlib import Path
 
-          text = Path("pyproject.toml").read_text()
-          match = re.search(r'^version\\s*=\\s*"([^"]+)"\\s*$', text, re.M)
-          if not match:
+          data = tomllib.loads(Path("pyproject.toml").read_text())
+          version = data.get("project", {}).get("version")
+          if not version:
               raise SystemExit("project.version not found in pyproject.toml")
-          print(match.group(1))
+          print(version)
           PY
           )"
           case "$TAG" in
