@@ -20,7 +20,7 @@ doc_reviewed_as_of:
   POLICY_SEED.md: 28
   glossary.md: 14
   README.md: 58
-  CONTRIBUTING.md: 70
+  CONTRIBUTING.md: 71
   AGENTS.md: 12
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:

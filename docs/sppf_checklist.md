@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 73
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -35,6 +35,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
   status remain bidirectionally linked.
 - Use `scripts/sppf_sync.py` locally to sync commit trailers (e.g. `SPPF: GH-17`)
   with GitHub issue comments/labels without CI write permissions.
+- Do not close issues until a release containing the fix ships; use the
+  `status/pending-release` label once work lands on `stage`.
 - Optional: enable `GABION_SPPF_SYNC=1` and re-run `scripts/install_hooks.sh` to
   auto-sync on `stage` pushes via the pre-push hook.
 
