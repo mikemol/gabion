@@ -14,17 +14,11 @@ doc_requires:
   - glossary.md
   - CONTRIBUTING.md
   - README.md
-  - in/in-24.md
-  - in/in-25.md
-  - in/in-26.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 28
   glossary.md: 17
   CONTRIBUTING.md: 71
   README.md: 58
-  in/in-24.md: 2
-  in/in-25.md: 2
-  in/in-26.md: 2
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -42,6 +36,16 @@ reifies that contract into minimal acceptance checks.
 
 If a matrix is present without these checks, treat the matrix as **aspirational**
 and the related feature as **incomplete**.
+
+## Normative pointers (explicit)
+
+- `POLICY_SEED.md`
+- `glossary.md`
+- `CONTRIBUTING.md`
+- `README.md`
+- `in/in-24.md`
+- `in/in-25.md`
+- `in/in-26.md`
 
 ---
 
@@ -169,4 +173,3 @@ If any of the above checks are missing:
 * ensure artifacts emit `UNKNOWN` rather than asserted success.
 
 This preserves honesty under the governance contract.
-

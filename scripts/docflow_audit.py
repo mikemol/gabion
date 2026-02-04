@@ -23,6 +23,7 @@ GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
     "docs/publishing_practices.md",
     "docs/influence_index.md",
     "docs/coverage_semantics.md",
+    "docs/matrix_acceptance.md",
 ]
 
 REQUIRED_FIELDS = [
