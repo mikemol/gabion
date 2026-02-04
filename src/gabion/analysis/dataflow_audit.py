@@ -1476,18 +1476,9 @@ def _normalize_bundle_key(bundle: object) -> str:
 def _find_provenance_entry_for_site(
     provenance: list[dict[str, object]],
     *,
-    path: str,
-    function: str,
-    bundle: list[str],
+    site: Site,
 ) -> dict[str, object] | None:
-    target_site = Site(
-        path=str(path).strip(),
-        function=str(function).strip(),
-        bundle=tuple(
-            str(item).strip() for item in bundle if isinstance(item, str) and str(item).strip()
-        ),
-    )
-    target_key = target_site.key()
+    target_key = site.key()
     for entry in provenance:
         entry_site = Site.from_payload(entry)
         if entry_site is None:
@@ -1500,17 +1491,8 @@ def _find_provenance_entry_for_site(
 def _exception_obligation_summary_for_site(
     obligations: list[dict[str, object]],
     *,
-    path: str,
-    function: str,
-    bundle: list[str],
+    site: Site,
 ) -> dict[str, int]:
-    site = Site(
-        path=str(path).strip(),
-        function=str(function).strip(),
-        bundle=tuple(
-            str(item).strip() for item in bundle if isinstance(item, str) and str(item).strip()
-        ),
-    )
     return exception_obligation_summary_for_site(obligations, site=site)
 
 
@@ -1542,9 +1524,7 @@ def verify_rewrite_plan(
     issues: list[str] = []
     post_entry = _find_provenance_entry_for_site(
         post_provenance,
-        path=path,
-        function=function,
-        bundle=bundle,
+        site=site,
     )
     if post_entry is None:
         issues.append("missing post provenance entry for site")
@@ -1704,9 +1684,7 @@ def verify_rewrite_plan(
                 continue
             post_summary = _exception_obligation_summary_for_site(
                 post_exception_obligations,
-                path=path,
-                function=function,
-                bundle=bundle,
+                site=site,
             )
             try:
                 pre_unknown = int(pre_summary.get("UNKNOWN", 0) or 0)

@@ -67,21 +67,19 @@ def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
         _post_entry(bundle="not-a-list"),
         _post_entry(),
     ]
+    site = da.Site(path="a.py", function="f", bundle=("a",))
     assert (
         da._find_provenance_entry_for_site(
             provenance,
-            path="a.py",
-            function="f",
-            bundle=["a"],
+            site=site,
         )
         == provenance[-1]
     )
+    missing_site = da.Site(path="missing.py", function="f", bundle=("a",))
     assert (
         da._find_provenance_entry_for_site(
             provenance,
-            path="missing.py",
-            function="f",
-            bundle=["a"],
+            site=missing_site,
         )
         is None
     )

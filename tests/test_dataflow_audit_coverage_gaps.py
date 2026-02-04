@@ -145,6 +145,7 @@ def test_exception_helpers_cover_edges() -> None:
 
 def test_exception_obligation_summary_helper_covers_filters_and_status_normalization() -> None:
     da = _load()
+    site = da.Site(path="a.py", function="f", bundle=("a",))
     summary = da._exception_obligation_summary_for_site(
         [
             {"site": "nope"},
@@ -154,9 +155,7 @@ def test_exception_obligation_summary_helper_covers_filters_and_status_normaliza
             {"site": {"path": "a.py", "function": "f", "bundle": ["a"]}, "status": "DEAD"},
             {"site": {"path": "a.py", "function": "f", "bundle": ["a"]}, "status": "HANDLED"},
         ],
-        path="a.py",
-        function="f",
-        bundle=["a"],
+        site=site,
     )
     assert summary == {"UNKNOWN": 1, "DEAD": 1, "HANDLED": 1, "total": 3}
 
