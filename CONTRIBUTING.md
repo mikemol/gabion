@@ -19,7 +19,7 @@ doc_reviewed_as_of:
   README.md: 58
   AGENTS.md: 12
   POLICY_SEED.md: 28
-  glossary.md: 16
+  glossary.md: 17
   docs/coverage_semantics.md: 6
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:

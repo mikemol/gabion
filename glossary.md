@@ -1,5 +1,5 @@
 ---
-doc_revision: 16
+doc_revision: 17
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -977,7 +977,7 @@ Lemma naming and placement are erased if semantics are preserved.
 
 **Definition:** A dimensional fingerprint system where structural meaning is
 encoded as prime products across orthogonal carriers (base, constructor,
-provenance, synth). ASPF is treated as a **packed‑forest label**, not a hash.
+provenance, synth). ASPF is treated as a **packed-forest label**, not a hash.
 
 ### Axis
 
@@ -1002,6 +1002,9 @@ the provenance carrier records the equivalence class explicitly.
 ### Erasure
 
 Formatting and ordering of input types are erased; provenance is **not**.
+
+**Bitmask note (normative):** bitmask carriers are filters only; prime products
+remain authoritative for equivalence.
 
 ### Test Obligations (to be mapped)
 
