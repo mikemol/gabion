@@ -1,5 +1,5 @@
 ---
-doc_revision: 16
+doc_revision: 17
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -62,5 +62,5 @@ Status legend:
 - in/in-17.md — **partial** (subtree reuse detection + hashing in structure snapshot; remaining lemma synthesis hooks; SPPF/GH-65.)
 - in/in-18.md — **partial** (value‑encoded decision detection + reports + glossary warnings + decision snapshot/diff; remaining rewrite work; SPPF/GH-66.)
 - in/in-19.md — **queued** (checklist expanded; invariant extraction + dependent‑type synthesis; SPPF/GH-67.)
-- in/in-20.md — **partial** (prime registry + canonical type keys + arithmetic ops + glossary warnings implemented; remaining hybrid/registry/rewrite work; SPPF/GH-68.)
-- in/in-21.md — **partial** (longform expansion of in-20; glossary warnings + arithmetic ops implemented; remaining hybrid/registry/rewrite work; SPPF/GH-68.)
+- in/in-20.md — **partial** (prime registry + canonical type keys + arithmetic ops + glossary warnings + reverse mapping implemented; remaining hybrid/registry/rewrite work; SPPF/GH-68.)
+- in/in-21.md — **partial** (longform expansion of in-20; reverse mapping + glossary warnings + arithmetic ops implemented; remaining hybrid/registry/rewrite work; SPPF/GH-68.)

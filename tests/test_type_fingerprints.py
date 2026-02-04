@@ -54,3 +54,12 @@ def test_fingerprint_arithmetic_ops() -> None:
     assert tf.fingerprint_contains(combined, b)
     diff = tf.fingerprint_symmetric_diff(a, b)
     assert diff == registry.get_or_assign("int") * registry.get_or_assign("list[int]")
+
+
+def test_fingerprint_to_type_keys_roundtrip() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    fingerprint = tf.bundle_fingerprint(["int", "str", "int"], registry)
+    keys = tf.fingerprint_to_type_keys(fingerprint, registry)
+    assert keys.count("int") == 2
+    assert keys.count("str") == 1

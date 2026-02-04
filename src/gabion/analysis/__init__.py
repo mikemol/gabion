@@ -36,6 +36,7 @@ from .type_fingerprints import (
     fingerprint_gcd,
     fingerprint_lcm,
     fingerprint_symmetric_diff,
+    fingerprint_to_type_keys,
 )
 
 __all__ = [
@@ -72,4 +73,5 @@ __all__ = [
     "fingerprint_gcd",
     "fingerprint_lcm",
     "fingerprint_symmetric_diff",
+    "fingerprint_to_type_keys",
 ]

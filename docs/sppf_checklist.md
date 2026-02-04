@@ -1,5 +1,5 @@
 ---
-doc_revision: 91
+doc_revision: 92
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -80,7 +80,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Glossary fingerprint matching + CI warnings. (GH-68)
 - [ ] Hybrid fingerprint representation (prime products + bitmask existence checks). (GH-68)
 - [ ] Nested type constructor registry (dimensional prime mapping). (GH-68)
-- [ ] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
+- [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).

@@ -120,6 +120,15 @@ class PrimeRegistry:
         self.next_candidate = prime + 1
         return prime
 
+    def prime_for(self, key: str) -> int | None:
+        return self.primes.get(key)
+
+    def key_for_prime(self, prime: int) -> str | None:
+        for key, value in self.primes.items():
+            if value == prime:
+                return key
+        return None
+
 
 def _normalize_type_list(value: object) -> list[str]:
     items: list[str] = []
@@ -156,6 +165,23 @@ def build_fingerprint_registry(
         fingerprint = bundle_fingerprint(types, registry)
         index.setdefault(fingerprint, set()).add(str(name))
     return registry, index
+
+
+def fingerprint_to_type_keys(
+    fingerprint: int,
+    registry: PrimeRegistry,
+) -> list[str]:
+    remaining = fingerprint
+    keys: list[str] = []
+    if remaining <= 1:
+        return keys
+    for key, prime in sorted(registry.primes.items(), key=lambda item: item[1]):
+        while remaining % prime == 0:
+            keys.append(key)
+            remaining //= prime
+        if remaining == 1:
+            break
+    return keys
 
 
 def fingerprint_gcd(a: int, b: int) -> int:
