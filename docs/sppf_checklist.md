@@ -1,5 +1,5 @@
 ---
-doc_revision: 102
+doc_revision: 103
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -82,7 +82,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Nested type constructor registry (dimensional prime mapping). (GH-68)
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 - [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants; provenance/synth pending). (in-22, GH-70)
-- [ ] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants). (in-22, GH-71)
+- [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys surfaced). (in-22, GH-71)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).

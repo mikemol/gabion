@@ -43,6 +43,7 @@ from gabion.analysis.type_fingerprints import (
     build_fingerprint_registry,
     bundle_fingerprint_dimensional,
     format_fingerprint,
+    fingerprint_to_type_keys_with_remainder,
 )
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -960,8 +961,25 @@ def _compute_fingerprint_warnings(
                 )
                 names = index.get(fingerprint)
                 if not names:
+                    base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
+                        fingerprint.base.product, registry
+                    )
+                    ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
+                        fingerprint.ctor.product, registry
+                    )
+                    ctor_keys = [
+                        key[len("ctor:") :] if key.startswith("ctor:") else key
+                        for key in ctor_keys
+                    ]
+                    details = f" base={sorted(base_keys)}"
+                    if ctor_keys:
+                        details += f" ctor={sorted(ctor_keys)}"
+                    if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
+                        details += (
+                            f" remainder=({base_remaining},{ctor_remaining})"
+                        )
                     warnings.append(
-                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} missing glossary match"
+                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} missing glossary match{details}"
                     )
     return sorted(set(warnings))
 
@@ -1001,9 +1019,25 @@ def _compute_fingerprint_matches(
                 names = index.get(fingerprint)
                 if not names:
                     continue
+                base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
+                    fingerprint.base.product, registry
+                )
+                ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
+                    fingerprint.ctor.product, registry
+                )
+                ctor_keys = [
+                    key[len("ctor:") :] if key.startswith("ctor:") else key
+                    for key in ctor_keys
+                ]
+                details = f" base={sorted(base_keys)}"
+                if ctor_keys:
+                    details += f" ctor={sorted(ctor_keys)}"
+                if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
+                    details += f" remainder=({base_remaining},{ctor_remaining})"
                 matches.append(
                     f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} matches: "
                     + ", ".join(sorted(names))
+                    + details
                 )
     return sorted(set(matches))
 
