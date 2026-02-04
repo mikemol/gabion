@@ -1,5 +1,5 @@
 ---
-doc_revision: 75
+doc_revision: 76
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -65,8 +65,16 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Analysis: Decorator transparency/unwrapping. (GH-9)
 - [x] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
 - [ ] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60)
+- [ ] Decision surface hooks in grammar (`is_decision_surface`). (GH-60)
+- [ ] Decision surface boundary diagnostics (API surface vs internal depth). (GH-60)
+- [ ] Decision surface tier enforcement via glossary metadata. (GH-60)
 - [ ] Value-encoded decision surface detection (branchless / algebraic control). (in-18, GH-66)
+- [ ] Value-encoded decision heuristics (min/max, bitmask, boolean arithmetic). (GH-66)
+- [ ] Value-encoded decision surface reports in audit output. (GH-66)
 - [ ] Prime-labeled type fingerprints (algebraic bundle matching). (in-20/in-21, GH-68)
+- [ ] Prime registry + canonical type key mapping. (GH-68)
+- [ ] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)
+- [ ] Glossary fingerprint matching + CI warnings. (GH-68)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -103,8 +111,14 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
 - [x] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
 - [ ] Contextvar/ambient context rewrite suggestions. (in-15, GH-61)
+- [ ] Contextvar rewrite: synthesis emits ContextVar definitions + accessors. (GH-61)
+- [ ] Contextvar rewrite: callsite replacement for ambient access. (GH-61)
 - [ ] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65)
+- [ ] Subtree hashing/fingerprinting for FactorizationTree reuse. (GH-65)
+- [ ] Lemma suggestion output + stable naming map. (GH-65)
 - [ ] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67)
+- [ ] Proposition model + grammar hooks for invariant emission. (GH-67)
+- [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
