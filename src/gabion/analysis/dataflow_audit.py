@@ -40,11 +40,14 @@ from gabion.analysis.type_fingerprints import (
     Fingerprint,
     PrimeRegistry,
     TypeConstructorRegistry,
+    SynthRegistry,
     build_synth_registry,
     build_fingerprint_registry,
+    build_synth_registry_from_payload,
     bundle_fingerprint_dimensional,
     format_fingerprint,
     fingerprint_to_type_keys_with_remainder,
+    synth_registry_payload,
 )
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -149,6 +152,7 @@ class AuditConfig:
     constructor_registry: TypeConstructorRegistry | None = None
     fingerprint_synth_min_occurrences: int = 0
     fingerprint_synth_version: str = "synth@1"
+    fingerprint_synth_registry: SynthRegistry | None = None
     invariant_emitters: tuple[
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
         ...,
@@ -1132,8 +1136,9 @@ def _compute_fingerprint_synth(
     ctor_registry: TypeConstructorRegistry | None,
     min_occurrences: int,
     version: str,
+    existing: SynthRegistry | None = None,
 ) -> tuple[list[str], dict[str, object] | None]:
-    if min_occurrences < 2:
+    if min_occurrences < 2 and existing is None:
         return [], None
     fingerprints: list[Fingerprint] = []
     for path, groups in groups_by_path.items():
@@ -1153,21 +1158,29 @@ def _compute_fingerprint_synth(
                     ctor_registry,
                 )
                 fingerprints.append(fingerprint)
-    if not fingerprints:
+    if not fingerprints and existing is None:
         return [], None
-    synth_registry = build_synth_registry(
-        fingerprints,
-        registry,
-        min_occurrences=min_occurrences,
-        version=version,
-    )
-    if not synth_registry.tails:
-        return [], None
-    payload = _build_synth_registry_payload(
-        synth_registry,
-        registry,
-        min_occurrences=min_occurrences,
-    )
+    if existing is not None:
+        synth_registry = existing
+        payload = synth_registry_payload(
+            synth_registry,
+            registry,
+            min_occurrences=min_occurrences,
+        )
+    else:
+        synth_registry = build_synth_registry(
+            fingerprints,
+            registry,
+            min_occurrences=min_occurrences,
+            version=version,
+        )
+        if not synth_registry.tails:
+            return [], None
+        payload = synth_registry_payload(
+            synth_registry,
+            registry,
+            min_occurrences=min_occurrences,
+        )
     lines: list[str] = [f"synth registry {synth_registry.version}:"]
     for entry in payload.get("entries", []):
         tail = entry.get("tail", {})
@@ -4181,6 +4194,25 @@ def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
     return baseline
 
 
+def _resolve_synth_registry_path(path: str | None, root: Path) -> Path | None:
+    if not path:
+        return None
+    value = str(path).strip()
+    if not value:
+        return None
+    if value.endswith("/LATEST/fingerprint_synth.json"):
+        marker = Path(root) / value.replace("/LATEST/", "/LATEST.txt")
+        try:
+            stamp = marker.read_text().strip()
+        except Exception:
+            return None
+        return (marker.parent / stamp / "fingerprint_synth.json").resolve()
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    return candidate.resolve()
+
+
 def _load_baseline(path: Path) -> set[str]:
     if not path.exists():
         return set()
@@ -4434,6 +4466,7 @@ def analyze_paths(
             ctor_registry=config.constructor_registry,
             min_occurrences=config.fingerprint_synth_min_occurrences,
             version=config.fingerprint_synth_version,
+            existing=config.fingerprint_synth_registry,
         )
     context_suggestions: list[str] = []
     if decision_surfaces:
@@ -4663,6 +4696,7 @@ def run(argv: list[str] | None = None) -> int:
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     synth_min_occurrences = 0
     synth_version = "synth@1"
+    synth_registry_path: str | None = None
     if isinstance(fingerprint_section, dict):
         try:
             synth_min_occurrences = int(
@@ -4673,6 +4707,7 @@ def run(argv: list[str] | None = None) -> int:
         synth_version = str(
             fingerprint_section.get("synth_version", synth_version) or synth_version
         )
+        synth_registry_path = fingerprint_section.get("synth_registry_path")
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
@@ -4682,6 +4717,25 @@ def run(argv: list[str] | None = None) -> int:
             fingerprint_registry = registry
             fingerprint_index = index
             constructor_registry = TypeConstructorRegistry(registry)
+            if synth_registry_path:
+                resolved = _resolve_synth_registry_path(
+                    str(synth_registry_path), Path(args.root)
+                )
+                if resolved is not None:
+                    try:
+                        payload = json.loads(resolved.read_text())
+                    except Exception:
+                        payload = None
+                else:
+                    payload = None
+                if isinstance(payload, dict):
+                    synth_registry = build_synth_registry_from_payload(
+                        payload, registry
+                    )
+                else:
+                    synth_registry = None
+            else:
+                synth_registry = None
     merged = merge_payload(
         {
             "exclude": exclude_dirs,
@@ -4715,6 +4769,7 @@ def run(argv: list[str] | None = None) -> int:
         constructor_registry=constructor_registry,
         fingerprint_synth_min_occurrences=synth_min_occurrences,
         fingerprint_synth_version=synth_version,
+        fingerprint_synth_registry=synth_registry,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write

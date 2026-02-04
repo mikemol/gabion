@@ -441,6 +441,111 @@ def apply_synth_dimension(
     )
 
 
+def synth_registry_payload(
+    synth_registry: SynthRegistry,
+    registry: PrimeRegistry,
+    *,
+    min_occurrences: int,
+) -> dict[str, object]:
+    entries: list[dict[str, object]] = []
+    for prime, tail in sorted(synth_registry.tails.items()):
+        base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
+            tail.base.product, registry
+        )
+        ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
+            tail.ctor.product, registry
+        )
+        ctor_keys = [
+            key[len("ctor:") :] if key.startswith("ctor:") else key
+            for key in ctor_keys
+        ]
+        entries.append(
+            {
+                "prime": prime,
+                "tail": {
+                    "base": {
+                        "product": tail.base.product,
+                        "mask": tail.base.mask,
+                    },
+                    "ctor": {
+                        "product": tail.ctor.product,
+                        "mask": tail.ctor.mask,
+                    },
+                    "provenance": {
+                        "product": tail.provenance.product,
+                        "mask": tail.provenance.mask,
+                    },
+                    "synth": {
+                        "product": tail.synth.product,
+                        "mask": tail.synth.mask,
+                    },
+                },
+                "base_keys": sorted(base_keys),
+                "ctor_keys": sorted(ctor_keys),
+                "remainder": {
+                    "base": base_remaining,
+                    "ctor": ctor_remaining,
+                },
+            }
+        )
+    return {
+        "version": synth_registry.version,
+        "min_occurrences": min_occurrences,
+        "entries": entries,
+    }
+
+
+def load_synth_registry_payload(
+    payload: dict[str, object],
+) -> tuple[list[dict[str, object]], str, int]:
+    version = str(payload.get("version", "synth@1"))
+    min_occurrences = int(payload.get("min_occurrences", 2))
+    entries = payload.get("entries", [])
+    if not isinstance(entries, list):
+        entries = []
+    return entries, version, min_occurrences
+
+
+def build_synth_registry_from_payload(
+    payload: dict[str, object],
+    registry: PrimeRegistry,
+) -> SynthRegistry:
+    entries, version, _ = load_synth_registry_payload(payload)
+    synth_registry = SynthRegistry(registry=registry, version=version)
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        prime = entry.get("prime")
+        tail = entry.get("tail", {})
+        base = tail.get("base", {}) if isinstance(tail, dict) else {}
+        ctor = tail.get("ctor", {}) if isinstance(tail, dict) else {}
+        provenance = tail.get("provenance", {}) if isinstance(tail, dict) else {}
+        synth = tail.get("synth", {}) if isinstance(tail, dict) else {}
+        fingerprint = Fingerprint(
+            base=FingerprintDimension(
+                product=int(base.get("product", 1)),
+                mask=int(base.get("mask", 0)),
+            ),
+            ctor=FingerprintDimension(
+                product=int(ctor.get("product", 1)),
+                mask=int(ctor.get("mask", 0)),
+            ),
+            provenance=FingerprintDimension(
+                product=int(provenance.get("product", 1)),
+                mask=int(provenance.get("mask", 0)),
+            ),
+            synth=FingerprintDimension(
+                product=int(synth.get("product", 1)),
+                mask=int(synth.get("mask", 0)),
+            ),
+        )
+        assigned_prime = synth_registry.get_or_assign(fingerprint)
+        if isinstance(prime, int) and assigned_prime != prime:
+            synth_registry.tails[prime] = fingerprint
+            synth_registry.primes[fingerprint] = prime
+    return synth_registry
+
+
 def fingerprint_carrier_soundness(a: FingerprintDimension, b: FingerprintDimension) -> bool:
     if (a.mask & b.mask) == 0:
         return math.gcd(a.product, b.product) == 1

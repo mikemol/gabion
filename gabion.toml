@@ -14,3 +14,4 @@ tier3 = []
 [fingerprints]
 synth_min_occurrences = 2
 synth_version = "synth@1"
+synth_registry_path = "artifacts/audit_snapshots/LATEST/fingerprint_synth.json"

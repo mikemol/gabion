@@ -36,6 +36,7 @@ from .type_fingerprints import (
     TypeConstructorRegistry,
     apply_synth_dimension,
     build_fingerprint_registry,
+    build_synth_registry_from_payload,
     build_synth_registry,
     bundle_fingerprint_dimensional,
     bundle_fingerprint,
@@ -53,6 +54,8 @@ from .type_fingerprints import (
     fingerprint_to_type_keys_with_remainder,
     fingerprint_to_type_keys,
     format_fingerprint,
+    load_synth_registry_payload,
+    synth_registry_payload,
 )
 
 __all__ = [
@@ -89,6 +92,7 @@ __all__ = [
     "SynthRegistry",
     "apply_synth_dimension",
     "build_fingerprint_registry",
+    "build_synth_registry_from_payload",
     "build_synth_registry",
     "bundle_fingerprint_dimensional",
     "bundle_fingerprint",
@@ -106,4 +110,6 @@ __all__ = [
     "fingerprint_to_type_keys_with_remainder",
     "fingerprint_to_type_keys",
     "format_fingerprint",
+    "load_synth_registry_payload",
+    "synth_registry_payload",
 ]

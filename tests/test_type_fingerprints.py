@@ -183,3 +183,14 @@ def test_apply_synth_dimension_attaches_tail() -> None:
     synthesized = tf.apply_synth_dimension(fp, synth_registry)
     assert synthesized.synth.product != 1
     assert synth_registry.tails.get(synthesized.synth.product) == fp
+
+
+def test_synth_registry_payload_roundtrip() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    fp = tf.bundle_fingerprint_dimensional(["list[int]"], registry, ctor_registry)
+    synth_registry = tf.build_synth_registry([fp, fp], registry, min_occurrences=2)
+    payload = tf.synth_registry_payload(synth_registry, registry, min_occurrences=2)
+    restored = tf.build_synth_registry_from_payload(payload, registry)
+    assert restored.tails
