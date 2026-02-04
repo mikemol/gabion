@@ -104,3 +104,29 @@ def test_build_fingerprint_registry_deterministic_assignment() -> None:
     assert fp_a == fp_b
     assert reg_a.prime_for("int") == reg_b.prime_for("int")
     assert reg_a.prime_for("list[int]") == reg_b.prime_for("list[int]")
+
+def test_bundle_fingerprint_setlike_ignores_duplicates() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    multiset_fp = tf.bundle_fingerprint(["int", "int", "str"], registry)
+    setlike_fp = tf.bundle_fingerprint_setlike(["int", "int", "str"], registry)
+    assert multiset_fp != setlike_fp
+    assert setlike_fp == tf.bundle_fingerprint_setlike(["str", "int"], registry)
+
+
+def test_fingerprint_to_type_keys_with_remainder_and_strict() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    int_prime = registry.get_or_assign("int")
+    fingerprint = int_prime * 97
+    keys, remaining = tf.fingerprint_to_type_keys_with_remainder(
+        fingerprint, registry
+    )
+    assert keys == ["int"]
+    assert remaining == 97
+    try:
+        tf.fingerprint_to_type_keys(fingerprint, registry, strict=True)
+    except ValueError as exc:
+        assert "not in registry" in str(exc)
+    else:
+        raise AssertionError("Expected strict factorization failure")

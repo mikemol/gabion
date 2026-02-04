@@ -33,6 +33,7 @@ from .type_fingerprints import (
     TypeConstructorRegistry,
     build_fingerprint_registry,
     bundle_fingerprint,
+    bundle_fingerprint_setlike,
     bundle_fingerprint_with_constructors,
     canonical_type_key,
     canonical_type_key_with_constructor,
@@ -42,6 +43,7 @@ from .type_fingerprints import (
     fingerprint_hybrid,
     fingerprint_lcm,
     fingerprint_symmetric_diff,
+    fingerprint_to_type_keys_with_remainder,
     fingerprint_to_type_keys,
 )
 
@@ -76,6 +78,7 @@ __all__ = [
     "TypeConstructorRegistry",
     "build_fingerprint_registry",
     "bundle_fingerprint",
+    "bundle_fingerprint_setlike",
     "bundle_fingerprint_with_constructors",
     "canonical_type_key",
     "canonical_type_key_with_constructor",
@@ -85,5 +88,6 @@ __all__ = [
     "fingerprint_hybrid",
     "fingerprint_lcm",
     "fingerprint_symmetric_diff",
+    "fingerprint_to_type_keys_with_remainder",
     "fingerprint_to_type_keys",
 ]

@@ -251,6 +251,19 @@ def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
     return product
 
 
+def bundle_fingerprint_setlike(types: Iterable[str], registry: PrimeRegistry) -> int:
+    keys: set[str] = set()
+    for hint in types:
+        key = canonical_type_key(hint)
+        if not key:
+            continue
+        keys.add(key)
+    product = 1
+    for key in sorted(keys):
+        product *= registry.get_or_assign(key)
+    return product
+
+
 def bundle_fingerprint_with_constructors(
     types: Iterable[str],
     registry: PrimeRegistry,
@@ -319,20 +332,36 @@ def build_fingerprint_registry(
     return registry, index
 
 
-def fingerprint_to_type_keys(
+def fingerprint_to_type_keys_with_remainder(
     fingerprint: int,
     registry: PrimeRegistry,
-) -> list[str]:
+) -> tuple[list[str], int]:
     remaining = fingerprint
     keys: list[str] = []
     if remaining <= 1:
-        return keys
+        return keys, remaining
     for key, prime in sorted(registry.primes.items(), key=lambda item: item[1]):
         while remaining % prime == 0:
             keys.append(key)
             remaining //= prime
         if remaining == 1:
             break
+    return keys, remaining
+
+
+def fingerprint_to_type_keys(
+    fingerprint: int,
+    registry: PrimeRegistry,
+    *,
+    strict: bool = False,
+) -> list[str]:
+    keys, remaining = fingerprint_to_type_keys_with_remainder(
+        fingerprint, registry
+    )
+    if strict and remaining not in (0, 1):
+        raise ValueError(
+            f"Fingerprint {fingerprint} contains primes not in registry."
+        )
     return keys
 
 
