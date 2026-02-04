@@ -138,6 +138,68 @@ class PrimeRegistry:
         return self.bit_positions.get(key)
 
 
+@dataclass
+class TypeConstructorRegistry:
+    registry: PrimeRegistry
+    constructors: dict[str, int] = field(default_factory=dict)
+
+    def get_or_assign(self, constructor: str) -> int:
+        key = _normalize_base(constructor)
+        prime = self.constructors.get(key)
+        if prime is not None:
+            return prime
+        prime = self.registry.get_or_assign(f"ctor:{key}")
+        self.constructors[key] = prime
+        return prime
+
+
+def canonical_type_key_with_constructor(
+    hint: str,
+    ctor_registry: TypeConstructorRegistry,
+) -> str:
+    raw = hint.strip()
+    if not raw:
+        return ""
+    union_parts = _split_top_level(raw, "|")
+    if len(union_parts) > 1:
+        normalized = sorted(
+            part
+            for part in (canonical_type_key_with_constructor(p, ctor_registry) for p in union_parts)
+            if part
+        )
+        return f"Union[{', '.join(normalized)}]"
+    if raw.startswith("Optional[") and raw.endswith("]"):
+        inner = raw[len("Optional[") : -1]
+        parts = _split_top_level(inner, ",")
+        normalized = [
+            canonical_type_key_with_constructor(p, ctor_registry) for p in parts
+        ]
+        normalized.append("None")
+        normalized = sorted({item for item in normalized if item})
+        return f"Union[{', '.join(normalized)}]"
+    if raw.startswith("Union[") and raw.endswith("]"):
+        inner = raw[len("Union[") : -1]
+        parts = _split_top_level(inner, ",")
+        normalized = sorted(
+            part
+            for part in (canonical_type_key_with_constructor(p, ctor_registry) for p in parts)
+            if part
+        )
+        return f"Union[{', '.join(normalized)}]"
+    if "[" in raw and raw.endswith("]"):
+        base, inner = raw.split("[", 1)
+        inner = inner[:-1]
+        normalized_base = _normalize_base(base)
+        ctor_registry.get_or_assign(normalized_base)
+        parts = _split_top_level(inner, ",")
+        normalized = [
+            canonical_type_key_with_constructor(p, ctor_registry)
+            for p in parts
+            if p.strip()
+        ]
+        return f"{normalized_base}[{', '.join(normalized)}]"
+    return _normalize_base(raw)
+
 def _normalize_type_list(value: object) -> list[str]:
     items: list[str] = []
     if value is None:
@@ -155,6 +217,20 @@ def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
     product = 1
     for hint in types:
         key = canonical_type_key(hint)
+        if not key:
+            continue
+        product *= registry.get_or_assign(key)
+    return product
+
+
+def bundle_fingerprint_with_constructors(
+    types: Iterable[str],
+    registry: PrimeRegistry,
+    ctor_registry: TypeConstructorRegistry,
+) -> int:
+    product = 1
+    for hint in types:
+        key = canonical_type_key_with_constructor(hint, ctor_registry)
         if not key:
             continue
         product *= registry.get_or_assign(key)
@@ -183,12 +259,17 @@ def build_fingerprint_registry(
     spec: dict[str, object],
 ) -> tuple[PrimeRegistry, dict[int, set[str]]]:
     registry = PrimeRegistry()
+    ctor_registry = TypeConstructorRegistry(registry)
     index: dict[int, set[str]] = {}
     for name, entry in spec.items():
         types = _normalize_type_list(entry)
         if not types:
             continue
-        fingerprint = bundle_fingerprint(types, registry)
+        fingerprint = bundle_fingerprint_with_constructors(
+            types,
+            registry,
+            ctor_registry,
+        )
         index.setdefault(fingerprint, set()).add(str(name))
     return registry, index
 

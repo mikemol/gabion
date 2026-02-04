@@ -53,7 +53,11 @@ from gabion.config import (
     fingerprint_defaults,
     merge_payload,
 )
-from gabion.analysis.type_fingerprints import PrimeRegistry, build_fingerprint_registry
+from gabion.analysis.type_fingerprints import (
+    PrimeRegistry,
+    TypeConstructorRegistry,
+    build_fingerprint_registry,
+)
 from gabion.refactor import (
     FieldSpec,
     RefactorEngine,
@@ -155,11 +159,13 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     )
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[int, set[str]] = {}
+    constructor_registry: TypeConstructorRegistry | None = None
     if fingerprint_section:
         registry, index = build_fingerprint_registry(fingerprint_section)
         if index:
             fingerprint_registry = registry
             fingerprint_index = index
+            constructor_registry = TypeConstructorRegistry(registry)
     payload = merge_payload(payload, defaults)
 
     raw_paths = payload.get("paths") or []
@@ -209,6 +215,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         decision_tiers=decision_tiers,
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
+        constructor_registry=constructor_registry,
     )
     if fail_on_type_ambiguities:
         type_audit = True

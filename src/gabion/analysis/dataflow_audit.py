@@ -38,8 +38,10 @@ from gabion.config import (
 )
 from gabion.analysis.type_fingerprints import (
     PrimeRegistry,
+    TypeConstructorRegistry,
     build_fingerprint_registry,
     bundle_fingerprint,
+    bundle_fingerprint_with_constructors,
 )
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -123,6 +125,7 @@ class AuditConfig:
     decision_tiers: dict[str, int] = field(default_factory=dict)
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[int, set[str]] = field(default_factory=dict)
+    constructor_registry: TypeConstructorRegistry | None = None
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -757,6 +760,7 @@ def _compute_fingerprint_warnings(
     *,
     registry: PrimeRegistry,
     index: dict[int, set[str]],
+    ctor_registry: TypeConstructorRegistry | None = None,
 ) -> list[str]:
     warnings: list[str] = []
     if not index:
@@ -780,10 +784,15 @@ def _compute_fingerprint_warnings(
                 types = [fn_annots[param] for param in sorted(bundle)]
                 if any(t is None for t in types):
                     continue
-                fingerprint = bundle_fingerprint(
-                    [t for t in types if t is not None],
-                    registry,
-                )
+                hint_list = [t for t in types if t is not None]
+                if ctor_registry is not None:
+                    fingerprint = bundle_fingerprint_with_constructors(
+                        hint_list,
+                        registry,
+                        ctor_registry,
+                    )
+                else:
+                    fingerprint = bundle_fingerprint(hint_list, registry)
                 names = index.get(fingerprint)
                 if not names:
                     warnings.append(
@@ -3885,6 +3894,7 @@ def analyze_paths(
             annotations_by_path,
             registry=config.fingerprint_registry,
             index=config.fingerprint_index,
+            ctor_registry=config.constructor_registry,
         )
     context_suggestions: list[str] = []
     if decision_surfaces:
@@ -4098,11 +4108,13 @@ def run(argv: list[str] | None = None) -> int:
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[int, set[str]] = {}
+    constructor_registry: TypeConstructorRegistry | None = None
     if fingerprint_section:
         registry, index = build_fingerprint_registry(fingerprint_section)
         if index:
             fingerprint_registry = registry
             fingerprint_index = index
+            constructor_registry = TypeConstructorRegistry(registry)
     merged = merge_payload(
         {
             "exclude": exclude_dirs,
@@ -4133,6 +4145,7 @@ def run(argv: list[str] | None = None) -> int:
         decision_tiers=decision_tiers,
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
+        constructor_registry=constructor_registry,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write

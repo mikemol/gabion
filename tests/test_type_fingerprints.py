@@ -75,3 +75,13 @@ def test_fingerprint_hybrid_bitmask() -> None:
     assert int_bit is not None and str_bit is not None
     assert mask & (1 << int_bit)
     assert mask & (1 << str_bit)
+
+
+def test_constructor_registry_assigns_primes() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    list_prime = ctor_registry.get_or_assign("List")
+    dict_prime = ctor_registry.get_or_assign("Dict")
+    assert list_prime != dict_prime
+    assert registry.prime_for("ctor:list") == list_prime
