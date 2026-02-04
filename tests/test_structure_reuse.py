@@ -40,3 +40,8 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
         entry for entry in reuse["reused"] if entry.get("kind") == "bundle"
     ]
     assert any(entry.get("value") == ["a", "b"] for entry in bundle_entries)
+    suggestions = reuse.get("suggested_lemmas", [])
+    assert any(
+        entry.get("kind") == "bundle" and entry.get("suggested_name")
+        for entry in suggestions
+    )

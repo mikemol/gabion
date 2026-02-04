@@ -2855,7 +2855,30 @@ def compute_structure_reuse(
             entry.get("hash", ""),
         )
     )
-    return {"format_version": 1, "min_count": min_count, "reused": reused}
+    suggested: list[dict[str, object]] = []
+    for entry in reused:
+        kind = entry.get("kind")
+        if kind not in {"bundle", "function"}:
+            continue
+        count = int(entry.get("count", 0))
+        hash_value = entry.get("hash")
+        if not isinstance(hash_value, str) or not hash_value:
+            continue
+        suggested.append(
+            {
+                "hash": hash_value,
+                "kind": kind,
+                "count": count,
+                "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
+                "locations": entry.get("locations", []),
+            }
+        )
+    return {
+        "format_version": 1,
+        "min_count": min_count,
+        "reused": reused,
+        "suggested_lemmas": suggested,
+    }
 
 
 def _bundle_counts(
