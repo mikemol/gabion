@@ -188,6 +188,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         type_audit_max=type_audit_max,
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
+        include_decision_surfaces=bool(report_path),
         config=config,
     )
 
@@ -195,6 +196,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "type_suggestions": analysis.type_suggestions,
         "type_ambiguities": analysis.type_ambiguities,
         "unused_arg_smells": analysis.unused_arg_smells,
+        "decision_surfaces": analysis.decision_surfaces,
     }
 
     synthesis_plan: dict[str, object] | None = None
@@ -270,6 +272,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
+            decision_surfaces=analysis.decision_surfaces,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)

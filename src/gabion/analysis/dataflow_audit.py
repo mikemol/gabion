@@ -137,6 +137,7 @@ class AnalysisResult:
     type_ambiguities: list[str]
     constant_smells: list[str]
     unused_arg_smells: list[str]
+    decision_surfaces: list[str] = field(default_factory=list)
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -300,6 +301,74 @@ def _param_names(
     if ignore_params:
         names = [name for name in names if name not in ignore_params]
     return names
+
+
+def _decision_root_name(node: ast.AST) -> str | None:
+    current = node
+    while isinstance(current, (ast.Attribute, ast.Subscript)):
+        current = current.value
+    if isinstance(current, ast.Name):
+        return current.id
+    return None
+
+
+def _decision_surface_params(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> set[str]:
+    params = set(_param_names(fn, ignore_params))
+    if not params:
+        return set()
+
+    def _mark(expr: ast.AST, out: set[str]) -> None:
+        for node in ast.walk(expr):
+            if isinstance(node, ast.Name) and node.id in params:
+                out.add(node.id)
+                continue
+            if isinstance(node, (ast.Attribute, ast.Subscript)):
+                root = _decision_root_name(node)
+                if root in params:
+                    out.add(root)
+
+    decision_params: set[str] = set()
+    for node in ast.walk(fn):
+        if isinstance(node, ast.If):
+            _mark(node.test, decision_params)
+        elif isinstance(node, ast.While):
+            _mark(node.test, decision_params)
+        elif isinstance(node, ast.Assert):
+            _mark(node.test, decision_params)
+        elif isinstance(node, ast.IfExp):
+            _mark(node.test, decision_params)
+        elif isinstance(node, ast.Match):
+            _mark(node.subject, decision_params)
+            for case in node.cases:
+                if case.guard is not None:
+                    _mark(case.guard, decision_params)
+    return decision_params
+
+
+def analyze_decision_surfaces_repo(
+    paths: list[Path],
+    *,
+    ignore_params: set[str],
+) -> list[str]:
+    surfaces: list[str] = []
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except Exception:
+            continue
+        funcs = _collect_functions(tree)
+        for fn in funcs:
+            decision_params = _decision_surface_params(fn, ignore_params)
+            if not decision_params:
+                continue
+            surfaces.append(
+                f"{path.name}:{fn.name} decision surface params: "
+                + ", ".join(sorted(decision_params))
+            )
+    return sorted(surfaces)
 
 
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
@@ -2265,6 +2334,7 @@ def _emit_report(
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
+    decision_surfaces: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
     components = _connected_components(nodes, adj)
@@ -2357,6 +2427,11 @@ def _emit_report(
         lines.append("Unused-argument smells (non-test call sites):")
         lines.append("```")
         lines.extend(unused_arg_smells)
+        lines.append("```")
+    if decision_surfaces:
+        lines.append("Decision surface candidates (direct param use in conditionals):")
+        lines.append("```")
+        lines.extend(decision_surfaces)
         lines.append("```")
     return "\n".join(lines), violations
 
@@ -3000,6 +3075,7 @@ def _compute_violations(
         type_ambiguities=type_ambiguities,
         constant_smells=[],
         unused_arg_smells=[],
+        decision_surfaces=[],
     )
     return violations
 
@@ -3080,6 +3156,7 @@ def render_report(
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
+    decision_surfaces: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
         groups_by_path,
@@ -3088,6 +3165,7 @@ def render_report(
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
+        decision_surfaces=decision_surfaces,
     )
 
 
@@ -3115,6 +3193,7 @@ def analyze_paths(
     type_audit_max: int,
     include_constant_smells: bool,
     include_unused_arg_smells: bool,
+    include_decision_surfaces: bool = False,
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
     if config is None:
@@ -3164,6 +3243,13 @@ def analyze_paths(
             transparent_decorators=config.transparent_decorators,
         )
 
+    decision_surfaces: list[str] = []
+    if include_decision_surfaces:
+        decision_surfaces = analyze_decision_surfaces_repo(
+            file_paths,
+            ignore_params=config.ignore_params,
+        )
+
     return AnalysisResult(
         groups_by_path=groups_by_path,
         param_spans_by_path=param_spans_by_path,
@@ -3171,6 +3257,7 @@ def analyze_paths(
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
+        decision_surfaces=decision_surfaces,
     )
 
 
