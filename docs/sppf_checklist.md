@@ -1,5 +1,5 @@
 ---
-doc_revision: 113
+doc_revision: 116
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -84,6 +84,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 - [x] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70)
 - [x] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71)
+- [~] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -99,6 +100,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] FactorizationTree snapshot emission (canonical JSON). (in-16, GH-62)
 - [x] Structural diff command + baseline comparison. (in-16, GH-63)
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64)
+- [ ] Deadness evidence artifacts (deadness witnesses + JSON/report/LSP + snapshot selectors + determinism tests). (in-24, GH-74)
+- [ ] Coherence evidence artifacts (branching witnesses + JSON/report/LSP + snapshot selectors + determinism tests). (in-25, GH-75)
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
@@ -136,6 +139,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72)
+- [ ] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + verification predicates + snapshot selectors). (in-26, GH-76)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
