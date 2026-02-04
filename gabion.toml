@@ -5,3 +5,8 @@ type_audit = true
 
 [synthesis]
 merge_overlap_threshold = 0.75
+
+[decision]
+tier1 = []
+tier2 = []
+tier3 = []

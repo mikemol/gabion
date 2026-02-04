@@ -44,6 +44,39 @@ def synthesis_defaults(
     return section if isinstance(section, dict) else {}
 
 
+def decision_defaults(
+    root: Path | None = None, config_path: Path | None = None
+) -> dict[str, Any]:
+    data = load_config(root=root, config_path=config_path)
+    section = data.get("decision", {})
+    return section if isinstance(section, dict) else {}
+
+
+def _normalize_name_list(value: Any) -> list[str]:
+    items: list[str] = []
+    if value is None:
+        return items
+    if isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                items.extend([part.strip() for part in item.split(",") if part.strip()])
+    return [item for item in items if item]
+
+
+def decision_tier_map(section: dict[str, Any] | None) -> dict[str, int]:
+    if section is None:
+        return {}
+    if not isinstance(section, dict):
+        return {}
+    tiers: dict[str, int] = {}
+    for tier, key in ((1, "tier1"), (2, "tier2"), (3, "tier3")):
+        for name in _normalize_name_list(section.get(key)):
+            tiers[name] = tier
+    return tiers
+
+
 def merge_payload(payload: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
     merged = dict(defaults)
     for key, value in payload.items():

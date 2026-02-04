@@ -1,5 +1,5 @@
 ---
-doc_revision: 87
+doc_revision: 88
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -67,11 +67,11 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [~] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60)
 - [~] Decision surface hooks in grammar (`is_decision_surface`). (GH-60)
 - [x] Decision surface boundary diagnostics (API surface vs internal depth). (GH-60)
-- [ ] Decision surface tier enforcement via glossary metadata. (GH-60)
+- [x] Decision surface tier enforcement via glossary metadata. (GH-60)
 - [~] Value-encoded decision surface detection (branchless / algebraic control). (in-18, GH-66)
 - [~] Value-encoded decision heuristics (min/max, bitmask, boolean arithmetic). (GH-66)
 - [~] Value-encoded decision surface reports in audit output. (GH-66)
-- [ ] Value-encoded decision glossary warnings (nonlinear contexts). (GH-66)
+- [x] Value-encoded decision glossary warnings (nonlinear contexts). (GH-66)
 - [ ] Value-encoded decision rewrite suggestions (rebranch). (GH-66)
 - [~] Value-encoded decision diff tracking in audit snapshots. (GH-66)
 - [ ] Prime-labeled type fingerprints (algebraic bundle matching). (in-20/in-21, GH-68)

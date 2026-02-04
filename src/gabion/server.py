@@ -46,7 +46,7 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
-from gabion.config import dataflow_defaults, merge_payload
+from gabion.config import dataflow_defaults, decision_defaults, decision_tier_map, merge_payload
 from gabion.refactor import (
     FieldSpec,
     RefactorEngine,
@@ -139,6 +139,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     defaults = dataflow_defaults(
         Path(root), Path(config_path) if config_path else None
     )
+    decision_section = decision_defaults(
+        Path(root), Path(config_path) if config_path else None
+    )
+    decision_tiers = decision_tier_map(decision_section)
     payload = merge_payload(payload, defaults)
 
     raw_paths = payload.get("paths") or []
@@ -185,9 +189,15 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         external_filter=not allow_external,
         strictness=strictness,
         transparent_decorators=transparent_decorators,
+        decision_tiers=decision_tiers,
     )
     if fail_on_type_ambiguities:
         type_audit = True
+    include_decisions = bool(report_path) or bool(decision_snapshot_path) or bool(
+        fail_on_violations
+    )
+    if decision_tiers:
+        include_decisions = True
     analysis = analyze_paths(
         paths,
         recursive=not no_recursive,
@@ -196,8 +206,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         type_audit_max=type_audit_max,
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
-        include_decision_surfaces=bool(report_path) or bool(decision_snapshot_path),
-        include_value_decision_surfaces=bool(report_path) or bool(decision_snapshot_path),
+        include_decision_surfaces=include_decisions,
+        include_value_decision_surfaces=include_decisions,
         config=config,
     )
 
@@ -207,6 +217,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "unused_arg_smells": analysis.unused_arg_smells,
         "decision_surfaces": analysis.decision_surfaces,
         "value_decision_surfaces": analysis.value_decision_surfaces,
+        "decision_warnings": analysis.decision_warnings,
         "context_suggestions": analysis.context_suggestions,
     }
 
@@ -296,6 +307,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             unused_arg_smells=analysis.unused_arg_smells,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
+            decision_warnings=analysis.decision_warnings,
             context_suggestions=analysis.context_suggestions,
         )
         if baseline_path is not None:
@@ -327,6 +339,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             max_components,
             type_suggestions=analysis.type_suggestions if type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
+            decision_warnings=analysis.decision_warnings,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)

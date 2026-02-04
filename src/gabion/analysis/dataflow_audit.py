@@ -28,7 +28,13 @@ from typing import Iterable, Iterator
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
-from gabion.config import dataflow_defaults, merge_payload, synthesis_defaults
+from gabion.config import (
+    dataflow_defaults,
+    decision_defaults,
+    decision_tier_map,
+    merge_payload,
+    synthesis_defaults,
+)
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
@@ -108,6 +114,7 @@ class AuditConfig:
     external_filter: bool = True
     strictness: str = "high"
     transparent_decorators: set[str] | None = None
+    decision_tiers: dict[str, int] = field(default_factory=dict)
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -140,6 +147,7 @@ class AnalysisResult:
     unused_arg_smells: list[str]
     decision_surfaces: list[str] = field(default_factory=list)
     value_decision_surfaces: list[str] = field(default_factory=list)
+    decision_warnings: list[str] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
 
 
@@ -439,7 +447,8 @@ def analyze_decision_surfaces_repo(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-) -> list[str]:
+    decision_tiers: dict[str, int] | None = None,
+) -> tuple[list[str], list[str]]:
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -471,6 +480,8 @@ def analyze_decision_surfaces_repo(
                 callers_by_qual[callee.qual].add(info.qual)
 
     surfaces: list[str] = []
+    warnings: list[str] = []
+    tier_map = decision_tiers or {}
     for info in by_qual.values():
         if not info.decision_params:
             continue
@@ -481,7 +492,18 @@ def analyze_decision_surfaces_repo(
             + ", ".join(sorted(info.decision_params))
             + f" ({boundary})"
         )
-    return sorted(surfaces)
+        if tier_map:
+            for param in sorted(info.decision_params):
+                tier = tier_map.get(param)
+                if tier is None:
+                    warnings.append(
+                        f"{info.path.name}:{info.qual} decision param '{param}' missing decision tier metadata"
+                    )
+                elif tier in {2, 3} and caller_count > 0:
+                    warnings.append(
+                        f"{info.path.name}:{info.qual} tier-{tier} decision param '{param}' used below boundary ({boundary})"
+                    )
+    return sorted(surfaces), sorted(set(warnings))
 
 
 def analyze_value_encoded_decisions_repo(
@@ -492,25 +514,63 @@ def analyze_value_encoded_decisions_repo(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-) -> list[str]:
-    _, by_qual = _build_function_index(
+    decision_tiers: dict[str, int] | None = None,
+) -> tuple[list[str], list[str]]:
+    by_name, by_qual = _build_function_index(
         paths,
         project_root,
         ignore_params,
         strictness,
         transparent_decorators,
     )
+    symbol_table = _build_symbol_table(
+        paths, project_root, external_filter=external_filter
+    )
+    class_index = _collect_class_index(paths, project_root)
+    callers_by_qual: dict[str, set[str]] = defaultdict(set)
+    for infos in by_name.values():
+        for info in infos:
+            for call in info.calls:
+                if call.is_test:
+                    continue
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                )
+                if callee is None:
+                    continue
+                callers_by_qual[callee.qual].add(info.qual)
     surfaces: list[str] = []
+    warnings: list[str] = []
+    tier_map = decision_tiers or {}
     for info in by_qual.values():
         if not info.value_decision_params:
             continue
         reasons = ", ".join(sorted(info.value_decision_reasons)) or "heuristic"
+        caller_count = len(callers_by_qual.get(info.qual, set()))
+        boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
         surfaces.append(
             f"{info.path.name}:{info.qual} value-encoded decision params: "
             + ", ".join(sorted(info.value_decision_params))
             + f" ({reasons})"
         )
-    return sorted(surfaces)
+        if tier_map:
+            for param in sorted(info.value_decision_params):
+                tier = tier_map.get(param)
+                if tier is None:
+                    warnings.append(
+                        f"{info.path.name}:{info.qual} value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
+                    )
+                elif tier in {2, 3} and caller_count > 0:
+                    warnings.append(
+                        f"{info.path.name}:{info.qual} tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
+                    )
+    return sorted(surfaces), sorted(set(warnings))
 
 
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
@@ -2507,6 +2567,7 @@ def _emit_report(
     unused_arg_smells: list[str] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
+    decision_warnings: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
@@ -2611,6 +2672,12 @@ def _emit_report(
         lines.append("```")
         lines.extend(value_decision_surfaces)
         lines.append("```")
+    if decision_warnings:
+        lines.append("Decision tier warnings:")
+        lines.append("```")
+        lines.extend(decision_warnings)
+        lines.append("```")
+        violations.extend(decision_warnings)
     if context_suggestions:
         lines.append("Contextvar/ambient rewrite suggestions:")
         lines.append("```")
@@ -3508,6 +3575,7 @@ def _compute_violations(
     *,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
+    decision_warnings: list[str] | None = None,
 ) -> list[str]:
     _, violations = _emit_report(
         groups_by_path,
@@ -3518,6 +3586,7 @@ def _compute_violations(
         unused_arg_smells=[],
         decision_surfaces=[],
         value_decision_surfaces=[],
+        decision_warnings=decision_warnings,
         context_suggestions=[],
     )
     return violations
@@ -3601,6 +3670,7 @@ def render_report(
     unused_arg_smells: list[str] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
+    decision_warnings: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
@@ -3612,6 +3682,7 @@ def render_report(
         unused_arg_smells=unused_arg_smells,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
+        decision_warnings=decision_warnings,
         context_suggestions=context_suggestions,
     )
 
@@ -3622,12 +3693,14 @@ def compute_violations(
     *,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
+    decision_warnings: list[str] | None = None,
 ) -> list[str]:
     return _compute_violations(
         groups_by_path,
         max_components,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
+        decision_warnings=decision_warnings,
     )
 
 
@@ -3692,25 +3765,29 @@ def analyze_paths(
         )
 
     decision_surfaces: list[str] = []
+    decision_warnings: list[str] = []
     if include_decision_surfaces:
-        decision_surfaces = analyze_decision_surfaces_repo(
+        decision_surfaces, decision_warnings = analyze_decision_surfaces_repo(
             file_paths,
             project_root=config.project_root,
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
+            decision_tiers=config.decision_tiers,
         )
     value_decision_surfaces: list[str] = []
     if include_value_decision_surfaces:
-        value_decision_surfaces = analyze_value_encoded_decisions_repo(
+        value_decision_surfaces, value_warnings = analyze_value_encoded_decisions_repo(
             file_paths,
             project_root=config.project_root,
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
+            decision_tiers=config.decision_tiers,
         )
+        decision_warnings.extend(value_warnings)
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
@@ -3726,6 +3803,7 @@ def analyze_paths(
         unused_arg_smells=unused_arg_smells,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
+        decision_warnings=sorted(set(decision_warnings)),
         context_suggestions=context_suggestions,
     )
 
@@ -3916,6 +3994,8 @@ def run(argv: list[str] | None = None) -> int:
     config_path = Path(args.config) if args.config else None
     defaults = dataflow_defaults(Path(args.root), config_path)
     synth_defaults = synthesis_defaults(Path(args.root), config_path)
+    decision_section = decision_defaults(Path(args.root), config_path)
+    decision_tiers = decision_tier_map(decision_section)
     merged = merge_payload(
         {
             "exclude": exclude_dirs,
@@ -3943,6 +4023,7 @@ def run(argv: list[str] | None = None) -> int:
         external_filter=not allow_external,
         strictness=strictness,
         transparent_decorators=transparent_decorators,
+        decision_tiers=decision_tiers,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write
@@ -3951,6 +4032,11 @@ def run(argv: list[str] | None = None) -> int:
         return 2
     paths = _iter_paths(args.paths, config)
     decision_snapshot_path = args.emit_decision_snapshot
+    include_decisions = bool(args.report) or bool(decision_snapshot_path) or bool(
+        args.fail_on_violations
+    )
+    if decision_tiers:
+        include_decisions = True
     analysis = analyze_paths(
         paths,
         recursive=not args.no_recursive,
@@ -3959,8 +4045,8 @@ def run(argv: list[str] | None = None) -> int:
         type_audit_max=args.type_audit_max,
         include_constant_smells=bool(args.report),
         include_unused_arg_smells=bool(args.report),
-        include_decision_surfaces=bool(args.report) or bool(decision_snapshot_path),
-        include_value_decision_surfaces=bool(args.report) or bool(decision_snapshot_path),
+        include_decision_surfaces=include_decisions,
+        include_value_decision_surfaces=include_decisions,
         config=config,
     )
     structure_tree_path = args.emit_structure_tree
@@ -4118,6 +4204,7 @@ def run(argv: list[str] | None = None) -> int:
             unused_arg_smells=analysis.unused_arg_smells,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
+            decision_warnings=analysis.decision_warnings,
             context_suggestions=analysis.context_suggestions,
         )
         suppressed: list[str] = []
@@ -4171,6 +4258,7 @@ def run(argv: list[str] | None = None) -> int:
             args.max_components,
             type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
+            decision_warnings=analysis.decision_warnings,
         )
         if baseline_path is not None:
             baseline_entries = _load_baseline(baseline_path)

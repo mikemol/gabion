@@ -52,7 +52,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         "        return a\n"
         "    return b\n"
     )
-    surfaces = da.analyze_decision_surfaces_repo(
+    surfaces, warnings = da.analyze_decision_surfaces_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -61,6 +61,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         transparent_decorators=None,
     )
     assert surfaces == ["mod.py:mod.f decision surface params: b (boundary)"]
+    assert warnings == []
 
     analysis = da.analyze_paths(
         [path],
@@ -74,8 +75,9 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         config=da.AuditConfig(project_root=tmp_path),
     )
     assert analysis.decision_surfaces == surfaces
+    assert analysis.decision_warnings == warnings
 
-    value_surfaces = da.analyze_value_encoded_decisions_repo(
+    value_surfaces, value_warnings = da.analyze_value_encoded_decisions_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -84,6 +86,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         transparent_decorators=None,
     )
     assert value_surfaces == []
+    assert value_warnings == []
 
 
 def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
@@ -96,7 +99,7 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
         "    z = mask & 1\n"
         "    return x + y + z\n"
     )
-    surfaces = da.analyze_value_encoded_decisions_repo(
+    surfaces, warnings = da.analyze_value_encoded_decisions_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -107,6 +110,7 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
     assert surfaces == [
         "mod.py:mod.f value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
     ]
+    assert warnings == []
 
 
 def test_decision_surface_internal_caller(tmp_path: Path) -> None:
@@ -121,7 +125,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         "def g(x, y):\n"
         "    return f(x, y)\n"
     )
-    surfaces = da.analyze_decision_surfaces_repo(
+    surfaces, warnings = da.analyze_decision_surfaces_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -130,6 +134,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         transparent_decorators=None,
     )
     assert surfaces == ["mod.py:mod.f decision surface params: b (internal callers: 1)"]
+    assert warnings == []
 
     analysis = da.analyze_paths(
         [path],
@@ -158,3 +163,27 @@ def test_emit_report_includes_decision_surfaces(tmp_path: Path) -> None:
         decision_surfaces=["mod.py:f decision surface params: a"],
     )
     assert "Decision surface candidates" in report
+
+
+def test_decision_surface_tier_warning_internal(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "def internal(user_mode):\n"
+        "    if user_mode:\n"
+        "        return 1\n"
+        "    return 0\n"
+        "\n"
+        "def api(user_mode):\n"
+        "    return internal(user_mode)\n"
+    )
+    _, warnings = da.analyze_decision_surfaces_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+        decision_tiers={"user_mode": 3},
+    )
+    assert any("tier-3 decision param 'user_mode'" in warning for warning in warnings)

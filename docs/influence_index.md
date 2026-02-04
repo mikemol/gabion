@@ -1,5 +1,5 @@
 ---
-doc_revision: 12
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -57,10 +57,10 @@ Status legend:
 - in/in-12.md — **partial** (LSP integration + LibCST refactor engine present; analysis still AST‑based.)
 - in/in-13.md — **adopted** (LSP‑first architecture + CLI as thin client implemented.)
 - in/in-14.md — **adopted** (repo scaffold + CLI/LSP split aligned with current structure.)
-- in/in-15.md — **partial** (decision surfaces + boundary classification in audit; context suggestions; remaining tier enforcement/rewrite; SPPF/GH-60, GH-61.)
+- in/in-15.md — **partial** (decision surfaces + boundary classification + tier enforcement; context suggestions; remaining rewrite work; SPPF/GH-60, GH-61.)
 - in/in-16.md — **adopted** (structural snapshots/diffing/metrics + baseline ratchet implemented; SPPF/GH-62/63/64/23.)
 - in/in-17.md — **partial** (subtree reuse detection + hashing in structure snapshot; remaining lemma synthesis hooks; SPPF/GH-65.)
-- in/in-18.md — **partial** (value‑encoded decision detection + report heuristics + decision snapshot/diff; remaining glossary/rewrite work; SPPF/GH-66.)
+- in/in-18.md — **partial** (value‑encoded decision detection + reports + glossary warnings + decision snapshot/diff; remaining rewrite work; SPPF/GH-66.)
 - in/in-19.md — **queued** (checklist expanded; invariant extraction + dependent‑type synthesis; SPPF/GH-67.)
 - in/in-20.md — **queued** (checklist expanded; prime‑labeled type fingerprints; SPPF/GH-68.)
 - in/in-21.md — **queued** (longform expansion of in-20; checklist expanded; SPPF/GH-68.)
