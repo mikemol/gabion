@@ -67,3 +67,37 @@ def test_render_reuse_lemma_stubs_includes_names() -> None:
     }
     stubs = da.render_reuse_lemma_stubs(reuse)
     assert "_gabion_bundle_lemma_deadbeef" in stubs
+
+
+def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        "from dataclasses import dataclass\n\n"
+        "@dataclass\n"
+        "class UserContext:\n"
+        "    user_id: int\n"
+        "    request_id: str\n"
+    )
+    snapshot = {
+        "format_version": 1,
+        "root": str(tmp_path),
+        "files": [
+            {
+                "path": "mod.py",
+                "functions": [
+                    {"name": "f", "bundles": [["user_id", "request_id"]]},
+                    {"name": "g", "bundles": [["request_id", "user_id"]]},
+                ],
+            }
+        ],
+    }
+    reuse = da.compute_structure_reuse(snapshot, min_count=2)
+    suggestions = reuse.get("suggested_lemmas", [])
+    assert any(
+        entry.get("kind") == "bundle"
+        and entry.get("suggested_name") == "UserContext"
+        and entry.get("name_source") == "declared_bundle"
+        for entry in suggestions
+    )
+    assert reuse.get("warnings") == []

@@ -2203,6 +2203,26 @@ def _collect_dataclass_registry(
     return registry
 
 
+def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
+    file_paths = sorted(root.rglob("*.py"))
+    config_bundles_by_path = _collect_config_bundles(file_paths)
+    dataclass_registry = _collect_dataclass_registry(
+        file_paths,
+        project_root=root,
+    )
+    name_map: dict[tuple[str, ...], set[str]] = defaultdict(set)
+    for bundles in config_bundles_by_path.values():
+        for name, fields in bundles.items():
+            key = tuple(sorted(fields))
+            if key:
+                name_map[key].add(name)
+    for qual_name, fields in dataclass_registry.items():
+        key = tuple(sorted(fields))
+        if key:
+            name_map[key].add(qual_name.split(".")[-1])
+    return name_map
+
+
 def _iter_dataclass_call_bundles(
     path: Path,
     *,
@@ -2808,7 +2828,13 @@ def compute_structure_reuse(
     if min_count < 2:
         min_count = 2
     files = snapshot.get("files") or []
+    root_value = snapshot.get("root")
+    root_path = Path(root_value) if isinstance(root_value, str) else None
+    bundle_name_map: dict[tuple[str, ...], set[str]] = {}
+    if root_path is not None and root_path.exists():
+        bundle_name_map = _bundle_name_registry(root_path)
     reuse_map: dict[str, dict[str, object]] = {}
+    warnings: list[str] = []
 
     def _hash_node(kind: str, value: object | None, child_hashes: list[str]) -> str:
         payload = {
@@ -2927,6 +2953,22 @@ def compute_structure_reuse(
             suggestion["value"] = entry.get("value")
         if "child_count" in entry:
             suggestion["child_count"] = entry.get("child_count")
+        if kind == "bundle" and "value" in entry:
+            value = entry.get("value")
+            if isinstance(value, list):
+                key = tuple(sorted(str(item) for item in value))
+                name_candidates = bundle_name_map.get(key)
+                if name_candidates:
+                    sorted_names = sorted(name_candidates)
+                    if len(sorted_names) == 1:
+                        suggestion["suggested_name"] = sorted_names[0]
+                        suggestion["name_source"] = "declared_bundle"
+                    else:
+                        suggestion["name_candidates"] = sorted_names
+                else:
+                    warnings.append(
+                        f"Missing declared bundle name for {list(key)}"
+                    )
         suggested.append(suggestion)
         locations = suggestion.get("locations") or []
         if isinstance(locations, list):
@@ -2946,6 +2988,7 @@ def compute_structure_reuse(
         "reused": reused,
         "suggested_lemmas": suggested,
         "replacement_map": replacement_map,
+        "warnings": warnings,
     }
 
 
