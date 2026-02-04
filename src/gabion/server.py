@@ -158,6 +158,18 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     fingerprint_section = fingerprint_defaults(
         Path(root), Path(config_path) if config_path else None
     )
+    synth_min_occurrences = 0
+    synth_version = "synth@1"
+    if isinstance(fingerprint_section, dict):
+        try:
+            synth_min_occurrences = int(
+                fingerprint_section.get("synth_min_occurrences", 0) or 0
+            )
+        except (TypeError, ValueError):
+            synth_min_occurrences = 0
+        synth_version = str(
+            fingerprint_section.get("synth_version", synth_version) or synth_version
+        )
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
@@ -217,6 +229,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
         constructor_registry=constructor_registry,
+        fingerprint_synth_min_occurrences=synth_min_occurrences,
+        fingerprint_synth_version=synth_version,
     )
     if fail_on_type_ambiguities:
         type_audit = True
@@ -249,6 +263,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "decision_warnings": analysis.decision_warnings,
         "fingerprint_warnings": analysis.fingerprint_warnings,
         "fingerprint_matches": analysis.fingerprint_matches,
+        "fingerprint_synth": analysis.fingerprint_synth,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -346,6 +361,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             decision_warnings=analysis.decision_warnings,
             fingerprint_warnings=analysis.fingerprint_warnings,
             fingerprint_matches=analysis.fingerprint_matches,
+            fingerprint_synth=analysis.fingerprint_synth,
             context_suggestions=analysis.context_suggestions,
             invariant_propositions=analysis.invariant_propositions,
         )

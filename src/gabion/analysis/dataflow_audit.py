@@ -40,6 +40,7 @@ from gabion.analysis.type_fingerprints import (
     Fingerprint,
     PrimeRegistry,
     TypeConstructorRegistry,
+    build_synth_registry,
     build_fingerprint_registry,
     bundle_fingerprint_dimensional,
     format_fingerprint,
@@ -146,6 +147,8 @@ class AuditConfig:
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
     constructor_registry: TypeConstructorRegistry | None = None
+    fingerprint_synth_min_occurrences: int = 0
+    fingerprint_synth_version: str = "synth@1"
     invariant_emitters: tuple[
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
         ...,
@@ -185,6 +188,7 @@ class AnalysisResult:
     decision_warnings: list[str] = field(default_factory=list)
     fingerprint_warnings: list[str] = field(default_factory=list)
     fingerprint_matches: list[str] = field(default_factory=list)
+    fingerprint_synth: list[str] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
@@ -1040,6 +1044,68 @@ def _compute_fingerprint_matches(
                     + details
                 )
     return sorted(set(matches))
+
+
+def _compute_fingerprint_synth(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    *,
+    registry: PrimeRegistry,
+    ctor_registry: TypeConstructorRegistry | None,
+    min_occurrences: int,
+    version: str,
+) -> list[str]:
+    if min_occurrences < 2:
+        return []
+    fingerprints: list[Fingerprint] = []
+    for path, groups in groups_by_path.items():
+        annots_by_fn = annotations_by_path.get(path, {})
+        for fn_name, bundles in groups.items():
+            fn_annots = annots_by_fn.get(fn_name, {})
+            for bundle in bundles:
+                if any(not fn_annots.get(param) for param in bundle):
+                    continue
+                types = [fn_annots[param] for param in sorted(bundle)]
+                if any(t is None for t in types):
+                    continue
+                hint_list = [t for t in types if t is not None]
+                fingerprint = bundle_fingerprint_dimensional(
+                    hint_list,
+                    registry,
+                    ctor_registry,
+                )
+                fingerprints.append(fingerprint)
+    if not fingerprints:
+        return []
+    synth_registry = build_synth_registry(
+        fingerprints,
+        registry,
+        min_occurrences=min_occurrences,
+        version=version,
+    )
+    if not synth_registry.tails:
+        return []
+    lines: list[str] = [f"synth registry {synth_registry.version}:"]
+    for prime, tail in sorted(synth_registry.tails.items()):
+        base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
+            tail.base.product, registry
+        )
+        ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
+            tail.ctor.product, registry
+        )
+        ctor_keys = [
+            key[len("ctor:") :] if key.startswith("ctor:") else key
+            for key in ctor_keys
+        ]
+        details = f"base={sorted(base_keys)}"
+        if ctor_keys:
+            details += f" ctor={sorted(ctor_keys)}"
+        if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
+            details += f" remainder=({base_remaining},{ctor_remaining})"
+        lines.append(
+            f"- synth_prime={prime} tail={format_fingerprint(tail)} {details}"
+        )
+    return lines
 
 
 class _ReturnAliasCollector(ast.NodeVisitor):
@@ -2893,6 +2959,7 @@ def _emit_report(
     decision_warnings: list[str] | None = None,
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
+    fingerprint_synth: list[str] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
     value_decision_rewrites: list[str] | None = None,
@@ -3020,6 +3087,11 @@ def _emit_report(
         lines.append("Fingerprint matches:")
         lines.append("```")
         lines.extend(fingerprint_matches)
+        lines.append("```")
+    if fingerprint_synth:
+        lines.append("Fingerprint synthesis:")
+        lines.append("```")
+        lines.extend(fingerprint_synth)
         lines.append("```")
     if invariant_propositions:
         lines.append("Invariant propositions:")
@@ -4047,6 +4119,7 @@ def render_report(
     decision_warnings: list[str] | None = None,
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
+    fingerprint_synth: list[str] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
     value_decision_rewrites: list[str] | None = None,
@@ -4063,6 +4136,7 @@ def render_report(
         decision_warnings=decision_warnings,
         fingerprint_warnings=fingerprint_warnings,
         fingerprint_matches=fingerprint_matches,
+        fingerprint_synth=fingerprint_synth,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
@@ -4209,6 +4283,16 @@ def analyze_paths(
             index=config.fingerprint_index,
             ctor_registry=config.constructor_registry,
         )
+        fingerprint_synth = _compute_fingerprint_synth(
+            groups_by_path,
+            annotations_by_path,
+            registry=config.fingerprint_registry,
+            ctor_registry=config.constructor_registry,
+            min_occurrences=config.fingerprint_synth_min_occurrences,
+            version=config.fingerprint_synth_version,
+        )
+    else:
+        fingerprint_synth = []
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
@@ -4227,6 +4311,7 @@ def analyze_paths(
         decision_warnings=sorted(set(decision_warnings)),
         fingerprint_warnings=fingerprint_warnings,
         fingerprint_matches=fingerprint_matches,
+        fingerprint_synth=fingerprint_synth,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
@@ -4422,6 +4507,18 @@ def run(argv: list[str] | None = None) -> int:
     decision_section = decision_defaults(Path(args.root), config_path)
     decision_tiers = decision_tier_map(decision_section)
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
+    synth_min_occurrences = 0
+    synth_version = "synth@1"
+    if isinstance(fingerprint_section, dict):
+        try:
+            synth_min_occurrences = int(
+                fingerprint_section.get("synth_min_occurrences", 0) or 0
+            )
+        except (TypeError, ValueError):
+            synth_min_occurrences = 0
+        synth_version = str(
+            fingerprint_section.get("synth_version", synth_version) or synth_version
+        )
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
@@ -4462,6 +4559,8 @@ def run(argv: list[str] | None = None) -> int:
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
         constructor_registry=constructor_registry,
+        fingerprint_synth_min_occurrences=synth_min_occurrences,
+        fingerprint_synth_version=synth_version,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write

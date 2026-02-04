@@ -12,3 +12,5 @@ tier2 = []
 tier3 = []
 
 [fingerprints]
+synth_min_occurrences = 2
+synth_version = "synth@1"

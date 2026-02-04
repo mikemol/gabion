@@ -62,3 +62,22 @@ def test_fingerprint_matches_report_known_entry(tmp_path: Path) -> None:
         index=index,
     )
     assert any("user_context" in match for match in matches)
+
+
+def test_fingerprint_synth_reports_tail(tmp_path: Path) -> None:
+    da, build_registry = _load()
+    path = tmp_path / "mod.py"
+    groups_by_path = {path: {"f": [set(["user_id", "user_name"]), set(["user_id", "user_name"])]}}
+    annotations_by_path = {
+        path: {"f": {"user_id": "int", "user_name": "str"}}
+    }
+    registry, _ = build_registry({"user_context": ["int", "str"]})
+    synth = da._compute_fingerprint_synth(
+        groups_by_path,
+        annotations_by_path,
+        registry=registry,
+        ctor_registry=None,
+        min_occurrences=2,
+        version="synth@1",
+    )
+    assert any("synth@" in line or "synth registry" in line for line in synth)
