@@ -1,5 +1,5 @@
 ---
-doc_revision: 15
+doc_revision: 16
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -968,3 +968,185 @@ Lemma naming and placement are erased if semantics are preserved.
 ### Test Obligations (to be mapped)
 
 - Equivalence checks between factored and unfactored forms.
+
+---
+
+## 23. ASPF (Algebraic Structural Prime Fingerprint)
+
+### Meaning
+
+**Definition:** A dimensional fingerprint system where structural meaning is
+encoded as prime products across orthogonal carriers (base, constructor,
+provenance, synth). ASPF is treated as a **packed‑forest label**, not a hash.
+
+### Axis
+
+**Axis:** Structural + semantic (packed‑derivation carrier).
+
+### Desired Commutation (Derivation Equivalence)
+
+Equivalent derivations may commute in **base/constructor** space while
+remaining distinct in **provenance** space. Commutation is permitted only when
+the provenance carrier records the equivalence class explicitly.
+
+### Failure Modes
+
+- ASPF used as a lossy hash without provenance semantics.
+- Non‑deterministic prime assignment causing unstable meanings.
+
+### Normative Rule
+
+> ASPF must be deterministic and reversible at the base/constructor layer.
+> Provenance must remain inspectable and must not be erased by default.
+
+### Erasure
+
+Formatting and ordering of input types are erased; provenance is **not**.
+
+### Test Obligations (to be mapped)
+
+- Deterministic seeding yields stable fingerprints across runs.
+- Provenance carrier is emitted when requested.
+
+---
+
+## 24. Fingerprint Dimension (Carrier)
+
+### Meaning
+
+**Definition:** One orthogonal carrier within ASPF (e.g., base, constructor,
+provenance, synth). Dimensions are algebraically independent but jointly
+constrained.
+
+### Axis
+
+**Axis:** Structural (orthogonal carriers).
+
+### Desired Commutation (Carrier Independence)
+
+Operations in one dimension must not mutate another dimension, except via
+explicit synthesis rules (e.g., synth tail attachment).
+
+### Failure Modes
+
+- Cross‑dimension contamination (e.g., base keys leaking into provenance).
+- Carrier soundness violated (mask/product mismatch).
+
+### Normative Rule
+
+> Each dimension must preserve its own algebraic identity and pass carrier
+> soundness checks against its peers.
+
+### Erasure
+
+Internal bit positions are erased; carrier identity is retained.
+
+### Test Obligations (to be mapped)
+
+- Carrier soundness checks pass for non‑empty dimensions.
+
+---
+
+## 25. Provenance Carrier
+
+### Meaning
+
+**Definition:** The ASPF dimension that encodes **how** a composite structure
+arose (packed derivation path).
+
+### Axis
+
+**Axis:** Semantic (derivation).
+
+### Desired Commutation (Derivation Transparency)
+
+Semantically equivalent derivations may commute **only if** provenance is
+explicitly recorded and preserved.
+
+### Failure Modes
+
+- Provenance dropped while treating ASPF as a complete semantic carrier.
+- Packed derivations conflated without evidence.
+
+### Normative Rule
+
+> Provenance is mandatory when ASPF is used for equivalence claims.
+> Loss of provenance must be declared as an erasure.
+
+### Erasure
+
+Provenance may be erased only in explicitly lossy projections.
+
+### Test Obligations (to be mapped)
+
+- Provenance summary is emitted in audit reports when enabled.
+
+---
+
+## 26. Synth Tail (Entropy Control)
+
+### Meaning
+
+**Definition:** A reversible mapping from a synthesized prime to the composite
+tail it represents (the “definition” of a synthesized carrier).
+
+### Axis
+
+**Axis:** Structural (compression).
+
+### Desired Commutation (Fold ↔ Unfold)
+
+Synth tails must commute with expansion: unfolding a synthesized prime yields
+the original composite tail.
+
+### Failure Modes
+
+- Synth primes without tails (non‑reversible compression).
+- Tail mismatch across runs (non‑deterministic seeding).
+
+### Normative Rule
+
+> Every synthesized prime must carry a tail that is reversible and stable.
+
+### Erasure
+
+Synth tail ordering is erased; tail identity is preserved.
+
+### Test Obligations (to be mapped)
+
+- Tail round‑trip tests for synth registry payloads.
+
+---
+
+## 27. Packed Derivation (SPPF Node)
+
+### Meaning
+
+**Definition:** A shared derivation node in an SPPF; in Gabion, represented by
+an ASPF fingerprint plus provenance metadata.
+
+### Axis
+
+**Axis:** Structural + semantic (packed derivation).
+
+### Desired Commutation (Share ↔ Expand)
+
+Sharing a derivation node must commute with expanding it into its derivations
+without semantic loss.
+
+### Failure Modes
+
+- Packed nodes treated as opaque hashes.
+- Loss of derivation identity during refactor.
+
+### Normative Rule
+
+> Packed derivations must be inspectable and traceable to their components.
+
+### Erasure
+
+Syntactic formatting is erased; derivation identity is not.
+
+### Test Obligations (to be mapped)
+
+- Packed derivations are visible in reports or JSON artifacts.
