@@ -18,7 +18,7 @@ doc_requires:
   - AGENTS.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 28
-  glossary.md: 15
+  glossary.md: 17
   README.md: 58
   CONTRIBUTING.md: 71
   AGENTS.md: 12
