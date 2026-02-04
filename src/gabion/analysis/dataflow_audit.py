@@ -3315,7 +3315,7 @@ def _emit_report(
     if fingerprint_provenance:
         provenance_summary = _summarize_fingerprint_provenance(fingerprint_provenance)
         if provenance_summary:
-            lines.append("Fingerprint provenance summary:")
+            lines.append("Packed derivation view (ASPF provenance):")
             lines.append("```")
             lines.extend(provenance_summary)
             lines.append("```")

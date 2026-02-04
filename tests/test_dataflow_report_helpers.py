@@ -104,7 +104,7 @@ def test_emit_report_fingerprint_provenance_summary(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path, 3, fingerprint_provenance=entries
     )
-    assert "Fingerprint provenance summary" in report
+    assert "Packed derivation view (ASPF provenance)" in report
     assert "glossary=user_context" in report
     assert "base=['float'] ctor=['list']" in report
 
