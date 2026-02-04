@@ -160,6 +160,7 @@ class AnalysisResult:
     value_decision_surfaces: list[str] = field(default_factory=list)
     decision_warnings: list[str] = field(default_factory=list)
     fingerprint_warnings: list[str] = field(default_factory=list)
+    fingerprint_matches: list[str] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
 
 
@@ -799,6 +800,51 @@ def _compute_fingerprint_warnings(
                         f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {fingerprint} missing glossary match"
                     )
     return sorted(set(warnings))
+
+
+def _compute_fingerprint_matches(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    *,
+    registry: PrimeRegistry,
+    index: dict[int, set[str]],
+    ctor_registry: TypeConstructorRegistry | None = None,
+) -> list[str]:
+    matches: list[str] = []
+    if not index:
+        return matches
+    for path, groups in groups_by_path.items():
+        annots_by_fn = annotations_by_path.get(path, {})
+        for fn_name, bundles in groups.items():
+            fn_annots = annots_by_fn.get(fn_name, {})
+            for bundle in bundles:
+                missing = [
+                    param
+                    for param in bundle
+                    if not fn_annots.get(param)
+                ]
+                if missing:
+                    continue
+                types = [fn_annots[param] for param in sorted(bundle)]
+                if any(t is None for t in types):
+                    continue
+                hint_list = [t for t in types if t is not None]
+                if ctor_registry is not None:
+                    fingerprint = bundle_fingerprint_with_constructors(
+                        hint_list,
+                        registry,
+                        ctor_registry,
+                    )
+                else:
+                    fingerprint = bundle_fingerprint(hint_list, registry)
+                names = index.get(fingerprint)
+                if not names:
+                    continue
+                matches.append(
+                    f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {fingerprint} matches: "
+                    + ", ".join(sorted(names))
+                )
+    return sorted(set(matches))
 
 
 class _ReturnAliasCollector(ast.NodeVisitor):
@@ -2651,6 +2697,7 @@ def _emit_report(
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
     fingerprint_warnings: list[str] | None = None,
+    fingerprint_matches: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
@@ -2767,6 +2814,11 @@ def _emit_report(
         lines.extend(fingerprint_warnings)
         lines.append("```")
         violations.extend(fingerprint_warnings)
+    if fingerprint_matches:
+        lines.append("Fingerprint matches:")
+        lines.append("```")
+        lines.extend(fingerprint_matches)
+        lines.append("```")
     if context_suggestions:
         lines.append("Contextvar/ambient rewrite suggestions:")
         lines.append("```")
@@ -3763,6 +3815,7 @@ def render_report(
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
     fingerprint_warnings: list[str] | None = None,
+    fingerprint_matches: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
@@ -3776,6 +3829,7 @@ def render_report(
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=decision_warnings,
         fingerprint_warnings=fingerprint_warnings,
+        fingerprint_matches=fingerprint_matches,
         context_suggestions=context_suggestions,
     )
 
@@ -3884,12 +3938,20 @@ def analyze_paths(
         )
         decision_warnings.extend(value_warnings)
     fingerprint_warnings: list[str] = []
+    fingerprint_matches: list[str] = []
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
             file_paths,
             ignore_params=config.ignore_params,
         )
         fingerprint_warnings = _compute_fingerprint_warnings(
+            groups_by_path,
+            annotations_by_path,
+            registry=config.fingerprint_registry,
+            index=config.fingerprint_index,
+            ctor_registry=config.constructor_registry,
+        )
+        fingerprint_matches = _compute_fingerprint_matches(
             groups_by_path,
             annotations_by_path,
             registry=config.fingerprint_registry,
@@ -3913,6 +3975,7 @@ def analyze_paths(
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=sorted(set(decision_warnings)),
         fingerprint_warnings=fingerprint_warnings,
+        fingerprint_matches=fingerprint_matches,
         context_suggestions=context_suggestions,
     )
 
@@ -4328,6 +4391,7 @@ def run(argv: list[str] | None = None) -> int:
             value_decision_surfaces=analysis.value_decision_surfaces,
             decision_warnings=analysis.decision_warnings,
             fingerprint_warnings=analysis.fingerprint_warnings,
+            fingerprint_matches=analysis.fingerprint_matches,
             context_suggestions=analysis.context_suggestions,
         )
         suppressed: list[str] = []

@@ -45,3 +45,20 @@ def test_fingerprint_warnings_match_known_entry(tmp_path: Path) -> None:
         index=index,
     )
     assert warnings == []
+
+
+def test_fingerprint_matches_report_known_entry(tmp_path: Path) -> None:
+    da, build_registry = _load()
+    path = tmp_path / "mod.py"
+    groups_by_path = {path: {"f": [set(["user_id", "user_name"])]}}
+    annotations_by_path = {
+        path: {"f": {"user_id": "int", "user_name": "str"}}
+    }
+    registry, index = build_registry({"user_context": ["int", "str"]})
+    matches = da._compute_fingerprint_matches(
+        groups_by_path,
+        annotations_by_path,
+        registry=registry,
+        index=index,
+    )
+    assert any("user_context" in match for match in matches)

@@ -245,6 +245,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "value_decision_surfaces": analysis.value_decision_surfaces,
         "decision_warnings": analysis.decision_warnings,
         "fingerprint_warnings": analysis.fingerprint_warnings,
+        "fingerprint_matches": analysis.fingerprint_matches,
         "context_suggestions": analysis.context_suggestions,
     }
 
@@ -336,6 +337,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             value_decision_surfaces=analysis.value_decision_surfaces,
             decision_warnings=analysis.decision_warnings,
             fingerprint_warnings=analysis.fingerprint_warnings,
+            fingerprint_matches=analysis.fingerprint_matches,
             context_suggestions=analysis.context_suggestions,
         )
         if baseline_path is not None:
