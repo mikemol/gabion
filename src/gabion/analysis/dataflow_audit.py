@@ -1128,6 +1128,48 @@ def _compute_fingerprint_provenance(
     return entries
 
 
+def _summarize_fingerprint_provenance(
+    entries: list[dict[str, object]],
+    *,
+    max_groups: int = 20,
+    max_examples: int = 3,
+) -> list[str]:
+    if not entries:
+        return []
+    grouped: dict[tuple[object, ...], list[dict[str, object]]] = {}
+    for entry in entries:
+        matches = entry.get("glossary_matches") or []
+        if isinstance(matches, list) and matches:
+            key = ("glossary", tuple(matches))
+        else:
+            base_keys = tuple(entry.get("base_keys") or [])
+            ctor_keys = tuple(entry.get("ctor_keys") or [])
+            key = ("types", base_keys, ctor_keys)
+        grouped.setdefault(key, []).append(entry)
+    lines: list[str] = []
+    for key, group in sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0]))[
+        :max_groups
+    ]:
+        label = ""
+        if key and key[0] == "glossary":
+            label = "glossary=" + ", ".join(key[1])
+        elif key and key[0] == "types":
+            base_keys = list(key[1])
+            ctor_keys = list(key[2])
+            label = f"base={base_keys}"
+            if ctor_keys:
+                label += f" ctor={ctor_keys}"
+        lines.append(f"- {label} occurrences={len(group)}")
+        for entry in group[:max_examples]:
+            path = entry.get("path")
+            fn_name = entry.get("function")
+            bundle = entry.get("bundle")
+            lines.append(f"  - {path}:{fn_name} bundle={bundle}")
+        if len(group) > max_examples:
+            lines.append(f"  - ... ({len(group) - max_examples} more)")
+    return lines
+
+
 def _compute_fingerprint_synth(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
@@ -3107,6 +3149,7 @@ def _emit_report(
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
     fingerprint_synth: list[str] | None = None,
+    fingerprint_provenance: list[dict[str, object]] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
     value_decision_rewrites: list[str] | None = None,
@@ -3144,36 +3187,37 @@ def _emit_report(
         "Dataflow grammar audit (observed forwarding bundles).",
         "",
     ]
-    if not components:
-        return "\n".join(lines + ["No bundle components detected."]), []
-    if len(components) > max_components:
-        lines.append(
-            f"Showing top {max_components} components of {len(components)}."
-        )
     violations: list[str] = []
-    for idx, comp in enumerate(components[:max_components], start=1):
-        lines.append(f"### Component {idx}")
-        mermaid, summary = _render_mermaid_component(
-            nodes,
-            bundle_map,
-            adj,
-            comp,
-            config_bundles_by_path,
-            documented_bundles_by_path,
-        )
-        lines.append(mermaid)
-        lines.append("")
-        lines.append("Summary:")
-        lines.append("```")
-        lines.append(summary)
-        lines.append("```")
-        lines.append("")
-        for line in summary.splitlines():
-            if "(tier-3, undocumented)" in line:
-                violations.append(line.strip())
-            if "(tier-1," in line or "(tier-2," in line:
-                if "undocumented" in line:
+    if not components:
+        lines.append("No bundle components detected.")
+    else:
+        if len(components) > max_components:
+            lines.append(
+                f"Showing top {max_components} components of {len(components)}."
+            )
+        for idx, comp in enumerate(components[:max_components], start=1):
+            lines.append(f"### Component {idx}")
+            mermaid, summary = _render_mermaid_component(
+                nodes,
+                bundle_map,
+                adj,
+                comp,
+                config_bundles_by_path,
+                documented_bundles_by_path,
+            )
+            lines.append(mermaid)
+            lines.append("")
+            lines.append("Summary:")
+            lines.append("```")
+            lines.append(summary)
+            lines.append("```")
+            lines.append("")
+            for line in summary.splitlines():
+                if "(tier-3, undocumented)" in line:
                     violations.append(line.strip())
+                if "(tier-1," in line or "(tier-2," in line:
+                    if "undocumented" in line:
+                        violations.append(line.strip())
     if violations:
         lines.append("Violations:")
         lines.append("```")
@@ -3240,6 +3284,13 @@ def _emit_report(
         lines.append("```")
         lines.extend(fingerprint_synth)
         lines.append("```")
+    if fingerprint_provenance:
+        provenance_summary = _summarize_fingerprint_provenance(fingerprint_provenance)
+        if provenance_summary:
+            lines.append("Fingerprint provenance summary:")
+            lines.append("```")
+            lines.extend(provenance_summary)
+            lines.append("```")
     if invariant_propositions:
         lines.append("Invariant propositions:")
         lines.append("```")
@@ -4286,6 +4337,7 @@ def render_report(
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
     fingerprint_synth: list[str] | None = None,
+    fingerprint_provenance: list[dict[str, object]] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
     value_decision_rewrites: list[str] | None = None,
@@ -4303,6 +4355,7 @@ def render_report(
         fingerprint_warnings=fingerprint_warnings,
         fingerprint_matches=fingerprint_matches,
         fingerprint_synth=fingerprint_synth,
+        fingerprint_provenance=fingerprint_provenance,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,

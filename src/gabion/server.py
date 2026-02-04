@@ -366,6 +366,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             fingerprint_warnings=analysis.fingerprint_warnings,
             fingerprint_matches=analysis.fingerprint_matches,
             fingerprint_synth=analysis.fingerprint_synth,
+            fingerprint_provenance=analysis.fingerprint_provenance,
             context_suggestions=analysis.context_suggestions,
             invariant_propositions=analysis.invariant_propositions,
         )

@@ -70,6 +70,45 @@ def test_emit_report_component_summary(tmp_path: Path) -> None:
     assert any("tier-3" in line for line in violations)
 
 
+def test_emit_report_fingerprint_provenance_summary(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(a, b):\n    return a\n")
+    groups_by_path = {path: {}}
+    entries = [
+        {
+            "path": str(path),
+            "function": "f",
+            "bundle": ["a", "b"],
+            "base_keys": ["int", "str"],
+            "ctor_keys": [],
+            "glossary_matches": ["user_context"],
+        },
+        {
+            "path": str(path),
+            "function": "g",
+            "bundle": ["x", "y"],
+            "base_keys": ["int", "str"],
+            "ctor_keys": [],
+            "glossary_matches": ["user_context"],
+        },
+        {
+            "path": str(path),
+            "function": "h",
+            "bundle": ["c"],
+            "base_keys": ["float"],
+            "ctor_keys": ["list"],
+            "glossary_matches": [],
+        },
+    ]
+    report, _ = da._emit_report(
+        groups_by_path, 3, fingerprint_provenance=entries
+    )
+    assert "Fingerprint provenance summary" in report
+    assert "glossary=user_context" in report
+    assert "base=['float'] ctor=['list']" in report
+
+
 def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
