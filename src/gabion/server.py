@@ -173,8 +173,15 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
-    if fingerprint_section:
-        registry, index = build_fingerprint_registry(fingerprint_section)
+    fingerprint_spec: dict[str, object] = {}
+    if isinstance(fingerprint_section, dict):
+        fingerprint_spec = {
+            key: value
+            for key, value in fingerprint_section.items()
+            if not str(key).startswith("synth_")
+        }
+    if fingerprint_spec:
+        registry, index = build_fingerprint_registry(fingerprint_spec)
         if index:
             fingerprint_registry = registry
             fingerprint_index = index

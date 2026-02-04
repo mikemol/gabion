@@ -192,8 +192,142 @@ def test_synth_registry_payload_roundtrip() -> None:
     fp = tf.bundle_fingerprint_dimensional(["list[int]"], registry, ctor_registry)
     synth_registry = tf.build_synth_registry([fp, fp], registry, min_occurrences=2)
     payload = tf.synth_registry_payload(synth_registry, registry, min_occurrences=2)
+    assert "registry" in payload
+    assert isinstance(payload["registry"], dict)
+    assert "primes" in payload["registry"]
+    assert "bit_positions" in payload["registry"]
     restored = tf.build_synth_registry_from_payload(payload, registry)
     assert restored.tails
+
+
+def test_build_synth_registry_from_payload_applies_registry_basis_to_empty_registry() -> None:
+    tf = _load()
+    registry_a = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry_a)
+    fp = tf.bundle_fingerprint_dimensional(["list[int]"], registry_a, ctor_registry)
+    synth_registry = tf.build_synth_registry([fp, fp], registry_a, min_occurrences=2)
+    payload = tf.synth_registry_payload(synth_registry, registry_a, min_occurrences=2)
+
+    registry_b = tf.PrimeRegistry()
+    restored = tf.build_synth_registry_from_payload(payload, registry_b)
+
+    assert registry_b.prime_for("int") == registry_a.prime_for("int")
+    assert registry_b.bit_for("int") == registry_a.bit_for("int")
+    assert registry_b.prime_for("ctor:list") == registry_a.prime_for("ctor:list")
+    assert registry_b.bit_for("ctor:list") == registry_a.bit_for("ctor:list")
+
+    synth_key = tf._synth_key(restored.version, fp)
+    assert registry_b.prime_for(synth_key) == registry_a.prime_for(synth_key)
+    assert registry_b.bit_for(synth_key) == registry_a.bit_for(synth_key)
+    assert restored.primes.get(fp) == synth_registry.primes.get(fp)
+
+
+def test_build_synth_registry_from_payload_rejects_registry_mismatch() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    fp = tf.bundle_fingerprint_dimensional(["list[int]"], registry, ctor_registry)
+    synth_registry = tf.build_synth_registry([fp, fp], registry, min_occurrences=2)
+    payload = tf.synth_registry_payload(synth_registry, registry, min_occurrences=2)
+
+    other = tf.PrimeRegistry()
+    other.get_or_assign("int")
+    basis = payload.get("registry")
+    assert isinstance(basis, dict)
+    primes = basis.get("primes")
+    assert isinstance(primes, dict)
+    primes["int"] = 97
+    try:
+        tf.build_synth_registry_from_payload(payload, other)
+    except ValueError as exc:
+        assert "Registry basis mismatch" in str(exc)
+    else:
+        raise AssertionError("Expected registry basis mismatch error")
+
+
+def test_build_synth_registry_from_payload_assigns_bits_when_missing() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    payload = {
+        "version": "synth@1",
+        "entries": [],
+        "registry": {"primes": {"b": 3, "a": 2}},
+    }
+    tf.build_synth_registry_from_payload(payload, registry)
+    assert registry.bit_for("a") == 0
+    assert registry.bit_for("b") == 1
+    assert registry.get_or_assign("c") == 5
+
+
+def test_build_synth_registry_from_payload_rejects_duplicate_primes() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    payload = {
+        "version": "synth@1",
+        "entries": [],
+        "registry": {"primes": {"a": 2, "b": 2}},
+    }
+    try:
+        tf.build_synth_registry_from_payload(payload, registry)
+    except ValueError as exc:
+        assert "duplicate primes" in str(exc)
+    else:
+        raise AssertionError("Expected duplicate prime error")
+
+
+def test_build_synth_registry_from_payload_rejects_duplicate_bit_positions() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    payload = {
+        "version": "synth@1",
+        "entries": [],
+        "registry": {
+            "primes": {"a": 2, "b": 3},
+            "bit_positions": {"a": 0, "b": 0},
+        },
+    }
+    try:
+        tf.build_synth_registry_from_payload(payload, registry)
+    except ValueError as exc:
+        assert "duplicate bit positions" in str(exc)
+    else:
+        raise AssertionError("Expected duplicate bit position error")
+
+
+def test_build_synth_registry_from_payload_ignores_non_string_registry_keys() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    payload = {
+        "version": "synth@1",
+        "entries": [],
+        "registry": {
+            "primes": {"a": 2, 1: 3},
+            "bit_positions": {"a": 0, 2: 1},
+        },
+    }
+    tf.build_synth_registry_from_payload(payload, registry)
+    assert registry.prime_for("a") == 2
+    assert registry.bit_for("a") == 0
+
+
+def test_build_synth_registry_from_payload_rejects_bit_mismatch() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    registry.get_or_assign("a")
+    payload = {
+        "version": "synth@1",
+        "entries": [],
+        "registry": {
+            "primes": {"a": registry.prime_for("a")},
+            "bit_positions": {"a": 99},
+        },
+    }
+    try:
+        tf.build_synth_registry_from_payload(payload, registry)
+    except ValueError as exc:
+        assert "Registry basis mismatch for bit" in str(exc)
+    else:
+        raise AssertionError("Expected bit position mismatch error")
 
 
 def test_normalization_helpers_cover_edges() -> None:

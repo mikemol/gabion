@@ -5907,8 +5907,17 @@ def run(argv: list[str] | None = None) -> int:
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
     synth_registry: SynthRegistry | None = None
-    if fingerprint_section:
-        registry, index = build_fingerprint_registry(fingerprint_section)
+    fingerprint_spec: dict[str, object] = {}
+    if isinstance(fingerprint_section, dict):
+        # The [fingerprints] section mixes bundle specs with synth settings.
+        # Filter out the settings so they do not pollute the registry/index.
+        fingerprint_spec = {
+            key: value
+            for key, value in fingerprint_section.items()
+            if not str(key).startswith("synth_")
+        }
+    if fingerprint_spec:
+        registry, index = build_fingerprint_registry(fingerprint_spec)
         if index:
             fingerprint_registry = registry
             fingerprint_index = index

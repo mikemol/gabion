@@ -488,10 +488,22 @@ def synth_registry_payload(
                 },
             }
         )
+    primes_payload = {
+        key: int(value) for key, value in sorted(registry.primes.items())
+    }
+    bit_positions_payload = {
+        key: int(value) for key, value in sorted(registry.bit_positions.items())
+    }
     return {
         "version": synth_registry.version,
         "min_occurrences": min_occurrences,
         "entries": entries,
+        # Registry basis for deterministic reload across runs/snapshots.
+        # This turns the synth registry artifact into a reproducible basis.
+        "registry": {
+            "primes": primes_payload,
+            "bit_positions": bit_positions_payload,
+        },
     }
 
 
@@ -510,6 +522,7 @@ def build_synth_registry_from_payload(
     payload: dict[str, object],
     registry: PrimeRegistry,
 ) -> SynthRegistry:
+    _apply_registry_payload(payload.get("registry"), registry)
     entries, version, _ = load_synth_registry_payload(payload)
     synth_registry = SynthRegistry(registry=registry, version=version)
     for entry in entries:
@@ -544,6 +557,78 @@ def build_synth_registry_from_payload(
             synth_registry.tails[prime] = fingerprint
             synth_registry.primes[fingerprint] = prime
     return synth_registry
+
+
+def _apply_registry_payload(
+    payload: object,
+    registry: PrimeRegistry,
+) -> None:
+    """Extend a PrimeRegistry with a serialized basis.
+
+    This is intentionally conservative: we only add missing keys and validate
+    that any already-assigned primes/bits are consistent. Conflicts indicate a
+    stale or non-deterministic basis and must be handled explicitly.
+    """
+    if not isinstance(payload, dict):
+        return
+    primes = payload.get("primes")
+    bits = payload.get("bit_positions")
+    primes_map: dict[str, int] = {}
+    bits_map: dict[str, int] = {}
+    if isinstance(primes, dict):
+        for key, value in primes.items():
+            if not isinstance(key, str):
+                continue
+            if isinstance(value, int):
+                primes_map[key] = value
+    if isinstance(bits, dict):
+        for key, value in bits.items():
+            if not isinstance(key, str):
+                continue
+            if isinstance(value, int):
+                bits_map[key] = value
+
+    for key, prime in primes_map.items():
+        existing = registry.primes.get(key)
+        if existing is not None and existing != prime:
+            raise ValueError(
+                f"Registry basis mismatch for {key}: have {existing} expected {prime}"
+            )
+        registry.primes.setdefault(key, prime)
+
+    for key, bit in bits_map.items():
+        existing = registry.bit_positions.get(key)
+        if existing is not None and existing != bit:
+            raise ValueError(
+                f"Registry basis mismatch for bit {key}: have {existing} expected {bit}"
+            )
+        registry.bit_positions.setdefault(key, bit)
+
+    if registry.primes and len(set(registry.primes.values())) != len(registry.primes):
+        raise ValueError("Registry basis contains duplicate primes.")
+    if registry.bit_positions and len(set(registry.bit_positions.values())) != len(
+        registry.bit_positions
+    ):
+        raise ValueError("Registry basis contains duplicate bit positions.")
+
+    if registry.primes:
+        registry.next_candidate = max(
+            registry.next_candidate, max(registry.primes.values()) + 1
+        )
+    if registry.bit_positions:
+        registry.next_bit = max(registry.next_bit, max(registry.bit_positions.values()) + 1)
+
+    # Older payloads may omit bit positions; assign deterministically for any
+    # primes without a bit position so mask carriers remain usable.
+    for key in sorted(registry.primes):
+        if key not in registry.bit_positions:
+            registry.bit_positions[key] = registry.next_bit
+            registry.next_bit += 1
+
+    if registry.bit_positions:
+        registry.next_bit = max(
+            registry.next_bit, max(registry.bit_positions.values()) + 1
+        )
 
 
 def fingerprint_carrier_soundness(a: FingerprintDimension, b: FingerprintDimension) -> bool:
