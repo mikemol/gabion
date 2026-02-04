@@ -24,7 +24,7 @@ import sys
 from collections import defaultdict, deque
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Callable, Iterable, Iterator
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -144,6 +144,10 @@ class AuditConfig:
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[int, set[str]] = field(default_factory=dict)
     constructor_registry: TypeConstructorRegistry | None = None
+    invariant_emitters: tuple[
+        Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
+        ...,
+    ] = field(default_factory=tuple)
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -309,6 +313,9 @@ def _collect_invariant_propositions(
     *,
     ignore_params: set[str],
     project_root: Path | None,
+    emitters: Iterable[
+        Callable[[ast.FunctionDef], Iterable[InvariantProposition]]
+    ] = (),
 ) -> list[InvariantProposition]:
     tree = ast.parse(path.read_text())
     propositions: list[InvariantProposition] = []
@@ -321,6 +328,20 @@ def _collect_invariant_propositions(
         for stmt in fn.body:
             collector.visit(stmt)
         propositions.extend(collector.propositions)
+        for emitter in emitters:
+            emitted = emitter(fn)
+            for prop in emitted:
+                if not isinstance(prop, InvariantProposition):
+                    raise TypeError(
+                        "Invariant emitters must yield InvariantProposition instances."
+                    )
+                normalized = InvariantProposition(
+                    form=prop.form,
+                    terms=prop.terms,
+                    scope=prop.scope or scope,
+                    source=prop.source or "emitter",
+                )
+                propositions.append(normalized)
     return propositions
 
 
@@ -4053,6 +4074,7 @@ def analyze_paths(
                     path,
                     ignore_params=config.ignore_params,
                     project_root=config.project_root,
+                    emitters=config.invariant_emitters,
                 )
             )
 
