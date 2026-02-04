@@ -169,3 +169,33 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     handled_entry = handledness[0]
     for field in ("handledness_id", "exception_path_id", "site", "handler_kind", "handler_boundary", "environment", "core", "result"):
         assert field in handled_entry
+
+    # Evidence linkage: IDs referenced by higher-level artifacts must exist.
+    provenance_ids = {str(entry.get("provenance_id")) for entry in provenance}
+    coherence_ids = {str(entry.get("coherence_id")) for entry in coherence}
+    handledness_ids = {str(entry.get("handledness_id")) for entry in handledness}
+    exception_ids = {str(entry.get("exception_path_id")) for entry in exception_obligations}
+
+    assert all(provenance_ids)
+    assert all(coherence_ids)
+    assert all(handledness_ids)
+    assert all(exception_ids)
+
+    for entry in coherence:
+        assert str(entry.get("provenance_id")) in provenance_ids
+
+    for plan in rewrite_plans:
+        evidence = plan.get("evidence", {})
+        assert str(evidence.get("provenance_id")) in provenance_ids
+        assert str(evidence.get("coherence_id")) in coherence_ids
+
+    obligations_by_id = {
+        str(entry.get("exception_path_id")): entry for entry in exception_obligations
+    }
+    for witness in handledness:
+        exception_id = str(witness.get("exception_path_id"))
+        assert exception_id in exception_ids
+        obligation = obligations_by_id.get(exception_id)
+        assert obligation is not None
+        assert obligation.get("status") == "HANDLED"
+        assert str(obligation.get("witness_ref")) == str(witness.get("handledness_id"))
