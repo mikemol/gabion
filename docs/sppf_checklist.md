@@ -1,5 +1,5 @@
 ---
-doc_revision: 79
+doc_revision: 80
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -71,10 +71,16 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [ ] Value-encoded decision surface detection (branchless / algebraic control). (in-18, GH-66)
 - [ ] Value-encoded decision heuristics (min/max, bitmask, boolean arithmetic). (GH-66)
 - [ ] Value-encoded decision surface reports in audit output. (GH-66)
+- [ ] Value-encoded decision glossary warnings (nonlinear contexts). (GH-66)
+- [ ] Value-encoded decision rewrite suggestions (rebranch). (GH-66)
+- [ ] Value-encoded decision diff tracking in audit snapshots. (GH-66)
 - [ ] Prime-labeled type fingerprints (algebraic bundle matching). (in-20/in-21, GH-68)
 - [ ] Prime registry + canonical type key mapping. (GH-68)
 - [ ] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)
 - [ ] Glossary fingerprint matching + CI warnings. (GH-68)
+- [ ] Hybrid fingerprint representation (prime products + bitmask existence checks). (GH-68)
+- [ ] Nested type constructor registry (dimensional prime mapping). (GH-68)
+- [ ] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -117,9 +123,14 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [ ] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65)
 - [ ] Subtree hashing/fingerprinting for FactorizationTree reuse. (GH-65)
 - [ ] Lemma suggestion output + stable naming map. (GH-65)
+- [ ] Lemma suggestion CLI flag + output map (declare + replace). (GH-65)
+- [ ] Glossary-backed lemma naming + missing-entry warnings. (GH-65)
+- [ ] Lemma emission target selection (inline vs stub module). (GH-65)
 - [ ] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67)
 - [ ] Proposition model + grammar hooks for invariant emission. (GH-67)
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
+- [ ] Invariant-enriched JSON output for bundles/trees. (GH-67)
+- [ ] Property-based test hooks from invariants. (GH-67)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
