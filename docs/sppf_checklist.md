@@ -1,5 +1,5 @@
 ---
-doc_revision: 77
+doc_revision: 79
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -66,7 +66,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
 - [~] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60)
 - [~] Decision surface hooks in grammar (`is_decision_surface`). (GH-60)
-- [ ] Decision surface boundary diagnostics (API surface vs internal depth). (GH-60)
+- [x] Decision surface boundary diagnostics (API surface vs internal depth). (GH-60)
 - [ ] Decision surface tier enforcement via glossary metadata. (GH-60)
 - [ ] Value-encoded decision surface detection (branchless / algebraic control). (in-18, GH-66)
 - [ ] Value-encoded decision heuristics (min/max, bitmask, boolean arithmetic). (GH-66)
@@ -110,7 +110,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
 - [x] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
-- [ ] Contextvar/ambient context rewrite suggestions. (in-15, GH-61)
+- [~] Contextvar/ambient context rewrite suggestions. (in-15, GH-61)
+- [x] Contextvar suggestion heuristics (internal decision surfaces). (GH-61)
 - [ ] Contextvar rewrite: synthesis emits ContextVar definitions + accessors. (GH-61)
 - [ ] Contextvar rewrite: callsite replacement for ambient access. (GH-61)
 - [ ] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65)

@@ -1,5 +1,5 @@
 ---
-doc_revision: 7
+doc_revision: 8
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -57,7 +57,7 @@ Status legend:
 - in/in-12.md — **partial** (LSP integration + LibCST refactor engine present; analysis still AST‑based.)
 - in/in-13.md — **adopted** (LSP‑first architecture + CLI as thin client implemented.)
 - in/in-14.md — **adopted** (repo scaffold + CLI/LSP split aligned with current structure.)
-- in/in-15.md — **queued** (decision surfaces + tier boundary elevation; SPPF/GH-60, GH-61.)
+- in/in-15.md — **partial** (decision surfaces + boundary classification in audit; context suggestions; remaining tier enforcement/rewrite; SPPF/GH-60, GH-61.)
 - in/in-16.md — **adopted** (structural snapshots/diffing/metrics + baseline ratchet implemented; SPPF/GH-62/63/64/23.)
 - in/in-17.md — **queued** (subtree reuse + lemma synthesis hooks; SPPF/GH-65.)
 - in/in-18.md — **queued** (value‑encoded decision surfaces; SPPF/GH-66.)
