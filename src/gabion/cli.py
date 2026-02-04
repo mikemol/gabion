@@ -703,6 +703,7 @@ def run_structure_diff(
     root: Path | None = None,
     runner: Callable[..., dict[str, Any]] = run_command,
 ) -> dict[str, Any]:
+    # dataflow-bundle: baseline, current
     payload = {"baseline": str(baseline), "current": str(current)}
     return dispatch_command(
         command=STRUCTURE_DIFF_COMMAND,
@@ -730,6 +731,7 @@ def structure_diff(
     root: Optional[Path] = typer.Option(None, "--root"),
 ) -> None:
     """Compare two structure snapshots and emit a JSON diff."""
+    # dataflow-bundle: baseline, current
     result = run_structure_diff(baseline=baseline, current=current, root=root)
     _emit_structure_diff(result)
 

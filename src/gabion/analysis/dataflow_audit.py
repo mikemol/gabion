@@ -2507,6 +2507,7 @@ def diff_structure_snapshot_files(
     baseline_path: Path,
     current_path: Path,
 ) -> dict[str, object]:
+    # dataflow-bundle: baseline_path, current_path
     baseline = load_structure_snapshot(baseline_path)
     current = load_structure_snapshot(current_path)
     return diff_structure_snapshots(baseline, current)
