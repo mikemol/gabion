@@ -28,6 +28,11 @@ from typing import Callable, Iterable, Iterator
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
+from gabion.analysis.evidence import (
+    Site,
+    exception_obligation_summary_for_site,
+    normalize_bundle_key,
+)
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -1314,28 +1319,24 @@ def _compute_fingerprint_rewrite_plans(
 ) -> list[dict[str, object]]:
     coherence_map: dict[tuple[str, str, str], dict[str, object]] = {}
     for entry in coherence:
-        site = entry.get("site", {})
-        path = str(site.get("path", ""))
-        function = str(site.get("function", ""))
-        bundle = site.get("bundle", []) or []
-        bundle_key = ",".join(bundle)
-        coherence_map[(path, function, bundle_key)] = entry
+        raw_site = entry.get("site", {}) or {}
+        site = Site.from_payload(raw_site)
+        if site is None:
+            continue
+        coherence_map[site.key()] = entry
 
     include_exception_predicates = exception_obligations is not None
     exception_summary_map: dict[tuple[str, str, str], dict[str, int]] = {}
     if exception_obligations is not None:
         for entry in exception_obligations:
-            site = entry.get("site", {}) or {}
-            if not isinstance(site, dict):
+            raw_site = entry.get("site", {}) or {}
+            site = Site.from_payload(raw_site)
+            if site is None:
                 continue
-            path = str(site.get("path", ""))
-            function = str(site.get("function", ""))
-            bundle = site.get("bundle", []) or []
-            bundle_key = _normalize_bundle_key(bundle)
-            if not path or not function:
+            if not site.path or not site.function:
                 continue
             summary = exception_summary_map.setdefault(
-                (path, function, bundle_key),
+                site.key(),
                 {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
             )
             status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
@@ -1349,20 +1350,20 @@ def _compute_fingerprint_rewrite_plans(
         matches = entry.get("glossary_matches") or []
         if not isinstance(matches, list) or len(matches) < 2:
             continue
-        path = str(entry.get("path", ""))
-        function = str(entry.get("function", ""))
-        bundle = entry.get("bundle", []) or []
-        bundle_key = ",".join(bundle)
-        coherence_entry = coherence_map.get((path, function, bundle_key))
+        site = Site.from_payload(entry)
+        if site is None or not site.path or not site.function:
+            continue
+        bundle_key = site.bundle_key()
+        coherence_entry = coherence_map.get(site.key())
         coherence_id = None
         if coherence_entry:
             coherence_id = coherence_entry.get("coherence_id")
-        plan_id = f"rewrite:{path}:{function}:{bundle_key}:glossary-ambiguity"
+        plan_id = f"rewrite:{site.path}:{site.function}:{bundle_key}:glossary-ambiguity"
         candidates = sorted(set(str(m) for m in matches))
         pre_exception_summary: dict[str, int] | None = None
         if include_exception_predicates:
             pre_exception_summary = exception_summary_map.get(
-                (path, function, _normalize_bundle_key(bundle)),
+                site.key(),
                 {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
             )
         plans.append(
@@ -1370,9 +1371,9 @@ def _compute_fingerprint_rewrite_plans(
                 "plan_id": plan_id,
                 "status": "UNVERIFIED",
                 "site": {
-                    "path": path,
-                    "function": function,
-                    "bundle": bundle,
+                    "path": site.path,
+                    "function": site.function,
+                    "bundle": list(site.bundle),
                 },
                 "pre": {
                     "base_keys": entry.get("base_keys") or [],
@@ -1388,7 +1389,7 @@ def _compute_fingerprint_rewrite_plans(
                 },
                 "rewrite": {
                     "kind": "BUNDLE_ALIGN",
-                    "selector": {"bundle": bundle},
+                    "selector": {"bundle": list(site.bundle)},
                     "parameters": {"candidates": candidates},
                 },
                 "evidence": {
@@ -1458,10 +1459,7 @@ def _glossary_match_strata(matches: object) -> str:
 
 
 def _normalize_bundle_key(bundle: object) -> str:
-    if not isinstance(bundle, list):
-        return ""
-    values = [str(item) for item in bundle if isinstance(item, str)]
-    return ",".join(values)
+    return normalize_bundle_key(bundle)
 
 
 def _find_provenance_entry_for_site(
@@ -1471,16 +1469,20 @@ def _find_provenance_entry_for_site(
     function: str,
     bundle: list[str],
 ) -> dict[str, object] | None:
-    bundle_key = _normalize_bundle_key(bundle)
+    target_site = Site(
+        path=str(path).strip(),
+        function=str(function).strip(),
+        bundle=tuple(
+            str(item).strip() for item in bundle if isinstance(item, str) and str(item).strip()
+        ),
+    )
+    target_key = target_site.key()
     for entry in provenance:
-        if str(entry.get("path", "")) != path:
+        entry_site = Site.from_payload(entry)
+        if entry_site is None:
             continue
-        if str(entry.get("function", "")) != function:
-            continue
-        entry_bundle = entry.get("bundle", []) or []
-        if _normalize_bundle_key(entry_bundle) != bundle_key:
-            continue
-        return entry
+        if entry_site.key() == target_key:
+            return entry
     return None
 
 
@@ -1491,25 +1493,14 @@ def _exception_obligation_summary_for_site(
     function: str,
     bundle: list[str],
 ) -> dict[str, int]:
-    bundle_key = _normalize_bundle_key(bundle)
-    summary = {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0}
-    for entry in obligations:
-        site = entry.get("site", {}) or {}
-        if not isinstance(site, dict):
-            continue
-        if str(site.get("path", "")) != path:
-            continue
-        if str(site.get("function", "")) != function:
-            continue
-        entry_bundle = site.get("bundle", []) or []
-        if _normalize_bundle_key(entry_bundle) != bundle_key:
-            continue
-        status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
-        if status not in {"UNKNOWN", "DEAD", "HANDLED"}:
-            status = "UNKNOWN"
-        summary[status] += 1
-        summary["total"] += 1
-    return summary
+    site = Site(
+        path=str(path).strip(),
+        function=str(function).strip(),
+        bundle=tuple(
+            str(item).strip() for item in bundle if isinstance(item, str) and str(item).strip()
+        ),
+    )
+    return exception_obligation_summary_for_site(obligations, site=site)
 
 
 def verify_rewrite_plan(
@@ -1524,13 +1515,18 @@ def verify_rewrite_plan(
     evaluator only needs the post provenance entry for the plan's site.
     """
     plan_id = str(plan.get("plan_id", ""))
-    site = plan.get("site", {}) or {}
-    path = str(site.get("path", ""))
-    function = str(site.get("function", ""))
-    bundle = site.get("bundle", []) or []
-    if not isinstance(bundle, list):
-        bundle = []
-    bundle = [str(item) for item in bundle]
+    raw_site = plan.get("site", {}) or {}
+    site = Site.from_payload(raw_site)
+    if site is None or not site.path or not site.function:
+        return {
+            "plan_id": plan_id,
+            "accepted": False,
+            "issues": ["missing or invalid plan site"],
+            "predicate_results": [],
+        }
+    path = site.path
+    function = site.function
+    bundle = list(site.bundle)
 
     issues: list[str] = []
     post_entry = _find_provenance_entry_for_site(

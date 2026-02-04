@@ -62,8 +62,11 @@ def test_fingerprint_coherence_and_rewrite_plans_cover_edges() -> None:
     coherence = da._compute_fingerprint_coherence(provenance_entries, synth_version="synth@1")
     assert coherence
 
+    coherence_with_garbage = [{"site": "nope"}] + coherence
+    bad_provenance = [dict(provenance_entries[0], path="")] + provenance_entries
+
     plans = da._compute_fingerprint_rewrite_plans(
-        provenance_entries, coherence, synth_version="synth@1"
+        bad_provenance, coherence_with_garbage, synth_version="synth@1"
     )
     assert plans
     assert plans[0]["evidence"]["coherence_id"] == coherence[0]["coherence_id"]

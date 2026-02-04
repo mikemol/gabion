@@ -61,6 +61,7 @@ def _post_entry(**overrides: object) -> dict[str, object]:
 def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
     da = _load()
     provenance = [
+        "nope",
         _post_entry(path="other.py"),
         _post_entry(function="other"),
         _post_entry(bundle="not-a-list"),
@@ -123,10 +124,22 @@ def test_verify_rewrite_plan_detects_remainder_regression() -> None:
 
 def test_verify_rewrite_plan_handles_non_dict_fields() -> None:
     da = _load()
-    plan = _plan(pre="not-a-dict", rewrite="nope", post_expectation="nope", site={"path": "a.py", "function": "f", "bundle": "x"})
-    post = [_post_entry(bundle=[])]
+    plan = _plan(
+        pre="not-a-dict",
+        rewrite="nope",
+        post_expectation="nope",
+        site={"path": "a.py", "function": "f", "bundle": "a"},
+    )
+    post = [_post_entry()]
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
+
+
+def test_verify_rewrite_plan_rejects_missing_or_invalid_site() -> None:
+    da = _load()
+    result = da.verify_rewrite_plan(_plan(site="nope"), post_provenance=[_post_entry()])
+    assert result["accepted"] is False
+    assert "missing or invalid plan site" in result["issues"]
 
 
 def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
