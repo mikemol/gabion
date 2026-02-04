@@ -213,6 +213,34 @@ def _normalize_type_list(value: object) -> list[str]:
     return [item for item in items if item]
 
 
+def _collect_constructors(hint: str, out: set[str]) -> None:
+    raw = hint.strip()
+    if not raw:
+        return
+    union_parts = _split_top_level(raw, "|")
+    if len(union_parts) > 1:
+        for part in union_parts:
+            _collect_constructors(part, out)
+        return
+    if raw.startswith("Optional[") and raw.endswith("]"):
+        inner = raw[len("Optional[") : -1]
+        for part in _split_top_level(inner, ","):
+            _collect_constructors(part, out)
+        return
+    if raw.startswith("Union[") and raw.endswith("]"):
+        inner = raw[len("Union[") : -1]
+        for part in _split_top_level(inner, ","):
+            _collect_constructors(part, out)
+        return
+    if "[" in raw and raw.endswith("]"):
+        base, inner = raw.split("[", 1)
+        normalized_base = _normalize_base(base)
+        out.add(normalized_base)
+        inner = inner[:-1]
+        for part in _split_top_level(inner, ","):
+            _collect_constructors(part, out)
+
+
 def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
     product = 1
     for hint in types:
@@ -260,9 +288,26 @@ def build_fingerprint_registry(
 ) -> tuple[PrimeRegistry, dict[int, set[str]]]:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
-    index: dict[int, set[str]] = {}
+    type_keys: set[str] = set()
+    constructor_keys: set[str] = set()
+    spec_entries: dict[str, list[str]] = {}
     for name, entry in spec.items():
         types = _normalize_type_list(entry)
+        if not types:
+            continue
+        spec_entries[str(name)] = types
+        for hint in types:
+            key = canonical_type_key(hint)
+            if key:
+                type_keys.add(key)
+            _collect_constructors(hint, constructor_keys)
+    for constructor in sorted(constructor_keys):
+        ctor_registry.get_or_assign(constructor)
+    for key in sorted(type_keys):
+        registry.get_or_assign(key)
+    index: dict[int, set[str]] = {}
+    for name in sorted(spec_entries):
+        types = spec_entries[name]
         if not types:
             continue
         fingerprint = bundle_fingerprint_with_constructors(
@@ -270,7 +315,7 @@ def build_fingerprint_registry(
             registry,
             ctor_registry,
         )
-        index.setdefault(fingerprint, set()).add(str(name))
+        index.setdefault(fingerprint, set()).add(name)
     return registry, index
 
 

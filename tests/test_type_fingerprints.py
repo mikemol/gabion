@@ -85,3 +85,22 @@ def test_constructor_registry_assigns_primes() -> None:
     dict_prime = ctor_registry.get_or_assign("Dict")
     assert list_prime != dict_prime
     assert registry.prime_for("ctor:list") == list_prime
+
+def test_build_fingerprint_registry_deterministic_assignment() -> None:
+    tf = _load()
+    spec_a = {"user": ["int", "str"], "flags": ["list[int]"]}
+    spec_b = {"flags": ["list[int]"], "user": ["str", "int"]}
+    reg_a, index_a = tf.build_fingerprint_registry(spec_a)
+    reg_b, index_b = tf.build_fingerprint_registry(spec_b)
+
+    def _find_fingerprint(index, name):
+        for fingerprint, names in index.items():
+            if name in names:
+                return fingerprint
+        return None
+
+    fp_a = _find_fingerprint(index_a, "user")
+    fp_b = _find_fingerprint(index_b, "user")
+    assert fp_a == fp_b
+    assert reg_a.prime_for("int") == reg_b.prime_for("int")
+    assert reg_a.prime_for("list[int]") == reg_b.prime_for("list[int]")
