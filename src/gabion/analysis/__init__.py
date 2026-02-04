@@ -31,6 +31,10 @@ from .type_fingerprints import (
     PrimeRegistry,
     bundle_fingerprint,
     canonical_type_key,
+    fingerprint_contains,
+    fingerprint_gcd,
+    fingerprint_lcm,
+    fingerprint_symmetric_diff,
 )
 
 __all__ = [
@@ -62,4 +66,8 @@ __all__ = [
     "PrimeRegistry",
     "bundle_fingerprint",
     "canonical_type_key",
+    "fingerprint_contains",
+    "fingerprint_gcd",
+    "fingerprint_lcm",
+    "fingerprint_symmetric_diff",
 ]

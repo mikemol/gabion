@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Iterable
+import math
 
 
 def _split_top_level(value: str, sep: str) -> list[str]:
@@ -128,3 +129,26 @@ def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
             continue
         product *= registry.get_or_assign(key)
     return product
+
+
+def fingerprint_gcd(a: int, b: int) -> int:
+    return math.gcd(a, b)
+
+
+def fingerprint_lcm(a: int, b: int) -> int:
+    if a == 0 or b == 0:
+        return 0
+    return abs(a * b) // math.gcd(a, b)
+
+
+def fingerprint_contains(container: int, part: int) -> bool:
+    if part == 0:
+        return False
+    return container % part == 0
+
+
+def fingerprint_symmetric_diff(a: int, b: int) -> int:
+    if a == 0 or b == 0:
+        return a or b
+    shared = math.gcd(a, b)
+    return (a // shared) * (b // shared)

@@ -40,3 +40,17 @@ def test_bundle_fingerprint_multiplies_primes() -> None:
     registry = tf.PrimeRegistry()
     fingerprint = tf.bundle_fingerprint(["int", "str", "int"], registry)
     assert fingerprint == registry.get_or_assign("int") * registry.get_or_assign("str") * registry.get_or_assign("int")
+
+
+def test_fingerprint_arithmetic_ops() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    a = tf.bundle_fingerprint(["int", "str"], registry)
+    b = tf.bundle_fingerprint(["str", "list[int]"], registry)
+    shared = tf.fingerprint_gcd(a, b)
+    assert shared == registry.get_or_assign("str")
+    combined = tf.fingerprint_lcm(a, b)
+    assert tf.fingerprint_contains(combined, a)
+    assert tf.fingerprint_contains(combined, b)
+    diff = tf.fingerprint_symmetric_diff(a, b)
+    assert diff == registry.get_or_assign("int") * registry.get_or_assign("list[int]")
