@@ -72,7 +72,7 @@ def test_fingerprint_synth_reports_tail(tmp_path: Path) -> None:
         path: {"f": {"user_id": "int", "user_name": "str"}}
     }
     registry, _ = build_registry({"user_context": ["int", "str"]})
-    synth = da._compute_fingerprint_synth(
+    synth, payload = da._compute_fingerprint_synth(
         groups_by_path,
         annotations_by_path,
         registry=registry,
@@ -81,3 +81,5 @@ def test_fingerprint_synth_reports_tail(tmp_path: Path) -> None:
         version="synth@1",
     )
     assert any("synth@" in line or "synth registry" in line for line in synth)
+    assert payload is not None
+    assert payload.get("entries")

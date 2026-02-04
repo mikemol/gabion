@@ -189,6 +189,7 @@ class AnalysisResult:
     fingerprint_warnings: list[str] = field(default_factory=list)
     fingerprint_matches: list[str] = field(default_factory=list)
     fingerprint_synth: list[str] = field(default_factory=list)
+    fingerprint_synth_registry: dict[str, object] | None = None
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
@@ -1054,9 +1055,9 @@ def _compute_fingerprint_synth(
     ctor_registry: TypeConstructorRegistry | None,
     min_occurrences: int,
     version: str,
-) -> list[str]:
+) -> tuple[list[str], dict[str, object] | None]:
     if min_occurrences < 2:
-        return []
+        return [], None
     fingerprints: list[Fingerprint] = []
     for path, groups in groups_by_path.items():
         annots_by_fn = annotations_by_path.get(path, {})
@@ -1076,7 +1077,7 @@ def _compute_fingerprint_synth(
                 )
                 fingerprints.append(fingerprint)
     if not fingerprints:
-        return []
+        return [], None
     synth_registry = build_synth_registry(
         fingerprints,
         registry,
@@ -1084,8 +1085,39 @@ def _compute_fingerprint_synth(
         version=version,
     )
     if not synth_registry.tails:
-        return []
+        return [], None
+    payload = _build_synth_registry_payload(
+        synth_registry,
+        registry,
+        min_occurrences=min_occurrences,
+    )
     lines: list[str] = [f"synth registry {synth_registry.version}:"]
+    for entry in payload.get("entries", []):
+        tail = entry.get("tail", {})
+        base_keys = entry.get("base_keys", [])
+        ctor_keys = entry.get("ctor_keys", [])
+        remainder = entry.get("remainder", {})
+        details = f"base={base_keys}"
+        if ctor_keys:
+            details += f" ctor={ctor_keys}"
+        if remainder.get("base") not in (0, 1) or remainder.get("ctor") not in (0, 1):
+            details += f" remainder=({remainder.get('base')},{remainder.get('ctor')})"
+        lines.append(
+            f"- synth_prime={entry.get('prime')} tail="
+            f"{{base={tail.get('base', {}).get('product')}, "
+            f"ctor={tail.get('ctor', {}).get('product')}}} "
+            f"{details}"
+        )
+    return lines, payload
+
+
+def _build_synth_registry_payload(
+    synth_registry: "SynthRegistry",
+    registry: PrimeRegistry,
+    *,
+    min_occurrences: int,
+) -> dict[str, object]:
+    entries: list[dict[str, object]] = []
     for prime, tail in sorted(synth_registry.tails.items()):
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
             tail.base.product, registry
@@ -1097,15 +1129,40 @@ def _compute_fingerprint_synth(
             key[len("ctor:") :] if key.startswith("ctor:") else key
             for key in ctor_keys
         ]
-        details = f"base={sorted(base_keys)}"
-        if ctor_keys:
-            details += f" ctor={sorted(ctor_keys)}"
-        if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
-            details += f" remainder=({base_remaining},{ctor_remaining})"
-        lines.append(
-            f"- synth_prime={prime} tail={format_fingerprint(tail)} {details}"
+        entries.append(
+            {
+                "prime": prime,
+                "tail": {
+                    "base": {
+                        "product": tail.base.product,
+                        "mask": tail.base.mask,
+                    },
+                    "ctor": {
+                        "product": tail.ctor.product,
+                        "mask": tail.ctor.mask,
+                    },
+                    "provenance": {
+                        "product": tail.provenance.product,
+                        "mask": tail.provenance.mask,
+                    },
+                    "synth": {
+                        "product": tail.synth.product,
+                        "mask": tail.synth.mask,
+                    },
+                },
+                "base_keys": sorted(base_keys),
+                "ctor_keys": sorted(ctor_keys),
+                "remainder": {
+                    "base": base_remaining,
+                    "ctor": ctor_remaining,
+                },
+            }
         )
-    return lines
+    return {
+        "version": synth_registry.version,
+        "min_occurrences": min_occurrences,
+        "entries": entries,
+    }
 
 
 class _ReturnAliasCollector(ast.NodeVisitor):
@@ -4264,6 +4321,8 @@ def analyze_paths(
         decision_warnings.extend(value_warnings)
     fingerprint_warnings: list[str] = []
     fingerprint_matches: list[str] = []
+    fingerprint_synth: list[str] = []
+    fingerprint_synth_registry: dict[str, object] | None = None
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
             file_paths,
@@ -4283,7 +4342,7 @@ def analyze_paths(
             index=config.fingerprint_index,
             ctor_registry=config.constructor_registry,
         )
-        fingerprint_synth = _compute_fingerprint_synth(
+        fingerprint_synth, fingerprint_synth_registry = _compute_fingerprint_synth(
             groups_by_path,
             annotations_by_path,
             registry=config.fingerprint_registry,
@@ -4291,8 +4350,6 @@ def analyze_paths(
             min_occurrences=config.fingerprint_synth_min_occurrences,
             version=config.fingerprint_synth_version,
         )
-    else:
-        fingerprint_synth = []
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
@@ -4312,6 +4369,7 @@ def analyze_paths(
         fingerprint_warnings=fingerprint_warnings,
         fingerprint_matches=fingerprint_matches,
         fingerprint_synth=fingerprint_synth,
+        fingerprint_synth_registry=fingerprint_synth_registry,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
@@ -4362,6 +4420,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--emit-structure-metrics",
         default=None,
         help="Write structure metrics JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-synth-json",
+        default=None,
+        help="Write fingerprint synth registry JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -4587,6 +4650,15 @@ def run(argv: list[str] | None = None) -> int:
         include_invariant_propositions=bool(args.report),
         config=config,
     )
+
+    if args.fingerprint_synth_json and analysis.fingerprint_synth_registry:
+        payload_json = json.dumps(
+            analysis.fingerprint_synth_registry, indent=2, sort_keys=True
+        )
+        if args.fingerprint_synth_json.strip() == "-":
+            print(payload_json)
+        else:
+            Path(args.fingerprint_synth_json).write_text(payload_json)
     structure_tree_path = args.emit_structure_tree
     structure_metrics_path = args.emit_structure_metrics
     if structure_tree_path:

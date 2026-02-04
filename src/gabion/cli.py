@@ -140,6 +140,9 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "refactor_plan_json": str(opts.refactor_plan_json)
         if opts.refactor_plan_json
         else None,
+        "fingerprint_synth_json": str(opts.fingerprint_synth_json)
+        if opts.fingerprint_synth_json
+        else None,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
         "structure_tree": str(opts.emit_structure_tree)
         if opts.emit_structure_tree
@@ -323,6 +326,15 @@ def _dataflow_audit(
         typer.echo(result["synthesis_protocols"])
     if opts.refactor_plan_json == "-" and "refactor_plan" in result:
         typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
+    if (
+        opts.fingerprint_synth_json == "-"
+        and "fingerprint_synth_registry" in result
+    ):
+        typer.echo(
+            json.dumps(
+                result["fingerprint_synth_registry"], indent=2, sort_keys=True
+            )
+        )
     if opts.emit_structure_tree == "-" and "structure_tree" in result:
         typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
     if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
@@ -379,6 +391,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--emit-structure-metrics",
         default=None,
         help="Write structure metrics JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-synth-json",
+        default=None,
+        help="Write fingerprint synth registry JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -564,6 +581,7 @@ def _run_synth(
     plan_path = output_root / "synthesis_plan.json"
     protocol_path = output_root / "protocol_stubs.py"
     refactor_plan_path = output_root / "refactor_plan.json"
+    fingerprint_synth_path = output_root / "fingerprint_synth.json"
 
     payload: dict[str, Any] = {
         "paths": [str(p) for p in paths],
@@ -590,6 +608,7 @@ def _run_synth(
         "synthesis_allow_singletons": synthesis_allow_singletons,
         "refactor_plan": refactor_plan,
         "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
+        "fingerprint_synth_json": str(fingerprint_synth_path),
     }
     result = dispatch_command(
         command=DATAFLOW_COMMAND,
@@ -603,6 +622,7 @@ def _run_synth(
         "plan": plan_path,
         "protocol": protocol_path,
         "refactor": refactor_plan_path,
+        "fingerprint_synth": fingerprint_synth_path,
         "output_root": output_root,
     }
     return result, paths_out, timestamp
@@ -672,6 +692,8 @@ def synth(
     typer.echo(f"- {paths_out['dot']}")
     typer.echo(f"- {paths_out['plan']}")
     typer.echo(f"- {paths_out['protocol']}")
+    if paths_out["fingerprint_synth"].exists():
+        typer.echo(f"- {paths_out['fingerprint_synth']}")
     if refactor_plan:
         typer.echo(f"- {paths_out['refactor']}")
     raise typer.Exit(code=int(result.get("exit_code", 0)))
