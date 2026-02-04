@@ -295,10 +295,20 @@ class _InvariantCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def _scope_path(path: Path, root: Path | None) -> str:
+    if root is not None:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            pass
+    return str(path)
+
+
 def _collect_invariant_propositions(
     path: Path,
     *,
     ignore_params: set[str],
+    project_root: Path | None,
 ) -> list[InvariantProposition]:
     tree = ast.parse(path.read_text())
     propositions: list[InvariantProposition] = []
@@ -306,7 +316,7 @@ def _collect_invariant_propositions(
         params = set(_param_names(fn, ignore_params))
         if not params:
             continue
-        scope = f"{path.name}:{fn.name}"
+        scope = f"{_scope_path(path, project_root)}:{fn.name}"
         collector = _InvariantCollector(params, scope)
         for stmt in fn.body:
             collector.visit(stmt)
@@ -3017,19 +3027,43 @@ def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
     project_root: Path | None = None,
+    invariant_propositions: list[InvariantProposition] | None = None,
 ) -> dict[str, object]:
     root = project_root or _infer_root(groups_by_path)
+    invariant_map: dict[tuple[str, str], list[InvariantProposition]] = {}
+    if invariant_propositions:
+        for prop in invariant_propositions:
+            if not prop.scope or ":" not in prop.scope:
+                continue
+            scope_path, fn_name = prop.scope.rsplit(":", 1)
+            invariant_map.setdefault((scope_path, fn_name), []).append(prop)
     files: list[dict[str, object]] = []
     for path in sorted(
         groups_by_path, key=lambda p: _normalize_snapshot_path(p, root)
     ):
         groups = groups_by_path[path]
         functions: list[dict[str, object]] = []
+        path_key = _normalize_snapshot_path(path, root)
         for fn_name in sorted(groups):
             bundles = groups[fn_name]
             normalized = [sorted(bundle) for bundle in bundles]
             normalized.sort(key=lambda bundle: (len(bundle), bundle))
-            functions.append({"name": fn_name, "bundles": normalized})
+            entry: dict[str, object] = {"name": fn_name, "bundles": normalized}
+            invariants = invariant_map.get((path_key, fn_name))
+            if invariants:
+                entry["invariants"] = [
+                    prop.as_dict()
+                    for prop in sorted(
+                        invariants,
+                        key=lambda prop: (
+                            prop.form,
+                            prop.terms,
+                            prop.source or "",
+                            prop.scope or "",
+                        ),
+                    )
+                ]
+            functions.append(entry)
         files.append({"path": _normalize_snapshot_path(path, root), "functions": functions})
     return {
         "format_version": 1,
@@ -4018,6 +4052,7 @@ def analyze_paths(
                 _collect_invariant_propositions(
                     path,
                     ignore_params=config.ignore_params,
+                    project_root=config.project_root,
                 )
             )
 
@@ -4387,6 +4422,7 @@ def run(argv: list[str] | None = None) -> int:
         snapshot = render_structure_snapshot(
             analysis.groups_by_path,
             project_root=config.project_root,
+            invariant_propositions=analysis.invariant_propositions,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if structure_tree_path.strip() == "-":

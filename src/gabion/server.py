@@ -302,6 +302,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         snapshot = render_structure_snapshot(
             analysis.groups_by_path,
             project_root=config.project_root,
+            invariant_propositions=analysis.invariant_propositions,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if structure_tree_path == "-":

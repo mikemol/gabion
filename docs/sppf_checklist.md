@@ -1,5 +1,5 @@
 ---
-doc_revision: 96
+doc_revision: 97
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -130,7 +130,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Proposition model + assert-based invariant extraction. (GH-67)
 - [ ] Grammar hooks for invariant emission (PartitionGrammar emitters). (GH-67)
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
-- [ ] Invariant-enriched JSON output for bundles/trees. (GH-67)
+- [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
 
 ## LSP operational semantics
