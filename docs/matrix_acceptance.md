@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: matrix_acceptance
 doc_role: reference
@@ -46,6 +46,7 @@ and the related feature as **incomplete**.
 - `in/in-24.md`
 - `in/in-25.md`
 - `in/in-26.md`
+- `in/in-27.md`
 
 ---
 
@@ -165,7 +166,41 @@ Suggested tests:
 
 ---
 
-## 5. Status Signaling
+## 5. in-27 Exception Obligations: Minimum Acceptance Suite
+
+Artifacts:
+- `fingerprint_exception_obligations.json`
+- Report section: "Exception obligations"
+- LSP/CLI field: `fingerprint_exception_obligations`
+
+Minimum checks:
+
+1) **Schema presence**
+   - Each entry includes: exception_path_id, site, source_kind, status,
+     witness_ref, remainder (if UNKNOWN), environment_ref.
+
+2) **Determinism**
+   - Two runs on the same input produce byte-identical JSON.
+
+3) **UNKNOWN handling**
+   - UNKNOWN is preserved and not coerced to DEAD/HANDLED.
+
+4) **Evidence requirement**
+   - DEAD/HANDLED entries reference a corresponding witness artifact.
+
+5) **Interface parity**
+   - CLI/LSP/report reference the same entry count and identifiers.
+
+Suggested tests:
+- `test_exception_obligation_schema()`
+- `test_exception_obligation_determinism()`
+- `test_exception_obligation_unknown_is_preserved()`
+- `test_exception_obligation_witness_links()`
+- `test_exception_obligation_interface_parity()`
+
+---
+
+## 6. Status Signaling
 
 If any of the above checks are missing:
 

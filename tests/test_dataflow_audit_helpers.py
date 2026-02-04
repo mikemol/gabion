@@ -405,3 +405,42 @@ def test_load_decision_snapshot_errors(tmp_path: Path) -> None:
     not_obj.write_text("[]")
     with pytest.raises(ValueError):
         da.load_decision_snapshot(not_obj)
+
+
+def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
+    da = _load()
+    module_path = tmp_path / "mod.py"
+    _write(
+        module_path,
+        "def f(a):\n"
+        "    raise ValueError('bad')\n"
+        "\n"
+        "def g(b):\n"
+        "    try:\n"
+        "        raise RuntimeError('oops')\n"
+        "    except Exception:\n"
+        "        return b\n",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=False,
+        strictness="high",
+    )
+    analysis = da.analyze_paths(
+        [tmp_path],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_exception_obligations=True,
+        include_handledness_witnesses=True,
+        config=config,
+    )
+    obligations = analysis.exception_obligations
+    assert any(entry["status"] == "UNKNOWN" for entry in obligations)
+    assert any(entry["status"] == "HANDLED" for entry in obligations)
+    assert analysis.handledness_witnesses

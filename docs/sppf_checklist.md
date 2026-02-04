@@ -1,5 +1,5 @@
 ---
-doc_revision: 119
+doc_revision: 123
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -102,6 +102,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64)
 - [~] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors; determinism + richer env/core pending; see `docs/matrix_acceptance.md`). (in-24, GH-74)
 - [~] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors; determinism + richer fork evidence pending; see `docs/matrix_acceptance.md`). (in-25, GH-75)
+- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness linkage pending; see `docs/matrix_acceptance.md`). (in-27, GH-77)
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
@@ -139,7 +140,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72)
-- [ ] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + verification predicates + snapshot selectors; see `docs/matrix_acceptance.md`). (in-26, GH-76)
+- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates + richer plan kinds pending; see `docs/matrix_acceptance.md`). (in-26, GH-76)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).

@@ -167,6 +167,58 @@ def test_emit_report_coherence_summary(tmp_path: Path) -> None:
     assert "glossary-ambiguity" in report
 
 
+def test_emit_report_rewrite_plan_summary(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(a):\n    return a\n")
+    groups_by_path = {path: {}}
+    plans = [
+        {
+            "plan_id": "rewrite:mod.py:f:a",
+            "status": "UNVERIFIED",
+            "site": {"path": str(path), "function": "f", "bundle": ["a"]},
+            "rewrite": {"kind": "BUNDLE_ALIGN"},
+        }
+    ]
+    report, _ = da._emit_report(groups_by_path, 3, rewrite_plans=plans)
+    assert "Rewrite plans" in report
+    assert "BUNDLE_ALIGN" in report
+
+
+def test_emit_report_exception_obligation_summary(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(a):\n    return a\n")
+    groups_by_path = {path: {}}
+    obligations = [
+        {
+            "exception_path_id": "mod.py:f:E0:1:0:raise",
+            "site": {"path": str(path), "function": "f", "bundle": ["a"]},
+            "source_kind": "E0",
+            "status": "UNKNOWN",
+        }
+    ]
+    report, _ = da._emit_report(groups_by_path, 3, exception_obligations=obligations)
+    assert "Exception obligations" in report
+    assert "UNKNOWN" in report
+
+
+def test_emit_report_handledness_summary(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(a):\n    return a\n")
+    groups_by_path = {path: {}}
+    handled = [
+        {
+            "site": {"path": str(path), "function": "f", "bundle": ["a"]},
+            "handler_boundary": "except Exception",
+        }
+    ]
+    report, _ = da._emit_report(groups_by_path, 3, handledness_witnesses=handled)
+    assert "Handledness evidence" in report
+    assert "except Exception" in report
+
+
 def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

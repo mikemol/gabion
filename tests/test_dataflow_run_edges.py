@@ -286,6 +286,9 @@ def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
     provenance_path = tmp_path / "fingerprint_provenance.json"
     deadness_path = tmp_path / "fingerprint_deadness.json"
     coherence_path = tmp_path / "fingerprint_coherence.json"
+    rewrite_plans_path = tmp_path / "fingerprint_rewrite_plans.json"
+    exception_obligations_path = tmp_path / "fingerprint_exception_obligations.json"
+    handledness_path = tmp_path / "fingerprint_handledness.json"
     code = dataflow_audit.run(
         [
             str(sample),
@@ -301,6 +304,12 @@ def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
             str(deadness_path),
             "--fingerprint-coherence-json",
             str(coherence_path),
+            "--fingerprint-rewrite-plans-json",
+            str(rewrite_plans_path),
+            "--fingerprint-exception-obligations-json",
+            str(exception_obligations_path),
+            "--fingerprint-handledness-json",
+            str(handledness_path),
         ]
     )
     assert code == 0
@@ -308,6 +317,9 @@ def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
     assert provenance_path.exists()
     assert deadness_path.exists()
     assert coherence_path.exists()
+    assert rewrite_plans_path.exists()
+    assert exception_obligations_path.exists()
+    assert handledness_path.exists()
 
 
 def test_run_decision_snapshot_writes_file(tmp_path: Path) -> None:

@@ -22,6 +22,9 @@ dataflow_fingerprint_synth="${artifacts_dir}/fingerprint_synth.json"
 dataflow_fingerprint_provenance="${artifacts_dir}/fingerprint_provenance.json"
 dataflow_fingerprint_deadness="${artifacts_dir}/fingerprint_deadness.json"
 dataflow_fingerprint_coherence="${artifacts_dir}/fingerprint_coherence.json"
+dataflow_fingerprint_rewrite_plans="${artifacts_dir}/fingerprint_rewrite_plans.json"
+dataflow_fingerprint_exception_obligations="${artifacts_dir}/fingerprint_exception_obligations.json"
+dataflow_fingerprint_handledness="${artifacts_dir}/fingerprint_handledness.json"
 decision_snapshot="${artifacts_dir}/decision_snapshot.json"
 docflow_report="${artifacts_dir}/docflow_audit.txt"
 
@@ -39,6 +42,9 @@ mise exec -- python -m gabion dataflow-audit "$root" \
   --fingerprint-provenance-json "$dataflow_fingerprint_provenance" \
   --fingerprint-deadness-json "$dataflow_fingerprint_deadness" \
   --fingerprint-coherence-json "$dataflow_fingerprint_coherence" \
+  --fingerprint-rewrite-plans-json "$dataflow_fingerprint_rewrite_plans" \
+  --fingerprint-exception-obligations-json "$dataflow_fingerprint_exception_obligations" \
+  --fingerprint-handledness-json "$dataflow_fingerprint_handledness" \
   --emit-decision-snapshot "$decision_snapshot"
 
 mise exec -- python scripts/docflow_audit.py --root "$root" > "$docflow_report"
@@ -55,6 +61,9 @@ echo "- $dataflow_fingerprint_synth"
 echo "- $dataflow_fingerprint_provenance"
 echo "- $dataflow_fingerprint_deadness"
 echo "- $dataflow_fingerprint_coherence"
+echo "- $dataflow_fingerprint_rewrite_plans"
+echo "- $dataflow_fingerprint_exception_obligations"
+echo "- $dataflow_fingerprint_handledness"
 echo "- $decision_snapshot"
 echo "- $docflow_report"
 echo "- $latest_marker"

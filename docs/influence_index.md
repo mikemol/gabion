@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 33
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -68,4 +68,5 @@ Status legend:
 - in/in-23.md — **partial** (ASPF carrier formalization; provenance/synth artifacts exist; remaining determinism + completeness obligations tracked in checklist.)
 - in/in-24.md — **partial** (deadness evidence artifacts emitted from constant-flow analysis + JSON/report/LSP/snapshots; determinism/core richness pending; SPPF/GH-74.)
 - in/in-25.md — **partial** (coherence evidence artifacts emitted from glossary ambiguity + JSON/report/LSP/snapshots; richer fork evidence pending; SPPF/GH-75.)
-- in/in-26.md — **queued** (proof-carrying rewrite plans + verification predicates + snapshot selectors; to be tracked in checklist.)
+- in/in-26.md — **partial** (rewrite plan artifacts emitted with evidence links; verification predicates + richer plan kinds pending; SPPF/GH-76.)
+- in/in-27.md — **partial** (exception obligations: E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness linkage pending; SPPF/GH-77.)

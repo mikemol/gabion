@@ -30,6 +30,9 @@ fingerprint_synth="$snapshot_dir/fingerprint_synth.json"
 fingerprint_provenance="$snapshot_dir/fingerprint_provenance.json"
 fingerprint_deadness="$snapshot_dir/fingerprint_deadness.json"
 fingerprint_coherence="$snapshot_dir/fingerprint_coherence.json"
+fingerprint_rewrite_plans="$snapshot_dir/fingerprint_rewrite_plans.json"
+fingerprint_exception_obligations="$snapshot_dir/fingerprint_exception_obligations.json"
+fingerprint_handledness="$snapshot_dir/fingerprint_handledness.json"
 decision="$snapshot_dir/decision_snapshot.json"
 docflow="$snapshot_dir/docflow_audit.txt"
 
@@ -43,6 +46,9 @@ case "${1:-}" in
   --fingerprint-provenance) echo "$fingerprint_provenance" ;;
   --fingerprint-deadness) echo "$fingerprint_deadness" ;;
   --fingerprint-coherence) echo "$fingerprint_coherence" ;;
+  --fingerprint-rewrite-plans) echo "$fingerprint_rewrite_plans" ;;
+  --fingerprint-exception-obligations) echo "$fingerprint_exception_obligations" ;;
+  --fingerprint-handledness) echo "$fingerprint_handledness" ;;
   --decision) echo "$decision" ;;
   --docflow) echo "$docflow" ;;
   --dir) echo "$snapshot_dir" ;;
@@ -57,11 +63,14 @@ case "${1:-}" in
     echo "- $fingerprint_provenance"
     echo "- $fingerprint_deadness"
     echo "- $fingerprint_coherence"
+    echo "- $fingerprint_rewrite_plans"
+    echo "- $fingerprint_exception_obligations"
+    echo "- $fingerprint_handledness"
     echo "- $decision"
     echo "- $docflow"
     ;;
   *)
-    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--decision|--docflow|--dir]" >&2
+    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--fingerprint-rewrite-plans|--fingerprint-exception-obligations|--fingerprint-handledness|--decision|--docflow|--dir]" >&2
     exit 2
     ;;
 esac

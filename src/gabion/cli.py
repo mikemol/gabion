@@ -153,6 +153,17 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "fingerprint_coherence_json": str(opts.fingerprint_coherence_json)
         if opts.fingerprint_coherence_json
         else None,
+        "fingerprint_rewrite_plans_json": str(opts.fingerprint_rewrite_plans_json)
+        if opts.fingerprint_rewrite_plans_json
+        else None,
+        "fingerprint_exception_obligations_json": str(
+            opts.fingerprint_exception_obligations_json
+        )
+        if opts.fingerprint_exception_obligations_json
+        else None,
+        "fingerprint_handledness_json": str(opts.fingerprint_handledness_json)
+        if opts.fingerprint_handledness_json
+        else None,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
         "structure_tree": str(opts.emit_structure_tree)
         if opts.emit_structure_tree
@@ -366,6 +377,32 @@ def _dataflow_audit(
                 result["fingerprint_coherence"], indent=2, sort_keys=True
             )
         )
+    if (
+        opts.fingerprint_rewrite_plans_json == "-"
+        and "fingerprint_rewrite_plans" in result
+    ):
+        typer.echo(
+            json.dumps(
+                result["fingerprint_rewrite_plans"], indent=2, sort_keys=True
+            )
+        )
+    if (
+        opts.fingerprint_exception_obligations_json == "-"
+        and "fingerprint_exception_obligations" in result
+    ):
+        typer.echo(
+            json.dumps(
+                result["fingerprint_exception_obligations"],
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    if opts.fingerprint_handledness_json == "-" and "fingerprint_handledness" in result:
+        typer.echo(
+            json.dumps(
+                result["fingerprint_handledness"], indent=2, sort_keys=True
+            )
+        )
     if opts.emit_structure_tree == "-" and "structure_tree" in result:
         typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
     if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
@@ -442,6 +479,21 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--fingerprint-coherence-json",
         default=None,
         help="Write fingerprint coherence JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-rewrite-plans-json",
+        default=None,
+        help="Write fingerprint rewrite plans JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-exception-obligations-json",
+        default=None,
+        help="Write fingerprint exception obligations JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-handledness-json",
+        default=None,
+        help="Write fingerprint handledness JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -630,6 +682,11 @@ def _run_synth(
     fingerprint_synth_path = output_root / "fingerprint_synth.json"
     fingerprint_provenance_path = output_root / "fingerprint_provenance.json"
     fingerprint_coherence_path = output_root / "fingerprint_coherence.json"
+    fingerprint_rewrite_plans_path = output_root / "fingerprint_rewrite_plans.json"
+    fingerprint_exception_obligations_path = (
+        output_root / "fingerprint_exception_obligations.json"
+    )
+    fingerprint_handledness_path = output_root / "fingerprint_handledness.json"
 
     payload: dict[str, Any] = {
         "paths": [str(p) for p in paths],
@@ -659,6 +716,11 @@ def _run_synth(
         "fingerprint_synth_json": str(fingerprint_synth_path),
         "fingerprint_provenance_json": str(fingerprint_provenance_path),
         "fingerprint_coherence_json": str(fingerprint_coherence_path),
+        "fingerprint_rewrite_plans_json": str(fingerprint_rewrite_plans_path),
+        "fingerprint_exception_obligations_json": str(
+            fingerprint_exception_obligations_path
+        ),
+        "fingerprint_handledness_json": str(fingerprint_handledness_path),
     }
     result = dispatch_command(
         command=DATAFLOW_COMMAND,
@@ -675,6 +737,9 @@ def _run_synth(
         "fingerprint_synth": fingerprint_synth_path,
         "fingerprint_provenance": fingerprint_provenance_path,
         "fingerprint_coherence": fingerprint_coherence_path,
+        "fingerprint_rewrite_plans": fingerprint_rewrite_plans_path,
+        "fingerprint_exception_obligations": fingerprint_exception_obligations_path,
+        "fingerprint_handledness": fingerprint_handledness_path,
         "output_root": output_root,
     }
     return result, paths_out, timestamp
@@ -803,6 +868,12 @@ def _emit_synth_outputs(
         typer.echo(f"- {paths_out['fingerprint_provenance']}")
     if paths_out["fingerprint_coherence"].exists():
         typer.echo(f"- {paths_out['fingerprint_coherence']}")
+    if paths_out["fingerprint_rewrite_plans"].exists():
+        typer.echo(f"- {paths_out['fingerprint_rewrite_plans']}")
+    if paths_out["fingerprint_exception_obligations"].exists():
+        typer.echo(f"- {paths_out['fingerprint_exception_obligations']}")
+    if paths_out["fingerprint_handledness"].exists():
+        typer.echo(f"- {paths_out['fingerprint_handledness']}")
     if refactor_plan:
         typer.echo(f"- {paths_out['refactor']}")
 

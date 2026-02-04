@@ -191,6 +191,9 @@ class AnalysisResult:
     unused_arg_smells: list[str]
     deadness_witnesses: list[dict[str, object]] = field(default_factory=list)
     coherence_witnesses: list[dict[str, object]] = field(default_factory=list)
+    rewrite_plans: list[dict[str, object]] = field(default_factory=list)
+    exception_obligations: list[dict[str, object]] = field(default_factory=list)
+    handledness_witnesses: list[dict[str, object]] = field(default_factory=list)
     decision_surfaces: list[str] = field(default_factory=list)
     value_decision_surfaces: list[str] = field(default_factory=list)
     decision_warnings: list[str] = field(default_factory=list)
@@ -1122,8 +1125,10 @@ def _compute_fingerprint_provenance(
                 matches = []
                 if index:
                     matches = sorted(index.get(fingerprint, set()))
+                bundle_key = ",".join(sorted(bundle))
                 entries.append(
                     {
+                        "provenance_id": f"{path}:{fn_name}:{bundle_key}",
                         "path": str(path),
                         "function": fn_name,
                         "bundle": sorted(bundle),
@@ -1239,10 +1244,13 @@ def _compute_fingerprint_coherence(
         path = entry.get("path")
         function = entry.get("function")
         bundle = entry.get("bundle")
+        provenance_id = entry.get("provenance_id")
         base_keys = entry.get("base_keys") or []
         ctor_keys = entry.get("ctor_keys") or []
+        bundle_key = ",".join(bundle or [])
         witnesses.append(
             {
+                "coherence_id": f"{path}:{function}:{bundle_key}:glossary-ambiguity",
                 "site": {
                     "path": path,
                     "function": function,
@@ -1258,6 +1266,7 @@ def _compute_fingerprint_coherence(
                 "frack_path": ["provenance", "glossary"],
                 "result": "UNKNOWN",
                 "remainder": {"glossary_matches": matches},
+                "provenance_id": provenance_id,
             }
         )
     return sorted(
@@ -1291,6 +1300,391 @@ def _summarize_coherence_witnesses(
             f"{path}:{function} bundle {bundle} result={result} "
             f"fork={fork_signature} alternatives={alternatives}"
         )
+    if len(entries) > max_entries:
+        lines.append(f"... {len(entries) - max_entries} more")
+    return lines
+
+
+def _compute_fingerprint_rewrite_plans(
+    provenance: list[dict[str, object]],
+    coherence: list[dict[str, object]],
+    *,
+    synth_version: str,
+) -> list[dict[str, object]]:
+    coherence_map: dict[tuple[str, str, str], dict[str, object]] = {}
+    for entry in coherence:
+        site = entry.get("site", {})
+        path = str(site.get("path", ""))
+        function = str(site.get("function", ""))
+        bundle = site.get("bundle", []) or []
+        bundle_key = ",".join(bundle)
+        coherence_map[(path, function, bundle_key)] = entry
+
+    plans: list[dict[str, object]] = []
+    for entry in provenance:
+        matches = entry.get("glossary_matches") or []
+        if not isinstance(matches, list) or len(matches) < 2:
+            continue
+        path = str(entry.get("path", ""))
+        function = str(entry.get("function", ""))
+        bundle = entry.get("bundle", []) or []
+        bundle_key = ",".join(bundle)
+        coherence_entry = coherence_map.get((path, function, bundle_key))
+        coherence_id = None
+        if coherence_entry:
+            coherence_id = coherence_entry.get("coherence_id")
+        plan_id = f"rewrite:{path}:{function}:{bundle_key}:glossary-ambiguity"
+        plans.append(
+            {
+                "plan_id": plan_id,
+                "status": "UNVERIFIED",
+                "site": {
+                    "path": path,
+                    "function": function,
+                    "bundle": bundle,
+                },
+                "pre": {
+                    "base_keys": entry.get("base_keys") or [],
+                    "ctor_keys": entry.get("ctor_keys") or [],
+                    "glossary_matches": matches,
+                    "remainder": entry.get("remainder") or {},
+                    "synth_version": synth_version,
+                },
+                "rewrite": {
+                    "kind": "BUNDLE_ALIGN",
+                    "selector": {"bundle": bundle},
+                    "parameters": {"candidates": sorted(set(matches))},
+                },
+                "evidence": {
+                    "provenance_id": entry.get("provenance_id"),
+                    "coherence_id": coherence_id,
+                },
+                "post_expectation": {
+                    "match_strata": "exact",
+                    "base_conservation": True,
+                    "ctor_coherence": True,
+                },
+                "verification": {
+                    "mode": "re-audit",
+                    "status": "UNVERIFIED",
+                },
+            }
+        )
+    return sorted(
+        plans,
+        key=lambda plan: (
+            str(plan.get("site", {}).get("path", "")),
+            str(plan.get("site", {}).get("function", "")),
+            ",".join(plan.get("site", {}).get("bundle", []) or []),
+            str(plan.get("plan_id", "")),
+        ),
+    )
+
+
+def _summarize_rewrite_plans(
+    entries: list[dict[str, object]],
+    *,
+    max_entries: int = 10,
+) -> list[str]:
+    if not entries:
+        return []
+    lines: list[str] = []
+    for entry in entries[:max_entries]:
+        plan_id = entry.get("plan_id", "?")
+        site = entry.get("site", {})
+        path = site.get("path", "?")
+        function = site.get("function", "?")
+        bundle = site.get("bundle", [])
+        kind = entry.get("rewrite", {}).get("kind", "?")
+        status = entry.get("status", "UNVERIFIED")
+        lines.append(
+            f"{plan_id} {path}:{function} bundle={bundle} kind={kind} status={status}"
+        )
+    if len(entries) > max_entries:
+        lines.append(f"... {len(entries) - max_entries} more")
+    return lines
+
+
+def _enclosing_function_node(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return current
+        current = parents.get(current)
+    return None
+
+
+def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
+    if expr is None:
+        return []
+    names: set[str] = set()
+    for node in ast.walk(expr):
+        if isinstance(node, ast.Name) and node.id in params:
+            names.add(node.id)
+    return sorted(names)
+
+
+def _exception_path_id(
+    *,
+    path: str,
+    function: str,
+    source_kind: str,
+    lineno: int,
+    col: int,
+    kind: str,
+) -> str:
+    return f"{path}:{function}:{source_kind}:{lineno}:{col}:{kind}"
+
+
+def _handler_is_broad(handler: ast.ExceptHandler) -> bool:
+    if handler.type is None:
+        return True
+    if isinstance(handler.type, ast.Name):
+        return handler.type.id in {"Exception", "BaseException"}
+    if isinstance(handler.type, ast.Attribute):
+        return handler.type.attr in {"Exception", "BaseException"}
+    return False
+
+
+def _handler_label(handler: ast.ExceptHandler) -> str:
+    if handler.type is None:
+        return "except:"
+    try:
+        return f"except {ast.unparse(handler.type)}"
+    except Exception:
+        return "except <unknown>"
+
+
+def _node_in_try_body(node: ast.AST, try_node: ast.Try) -> bool:
+    for stmt in try_node.body:
+        if node is stmt:
+            return True
+        for child in ast.walk(stmt):
+            if node is child:
+                return True
+    return False
+
+
+def _find_handling_try(
+    node: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> ast.Try | None:
+    current = parents.get(node)
+    while current is not None:
+        if isinstance(current, ast.Try) and _node_in_try_body(node, current):
+            return current
+        current = parents.get(current)
+    return None
+
+
+def _collect_handledness_witnesses(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+) -> list[dict[str, object]]:
+    witnesses: list[dict[str, object]] = []
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except SyntaxError:
+            continue
+        parent = ParentAnnotator()
+        parent.visit(tree)
+        parents = parent.parents
+        params_by_fn: dict[ast.AST, set[str]] = {}
+        for fn in _collect_functions(tree):
+            params_by_fn[fn] = set(_param_names(fn, ignore_params))
+        path_value = _normalize_snapshot_path(path, project_root)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Raise, ast.Assert)):
+                continue
+            try_node = _find_handling_try(node, parents)
+            if try_node is None:
+                continue
+            handler = next(
+                (h for h in try_node.handlers if _handler_is_broad(h)), None
+            )
+            if handler is None:
+                continue
+            source_kind = "E0"
+            kind = "raise" if isinstance(node, ast.Raise) else "assert"
+            fn_node = _enclosing_function_node(node, parents)
+            if fn_node is None:
+                function = "<module>"
+                params = set()
+            else:
+                scopes = _enclosing_scopes(fn_node, parents)
+                function = ".".join(scopes) if scopes else fn_node.name
+                params = params_by_fn.get(fn_node, set())
+            expr = node.exc if isinstance(node, ast.Raise) else node.test
+            bundle = _exception_param_names(expr, params)
+            lineno = getattr(node, "lineno", 0)
+            col = getattr(node, "col_offset", 0)
+            exception_id = _exception_path_id(
+                path=path_value,
+                function=function,
+                source_kind=source_kind,
+                lineno=lineno,
+                col=col,
+                kind=kind,
+            )
+            handler_label = _handler_label(handler)
+            handledness_id = f"handled:{exception_id}"
+            witnesses.append(
+                {
+                    "handledness_id": handledness_id,
+                    "exception_path_id": exception_id,
+                    "site": {
+                        "path": path_value,
+                        "function": function,
+                        "bundle": bundle,
+                    },
+                    "handler_kind": "catch",
+                    "handler_boundary": handler_label,
+                    "environment": {},
+                    "core": [f"enclosed by {handler_label}"],
+                    "result": "HANDLED",
+                }
+            )
+    return sorted(
+        witnesses,
+        key=lambda entry: (
+            str(entry.get("site", {}).get("path", "")),
+            str(entry.get("site", {}).get("function", "")),
+            ",".join(entry.get("site", {}).get("bundle", []) or []),
+            str(entry.get("exception_path_id", "")),
+        ),
+    )
+
+
+def _collect_exception_obligations(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    handledness_witnesses: list[dict[str, object]] | None = None,
+) -> list[dict[str, object]]:
+    obligations: list[dict[str, object]] = []
+    handled_map: dict[str, dict[str, object]] = {}
+    if handledness_witnesses:
+        for entry in handledness_witnesses:
+            exception_id = str(entry.get("exception_path_id", ""))
+            if exception_id:
+                handled_map[exception_id] = entry
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except SyntaxError:
+            continue
+        parent = ParentAnnotator()
+        parent.visit(tree)
+        parents = parent.parents
+        params_by_fn: dict[ast.AST, set[str]] = {}
+        for fn in _collect_functions(tree):
+            params_by_fn[fn] = set(_param_names(fn, ignore_params))
+        path_value = _normalize_snapshot_path(path, project_root)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Raise, ast.Assert)):
+                continue
+            source_kind = "E0"
+            kind = "raise" if isinstance(node, ast.Raise) else "assert"
+            fn_node = _enclosing_function_node(node, parents)
+            if fn_node is None:
+                function = "<module>"
+                params = set()
+            else:
+                scopes = _enclosing_scopes(fn_node, parents)
+                function = ".".join(scopes) if scopes else fn_node.name
+                params = params_by_fn.get(fn_node, set())
+            expr = node.exc if isinstance(node, ast.Raise) else node.test
+            bundle = _exception_param_names(expr, params)
+            lineno = getattr(node, "lineno", 0)
+            col = getattr(node, "col_offset", 0)
+            exception_id = _exception_path_id(
+                path=path_value,
+                function=function,
+                source_kind=source_kind,
+                lineno=lineno,
+                col=col,
+                kind=kind,
+            )
+            handled = handled_map.get(exception_id)
+            status = "UNKNOWN"
+            witness_ref = None
+            remainder: dict[str, object] | None = {"exception_kind": kind}
+            environment_ref: dict[str, object] | None = None
+            if handled:
+                status = "HANDLED"
+                witness_ref = handled.get("handledness_id")
+                remainder = {}
+                environment_ref = handled.get("environment") or {}
+            obligations.append(
+                {
+                    "exception_path_id": exception_id,
+                    "site": {
+                        "path": path_value,
+                        "function": function,
+                        "bundle": bundle,
+                    },
+                    "source_kind": source_kind,
+                    "status": status,
+                    "witness_ref": witness_ref,
+                    "remainder": remainder,
+                    "environment_ref": environment_ref,
+                }
+            )
+    return sorted(
+        obligations,
+        key=lambda entry: (
+            str(entry.get("site", {}).get("path", "")),
+            str(entry.get("site", {}).get("function", "")),
+            ",".join(entry.get("site", {}).get("bundle", []) or []),
+            str(entry.get("source_kind", "")),
+            str(entry.get("exception_path_id", "")),
+        ),
+    )
+
+
+def _summarize_exception_obligations(
+    entries: list[dict[str, object]],
+    *,
+    max_entries: int = 10,
+) -> list[str]:
+    if not entries:
+        return []
+    lines: list[str] = []
+    for entry in entries[:max_entries]:
+        site = entry.get("site", {})
+        path = site.get("path", "?")
+        function = site.get("function", "?")
+        bundle = site.get("bundle", [])
+        status = entry.get("status", "UNKNOWN")
+        source = entry.get("source_kind", "?")
+        lines.append(
+            f"{path}:{function} bundle={bundle} source={source} status={status}"
+        )
+    if len(entries) > max_entries:
+        lines.append(f"... {len(entries) - max_entries} more")
+    return lines
+
+
+def _summarize_handledness_witnesses(
+    entries: list[dict[str, object]],
+    *,
+    max_entries: int = 10,
+) -> list[str]:
+    if not entries:
+        return []
+    lines: list[str] = []
+    for entry in entries[:max_entries]:
+        site = entry.get("site", {})
+        path = site.get("path", "?")
+        function = site.get("function", "?")
+        bundle = site.get("bundle", [])
+        handler = entry.get("handler_boundary", "?")
+        lines.append(f"{path}:{function} bundle={bundle} handler={handler}")
     if len(entries) > max_entries:
         lines.append(f"... {len(entries) - max_entries} more")
     return lines
@@ -3367,6 +3761,9 @@ def _emit_report(
     unused_arg_smells: list[str] | None = None,
     deadness_witnesses: list[dict[str, object]] | None = None,
     coherence_witnesses: list[dict[str, object]] | None = None,
+    rewrite_plans: list[dict[str, object]] | None = None,
+    exception_obligations: list[dict[str, object]] | None = None,
+    handledness_witnesses: list[dict[str, object]] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -3482,6 +3879,27 @@ def _emit_report(
         summary = _summarize_coherence_witnesses(coherence_witnesses)
         if summary:
             lines.append("Coherence evidence:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
+    if rewrite_plans:
+        summary = _summarize_rewrite_plans(rewrite_plans)
+        if summary:
+            lines.append("Rewrite plans:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
+    if exception_obligations:
+        summary = _summarize_exception_obligations(exception_obligations)
+        if summary:
+            lines.append("Exception obligations:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
+    if handledness_witnesses:
+        summary = _summarize_handledness_witnesses(handledness_witnesses)
+        if summary:
+            lines.append("Handledness evidence:")
             lines.append("```")
             lines.extend(summary)
             lines.append("```")
@@ -4586,6 +5004,9 @@ def render_report(
     unused_arg_smells: list[str] | None = None,
     deadness_witnesses: list[dict[str, object]] | None = None,
     coherence_witnesses: list[dict[str, object]] | None = None,
+    rewrite_plans: list[dict[str, object]] | None = None,
+    exception_obligations: list[dict[str, object]] | None = None,
+    handledness_witnesses: list[dict[str, object]] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -4606,6 +5027,9 @@ def render_report(
         unused_arg_smells=unused_arg_smells,
         deadness_witnesses=deadness_witnesses,
         coherence_witnesses=coherence_witnesses,
+        rewrite_plans=rewrite_plans,
+        exception_obligations=exception_obligations,
+        handledness_witnesses=handledness_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=decision_warnings,
@@ -4649,6 +5073,9 @@ def analyze_paths(
     include_unused_arg_smells: bool,
     include_deadness_witnesses: bool = False,
     include_coherence_witnesses: bool = False,
+    include_rewrite_plans: bool = False,
+    include_exception_obligations: bool = False,
+    include_handledness_witnesses: bool = False,
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
@@ -4756,6 +5183,9 @@ def analyze_paths(
     fingerprint_synth_registry: dict[str, object] | None = None
     fingerprint_provenance: list[dict[str, object]] = []
     coherence_witnesses: list[dict[str, object]] = []
+    rewrite_plans: list[dict[str, object]] = []
+    exception_obligations: list[dict[str, object]] = []
+    handledness_witnesses: list[dict[str, object]] = []
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
             file_paths,
@@ -4796,6 +5226,25 @@ def analyze_paths(
                 fingerprint_provenance,
                 synth_version=config.fingerprint_synth_version,
             )
+        if include_rewrite_plans:
+            rewrite_plans = _compute_fingerprint_rewrite_plans(
+                fingerprint_provenance,
+                coherence_witnesses,
+                synth_version=config.fingerprint_synth_version,
+            )
+    if include_exception_obligations or include_handledness_witnesses:
+        handledness_witnesses = _collect_handledness_witnesses(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+        )
+    if include_exception_obligations:
+        exception_obligations = _collect_exception_obligations(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            handledness_witnesses=handledness_witnesses,
+        )
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
@@ -4819,6 +5268,9 @@ def analyze_paths(
         fingerprint_synth_registry=fingerprint_synth_registry,
         fingerprint_provenance=fingerprint_provenance,
         coherence_witnesses=coherence_witnesses,
+        rewrite_plans=rewrite_plans,
+        exception_obligations=exception_obligations,
+        handledness_witnesses=handledness_witnesses,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
@@ -4889,6 +5341,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fingerprint-coherence-json",
         default=None,
         help="Write fingerprint coherence JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-rewrite-plans-json",
+        default=None,
+        help="Write fingerprint rewrite plans JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-exception-obligations-json",
+        default=None,
+        help="Write fingerprint exception obligations JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-handledness-json",
+        default=None,
+        help="Write fingerprint handledness JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -5014,6 +5481,9 @@ def run(argv: list[str] | None = None) -> int:
         args.type_audit = True
     fingerprint_deadness_json = args.fingerprint_deadness_json
     fingerprint_coherence_json = args.fingerprint_coherence_json
+    fingerprint_rewrite_plans_json = args.fingerprint_rewrite_plans_json
+    fingerprint_exception_obligations_json = args.fingerprint_exception_obligations_json
+    fingerprint_handledness_json = args.fingerprint_handledness_json
     exclude_dirs: list[str] | None = None
     if args.exclude is not None:
         exclude_dirs = []
@@ -5122,6 +5592,18 @@ def run(argv: list[str] | None = None) -> int:
     )
     if decision_tiers:
         include_decisions = True
+    include_rewrite_plans = bool(args.report) or bool(fingerprint_rewrite_plans_json)
+    include_exception_obligations = bool(args.report) or bool(
+        fingerprint_exception_obligations_json
+    )
+    include_handledness_witnesses = bool(args.report) or bool(
+        fingerprint_handledness_json
+    )
+    include_coherence = (
+        bool(args.report)
+        or bool(fingerprint_coherence_json)
+        or include_rewrite_plans
+    )
     analysis = analyze_paths(
         paths,
         recursive=not args.no_recursive,
@@ -5131,7 +5613,10 @@ def run(argv: list[str] | None = None) -> int:
         include_constant_smells=bool(args.report),
         include_unused_arg_smells=bool(args.report),
         include_deadness_witnesses=bool(args.report) or bool(fingerprint_deadness_json),
-        include_coherence_witnesses=bool(args.report) or bool(fingerprint_coherence_json),
+        include_coherence_witnesses=include_coherence,
+        include_rewrite_plans=include_rewrite_plans,
+        include_exception_obligations=include_exception_obligations,
+        include_handledness_witnesses=include_handledness_witnesses,
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
@@ -5171,6 +5656,30 @@ def run(argv: list[str] | None = None) -> int:
             print(payload_json)
         else:
             Path(fingerprint_coherence_json).write_text(payload_json)
+    if fingerprint_rewrite_plans_json:
+        payload_json = json.dumps(
+            analysis.rewrite_plans, indent=2, sort_keys=True
+        )
+        if fingerprint_rewrite_plans_json.strip() == "-":
+            print(payload_json)
+        else:
+            Path(fingerprint_rewrite_plans_json).write_text(payload_json)
+    if fingerprint_exception_obligations_json:
+        payload_json = json.dumps(
+            analysis.exception_obligations, indent=2, sort_keys=True
+        )
+        if fingerprint_exception_obligations_json.strip() == "-":
+            print(payload_json)
+        else:
+            Path(fingerprint_exception_obligations_json).write_text(payload_json)
+    if fingerprint_handledness_json:
+        payload_json = json.dumps(
+            analysis.handledness_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_handledness_json.strip() == "-":
+            print(payload_json)
+        else:
+            Path(fingerprint_handledness_json).write_text(payload_json)
     structure_tree_path = args.emit_structure_tree
     structure_metrics_path = args.emit_structure_metrics
     if structure_tree_path:
@@ -5327,6 +5836,9 @@ def run(argv: list[str] | None = None) -> int:
             unused_arg_smells=analysis.unused_arg_smells,
             deadness_witnesses=analysis.deadness_witnesses,
             coherence_witnesses=analysis.coherence_witnesses,
+            rewrite_plans=analysis.rewrite_plans,
+            exception_obligations=analysis.exception_obligations,
+            handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             value_decision_rewrites=analysis.value_decision_rewrites,

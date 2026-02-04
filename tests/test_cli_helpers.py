@@ -212,6 +212,26 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
                     "result": "UNKNOWN",
                 }
             ],
+            "fingerprint_rewrite_plans": [
+                {
+                    "plan_id": "rewrite:x.py:f:a",
+                    "site": {"path": "x.py", "function": "f", "bundle": ["a"]},
+                    "status": "UNVERIFIED",
+                }
+            ],
+            "fingerprint_exception_obligations": [
+                {
+                    "exception_path_id": "x.py:f:E0:1:0:raise",
+                    "site": {"path": "x.py", "function": "f", "bundle": ["a"]},
+                    "status": "UNKNOWN",
+                }
+            ],
+            "fingerprint_handledness": [
+                {
+                    "handledness_id": "handled:x.py:f:E0:1:0:raise",
+                    "exception_path_id": "x.py:f:E0:1:0:raise",
+                }
+            ],
         }
 
     request = cli.DataflowAuditRequest(
@@ -226,6 +246,12 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
             "-",
             "--fingerprint-coherence-json",
             "-",
+            "--fingerprint-rewrite-plans-json",
+            "-",
+            "--fingerprint-exception-obligations-json",
+            "-",
+            "--fingerprint-handledness-json",
+            "-",
         ],
         runner=runner,
     )
@@ -238,6 +264,9 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
     assert "\"UNREACHABLE\"" in captured.out
     assert "\"fingerprint_coherence\"" not in captured.out
     assert "\"UNKNOWN\"" in captured.out
+    assert "\"plan_id\"" in captured.out
+    assert "\"exception_path_id\"" in captured.out
+    assert "\"handledness_id\"" in captured.out
 
 
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
@@ -285,9 +314,17 @@ def test_emit_synth_outputs_lists_optional_paths(tmp_path: Path, capsys) -> None
         "refactor": root / "refactor.json",
         "fingerprint_synth": root / "fingerprint_synth.json",
         "fingerprint_provenance": root / "fingerprint_provenance.json",
+        "fingerprint_coherence": root / "fingerprint_coherence.json",
+        "fingerprint_rewrite_plans": root / "fingerprint_rewrite_plans.json",
+        "fingerprint_exception_obligations": root / "fingerprint_exception_obligations.json",
+        "fingerprint_handledness": root / "fingerprint_handledness.json",
     }
     paths_out["fingerprint_synth"].write_text("{}")
     paths_out["fingerprint_provenance"].write_text("{}")
+    paths_out["fingerprint_coherence"].write_text("{}")
+    paths_out["fingerprint_rewrite_plans"].write_text("{}")
+    paths_out["fingerprint_exception_obligations"].write_text("{}")
+    paths_out["fingerprint_handledness"].write_text("{}")
     cli._emit_synth_outputs(
         paths_out=paths_out,
         timestamp=None,
@@ -296,6 +333,10 @@ def test_emit_synth_outputs_lists_optional_paths(tmp_path: Path, capsys) -> None
     output = capsys.readouterr().out
     assert "fingerprint_synth.json" in output
     assert "fingerprint_provenance.json" in output
+    assert "fingerprint_coherence.json" in output
+    assert "fingerprint_rewrite_plans.json" in output
+    assert "fingerprint_exception_obligations.json" in output
+    assert "fingerprint_handledness.json" in output
 
 
 def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:

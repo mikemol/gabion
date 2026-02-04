@@ -221,6 +221,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     fingerprint_provenance_json = payload.get("fingerprint_provenance_json")
     fingerprint_deadness_json = payload.get("fingerprint_deadness_json")
     fingerprint_coherence_json = payload.get("fingerprint_coherence_json")
+    fingerprint_rewrite_plans_json = payload.get("fingerprint_rewrite_plans_json")
+    fingerprint_exception_obligations_json = payload.get(
+        "fingerprint_exception_obligations_json"
+    )
+    fingerprint_handledness_json = payload.get("fingerprint_handledness_json")
 
     config = AuditConfig(
         project_root=Path(root),
@@ -243,6 +248,16 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     )
     if decision_tiers:
         include_decisions = True
+    include_rewrite_plans = bool(report_path) or bool(fingerprint_rewrite_plans_json)
+    include_exception_obligations = bool(report_path) or bool(
+        fingerprint_exception_obligations_json
+    )
+    include_handledness_witnesses = bool(report_path) or bool(
+        fingerprint_handledness_json
+    )
+    include_coherence = (
+        bool(report_path) or bool(fingerprint_coherence_json) or include_rewrite_plans
+    )
     analysis = analyze_paths(
         paths,
         recursive=not no_recursive,
@@ -252,7 +267,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
         include_deadness_witnesses=bool(report_path) or bool(fingerprint_deadness_json),
-        include_coherence_witnesses=bool(report_path) or bool(fingerprint_coherence_json),
+        include_coherence_witnesses=include_coherence,
+        include_rewrite_plans=include_rewrite_plans,
+        include_exception_obligations=include_exception_obligations,
+        include_handledness_witnesses=include_handledness_witnesses,
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
@@ -274,6 +292,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_provenance": analysis.fingerprint_provenance,
         "fingerprint_deadness": analysis.deadness_witnesses,
         "fingerprint_coherence": analysis.coherence_witnesses,
+        "fingerprint_rewrite_plans": analysis.rewrite_plans,
+        "fingerprint_exception_obligations": analysis.exception_obligations,
+        "fingerprint_handledness": analysis.handledness_witnesses,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -367,6 +388,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             unused_arg_smells=analysis.unused_arg_smells,
             deadness_witnesses=analysis.deadness_witnesses,
             coherence_witnesses=analysis.coherence_witnesses,
+            rewrite_plans=analysis.rewrite_plans,
+            exception_obligations=analysis.exception_obligations,
+            handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             value_decision_rewrites=analysis.value_decision_rewrites,
@@ -453,6 +477,30 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["fingerprint_coherence"] = analysis.coherence_witnesses
         else:
             Path(fingerprint_coherence_json).write_text(payload_json)
+    if fingerprint_rewrite_plans_json is not None:
+        payload_json = json.dumps(analysis.rewrite_plans, indent=2, sort_keys=True)
+        if fingerprint_rewrite_plans_json == "-":
+            response["fingerprint_rewrite_plans"] = analysis.rewrite_plans
+        else:
+            Path(fingerprint_rewrite_plans_json).write_text(payload_json)
+    if fingerprint_exception_obligations_json is not None:
+        payload_json = json.dumps(
+            analysis.exception_obligations, indent=2, sort_keys=True
+        )
+        if fingerprint_exception_obligations_json == "-":
+            response["fingerprint_exception_obligations"] = (
+                analysis.exception_obligations
+            )
+        else:
+            Path(fingerprint_exception_obligations_json).write_text(payload_json)
+    if fingerprint_handledness_json is not None:
+        payload_json = json.dumps(
+            analysis.handledness_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_handledness_json == "-":
+            response["fingerprint_handledness"] = analysis.handledness_witnesses
+        else:
+            Path(fingerprint_handledness_json).write_text(payload_json)
     if baseline_path is not None:
         response["baseline_path"] = str(baseline_path)
         response["baseline_written"] = bool(baseline_write)

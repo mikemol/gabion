@@ -123,6 +123,9 @@ def test_execute_command_fingerprint_outputs_and_decision_snapshot(tmp_path: Pat
             "fingerprint_provenance_json": "-",
             "fingerprint_deadness_json": "-",
             "fingerprint_coherence_json": "-",
+            "fingerprint_rewrite_plans_json": "-",
+            "fingerprint_exception_obligations_json": "-",
+            "fingerprint_handledness_json": "-",
             "decision_snapshot": "-",
         },
     )
@@ -130,6 +133,9 @@ def test_execute_command_fingerprint_outputs_and_decision_snapshot(tmp_path: Pat
     assert "fingerprint_provenance" in result
     assert "fingerprint_deadness" in result
     assert "fingerprint_coherence" in result
+    assert "fingerprint_rewrite_plans" in result
+    assert "fingerprint_exception_obligations" in result
+    assert "fingerprint_handledness" in result
     assert "decision_snapshot" in result
 
 
@@ -162,6 +168,9 @@ def test_execute_command_writes_fingerprint_outputs(tmp_path: Path) -> None:
     provenance_path = tmp_path / "provenance.json"
     deadness_path = tmp_path / "deadness.json"
     coherence_path = tmp_path / "coherence.json"
+    rewrite_plans_path = tmp_path / "rewrite_plans.json"
+    exception_obligations_path = tmp_path / "exception_obligations.json"
+    handledness_path = tmp_path / "handledness.json"
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
@@ -173,6 +182,9 @@ def test_execute_command_writes_fingerprint_outputs(tmp_path: Path) -> None:
             "fingerprint_provenance_json": str(provenance_path),
             "fingerprint_deadness_json": str(deadness_path),
             "fingerprint_coherence_json": str(coherence_path),
+            "fingerprint_rewrite_plans_json": str(rewrite_plans_path),
+            "fingerprint_exception_obligations_json": str(exception_obligations_path),
+            "fingerprint_handledness_json": str(handledness_path),
         },
     )
     assert result.get("exit_code") == 0
@@ -180,6 +192,9 @@ def test_execute_command_writes_fingerprint_outputs(tmp_path: Path) -> None:
     assert provenance_path.exists()
     assert deadness_path.exists()
     assert coherence_path.exists()
+    assert rewrite_plans_path.exists()
+    assert exception_obligations_path.exists()
+    assert handledness_path.exists()
 
 
 def test_execute_command_writes_decision_snapshot(tmp_path: Path) -> None:
