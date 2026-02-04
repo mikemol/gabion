@@ -38,6 +38,7 @@ from gabion.config import (
 )
 from gabion.analysis.type_fingerprints import (
     Fingerprint,
+    FingerprintDimension,
     PrimeRegistry,
     TypeConstructorRegistry,
     SynthRegistry,
@@ -46,6 +47,7 @@ from gabion.analysis.type_fingerprints import (
     build_synth_registry_from_payload,
     bundle_fingerprint_dimensional,
     format_fingerprint,
+    fingerprint_carrier_soundness,
     fingerprint_to_type_keys_with_remainder,
     synth_registry_payload,
 )
@@ -969,6 +971,13 @@ def _compute_fingerprint_warnings(
                     registry,
                     ctor_registry,
                 )
+                soundness_issues = _fingerprint_soundness_issues(fingerprint)
+                if soundness_issues:
+                    warnings.append(
+                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} "
+                        + "carrier soundness failed for "
+                        + ", ".join(soundness_issues)
+                    )
                 names = index.get(fingerprint)
                 if not names:
                     base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
@@ -1052,6 +1061,29 @@ def _compute_fingerprint_matches(
     return sorted(set(matches))
 
 
+def _fingerprint_soundness_issues(
+    fingerprint: Fingerprint,
+) -> list[str]:
+    def _is_empty(dim: FingerprintDimension) -> bool:
+        return dim.product in (0, 1) and dim.mask == 0
+
+    pairs = [
+        ("base/ctor", fingerprint.base, fingerprint.ctor),
+        ("base/provenance", fingerprint.base, fingerprint.provenance),
+        ("base/synth", fingerprint.base, fingerprint.synth),
+        ("ctor/provenance", fingerprint.ctor, fingerprint.provenance),
+        ("ctor/synth", fingerprint.ctor, fingerprint.synth),
+        ("provenance/synth", fingerprint.provenance, fingerprint.synth),
+    ]
+    issues: list[str] = []
+    for label, left, right in pairs:
+        if _is_empty(left) or _is_empty(right):
+            continue
+        if not fingerprint_carrier_soundness(left, right):
+            issues.append(label)
+    return issues
+
+
 def _compute_fingerprint_provenance(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
@@ -1080,6 +1112,7 @@ def _compute_fingerprint_provenance(
                     registry,
                     ctor_registry,
                 )
+                soundness_issues = _fingerprint_soundness_issues(fingerprint)
                 base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
                     fingerprint.base.product, registry
                 )
@@ -1122,6 +1155,7 @@ def _compute_fingerprint_provenance(
                             "base": base_remaining,
                             "ctor": ctor_remaining,
                         },
+                        "soundness_issues": soundness_issues,
                         "glossary_matches": matches,
                     }
                 )
