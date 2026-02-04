@@ -63,3 +63,15 @@ def test_fingerprint_to_type_keys_roundtrip() -> None:
     keys = tf.fingerprint_to_type_keys(fingerprint, registry)
     assert keys.count("int") == 2
     assert keys.count("str") == 1
+
+
+def test_fingerprint_hybrid_bitmask() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    product, mask = tf.fingerprint_hybrid(["int", "str", "int"], registry)
+    assert product == tf.bundle_fingerprint(["int", "str", "int"], registry)
+    int_bit = registry.bit_for("int")
+    str_bit = registry.bit_for("str")
+    assert int_bit is not None and str_bit is not None
+    assert mask & (1 << int_bit)
+    assert mask & (1 << str_bit)

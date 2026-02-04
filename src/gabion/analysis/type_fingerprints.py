@@ -108,6 +108,8 @@ def _next_prime(start: int) -> int:
 class PrimeRegistry:
     primes: dict[str, int] = field(default_factory=dict)
     next_candidate: int = 2
+    bit_positions: dict[str, int] = field(default_factory=dict)
+    next_bit: int = 0
 
     def get_or_assign(self, key: str) -> int:
         if not key:
@@ -118,6 +120,9 @@ class PrimeRegistry:
         prime = _next_prime(self.next_candidate)
         self.primes[key] = prime
         self.next_candidate = prime + 1
+        if key not in self.bit_positions:
+            self.bit_positions[key] = self.next_bit
+            self.next_bit += 1
         return prime
 
     def prime_for(self, key: str) -> int | None:
@@ -128,6 +133,9 @@ class PrimeRegistry:
             if value == prime:
                 return key
         return None
+
+    def bit_for(self, key: str) -> int | None:
+        return self.bit_positions.get(key)
 
 
 def _normalize_type_list(value: object) -> list[str]:
@@ -151,6 +159,24 @@ def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
             continue
         product *= registry.get_or_assign(key)
     return product
+
+
+def fingerprint_bitmask(types: Iterable[str], registry: PrimeRegistry) -> int:
+    mask = 0
+    for hint in types:
+        key = canonical_type_key(hint)
+        if not key:
+            continue
+        registry.get_or_assign(key)
+        bit = registry.bit_for(key)
+        if bit is None:
+            continue
+        mask |= 1 << bit
+    return mask
+
+
+def fingerprint_hybrid(types: Iterable[str], registry: PrimeRegistry) -> tuple[int, int]:
+    return bundle_fingerprint(types, registry), fingerprint_bitmask(types, registry)
 
 
 def build_fingerprint_registry(
