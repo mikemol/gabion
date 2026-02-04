@@ -111,7 +111,8 @@ def test_synthesis_plan_infers_types_from_constants(tmp_path: Path) -> None:
             sink(x=b, y=b)
 
         def f():
-            return g(1, "hi")
+            unknown(1)
+            return g(a=1, b="hi")
         """
     ).lstrip()
     file_path = tmp_path / "mod.py"

@@ -151,6 +151,27 @@ def test_constant_flow_tracks_non_const_kw(tmp_path: Path) -> None:
     assert any("callee.a only observed constant 1" in smell for smell in smells)
 
 
+def test_constant_flow_skips_multi_value_constants(tmp_path: Path) -> None:
+    _, analyze_constant_flow_repo, _, _ = _load()
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "def callee(a):\n"
+        "    return a\n"
+        "\n"
+        "def caller():\n"
+        "    callee(1)\n"
+        "    callee(2)\n"
+    )
+    smells = analyze_constant_flow_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+    )
+    assert smells == []
+
+
 def test_deadness_witnesses_from_constant_flow(tmp_path: Path) -> None:
     _, _, analyze_deadness_flow_repo, _ = _load()
     path = tmp_path / "mod.py"
