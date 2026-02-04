@@ -77,7 +77,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
     assert analysis.decision_surfaces == surfaces
     assert analysis.decision_warnings == warnings
 
-    value_surfaces, value_warnings = da.analyze_value_encoded_decisions_repo(
+    value_surfaces, value_warnings, value_rewrites = da.analyze_value_encoded_decisions_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -87,6 +87,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
     )
     assert value_surfaces == []
     assert value_warnings == []
+    assert value_rewrites == []
 
 
 def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
@@ -99,7 +100,7 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
         "    z = mask & 1\n"
         "    return x + y + z\n"
     )
-    surfaces, warnings = da.analyze_value_encoded_decisions_repo(
+    surfaces, warnings, rewrites = da.analyze_value_encoded_decisions_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -111,6 +112,22 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
         "mod.py:mod.f value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
     ]
     assert warnings == []
+    assert rewrites == [
+        "mod.py:mod.f consider rebranching value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
+    ]
+
+
+def test_emit_report_includes_value_rewrites(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    path.write_text("def f(a):\n    return a\n")
+    groups_by_path = {path: {"f": [set(["a", "b"])]}}
+    report, _ = da._emit_report(
+        groups_by_path,
+        1,
+        value_decision_rewrites=["mod.py:f consider rebranching value-encoded decision params: a (min/max)"],
+    )
+    assert "Value-encoded decision rebranch suggestions" in report
 
 
 def test_decision_surface_internal_caller(tmp_path: Path) -> None:

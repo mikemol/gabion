@@ -185,6 +185,7 @@ class AnalysisResult:
     fingerprint_matches: list[str] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
+    value_decision_rewrites: list[str] = field(default_factory=list)
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -687,7 +688,7 @@ def analyze_value_encoded_decisions_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -719,6 +720,7 @@ def analyze_value_encoded_decisions_repo(
                 callers_by_qual[callee.qual].add(info.qual)
     surfaces: list[str] = []
     warnings: list[str] = []
+    rewrites: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
         if not info.value_decision_params:
@@ -728,6 +730,11 @@ def analyze_value_encoded_decisions_repo(
         boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
         surfaces.append(
             f"{info.path.name}:{info.qual} value-encoded decision params: "
+            + ", ".join(sorted(info.value_decision_params))
+            + f" ({reasons})"
+        )
+        rewrites.append(
+            f"{info.path.name}:{info.qual} consider rebranching value-encoded decision params: "
             + ", ".join(sorted(info.value_decision_params))
             + f" ({reasons})"
         )
@@ -742,7 +749,7 @@ def analyze_value_encoded_decisions_repo(
                     warnings.append(
                         f"{info.path.name}:{info.qual} tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
                     )
-    return sorted(surfaces), sorted(set(warnings))
+    return sorted(surfaces), sorted(set(warnings)), sorted(set(rewrites))
 
 
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
@@ -2859,6 +2866,7 @@ def _emit_report(
     fingerprint_matches: list[str] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
+    value_decision_rewrites: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
     components = _connected_components(nodes, adj)
@@ -2961,6 +2969,11 @@ def _emit_report(
         lines.append("Value-encoded decision surface candidates (branchless control):")
         lines.append("```")
         lines.extend(value_decision_surfaces)
+        lines.append("```")
+    if value_decision_rewrites:
+        lines.append("Value-encoded decision rebranch suggestions:")
+        lines.append("```")
+        lines.extend(value_decision_rewrites)
         lines.append("```")
     if decision_warnings:
         lines.append("Decision tier warnings:")
@@ -4007,6 +4020,7 @@ def render_report(
     fingerprint_matches: list[str] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
+    value_decision_rewrites: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
         groups_by_path,
@@ -4022,6 +4036,7 @@ def render_report(
         fingerprint_matches=fingerprint_matches,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
+        value_decision_rewrites=value_decision_rewrites,
     )
 
 
@@ -4128,8 +4143,13 @@ def analyze_paths(
             decision_tiers=config.decision_tiers,
         )
     value_decision_surfaces: list[str] = []
+    value_decision_rewrites: list[str] = []
     if include_value_decision_surfaces:
-        value_decision_surfaces, value_warnings = analyze_value_encoded_decisions_repo(
+        (
+            value_decision_surfaces,
+            value_warnings,
+            value_decision_rewrites,
+        ) = analyze_value_encoded_decisions_repo(
             file_paths,
             project_root=config.project_root,
             ignore_params=config.ignore_params,
@@ -4180,6 +4200,7 @@ def analyze_paths(
         fingerprint_matches=fingerprint_matches,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
+        value_decision_rewrites=value_decision_rewrites,
     )
 
 
@@ -4594,6 +4615,7 @@ def run(argv: list[str] | None = None) -> int:
             unused_arg_smells=analysis.unused_arg_smells,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
+            value_decision_rewrites=analysis.value_decision_rewrites,
             decision_warnings=analysis.decision_warnings,
             fingerprint_warnings=analysis.fingerprint_warnings,
             fingerprint_matches=analysis.fingerprint_matches,
