@@ -19,6 +19,7 @@ STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 from gabion.lsp_client import CommandRequest, run_command
 app = typer.Typer(add_completion=False)
+DEFAULT_RUNNER: Callable[..., dict[str, Any]] = run_command
 
 
 @dataclass(frozen=True)
@@ -706,18 +707,11 @@ def synth(
         refactor_plan=refactor_plan,
         fail_on_violations=fail_on_violations,
     )
-    if timestamp:
-        typer.echo(f"Snapshot: {paths_out['output_root']}")
-    typer.echo(f"- {paths_out['report']}")
-    typer.echo(f"- {paths_out['dot']}")
-    typer.echo(f"- {paths_out['plan']}")
-    typer.echo(f"- {paths_out['protocol']}")
-    if paths_out["fingerprint_synth"].exists():
-        typer.echo(f"- {paths_out['fingerprint_synth']}")
-    if paths_out["fingerprint_provenance"].exists():
-        typer.echo(f"- {paths_out['fingerprint_provenance']}")
-    if refactor_plan:
-        typer.echo(f"- {paths_out['refactor']}")
+    _emit_synth_outputs(
+        paths_out=paths_out,
+        timestamp=timestamp,
+        refactor_plan=refactor_plan,
+    )
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -760,15 +754,36 @@ def _run_synthesis_plan(
         output_path.write_text(output)
 
 
+def _emit_synth_outputs(
+    *,
+    paths_out: dict[str, Path],
+    timestamp: Path | None,
+    refactor_plan: bool,
+) -> None:
+    if timestamp:
+        typer.echo(f"Snapshot: {paths_out['output_root']}")
+    typer.echo(f"- {paths_out['report']}")
+    typer.echo(f"- {paths_out['dot']}")
+    typer.echo(f"- {paths_out['plan']}")
+    typer.echo(f"- {paths_out['protocol']}")
+    if paths_out["fingerprint_synth"].exists():
+        typer.echo(f"- {paths_out['fingerprint_synth']}")
+    if paths_out["fingerprint_provenance"].exists():
+        typer.echo(f"- {paths_out['fingerprint_provenance']}")
+    if refactor_plan:
+        typer.echo(f"- {paths_out['refactor']}")
+
+
 def run_structure_diff(
     *,
     baseline: Path,
     current: Path,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] = run_command,
+    runner: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     # dataflow-bundle: baseline, current
     payload = {"baseline": str(baseline), "current": str(current)}
+    runner = runner or DEFAULT_RUNNER
     return dispatch_command(
         command=STRUCTURE_DIFF_COMMAND,
         payload=payload,
@@ -782,9 +797,10 @@ def run_decision_diff(
     baseline: Path,
     current: Path,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] = run_command,
+    runner: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     payload = {"baseline": str(baseline), "current": str(current)}
+    runner = runner or DEFAULT_RUNNER
     return dispatch_command(
         command=DECISION_DIFF_COMMAND,
         payload=payload,
@@ -799,11 +815,12 @@ def run_structure_reuse(
     min_count: int = 2,
     lemma_stubs: Path | None = None,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] = run_command,
+    runner: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     payload = {"snapshot": str(snapshot), "min_count": int(min_count)}
     if lemma_stubs is not None:
         payload["lemma_stubs"] = str(lemma_stubs)
+    runner = runner or DEFAULT_RUNNER
     return dispatch_command(
         command=STRUCTURE_REUSE_COMMAND,
         payload=payload,

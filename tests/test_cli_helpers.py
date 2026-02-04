@@ -195,6 +195,37 @@ def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
     assert "\"decision_surfaces\"" in captured.out
 
 
+def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "fingerprint_synth_registry": {"version": "synth@1", "entries": []},
+            "fingerprint_provenance": [{"path": "x.py", "bundle": ["a"]}],
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=[
+            "sample.py",
+            "--fingerprint-synth-json",
+            "-",
+            "--fingerprint-provenance-json",
+            "-",
+        ],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"bundle\"" in captured.out
+    assert "\"version\"" in captured.out
+
+
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -226,6 +257,31 @@ def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     assert result["exit_code"] == 0
     assert timestamp is None
     assert paths_out["output_root"].exists()
+
+
+def test_emit_synth_outputs_lists_optional_paths(tmp_path: Path, capsys) -> None:
+    root = tmp_path / "out"
+    root.mkdir()
+    paths_out = {
+        "output_root": root,
+        "report": root / "dataflow_report.md",
+        "dot": root / "graph.dot",
+        "plan": root / "plan.json",
+        "protocol": root / "protocols.py",
+        "refactor": root / "refactor.json",
+        "fingerprint_synth": root / "fingerprint_synth.json",
+        "fingerprint_provenance": root / "fingerprint_provenance.json",
+    }
+    paths_out["fingerprint_synth"].write_text("{}")
+    paths_out["fingerprint_provenance"].write_text("{}")
+    cli._emit_synth_outputs(
+        paths_out=paths_out,
+        timestamp=None,
+        refactor_plan=False,
+    )
+    output = capsys.readouterr().out
+    assert "fingerprint_synth.json" in output
+    assert "fingerprint_provenance.json" in output
 
 
 def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
@@ -269,6 +325,90 @@ def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
     assert result == {"added_bundles": []}
 
 
+def test_run_decision_diff_uses_runner(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"exit_code": 0}
+
+    baseline = tmp_path / "base.json"
+    current = tmp_path / "current.json"
+    result = cli.run_decision_diff(
+        baseline=baseline,
+        current=current,
+        root=tmp_path,
+        runner=runner,
+    )
+    assert captured["command"] == cli.DECISION_DIFF_COMMAND
+    assert captured["payload"] == {"baseline": str(baseline), "current": str(current)}
+    assert result == {"exit_code": 0}
+
+
+def test_run_structure_reuse_uses_runner(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"exit_code": 0}
+
+    snapshot = tmp_path / "snapshot.json"
+    lemma = tmp_path / "lemmas.py"
+    result = cli.run_structure_reuse(
+        snapshot=snapshot,
+        min_count=3,
+        lemma_stubs=lemma,
+        root=tmp_path,
+        runner=runner,
+    )
+    assert captured["command"] == cli.STRUCTURE_REUSE_COMMAND
+    assert captured["payload"]["snapshot"] == str(snapshot)
+    assert captured["payload"]["min_count"] == 3
+    assert captured["payload"]["lemma_stubs"] == str(lemma)
+    assert result == {"exit_code": 0}
+
+
+def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
+    calls: list[str] = []
+
+    def runner(request, root=None):
+        calls.append(request.command)
+        if request.command == cli.STRUCTURE_REUSE_COMMAND:
+            return {"exit_code": 0, "reuse": {"format_version": 1}}
+        return {"exit_code": 0, "diff": {"format_version": 1}}
+
+    saved = cli.DEFAULT_RUNNER
+    cli.DEFAULT_RUNNER = runner
+    try:
+        cli.structure_diff(
+            baseline=Path("baseline.json"),
+            current=Path("current.json"),
+            root=None,
+        )
+        cli.decision_diff(
+            baseline=Path("baseline.json"),
+            current=Path("current.json"),
+            root=None,
+        )
+        cli.structure_reuse(
+            snapshot=Path("snapshot.json"),
+            min_count=2,
+            lemma_stubs=None,
+            root=None,
+        )
+    finally:
+        cli.DEFAULT_RUNNER = saved
+    captured = capsys.readouterr().out
+    assert "format_version" in captured
+    assert cli.STRUCTURE_DIFF_COMMAND in calls
+    assert cli.DECISION_DIFF_COMMAND in calls
+    assert cli.STRUCTURE_REUSE_COMMAND in calls
+
+
 def test_emit_structure_diff_success(capsys) -> None:
     result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
     cli._emit_structure_diff(result)
@@ -285,3 +425,35 @@ def test_emit_structure_diff_errors_exit(capsys) -> None:
     captured = capsys.readouterr()
     assert "\"exit_code\": 2" in captured.out
     assert "bad snapshot" in captured.err
+
+
+def test_emit_decision_diff_success(capsys) -> None:
+    result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
+    cli._emit_decision_diff(result)
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 0" in captured.out
+
+
+def test_emit_decision_diff_errors_exit(capsys) -> None:
+    result = {"exit_code": 2, "errors": ["bad decision"], "diff": {}}
+    with pytest.raises(typer.Exit) as exc:
+        cli._emit_decision_diff(result)
+    assert exc.value.exit_code == 2
+    captured = capsys.readouterr()
+    assert "bad decision" in captured.err
+
+
+def test_emit_structure_reuse_success(capsys) -> None:
+    result = {"exit_code": 0, "reuse": {"summary": {}}}
+    cli._emit_structure_reuse(result)
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 0" in captured.out
+
+
+def test_emit_structure_reuse_errors_exit(capsys) -> None:
+    result = {"exit_code": 2, "errors": ["bad reuse"], "reuse": {}}
+    with pytest.raises(typer.Exit) as exc:
+        cli._emit_structure_reuse(result)
+    assert exc.value.exit_code == 2
+    captured = capsys.readouterr()
+    assert "bad reuse" in captured.err

@@ -1019,11 +1019,7 @@ def _compute_fingerprint_matches(
         for fn_name, bundles in groups.items():
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
-                missing = [
-                    param
-                    for param in bundle
-                    if not fn_annots.get(param)
-                ]
+                missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
                 types = [fn_annots[param] for param in sorted(bundle)]
@@ -1098,9 +1094,7 @@ def _compute_fingerprint_provenance(
         for fn_name, bundles in groups.items():
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
-                missing = [
-                    param for param in bundle if not fn_annots.get(param)
-                ]
+                missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
                 types = [fn_annots[param] for param in sorted(bundle)]
@@ -1222,7 +1216,7 @@ def _compute_fingerprint_synth(
         for fn_name, bundles in groups.items():
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
-                if any(not fn_annots.get(param) for param in bundle):
+                if any(param not in fn_annots for param in bundle):
                     continue
                 types = [fn_annots[param] for param in sorted(bundle)]
                 if any(t is None for t in types):
@@ -3567,6 +3561,7 @@ def compute_structure_reuse(
     snapshot: dict[str, object],
     *,
     min_count: int = 2,
+    hash_fn: Callable[[str, object | None, list[str]], str] | None = None,
 ) -> dict[str, object]:
     if min_count < 2:
         min_count = 2
@@ -3589,6 +3584,8 @@ def compute_structure_reuse(
             json.dumps(payload, sort_keys=True).encode("utf-8")
         ).hexdigest()
         return digest
+
+    hasher = hash_fn or _hash_node
 
     def _record(
         *,
@@ -3635,7 +3632,7 @@ def compute_structure_reuse(
                 if not isinstance(bundle, list):
                     continue
                 normalized = tuple(sorted(str(item) for item in bundle))
-                bundle_hash = _hash_node("bundle", normalized, [])
+                bundle_hash = hasher("bundle", normalized, [])
                 bundle_hashes.append(bundle_hash)
                 _record(
                     node_hash=bundle_hash,
@@ -3643,7 +3640,7 @@ def compute_structure_reuse(
                     location=f"{file_path}::{fn_name}::bundle:{','.join(normalized)}",
                     value=list(normalized),
                 )
-            fn_hash = _hash_node("function", None, bundle_hashes)
+            fn_hash = hasher("function", None, bundle_hashes)
             function_hashes.append(fn_hash)
             _record(
                 node_hash=fn_hash,
@@ -3651,11 +3648,11 @@ def compute_structure_reuse(
                 location=f"{file_path}::{fn_name}",
                 child_count=len(bundle_hashes),
             )
-        file_hash = _hash_node("file", None, function_hashes)
+        file_hash = hasher("file", None, function_hashes)
         file_hashes.append(file_hash)
         _record(node_hash=file_hash, kind="file", location=f"{file_path}")
 
-    root_hash = _hash_node("root", None, file_hashes)
+    root_hash = hasher("root", None, file_hashes)
     _record(
         node_hash=root_hash,
         kind="root",
@@ -3713,18 +3710,7 @@ def compute_structure_reuse(
                         f"Missing declared bundle name for {list(key)}"
                     )
         suggested.append(suggestion)
-        locations = suggestion.get("locations") or []
-        if isinstance(locations, list):
-            for location in locations:
-                if not isinstance(location, str):
-                    continue
-                replacement_map.setdefault(location, []).append(
-                    {
-                        "kind": kind,
-                        "hash": hash_value,
-                        "suggested_name": suggestion["suggested_name"],
-                    }
-                )
+    replacement_map = _build_reuse_replacement_map(suggested)
     return {
         "format_version": 1,
         "min_count": min_count,
@@ -3733,6 +3719,27 @@ def compute_structure_reuse(
         "replacement_map": replacement_map,
         "warnings": warnings,
     }
+
+
+def _build_reuse_replacement_map(
+    suggested: list[dict[str, object]],
+) -> dict[str, list[dict[str, object]]]:
+    replacement_map: dict[str, list[dict[str, object]]] = {}
+    for suggestion in suggested:
+        locations = suggestion.get("locations") or []
+        if not isinstance(locations, list):
+            continue
+        for location in locations:
+            if not isinstance(location, str):
+                continue
+            replacement_map.setdefault(location, []).append(
+                {
+                    "kind": suggestion.get("kind"),
+                    "hash": suggestion.get("hash"),
+                    "suggested_name": suggestion.get("suggested_name"),
+                }
+            )
+    return replacement_map
 
 
 def render_reuse_lemma_stubs(reuse: dict[str, object]) -> str:
@@ -4286,7 +4293,9 @@ def _resolve_synth_registry_path(path: str | None, root: Path) -> Path | None:
     if not value:
         return None
     if value.endswith("/LATEST/fingerprint_synth.json"):
-        marker = Path(root) / value.replace("/LATEST/", "/LATEST.txt")
+        marker = Path(root) / value.replace(
+            "/LATEST/fingerprint_synth.json", "/LATEST.txt"
+        )
         try:
             stamp = marker.read_text().strip()
         except Exception:

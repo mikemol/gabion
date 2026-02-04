@@ -21,3 +21,16 @@ def test_load_config_default_path(tmp_path: Path) -> None:
     cfg.write_text("[dataflow]\nstrictness = 'low'\n", encoding="utf-8")
     data = config.load_config(root=tmp_path, config_path=None)
     assert data["dataflow"]["strictness"] == "low"
+
+
+def test_decision_tier_map_normalizes_inputs() -> None:
+    assert config.decision_tier_map(None) == {}
+    assert config.decision_tier_map("bad") == {}
+    tiers = config.decision_tier_map(
+        {"tier1": "a, b", "tier2": ["c", "d"], "tier3": ("e",)}
+    )
+    assert tiers["a"] == 1
+    assert tiers["b"] == 1
+    assert tiers["c"] == 2
+    assert tiers["d"] == 2
+    assert tiers["e"] == 3

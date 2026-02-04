@@ -636,9 +636,9 @@ def build_fingerprint_registry(
     spec_entries: dict[str, list[str]] = {}
     for name, entry in spec.items():
         types = _normalize_type_list(entry)
+        spec_entries[str(name)] = types
         if not types:
             continue
-        spec_entries[str(name)] = types
         for hint in types:
             atoms: list[str] = []
             _collect_base_atoms(hint, atoms)

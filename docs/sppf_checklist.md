@@ -1,5 +1,5 @@
 ---
-doc_revision: 111
+doc_revision: 112
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -79,6 +79,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)
 - [x] Glossary fingerprint matching + CI warnings. (GH-68)
 - [x] Hybrid fingerprint representation (prime products + bitmask existence checks). (GH-68)
+- [x] Deterministic fingerprint registry seeding (sorted key interning for primes/bits). (in-22, GH-68)
 - [x] Nested type constructor registry (dimensional prime mapping). (GH-68)
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 - [x] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70)

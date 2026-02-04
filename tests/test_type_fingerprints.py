@@ -194,3 +194,246 @@ def test_synth_registry_payload_roundtrip() -> None:
     payload = tf.synth_registry_payload(synth_registry, registry, min_occurrences=2)
     restored = tf.build_synth_registry_from_payload(payload, registry)
     assert restored.tails
+
+
+def test_normalization_helpers_cover_edges() -> None:
+    tf = _load()
+    assert tf._split_top_level("A,B[C,D],E", ",") == ["A", "B[C,D]", "E"]
+    assert tf._strip_known_prefix("typing.List") == "List"
+    assert tf._strip_known_prefix("builtins.int") == "int"
+    assert tf._normalize_base("LIST") == "list"
+    assert tf._normalize_base("Optional") == "Optional"
+    assert tf._normalize_base("Union") == "Union"
+    assert tf._normalize_base("NoneType") == "None"
+    assert tf.canonical_type_key(" ") == ""
+
+
+def test_canonical_type_key_with_constructor_handles_union_and_optional() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    key = tf.canonical_type_key_with_constructor("Optional[int]", ctor_registry)
+    assert key == "Union[None, int]"
+    key = tf.canonical_type_key_with_constructor("Union[str, int]", ctor_registry)
+    assert key == "Union[int, str]"
+    key = tf.canonical_type_key_with_constructor("Dict[str, List[int]]", ctor_registry)
+    assert key == "dict[str, list[int]]"
+
+
+def test_collect_base_atoms_and_constructors_cover_empty_and_unions() -> None:
+    tf = _load()
+    atoms: list[str] = []
+    tf._collect_base_atoms("", atoms)
+    assert atoms == []
+    tf._collect_base_atoms("Optional[int]", atoms)
+    assert "int" in atoms
+    assert "None" in atoms
+    constructors: list[str] = []
+    tf._collect_constructors_multiset(" ", constructors)
+    tf._collect_constructors_multiset("list[int] | dict[str, int]", constructors)
+    tf._collect_constructors_multiset("Union[list[int], dict[str, int]]", constructors)
+    assert "list" in constructors
+    assert "dict" in constructors
+    ctor_set: set[str] = set()
+    tf._collect_constructors("", ctor_set)
+    tf._collect_constructors("Union[list[int], dict[str, int]]", ctor_set)
+    tf._collect_constructors("Optional[list[int]]", ctor_set)
+    assert "list" in ctor_set
+    assert "dict" in ctor_set
+
+
+def test_bundle_fingerprint_with_constructors_skips_empty_keys() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    fingerprint = tf.bundle_fingerprint_with_constructors([" ", "int"], registry, ctor_registry)
+    assert fingerprint == registry.get_or_assign("int")
+
+
+def test_fingerprint_bitmask_skips_empty_keys() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    mask = tf.fingerprint_bitmask([" ", "int"], registry)
+    int_bit = registry.bit_for("int")
+    assert int_bit is not None
+    assert mask == (1 << int_bit)
+
+
+def test_build_synth_registry_from_payload_skips_non_dict_entries() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    payload = {"entries": ["bad"], "version": "synth@1", "min_occurrences": 2}
+    synth_registry = tf.build_synth_registry_from_payload(payload, registry)
+    assert synth_registry.tails == {}
+
+
+def test_build_fingerprint_registry_skips_empty_entries() -> None:
+    tf = _load()
+    registry, index = tf.build_fingerprint_registry({"empty": []})
+    assert index == {}
+    assert registry.prime_for("ctor:dict") is not None
+    assert registry.prime_for("ctor:list") is not None
+
+
+def test_collect_atoms_and_constructors() -> None:
+    tf = _load()
+    base_atoms: list[str] = []
+    tf._collect_base_atoms("Union[int, Optional[str]]", base_atoms)
+    assert "int" in base_atoms and "str" in base_atoms
+    ctor_names: list[str] = []
+    tf._collect_constructors_multiset("list[dict[str, int]]", ctor_names)
+    assert "list" in ctor_names and "dict" in ctor_names
+    ctor_set: set[str] = set()
+    tf._collect_constructors("list[dict[str, int]]", ctor_set)
+    assert "list" in ctor_set and "dict" in ctor_set
+
+
+def test_dimension_helpers_and_formatting() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    dim = tf._dimension_from_keys(["int", ""], registry)
+    ctor_dim = tf._ctor_dimension_from_names(["list", ""], registry)
+    fingerprint = tf.Fingerprint(
+        base=dim,
+        ctor=ctor_dim,
+        provenance=tf.FingerprintDimension(product=7, mask=0),
+        synth=tf.FingerprintDimension(product=11, mask=0),
+    )
+    rendered = tf.format_fingerprint(fingerprint)
+    assert "prov=" in rendered and "synth=" in rendered and "ctor=" in rendered
+    assert tf._fingerprint_sort_key(fingerprint)
+
+
+def test_registry_helpers_cover_edges() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    try:
+        registry.get_or_assign("")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError for empty key")
+    assert registry.key_for_prime(9999) is None
+    assert registry.bit_for("unknown") is None
+
+
+def test_fingerprint_arithmetic_edges() -> None:
+    tf = _load()
+    assert tf.fingerprint_lcm(0, 3) == 0
+    assert tf.fingerprint_contains(4, 0) is False
+    assert tf.fingerprint_symmetric_diff(0, 5) == 5
+    assert tf.fingerprint_symmetric_diff(7, 0) == 7
+
+
+def test_normalize_type_list_variants() -> None:
+    tf = _load()
+    assert tf._normalize_type_list(None) == []
+    assert tf._normalize_type_list("a, b") == ["a", "b"]
+    assert tf._normalize_type_list(["a, b", "c"]) == ["a", "b", "c"]
+
+
+def test_synth_registry_payload_handles_non_list_entries() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    payload = {"version": "synth@1", "entries": "bad"}
+    entries, version, min_occ = tf.load_synth_registry_payload(payload)
+    assert entries == []
+    assert version == "synth@1"
+    assert min_occ == 2
+
+
+def test_synth_registry_from_payload_overrides_prime() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    fp = tf.Fingerprint(
+        base=tf.FingerprintDimension(product=registry.get_or_assign("int"), mask=0),
+        ctor=tf.FingerprintDimension(),
+    )
+    synth_registry = tf.build_synth_registry([fp, fp], registry, min_occurrences=2)
+    payload = tf.synth_registry_payload(synth_registry, registry, min_occurrences=2)
+    payload["entries"][0]["prime"] = 97
+    restored = tf.build_synth_registry_from_payload(payload, registry)
+    assert 97 in restored.tails
+
+
+def test_prime_checks_and_key_lookup() -> None:
+    tf = _load()
+    assert tf._is_prime(1) is False
+    assert tf._is_prime(25) is False
+    assert tf._is_prime(29) is True
+    registry = tf.PrimeRegistry()
+    prime = registry.get_or_assign("int")
+    assert registry.key_for_prime(prime) == "int"
+
+
+def test_canonical_type_key_with_constructor_pipe_union_and_empty() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    assert tf.canonical_type_key_with_constructor(" ", ctor_registry) == ""
+    key = tf.canonical_type_key_with_constructor("int | str", ctor_registry)
+    assert key == "Union[int, str]"
+
+
+def test_collect_atoms_union_and_optional_paths() -> None:
+    tf = _load()
+    atoms: list[str] = []
+    tf._collect_base_atoms("int | Optional[str]", atoms)
+    assert "int" in atoms and "str" in atoms and "None" in atoms
+    constructors: list[str] = []
+    tf._collect_constructors_multiset("Optional[list[int]]", constructors)
+    assert "list" in constructors
+    ctor_set: set[str] = set()
+    tf._collect_constructors("int | list[str]", ctor_set)
+    assert "list" in ctor_set
+
+
+def test_format_fingerprint_str_and_synth_dimension_none() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    dim = tf._dimension_from_keys(["int"], registry)
+    fingerprint = tf.Fingerprint(base=dim)
+    assert str(fingerprint).startswith("{base=")
+    synth_registry = tf.SynthRegistry(registry=registry)
+    assert synth_registry.synth_dimension_for(fingerprint) is None
+
+
+def test_apply_synth_dimension_noop_when_missing() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    dim = tf._dimension_from_keys(["int"], registry)
+    fingerprint = tf.Fingerprint(base=dim)
+    synth_registry = tf.SynthRegistry(registry=registry)
+    assert tf.apply_synth_dimension(fingerprint, synth_registry) == fingerprint
+
+
+def test_carrier_soundness_mask_overlap_true() -> None:
+    tf = _load()
+    dim = tf.FingerprintDimension(product=2, mask=1)
+    other = tf.FingerprintDimension(product=2, mask=1)
+    assert tf.fingerprint_carrier_soundness(dim, other)
+
+
+def test_bundle_fingerprint_with_empty_and_constructor_bitmask() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    assert tf.bundle_fingerprint([" ", ""], registry) == 1
+    assert tf.bundle_fingerprint_setlike(["", "int"], registry) == registry.get_or_assign(
+        "int"
+    )
+    product = tf.bundle_fingerprint_with_constructors(
+        ["list[int]"], registry, ctor_registry
+    )
+    assert product == registry.get_or_assign("list[int]")
+    registry.bit_positions.pop("int", None)
+    assert tf.fingerprint_bitmask(["int"], registry) == 0
+
+
+def test_build_fingerprint_registry_skips_empty_entries() -> None:
+    tf = _load()
+    registry, index = tf.build_fingerprint_registry(
+        {"empty": [], "valid": ["int"]}
+    )
+    assert registry.prime_for("int") is not None
+    assert any("valid" in names for names in index.values())

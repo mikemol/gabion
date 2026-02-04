@@ -109,6 +109,25 @@ def test_emit_report_fingerprint_provenance_summary(tmp_path: Path) -> None:
     assert "base=['float'] ctor=['list']" in report
 
 
+def test_emit_report_fingerprint_matches_and_synth(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(a, b):\n    return a\n")
+    groups_by_path = {path: {"f": [set(["a", "b"])]}}
+    report, _ = da._emit_report(
+        groups_by_path,
+        3,
+        fingerprint_matches=["mod.py:f bundle ['a', 'b'] fingerprint {base=2} matches: user_context"],
+        fingerprint_synth=["synth registry synth@1:"],
+        invariant_propositions=[
+            da.InvariantProposition(form="Equal", terms=("a", "b"), scope="mod.py:f", source="assert")
+        ],
+    )
+    assert "Fingerprint matches" in report
+    assert "Fingerprint synthesis" in report
+    assert "Invariant propositions" in report
+
+
 def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

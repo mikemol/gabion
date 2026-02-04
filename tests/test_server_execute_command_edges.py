@@ -68,6 +68,127 @@ def test_execute_command_dash_outputs(tmp_path: Path) -> None:
     assert "refactor_plan" in result
 
 
+def test_execute_command_invalid_synth_min_occurrences(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\", \"str\"]\n"
+        "synth_min_occurrences = \"bad\"\n"
+    )
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "config": str(config_path),
+        },
+    )
+    assert result.get("exit_code") == 0
+
+
+def test_execute_command_fingerprint_outputs_and_decision_snapshot(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text(
+        "def callee(x: int):\n"
+        "    return x\n"
+        "\n"
+        "def caller_one(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+        "\n"
+        "def caller_two(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+    )
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = 2\n"
+        "\n"
+        "[decision]\n"
+        "tier2 = [\"a\"]\n"
+    )
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "config": str(config_path),
+            "fingerprint_synth_json": "-",
+            "fingerprint_provenance_json": "-",
+            "decision_snapshot": "-",
+        },
+    )
+    assert "fingerprint_synth_registry" in result
+    assert "fingerprint_provenance" in result
+    assert "decision_snapshot" in result
+
+
+def test_execute_command_writes_fingerprint_outputs(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text(
+        "def callee(x: int):\n"
+        "    return x\n"
+        "\n"
+        "def caller_one(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+        "\n"
+        "def caller_two(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+    )
+    synth_registry_path = tmp_path / "synth_registry.json"
+    synth_registry_path.write_text(
+        "{\"version\": \"synth@1\", \"min_occurrences\": 2, \"entries\": []}"
+    )
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = 2\n"
+        f"synth_registry_path = \"{synth_registry_path}\"\n"
+    )
+    synth_path = tmp_path / "fingerprints.json"
+    provenance_path = tmp_path / "provenance.json"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "config": str(config_path),
+            "fingerprint_synth_json": str(synth_path),
+            "fingerprint_provenance_json": str(provenance_path),
+        },
+    )
+    assert result.get("exit_code") == 0
+    assert synth_path.exists()
+    assert provenance_path.exists()
+
+
+def test_execute_command_writes_decision_snapshot(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    decision_path = tmp_path / "decision.json"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "decision_snapshot": str(decision_path),
+        },
+    )
+    assert result.get("exit_code") == 0
+    assert decision_path.exists()
+
+
 def test_execute_command_baseline_apply(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -127,6 +248,88 @@ def test_execute_command_report_baseline_write(tmp_path: Path) -> None:
     assert result.get("exit_code") == 0
     assert report_path.exists()
     assert baseline_path.exists()
+
+
+def test_execute_structure_reuse_missing_snapshot() -> None:
+    result = server.execute_structure_reuse(None, {})
+    assert result.get("exit_code") == 2
+
+
+def test_execute_structure_reuse_payload_none() -> None:
+    result = server.execute_structure_reuse(None, None)
+    assert result.get("exit_code") == 2
+
+
+def test_execute_structure_reuse_invalid_snapshot(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text("[]")
+    result = server.execute_structure_reuse(None, {"snapshot": str(bad)})
+    assert result.get("exit_code") == 2
+
+
+def test_execute_structure_reuse_writes_lemma_stubs(tmp_path: Path) -> None:
+    snapshot_path = tmp_path / "snapshot.json"
+    snapshot_path.write_text(
+        "{\"format_version\": 1, \"root\": null, \"files\": []}"
+    )
+    result = server.execute_structure_reuse(
+        None,
+        {"snapshot": str(snapshot_path), "lemma_stubs": "-", "min_count": "bad"},
+    )
+    assert result.get("exit_code") == 0
+    assert "lemma_stubs" in result
+
+
+def test_execute_structure_reuse_writes_lemma_stubs_file(tmp_path: Path) -> None:
+    snapshot_path = tmp_path / "snapshot.json"
+    snapshot_path.write_text(
+        "{\"format_version\": 1, \"root\": null, \"files\": []}"
+    )
+    lemma_path = tmp_path / "lemmas.py"
+    result = server.execute_structure_reuse(
+        None,
+        {"snapshot": str(snapshot_path), "lemma_stubs": str(lemma_path)},
+    )
+    assert result.get("exit_code") == 0
+    assert lemma_path.exists()
+
+
+def test_execute_decision_diff_missing_paths() -> None:
+    result = server.execute_decision_diff(None, {})
+    assert result.get("exit_code") == 2
+
+
+def test_execute_decision_diff_payload_none() -> None:
+    result = server.execute_decision_diff(None, None)
+    assert result.get("exit_code") == 2
+
+
+def test_execute_decision_diff_invalid_snapshot(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text("[]")
+    result = server.execute_decision_diff(
+        None,
+        {"baseline": str(bad), "current": str(bad)},
+    )
+    assert result.get("exit_code") == 2
+
+
+def test_execute_decision_diff_valid_snapshot(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    baseline.write_text(
+        "{\"format_version\": 1, \"root\": null, \"decision_surfaces\": [\"a\"], \"value_decision_surfaces\": []}"
+    )
+    current.write_text(
+        "{\"format_version\": 1, \"root\": null, \"decision_surfaces\": [\"a\", \"b\"], \"value_decision_surfaces\": [\"x\"]}"
+    )
+    result = server.execute_decision_diff(
+        None,
+        {"baseline": str(baseline), "current": str(current)},
+    )
+    assert result.get("exit_code") == 0
+    diff = result.get("diff") or {}
+    assert "decision_surfaces" in diff
 
 
 def test_execute_command_report_appends_sections(tmp_path: Path) -> None:
