@@ -149,6 +149,24 @@ def test_emit_report_deadness_summary(tmp_path: Path) -> None:
     assert "UNREACHABLE" in report
 
 
+def test_emit_report_coherence_summary(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(a):\n    return a\n")
+    groups_by_path = {path: {}}
+    coherence = [
+        {
+            "site": {"path": str(path), "function": "f", "bundle": ["a"]},
+            "alternatives": ["ctx_a", "ctx_b"],
+            "fork_signature": "glossary-ambiguity",
+            "result": "UNKNOWN",
+        }
+    ]
+    report, _ = da._emit_report(groups_by_path, 3, coherence_witnesses=coherence)
+    assert "Coherence evidence" in report
+    assert "glossary-ambiguity" in report
+
+
 def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

@@ -206,6 +206,12 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
             "fingerprint_synth_registry": {"version": "synth@1", "entries": []},
             "fingerprint_provenance": [{"path": "x.py", "bundle": ["a"]}],
             "fingerprint_deadness": [{"path": "x.py", "bundle": ["a"], "result": "UNREACHABLE"}],
+            "fingerprint_coherence": [
+                {
+                    "site": {"path": "x.py", "function": "f", "bundle": ["a"]},
+                    "result": "UNKNOWN",
+                }
+            ],
         }
 
     request = cli.DataflowAuditRequest(
@@ -218,6 +224,8 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
             "-",
             "--fingerprint-deadness-json",
             "-",
+            "--fingerprint-coherence-json",
+            "-",
         ],
         runner=runner,
     )
@@ -228,6 +236,8 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
     assert "\"bundle\"" in captured.out
     assert "\"version\"" in captured.out
     assert "\"UNREACHABLE\"" in captured.out
+    assert "\"fingerprint_coherence\"" not in captured.out
+    assert "\"UNKNOWN\"" in captured.out
 
 
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:

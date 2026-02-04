@@ -220,6 +220,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     fingerprint_synth_json = payload.get("fingerprint_synth_json")
     fingerprint_provenance_json = payload.get("fingerprint_provenance_json")
     fingerprint_deadness_json = payload.get("fingerprint_deadness_json")
+    fingerprint_coherence_json = payload.get("fingerprint_coherence_json")
 
     config = AuditConfig(
         project_root=Path(root),
@@ -251,6 +252,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
         include_deadness_witnesses=bool(report_path) or bool(fingerprint_deadness_json),
+        include_coherence_witnesses=bool(report_path) or bool(fingerprint_coherence_json),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
@@ -271,6 +273,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_synth_registry": analysis.fingerprint_synth_registry,
         "fingerprint_provenance": analysis.fingerprint_provenance,
         "fingerprint_deadness": analysis.deadness_witnesses,
+        "fingerprint_coherence": analysis.coherence_witnesses,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -363,6 +366,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
             deadness_witnesses=analysis.deadness_witnesses,
+            coherence_witnesses=analysis.coherence_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             value_decision_rewrites=analysis.value_decision_rewrites,
@@ -441,6 +445,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["fingerprint_deadness"] = analysis.deadness_witnesses
         else:
             Path(fingerprint_deadness_json).write_text(payload_json)
+    if fingerprint_coherence_json is not None:
+        payload_json = json.dumps(
+            analysis.coherence_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_coherence_json == "-":
+            response["fingerprint_coherence"] = analysis.coherence_witnesses
+        else:
+            Path(fingerprint_coherence_json).write_text(payload_json)
     if baseline_path is not None:
         response["baseline_path"] = str(baseline_path)
         response["baseline_written"] = bool(baseline_write)

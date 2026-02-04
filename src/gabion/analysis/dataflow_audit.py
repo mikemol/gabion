@@ -190,6 +190,7 @@ class AnalysisResult:
     constant_smells: list[str]
     unused_arg_smells: list[str]
     deadness_witnesses: list[dict[str, object]] = field(default_factory=list)
+    coherence_witnesses: list[dict[str, object]] = field(default_factory=list)
     decision_surfaces: list[str] = field(default_factory=list)
     value_decision_surfaces: list[str] = field(default_factory=list)
     decision_warnings: list[str] = field(default_factory=list)
@@ -1219,6 +1220,76 @@ def _summarize_deadness_witnesses(
         lines.append(
             f"{path}:{function} bundle {bundle} result={result} "
             f"predicate={predicate} env={environment} core={core_count}"
+        )
+    if len(entries) > max_entries:
+        lines.append(f"... {len(entries) - max_entries} more")
+    return lines
+
+
+def _compute_fingerprint_coherence(
+    entries: list[dict[str, object]],
+    *,
+    synth_version: str,
+) -> list[dict[str, object]]:
+    witnesses: list[dict[str, object]] = []
+    for entry in entries:
+        matches = entry.get("glossary_matches") or []
+        if not isinstance(matches, list) or len(matches) < 2:
+            continue
+        path = entry.get("path")
+        function = entry.get("function")
+        bundle = entry.get("bundle")
+        base_keys = entry.get("base_keys") or []
+        ctor_keys = entry.get("ctor_keys") or []
+        witnesses.append(
+            {
+                "site": {
+                    "path": path,
+                    "function": function,
+                    "bundle": bundle,
+                },
+                "boundary": {
+                    "base_keys": base_keys,
+                    "ctor_keys": ctor_keys,
+                    "synth_version": synth_version,
+                },
+                "alternatives": sorted(set(str(m) for m in matches)),
+                "fork_signature": "glossary-ambiguity",
+                "frack_path": ["provenance", "glossary"],
+                "result": "UNKNOWN",
+                "remainder": {"glossary_matches": matches},
+            }
+        )
+    return sorted(
+        witnesses,
+        key=lambda entry: (
+            str(entry.get("site", {}).get("path", "")),
+            str(entry.get("site", {}).get("function", "")),
+            ",".join(entry.get("site", {}).get("bundle", []) or []),
+            str(entry.get("fork_signature", "")),
+        ),
+    )
+
+
+def _summarize_coherence_witnesses(
+    entries: list[dict[str, object]],
+    *,
+    max_entries: int = 10,
+) -> list[str]:
+    if not entries:
+        return []
+    lines: list[str] = []
+    for entry in entries[:max_entries]:
+        site = entry.get("site", {})
+        path = site.get("path", "?")
+        function = site.get("function", "?")
+        bundle = site.get("bundle", [])
+        result = entry.get("result", "UNKNOWN")
+        fork_signature = entry.get("fork_signature", "")
+        alternatives = entry.get("alternatives", [])
+        lines.append(
+            f"{path}:{function} bundle {bundle} result={result} "
+            f"fork={fork_signature} alternatives={alternatives}"
         )
     if len(entries) > max_entries:
         lines.append(f"... {len(entries) - max_entries} more")
@@ -3295,6 +3366,7 @@ def _emit_report(
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     deadness_witnesses: list[dict[str, object]] | None = None,
+    coherence_witnesses: list[dict[str, object]] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -3403,6 +3475,13 @@ def _emit_report(
         summary = _summarize_deadness_witnesses(deadness_witnesses)
         if summary:
             lines.append("Deadness evidence:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
+    if coherence_witnesses:
+        summary = _summarize_coherence_witnesses(coherence_witnesses)
+        if summary:
+            lines.append("Coherence evidence:")
             lines.append("```")
             lines.extend(summary)
             lines.append("```")
@@ -4506,6 +4585,7 @@ def render_report(
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     deadness_witnesses: list[dict[str, object]] | None = None,
+    coherence_witnesses: list[dict[str, object]] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -4525,6 +4605,7 @@ def render_report(
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
         deadness_witnesses=deadness_witnesses,
+        coherence_witnesses=coherence_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=decision_warnings,
@@ -4567,6 +4648,7 @@ def analyze_paths(
     include_constant_smells: bool,
     include_unused_arg_smells: bool,
     include_deadness_witnesses: bool = False,
+    include_coherence_witnesses: bool = False,
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
@@ -4673,6 +4755,7 @@ def analyze_paths(
     fingerprint_synth: list[str] = []
     fingerprint_synth_registry: dict[str, object] | None = None
     fingerprint_provenance: list[dict[str, object]] = []
+    coherence_witnesses: list[dict[str, object]] = []
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
             file_paths,
@@ -4708,6 +4791,11 @@ def analyze_paths(
             version=config.fingerprint_synth_version,
             existing=config.fingerprint_synth_registry,
         )
+        if include_coherence_witnesses:
+            coherence_witnesses = _compute_fingerprint_coherence(
+                fingerprint_provenance,
+                synth_version=config.fingerprint_synth_version,
+            )
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
@@ -4730,6 +4818,7 @@ def analyze_paths(
         fingerprint_synth=fingerprint_synth,
         fingerprint_synth_registry=fingerprint_synth_registry,
         fingerprint_provenance=fingerprint_provenance,
+        coherence_witnesses=coherence_witnesses,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
@@ -4795,6 +4884,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fingerprint-deadness-json",
         default=None,
         help="Write fingerprint deadness JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-coherence-json",
+        default=None,
+        help="Write fingerprint coherence JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -4919,6 +5013,7 @@ def run(argv: list[str] | None = None) -> int:
     if args.fail_on_type_ambiguities:
         args.type_audit = True
     fingerprint_deadness_json = args.fingerprint_deadness_json
+    fingerprint_coherence_json = args.fingerprint_coherence_json
     exclude_dirs: list[str] | None = None
     if args.exclude is not None:
         exclude_dirs = []
@@ -5036,6 +5131,7 @@ def run(argv: list[str] | None = None) -> int:
         include_constant_smells=bool(args.report),
         include_unused_arg_smells=bool(args.report),
         include_deadness_witnesses=bool(args.report) or bool(fingerprint_deadness_json),
+        include_coherence_witnesses=bool(args.report) or bool(fingerprint_coherence_json),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
@@ -5067,6 +5163,14 @@ def run(argv: list[str] | None = None) -> int:
             print(payload_json)
         else:
             Path(fingerprint_deadness_json).write_text(payload_json)
+    if fingerprint_coherence_json:
+        payload_json = json.dumps(
+            analysis.coherence_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_coherence_json.strip() == "-":
+            print(payload_json)
+        else:
+            Path(fingerprint_coherence_json).write_text(payload_json)
     structure_tree_path = args.emit_structure_tree
     structure_metrics_path = args.emit_structure_metrics
     if structure_tree_path:
@@ -5222,6 +5326,7 @@ def run(argv: list[str] | None = None) -> int:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
             deadness_witnesses=analysis.deadness_witnesses,
+            coherence_witnesses=analysis.coherence_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             value_decision_rewrites=analysis.value_decision_rewrites,

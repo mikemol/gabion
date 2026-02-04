@@ -150,6 +150,9 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "fingerprint_deadness_json": str(opts.fingerprint_deadness_json)
         if opts.fingerprint_deadness_json
         else None,
+        "fingerprint_coherence_json": str(opts.fingerprint_coherence_json)
+        if opts.fingerprint_coherence_json
+        else None,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
         "structure_tree": str(opts.emit_structure_tree)
         if opts.emit_structure_tree
@@ -357,6 +360,12 @@ def _dataflow_audit(
                 result["fingerprint_deadness"], indent=2, sort_keys=True
             )
         )
+    if opts.fingerprint_coherence_json == "-" and "fingerprint_coherence" in result:
+        typer.echo(
+            json.dumps(
+                result["fingerprint_coherence"], indent=2, sort_keys=True
+            )
+        )
     if opts.emit_structure_tree == "-" and "structure_tree" in result:
         typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
     if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
@@ -428,6 +437,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--fingerprint-deadness-json",
         default=None,
         help="Write fingerprint deadness JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-coherence-json",
+        default=None,
+        help="Write fingerprint coherence JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -615,6 +629,7 @@ def _run_synth(
     refactor_plan_path = output_root / "refactor_plan.json"
     fingerprint_synth_path = output_root / "fingerprint_synth.json"
     fingerprint_provenance_path = output_root / "fingerprint_provenance.json"
+    fingerprint_coherence_path = output_root / "fingerprint_coherence.json"
 
     payload: dict[str, Any] = {
         "paths": [str(p) for p in paths],
@@ -643,6 +658,7 @@ def _run_synth(
         "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
         "fingerprint_synth_json": str(fingerprint_synth_path),
         "fingerprint_provenance_json": str(fingerprint_provenance_path),
+        "fingerprint_coherence_json": str(fingerprint_coherence_path),
     }
     result = dispatch_command(
         command=DATAFLOW_COMMAND,
@@ -658,6 +674,7 @@ def _run_synth(
         "refactor": refactor_plan_path,
         "fingerprint_synth": fingerprint_synth_path,
         "fingerprint_provenance": fingerprint_provenance_path,
+        "fingerprint_coherence": fingerprint_coherence_path,
         "output_root": output_root,
     }
     return result, paths_out, timestamp
@@ -784,6 +801,8 @@ def _emit_synth_outputs(
         typer.echo(f"- {paths_out['fingerprint_synth']}")
     if paths_out["fingerprint_provenance"].exists():
         typer.echo(f"- {paths_out['fingerprint_provenance']}")
+    if paths_out["fingerprint_coherence"].exists():
+        typer.echo(f"- {paths_out['fingerprint_coherence']}")
     if refactor_plan:
         typer.echo(f"- {paths_out['refactor']}")
 

@@ -285,6 +285,7 @@ def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
     synth_path = tmp_path / "fingerprint_synth.json"
     provenance_path = tmp_path / "fingerprint_provenance.json"
     deadness_path = tmp_path / "fingerprint_deadness.json"
+    coherence_path = tmp_path / "fingerprint_coherence.json"
     code = dataflow_audit.run(
         [
             str(sample),
@@ -298,12 +299,15 @@ def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
             str(provenance_path),
             "--fingerprint-deadness-json",
             str(deadness_path),
+            "--fingerprint-coherence-json",
+            str(coherence_path),
         ]
     )
     assert code == 0
     assert synth_path.exists()
     assert provenance_path.exists()
     assert deadness_path.exists()
+    assert coherence_path.exists()
 
 
 def test_run_decision_snapshot_writes_file(tmp_path: Path) -> None:
