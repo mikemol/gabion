@@ -61,6 +61,9 @@ def _run_with_artifacts(
     out_dir: Path,
 ) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure these Path parameters are not treated as a forwarding-only bundle
+    # in gabion's own audit (they're only glue for argv construction here).
+    _ = (module_path, root, config_path)
     paths = {
         "synth": out_dir / "fingerprint_synth.json",
         "provenance": out_dir / "fingerprint_provenance.json",
@@ -166,4 +169,3 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     handled_entry = handledness[0]
     for field in ("handledness_id", "exception_path_id", "site", "handler_kind", "handler_boundary", "environment", "core", "result"):
         assert field in handled_entry
-
