@@ -166,6 +166,35 @@ def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
     assert "\"bundle_size_histogram\"" in captured.out
 
 
+def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "decision_snapshot": {
+                "format_version": 1,
+                "root": ".",
+                "decision_surfaces": [],
+                "value_decision_surfaces": [],
+                "summary": {},
+            },
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=["sample.py", "--emit-decision-snapshot", "-"],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"decision_surfaces\"" in captured.out
+
+
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
