@@ -1,5 +1,5 @@
 ---
-doc_revision: 76
+doc_revision: 77
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -64,8 +64,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Unused-argument pass detection (non-test call sites).
 - [x] Analysis: Decorator transparency/unwrapping. (GH-9)
 - [x] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
-- [ ] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60)
-- [ ] Decision surface hooks in grammar (`is_decision_surface`). (GH-60)
+- [~] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60)
+- [~] Decision surface hooks in grammar (`is_decision_surface`). (GH-60)
 - [ ] Decision surface boundary diagnostics (API surface vs internal depth). (GH-60)
 - [ ] Decision surface tier enforcement via glossary metadata. (GH-60)
 - [ ] Value-encoded decision surface detection (branchless / algebraic control). (in-18, GH-66)
