@@ -100,8 +100,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] FactorizationTree snapshot emission (canonical JSON). (in-16, GH-62)
 - [x] Structural diff command + baseline comparison. (in-16, GH-63)
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64)
-- [~] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors; determinism + richer env/core pending; see `docs/matrix_acceptance.md`). (in-24, GH-74)
-- [~] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors; determinism + richer fork evidence pending; see `docs/matrix_acceptance.md`). (in-25, GH-75)
+- [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74)
+- [x] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-25, GH-75)
 - [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness linkage pending; see `docs/matrix_acceptance.md`). (in-27, GH-77)
 
 ## Synthesis + refactoring nodes
