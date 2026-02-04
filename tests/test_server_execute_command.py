@@ -122,6 +122,22 @@ def test_execute_command_structure_tree(tmp_path: Path) -> None:
     assert "violations" in result
 
 
+def test_execute_command_structure_tree_stdout(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_tree": "-",
+        },
+    )
+    assert "structure_tree" in result
+    assert result["structure_tree"]["files"]
+
+
 def test_execute_structure_diff(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     current = tmp_path / "current.json"
@@ -133,6 +149,11 @@ def test_execute_structure_diff(tmp_path: Path) -> None:
     )
     assert result["exit_code"] == 0
     assert result["diff"]["added"][0]["bundle"] == ["a"]
+
+
+def test_execute_structure_diff_missing_payload() -> None:
+    result = server.execute_structure_diff(None, None)
+    assert result["exit_code"] == 2
 
 
 def test_execute_structure_diff_missing_paths() -> None:
@@ -169,6 +190,21 @@ def test_execute_command_structure_metrics(tmp_path: Path) -> None:
     )
     assert metrics_path.exists()
     assert "violations" in result
+
+
+def test_execute_command_structure_metrics_stdout(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_metrics": "-",
+        },
+    )
+    assert "structure_metrics" in result
 
 
 def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:

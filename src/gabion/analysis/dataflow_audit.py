@@ -2472,8 +2472,6 @@ def diff_structure_snapshots(
     for bundle in all_bundles:
         before = baseline_counts.get(bundle, 0)
         after = current_counts.get(bundle, 0)
-        if before == 0 and after == 0:
-            continue
         entry = {
             "bundle": list(bundle),
             "before": before,
