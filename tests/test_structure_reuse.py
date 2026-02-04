@@ -47,3 +47,23 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     )
     replacement_map = reuse.get("replacement_map", {})
     assert any(location.startswith("a.py::f") for location in replacement_map)
+
+
+def test_render_reuse_lemma_stubs_includes_names() -> None:
+    da = _load()
+    reuse = {
+        "format_version": 1,
+        "min_count": 2,
+        "suggested_lemmas": [
+            {
+                "hash": "deadbeef",
+                "kind": "bundle",
+                "count": 2,
+                "suggested_name": "_gabion_bundle_lemma_deadbeef",
+                "locations": ["a.py::f::bundle:a,b"],
+                "value": ["a", "b"],
+            }
+        ],
+    }
+    stubs = da.render_reuse_lemma_stubs(reuse)
+    assert "_gabion_bundle_lemma_deadbeef" in stubs

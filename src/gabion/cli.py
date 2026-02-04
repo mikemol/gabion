@@ -718,10 +718,13 @@ def run_structure_reuse(
     *,
     snapshot: Path,
     min_count: int = 2,
+    lemma_stubs: Path | None = None,
     root: Path | None = None,
     runner: Callable[..., dict[str, Any]] = run_command,
 ) -> dict[str, Any]:
     payload = {"snapshot": str(snapshot), "min_count": int(min_count)}
+    if lemma_stubs is not None:
+        payload["lemma_stubs"] = str(lemma_stubs)
     return dispatch_command(
         command=STRUCTURE_REUSE_COMMAND,
         payload=payload,
@@ -768,10 +771,18 @@ def structure_diff(
 def structure_reuse(
     snapshot: Path = typer.Option(..., "--snapshot"),
     min_count: int = typer.Option(2, "--min-count"),
+    lemma_stubs: Optional[Path] = typer.Option(
+        None, "--lemma-stubs", help="Write lemma stubs to file or '-' for stdout."
+    ),
     root: Optional[Path] = typer.Option(None, "--root"),
 ) -> None:
     """Detect repeated subtrees in a structure snapshot."""
-    result = run_structure_reuse(snapshot=snapshot, min_count=min_count, root=root)
+    result = run_structure_reuse(
+        snapshot=snapshot,
+        min_count=min_count,
+        lemma_stubs=lemma_stubs,
+        root=root,
+    )
     _emit_structure_reuse(result)
 
 

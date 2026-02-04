@@ -27,6 +27,7 @@ from gabion.analysis import (
     apply_baseline,
     compute_structure_metrics,
     compute_structure_reuse,
+    render_reuse_lemma_stubs,
     compute_violations,
     build_refactor_plan,
     build_synthesis_plan,
@@ -460,6 +461,7 @@ def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> 
     if payload is None:
         payload = {}
     snapshot_path = payload.get("snapshot")
+    lemma_stubs_path = payload.get("lemma_stubs")
     min_count = payload.get("min_count", 2)
     if not snapshot_path:
         return {"exit_code": 2, "errors": ["snapshot path is required"]}
@@ -472,7 +474,14 @@ def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> 
     except (TypeError, ValueError):
         min_count_int = 2
     reuse = compute_structure_reuse(snapshot, min_count=min_count_int)
-    return {"exit_code": 0, "reuse": reuse}
+    response: dict[str, object] = {"exit_code": 0, "reuse": reuse}
+    if lemma_stubs_path:
+        stubs = render_reuse_lemma_stubs(reuse)
+        if lemma_stubs_path == "-":
+            response["lemma_stubs"] = stubs
+        else:
+            Path(lemma_stubs_path).write_text(stubs)
+    return response
 
 
 @server.feature(TEXT_DOCUMENT_CODE_ACTION)
