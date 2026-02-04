@@ -189,6 +189,7 @@ class AnalysisResult:
     type_ambiguities: list[str]
     constant_smells: list[str]
     unused_arg_smells: list[str]
+    deadness_witnesses: list[dict[str, object]] = field(default_factory=list)
     decision_surfaces: list[str] = field(default_factory=list)
     value_decision_surfaces: list[str] = field(default_factory=list)
     decision_warnings: list[str] = field(default_factory=list)
@@ -1195,6 +1196,32 @@ def _summarize_fingerprint_provenance(
             lines.append(f"  - {path}:{fn_name} bundle={bundle}")
         if len(group) > max_examples:
             lines.append(f"  - ... ({len(group) - max_examples} more)")
+    return lines
+
+
+def _summarize_deadness_witnesses(
+    entries: list[dict[str, object]],
+    *,
+    max_entries: int = 10,
+) -> list[str]:
+    if not entries:
+        return []
+    lines: list[str] = []
+    for entry in entries[:max_entries]:
+        path = entry.get("path", "?")
+        function = entry.get("function", "?")
+        bundle = entry.get("bundle", [])
+        predicate = entry.get("predicate", "")
+        environment = entry.get("environment", {})
+        result = entry.get("result", "UNKNOWN")
+        core = entry.get("core", [])
+        core_count = len(core) if isinstance(core, list) else 0
+        lines.append(
+            f"{path}:{function} bundle {bundle} result={result} "
+            f"predicate={predicate} env={environment} core={core_count}"
+        )
+    if len(entries) > max_entries:
+        lines.append(f"... {len(entries) - max_entries} more")
     return lines
 
 
@@ -2401,6 +2428,42 @@ def analyze_constant_flow_repo(
     transparent_decorators: set[str] | None = None,
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
+    details = _collect_constant_flow_details(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+    )
+    smells: list[str] = []
+    for detail in details:
+        path_name = detail.path.name if isinstance(detail.path, Path) else str(detail.path)
+        smells.append(
+            f"{path_name}:{detail.name}.{detail.param} only observed constant {detail.value} across {detail.count} non-test call(s)"
+        )
+    return sorted(smells)
+
+
+@dataclass(frozen=True)
+class ConstantFlowDetail:
+    path: Path
+    qual: str
+    name: str
+    param: str
+    value: str
+    count: int
+
+
+def _collect_constant_flow_details(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> list[ConstantFlowDetail]:
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -2499,19 +2562,79 @@ def analyze_constant_flow_repo(
                             non_const[key] = True
                             call_counts[key] += 1
 
-    smells: list[str] = []
+    details: list[ConstantFlowDetail] = []
     for key, values in const_values.items():
         if non_const.get(key):
             continue
-        if len(values) == 1:
-            qual, param = key
-            info = by_qual.get(qual)
-            path_name = info.path.name if info is not None else qual
-            count = call_counts.get(key, 0)
-            smells.append(
-                f"{path_name}:{qual.split('.')[-1]}.{param} only observed constant {next(iter(values))} across {count} non-test call(s)"
+        if len(values) != 1:
+            continue
+        qual, param = key
+        info = by_qual.get(qual)
+        path = info.path if info is not None else Path(qual)
+        name = info.name if info is not None else qual.split(".")[-1]
+        count = call_counts.get(key, 0)
+        details.append(
+            ConstantFlowDetail(
+                path=path,
+                qual=qual,
+                name=name,
+                param=param,
+                value=next(iter(values)),
+                count=count,
             )
-    return sorted(smells)
+        )
+    return sorted(details, key=lambda entry: (str(entry.path), entry.name, entry.param))
+
+
+def analyze_deadness_flow_repo(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> list[dict[str, object]]:
+    """Emit deadness witnesses based on constant-only parameter flows."""
+    details = _collect_constant_flow_details(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+    )
+    witnesses: list[dict[str, object]] = []
+    for detail in details:
+        path_value = _normalize_snapshot_path(detail.path, project_root)
+        predicate = f"{detail.param} != {detail.value}"
+        core = [
+            f"observed constant {detail.value} across {detail.count} non-test call(s)"
+        ]
+        witnesses.append(
+            {
+                "path": path_value,
+                "function": detail.name,
+                "bundle": [detail.param],
+                "environment": {detail.param: detail.value},
+                "predicate": predicate,
+                "core": core,
+                "result": "UNREACHABLE",
+                "projection": (
+                    f"{detail.name}.{detail.param} constant {detail.value} across "
+                    f"{detail.count} non-test call(s)"
+                ),
+            }
+        )
+    return sorted(
+        witnesses,
+        key=lambda entry: (
+            str(entry.get("path", "")),
+            str(entry.get("function", "")),
+            ",".join(entry.get("bundle", [])),
+            str(entry.get("predicate", "")),
+        ),
+    )
 
 
 def _compute_knob_param_names(
@@ -3171,6 +3294,7 @@ def _emit_report(
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
+    deadness_witnesses: list[dict[str, object]] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -3275,6 +3399,13 @@ def _emit_report(
         lines.append("```")
         lines.extend(unused_arg_smells)
         lines.append("```")
+    if deadness_witnesses:
+        summary = _summarize_deadness_witnesses(deadness_witnesses)
+        if summary:
+            lines.append("Deadness evidence:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
     if decision_surfaces:
         lines.append("Decision surface candidates (direct param use in conditionals):")
         lines.append("```")
@@ -4374,6 +4505,7 @@ def render_report(
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
+    deadness_witnesses: list[dict[str, object]] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -4392,6 +4524,7 @@ def render_report(
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
+        deadness_witnesses=deadness_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=decision_warnings,
@@ -4433,6 +4566,7 @@ def analyze_paths(
     type_audit_max: int,
     include_constant_smells: bool,
     include_unused_arg_smells: bool,
+    include_deadness_witnesses: bool = False,
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
@@ -4487,6 +4621,16 @@ def analyze_paths(
     unused_arg_smells: list[str] = []
     if include_unused_arg_smells:
         unused_arg_smells = analyze_unused_arg_flow_repo(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
+        )
+    deadness_witnesses: list[dict[str, object]] = []
+    if include_deadness_witnesses:
+        deadness_witnesses = analyze_deadness_flow_repo(
             file_paths,
             project_root=config.project_root,
             ignore_params=config.ignore_params,
@@ -4577,6 +4721,7 @@ def analyze_paths(
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
+        deadness_witnesses=deadness_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=sorted(set(decision_warnings)),
@@ -4645,6 +4790,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fingerprint-provenance-json",
         default=None,
         help="Write fingerprint provenance JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-deadness-json",
+        default=None,
+        help="Write fingerprint deadness JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -4768,6 +4918,7 @@ def run(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.fail_on_type_ambiguities:
         args.type_audit = True
+    fingerprint_deadness_json = args.fingerprint_deadness_json
     exclude_dirs: list[str] | None = None
     if args.exclude is not None:
         exclude_dirs = []
@@ -4884,6 +5035,7 @@ def run(argv: list[str] | None = None) -> int:
         type_audit_max=args.type_audit_max,
         include_constant_smells=bool(args.report),
         include_unused_arg_smells=bool(args.report),
+        include_deadness_witnesses=bool(args.report) or bool(fingerprint_deadness_json),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
@@ -4907,6 +5059,14 @@ def run(argv: list[str] | None = None) -> int:
             print(payload_json)
         else:
             Path(args.fingerprint_provenance_json).write_text(payload_json)
+    if fingerprint_deadness_json:
+        payload_json = json.dumps(
+            analysis.deadness_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_deadness_json.strip() == "-":
+            print(payload_json)
+        else:
+            Path(fingerprint_deadness_json).write_text(payload_json)
     structure_tree_path = args.emit_structure_tree
     structure_metrics_path = args.emit_structure_metrics
     if structure_tree_path:
@@ -5061,6 +5221,7 @@ def run(argv: list[str] | None = None) -> int:
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
+            deadness_witnesses=analysis.deadness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             value_decision_rewrites=analysis.value_decision_rewrites,

@@ -1,5 +1,5 @@
 ---
-doc_revision: 27
+doc_revision: 28
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -66,6 +66,6 @@ Status legend:
 - in/in-21.md — **partial** (longform expansion of in-20; nested ctor registry + hybrid bitmask + reverse mapping + glossary warnings + arithmetic ops implemented; remaining rewrite work; SPPF/GH-68.)
 - in/in-22.md — **partial** (ASPF/SPPF equivalence framing; dimensional fingerprints incl. provenance/synth dimensions; entropy-controlled synthesis tracked in SPPF GH-70/GH-71/GH-72.)
 - in/in-23.md — **partial** (ASPF carrier formalization; provenance/synth artifacts exist; remaining determinism + completeness obligations tracked in checklist.)
-- in/in-24.md — **queued** (deadness evidence artifacts + snapshot/LSP/report surfacing; to be tracked in checklist.)
+- in/in-24.md — **partial** (deadness evidence artifacts emitted from constant-flow analysis + JSON/report/LSP/snapshots; determinism/core richness pending; SPPF/GH-74.)
 - in/in-25.md — **queued** (coherence evidence artifacts + snapshot/LSP/report surfacing; to be tracked in checklist.)
 - in/in-26.md — **queued** (proof-carrying rewrite plans + verification predicates + snapshot selectors; to be tracked in checklist.)

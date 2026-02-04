@@ -147,6 +147,9 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "fingerprint_provenance_json": str(opts.fingerprint_provenance_json)
         if opts.fingerprint_provenance_json
         else None,
+        "fingerprint_deadness_json": str(opts.fingerprint_deadness_json)
+        if opts.fingerprint_deadness_json
+        else None,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
         "structure_tree": str(opts.emit_structure_tree)
         if opts.emit_structure_tree
@@ -348,6 +351,12 @@ def _dataflow_audit(
                 result["fingerprint_provenance"], indent=2, sort_keys=True
             )
         )
+    if opts.fingerprint_deadness_json == "-" and "fingerprint_deadness" in result:
+        typer.echo(
+            json.dumps(
+                result["fingerprint_deadness"], indent=2, sort_keys=True
+            )
+        )
     if opts.emit_structure_tree == "-" and "structure_tree" in result:
         typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
     if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
@@ -414,6 +423,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--fingerprint-provenance-json",
         default=None,
         help="Write fingerprint provenance JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-deadness-json",
+        default=None,
+        help="Write fingerprint deadness JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",

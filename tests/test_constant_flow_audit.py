@@ -10,14 +10,15 @@ def _load():
     from gabion.analysis.dataflow_audit import (
         AuditConfig,
         analyze_constant_flow_repo,
+        analyze_deadness_flow_repo,
         analyze_paths,
     )
 
-    return AuditConfig, analyze_constant_flow_repo, analyze_paths
+    return AuditConfig, analyze_constant_flow_repo, analyze_deadness_flow_repo, analyze_paths
 
 
 def test_constant_flow_smells_and_star_paths(tmp_path: Path) -> None:
-    AuditConfig, _, analyze_paths = _load()
+    AuditConfig, _, _, analyze_paths = _load()
     code = (
         "def target(a, b, c):\n"
         "    return a\n"
@@ -50,7 +51,7 @@ def test_constant_flow_smells_and_star_paths(tmp_path: Path) -> None:
 
 
 def test_constant_flow_detects_constant_kw_and_ignores_non_const(tmp_path: Path) -> None:
-    _, analyze_constant_flow_repo, _ = _load()
+    _, analyze_constant_flow_repo, _, _ = _load()
     path = tmp_path / "mod.py"
     path.write_text(
         "def callee(a, b):\n"
@@ -70,7 +71,7 @@ def test_constant_flow_detects_constant_kw_and_ignores_non_const(tmp_path: Path)
 
 
 def test_constant_flow_skips_test_paths(tmp_path: Path) -> None:
-    _, analyze_constant_flow_repo, _ = _load()
+    _, analyze_constant_flow_repo, _, _ = _load()
     path = tmp_path / "tests" / "test_mod.py"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -91,7 +92,7 @@ def test_constant_flow_skips_test_paths(tmp_path: Path) -> None:
 
 
 def test_constant_flow_low_strictness_star_handling(tmp_path: Path) -> None:
-    _, analyze_constant_flow_repo, _ = _load()
+    _, analyze_constant_flow_repo, _, _ = _load()
     path = tmp_path / "mod.py"
     path.write_text(
         "def callee(a, b):\n"
@@ -111,7 +112,7 @@ def test_constant_flow_low_strictness_star_handling(tmp_path: Path) -> None:
 
 
 def test_constant_flow_ignores_extra_pos_args(tmp_path: Path) -> None:
-    _, analyze_constant_flow_repo, _ = _load()
+    _, analyze_constant_flow_repo, _, _ = _load()
     path = tmp_path / "mod.py"
     path.write_text(
         "def callee(a):\n"
@@ -131,7 +132,7 @@ def test_constant_flow_ignores_extra_pos_args(tmp_path: Path) -> None:
 
 
 def test_constant_flow_tracks_non_const_kw(tmp_path: Path) -> None:
-    _, analyze_constant_flow_repo, _ = _load()
+    _, analyze_constant_flow_repo, _, _ = _load()
     path = tmp_path / "mod.py"
     path.write_text(
         "def callee(a, b):\n"
@@ -148,3 +149,29 @@ def test_constant_flow_tracks_non_const_kw(tmp_path: Path) -> None:
         external_filter=True,
     )
     assert any("callee.a only observed constant 1" in smell for smell in smells)
+
+
+def test_deadness_witnesses_from_constant_flow(tmp_path: Path) -> None:
+    _, _, analyze_deadness_flow_repo, _ = _load()
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "def callee(a):\n"
+        "    return a\n"
+        "\n"
+        "def caller():\n"
+        "    return callee(1)\n"
+    )
+    witnesses = analyze_deadness_flow_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+    )
+    assert witnesses
+    entry = witnesses[0]
+    assert entry["path"].endswith("mod.py")
+    assert entry["function"] == "callee"
+    assert entry["bundle"] == ["a"]
+    assert entry["environment"] == {"a": "1"}
+    assert entry["result"] == "UNREACHABLE"

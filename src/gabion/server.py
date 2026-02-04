@@ -219,6 +219,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     refactor_plan_json = payload.get("refactor_plan_json")
     fingerprint_synth_json = payload.get("fingerprint_synth_json")
     fingerprint_provenance_json = payload.get("fingerprint_provenance_json")
+    fingerprint_deadness_json = payload.get("fingerprint_deadness_json")
 
     config = AuditConfig(
         project_root=Path(root),
@@ -249,6 +250,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         type_audit_max=type_audit_max,
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
+        include_deadness_witnesses=bool(report_path) or bool(fingerprint_deadness_json),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
@@ -268,6 +270,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_synth": analysis.fingerprint_synth,
         "fingerprint_synth_registry": analysis.fingerprint_synth_registry,
         "fingerprint_provenance": analysis.fingerprint_provenance,
+        "fingerprint_deadness": analysis.deadness_witnesses,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -359,6 +362,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
+            deadness_witnesses=analysis.deadness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             value_decision_rewrites=analysis.value_decision_rewrites,
@@ -429,6 +433,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["fingerprint_provenance"] = analysis.fingerprint_provenance
         else:
             Path(fingerprint_provenance_json).write_text(payload_json)
+    if fingerprint_deadness_json is not None:
+        payload_json = json.dumps(
+            analysis.deadness_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_deadness_json == "-":
+            response["fingerprint_deadness"] = analysis.deadness_witnesses
+        else:
+            Path(fingerprint_deadness_json).write_text(payload_json)
     if baseline_path is not None:
         response["baseline_path"] = str(baseline_path)
         response["baseline_written"] = bool(baseline_write)

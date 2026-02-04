@@ -1,5 +1,5 @@
 ---
-doc_revision: 117
+doc_revision: 118
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -100,7 +100,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] FactorizationTree snapshot emission (canonical JSON). (in-16, GH-62)
 - [x] Structural diff command + baseline comparison. (in-16, GH-63)
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64)
-- [ ] Deadness evidence artifacts (deadness witnesses + JSON/report/LSP + snapshot selectors + determinism tests; see `docs/matrix_acceptance.md`). (in-24, GH-74)
+- [~] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors; determinism + richer env/core pending; see `docs/matrix_acceptance.md`). (in-24, GH-74)
 - [ ] Coherence evidence artifacts (branching witnesses + JSON/report/LSP + snapshot selectors + determinism tests; see `docs/matrix_acceptance.md`). (in-25, GH-75)
 
 ## Synthesis + refactoring nodes

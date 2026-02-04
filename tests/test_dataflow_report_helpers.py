@@ -128,6 +128,27 @@ def test_emit_report_fingerprint_matches_and_synth(tmp_path: Path) -> None:
     assert "Invariant propositions" in report
 
 
+def test_emit_report_deadness_summary(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(a):\n    return a\n")
+    groups_by_path = {path: {}}
+    deadness = [
+        {
+            "path": str(path),
+            "function": "f",
+            "bundle": ["a"],
+            "environment": {"a": "1"},
+            "predicate": "a != 1",
+            "core": ["observed constant 1"],
+            "result": "UNREACHABLE",
+        }
+    ]
+    report, _ = da._emit_report(groups_by_path, 3, deadness_witnesses=deadness)
+    assert "Deadness evidence" in report
+    assert "UNREACHABLE" in report
+
+
 def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
