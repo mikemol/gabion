@@ -15,6 +15,7 @@ DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
+STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 from gabion.lsp_client import CommandRequest, run_command
 app = typer.Typer(add_completion=False)
 
@@ -713,7 +714,34 @@ def run_structure_diff(
     )
 
 
+def run_structure_reuse(
+    *,
+    snapshot: Path,
+    min_count: int = 2,
+    root: Path | None = None,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> dict[str, Any]:
+    payload = {"snapshot": str(snapshot), "min_count": int(min_count)}
+    return dispatch_command(
+        command=STRUCTURE_REUSE_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+    )
+
+
 def _emit_structure_diff(result: dict[str, Any]) -> None:
+    errors = result.get("errors")
+    exit_code = int(result.get("exit_code", 0))
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    if errors:
+        for error in errors:
+            typer.secho(str(error), err=True, fg=typer.colors.RED)
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+def _emit_structure_reuse(result: dict[str, Any]) -> None:
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -734,6 +762,17 @@ def structure_diff(
     # dataflow-bundle: baseline, current
     result = run_structure_diff(baseline=baseline, current=current, root=root)
     _emit_structure_diff(result)
+
+
+@app.command("structure-reuse")
+def structure_reuse(
+    snapshot: Path = typer.Option(..., "--snapshot"),
+    min_count: int = typer.Option(2, "--min-count"),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Detect repeated subtrees in a structure snapshot."""
+    result = run_structure_reuse(snapshot=snapshot, min_count=min_count, root=root)
+    _emit_structure_reuse(result)
 
 
 @app.command("refactor-protocol")

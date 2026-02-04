@@ -26,6 +26,7 @@ from gabion.analysis import (
     analyze_paths,
     apply_baseline,
     compute_structure_metrics,
+    compute_structure_reuse,
     compute_violations,
     build_refactor_plan,
     build_synthesis_plan,
@@ -61,6 +62,7 @@ DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
+STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 
 
 def _uri_to_path(uri: str) -> Path:
@@ -451,6 +453,26 @@ def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> d
     except ValueError as exc:
         return {"exit_code": 2, "errors": [str(exc)]}
     return {"exit_code": 0, "diff": diff_structure_snapshots(baseline, current)}
+
+
+@server.command(STRUCTURE_REUSE_COMMAND)
+def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    snapshot_path = payload.get("snapshot")
+    min_count = payload.get("min_count", 2)
+    if not snapshot_path:
+        return {"exit_code": 2, "errors": ["snapshot path is required"]}
+    try:
+        snapshot = load_structure_snapshot(Path(snapshot_path))
+    except ValueError as exc:
+        return {"exit_code": 2, "errors": [str(exc)]}
+    try:
+        min_count_int = int(min_count)
+    except (TypeError, ValueError):
+        min_count_int = 2
+    reuse = compute_structure_reuse(snapshot, min_count=min_count_int)
+    return {"exit_code": 0, "reuse": reuse}
 
 
 @server.feature(TEXT_DOCUMENT_CODE_ACTION)

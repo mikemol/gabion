@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import hashlib
 import os
 import sys
 from collections import defaultdict, deque
@@ -2746,6 +2747,115 @@ def diff_structure_snapshot_files(
     baseline = load_structure_snapshot(baseline_path)
     current = load_structure_snapshot(current_path)
     return diff_structure_snapshots(baseline, current)
+
+
+def compute_structure_reuse(
+    snapshot: dict[str, object],
+    *,
+    min_count: int = 2,
+) -> dict[str, object]:
+    if min_count < 2:
+        min_count = 2
+    files = snapshot.get("files") or []
+    reuse_map: dict[str, dict[str, object]] = {}
+
+    def _hash_node(kind: str, value: object | None, child_hashes: list[str]) -> str:
+        payload = {
+            "kind": kind,
+            "value": value,
+            "children": sorted(child_hashes),
+        }
+        digest = hashlib.sha1(
+            json.dumps(payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        return digest
+
+    def _record(
+        *,
+        node_hash: str,
+        kind: str,
+        location: str,
+        value: object | None = None,
+        child_count: int | None = None,
+    ) -> None:
+        entry = reuse_map.get(node_hash)
+        if entry is None:
+            entry = {
+                "hash": node_hash,
+                "kind": kind,
+                "count": 0,
+                "locations": [],
+            }
+            if value is not None:
+                entry["value"] = value
+            if child_count is not None:
+                entry["child_count"] = child_count
+            reuse_map[node_hash] = entry
+        entry["count"] += 1
+        entry["locations"].append(location)
+
+    file_hashes: list[str] = []
+    for file_entry in files:
+        if not isinstance(file_entry, dict):
+            continue
+        file_path = file_entry.get("path")
+        if not isinstance(file_path, str):
+            continue
+        function_hashes: list[str] = []
+        functions = file_entry.get("functions") or []
+        for fn_entry in functions:
+            if not isinstance(fn_entry, dict):
+                continue
+            fn_name = fn_entry.get("name")
+            if not isinstance(fn_name, str):
+                continue
+            bundle_hashes: list[str] = []
+            bundles = fn_entry.get("bundles") or []
+            for bundle in bundles:
+                if not isinstance(bundle, list):
+                    continue
+                normalized = tuple(sorted(str(item) for item in bundle))
+                bundle_hash = _hash_node("bundle", normalized, [])
+                bundle_hashes.append(bundle_hash)
+                _record(
+                    node_hash=bundle_hash,
+                    kind="bundle",
+                    location=f"{file_path}::{fn_name}::bundle:{','.join(normalized)}",
+                    value=list(normalized),
+                )
+            fn_hash = _hash_node("function", None, bundle_hashes)
+            function_hashes.append(fn_hash)
+            _record(
+                node_hash=fn_hash,
+                kind="function",
+                location=f"{file_path}::{fn_name}",
+                child_count=len(bundle_hashes),
+            )
+        file_hash = _hash_node("file", None, function_hashes)
+        file_hashes.append(file_hash)
+        _record(node_hash=file_hash, kind="file", location=f"{file_path}")
+
+    root_hash = _hash_node("root", None, file_hashes)
+    _record(
+        node_hash=root_hash,
+        kind="root",
+        location="root",
+        child_count=len(file_hashes),
+    )
+
+    reused = [
+        entry
+        for entry in reuse_map.values()
+        if isinstance(entry.get("count"), int) and entry["count"] >= min_count
+    ]
+    reused.sort(
+        key=lambda entry: (
+            entry.get("kind", ""),
+            -int(entry.get("count", 0)),
+            entry.get("hash", ""),
+        )
+    )
+    return {"format_version": 1, "min_count": min_count, "reused": reused}
 
 
 def _bundle_counts(

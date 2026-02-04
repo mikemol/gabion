@@ -1,5 +1,5 @@
 ---
-doc_revision: 81
+doc_revision: 82
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -120,8 +120,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Contextvar suggestion heuristics (internal decision surfaces). (GH-61)
 - [ ] Contextvar rewrite: synthesis emits ContextVar definitions + accessors. (GH-61)
 - [ ] Contextvar rewrite: callsite replacement for ambient access. (GH-61)
-- [ ] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65)
-- [ ] Subtree hashing/fingerprinting for FactorizationTree reuse. (GH-65)
+- [~] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65)
+- [x] Subtree hashing/fingerprinting for FactorizationTree reuse. (GH-65)
 - [ ] Lemma suggestion output + stable naming map. (GH-65)
 - [ ] Lemma suggestion CLI flag + output map (declare + replace). (GH-65)
 - [ ] Glossary-backed lemma naming + missing-entry warnings. (GH-65)
