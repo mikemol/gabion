@@ -4798,6 +4798,7 @@ def run(argv: list[str] | None = None) -> int:
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
+    synth_registry: SynthRegistry | None = None
     if fingerprint_section:
         registry, index = build_fingerprint_registry(fingerprint_section)
         if index:
@@ -4819,10 +4820,6 @@ def run(argv: list[str] | None = None) -> int:
                     synth_registry = build_synth_registry_from_payload(
                         payload, registry
                     )
-                else:
-                    synth_registry = None
-            else:
-                synth_registry = None
     merged = merge_payload(
         {
             "exclude": exclude_dirs,
