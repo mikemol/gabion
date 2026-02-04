@@ -351,23 +351,53 @@ def _decision_surface_params(
 def analyze_decision_surfaces_repo(
     paths: list[Path],
     *,
+    project_root: Path | None,
     ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
 ) -> list[str]:
+    by_name, by_qual = _build_function_index(
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        paths, project_root, external_filter=external_filter
+    )
+    class_index = _collect_class_index(paths, project_root)
+    callers_by_qual: dict[str, set[str]] = defaultdict(set)
+    for infos in by_name.values():
+        for info in infos:
+            for call in info.calls:
+                if call.is_test:
+                    continue
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                )
+                if callee is None:
+                    continue
+                callers_by_qual[callee.qual].add(info.qual)
+
     surfaces: list[str] = []
-    for path in paths:
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception:
+    for info in by_qual.values():
+        if not info.decision_params:
             continue
-        funcs = _collect_functions(tree)
-        for fn in funcs:
-            decision_params = _decision_surface_params(fn, ignore_params)
-            if not decision_params:
-                continue
-            surfaces.append(
-                f"{path.name}:{fn.name} decision surface params: "
-                + ", ".join(sorted(decision_params))
-            )
+        caller_count = len(callers_by_qual.get(info.qual, set()))
+        boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
+        surfaces.append(
+            f"{info.path.name}:{info.qual} decision surface params: "
+            + ", ".join(sorted(info.decision_params))
+            + f" ({boundary})"
+        )
     return sorted(surfaces)
 
 
@@ -1017,6 +1047,7 @@ class FunctionInfo:
     class_name: str | None = None
     scope: tuple[str, ...] = ()
     lexical_scope: tuple[str, ...] = ()
+    decision_params: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -1336,6 +1367,7 @@ def _build_function_index(
                 class_name=class_name,
                 scope=tuple(scopes),
                 lexical_scope=tuple(lexical_scopes),
+                decision_params=_decision_surface_params(fn, ignore_params),
             )
             by_name[fn.name].append(info)
             by_qual[info.qual] = info
@@ -3247,7 +3279,11 @@ def analyze_paths(
     if include_decision_surfaces:
         decision_surfaces = analyze_decision_surfaces_repo(
             file_paths,
+            project_root=config.project_root,
             ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
         )
 
     return AnalysisResult(
