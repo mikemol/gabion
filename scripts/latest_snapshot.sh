@@ -26,6 +26,7 @@ dot="$snapshot_dir/dataflow_graph.dot"
 plan="$snapshot_dir/synthesis_plan.json"
 protocols="$snapshot_dir/protocol_stubs.py"
 refactor="$snapshot_dir/refactor_plan.json"
+fingerprint_synth="$snapshot_dir/fingerprint_synth.json"
 decision="$snapshot_dir/decision_snapshot.json"
 docflow="$snapshot_dir/docflow_audit.txt"
 
@@ -35,6 +36,7 @@ case "${1:-}" in
   --plan) echo "$plan" ;;
   --protocols) echo "$protocols" ;;
   --refactor) echo "$refactor" ;;
+  --fingerprint-synth) echo "$fingerprint_synth" ;;
   --decision) echo "$decision" ;;
   --docflow) echo "$docflow" ;;
   --dir) echo "$snapshot_dir" ;;
@@ -45,11 +47,12 @@ case "${1:-}" in
     echo "- $plan"
     echo "- $protocols"
     echo "- $refactor"
+    echo "- $fingerprint_synth"
     echo "- $decision"
     echo "- $docflow"
     ;;
   *)
-    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--decision|--docflow|--dir]" >&2
+    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--decision|--docflow|--dir]" >&2
     exit 2
     ;;
 esac
