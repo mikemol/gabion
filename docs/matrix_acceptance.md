@@ -1,5 +1,5 @@
 ---
-doc_revision: 2
+doc_revision: 3
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: matrix_acceptance
 doc_role: reference
@@ -36,6 +36,11 @@ reifies that contract into minimal acceptance checks.
 
 If a matrix is present without these checks, treat the matrix as **aspirational**
 and the related feature as **incomplete**.
+
+Current implementation: `tests/test_matrix_acceptance_artifacts.py` enforces
+artifact schema, determinism (byte-identical JSON across runs), and basic
+evidence linkage for the repo's witness artifacts. The remaining checks in
+this document are tracked as follow-on work (see the linked SPPF/GH issues).
 
 ## Normative pointers (explicit)
 
@@ -74,7 +79,7 @@ Artifacts:
 Minimum checks:
 
 1) **Schema presence**
-   - Each entry includes: site, environment, predicate, core, result.
+   - Each entry includes: deadness_id, site, environment, predicate, core, result.
    - Ordering is stable by `(path, function, bundle, predicate_key)`.
 
 2) **Determinism**
@@ -186,7 +191,8 @@ Minimum checks:
    - UNKNOWN is preserved and not coerced to DEAD/HANDLED.
 
 4) **Evidence requirement**
-   - DEAD/HANDLED entries reference a corresponding witness artifact.
+   - DEAD/HANDLED entries reference a corresponding witness artifact
+     (deadness_id or handledness_id, respectively).
 
 5) **Interface parity**
    - CLI/LSP/report reference the same entry count and identifiers.

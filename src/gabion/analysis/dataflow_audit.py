@@ -1476,6 +1476,120 @@ def _find_handling_try(
     return None
 
 
+def _node_in_block(node: ast.AST, block: list[ast.stmt]) -> bool:
+    for stmt in block:
+        if node is stmt:
+            return True
+        for child in ast.walk(stmt):
+            if node is child:
+                return True
+    return False
+
+
+def _names_in_expr(expr: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(expr):
+        if isinstance(node, ast.Name):
+            names.add(node.id)
+    return names
+
+
+def _eval_value_expr(expr: ast.AST, env: dict[str, object]) -> object | None:
+    if isinstance(expr, ast.Constant):
+        return expr.value
+    if isinstance(expr, ast.Name):
+        if expr.id in env:
+            return env[expr.id]
+        return None
+    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, (ast.USub, ast.UAdd)):
+        operand = _eval_value_expr(expr.operand, env)
+        if isinstance(operand, (int, float, complex)):
+            return -operand if isinstance(expr.op, ast.USub) else operand
+    return None
+
+
+def _eval_bool_expr(expr: ast.AST, env: dict[str, object]) -> bool | None:
+    if isinstance(expr, ast.Constant):
+        return bool(expr.value)
+    if isinstance(expr, ast.Name):
+        if expr.id not in env:
+            return None
+        return bool(env[expr.id])
+    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
+        inner = _eval_bool_expr(expr.operand, env)
+        if inner is None:
+            return None
+        return not inner
+    if isinstance(expr, ast.BoolOp):
+        if isinstance(expr.op, ast.And):
+            any_unknown = False
+            for value in expr.values:
+                result = _eval_bool_expr(value, env)
+                if result is False:
+                    return False
+                if result is None:
+                    any_unknown = True
+            return None if any_unknown else True
+        if isinstance(expr.op, ast.Or):
+            any_unknown = False
+            for value in expr.values:
+                result = _eval_bool_expr(value, env)
+                if result is True:
+                    return True
+                if result is None:
+                    any_unknown = True
+            return None if any_unknown else False
+    if isinstance(expr, ast.Compare) and len(expr.ops) == 1 and len(expr.comparators) == 1:
+        left = _eval_value_expr(expr.left, env)
+        right = _eval_value_expr(expr.comparators[0], env)
+        if left is None or right is None:
+            return None
+        op = expr.ops[0]
+        if isinstance(op, ast.Eq):
+            return left == right
+        if isinstance(op, ast.NotEq):
+            return left != right
+        if isinstance(op, ast.Lt) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return left < right
+        if isinstance(op, ast.LtE) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return left <= right
+        if isinstance(op, ast.Gt) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return left > right
+        if isinstance(op, ast.GtE) and isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return left >= right
+    return None
+
+
+def _branch_reachability_under_env(
+    node: ast.AST,
+    parents: dict[ast.AST, ast.AST],
+    env: dict[str, object],
+) -> bool | None:
+    """Conservatively evaluate nested-if constraints for `node` under `env`."""
+    constraints: list[tuple[ast.AST, bool]] = []
+    current_node: ast.AST = node
+    current = parents.get(current_node)
+    while current is not None:
+        if isinstance(current, ast.If):
+            if _node_in_block(current_node, current.body):
+                constraints.append((current.test, True))
+            elif _node_in_block(current_node, current.orelse):
+                constraints.append((current.test, False))
+        current_node = current
+        current = parents.get(current_node)
+    if not constraints:
+        return None
+    any_unknown = False
+    for test, want_true in constraints:
+        result = _eval_bool_expr(test, env)
+        if result is None:
+            any_unknown = True
+            continue
+        if result != want_true:
+            return False
+    return None if any_unknown else True
+
+
 def _collect_handledness_witnesses(
     paths: list[Path],
     *,
@@ -1514,7 +1628,7 @@ def _collect_handledness_witnesses(
                 params = set()
             else:
                 scopes = _enclosing_scopes(fn_node, parents)
-                function = ".".join(scopes) if scopes else fn_node.name
+                function = _function_key(scopes, fn_node.name)
                 params = params_by_fn.get(fn_node, set())
             expr = node.exc if isinstance(node, ast.Raise) else node.test
             bundle = _exception_param_names(expr, params)
@@ -1563,6 +1677,7 @@ def _collect_exception_obligations(
     project_root: Path | None,
     ignore_params: set[str],
     handledness_witnesses: list[dict[str, object]] | None = None,
+    deadness_witnesses: list[dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     obligations: list[dict[str, object]] = []
     handled_map: dict[str, dict[str, object]] = {}
@@ -1571,6 +1686,29 @@ def _collect_exception_obligations(
             exception_id = str(entry.get("exception_path_id", ""))
             if exception_id:
                 handled_map[exception_id] = entry
+    dead_env_map: dict[tuple[str, str], dict[str, tuple[object, dict[str, object]]]] = {}
+    if deadness_witnesses:
+        for entry in deadness_witnesses:
+            path_value = str(entry.get("path", ""))
+            function_value = str(entry.get("function", ""))
+            bundle = entry.get("bundle", []) or []
+            if not isinstance(bundle, list) or not bundle:
+                continue
+            param = str(bundle[0])
+            environment = entry.get("environment", {})
+            if not isinstance(environment, dict):
+                continue
+            value_str = environment.get(param)
+            if not isinstance(value_str, str):
+                continue
+            try:
+                literal_value = ast.literal_eval(value_str)
+            except Exception:
+                continue
+            dead_env_map.setdefault((path_value, function_value), {})[param] = (
+                literal_value,
+                entry,
+            )
     for path in paths:
         try:
             tree = ast.parse(path.read_text())
@@ -1594,7 +1732,7 @@ def _collect_exception_obligations(
                 params = set()
             else:
                 scopes = _enclosing_scopes(fn_node, parents)
-                function = ".".join(scopes) if scopes else fn_node.name
+                function = _function_key(scopes, fn_node.name)
                 params = params_by_fn.get(fn_node, set())
             expr = node.exc if isinstance(node, ast.Raise) else node.test
             bundle = _exception_param_names(expr, params)
@@ -1618,6 +1756,27 @@ def _collect_exception_obligations(
                 witness_ref = handled.get("handledness_id")
                 remainder = {}
                 environment_ref = handled.get("environment") or {}
+            else:
+                env_entries = dead_env_map.get((path_value, function), {})
+                if env_entries:
+                    env = {name: value for name, (value, _) in env_entries.items()}
+                    reachability = _branch_reachability_under_env(node, parents, env)
+                    if reachability is False:
+                        names: set[str] = set()
+                        current = parents.get(node)
+                        while current is not None:
+                            if isinstance(current, ast.If):
+                                names.update(_names_in_expr(current.test))
+                            current = parents.get(current)
+                        for name in sorted(names):
+                            if name not in env_entries:
+                                continue
+                            _, witness = env_entries[name]
+                            status = "DEAD"
+                            witness_ref = witness.get("deadness_id")
+                            remainder = {}
+                            environment_ref = witness.get("environment") or {}
+                            break
             obligations.append(
                 {
                     "exception_path_id": exception_id,
@@ -3038,7 +3197,13 @@ def _collect_constant_flow_details(
         qual, param = key
         info = by_qual.get(qual)
         path = info.path if info is not None else Path(qual)
-        name = info.name if info is not None else qual.split(".")[-1]
+        # Use the same scope-aware function key used elsewhere in the audit so
+        # cross-artifact joins (e.g., deadness ↔ exception obligations) work.
+        name = (
+            _function_key(info.scope, info.name)
+            if info is not None
+            else qual.split(".")[-1]
+        )
         count = call_counts.get(key, 0)
         details.append(
             ConstantFlowDetail(
@@ -3078,8 +3243,10 @@ def analyze_deadness_flow_repo(
         core = [
             f"observed constant {detail.value} across {detail.count} non-test call(s)"
         ]
+        deadness_id = f"deadness:{path_value}:{detail.name}:{detail.param}:{detail.value}"
         witnesses.append(
             {
+                "deadness_id": deadness_id,
                 "path": path_value,
                 "function": detail.name,
                 "bundle": [detail.param],
@@ -5252,6 +5419,7 @@ def analyze_paths(
             project_root=config.project_root,
             ignore_params=config.ignore_params,
             handledness_witnesses=handledness_witnesses,
+            deadness_witnesses=deadness_witnesses,
         )
     context_suggestions: list[str] = []
     if decision_surfaces:

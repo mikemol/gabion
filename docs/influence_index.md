@@ -1,5 +1,5 @@
 ---
-doc_revision: 34
+doc_revision: 35
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -69,4 +69,4 @@ Status legend:
 - in/in-24.md — **adopted** (deadness evidence artifacts emitted from constant-flow analysis + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-74.)
 - in/in-25.md — **adopted** (coherence evidence artifacts emitted from glossary ambiguity + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-75.)
 - in/in-26.md — **partial** (rewrite plan artifacts emitted with evidence links; verification predicates + richer plan kinds pending; SPPF/GH-76.)
-- in/in-27.md — **partial** (exception obligations: E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness linkage pending; SPPF/GH-77.)
+- in/in-27.md — **partial** (exception obligations: E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; richer handling taxonomy pending; SPPF/GH-77.)

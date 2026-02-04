@@ -20,6 +20,14 @@ def _write_sample_module(path: Path) -> None:
         "def callee(flag: int, x: int) -> int:\n"
         "    return x\n"
         "\n"
+        "def dead(flag: int) -> int:\n"
+        "    if flag != 0:\n"
+        "        raise RuntimeError('dead')\n"
+        "    return 0\n"
+        "\n"
+        "def dead_caller() -> int:\n"
+        "    return dead(0)\n"
+        "\n"
         "def caller_one(a: int, b: int) -> int:\n"
         "    callee(0, a)\n"
         "    callee(0, b)\n"
@@ -143,7 +151,7 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     deadness = json.loads(bytes_a["deadness"])
     assert isinstance(deadness, list) and deadness
     dead_entry = deadness[0]
-    for field in ("path", "function", "bundle", "environment", "predicate", "core", "result"):
+    for field in ("deadness_id", "path", "function", "bundle", "environment", "predicate", "core", "result"):
         assert field in dead_entry
 
     coherence = json.loads(bytes_a["coherence"])
@@ -172,10 +180,12 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
 
     # Evidence linkage: IDs referenced by higher-level artifacts must exist.
     provenance_ids = {str(entry.get("provenance_id")) for entry in provenance}
+    deadness_ids = {str(entry.get("deadness_id")) for entry in deadness}
     coherence_ids = {str(entry.get("coherence_id")) for entry in coherence}
     handledness_ids = {str(entry.get("handledness_id")) for entry in handledness}
     exception_ids = {str(entry.get("exception_path_id")) for entry in exception_obligations}
 
+    assert all(deadness_ids)
     assert all(provenance_ids)
     assert all(coherence_ids)
     assert all(handledness_ids)
@@ -199,3 +209,8 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
         assert obligation is not None
         assert obligation.get("status") == "HANDLED"
         assert str(obligation.get("witness_ref")) == str(witness.get("handledness_id"))
+
+    dead = [entry for entry in exception_obligations if entry.get("status") == "DEAD"]
+    assert dead
+    for entry in dead:
+        assert str(entry.get("witness_ref")) in deadness_ids
