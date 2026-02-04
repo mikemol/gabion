@@ -138,6 +138,7 @@ class AnalysisResult:
     constant_smells: list[str]
     unused_arg_smells: list[str]
     decision_surfaces: list[str] = field(default_factory=list)
+    value_decision_surfaces: list[str] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
 
 
@@ -349,6 +350,86 @@ def _decision_surface_params(
     return decision_params
 
 
+def _mark_param_roots(expr: ast.AST, params: set[str], out: set[str]) -> None:
+    for node in ast.walk(expr):
+        if isinstance(node, ast.Name) and node.id in params:
+            out.add(node.id)
+            continue
+        if isinstance(node, (ast.Attribute, ast.Subscript)):
+            root = _decision_root_name(node)
+            if root in params:
+                out.add(root)
+
+
+def _collect_param_roots(expr: ast.AST, params: set[str]) -> set[str]:
+    found: set[str] = set()
+    _mark_param_roots(expr, params, found)
+    return found
+
+
+def _contains_boolish(expr: ast.AST) -> bool:
+    for node in ast.walk(expr):
+        if isinstance(node, (ast.Compare, ast.BoolOp)):
+            return True
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            return True
+    return False
+
+
+def _value_encoded_decision_params(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> tuple[set[str], set[str]]:
+    params = set(_param_names(fn, ignore_params))
+    if not params:
+        return set(), set()
+    flagged: set[str] = set()
+    reasons: set[str] = set()
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id in {"min", "max"}:
+                reasons.add("min/max")
+                _mark_param_roots(node, params, flagged)
+            elif isinstance(func, ast.Attribute) and func.attr in {"min", "max"}:
+                reasons.add("min/max")
+                _mark_param_roots(node, params, flagged)
+        elif isinstance(node, ast.BinOp):
+            op = node.op
+            left_bool = _contains_boolish(node.left)
+            right_bool = _contains_boolish(node.right)
+            if isinstance(
+                op,
+                (
+                    ast.Mult,
+                    ast.Add,
+                    ast.Sub,
+                    ast.FloorDiv,
+                    ast.Mod,
+                    ast.BitAnd,
+                    ast.BitOr,
+                    ast.BitXor,
+                    ast.LShift,
+                    ast.RShift,
+                ),
+            ):
+                if left_bool or right_bool:
+                    reasons.add("boolean arithmetic")
+                    if left_bool:
+                        flagged |= _collect_param_roots(node.left, params)
+                    if right_bool:
+                        flagged |= _collect_param_roots(node.right, params)
+                if isinstance(
+                    op, (ast.BitAnd, ast.BitOr, ast.BitXor, ast.LShift, ast.RShift)
+                ) and not (left_bool or right_bool):
+                    left_roots = _collect_param_roots(node.left, params)
+                    right_roots = _collect_param_roots(node.right, params)
+                    if left_roots or right_roots:
+                        reasons.add("bitmask")
+                        flagged |= left_roots | right_roots
+    return flagged, reasons
+
+
 def analyze_decision_surfaces_repo(
     paths: list[Path],
     *,
@@ -398,6 +479,35 @@ def analyze_decision_surfaces_repo(
             f"{info.path.name}:{info.qual} decision surface params: "
             + ", ".join(sorted(info.decision_params))
             + f" ({boundary})"
+        )
+    return sorted(surfaces)
+
+
+def analyze_value_encoded_decisions_repo(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> list[str]:
+    _, by_qual = _build_function_index(
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
+    )
+    surfaces: list[str] = []
+    for info in by_qual.values():
+        if not info.value_decision_params:
+            continue
+        reasons = ", ".join(sorted(info.value_decision_reasons)) or "heuristic"
+        surfaces.append(
+            f"{info.path.name}:{info.qual} value-encoded decision params: "
+            + ", ".join(sorted(info.value_decision_params))
+            + f" ({reasons})"
         )
     return sorted(surfaces)
 
@@ -1049,6 +1159,8 @@ class FunctionInfo:
     scope: tuple[str, ...] = ()
     lexical_scope: tuple[str, ...] = ()
     decision_params: set[str] = field(default_factory=set)
+    value_decision_params: set[str] = field(default_factory=set)
+    value_decision_reasons: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -1350,6 +1462,9 @@ def _build_function_index(
                 return_aliases=return_aliases,
             )
             unused_params = _unused_params(use_map)
+            value_params, value_reasons = _value_encoded_decision_params(
+                fn, ignore_params
+            )
             qual_parts = [module] if module else []
             if scopes:
                 qual_parts.extend(scopes)
@@ -1369,6 +1484,8 @@ def _build_function_index(
                 scope=tuple(scopes),
                 lexical_scope=tuple(lexical_scopes),
                 decision_params=_decision_surface_params(fn, ignore_params),
+                value_decision_params=value_params,
+                value_decision_reasons=value_reasons,
             )
             by_name[fn.name].append(info)
             by_qual[info.qual] = info
@@ -2368,6 +2485,7 @@ def _emit_report(
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     decision_surfaces: list[str] | None = None,
+    value_decision_surfaces: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
@@ -2466,6 +2584,11 @@ def _emit_report(
         lines.append("Decision surface candidates (direct param use in conditionals):")
         lines.append("```")
         lines.extend(decision_surfaces)
+        lines.append("```")
+    if value_decision_surfaces:
+        lines.append("Value-encoded decision surface candidates (branchless control):")
+        lines.append("```")
+        lines.extend(value_decision_surfaces)
         lines.append("```")
     if context_suggestions:
         lines.append("Contextvar/ambient rewrite suggestions:")
@@ -3115,6 +3238,7 @@ def _compute_violations(
         constant_smells=[],
         unused_arg_smells=[],
         decision_surfaces=[],
+        value_decision_surfaces=[],
         context_suggestions=[],
     )
     return violations
@@ -3197,6 +3321,7 @@ def render_report(
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     decision_surfaces: list[str] | None = None,
+    value_decision_surfaces: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
@@ -3207,6 +3332,7 @@ def render_report(
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
         decision_surfaces=decision_surfaces,
+        value_decision_surfaces=value_decision_surfaces,
         context_suggestions=context_suggestions,
     )
 
@@ -3236,6 +3362,7 @@ def analyze_paths(
     include_constant_smells: bool,
     include_unused_arg_smells: bool,
     include_decision_surfaces: bool = False,
+    include_value_decision_surfaces: bool = False,
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
     if config is None:
@@ -3295,6 +3422,16 @@ def analyze_paths(
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
         )
+    value_decision_surfaces: list[str] = []
+    if include_value_decision_surfaces:
+        value_decision_surfaces = analyze_value_encoded_decisions_repo(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
+        )
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
@@ -3309,6 +3446,7 @@ def analyze_paths(
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
         decision_surfaces=decision_surfaces,
+        value_decision_surfaces=value_decision_surfaces,
         context_suggestions=context_suggestions,
     )
 
@@ -3536,6 +3674,8 @@ def run(argv: list[str] | None = None) -> int:
         type_audit_max=args.type_audit_max,
         include_constant_smells=bool(args.report),
         include_unused_arg_smells=bool(args.report),
+        include_decision_surfaces=bool(args.report),
+        include_value_decision_surfaces=bool(args.report),
         config=config,
     )
     structure_tree_path = args.emit_structure_tree
@@ -3669,6 +3809,9 @@ def run(argv: list[str] | None = None) -> int:
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
+            decision_surfaces=analysis.decision_surfaces,
+            value_decision_surfaces=analysis.value_decision_surfaces,
+            context_suggestions=analysis.context_suggestions,
         )
         suppressed: list[str] = []
         new_violations = violations

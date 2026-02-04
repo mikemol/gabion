@@ -189,6 +189,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
         include_decision_surfaces=bool(report_path),
+        include_value_decision_surfaces=bool(report_path),
         config=config,
     )
 
@@ -197,6 +198,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "type_ambiguities": analysis.type_ambiguities,
         "unused_arg_smells": analysis.unused_arg_smells,
         "decision_surfaces": analysis.decision_surfaces,
+        "value_decision_surfaces": analysis.value_decision_surfaces,
         "context_suggestions": analysis.context_suggestions,
     }
 
@@ -274,6 +276,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
             decision_surfaces=analysis.decision_surfaces,
+            value_decision_surfaces=analysis.value_decision_surfaces,
             context_suggestions=analysis.context_suggestions,
         )
         if baseline_path is not None:

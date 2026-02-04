@@ -28,6 +28,21 @@ def test_decision_surface_params_collects_names() -> None:
     assert params == {"a", "b", "cfg"}
 
 
+def test_value_encoded_decision_params_collects_names() -> None:
+    da = _load()
+    tree = ast.parse(
+        "def f(a, b, mask, value):\n"
+        "    x = min(a, b)\n"
+        "    y = value * (a > 0)\n"
+        "    z = mask & 1\n"
+        "    return x + y + z\n"
+    )
+    fn = tree.body[0]
+    params, reasons = da._value_encoded_decision_params(fn, ignore_params=None)
+    assert params == {"a", "b", "mask"}
+    assert reasons == {"min/max", "boolean arithmetic", "bitmask"}
+
+
 def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -59,6 +74,39 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         config=da.AuditConfig(project_root=tmp_path),
     )
     assert analysis.decision_surfaces == surfaces
+
+    value_surfaces = da.analyze_value_encoded_decisions_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+    )
+    assert value_surfaces == []
+
+
+def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "def f(a, b, mask, value):\n"
+        "    x = min(a, b)\n"
+        "    y = value * (a > 0)\n"
+        "    z = mask & 1\n"
+        "    return x + y + z\n"
+    )
+    surfaces = da.analyze_value_encoded_decisions_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+    )
+    assert surfaces == [
+        "mod.py:mod.f value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
+    ]
 
 
 def test_decision_surface_internal_caller(tmp_path: Path) -> None:

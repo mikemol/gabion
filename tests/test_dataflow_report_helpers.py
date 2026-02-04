@@ -53,6 +53,7 @@ def test_emit_report_component_summary(tmp_path: Path) -> None:
         constant_smells=["mod.py:f.a only observed constant 1 across 1 non-test call(s)"],
         unused_arg_smells=["mod.py:f passes param x to unused mod.py:f.x"],
         decision_surfaces=["mod.py:f decision surface params: a"],
+        value_decision_surfaces=["mod.py:f value-encoded decision params: a (min/max)"],
         context_suggestions=["Consider contextvar for mod.py:f decision surface params: a"],
     )
     assert "Observed-only bundles" in report
@@ -62,6 +63,7 @@ def test_emit_report_component_summary(tmp_path: Path) -> None:
     assert "Constant-propagation smells" in report
     assert "Unused-argument smells" in report
     assert "Decision surface candidates" in report
+    assert "Value-encoded decision surface candidates" in report
     assert "Contextvar/ambient rewrite suggestions" in report
     assert any("tier-3" in line for line in violations)
 
