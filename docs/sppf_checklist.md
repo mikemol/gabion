@@ -1,5 +1,5 @@
 ---
-doc_revision: 85
+doc_revision: 86
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -73,7 +73,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [~] Value-encoded decision surface reports in audit output. (GH-66)
 - [ ] Value-encoded decision glossary warnings (nonlinear contexts). (GH-66)
 - [ ] Value-encoded decision rewrite suggestions (rebranch). (GH-66)
-- [ ] Value-encoded decision diff tracking in audit snapshots. (GH-66)
+- [~] Value-encoded decision diff tracking in audit snapshots. (GH-66)
 - [ ] Prime-labeled type fingerprints (algebraic bundle matching). (in-20/in-21, GH-68)
 - [ ] Prime registry + canonical type key mapping. (GH-68)
 - [ ] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)

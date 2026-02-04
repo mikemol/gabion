@@ -2676,6 +2676,57 @@ def render_structure_snapshot(
     }
 
 
+def render_decision_snapshot(
+    *,
+    decision_surfaces: list[str],
+    value_decision_surfaces: list[str],
+    project_root: Path | None = None,
+) -> dict[str, object]:
+    return {
+        "format_version": 1,
+        "root": str(project_root) if project_root is not None else None,
+        "decision_surfaces": sorted(decision_surfaces),
+        "value_decision_surfaces": sorted(value_decision_surfaces),
+        "summary": {
+            "decision_surfaces": len(decision_surfaces),
+            "value_decision_surfaces": len(value_decision_surfaces),
+        },
+    }
+
+
+def load_decision_snapshot(path: Path) -> dict[str, object]:
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid decision snapshot JSON: {path}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"Decision snapshot must be a JSON object: {path}")
+    return data
+
+
+def diff_decision_snapshots(
+    baseline: dict[str, object],
+    current: dict[str, object],
+) -> dict[str, object]:
+    base_decisions = set(baseline.get("decision_surfaces") or [])
+    curr_decisions = set(current.get("decision_surfaces") or [])
+    base_value = set(baseline.get("value_decision_surfaces") or [])
+    curr_value = set(current.get("value_decision_surfaces") or [])
+    return {
+        "format_version": 1,
+        "baseline_root": baseline.get("root"),
+        "current_root": current.get("root"),
+        "decision_surfaces": {
+            "added": sorted(curr_decisions - base_decisions),
+            "removed": sorted(base_decisions - curr_decisions),
+        },
+        "value_decision_surfaces": {
+            "added": sorted(curr_value - base_value),
+            "removed": sorted(base_value - curr_value),
+        },
+    }
+
+
 def _bundle_counts_from_snapshot(snapshot: dict[str, object]) -> dict[tuple[str, ...], int]:
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     files = snapshot.get("files") or []
@@ -3681,6 +3732,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Write structure metrics JSON to file or '-' for stdout.",
     )
+    parser.add_argument(
+        "--emit-decision-snapshot",
+        default=None,
+        help="Write decision surface snapshot JSON to file or '-' for stdout.",
+    )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(
@@ -3851,6 +3907,7 @@ def run(argv: list[str] | None = None) -> int:
         print("Baseline path required for --baseline-write.", file=sys.stderr)
         return 2
     paths = _iter_paths(args.paths, config)
+    decision_snapshot_path = args.emit_decision_snapshot
     analysis = analyze_paths(
         paths,
         recursive=not args.no_recursive,
@@ -3859,8 +3916,8 @@ def run(argv: list[str] | None = None) -> int:
         type_audit_max=args.type_audit_max,
         include_constant_smells=bool(args.report),
         include_unused_arg_smells=bool(args.report),
-        include_decision_surfaces=bool(args.report),
-        include_value_decision_surfaces=bool(args.report),
+        include_decision_surfaces=bool(args.report) or bool(decision_snapshot_path),
+        include_value_decision_surfaces=bool(args.report) or bool(decision_snapshot_path),
         config=config,
     )
     structure_tree_path = args.emit_structure_tree
@@ -3904,6 +3961,28 @@ def run(argv: list[str] | None = None) -> int:
             or args.refactor_plan
             or args.refactor_plan_json
             or structure_tree_path
+        ):
+            return 0
+    if decision_snapshot_path:
+        snapshot = render_decision_snapshot(
+            decision_surfaces=analysis.decision_surfaces,
+            value_decision_surfaces=analysis.value_decision_surfaces,
+            project_root=config.project_root,
+        )
+        payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
+        if decision_snapshot_path.strip() == "-":
+            print(payload_json)
+        else:
+            Path(decision_snapshot_path).write_text(payload_json)
+        if args.report is None and args.dot is None and not (
+            args.type_audit
+            or args.synthesis_plan
+            or args.synthesis_report
+            or args.synthesis_protocols
+            or args.refactor_plan
+            or args.refactor_plan_json
+            or structure_tree_path
+            or structure_metrics_path
         ):
             return 0
     synthesis_plan: dict[str, object] | None = None

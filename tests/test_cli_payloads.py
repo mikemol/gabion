@@ -17,6 +17,7 @@ def test_check_builds_payload() -> None:
         config=None,
         baseline=None,
         baseline_write=False,
+        decision_snapshot=None,
         exclude=None,
         ignore_params=None,
         transparent_decorators=None,
@@ -40,6 +41,7 @@ def test_check_payload_strictness_validation() -> None:
             config=None,
             baseline=None,
             baseline_write=False,
+            decision_snapshot=None,
             exclude=None,
             ignore_params=None,
             transparent_decorators=None,
@@ -58,6 +60,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         config=None,
         baseline=None,
         baseline_write=True,
+        decision_snapshot=None,
         exclude=None,
         ignore_params=None,
         transparent_decorators=None,
@@ -84,6 +87,8 @@ def test_dataflow_audit_payload_parsing() -> None:
             "snapshot.json",
             "--emit-structure-metrics",
             "metrics.json",
+            "--emit-decision-snapshot",
+            "decisions.json",
         ]
     )
     payload = cli.build_dataflow_payload(opts)
@@ -95,6 +100,7 @@ def test_dataflow_audit_payload_parsing() -> None:
     assert payload["fail_on_violations"] is True
     assert payload["structure_tree"] == "snapshot.json"
     assert payload["structure_metrics"] == "metrics.json"
+    assert payload["decision_snapshot"] == "decisions.json"
 
 
 def test_dataflow_payload_baseline_and_transparent() -> None:
@@ -162,6 +168,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         config=None,
         baseline=None,
         baseline_write=False,
+        decision_snapshot=None,
         exclude=None,
         ignore_params=None,
         transparent_decorators=None,

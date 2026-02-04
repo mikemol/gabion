@@ -16,6 +16,7 @@ SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
+DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 from gabion.lsp_client import CommandRequest, run_command
 app = typer.Typer(add_completion=False)
 
@@ -56,6 +57,7 @@ def build_check_payload(
     config: Optional[Path],
     baseline: Optional[Path],
     baseline_write: bool,
+    decision_snapshot: Optional[Path],
     exclude: Optional[List[str]],
     ignore_params: Optional[str],
     transparent_decorators: Optional[str],
@@ -82,6 +84,7 @@ def build_check_payload(
         "config": str(config) if config is not None else None,
         "baseline": str(baseline) if baseline is not None else None,
         "baseline_write": baseline_write_value,
+        "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -116,6 +119,9 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "type_audit": opts.type_audit,
         "type_audit_report": opts.type_audit_report,
         "type_audit_max": opts.type_audit_max,
+        "decision_snapshot": str(opts.emit_decision_snapshot)
+        if opts.emit_decision_snapshot
+        else None,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -203,6 +209,7 @@ def run_check(
     config: Optional[Path],
     baseline: Optional[Path],
     baseline_write: bool,
+    decision_snapshot: Optional[Path],
     exclude: Optional[List[str]],
     ignore_params: Optional[str],
     transparent_decorators: Optional[str],
@@ -220,6 +227,7 @@ def run_check(
         config=config,
         baseline=baseline,
         baseline_write=baseline_write if baseline is not None else False,
+        decision_snapshot=decision_snapshot,
         exclude=exclude,
         ignore_params=ignore_params,
         transparent_decorators=transparent_decorators,
@@ -237,6 +245,9 @@ def check(
     fail_on_violations: bool = typer.Option(True, "--fail-on-violations/--no-fail-on-violations"),
     root: Path = typer.Option(Path("."), "--root"),
     config: Optional[Path] = typer.Option(None, "--config"),
+    decision_snapshot: Optional[Path] = typer.Option(
+        None, "--decision-snapshot", help="Write decision surface snapshot JSON."
+    ),
     baseline: Optional[Path] = typer.Option(
         None, "--baseline", help="Baseline file of allowed violations."
     ),
@@ -266,6 +277,7 @@ def check(
         config=config,
         baseline=baseline,
         baseline_write=baseline_write,
+        decision_snapshot=decision_snapshot,
         exclude=exclude,
         ignore_params=ignore_params,
         transparent_decorators=transparent_decorators,
@@ -315,6 +327,8 @@ def _dataflow_audit(
         typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
     if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
         typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
+    if opts.emit_decision_snapshot == "-" and "decision_snapshot" in result:
+        typer.echo(json.dumps(result["decision_snapshot"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -365,6 +379,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--emit-structure-metrics",
         default=None,
         help="Write structure metrics JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--emit-decision-snapshot",
+        default=None,
+        help="Write decision surface snapshot JSON to file or '-' for stdout.",
     )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
@@ -714,6 +733,22 @@ def run_structure_diff(
     )
 
 
+def run_decision_diff(
+    *,
+    baseline: Path,
+    current: Path,
+    root: Path | None = None,
+    runner: Callable[..., dict[str, Any]] = run_command,
+) -> dict[str, Any]:
+    payload = {"baseline": str(baseline), "current": str(current)}
+    return dispatch_command(
+        command=DECISION_DIFF_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+    )
+
+
 def run_structure_reuse(
     *,
     snapshot: Path,
@@ -734,6 +769,17 @@ def run_structure_reuse(
 
 
 def _emit_structure_diff(result: dict[str, Any]) -> None:
+    errors = result.get("errors")
+    exit_code = int(result.get("exit_code", 0))
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    if errors:
+        for error in errors:
+            typer.secho(str(error), err=True, fg=typer.colors.RED)
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+def _emit_decision_diff(result: dict[str, Any]) -> None:
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -765,6 +811,17 @@ def structure_diff(
     # dataflow-bundle: baseline, current
     result = run_structure_diff(baseline=baseline, current=current, root=root)
     _emit_structure_diff(result)
+
+
+@app.command("decision-diff")
+def decision_diff(
+    baseline: Path = typer.Option(..., "--baseline"),
+    current: Path = typer.Option(..., "--current"),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Compare two decision surface snapshots and emit a JSON diff."""
+    result = run_decision_diff(baseline=baseline, current=current, root=root)
+    _emit_decision_diff(result)
 
 
 @app.command("structure-reuse")

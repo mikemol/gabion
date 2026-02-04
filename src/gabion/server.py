@@ -32,10 +32,13 @@ from gabion.analysis import (
     build_refactor_plan,
     build_synthesis_plan,
     diff_structure_snapshots,
+    diff_decision_snapshots,
     load_structure_snapshot,
+    load_decision_snapshot,
     load_baseline,
     render_dot,
     render_structure_snapshot,
+    render_decision_snapshot,
     render_protocol_stubs,
     render_refactor_plan,
     render_report,
@@ -64,6 +67,7 @@ SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
+DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 
 
 def _uri_to_path(uri: str) -> Path:
@@ -165,6 +169,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     synthesis_report = payload.get("synthesis_report", False)
     structure_tree_path = payload.get("structure_tree")
     structure_metrics_path = payload.get("structure_metrics")
+    decision_snapshot_path = payload.get("decision_snapshot")
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -191,8 +196,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         type_audit_max=type_audit_max,
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
-        include_decision_surfaces=bool(report_path),
-        include_value_decision_surfaces=bool(report_path),
+        include_decision_surfaces=bool(report_path) or bool(decision_snapshot_path),
+        include_value_decision_surfaces=bool(report_path) or bool(decision_snapshot_path),
         config=config,
     )
 
@@ -267,6 +272,17 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["structure_metrics"] = metrics
         else:
             Path(structure_metrics_path).write_text(payload_json)
+    if decision_snapshot_path:
+        snapshot = render_decision_snapshot(
+            decision_surfaces=analysis.decision_surfaces,
+            value_decision_surfaces=analysis.value_decision_surfaces,
+            project_root=config.project_root,
+        )
+        payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
+        if decision_snapshot_path == "-":
+            response["decision_snapshot"] = snapshot
+        else:
+            Path(decision_snapshot_path).write_text(payload_json)
 
     violations: list[str] = []
     effective_violations: list[str] | None = None
@@ -482,6 +498,25 @@ def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> 
         else:
             Path(lemma_stubs_path).write_text(stubs)
     return response
+
+
+@server.command(DECISION_DIFF_COMMAND)
+def execute_decision_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    baseline_path = payload.get("baseline")
+    current_path = payload.get("current")
+    if not baseline_path or not current_path:
+        return {
+            "exit_code": 2,
+            "errors": ["baseline and current decision snapshot paths are required"],
+        }
+    try:
+        baseline = load_decision_snapshot(Path(baseline_path))
+        current = load_decision_snapshot(Path(current_path))
+    except ValueError as exc:
+        return {"exit_code": 2, "errors": [str(exc)]}
+    return {"exit_code": 0, "diff": diff_decision_snapshots(baseline, current)}
 
 
 @server.feature(TEXT_DOCUMENT_CODE_ACTION)
