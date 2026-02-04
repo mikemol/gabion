@@ -1,5 +1,5 @@
 ---
-doc_revision: 128
+doc_revision: 129
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -59,6 +59,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Wildcard forwarding: pass-through via `*args/**kwargs` variables.
 - [x] Type-flow tightening audit (downstream annotations).
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
+- [x] Anonymous schema surface detection (dict[str, object]/Any payload annotations).
 - [x] Constant-flow audit (dead knobs / always-constant params).
 - [x] Constant-flow helper specificity (avoid false positives in internal helpers).
 - [x] Unused-argument pass detection (non-test call sites).
@@ -91,6 +92,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Mermaid component diagrams embedded in Markdown report.
 - [x] DOT/Graphviz output for bundle graphs.
 - [x] Tiered bundle classification (declared vs. observed) + violation listing.
+- [x] Anonymous schema surfaces section in Markdown report.
 - [x] Bundle declaration sources (Config dataclasses, `dataflow-bundle` markers, dataclass calls). (GH-10)
 - [x] Bundle declarations: `dataflow-bundle` markers.
 - [x] Bundle declarations: local dataclass constructor calls (Name-only args).

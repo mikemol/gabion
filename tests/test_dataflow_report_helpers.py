@@ -219,6 +219,35 @@ def test_emit_report_handledness_summary(tmp_path: Path) -> None:
     assert "except Exception" in report
 
 
+def test_emit_report_anonymous_schema_surfaces(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(
+        path,
+        "from __future__ import annotations\n"
+        "from typing import Any\n"
+        "\n"
+        "def f(payload: dict[str, Any]) -> None:\n"
+        "    return None\n",
+    )
+    groups_by_path = {path: {}}
+    report, _ = da._emit_report(groups_by_path, 3)
+    assert "Anonymous schema surfaces" in report
+    assert "dict[str, Any]" in report
+
+
+def test_emit_report_anonymous_schema_surfaces_truncates_long_list(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    lines = ["from __future__ import annotations", ""]
+    for idx in range(51):
+        lines.append(f"x{idx}: dict[str, object] = {{}}")
+    _write(path, "\n".join(lines) + "\n")
+    report, _ = da._emit_report({path: {}}, 3)
+    assert "Anonymous schema surfaces" in report
+    assert "... 1 more" in report
+
+
 def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

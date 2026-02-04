@@ -33,6 +33,7 @@ from gabion.analysis.evidence import (
     exception_obligation_summary_for_site,
     normalize_bundle_key,
 )
+from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -230,19 +231,29 @@ def _normalize_callee(name: str, class_name: str | None) -> str:
 
 
 def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
+    """Expand input paths to python files, pruning ignored directories early."""
     out: list[Path] = []
     for p in paths:
         path = Path(p)
         if path.is_dir():
-            for candidate in sorted(path.rglob("*.py")):
-                if config.is_ignored_path(candidate):
-                    continue
-                out.append(candidate)
+            for root, dirnames, filenames in os.walk(path, topdown=True):
+                if config.exclude_dirs:
+                    # Prune excluded dirs before descending to avoid scanning
+                    # large env/vendor trees like `.venv/`.
+                    dirnames[:] = [d for d in dirnames if d not in config.exclude_dirs]
+                dirnames.sort()
+                for filename in sorted(filenames):
+                    if not filename.endswith(".py"):
+                        continue
+                    candidate = Path(root) / filename
+                    if config.is_ignored_path(candidate):
+                        continue
+                    out.append(candidate)
         else:
             if config.is_ignored_path(path):
                 continue
             out.append(path)
-    return out
+    return sorted(out)
 
 
 def _collect_functions(tree: ast.AST):
@@ -4330,7 +4341,9 @@ def _emit_report(
         root = Path(common)
     else:
         root = Path(".")
-    file_paths = sorted(root.rglob("*.py"))
+    # Use the analyzed file set (not a repo-wide rglob) so reports and schema
+    # audits don't accidentally ingest virtualenvs or unrelated files.
+    file_paths = sorted(groups_by_path) if groups_by_path else []
     config_bundles_by_path = _collect_config_bundles(file_paths)
     documented_bundles_by_path = {}
     symbol_table = _build_symbol_table(
@@ -4509,6 +4522,14 @@ def _emit_report(
         lines.append("Contextvar/ambient rewrite suggestions:")
         lines.append("```")
         lines.extend(context_suggestions)
+        lines.append("```")
+    schema_surfaces = find_anonymous_schema_surfaces(file_paths, project_root=root)
+    if schema_surfaces:
+        lines.append("Anonymous schema surfaces (dict[str, object] payloads):")
+        lines.append("```")
+        lines.extend(surface.format() for surface in schema_surfaces[:50])
+        if len(schema_surfaces) > 50:
+            lines.append(f"... {len(schema_surfaces) - 50} more")
         lines.append("```")
     return "\n".join(lines), violations
 
