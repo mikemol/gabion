@@ -1,31 +1,14 @@
 # gabion baseline (ratchet)
 # Lines list known violations to allow; new ones should fail.
 
-- decision_surfaces, value_decision_surfaces (tier-3, undocumented)
-- params, scope (tier-3, undocumented)
-cli.py:build_check_payload bundle ['ignore_params', 'transparent_decorators'] fingerprint {base=108241} missing glossary match base=['None', 'None', 'str', 'str']
-cli.py:check bundle ['ignore_params', 'transparent_decorators'] fingerprint {base=108241} missing glossary match base=['None', 'None', 'str', 'str']
-cli.py:decision_diff bundle ['baseline', 'current'] fingerprint {base=121} missing glossary match base=['Path', 'Path']
-cli.py:run_check bundle ['ignore_params', 'transparent_decorators'] fingerprint {base=108241} missing glossary match base=['None', 'None', 'str', 'str']
-cli.py:run_decision_diff bundle ['baseline', 'current'] fingerprint {base=121} missing glossary match base=['Path', 'Path']
-cli.py:run_structure_diff bundle ['baseline', 'current'] fingerprint {base=121} missing glossary match base=['Path', 'Path']
-cli.py:structure_diff bundle ['baseline', 'current'] fingerprint {base=121} missing glossary match base=['Path', 'Path']
-dataflow_audit.py:_InvariantCollector.__init__ bundle ['params', 'scope'] fingerprint {base=49, ctor=13} missing glossary match base=['str', 'str'] ctor=['set']
-dataflow_audit.py:diff_structure_snapshot_files bundle ['baseline_path', 'current_path'] fingerprint {base=121} missing glossary match base=['Path', 'Path']
-dataflow_audit.py:render_decision_snapshot bundle ['decision_surfaces', 'value_decision_surfaces'] fingerprint {base=49, ctor=25} missing glossary match base=['str', 'str'] ctor=['list', 'list']
-engine.py:_CallSiteTransformer.__init__ bundle ['bundle_fields', 'constructor_expr', 'file_is_target', 'imported_targets', 'module_aliases', 'target_methods', 'target_simple'] fingerprint {base=380359217, ctor=2427685} missing glossary match base=['bool', 'cst.BaseExpression', 'str', 'str', 'str', 'str', 'str', 'str'] ctor=['dict', 'list', 'set', 'set', 'set', 'set']
-engine.py:_RefactorTransformer.__init__ bundle ['bundle_fields', 'compat_shim', 'protocol_hint', 'targets'] fingerprint {base=18179, ctor=65} missing glossary match base=['bool', 'str', 'str', 'str'] ctor=['list', 'set']
-test_cli_helpers.py:test_dataflow_audit_emits_decision_snapshot.runner bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_cli_helpers.py:test_dataflow_audit_emits_structure_metrics.runner bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_cli_helpers.py:test_dataflow_audit_emits_structure_tree.runner bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_cli_helpers.py:test_dataflow_audit_skips_type_audit_output.runner bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_cli_helpers.py:test_dataflow_audit_type_audit_empty_findings.runner bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_cli_helpers.py:test_run_synth_parses_optional_inputs.runner bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_cli_helpers.py:test_run_synthesis_plan_without_input.runner bundle ['request', 'root'] missing type annotations: request, root
-test_lsp_client_run_command_di.py:_FakeProc.__init__ bundle ['stderr_bytes', 'stdout_bytes'] fingerprint {base=4489} missing glossary match base=['bytes', 'bytes']
-test_lsp_client_run_command_di.py:test_run_command_allows_blank_stderr.factory bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_lsp_client_run_command_di.py:test_run_command_raises_on_nonzero_returncode.factory bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_lsp_client_run_command_di.py:test_run_command_raises_on_stderr_output.factory bundle ['_args', '_kwargs'] missing type annotations: _args, _kwargs
-test_misc_coverage.py:test_server_code_actions_and_diagnostics._Server.publish_diagnostics bundle ['diagnostics', 'uri'] fingerprint {base=497} missing glossary match base=['list', 'str']
-visitors.py:ImportVisitor.__init__ bundle ['module_name', 'table'] missing type annotations: table
-visitors.py:UseVisitor.__init__ bundle ['alias_to_param', 'call_args', 'call_args_factory', 'call_context', 'callee_name', 'const_repr', 'is_test', 'parents', 'strictness', 'use_map'] fingerprint {base=13450947264672791138802832869623, ctor=1578258334945} missing glossary match base=['...', 'CallArgs', 'CallArgs', 'None', 'None', 'ParamUse', 'ast.AST', 'ast.AST', 'ast.AST', 'ast.AST', 'ast.AST', 'ast.AST', 'ast.Call', 'ast.Call', 'bool', 'bool', 'str', 'str', 'str', 'str', 'str', 'str'] ctor=['Callable', 'Callable', 'Callable', 'Callable', 'dict', 'dict', 'dict', 'dict', 'list', 'tuple']
+cli.py:build_check_payload bundle ['ignore_params', 'transparent_decorators'] fingerprint missing glossary match base=['None', 'None', 'str', 'str']
+cli.py:check bundle ['ignore_params', 'transparent_decorators'] fingerprint missing glossary match base=['None', 'None', 'str', 'str']
+cli.py:decision_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+cli.py:run_check bundle ['ignore_params', 'transparent_decorators'] fingerprint missing glossary match base=['None', 'None', 'str', 'str']
+cli.py:run_decision_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+cli.py:run_structure_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+cli.py:structure_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+dataflow_audit.py:diff_structure_snapshot_files bundle ['baseline_path', 'current_path'] fingerprint missing glossary match base=['Path', 'Path']
+dataflow_audit.py:render_decision_snapshot bundle ['decision_surfaces', 'value_decision_surfaces'] fingerprint missing glossary match base=['str', 'str'] ctor=['list', 'list']
+test_lsp_client_run_command_di.py:_FakeProc.__init__ bundle ['stderr_bytes', 'stdout_bytes'] fingerprint missing glossary match base=['bytes', 'bytes']
+test_misc_coverage.py:test_server_code_actions_and_diagnostics._Server.publish_diagnostics bundle ['diagnostics', 'uri'] fingerprint missing glossary match base=['list', 'str']

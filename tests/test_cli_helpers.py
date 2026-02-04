@@ -199,7 +199,7 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
     class DummyCtx:
         args: list[str] = []
 
-    def runner(*_args, **_kwargs):
+    def runner(*_args: object, **_kwargs: object) -> dict[str, object]:
         # dataflow-bundle: _args, _kwargs
         return {
             "exit_code": 0,

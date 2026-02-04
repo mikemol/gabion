@@ -16,6 +16,7 @@ def _rpc_message(payload: dict) -> bytes:
 
 
 class _FakeProc:
+    # dataflow-bundle: stderr_bytes, stdout_bytes
     def __init__(self, stdout_bytes: bytes, stderr_bytes: bytes, returncode: int | None) -> None:
         self.stdin = io.BytesIO()
         self.stdout = io.BytesIO(stdout_bytes)

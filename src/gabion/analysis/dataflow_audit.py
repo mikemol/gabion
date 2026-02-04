@@ -289,6 +289,7 @@ def _extract_invariant_from_expr(
 
 
 class _InvariantCollector(ast.NodeVisitor):
+    # dataflow-bundle: params, scope
     def __init__(self, params: set[str], scope: str) -> None:
         self._params = params
         self._scope = scope
@@ -956,11 +957,7 @@ def _compute_fingerprint_warnings(
         for fn_name, bundles in groups.items():
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
-                missing = [
-                    param
-                    for param in bundle
-                    if not fn_annots.get(param)
-                ]
+                missing = [param for param in bundle if not fn_annots.get(param)]
                 if missing:
                     warnings.append(
                         f"{path.name}:{fn_name} bundle {sorted(bundle)} missing type annotations: "
@@ -977,33 +974,34 @@ def _compute_fingerprint_warnings(
                     ctor_registry,
                 )
                 soundness_issues = _fingerprint_soundness_issues(fingerprint)
+                names = index.get(fingerprint)
+                if not soundness_issues and names:
+                    continue
+
+                base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
+                    fingerprint.base.product, registry
+                )
+                ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
+                    fingerprint.ctor.product, registry
+                )
+                ctor_keys = [
+                    key[len("ctor:") :] if key.startswith("ctor:") else key
+                    for key in ctor_keys
+                ]
+                details = f" base={sorted(base_keys)}"
+                if ctor_keys:
+                    details += f" ctor={sorted(ctor_keys)}"
+                if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
+                    details += f" remainder=({base_remaining},{ctor_remaining})"
                 if soundness_issues:
                     warnings.append(
-                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} "
-                        + "carrier soundness failed for "
+                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint carrier soundness failed for "
                         + ", ".join(soundness_issues)
+                        + details
                     )
-                names = index.get(fingerprint)
                 if not names:
-                    base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
-                        fingerprint.base.product, registry
-                    )
-                    ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
-                        fingerprint.ctor.product, registry
-                    )
-                    ctor_keys = [
-                        key[len("ctor:") :] if key.startswith("ctor:") else key
-                        for key in ctor_keys
-                    ]
-                    details = f" base={sorted(base_keys)}"
-                    if ctor_keys:
-                        details += f" ctor={sorted(ctor_keys)}"
-                    if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
-                        details += (
-                            f" remainder=({base_remaining},{ctor_remaining})"
-                        )
                     warnings.append(
-                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} missing glossary match{details}"
+                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint missing glossary match{details}"
                     )
     return sorted(set(warnings))
 
@@ -2013,6 +2011,10 @@ def _group_by_signature(use_map: dict[str, ParamUse]) -> list[set[str]]:
         if info.non_forward:
             continue
         sig = tuple(sorted(info.direct_forward))
+        # Empty forwarding signatures are usually just unused params; treating them as
+        # bundles creates noisy Tier-3 violations and unstable fingerprint baselines.
+        if not sig:
+            continue
         sig_map[sig].append(name)
     groups = [set(names) for names in sig_map.values() if len(names) > 1]
     return groups
@@ -3834,11 +3836,16 @@ def _emit_report(
             lines.append("```")
             lines.append("")
             for line in summary.splitlines():
-                if "(tier-3, undocumented)" in line:
-                    violations.append(line.strip())
-                if "(tier-1," in line or "(tier-2," in line:
-                    if "undocumented" in line:
-                        violations.append(line.strip())
+                # Violation strings are semantic objects; avoid leaking markdown
+                # bullets into baseline keys.
+                candidate = line.strip()
+                if candidate.startswith("- "):
+                    candidate = candidate[2:].strip()
+                if "(tier-3, undocumented)" in candidate:
+                    violations.append(candidate)
+                if "(tier-1," in candidate or "(tier-2," in candidate:
+                    if "undocumented" in candidate:
+                        violations.append(candidate)
     if violations:
         lines.append("Violations:")
         lines.append("```")
@@ -4061,6 +4068,7 @@ def render_structure_snapshot(
     }
 
 
+# dataflow-bundle: decision_surfaces, value_decision_surfaces
 def render_decision_snapshot(
     *,
     decision_surfaces: list[str],

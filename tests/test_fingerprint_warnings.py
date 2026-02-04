@@ -126,10 +126,10 @@ def test_fingerprint_warnings_handles_missing_and_none_annotations(tmp_path: Pat
     groups_by_path = {path: {"f": [set(["user_id", "user_name"])]}}
 
     class _Annots(dict):
-        def get(self, key, default=None):
+        def get(self, key: str, default: object | None = None) -> str:
             return "present"
 
-        def __getitem__(self, key):
+        def __getitem__(self, key: str) -> object:
             if key == "user_name":
                 return None
             return "int"
