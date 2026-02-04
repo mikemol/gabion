@@ -10,3 +10,5 @@ merge_overlap_threshold = 0.75
 tier1 = []
 tier2 = []
 tier3 = []
+
+[fingerprints]

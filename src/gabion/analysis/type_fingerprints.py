@@ -121,6 +121,19 @@ class PrimeRegistry:
         return prime
 
 
+def _normalize_type_list(value: object) -> list[str]:
+    items: list[str] = []
+    if value is None:
+        return items
+    if isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str):
+                items.extend([part.strip() for part in item.split(",") if part.strip()])
+    return [item for item in items if item]
+
+
 def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
     product = 1
     for hint in types:
@@ -129,6 +142,20 @@ def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
             continue
         product *= registry.get_or_assign(key)
     return product
+
+
+def build_fingerprint_registry(
+    spec: dict[str, object],
+) -> tuple[PrimeRegistry, dict[int, set[str]]]:
+    registry = PrimeRegistry()
+    index: dict[int, set[str]] = {}
+    for name, entry in spec.items():
+        types = _normalize_type_list(entry)
+        if not types:
+            continue
+        fingerprint = bundle_fingerprint(types, registry)
+        index.setdefault(fingerprint, set()).add(str(name))
+    return registry, index
 
 
 def fingerprint_gcd(a: int, b: int) -> int:

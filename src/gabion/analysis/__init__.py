@@ -29,6 +29,7 @@ from .dataflow_audit import (
 )
 from .type_fingerprints import (
     PrimeRegistry,
+    build_fingerprint_registry,
     bundle_fingerprint,
     canonical_type_key,
     fingerprint_contains,
@@ -64,6 +65,7 @@ __all__ = [
     "resolve_baseline_path",
     "write_baseline",
     "PrimeRegistry",
+    "build_fingerprint_registry",
     "bundle_fingerprint",
     "canonical_type_key",
     "fingerprint_contains",

@@ -52,6 +52,14 @@ def decision_defaults(
     return section if isinstance(section, dict) else {}
 
 
+def fingerprint_defaults(
+    root: Path | None = None, config_path: Path | None = None
+) -> dict[str, Any]:
+    data = load_config(root=root, config_path=config_path)
+    section = data.get("fingerprints", {})
+    return section if isinstance(section, dict) else {}
+
+
 def _normalize_name_list(value: Any) -> list[str]:
     items: list[str] = []
     if value is None:

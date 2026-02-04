@@ -46,7 +46,14 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
-from gabion.config import dataflow_defaults, decision_defaults, decision_tier_map, merge_payload
+from gabion.config import (
+    dataflow_defaults,
+    decision_defaults,
+    decision_tier_map,
+    fingerprint_defaults,
+    merge_payload,
+)
+from gabion.analysis.type_fingerprints import PrimeRegistry, build_fingerprint_registry
 from gabion.refactor import (
     FieldSpec,
     RefactorEngine,
@@ -143,6 +150,16 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         Path(root), Path(config_path) if config_path else None
     )
     decision_tiers = decision_tier_map(decision_section)
+    fingerprint_section = fingerprint_defaults(
+        Path(root), Path(config_path) if config_path else None
+    )
+    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_index: dict[int, set[str]] = {}
+    if fingerprint_section:
+        registry, index = build_fingerprint_registry(fingerprint_section)
+        if index:
+            fingerprint_registry = registry
+            fingerprint_index = index
     payload = merge_payload(payload, defaults)
 
     raw_paths = payload.get("paths") or []
@@ -190,6 +207,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         strictness=strictness,
         transparent_decorators=transparent_decorators,
         decision_tiers=decision_tiers,
+        fingerprint_registry=fingerprint_registry,
+        fingerprint_index=fingerprint_index,
     )
     if fail_on_type_ambiguities:
         type_audit = True
@@ -218,6 +237,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "decision_surfaces": analysis.decision_surfaces,
         "value_decision_surfaces": analysis.value_decision_surfaces,
         "decision_warnings": analysis.decision_warnings,
+        "fingerprint_warnings": analysis.fingerprint_warnings,
         "context_suggestions": analysis.context_suggestions,
     }
 
@@ -308,6 +328,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
             context_suggestions=analysis.context_suggestions,
         )
         if baseline_path is not None:
@@ -340,6 +361,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             type_suggestions=analysis.type_suggestions if type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
             decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)

@@ -1,5 +1,5 @@
 ---
-doc_revision: 90
+doc_revision: 91
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -77,7 +77,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [ ] Prime-labeled type fingerprints (algebraic bundle matching). (in-20/in-21, GH-68)
 - [x] Prime registry + canonical type key mapping. (GH-68)
 - [x] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)
-- [ ] Glossary fingerprint matching + CI warnings. (GH-68)
+- [x] Glossary fingerprint matching + CI warnings. (GH-68)
 - [ ] Hybrid fingerprint representation (prime products + bitmask existence checks). (GH-68)
 - [ ] Nested type constructor registry (dimensional prime mapping). (GH-68)
 - [ ] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)

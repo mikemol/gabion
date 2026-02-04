@@ -32,8 +32,14 @@ from gabion.config import (
     dataflow_defaults,
     decision_defaults,
     decision_tier_map,
+    fingerprint_defaults,
     merge_payload,
     synthesis_defaults,
+)
+from gabion.analysis.type_fingerprints import (
+    PrimeRegistry,
+    build_fingerprint_registry,
+    bundle_fingerprint,
 )
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -115,6 +121,8 @@ class AuditConfig:
     strictness: str = "high"
     transparent_decorators: set[str] | None = None
     decision_tiers: dict[str, int] = field(default_factory=dict)
+    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_index: dict[int, set[str]] = field(default_factory=dict)
 
     def is_ignored_path(self, path: Path) -> bool:
         parts = set(path.parts)
@@ -148,6 +156,7 @@ class AnalysisResult:
     decision_surfaces: list[str] = field(default_factory=list)
     value_decision_surfaces: list[str] = field(default_factory=list)
     decision_warnings: list[str] = field(default_factory=list)
+    fingerprint_warnings: list[str] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
 
 
@@ -717,6 +726,70 @@ def _param_defaults(
     if ignore_params:
         defaults = {name for name in defaults if name not in ignore_params}
     return defaults
+
+
+def _param_annotations_by_path(
+    paths: list[Path],
+    *,
+    ignore_params: set[str],
+) -> dict[Path, dict[str, dict[str, str | None]]]:
+    annotations: dict[Path, dict[str, dict[str, str | None]]] = {}
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except Exception:
+            continue
+        parent = ParentAnnotator()
+        parent.visit(tree)
+        parents = parent.parents
+        by_fn: dict[str, dict[str, str | None]] = {}
+        for fn in _collect_functions(tree):
+            scopes = _enclosing_scopes(fn, parents)
+            fn_key = _function_key(scopes, fn.name)
+            by_fn[fn_key] = _param_annotations(fn, ignore_params)
+        annotations[path] = by_fn
+    return annotations
+
+
+def _compute_fingerprint_warnings(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    *,
+    registry: PrimeRegistry,
+    index: dict[int, set[str]],
+) -> list[str]:
+    warnings: list[str] = []
+    if not index:
+        return warnings
+    for path, groups in groups_by_path.items():
+        annots_by_fn = annotations_by_path.get(path, {})
+        for fn_name, bundles in groups.items():
+            fn_annots = annots_by_fn.get(fn_name, {})
+            for bundle in bundles:
+                missing = [
+                    param
+                    for param in bundle
+                    if not fn_annots.get(param)
+                ]
+                if missing:
+                    warnings.append(
+                        f"{path.name}:{fn_name} bundle {sorted(bundle)} missing type annotations: "
+                        + ", ".join(sorted(missing))
+                    )
+                    continue
+                types = [fn_annots[param] for param in sorted(bundle)]
+                if any(t is None for t in types):
+                    continue
+                fingerprint = bundle_fingerprint(
+                    [t for t in types if t is not None],
+                    registry,
+                )
+                names = index.get(fingerprint)
+                if not names:
+                    warnings.append(
+                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {fingerprint} missing glossary match"
+                    )
+    return sorted(set(warnings))
 
 
 class _ReturnAliasCollector(ast.NodeVisitor):
@@ -2568,6 +2641,7 @@ def _emit_report(
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
+    fingerprint_warnings: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
@@ -2678,6 +2752,12 @@ def _emit_report(
         lines.extend(decision_warnings)
         lines.append("```")
         violations.extend(decision_warnings)
+    if fingerprint_warnings:
+        lines.append("Fingerprint warnings:")
+        lines.append("```")
+        lines.extend(fingerprint_warnings)
+        lines.append("```")
+        violations.extend(fingerprint_warnings)
     if context_suggestions:
         lines.append("Contextvar/ambient rewrite suggestions:")
         lines.append("```")
@@ -3576,6 +3656,7 @@ def _compute_violations(
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     decision_warnings: list[str] | None = None,
+    fingerprint_warnings: list[str] | None = None,
 ) -> list[str]:
     _, violations = _emit_report(
         groups_by_path,
@@ -3587,6 +3668,7 @@ def _compute_violations(
         decision_surfaces=[],
         value_decision_surfaces=[],
         decision_warnings=decision_warnings,
+        fingerprint_warnings=fingerprint_warnings,
         context_suggestions=[],
     )
     return violations
@@ -3671,6 +3753,7 @@ def render_report(
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
+    fingerprint_warnings: list[str] | None = None,
     context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
@@ -3683,6 +3766,7 @@ def render_report(
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=decision_warnings,
+        fingerprint_warnings=fingerprint_warnings,
         context_suggestions=context_suggestions,
     )
 
@@ -3694,6 +3778,7 @@ def compute_violations(
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     decision_warnings: list[str] | None = None,
+    fingerprint_warnings: list[str] | None = None,
 ) -> list[str]:
     return _compute_violations(
         groups_by_path,
@@ -3701,6 +3786,7 @@ def compute_violations(
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
         decision_warnings=decision_warnings,
+        fingerprint_warnings=fingerprint_warnings,
     )
 
 
@@ -3788,6 +3874,18 @@ def analyze_paths(
             decision_tiers=config.decision_tiers,
         )
         decision_warnings.extend(value_warnings)
+    fingerprint_warnings: list[str] = []
+    if config.fingerprint_registry is not None and config.fingerprint_index:
+        annotations_by_path = _param_annotations_by_path(
+            file_paths,
+            ignore_params=config.ignore_params,
+        )
+        fingerprint_warnings = _compute_fingerprint_warnings(
+            groups_by_path,
+            annotations_by_path,
+            registry=config.fingerprint_registry,
+            index=config.fingerprint_index,
+        )
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
@@ -3804,6 +3902,7 @@ def analyze_paths(
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
         decision_warnings=sorted(set(decision_warnings)),
+        fingerprint_warnings=fingerprint_warnings,
         context_suggestions=context_suggestions,
     )
 
@@ -3996,6 +4095,14 @@ def run(argv: list[str] | None = None) -> int:
     synth_defaults = synthesis_defaults(Path(args.root), config_path)
     decision_section = decision_defaults(Path(args.root), config_path)
     decision_tiers = decision_tier_map(decision_section)
+    fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
+    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_index: dict[int, set[str]] = {}
+    if fingerprint_section:
+        registry, index = build_fingerprint_registry(fingerprint_section)
+        if index:
+            fingerprint_registry = registry
+            fingerprint_index = index
     merged = merge_payload(
         {
             "exclude": exclude_dirs,
@@ -4024,6 +4131,8 @@ def run(argv: list[str] | None = None) -> int:
         strictness=strictness,
         transparent_decorators=transparent_decorators,
         decision_tiers=decision_tiers,
+        fingerprint_registry=fingerprint_registry,
+        fingerprint_index=fingerprint_index,
     )
     baseline_path = _resolve_baseline_path(merged.get("baseline"), Path(args.root))
     baseline_write = args.baseline_write
@@ -4205,6 +4314,7 @@ def run(argv: list[str] | None = None) -> int:
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
             context_suggestions=analysis.context_suggestions,
         )
         suppressed: list[str] = []
@@ -4259,6 +4369,7 @@ def run(argv: list[str] | None = None) -> int:
             type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
             decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
         )
         if baseline_path is not None:
             baseline_entries = _load_baseline(baseline_path)
