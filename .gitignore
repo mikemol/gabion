@@ -11,3 +11,6 @@ venv/
 .coverage.*
 artifacts/*
 !artifacts/.gitkeep
+
+node_modules/
+package-lock.json
