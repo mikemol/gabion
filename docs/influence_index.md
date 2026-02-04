@@ -1,5 +1,5 @@
 ---
-doc_revision: 23
+doc_revision: 24
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -64,3 +64,4 @@ Status legend:
 - in/in-19.md — **partial** (proposition model + assert-based invariants + emitter hooks implemented; dependent‑type synthesis remains; SPPF/GH-67.)
 - in/in-20.md — **partial** (prime registry + canonical type keys + arithmetic ops + glossary warnings + reverse mapping + hybrid bitmask + nested ctor registry implemented; remaining rewrite work; SPPF/GH-68.)
 - in/in-21.md — **partial** (longform expansion of in-20; nested ctor registry + hybrid bitmask + reverse mapping + glossary warnings + arithmetic ops implemented; remaining rewrite work; SPPF/GH-68.)
+- in/in-22.md — **queued** (ASPF/SPPF equivalence framing; dimensional fingerprints incl. provenance/synth dimensions; entropy-controlled synthesis; map to new SPPF nodes before implementation.)
