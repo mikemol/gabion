@@ -155,3 +155,31 @@ def test_carrier_soundness_mask_disjoint_implies_gcd_one() -> None:
     b = tf.bundle_fingerprint_dimensional(["str"], registry, ctor_registry).base
     assert (a.mask & b.mask) == 0
     assert tf.fingerprint_carrier_soundness(a, b)
+
+
+def test_synth_registry_assigns_primes_deterministically() -> None:
+    tf = _load()
+    registry_a = tf.PrimeRegistry()
+    registry_b = tf.PrimeRegistry()
+    ctor_a = tf.TypeConstructorRegistry(registry_a)
+    ctor_b = tf.TypeConstructorRegistry(registry_b)
+    fp_a1 = tf.bundle_fingerprint_dimensional(["list[int]"], registry_a, ctor_a)
+    fp_a2 = tf.bundle_fingerprint_dimensional(["list[int]"], registry_a, ctor_a)
+    fp_b1 = tf.bundle_fingerprint_dimensional(["list[int]"], registry_b, ctor_b)
+    fp_b2 = tf.bundle_fingerprint_dimensional(["list[int]"], registry_b, ctor_b)
+    synth_a = tf.build_synth_registry([fp_a2, fp_a1], registry_a, min_occurrences=2)
+    synth_b = tf.build_synth_registry([fp_b1, fp_b2], registry_b, min_occurrences=2)
+    prime_a = synth_a.get_or_assign(fp_a1)
+    prime_b = synth_b.get_or_assign(fp_b1)
+    assert prime_a == prime_b
+
+
+def test_apply_synth_dimension_attaches_tail() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    fp = tf.bundle_fingerprint_dimensional(["dict[str, int]"], registry, ctor_registry)
+    synth_registry = tf.build_synth_registry([fp, fp], registry, min_occurrences=2)
+    synthesized = tf.apply_synth_dimension(fp, synth_registry)
+    assert synthesized.synth.product != 1
+    assert synth_registry.tails.get(synthesized.synth.product) == fp

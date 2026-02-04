@@ -1,5 +1,5 @@
 ---
-doc_revision: 103
+doc_revision: 104
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -134,7 +134,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
-- [ ] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry). (in-22, GH-72)
+- [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; scaffolding + tests). (in-22, GH-72)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).

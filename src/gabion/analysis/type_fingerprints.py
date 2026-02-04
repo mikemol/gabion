@@ -158,6 +158,19 @@ class Fingerprint:
         return format_fingerprint(self)
 
 
+def _fingerprint_sort_key(fingerprint: Fingerprint) -> tuple[int, int, int, int, int, int, int, int]:
+    return (
+        fingerprint.base.product,
+        fingerprint.base.mask,
+        fingerprint.ctor.product,
+        fingerprint.ctor.mask,
+        fingerprint.provenance.product,
+        fingerprint.provenance.mask,
+        fingerprint.synth.product,
+        fingerprint.synth.mask,
+    )
+
+
 @dataclass
 class TypeConstructorRegistry:
     registry: PrimeRegistry
@@ -359,6 +372,73 @@ def format_fingerprint(fingerprint: Fingerprint) -> str:
     if not fingerprint.synth.is_empty():
         parts.append(f"synth={fingerprint.synth.product}")
     return "{" + ", ".join(parts) + "}"
+
+
+def _synth_key(version: str, fingerprint: Fingerprint) -> str:
+    return (
+        f"synth:{version}:"
+        f"{fingerprint.base.product}:{fingerprint.ctor.product}:"
+        f"{fingerprint.provenance.product}:{fingerprint.provenance.mask}"
+    )
+
+
+@dataclass
+class SynthRegistry:
+    registry: PrimeRegistry
+    version: str = "synth@1"
+    primes: dict[Fingerprint, int] = field(default_factory=dict)
+    tails: dict[int, Fingerprint] = field(default_factory=dict)
+
+    def get_or_assign(self, fingerprint: Fingerprint) -> int:
+        existing = self.primes.get(fingerprint)
+        if existing is not None:
+            return existing
+        key = _synth_key(self.version, fingerprint)
+        prime = self.registry.get_or_assign(key)
+        self.primes[fingerprint] = prime
+        self.tails[prime] = fingerprint
+        return prime
+
+    def synth_dimension_for(self, fingerprint: Fingerprint) -> FingerprintDimension | None:
+        prime = self.primes.get(fingerprint)
+        if prime is None:
+            return None
+        key = _synth_key(self.version, fingerprint)
+        bit = self.registry.bit_for(key)
+        mask = 0 if bit is None else 1 << bit
+        return FingerprintDimension(product=prime, mask=mask)
+
+
+def build_synth_registry(
+    fingerprints: Iterable[Fingerprint],
+    registry: PrimeRegistry,
+    *,
+    min_occurrences: int = 2,
+    version: str = "synth@1",
+) -> SynthRegistry:
+    counts: dict[Fingerprint, int] = {}
+    for fingerprint in fingerprints:
+        counts[fingerprint] = counts.get(fingerprint, 0) + 1
+    synth_registry = SynthRegistry(registry=registry, version=version)
+    candidates = [fp for fp, count in counts.items() if count >= min_occurrences]
+    for fingerprint in sorted(candidates, key=_fingerprint_sort_key):
+        synth_registry.get_or_assign(fingerprint)
+    return synth_registry
+
+
+def apply_synth_dimension(
+    fingerprint: Fingerprint,
+    synth_registry: SynthRegistry,
+) -> Fingerprint:
+    synth_dim = synth_registry.synth_dimension_for(fingerprint)
+    if synth_dim is None:
+        return fingerprint
+    return Fingerprint(
+        base=fingerprint.base,
+        ctor=fingerprint.ctor,
+        provenance=fingerprint.provenance,
+        synth=synth_dim,
+    )
 
 
 def fingerprint_carrier_soundness(a: FingerprintDimension, b: FingerprintDimension) -> bool:
