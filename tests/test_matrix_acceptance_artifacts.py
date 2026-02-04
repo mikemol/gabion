@@ -221,6 +221,7 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     verification = dataflow_audit.verify_rewrite_plan(
         rewrite_plans[0],
         post_provenance=provenance,
+        post_exception_obligations=exception_obligations,
     )
     assert verification["accepted"] is False
     assert "verification predicates failed" in verification["issues"]
@@ -230,5 +231,6 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     verification = dataflow_audit.verify_rewrite_plan(
         rewrite_plans[0],
         post_provenance=post_provenance,
+        post_exception_obligations=exception_obligations,
     )
     assert verification["accepted"] is True

@@ -138,3 +138,127 @@ def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
     post = [_post_entry(remainder="oops")]
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
+
+
+def test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_requested() -> None:
+    da = _load()
+    plan = _plan()
+    plan["pre"] = {
+        "base_keys": ["int"],
+        "ctor_keys": [],
+        "remainder": {"base": 1, "ctor": 1},
+        "exception_obligations_summary": {"UNKNOWN": 1, "DEAD": 0, "HANDLED": 0, "total": 1},
+    }
+    plan["verification"] = {
+        "predicates": [
+            {"kind": "base_conservation", "expect": True},
+            {"kind": "ctor_coherence", "expect": True},
+            {"kind": "match_strata", "expect": "exact", "candidates": ["ctx_a", "ctx_b"]},
+            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+            {"kind": "exception_obligation_non_regression", "expect": "XV1"},
+        ]
+    }
+    post = [_post_entry()]
+
+    obligations = [
+        {
+            "exception_path_id": "e1",
+            "site": {"path": "a.py", "function": "f", "bundle": ["a"]},
+            "source_kind": "E0",
+            "status": "UNKNOWN",
+            "witness_ref": None,
+            "remainder": {},
+            "environment_ref": None,
+        }
+    ]
+    result = da.verify_rewrite_plan(
+        plan,
+        post_provenance=post,
+        post_exception_obligations=obligations,
+    )
+    assert result["accepted"] is True
+
+    result = da.verify_rewrite_plan(
+        plan,
+        post_provenance=post,
+        post_exception_obligations=obligations + [dict(obligations[0], exception_path_id="e2")],
+    )
+    assert result["accepted"] is False
+    assert any(
+        r.get("kind") == "exception_obligation_non_regression" and not r.get("passed")
+        for r in result["predicate_results"]
+    )
+
+    discharged_plan = _plan()
+    discharged_plan["pre"] = {
+        "base_keys": ["int"],
+        "ctor_keys": [],
+        "remainder": {"base": 1, "ctor": 1},
+        "exception_obligations_summary": {"UNKNOWN": 0, "DEAD": 1, "HANDLED": 0, "total": 1},
+    }
+    discharged_plan["verification"] = plan["verification"]
+    discharged = [
+        dict(obligations[0], status="DEAD", witness_ref="deadness:e1")
+    ]
+    regression = [
+        dict(obligations[0], status="UNKNOWN", exception_path_id="e3")
+    ]
+    result = da.verify_rewrite_plan(
+        discharged_plan,
+        post_provenance=post,
+        post_exception_obligations=regression,
+    )
+    assert result["accepted"] is False
+
+
+def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors() -> None:
+    da = _load()
+    plan = _plan()
+    plan["pre"] = {
+        "base_keys": ["int"],
+        "ctor_keys": [],
+        "remainder": {"base": 1, "ctor": 1},
+        "exception_obligations_summary": {"UNKNOWN": "oops", "DEAD": 0, "HANDLED": 0, "total": 1},
+    }
+    plan["verification"] = {
+        "predicates": [
+            {"kind": "exception_obligation_non_regression", "expect": "XV1"},
+            {"kind": "not-a-real-predicate", "expect": True},
+        ]
+    }
+    post = [_post_entry()]
+
+    missing_post = da.verify_rewrite_plan(plan, post_provenance=post)
+    assert missing_post["accepted"] is False
+    assert any(r.get("issue") == "missing post exception obligations" for r in missing_post["predicate_results"])
+    assert any(r.get("issue") == "unknown predicate kind" for r in missing_post["predicate_results"])
+
+    bad_pre = _plan(
+        pre={"base_keys": ["int"], "ctor_keys": [], "remainder": {"base": 1, "ctor": 1}, "exception_obligations_summary": "oops"},
+        verification={"predicates": [{"kind": "exception_obligation_non_regression"}]},
+    )
+    result = da.verify_rewrite_plan(
+        bad_pre,
+        post_provenance=post,
+        post_exception_obligations=[],
+    )
+    assert result["accepted"] is False
+    assert any(r.get("issue") == "missing pre exception obligations summary" for r in result["predicate_results"])
+
+    parse_plan = _plan(
+        pre={
+            "base_keys": ["int"],
+            "ctor_keys": [],
+            "remainder": {"base": 1, "ctor": 1},
+            "exception_obligations_summary": {"UNKNOWN": "oops", "DEAD": 0, "HANDLED": 0, "total": 1},
+        },
+        verification={"predicates": [{"kind": "exception_obligation_non_regression"}]},
+    )
+    parsed = da.verify_rewrite_plan(
+        parse_plan,
+        post_provenance=post,
+        post_exception_obligations=[],
+    )
+    assert parsed["accepted"] is True
+    exc = next(r for r in parsed["predicate_results"] if r.get("kind") == "exception_obligation_non_regression")
+    assert exc.get("expected") == {"UNKNOWN": 0, "DISCHARGED": 0}

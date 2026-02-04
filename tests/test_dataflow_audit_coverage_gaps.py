@@ -68,6 +68,19 @@ def test_fingerprint_coherence_and_rewrite_plans_cover_edges() -> None:
     assert plans
     assert plans[0]["evidence"]["coherence_id"] == coherence[0]["coherence_id"]
 
+    plans = da._compute_fingerprint_rewrite_plans(
+        provenance_entries,
+        coherence,
+        synth_version="synth@1",
+        exception_obligations=[
+            {"site": "not-a-dict"},
+            {"site": {"path": "", "function": "f", "bundle": ["a", "b"]}},
+            {"site": {"path": "a.py", "function": "f", "bundle": ["a", "b"]}, "status": "WEIRD"},
+        ],
+    )
+    assert plans
+    assert plans[0]["pre"]["exception_obligations_summary"]["UNKNOWN"] == 1
+
     assert da._summarize_rewrite_plans([]) == []
     rewrite_plans = [
         {
@@ -125,6 +138,24 @@ def test_exception_helpers_cover_edges() -> None:
     assert da._node_in_try_body(call_node, try_node) is True
     other_call = ast.parse("bar()").body[0].value
     assert da._node_in_try_body(other_call, try_node) is False
+
+
+def test_exception_obligation_summary_helper_covers_filters_and_status_normalization() -> None:
+    da = _load()
+    summary = da._exception_obligation_summary_for_site(
+        [
+            {"site": "nope"},
+            {"site": {"path": "b.py", "function": "f", "bundle": ["a"]}, "status": "UNKNOWN"},
+            {"site": {"path": "a.py", "function": "f", "bundle": ["x"]}, "status": "UNKNOWN"},
+            {"site": {"path": "a.py", "function": "f", "bundle": ["a"]}, "status": "WEIRD"},
+            {"site": {"path": "a.py", "function": "f", "bundle": ["a"]}, "status": "DEAD"},
+            {"site": {"path": "a.py", "function": "f", "bundle": ["a"]}, "status": "HANDLED"},
+        ],
+        path="a.py",
+        function="f",
+        bundle=["a"],
+    )
+    assert summary == {"UNKNOWN": 1, "DEAD": 1, "HANDLED": 1, "total": 3}
 
 
 def test_exception_collection_and_summaries_cover_edges(tmp_path: Path) -> None:

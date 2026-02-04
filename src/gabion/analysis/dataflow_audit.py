@@ -1088,11 +1088,13 @@ def _compute_fingerprint_provenance(
     annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
     *,
     registry: PrimeRegistry,
+    project_root: Path | None = None,
     index: dict[Fingerprint, set[str]] | None = None,
     ctor_registry: TypeConstructorRegistry | None = None,
 ) -> list[dict[str, object]]:
     entries: list[dict[str, object]] = []
     for path, groups in groups_by_path.items():
+        path_value = _normalize_snapshot_path(path, project_root)
         annots_by_fn = annotations_by_path.get(path, {})
         for fn_name, bundles in groups.items():
             fn_annots = annots_by_fn.get(fn_name, {})
@@ -1126,8 +1128,8 @@ def _compute_fingerprint_provenance(
                 bundle_key = ",".join(sorted(bundle))
                 entries.append(
                     {
-                        "provenance_id": f"{path}:{fn_name}:{bundle_key}",
-                        "path": str(path),
+                        "provenance_id": f"{path_value}:{fn_name}:{bundle_key}",
+                        "path": path_value,
                         "function": fn_name,
                         "bundle": sorted(bundle),
                         "fingerprint": {
@@ -1308,6 +1310,7 @@ def _compute_fingerprint_rewrite_plans(
     coherence: list[dict[str, object]],
     *,
     synth_version: str,
+    exception_obligations: list[dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     coherence_map: dict[tuple[str, str, str], dict[str, object]] = {}
     for entry in coherence:
@@ -1317,6 +1320,29 @@ def _compute_fingerprint_rewrite_plans(
         bundle = site.get("bundle", []) or []
         bundle_key = ",".join(bundle)
         coherence_map[(path, function, bundle_key)] = entry
+
+    include_exception_predicates = exception_obligations is not None
+    exception_summary_map: dict[tuple[str, str, str], dict[str, int]] = {}
+    if exception_obligations is not None:
+        for entry in exception_obligations:
+            site = entry.get("site", {}) or {}
+            if not isinstance(site, dict):
+                continue
+            path = str(site.get("path", ""))
+            function = str(site.get("function", ""))
+            bundle = site.get("bundle", []) or []
+            bundle_key = _normalize_bundle_key(bundle)
+            if not path or not function:
+                continue
+            summary = exception_summary_map.setdefault(
+                (path, function, bundle_key),
+                {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
+            )
+            status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+            if status not in {"UNKNOWN", "DEAD", "HANDLED"}:
+                status = "UNKNOWN"
+            summary[status] += 1
+            summary["total"] += 1
 
     plans: list[dict[str, object]] = []
     for entry in provenance:
@@ -1333,6 +1359,12 @@ def _compute_fingerprint_rewrite_plans(
             coherence_id = coherence_entry.get("coherence_id")
         plan_id = f"rewrite:{path}:{function}:{bundle_key}:glossary-ambiguity"
         candidates = sorted(set(str(m) for m in matches))
+        pre_exception_summary: dict[str, int] | None = None
+        if include_exception_predicates:
+            pre_exception_summary = exception_summary_map.get(
+                (path, function, _normalize_bundle_key(bundle)),
+                {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
+            )
         plans.append(
             {
                 "plan_id": plan_id,
@@ -1348,6 +1380,11 @@ def _compute_fingerprint_rewrite_plans(
                     "glossary_matches": matches,
                     "remainder": entry.get("remainder") or {},
                     "synth_version": synth_version,
+                    **(
+                        {"exception_obligations_summary": pre_exception_summary}
+                        if pre_exception_summary is not None
+                        else {}
+                    ),
                 },
                 "rewrite": {
                     "kind": "BUNDLE_ALIGN",
@@ -1387,6 +1424,16 @@ def _compute_fingerprint_rewrite_plans(
                             "kind": "remainder_non_regression",
                             "expect": "no-new-remainder",
                         },
+                        *(
+                            [
+                                {
+                                    "kind": "exception_obligation_non_regression",
+                                    "expect": "XV1",
+                                }
+                            ]
+                            if include_exception_predicates
+                            else []
+                        ),
                     ],
                 },
             }
@@ -1437,10 +1484,39 @@ def _find_provenance_entry_for_site(
     return None
 
 
+def _exception_obligation_summary_for_site(
+    obligations: list[dict[str, object]],
+    *,
+    path: str,
+    function: str,
+    bundle: list[str],
+) -> dict[str, int]:
+    bundle_key = _normalize_bundle_key(bundle)
+    summary = {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0}
+    for entry in obligations:
+        site = entry.get("site", {}) or {}
+        if not isinstance(site, dict):
+            continue
+        if str(site.get("path", "")) != path:
+            continue
+        if str(site.get("function", "")) != function:
+            continue
+        entry_bundle = site.get("bundle", []) or []
+        if _normalize_bundle_key(entry_bundle) != bundle_key:
+            continue
+        status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+        if status not in {"UNKNOWN", "DEAD", "HANDLED"}:
+            status = "UNKNOWN"
+        summary[status] += 1
+        summary["total"] += 1
+    return summary
+
+
 def verify_rewrite_plan(
     plan: dict[str, object],
     *,
     post_provenance: list[dict[str, object]],
+    post_exception_obligations: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """Verify a single rewrite plan using a post-state provenance artifact.
 
@@ -1495,30 +1571,6 @@ def verify_rewrite_plan(
 
     predicate_results: list[dict[str, object]] = []
 
-    # V1 Base conservation
-    base_ok = post_base == expected_base
-    predicate_results.append(
-        {
-            "kind": "base_conservation",
-            "passed": base_ok,
-            "expected": expected_base,
-            "observed": post_base,
-        }
-    )
-
-    # V2 Constructor coherence
-    ctor_ok = post_ctor == expected_ctor
-    predicate_results.append(
-        {
-            "kind": "ctor_coherence",
-            "passed": ctor_ok,
-            "expected": expected_ctor,
-            "observed": post_ctor,
-        }
-    )
-
-    # V3 Match strata preservation / improvement (repo currently models exact vs ambiguous vs none)
-    strata_ok = True
     expected_candidates: list[str] = []
     rewrite = plan.get("rewrite") or {}
     if not isinstance(rewrite, dict):
@@ -1527,43 +1579,161 @@ def verify_rewrite_plan(
     if not isinstance(params, dict):
         params = {}
     expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
-    if expected_strata:
-        strata_ok = post_strata == expected_strata
-    if expected_strata == "exact" and isinstance(post_matches, list) and len(post_matches) == 1:
-        strata_ok = strata_ok and (str(post_matches[0]) in set(expected_candidates))
-    predicate_results.append(
-        {
-            "kind": "match_strata",
-            "passed": strata_ok,
-            "expected": expected_strata,
-            "observed": post_strata,
-            "candidates": expected_candidates,
-            "observed_matches": post_matches,
-        }
-    )
 
-    # V4 Remainder non-regression (conservative: never introduce remainder where none existed)
-    pre_base_rem = int(expected_remainder.get("base", 1) or 1)
-    pre_ctor_rem = int(expected_remainder.get("ctor", 1) or 1)
-    post_base_rem = int(post_remainder.get("base", 1) or 1)
-    post_ctor_rem = int(post_remainder.get("ctor", 1) or 1)
+    requested_predicates: list[dict[str, object]] = []
+    verification = plan.get("verification") or {}
+    if isinstance(verification, dict):
+        predicates = verification.get("predicates")
+        if isinstance(predicates, list):
+            requested_predicates = [
+                p for p in predicates if isinstance(p, dict) and p.get("kind")
+            ]
+    if not requested_predicates:
+        requested_predicates = [
+            {"kind": "base_conservation", "expect": True},
+            {"kind": "ctor_coherence", "expect": True},
+            {
+                "kind": "match_strata",
+                "expect": expected_strata,
+                "candidates": expected_candidates,
+            },
+            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+        ]
 
     def _clean(value: int) -> bool:
         return value in (0, 1)
 
-    rem_ok = True
-    if _clean(pre_base_rem):
-        rem_ok = rem_ok and _clean(post_base_rem)
-    if _clean(pre_ctor_rem):
-        rem_ok = rem_ok and _clean(post_ctor_rem)
-    predicate_results.append(
-        {
-            "kind": "remainder_non_regression",
-            "passed": rem_ok,
-            "expected": {"base": pre_base_rem, "ctor": pre_ctor_rem},
-            "observed": {"base": post_base_rem, "ctor": post_ctor_rem},
-        }
-    )
+    for predicate in requested_predicates:
+        kind = str(predicate.get("kind", ""))
+        if kind == "base_conservation":
+            base_ok = post_base == expected_base
+            predicate_results.append(
+                {
+                    "kind": kind,
+                    "passed": base_ok,
+                    "expected": expected_base,
+                    "observed": post_base,
+                }
+            )
+            continue
+        if kind == "ctor_coherence":
+            ctor_ok = post_ctor == expected_ctor
+            predicate_results.append(
+                {
+                    "kind": kind,
+                    "passed": ctor_ok,
+                    "expected": expected_ctor,
+                    "observed": post_ctor,
+                }
+            )
+            continue
+        if kind == "match_strata":
+            strata_expect = str(predicate.get("expect", expected_strata) or "")
+            candidates = [
+                str(item)
+                for item in (predicate.get("candidates") or expected_candidates)
+                if item
+            ]
+            strata_ok = True
+            if strata_expect:
+                strata_ok = post_strata == strata_expect
+            if strata_expect == "exact" and isinstance(post_matches, list) and len(post_matches) == 1:
+                strata_ok = strata_ok and (str(post_matches[0]) in set(candidates))
+            predicate_results.append(
+                {
+                    "kind": kind,
+                    "passed": strata_ok,
+                    "expected": strata_expect,
+                    "observed": post_strata,
+                    "candidates": candidates,
+                    "observed_matches": post_matches,
+                }
+            )
+            continue
+        if kind == "remainder_non_regression":
+            pre_base_rem = int(expected_remainder.get("base", 1) or 1)
+            pre_ctor_rem = int(expected_remainder.get("ctor", 1) or 1)
+            post_base_rem = int(post_remainder.get("base", 1) or 1)
+            post_ctor_rem = int(post_remainder.get("ctor", 1) or 1)
+            rem_ok = True
+            if _clean(pre_base_rem):
+                rem_ok = rem_ok and _clean(post_base_rem)
+            if _clean(pre_ctor_rem):
+                rem_ok = rem_ok and _clean(post_ctor_rem)
+            predicate_results.append(
+                {
+                    "kind": kind,
+                    "passed": rem_ok,
+                    "expected": {"base": pre_base_rem, "ctor": pre_ctor_rem},
+                    "observed": {"base": post_base_rem, "ctor": post_ctor_rem},
+                }
+            )
+            continue
+        if kind == "exception_obligation_non_regression":
+            pre_summary = pre.get("exception_obligations_summary")
+            if not isinstance(pre_summary, dict):
+                pre_summary = None
+            if post_exception_obligations is None:
+                predicate_results.append(
+                    {
+                        "kind": kind,
+                        "passed": False,
+                        "expected": pre_summary,
+                        "observed": None,
+                        "issue": "missing post exception obligations",
+                    }
+                )
+                continue
+            if pre_summary is None:
+                predicate_results.append(
+                    {
+                        "kind": kind,
+                        "passed": False,
+                        "expected": None,
+                        "observed": None,
+                        "issue": "missing pre exception obligations summary",
+                    }
+                )
+                continue
+            post_summary = _exception_obligation_summary_for_site(
+                post_exception_obligations,
+                path=path,
+                function=function,
+                bundle=bundle,
+            )
+            try:
+                pre_unknown = int(pre_summary.get("UNKNOWN", 0) or 0)
+                pre_discharged = int(pre_summary.get("DEAD", 0) or 0) + int(
+                    pre_summary.get("HANDLED", 0) or 0
+                )
+            except (TypeError, ValueError):
+                pre_unknown = 0
+                pre_discharged = 0
+            post_unknown = int(post_summary.get("UNKNOWN", 0) or 0)
+            post_discharged = int(post_summary.get("DEAD", 0) or 0) + int(
+                post_summary.get("HANDLED", 0) or 0
+            )
+            exc_ok = (post_unknown <= pre_unknown) and (post_discharged >= pre_discharged)
+            predicate_results.append(
+                {
+                    "kind": kind,
+                    "passed": exc_ok,
+                    "expected": {"UNKNOWN": pre_unknown, "DISCHARGED": pre_discharged},
+                    "observed": {"UNKNOWN": post_unknown, "DISCHARGED": post_discharged},
+                    "pre_summary": pre_summary,
+                    "post_summary": post_summary,
+                }
+            )
+            continue
+        predicate_results.append(
+            {
+                "kind": kind,
+                "passed": False,
+                "expected": predicate.get("expect"),
+                "observed": None,
+                "issue": "unknown predicate kind",
+            }
+        )
 
     accepted = all(bool(result.get("passed")) for result in predicate_results)
     if not accepted:
@@ -1580,9 +1750,15 @@ def verify_rewrite_plans(
     plans: list[dict[str, object]],
     *,
     post_provenance: list[dict[str, object]],
+    post_exception_obligations: list[dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     return [
-        verify_rewrite_plan(plan, post_provenance=post_provenance) for plan in plans
+        verify_rewrite_plan(
+            plan,
+            post_provenance=post_provenance,
+            post_exception_obligations=post_exception_obligations,
+        )
+        for plan in plans
     ]
 
 
@@ -5568,6 +5744,20 @@ def analyze_paths(
     rewrite_plans: list[dict[str, object]] = []
     exception_obligations: list[dict[str, object]] = []
     handledness_witnesses: list[dict[str, object]] = []
+    if include_exception_obligations or include_handledness_witnesses:
+        handledness_witnesses = _collect_handledness_witnesses(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+        )
+    if include_exception_obligations:
+        exception_obligations = _collect_exception_obligations(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            handledness_witnesses=handledness_witnesses,
+            deadness_witnesses=deadness_witnesses,
+        )
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
             file_paths,
@@ -5591,6 +5781,7 @@ def analyze_paths(
             groups_by_path,
             annotations_by_path,
             registry=config.fingerprint_registry,
+            project_root=config.project_root,
             index=config.fingerprint_index,
             ctor_registry=config.constructor_registry,
         )
@@ -5613,21 +5804,10 @@ def analyze_paths(
                 fingerprint_provenance,
                 coherence_witnesses,
                 synth_version=config.fingerprint_synth_version,
+                exception_obligations=(
+                    exception_obligations if include_exception_obligations else None
+                ),
             )
-    if include_exception_obligations or include_handledness_witnesses:
-        handledness_witnesses = _collect_handledness_witnesses(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-        )
-    if include_exception_obligations:
-        exception_obligations = _collect_exception_obligations(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            handledness_witnesses=handledness_witnesses,
-            deadness_witnesses=deadness_witnesses,
-        )
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:

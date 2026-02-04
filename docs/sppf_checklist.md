@@ -1,5 +1,5 @@
 ---
-doc_revision: 127
+doc_revision: 128
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -143,7 +143,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72)
 - [x] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76)
 - [ ] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE). (in-26, GH-78)
-- [ ] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79)
+- [x] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
