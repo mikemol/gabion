@@ -54,6 +54,7 @@ from gabion.config import (
     merge_payload,
 )
 from gabion.analysis.type_fingerprints import (
+    Fingerprint,
     PrimeRegistry,
     TypeConstructorRegistry,
     build_fingerprint_registry,
@@ -158,7 +159,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         Path(root), Path(config_path) if config_path else None
     )
     fingerprint_registry: PrimeRegistry | None = None
-    fingerprint_index: dict[int, set[str]] = {}
+    fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
     if fingerprint_section:
         registry, index = build_fingerprint_registry(fingerprint_section)

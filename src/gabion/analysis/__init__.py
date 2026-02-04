@@ -29,15 +29,19 @@ from .dataflow_audit import (
     write_baseline,
 )
 from .type_fingerprints import (
+    Fingerprint,
+    FingerprintDimension,
     PrimeRegistry,
     TypeConstructorRegistry,
     build_fingerprint_registry,
+    bundle_fingerprint_dimensional,
     bundle_fingerprint,
     bundle_fingerprint_setlike,
     bundle_fingerprint_with_constructors,
     canonical_type_key,
     canonical_type_key_with_constructor,
     fingerprint_bitmask,
+    fingerprint_carrier_soundness,
     fingerprint_contains,
     fingerprint_gcd,
     fingerprint_hybrid,
@@ -45,6 +49,7 @@ from .type_fingerprints import (
     fingerprint_symmetric_diff,
     fingerprint_to_type_keys_with_remainder,
     fingerprint_to_type_keys,
+    format_fingerprint,
 )
 
 __all__ = [
@@ -75,14 +80,18 @@ __all__ = [
     "resolve_baseline_path",
     "write_baseline",
     "PrimeRegistry",
+    "Fingerprint",
+    "FingerprintDimension",
     "TypeConstructorRegistry",
     "build_fingerprint_registry",
+    "bundle_fingerprint_dimensional",
     "bundle_fingerprint",
     "bundle_fingerprint_setlike",
     "bundle_fingerprint_with_constructors",
     "canonical_type_key",
     "canonical_type_key_with_constructor",
     "fingerprint_bitmask",
+    "fingerprint_carrier_soundness",
     "fingerprint_contains",
     "fingerprint_gcd",
     "fingerprint_hybrid",
@@ -90,4 +99,5 @@ __all__ = [
     "fingerprint_symmetric_diff",
     "fingerprint_to_type_keys_with_remainder",
     "fingerprint_to_type_keys",
+    "format_fingerprint",
 ]

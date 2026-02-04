@@ -138,6 +138,26 @@ class PrimeRegistry:
         return self.bit_positions.get(key)
 
 
+@dataclass(frozen=True)
+class FingerprintDimension:
+    product: int = 1
+    mask: int = 0
+
+    def is_empty(self) -> bool:
+        return self.product in (0, 1) and self.mask == 0
+
+
+@dataclass(frozen=True)
+class Fingerprint:
+    base: FingerprintDimension
+    ctor: FingerprintDimension = field(default_factory=FingerprintDimension)
+    provenance: FingerprintDimension = field(default_factory=FingerprintDimension)
+    synth: FingerprintDimension = field(default_factory=FingerprintDimension)
+
+    def __str__(self) -> str:
+        return format_fingerprint(self)
+
+
 @dataclass
 class TypeConstructorRegistry:
     registry: PrimeRegistry
@@ -200,6 +220,63 @@ def canonical_type_key_with_constructor(
         return f"{normalized_base}[{', '.join(normalized)}]"
     return _normalize_base(raw)
 
+
+def _collect_base_atoms(hint: str, out: list[str]) -> None:
+    raw = hint.strip()
+    if not raw:
+        return
+    union_parts = _split_top_level(raw, "|")
+    if len(union_parts) > 1:
+        for part in union_parts:
+            _collect_base_atoms(part, out)
+        return
+    if raw.startswith("Optional[") and raw.endswith("]"):
+        inner = raw[len("Optional[") : -1]
+        for part in _split_top_level(inner, ","):
+            _collect_base_atoms(part, out)
+        out.append("None")
+        return
+    if raw.startswith("Union[") and raw.endswith("]"):
+        inner = raw[len("Union[") : -1]
+        for part in _split_top_level(inner, ","):
+            _collect_base_atoms(part, out)
+        return
+    if "[" in raw and raw.endswith("]"):
+        _, inner = raw.split("[", 1)
+        inner = inner[:-1]
+        for part in _split_top_level(inner, ","):
+            _collect_base_atoms(part, out)
+        return
+    out.append(_normalize_base(raw))
+
+
+def _collect_constructors_multiset(hint: str, out: list[str]) -> None:
+    raw = hint.strip()
+    if not raw:
+        return
+    union_parts = _split_top_level(raw, "|")
+    if len(union_parts) > 1:
+        for part in union_parts:
+            _collect_constructors_multiset(part, out)
+        return
+    if raw.startswith("Optional[") and raw.endswith("]"):
+        inner = raw[len("Optional[") : -1]
+        for part in _split_top_level(inner, ","):
+            _collect_constructors_multiset(part, out)
+        return
+    if raw.startswith("Union[") and raw.endswith("]"):
+        inner = raw[len("Union[") : -1]
+        for part in _split_top_level(inner, ","):
+            _collect_constructors_multiset(part, out)
+        return
+    if "[" in raw and raw.endswith("]"):
+        base, inner = raw.split("[", 1)
+        normalized_base = _normalize_base(base)
+        out.append(normalized_base)
+        inner = inner[:-1]
+        for part in _split_top_level(inner, ","):
+            _collect_constructors_multiset(part, out)
+
 def _normalize_type_list(value: object) -> list[str]:
     items: list[str] = []
     if value is None:
@@ -239,6 +316,74 @@ def _collect_constructors(hint: str, out: set[str]) -> None:
         inner = inner[:-1]
         for part in _split_top_level(inner, ","):
             _collect_constructors(part, out)
+
+
+def _dimension_from_keys(keys: Iterable[str], registry: PrimeRegistry) -> FingerprintDimension:
+    product = 1
+    mask = 0
+    for key in keys:
+        if not key:
+            continue
+        prime = registry.get_or_assign(key)
+        product *= prime
+        bit = registry.bit_for(key)
+        if bit is not None:
+            mask |= 1 << bit
+    return FingerprintDimension(product=product, mask=mask)
+
+
+def _ctor_dimension_from_names(
+    names: Iterable[str],
+    registry: PrimeRegistry,
+) -> FingerprintDimension:
+    product = 1
+    mask = 0
+    for name in names:
+        if not name:
+            continue
+        key = f"ctor:{_normalize_base(name)}"
+        prime = registry.get_or_assign(key)
+        product *= prime
+        bit = registry.bit_for(key)
+        if bit is not None:
+            mask |= 1 << bit
+    return FingerprintDimension(product=product, mask=mask)
+
+
+def format_fingerprint(fingerprint: Fingerprint) -> str:
+    parts = [f"base={fingerprint.base.product}"]
+    if not fingerprint.ctor.is_empty():
+        parts.append(f"ctor={fingerprint.ctor.product}")
+    if not fingerprint.provenance.is_empty():
+        parts.append(f"prov={fingerprint.provenance.product}")
+    if not fingerprint.synth.is_empty():
+        parts.append(f"synth={fingerprint.synth.product}")
+    return "{" + ", ".join(parts) + "}"
+
+
+def fingerprint_carrier_soundness(a: FingerprintDimension, b: FingerprintDimension) -> bool:
+    if (a.mask & b.mask) == 0:
+        return math.gcd(a.product, b.product) == 1
+    return True
+
+
+def bundle_fingerprint_dimensional(
+    types: Iterable[str],
+    registry: PrimeRegistry,
+    ctor_registry: TypeConstructorRegistry | None = None,
+) -> Fingerprint:
+    base_keys: list[str] = []
+    ctor_names: list[str] = []
+    for hint in types:
+        _collect_base_atoms(hint, base_keys)
+        if ctor_registry is not None:
+            _collect_constructors_multiset(hint, ctor_names)
+    if ctor_registry is not None:
+        for ctor in ctor_names:
+            ctor_registry.get_or_assign(ctor)
+    base_dim = _dimension_from_keys(base_keys, registry)
+    ctor_dim = _ctor_dimension_from_names(ctor_names, registry) if ctor_registry else FingerprintDimension()
+    return Fingerprint(base=base_dim, ctor=ctor_dim)
 
 
 def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
@@ -298,10 +443,10 @@ def fingerprint_hybrid(types: Iterable[str], registry: PrimeRegistry) -> tuple[i
 
 def build_fingerprint_registry(
     spec: dict[str, object],
-) -> tuple[PrimeRegistry, dict[int, set[str]]]:
+) -> tuple[PrimeRegistry, dict[Fingerprint, set[str]]]:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
-    type_keys: set[str] = set()
+    base_keys: set[str] = set()
     constructor_keys: set[str] = set()
     spec_entries: dict[str, list[str]] = {}
     for name, entry in spec.items():
@@ -310,20 +455,20 @@ def build_fingerprint_registry(
             continue
         spec_entries[str(name)] = types
         for hint in types:
-            key = canonical_type_key(hint)
-            if key:
-                type_keys.add(key)
+            atoms: list[str] = []
+            _collect_base_atoms(hint, atoms)
+            base_keys.update(atom for atom in atoms if atom)
             _collect_constructors(hint, constructor_keys)
     for constructor in sorted(constructor_keys):
         ctor_registry.get_or_assign(constructor)
-    for key in sorted(type_keys):
+    for key in sorted(base_keys):
         registry.get_or_assign(key)
-    index: dict[int, set[str]] = {}
+    index: dict[Fingerprint, set[str]] = {}
     for name in sorted(spec_entries):
         types = spec_entries[name]
         if not types:
             continue
-        fingerprint = bundle_fingerprint_with_constructors(
+        fingerprint = bundle_fingerprint_dimensional(
             types,
             registry,
             ctor_registry,

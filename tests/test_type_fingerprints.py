@@ -103,7 +103,7 @@ def test_build_fingerprint_registry_deterministic_assignment() -> None:
     fp_b = _find_fingerprint(index_b, "user")
     assert fp_a == fp_b
     assert reg_a.prime_for("int") == reg_b.prime_for("int")
-    assert reg_a.prime_for("list[int]") == reg_b.prime_for("list[int]")
+    assert reg_a.prime_for("ctor:list") == reg_b.prime_for("ctor:list")
 
 def test_bundle_fingerprint_setlike_ignores_duplicates() -> None:
     tf = _load()
@@ -130,3 +130,28 @@ def test_fingerprint_to_type_keys_with_remainder_and_strict() -> None:
         assert "not in registry" in str(exc)
     else:
         raise AssertionError("Expected strict factorization failure")
+
+
+def test_dimensional_fingerprint_includes_constructors() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    fingerprint = tf.bundle_fingerprint_dimensional(
+        ["list[int]", "dict[str, int]"],
+        registry,
+        ctor_registry,
+    )
+    assert fingerprint.base.product != 1
+    assert fingerprint.ctor.product != 1
+    assert fingerprint.base.mask != 0
+    assert fingerprint.ctor.mask != 0
+
+
+def test_carrier_soundness_mask_disjoint_implies_gcd_one() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    ctor_registry = tf.TypeConstructorRegistry(registry)
+    a = tf.bundle_fingerprint_dimensional(["int"], registry, ctor_registry).base
+    b = tf.bundle_fingerprint_dimensional(["str"], registry, ctor_registry).base
+    assert (a.mask & b.mask) == 0
+    assert tf.fingerprint_carrier_soundness(a, b)

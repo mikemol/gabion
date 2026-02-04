@@ -37,11 +37,12 @@ from gabion.config import (
     synthesis_defaults,
 )
 from gabion.analysis.type_fingerprints import (
+    Fingerprint,
     PrimeRegistry,
     TypeConstructorRegistry,
     build_fingerprint_registry,
-    bundle_fingerprint,
-    bundle_fingerprint_with_constructors,
+    bundle_fingerprint_dimensional,
+    format_fingerprint,
 )
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -142,7 +143,7 @@ class AuditConfig:
     transparent_decorators: set[str] | None = None
     decision_tiers: dict[str, int] = field(default_factory=dict)
     fingerprint_registry: PrimeRegistry | None = None
-    fingerprint_index: dict[int, set[str]] = field(default_factory=dict)
+    fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
     constructor_registry: TypeConstructorRegistry | None = None
     invariant_emitters: tuple[
         Callable[[ast.FunctionDef], Iterable[InvariantProposition]],
@@ -926,7 +927,7 @@ def _compute_fingerprint_warnings(
     annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
     *,
     registry: PrimeRegistry,
-    index: dict[int, set[str]],
+    index: dict[Fingerprint, set[str]],
     ctor_registry: TypeConstructorRegistry | None = None,
 ) -> list[str]:
     warnings: list[str] = []
@@ -952,18 +953,15 @@ def _compute_fingerprint_warnings(
                 if any(t is None for t in types):
                     continue
                 hint_list = [t for t in types if t is not None]
-                if ctor_registry is not None:
-                    fingerprint = bundle_fingerprint_with_constructors(
-                        hint_list,
-                        registry,
-                        ctor_registry,
-                    )
-                else:
-                    fingerprint = bundle_fingerprint(hint_list, registry)
+                fingerprint = bundle_fingerprint_dimensional(
+                    hint_list,
+                    registry,
+                    ctor_registry,
+                )
                 names = index.get(fingerprint)
                 if not names:
                     warnings.append(
-                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {fingerprint} missing glossary match"
+                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} missing glossary match"
                     )
     return sorted(set(warnings))
 
@@ -973,7 +971,7 @@ def _compute_fingerprint_matches(
     annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
     *,
     registry: PrimeRegistry,
-    index: dict[int, set[str]],
+    index: dict[Fingerprint, set[str]],
     ctor_registry: TypeConstructorRegistry | None = None,
 ) -> list[str]:
     matches: list[str] = []
@@ -995,19 +993,16 @@ def _compute_fingerprint_matches(
                 if any(t is None for t in types):
                     continue
                 hint_list = [t for t in types if t is not None]
-                if ctor_registry is not None:
-                    fingerprint = bundle_fingerprint_with_constructors(
-                        hint_list,
-                        registry,
-                        ctor_registry,
-                    )
-                else:
-                    fingerprint = bundle_fingerprint(hint_list, registry)
+                fingerprint = bundle_fingerprint_dimensional(
+                    hint_list,
+                    registry,
+                    ctor_registry,
+                )
                 names = index.get(fingerprint)
                 if not names:
                     continue
                 matches.append(
-                    f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {fingerprint} matches: "
+                    f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} matches: "
                     + ", ".join(sorted(names))
                 )
     return sorted(set(matches))
@@ -4394,7 +4389,7 @@ def run(argv: list[str] | None = None) -> int:
     decision_tiers = decision_tier_map(decision_section)
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     fingerprint_registry: PrimeRegistry | None = None
-    fingerprint_index: dict[int, set[str]] = {}
+    fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
     if fingerprint_section:
         registry, index = build_fingerprint_registry(fingerprint_section)
