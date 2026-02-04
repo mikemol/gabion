@@ -197,6 +197,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "type_ambiguities": analysis.type_ambiguities,
         "unused_arg_smells": analysis.unused_arg_smells,
         "decision_surfaces": analysis.decision_surfaces,
+        "context_suggestions": analysis.context_suggestions,
     }
 
     synthesis_plan: dict[str, object] | None = None
@@ -273,6 +274,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
             decision_surfaces=analysis.decision_surfaces,
+            context_suggestions=analysis.context_suggestions,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)

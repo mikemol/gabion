@@ -83,6 +83,21 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
     )
     assert surfaces == ["mod.py:mod.f decision surface params: b (internal callers: 1)"]
 
+    analysis = da.analyze_paths(
+        [path],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_decision_surfaces=True,
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    assert analysis.context_suggestions == [
+        "Consider contextvar for mod.py:mod.f decision surface params: b (internal callers: 1)"
+    ]
+
 
 def test_emit_report_includes_decision_surfaces(tmp_path: Path) -> None:
     da = _load()

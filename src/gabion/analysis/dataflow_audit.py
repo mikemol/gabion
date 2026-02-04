@@ -138,6 +138,7 @@ class AnalysisResult:
     constant_smells: list[str]
     unused_arg_smells: list[str]
     decision_surfaces: list[str] = field(default_factory=list)
+    context_suggestions: list[str] = field(default_factory=list)
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -2367,6 +2368,7 @@ def _emit_report(
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     decision_surfaces: list[str] | None = None,
+    context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
     components = _connected_components(nodes, adj)
@@ -2464,6 +2466,11 @@ def _emit_report(
         lines.append("Decision surface candidates (direct param use in conditionals):")
         lines.append("```")
         lines.extend(decision_surfaces)
+        lines.append("```")
+    if context_suggestions:
+        lines.append("Contextvar/ambient rewrite suggestions:")
+        lines.append("```")
+        lines.extend(context_suggestions)
         lines.append("```")
     return "\n".join(lines), violations
 
@@ -3108,6 +3115,7 @@ def _compute_violations(
         constant_smells=[],
         unused_arg_smells=[],
         decision_surfaces=[],
+        context_suggestions=[],
     )
     return violations
 
@@ -3189,6 +3197,7 @@ def render_report(
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     decision_surfaces: list[str] | None = None,
+    context_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
         groups_by_path,
@@ -3198,6 +3207,7 @@ def render_report(
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
         decision_surfaces=decision_surfaces,
+        context_suggestions=context_suggestions,
     )
 
 
@@ -3285,6 +3295,11 @@ def analyze_paths(
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
         )
+    context_suggestions: list[str] = []
+    if decision_surfaces:
+        for entry in decision_surfaces:
+            if "(internal callers:" in entry:
+                context_suggestions.append(f"Consider contextvar for {entry}")
 
     return AnalysisResult(
         groups_by_path=groups_by_path,
@@ -3294,6 +3309,7 @@ def analyze_paths(
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
         decision_surfaces=decision_surfaces,
+        context_suggestions=context_suggestions,
     )
 
 
