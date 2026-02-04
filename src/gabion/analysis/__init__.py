@@ -27,6 +27,11 @@ from .dataflow_audit import (
     resolve_baseline_path,
     write_baseline,
 )
+from .type_fingerprints import (
+    PrimeRegistry,
+    bundle_fingerprint,
+    canonical_type_key,
+)
 
 __all__ = [
     "AnalysisResult",
@@ -54,4 +59,7 @@ __all__ = [
     "render_synthesis_section",
     "resolve_baseline_path",
     "write_baseline",
+    "PrimeRegistry",
+    "bundle_fingerprint",
+    "canonical_type_key",
 ]
