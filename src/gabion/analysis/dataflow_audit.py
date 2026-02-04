@@ -1332,6 +1332,7 @@ def _compute_fingerprint_rewrite_plans(
         if coherence_entry:
             coherence_id = coherence_entry.get("coherence_id")
         plan_id = f"rewrite:{path}:{function}:{bundle_key}:glossary-ambiguity"
+        candidates = sorted(set(str(m) for m in matches))
         plans.append(
             {
                 "plan_id": plan_id,
@@ -1351,7 +1352,7 @@ def _compute_fingerprint_rewrite_plans(
                 "rewrite": {
                     "kind": "BUNDLE_ALIGN",
                     "selector": {"bundle": bundle},
-                    "parameters": {"candidates": sorted(set(matches))},
+                    "parameters": {"candidates": candidates},
                 },
                 "evidence": {
                     "provenance_id": entry.get("provenance_id"),
@@ -1365,6 +1366,28 @@ def _compute_fingerprint_rewrite_plans(
                 "verification": {
                     "mode": "re-audit",
                     "status": "UNVERIFIED",
+                    # Minimal executable predicate set (see in/in-26.md §6).
+                    # The evaluator (`verify_rewrite_plan`) intentionally treats transport
+                    # details as erased; only the semantic payloads matter.
+                    "predicates": [
+                        {
+                            "kind": "base_conservation",
+                            "expect": True,
+                        },
+                        {
+                            "kind": "ctor_coherence",
+                            "expect": True,
+                        },
+                        {
+                            "kind": "match_strata",
+                            "expect": "exact",
+                            "candidates": candidates,
+                        },
+                        {
+                            "kind": "remainder_non_regression",
+                            "expect": "no-new-remainder",
+                        },
+                    ],
                 },
             }
         )
@@ -1377,6 +1400,190 @@ def _compute_fingerprint_rewrite_plans(
             str(plan.get("plan_id", "")),
         ),
     )
+
+
+def _glossary_match_strata(matches: object) -> str:
+    if not isinstance(matches, list) or not matches:
+        return "none"
+    if len(matches) == 1:
+        return "exact"
+    return "ambiguous"
+
+
+def _normalize_bundle_key(bundle: object) -> str:
+    if not isinstance(bundle, list):
+        return ""
+    values = [str(item) for item in bundle if isinstance(item, str)]
+    return ",".join(values)
+
+
+def _find_provenance_entry_for_site(
+    provenance: list[dict[str, object]],
+    *,
+    path: str,
+    function: str,
+    bundle: list[str],
+) -> dict[str, object] | None:
+    bundle_key = _normalize_bundle_key(bundle)
+    for entry in provenance:
+        if str(entry.get("path", "")) != path:
+            continue
+        if str(entry.get("function", "")) != function:
+            continue
+        entry_bundle = entry.get("bundle", []) or []
+        if _normalize_bundle_key(entry_bundle) != bundle_key:
+            continue
+        return entry
+    return None
+
+
+def verify_rewrite_plan(
+    plan: dict[str, object],
+    *,
+    post_provenance: list[dict[str, object]],
+) -> dict[str, object]:
+    """Verify a single rewrite plan using a post-state provenance artifact.
+
+    The pre-state is taken from the plan's embedded boundary evidence; the
+    evaluator only needs the post provenance entry for the plan's site.
+    """
+    plan_id = str(plan.get("plan_id", ""))
+    site = plan.get("site", {}) or {}
+    path = str(site.get("path", ""))
+    function = str(site.get("function", ""))
+    bundle = site.get("bundle", []) or []
+    if not isinstance(bundle, list):
+        bundle = []
+    bundle = [str(item) for item in bundle]
+
+    issues: list[str] = []
+    post_entry = _find_provenance_entry_for_site(
+        post_provenance,
+        path=path,
+        function=function,
+        bundle=bundle,
+    )
+    if post_entry is None:
+        issues.append("missing post provenance entry for site")
+        return {
+            "plan_id": plan_id,
+            "accepted": False,
+            "issues": issues,
+            "predicate_results": [],
+        }
+
+    pre = plan.get("pre") or {}
+    if not isinstance(pre, dict):
+        pre = {}
+    expected_base = list(pre.get("base_keys") or [])
+    expected_ctor = list(pre.get("ctor_keys") or [])
+    expected_remainder = pre.get("remainder") or {}
+    if not isinstance(expected_remainder, dict):
+        expected_remainder = {}
+    post_expectation = plan.get("post_expectation") or {}
+    if not isinstance(post_expectation, dict):
+        post_expectation = {}
+    expected_strata = str(post_expectation.get("match_strata", ""))
+
+    post_base = list(post_entry.get("base_keys") or [])
+    post_ctor = list(post_entry.get("ctor_keys") or [])
+    post_remainder = post_entry.get("remainder") or {}
+    if not isinstance(post_remainder, dict):
+        post_remainder = {}
+    post_matches = post_entry.get("glossary_matches") or []
+    post_strata = _glossary_match_strata(post_matches)
+
+    predicate_results: list[dict[str, object]] = []
+
+    # V1 Base conservation
+    base_ok = post_base == expected_base
+    predicate_results.append(
+        {
+            "kind": "base_conservation",
+            "passed": base_ok,
+            "expected": expected_base,
+            "observed": post_base,
+        }
+    )
+
+    # V2 Constructor coherence
+    ctor_ok = post_ctor == expected_ctor
+    predicate_results.append(
+        {
+            "kind": "ctor_coherence",
+            "passed": ctor_ok,
+            "expected": expected_ctor,
+            "observed": post_ctor,
+        }
+    )
+
+    # V3 Match strata preservation / improvement (repo currently models exact vs ambiguous vs none)
+    strata_ok = True
+    expected_candidates: list[str] = []
+    rewrite = plan.get("rewrite") or {}
+    if not isinstance(rewrite, dict):
+        rewrite = {}
+    params = rewrite.get("parameters") or {}
+    if not isinstance(params, dict):
+        params = {}
+    expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
+    if expected_strata:
+        strata_ok = post_strata == expected_strata
+    if expected_strata == "exact" and isinstance(post_matches, list) and len(post_matches) == 1:
+        strata_ok = strata_ok and (str(post_matches[0]) in set(expected_candidates))
+    predicate_results.append(
+        {
+            "kind": "match_strata",
+            "passed": strata_ok,
+            "expected": expected_strata,
+            "observed": post_strata,
+            "candidates": expected_candidates,
+            "observed_matches": post_matches,
+        }
+    )
+
+    # V4 Remainder non-regression (conservative: never introduce remainder where none existed)
+    pre_base_rem = int(expected_remainder.get("base", 1) or 1)
+    pre_ctor_rem = int(expected_remainder.get("ctor", 1) or 1)
+    post_base_rem = int(post_remainder.get("base", 1) or 1)
+    post_ctor_rem = int(post_remainder.get("ctor", 1) or 1)
+
+    def _clean(value: int) -> bool:
+        return value in (0, 1)
+
+    rem_ok = True
+    if _clean(pre_base_rem):
+        rem_ok = rem_ok and _clean(post_base_rem)
+    if _clean(pre_ctor_rem):
+        rem_ok = rem_ok and _clean(post_ctor_rem)
+    predicate_results.append(
+        {
+            "kind": "remainder_non_regression",
+            "passed": rem_ok,
+            "expected": {"base": pre_base_rem, "ctor": pre_ctor_rem},
+            "observed": {"base": post_base_rem, "ctor": post_ctor_rem},
+        }
+    )
+
+    accepted = all(bool(result.get("passed")) for result in predicate_results)
+    if not accepted:
+        issues.append("verification predicates failed")
+    return {
+        "plan_id": plan_id,
+        "accepted": accepted,
+        "issues": issues,
+        "predicate_results": predicate_results,
+    }
+
+
+def verify_rewrite_plans(
+    plans: list[dict[str, object]],
+    *,
+    post_provenance: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    return [
+        verify_rewrite_plan(plan, post_provenance=post_provenance) for plan in plans
+    ]
 
 
 def _summarize_rewrite_plans(

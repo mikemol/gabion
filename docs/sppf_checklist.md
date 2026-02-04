@@ -1,5 +1,5 @@
 ---
-doc_revision: 124
+doc_revision: 125
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -140,7 +140,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72)
-- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates + richer plan kinds pending; see `docs/matrix_acceptance.md`). (in-26, GH-76)
+- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; **verification predicates now executable + tested**; richer plan kinds + re-audit tooling pending; see `docs/matrix_acceptance.md`). (in-26, GH-76)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).

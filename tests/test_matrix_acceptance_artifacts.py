@@ -214,3 +214,21 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     assert dead
     for entry in dead:
         assert str(entry.get("witness_ref")) in deadness_ids
+
+    # Rewrite-plan verification predicates must be executable and must fail on
+    # known counterexamples (in this fixture, ambiguity remains until a rewrite
+    # or glossary change occurs).
+    verification = dataflow_audit.verify_rewrite_plan(
+        rewrite_plans[0],
+        post_provenance=provenance,
+    )
+    assert verification["accepted"] is False
+    assert "verification predicates failed" in verification["issues"]
+
+    # A synthetic "post" provenance state that resolves ambiguity should pass.
+    post_provenance = [dict(provenance[0], glossary_matches=[rewrite_plans[0]["rewrite"]["parameters"]["candidates"][0]])]
+    verification = dataflow_audit.verify_rewrite_plan(
+        rewrite_plans[0],
+        post_provenance=post_provenance,
+    )
+    assert verification["accepted"] is True

@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: matrix_acceptance
 doc_role: reference
@@ -38,9 +38,11 @@ If a matrix is present without these checks, treat the matrix as **aspirational*
 and the related feature as **incomplete**.
 
 Current implementation: `tests/test_matrix_acceptance_artifacts.py` enforces
-artifact schema, determinism (byte-identical JSON across runs), and basic
-evidence linkage for the repo's witness artifacts. The remaining checks in
-this document are tracked as follow-on work (see the linked SPPF/GH issues).
+artifact schema, determinism (byte-identical JSON across runs), evidence
+linkage, and rewrite-plan verification predicate executability (must fail on a
+known counterexample and pass on a synthetic resolved post-state). The remaining
+checks in this document are tracked as follow-on work (see the linked SPPF/GH
+issues).
 
 ## Normative pointers (explicit)
 
