@@ -190,6 +190,7 @@ class AnalysisResult:
     fingerprint_matches: list[str] = field(default_factory=list)
     fingerprint_synth: list[str] = field(default_factory=list)
     fingerprint_synth_registry: dict[str, object] | None = None
+    fingerprint_provenance: list[dict[str, object]] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
@@ -1045,6 +1046,82 @@ def _compute_fingerprint_matches(
                     + details
                 )
     return sorted(set(matches))
+
+
+def _compute_fingerprint_provenance(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    annotations_by_path: dict[Path, dict[str, dict[str, str | None]]],
+    *,
+    registry: PrimeRegistry,
+    index: dict[Fingerprint, set[str]] | None = None,
+    ctor_registry: TypeConstructorRegistry | None = None,
+) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for path, groups in groups_by_path.items():
+        annots_by_fn = annotations_by_path.get(path, {})
+        for fn_name, bundles in groups.items():
+            fn_annots = annots_by_fn.get(fn_name, {})
+            for bundle in bundles:
+                missing = [
+                    param for param in bundle if not fn_annots.get(param)
+                ]
+                if missing:
+                    continue
+                types = [fn_annots[param] for param in sorted(bundle)]
+                if any(t is None for t in types):
+                    continue
+                hint_list = [t for t in types if t is not None]
+                fingerprint = bundle_fingerprint_dimensional(
+                    hint_list,
+                    registry,
+                    ctor_registry,
+                )
+                base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
+                    fingerprint.base.product, registry
+                )
+                ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
+                    fingerprint.ctor.product, registry
+                )
+                ctor_keys = [
+                    key[len("ctor:") :] if key.startswith("ctor:") else key
+                    for key in ctor_keys
+                ]
+                matches = []
+                if index:
+                    matches = sorted(index.get(fingerprint, set()))
+                entries.append(
+                    {
+                        "path": str(path),
+                        "function": fn_name,
+                        "bundle": sorted(bundle),
+                        "fingerprint": {
+                            "base": {
+                                "product": fingerprint.base.product,
+                                "mask": fingerprint.base.mask,
+                            },
+                            "ctor": {
+                                "product": fingerprint.ctor.product,
+                                "mask": fingerprint.ctor.mask,
+                            },
+                            "provenance": {
+                                "product": fingerprint.provenance.product,
+                                "mask": fingerprint.provenance.mask,
+                            },
+                            "synth": {
+                                "product": fingerprint.synth.product,
+                                "mask": fingerprint.synth.mask,
+                            },
+                        },
+                        "base_keys": sorted(base_keys),
+                        "ctor_keys": sorted(ctor_keys),
+                        "remainder": {
+                            "base": base_remaining,
+                            "ctor": ctor_remaining,
+                        },
+                        "glossary_matches": matches,
+                    }
+                )
+    return entries
 
 
 def _compute_fingerprint_synth(
@@ -4323,6 +4400,7 @@ def analyze_paths(
     fingerprint_matches: list[str] = []
     fingerprint_synth: list[str] = []
     fingerprint_synth_registry: dict[str, object] | None = None
+    fingerprint_provenance: list[dict[str, object]] = []
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
             file_paths,
@@ -4336,6 +4414,13 @@ def analyze_paths(
             ctor_registry=config.constructor_registry,
         )
         fingerprint_matches = _compute_fingerprint_matches(
+            groups_by_path,
+            annotations_by_path,
+            registry=config.fingerprint_registry,
+            index=config.fingerprint_index,
+            ctor_registry=config.constructor_registry,
+        )
+        fingerprint_provenance = _compute_fingerprint_provenance(
             groups_by_path,
             annotations_by_path,
             registry=config.fingerprint_registry,
@@ -4370,6 +4455,7 @@ def analyze_paths(
         fingerprint_matches=fingerprint_matches,
         fingerprint_synth=fingerprint_synth,
         fingerprint_synth_registry=fingerprint_synth_registry,
+        fingerprint_provenance=fingerprint_provenance,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
@@ -4425,6 +4511,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fingerprint-synth-json",
         default=None,
         help="Write fingerprint synth registry JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-provenance-json",
+        default=None,
+        help="Write fingerprint provenance JSON to file or '-' for stdout.",
     )
     parser.add_argument(
         "--emit-decision-snapshot",
@@ -4659,6 +4750,15 @@ def run(argv: list[str] | None = None) -> int:
             print(payload_json)
         else:
             Path(args.fingerprint_synth_json).write_text(payload_json)
+
+    if args.fingerprint_provenance_json and analysis.fingerprint_provenance:
+        payload_json = json.dumps(
+            analysis.fingerprint_provenance, indent=2, sort_keys=True
+        )
+        if args.fingerprint_provenance_json.strip() == "-":
+            print(payload_json)
+        else:
+            Path(args.fingerprint_provenance_json).write_text(payload_json)
     structure_tree_path = args.emit_structure_tree
     structure_metrics_path = args.emit_structure_metrics
     if structure_tree_path:

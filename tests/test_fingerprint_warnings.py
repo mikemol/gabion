@@ -83,3 +83,24 @@ def test_fingerprint_synth_reports_tail(tmp_path: Path) -> None:
     assert any("synth@" in line or "synth registry" in line for line in synth)
     assert payload is not None
     assert payload.get("entries")
+
+
+def test_fingerprint_provenance_emits_entries(tmp_path: Path) -> None:
+    da, build_registry = _load()
+    path = tmp_path / "mod.py"
+    groups_by_path = {path: {"f": [set(["user_id", "user_name"])]}}
+    annotations_by_path = {
+        path: {"f": {"user_id": "int", "user_name": "str"}}
+    }
+    registry, index = build_registry({"user_context": ["int", "str"]})
+    provenance = da._compute_fingerprint_provenance(
+        groups_by_path,
+        annotations_by_path,
+        registry=registry,
+        index=index,
+        ctor_registry=None,
+    )
+    assert provenance
+    entry = provenance[0]
+    assert entry["base_keys"] == ["int", "str"]
+    assert entry["glossary_matches"] == ["user_context"]

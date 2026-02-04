@@ -218,6 +218,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     refactor_plan = payload.get("refactor_plan", False)
     refactor_plan_json = payload.get("refactor_plan_json")
     fingerprint_synth_json = payload.get("fingerprint_synth_json")
+    fingerprint_provenance_json = payload.get("fingerprint_provenance_json")
 
     config = AuditConfig(
         project_root=Path(root),
@@ -266,6 +267,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_matches": analysis.fingerprint_matches,
         "fingerprint_synth": analysis.fingerprint_synth,
         "fingerprint_synth_registry": analysis.fingerprint_synth_registry,
+        "fingerprint_provenance": analysis.fingerprint_provenance,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -418,6 +420,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["fingerprint_synth_registry"] = analysis.fingerprint_synth_registry
         else:
             Path(fingerprint_synth_json).write_text(payload_json)
+    if fingerprint_provenance_json and analysis.fingerprint_provenance:
+        payload_json = json.dumps(
+            analysis.fingerprint_provenance, indent=2, sort_keys=True
+        )
+        if fingerprint_provenance_json == "-":
+            response["fingerprint_provenance"] = analysis.fingerprint_provenance
+        else:
+            Path(fingerprint_provenance_json).write_text(payload_json)
     if baseline_path is not None:
         response["baseline_path"] = str(baseline_path)
         response["baseline_written"] = bool(baseline_write)
