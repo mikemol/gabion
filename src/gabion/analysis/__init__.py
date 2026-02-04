@@ -3,6 +3,7 @@
 from .dataflow_audit import (
     AnalysisResult,
     AuditConfig,
+    InvariantProposition,
     analyze_paths,
     apply_baseline,
     build_refactor_plan,
@@ -47,6 +48,7 @@ from .type_fingerprints import (
 __all__ = [
     "AnalysisResult",
     "AuditConfig",
+    "InvariantProposition",
     "analyze_paths",
     "apply_baseline",
     "build_refactor_plan",

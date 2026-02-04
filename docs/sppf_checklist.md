@@ -1,5 +1,5 @@
 ---
-doc_revision: 95
+doc_revision: 96
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -126,8 +126,9 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Lemma suggestion CLI flag + output map (declare + replace). (GH-65)
 - [~] Lemma emission target selection (inline vs stub module). (GH-65)
 - [x] Glossary-backed lemma naming + missing-entry warnings. (GH-65)
-- [ ] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67)
-- [ ] Proposition model + grammar hooks for invariant emission. (GH-67)
+- [~] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67)
+- [x] Proposition model + assert-based invariant extraction. (GH-67)
+- [ ] Grammar hooks for invariant emission (PartitionGrammar emitters). (GH-67)
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
 - [ ] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)

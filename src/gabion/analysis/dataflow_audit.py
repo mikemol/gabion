@@ -69,6 +69,24 @@ class CallArgs:
     is_test: bool
 
 
+@dataclass(frozen=True)
+class InvariantProposition:
+    form: str
+    terms: tuple[str, ...]
+    scope: str | None = None
+    source: str | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "form": self.form,
+            "terms": list(self.terms),
+        }
+        if self.scope is not None:
+            payload["scope"] = self.scope
+        if self.source is not None:
+            payload["source"] = self.source
+        return payload
+
 @dataclass
 class SymbolTable:
     imports: dict[tuple[str, str], str] = field(default_factory=dict)
@@ -162,6 +180,7 @@ class AnalysisResult:
     fingerprint_warnings: list[str] = field(default_factory=list)
     fingerprint_matches: list[str] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
+    invariant_propositions: list[InvariantProposition] = field(default_factory=list)
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -203,6 +222,115 @@ def _collect_functions(tree: ast.AST):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             funcs.append(node)
     return funcs
+
+
+def _invariant_term(expr: ast.AST, params: set[str]) -> str | None:
+    if isinstance(expr, ast.Name) and expr.id in params:
+        return expr.id
+    if (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Name)
+        and expr.func.id == "len"
+        and len(expr.args) == 1
+    ):
+        arg = expr.args[0]
+        if isinstance(arg, ast.Name) and arg.id in params:
+            return f"{arg.id}.length"
+    return None
+
+
+def _extract_invariant_from_expr(
+    expr: ast.AST,
+    params: set[str],
+    *,
+    scope: str,
+    source: str,
+) -> InvariantProposition | None:
+    if not isinstance(expr, ast.Compare):
+        return None
+    if len(expr.ops) != 1 or len(expr.comparators) != 1:
+        return None
+    if not isinstance(expr.ops[0], ast.Eq):
+        return None
+    left = _invariant_term(expr.left, params)
+    right = _invariant_term(expr.comparators[0], params)
+    if left is None or right is None:
+        return None
+    return InvariantProposition(
+        form="Equal",
+        terms=(left, right),
+        scope=scope,
+        source=source,
+    )
+
+
+class _InvariantCollector(ast.NodeVisitor):
+    def __init__(self, params: set[str], scope: str) -> None:
+        self._params = params
+        self._scope = scope
+        self.propositions: list[InvariantProposition] = []
+        self._seen: set[tuple[str, tuple[str, ...], str]] = set()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        return
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        return
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        return
+
+    def visit_Assert(self, node: ast.Assert) -> None:
+        prop = _extract_invariant_from_expr(
+            node.test,
+            self._params,
+            scope=self._scope,
+            source="assert",
+        )
+        if prop is not None:
+            key = (prop.form, prop.terms, prop.scope or "")
+            if key not in self._seen:
+                self._seen.add(key)
+                self.propositions.append(prop)
+        self.generic_visit(node)
+
+
+def _collect_invariant_propositions(
+    path: Path,
+    *,
+    ignore_params: set[str],
+) -> list[InvariantProposition]:
+    tree = ast.parse(path.read_text())
+    propositions: list[InvariantProposition] = []
+    for fn in _collect_functions(tree):
+        params = set(_param_names(fn, ignore_params))
+        if not params:
+            continue
+        scope = f"{path.name}:{fn.name}"
+        collector = _InvariantCollector(params, scope)
+        for stmt in fn.body:
+            collector.visit(stmt)
+        propositions.extend(collector.propositions)
+    return propositions
+
+
+def _format_invariant_proposition(prop: InvariantProposition) -> str:
+    if prop.form == "Equal" and len(prop.terms) == 2:
+        rendered = f"{prop.terms[0]} == {prop.terms[1]}"
+    else:
+        rendered = f"{prop.form}({', '.join(prop.terms)})"
+    prefix = f"{prop.scope}: " if prop.scope else ""
+    suffix = f" [{prop.source}]" if prop.source else ""
+    return f"{prefix}{rendered}{suffix}"
+
+
+def _format_invariant_propositions(
+    props: list[InvariantProposition],
+) -> list[str]:
+    return [
+        _format_invariant_proposition(prop)
+        for prop in props
+    ]
 
 
 def _decorator_name(node: ast.AST) -> str | None:
@@ -2699,6 +2827,7 @@ def _emit_report(
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
     context_suggestions: list[str] | None = None,
+    invariant_propositions: list[InvariantProposition] | None = None,
 ) -> tuple[str, list[str]]:
     nodes, adj, bundle_map = _component_graph(groups_by_path)
     components = _connected_components(nodes, adj)
@@ -2818,6 +2947,11 @@ def _emit_report(
         lines.append("Fingerprint matches:")
         lines.append("```")
         lines.extend(fingerprint_matches)
+        lines.append("```")
+    if invariant_propositions:
+        lines.append("Invariant propositions:")
+        lines.append("```")
+        lines.extend(_format_invariant_propositions(invariant_propositions))
         lines.append("```")
     if context_suggestions:
         lines.append("Contextvar/ambient rewrite suggestions:")
@@ -3817,6 +3951,7 @@ def render_report(
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
     context_suggestions: list[str] | None = None,
+    invariant_propositions: list[InvariantProposition] | None = None,
 ) -> tuple[str, list[str]]:
     return _emit_report(
         groups_by_path,
@@ -3831,6 +3966,7 @@ def render_report(
         fingerprint_warnings=fingerprint_warnings,
         fingerprint_matches=fingerprint_matches,
         context_suggestions=context_suggestions,
+        invariant_propositions=invariant_propositions,
     )
 
 
@@ -3864,6 +4000,7 @@ def analyze_paths(
     include_unused_arg_smells: bool,
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
+    include_invariant_propositions: bool = False,
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
     if config is None:
@@ -3871,10 +4008,18 @@ def analyze_paths(
     file_paths = _iter_paths([str(p) for p in paths], config)
     groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
     param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
+    invariant_propositions: list[InvariantProposition] = []
     for path in file_paths:
         groups, spans = analyze_file(path, recursive=recursive, config=config)
         groups_by_path[path] = groups
         param_spans_by_path[path] = spans
+        if include_invariant_propositions:
+            invariant_propositions.extend(
+                _collect_invariant_propositions(
+                    path,
+                    ignore_params=config.ignore_params,
+                )
+            )
 
     type_suggestions: list[str] = []
     type_ambiguities: list[str] = []
@@ -3977,6 +4122,7 @@ def analyze_paths(
         fingerprint_warnings=fingerprint_warnings,
         fingerprint_matches=fingerprint_matches,
         context_suggestions=context_suggestions,
+        invariant_propositions=invariant_propositions,
     )
 
 
@@ -4232,6 +4378,7 @@ def run(argv: list[str] | None = None) -> int:
         include_unused_arg_smells=bool(args.report),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
+        include_invariant_propositions=bool(args.report),
         config=config,
     )
     structure_tree_path = args.emit_structure_tree
@@ -4393,6 +4540,7 @@ def run(argv: list[str] | None = None) -> int:
             fingerprint_warnings=analysis.fingerprint_warnings,
             fingerprint_matches=analysis.fingerprint_matches,
             context_suggestions=analysis.context_suggestions,
+            invariant_propositions=analysis.invariant_propositions,
         )
         suppressed: list[str] = []
         new_violations = violations

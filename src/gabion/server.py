@@ -234,6 +234,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_unused_arg_smells=bool(report_path),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
+        include_invariant_propositions=bool(report_path),
         config=config,
     )
 
@@ -246,6 +247,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "decision_warnings": analysis.decision_warnings,
         "fingerprint_warnings": analysis.fingerprint_warnings,
         "fingerprint_matches": analysis.fingerprint_matches,
+        "invariant_propositions": [
+            prop.as_dict() for prop in analysis.invariant_propositions
+        ],
         "context_suggestions": analysis.context_suggestions,
     }
 
@@ -339,6 +343,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             fingerprint_warnings=analysis.fingerprint_warnings,
             fingerprint_matches=analysis.fingerprint_matches,
             context_suggestions=analysis.context_suggestions,
+            invariant_propositions=analysis.invariant_propositions,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)
