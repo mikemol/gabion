@@ -1,5 +1,5 @@
 ---
-doc_revision: 83
+doc_revision: 84
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -123,7 +123,7 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [~] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65)
 - [x] Subtree hashing/fingerprinting for FactorizationTree reuse. (GH-65)
 - [~] Lemma suggestion output + stable naming map. (GH-65)
-- [ ] Lemma suggestion CLI flag + output map (declare + replace). (GH-65)
+- [~] Lemma suggestion CLI flag + output map (declare + replace). (GH-65)
 - [ ] Glossary-backed lemma naming + missing-entry warnings. (GH-65)
 - [ ] Lemma emission target selection (inline vs stub module). (GH-65)
 - [ ] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67)

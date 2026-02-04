@@ -2856,6 +2856,7 @@ def compute_structure_reuse(
         )
     )
     suggested: list[dict[str, object]] = []
+    replacement_map: dict[str, list[dict[str, object]]] = {}
     for entry in reused:
         kind = entry.get("kind")
         if kind not in {"bundle", "function"}:
@@ -2864,20 +2865,32 @@ def compute_structure_reuse(
         hash_value = entry.get("hash")
         if not isinstance(hash_value, str) or not hash_value:
             continue
-        suggested.append(
-            {
-                "hash": hash_value,
-                "kind": kind,
-                "count": count,
-                "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
-                "locations": entry.get("locations", []),
-            }
-        )
+        suggestion = {
+            "hash": hash_value,
+            "kind": kind,
+            "count": count,
+            "suggested_name": f"_gabion_{kind}_lemma_{hash_value[:8]}",
+            "locations": entry.get("locations", []),
+        }
+        suggested.append(suggestion)
+        locations = suggestion.get("locations") or []
+        if isinstance(locations, list):
+            for location in locations:
+                if not isinstance(location, str):
+                    continue
+                replacement_map.setdefault(location, []).append(
+                    {
+                        "kind": kind,
+                        "hash": hash_value,
+                        "suggested_name": suggestion["suggested_name"],
+                    }
+                )
     return {
         "format_version": 1,
         "min_count": min_count,
         "reused": reused,
         "suggested_lemmas": suggested,
+        "replacement_map": replacement_map,
     }
 
 

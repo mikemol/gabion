@@ -45,3 +45,5 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
         entry.get("kind") == "bundle" and entry.get("suggested_name")
         for entry in suggestions
     )
+    replacement_map = reuse.get("replacement_map", {})
+    assert any(location.startswith("a.py::f") for location in replacement_map)
