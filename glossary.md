@@ -1,5 +1,5 @@
 ---
-doc_revision: 14
+doc_revision: 15
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -867,6 +867,11 @@ Presentation format and dashboard tooling are erased.
 **Definition:** A canonical algebraic encoding of a bundle or type structure
 (e.g., prime products or bitmask fingerprints).
 
+**Multiplicity note (normative):** By default, fingerprints are **multiset**
+encodings—duplicate type keys multiply the same prime multiple times. Any
+set‑like projection that erases multiplicity must be explicit and treated as
+an erasure (not the default identity).
+
 ### Axis
 
 **Axis:** Structural (algebraic identity).
@@ -884,6 +889,8 @@ Permuting fields or renaming aliases must not change the fingerprint.
 
 > Fingerprints must be declared invertible or explicitly marked as lossy.
 > Glossary mappings must state whether multiplicity is preserved.
+> Set‑like fingerprints are permitted only as explicit projections that erase
+> multiplicity; multiset fingerprints remain the canonical encoding.
 
 ### Erasure
 

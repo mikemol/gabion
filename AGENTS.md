@@ -17,7 +17,7 @@ doc_reviewed_as_of:
   README.md: 58
   CONTRIBUTING.md: 71
   POLICY_SEED.md: 28
-  glossary.md: 14
+  glossary.md: 15
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - read_policy_glossary_first
