@@ -1,5 +1,5 @@
 ---
-doc_revision: 126
+doc_revision: 127
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -102,7 +102,8 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64)
 - [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74)
 - [x] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-25, GH-75)
-- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77)
+- [x] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77)
+- [ ] Exception obligations: handledness refinement (typed except + conservative UNKNOWN). (in-27, GH-80)
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
@@ -140,7 +141,9 @@ Legend: [x] done · [ ] planned · [~] partial/heuristic
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72)
-- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; **verification predicates now executable + tested**; richer plan kinds + re-audit tooling pending; see `docs/matrix_acceptance.md`). (in-26, GH-76)
+- [x] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76)
+- [ ] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE). (in-26, GH-78)
+- [ ] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79)
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).

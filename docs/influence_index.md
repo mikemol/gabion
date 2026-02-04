@@ -1,5 +1,5 @@
 ---
-doc_revision: 37
+doc_revision: 38
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -68,5 +68,5 @@ Status legend:
 - in/in-23.md — **adopted** (ASPF carrier formalization discharged via deterministic registry basis + artifact/verification checks; SPPF/GH-73.)
 - in/in-24.md — **adopted** (deadness evidence artifacts emitted from constant-flow analysis + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-74.)
 - in/in-25.md — **adopted** (coherence evidence artifacts emitted from glossary ambiguity + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-75.)
-- in/in-26.md — **partial** (rewrite plan artifacts emitted with evidence links; verification predicates now executable + tested; richer plan kinds and re-audit tooling pending; SPPF/GH-76.)
-- in/in-27.md — **partial** (exception obligations: E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; richer handling taxonomy pending; SPPF/GH-77.)
+- in/in-26.md — **partial** (proof-carrying rewrite plans emitted + verified; remaining rewrite kinds and exception-aware verification tracked; SPPF/GH-76, GH-78, GH-79.)
+- in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; remaining handledness refinement + exception-aware rewrite acceptance tracked; SPPF/GH-77, GH-80, GH-79.)
