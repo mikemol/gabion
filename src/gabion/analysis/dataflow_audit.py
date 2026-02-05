@@ -713,8 +713,14 @@ def analyze_decision_surfaces_repo(
             + ", ".join(params)
             + f" ({boundary})"
         )
-        if caller_count == 0:
-            for param in params:
+        for param in params:
+            tier = _decision_tier_for(
+                info,
+                param,
+                tier_map=tier_map,
+                project_root=project_root,
+            )
+            if caller_count == 0 and tier is None:
                 lint = _decision_param_lint_line(
                     info,
                     param,
@@ -724,35 +730,34 @@ def analyze_decision_surfaces_repo(
                 )
                 if lint is not None:
                     lint_lines.append(lint)
-        if tier_map:
-            for param in params:
-                tier = tier_map.get(param)
-                if tier is None:
-                    message = f"decision param '{param}' missing decision tier metadata"
-                    warnings.append(f"{info.path.name}:{info.qual} {message}")
-                    lint = _decision_param_lint_line(
-                        info,
-                        param,
-                        project_root=project_root,
-                        code="GABION_DECISION_TIER",
-                        message=message,
-                    )
-                    if lint is not None:
-                        lint_lines.append(lint)
-                elif tier in {2, 3} and caller_count > 0:
-                    message = (
-                        f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
-                    )
-                    warnings.append(f"{info.path.name}:{info.qual} {message}")
-                    lint = _decision_param_lint_line(
-                        info,
-                        param,
-                        project_root=project_root,
-                        code="GABION_DECISION_TIER",
-                        message=message,
-                    )
-                    if lint is not None:
-                        lint_lines.append(lint)
+            if not tier_map:
+                continue
+            if tier is None:
+                message = f"decision param '{param}' missing decision tier metadata"
+                warnings.append(f"{info.path.name}:{info.qual} {message}")
+                lint = _decision_param_lint_line(
+                    info,
+                    param,
+                    project_root=project_root,
+                    code="GABION_DECISION_TIER",
+                    message=message,
+                )
+                if lint is not None:
+                    lint_lines.append(lint)
+            elif tier in {2, 3} and caller_count > 0:
+                message = (
+                    f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
+                )
+                warnings.append(f"{info.path.name}:{info.qual} {message}")
+                lint = _decision_param_lint_line(
+                    info,
+                    param,
+                    project_root=project_root,
+                    code="GABION_DECISION_TIER",
+                    message=message,
+                )
+                if lint is not None:
+                    lint_lines.append(lint)
     return sorted(surfaces), sorted(set(warnings)), sorted(set(lint_lines))
 
 
@@ -818,46 +823,52 @@ def analyze_value_encoded_decisions_repo(
             + f" ({reasons})"
         )
         for param in params:
-            lint = _decision_param_lint_line(
+            tier = _decision_tier_for(
                 info,
                 param,
+                tier_map=tier_map,
                 project_root=project_root,
-                code="GABION_VALUE_DECISION_SURFACE",
-                message=f"value-encoded decision param '{param}' ({boundary}; {reasons})",
             )
-            if lint is not None:
-                lint_lines.append(lint)
-        if tier_map:
-            for param in params:
-                tier = tier_map.get(param)
-                if tier is None:
-                    message = (
-                        f"value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
-                    )
-                    warnings.append(f"{info.path.name}:{info.qual} {message}")
-                    lint = _decision_param_lint_line(
-                        info,
-                        param,
-                        project_root=project_root,
-                        code="GABION_VALUE_DECISION_TIER",
-                        message=message,
-                    )
-                    if lint is not None:
-                        lint_lines.append(lint)
-                elif tier in {2, 3} and caller_count > 0:
-                    message = (
-                        f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
-                    )
-                    warnings.append(f"{info.path.name}:{info.qual} {message}")
-                    lint = _decision_param_lint_line(
-                        info,
-                        param,
-                        project_root=project_root,
-                        code="GABION_VALUE_DECISION_TIER",
-                        message=message,
-                    )
-                    if lint is not None:
-                        lint_lines.append(lint)
+            if tier is None:
+                lint = _decision_param_lint_line(
+                    info,
+                    param,
+                    project_root=project_root,
+                    code="GABION_VALUE_DECISION_SURFACE",
+                    message=f"value-encoded decision param '{param}' ({boundary}; {reasons})",
+                )
+                if lint is not None:
+                    lint_lines.append(lint)
+            if not tier_map:
+                continue
+            if tier is None:
+                message = (
+                    f"value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
+                )
+                warnings.append(f"{info.path.name}:{info.qual} {message}")
+                lint = _decision_param_lint_line(
+                    info,
+                    param,
+                    project_root=project_root,
+                    code="GABION_VALUE_DECISION_TIER",
+                    message=message,
+                )
+                if lint is not None:
+                    lint_lines.append(lint)
+            elif tier in {2, 3} and caller_count > 0:
+                message = (
+                    f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
+                )
+                warnings.append(f"{info.path.name}:{info.qual} {message}")
+                lint = _decision_param_lint_line(
+                    info,
+                    param,
+                    project_root=project_root,
+                    code="GABION_VALUE_DECISION_TIER",
+                    message=message,
+                )
+                if lint is not None:
+                    lint_lines.append(lint)
     return (
         sorted(surfaces),
         sorted(set(warnings)),
@@ -2395,6 +2406,29 @@ def _decision_param_lint_line(
     path = _normalize_snapshot_path(info.path, project_root)
     line, col, _, _ = span
     return _lint_line(path, line + 1, col + 1, code, message)
+
+
+def _decision_tier_for(
+    info: "FunctionInfo",
+    param: str,
+    *,
+    tier_map: dict[str, int],
+    project_root: Path | None,
+) -> int | None:
+    if not tier_map:
+        return None
+    span = info.param_spans.get(param)
+    if span is not None:
+        path = _normalize_snapshot_path(info.path, project_root)
+        line, col, _, _ = span
+        location = f"{path}:{line + 1}:{col + 1}"
+        for key in (location, f"{location}:{param}"):
+            if key in tier_map:
+                return tier_map[key]
+    for key in (f"{info.qual}:{param}", f"{info.qual}.{param}", param):
+        if key in tier_map:
+            return tier_map[key]
+    return None
 
 
 def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:

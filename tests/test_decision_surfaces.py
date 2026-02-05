@@ -214,3 +214,26 @@ def test_decision_surface_tier_warning_internal(tmp_path: Path) -> None:
     )
     assert any("tier-3 decision param 'user_mode'" in warning for warning in warnings)
     assert any("GABION_DECISION_TIER" in line for line in lint_lines)
+
+
+def test_decision_surface_location_tier_suppresses_lint(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "def f(a):\n"
+        "    if a:\n"
+        "        return 1\n"
+        "    return 0\n"
+    )
+    surfaces, warnings, lint_lines = da.analyze_decision_surfaces_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+        decision_tiers={"mod.py:1:7": 1},
+    )
+    assert surfaces
+    assert warnings == []
+    assert not any("GABION_DECISION_SURFACE" in line for line in lint_lines)
