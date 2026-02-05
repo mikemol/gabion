@@ -1,5 +1,5 @@
 ---
-doc_revision: 19
+doc_revision: 20
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -1411,3 +1411,86 @@ Ordering is erased; obligation identity is **not**.
 ### Test Obligations (to be mapped)
 
 - Exception obligation artifacts are deterministic and evidence‑linked.
+
+---
+
+## 35. Attribute Carrier
+
+### Meaning
+
+**Definition:** The explicit, structured representation of attribute values
+in an attribute‑grammar view (e.g., environment frames, evidence bundles,
+invariant bindings).
+
+### Axis
+
+**Axis:** Semantic (attribute grammar / evidence structure).
+
+### Desired Commutation (Transport Transparency)
+
+Attribute meaning must commute with transport mechanism:
+
+```
+carrier(param‑threaded) = carrier(context‑transported)
+```
+
+### Failure Modes
+
+- Attribute values exist only as implicit globals or ad‑hoc locals.
+- Multiple competing carrier shapes for the same attribute family.
+- Transport mechanism changes semantics (hidden mutation or aliasing).
+
+### Normative Rule
+
+> Attributes must be reified as explicit carriers (dataclass/DTO). The default
+> is explicit parameter threading. Context‑based transport is allowed only at
+> declared edge adapters and must preserve carrier shape.
+
+### Erasure
+
+Transport mechanism is erased; carrier shape and values are **not**.
+
+### Test Obligations (to be mapped)
+
+- Carrier schema is stable and serialized in artifacts when applicable.
+
+---
+
+## 36. Attribute Transport (ContextVar)
+
+### Meaning
+
+**Definition:** A transport mechanism for inherited attributes that avoids
+explicit parameter threading by using a scoped ambient context.
+
+### Axis
+
+**Axis:** Operational (transport / wiring).
+
+### Desired Commutation (Carrier Equivalence)
+
+Attribute transport must commute with explicit threading:
+
+```
+transport(carrier) ⇔ pass(carrier)
+```
+
+### Failure Modes
+
+- Hidden dependencies (ambient reads without declared ownership).
+- Context leakage across async/task boundaries.
+- Multiple modules mutating the same attribute context.
+
+### Normative Rule
+
+> ContextVar transport is permitted only through a single owning module with
+> typed accessors and a context manager. Core logic must treat carriers as
+> explicit data; transport remains an edge concern.
+
+### Erasure
+
+ContextVar identity is erased; carrier content is **not**.
+
+### Test Obligations (to be mapped)
+
+- Access is centralized (single module); no direct reads/writes elsewhere.
