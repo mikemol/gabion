@@ -68,6 +68,9 @@ class ParamUse:
     direct_forward: set[tuple[str, str]]
     non_forward: bool
     current_aliases: set[str]
+    forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = field(
+        default_factory=dict
+    )
 
 
 @dataclass(frozen=True)
@@ -193,6 +196,7 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.C
 class AnalysisResult:
     groups_by_path: dict[Path, dict[str, list[set[str]]]]
     param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]]
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]]
     type_suggestions: list[str]
     type_ambiguities: list[str]
     constant_smells: list[str]
@@ -2615,12 +2619,77 @@ def _propagate_groups(
     return groups
 
 
-def analyze_file(
+def _callsite_evidence_for_bundle(
+    calls: list[CallArgs],
+    bundle: set[str],
+    *,
+    limit: int = 12,
+) -> list[JSONObject]:
+    """Collect callsite evidence for where bundle params are forwarded.
+
+    A bundle can be induced either by co-forwarding in a single callsite or by
+    repeated forwarding to identical callee/slot pairs across distinct callsites.
+    """
+    out: list[JSONObject] = []
+    seen: set[tuple[tuple[int, int, int, int], str, tuple[str, ...], tuple[str, ...]]] = set()
+    for call in calls:
+        if call.span is None:
+            continue
+        params_in_call: list[str] = []
+        slots: list[str] = []
+        for idx_str, param in call.pos_map.items():
+            if param in bundle:
+                params_in_call.append(param)
+                slots.append(f"arg[{idx_str}]")
+        for name, param in call.kw_map.items():
+            if param in bundle:
+                params_in_call.append(param)
+                slots.append(f"kw[{name}]")
+        for idx, param in call.star_pos:
+            if param in bundle:
+                params_in_call.append(param)
+                slots.append(f"arg[{idx}]*")
+        for param in call.star_kw:
+            if param in bundle:
+                params_in_call.append(param)
+                slots.append("kw[**]")
+        distinct = tuple(sorted(set(params_in_call)))
+        if not distinct:
+            continue
+        slot_list = tuple(sorted(set(slots)))
+        key = (call.span, call.callee, distinct, slot_list)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            {
+                "callee": call.callee,
+                "span": list(call.span),
+                "params": list(distinct),
+                "slots": list(slot_list),
+            }
+        )
+    out.sort(
+        key=lambda entry: (
+            -len(entry.get("params") or []),
+            tuple(entry.get("span") or []),
+            str(entry.get("callee") or ""),
+            tuple(entry.get("params") or []),
+        )
+    )
+    return out[:limit]
+
+
+def _analyze_file_internal(
     path: Path,
     recursive: bool = True,
     *,
     config: AuditConfig | None = None,
-) -> tuple[dict[str, list[set[str]]], dict[str, dict[str, tuple[int, int, int, int]]]]:
+) -> tuple[
+    dict[str, list[set[str]]],
+    dict[str, dict[str, tuple[int, int, int, int]]],
+    dict[str, list[list[JSONObject]]],
+]:
     if config is None:
         config = AuditConfig()
     tree = ast.parse(path.read_text())
@@ -2730,7 +2799,13 @@ def analyze_file(
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
 
     if not recursive:
-        return groups_by_fn, fn_param_spans
+        bundle_sites_by_fn: dict[str, list[list[JSONObject]]] = {}
+        for fn_key, bundles in groups_by_fn.items():
+            calls = fn_calls.get(fn_key, [])
+            bundle_sites_by_fn[fn_key] = [
+                _callsite_evidence_for_bundle(calls, bundle) for bundle in bundles
+            ]
+        return groups_by_fn, fn_param_spans, bundle_sites_by_fn
 
     changed = True
     while changed:
@@ -2749,7 +2824,23 @@ def analyze_file(
             if combined != groups_by_fn.get(fn, []):
                 groups_by_fn[fn] = combined
                 changed = True
-    return groups_by_fn, fn_param_spans
+    bundle_sites_by_fn: dict[str, list[list[JSONObject]]] = {}
+    for fn_key, bundles in groups_by_fn.items():
+        calls = fn_calls.get(fn_key, [])
+        bundle_sites_by_fn[fn_key] = [
+            _callsite_evidence_for_bundle(calls, bundle) for bundle in bundles
+        ]
+    return groups_by_fn, fn_param_spans, bundle_sites_by_fn
+
+
+def analyze_file(
+    path: Path,
+    recursive: bool = True,
+    *,
+    config: AuditConfig | None = None,
+) -> tuple[dict[str, list[set[str]]], dict[str, dict[str, tuple[int, int, int, int]]]]:
+    groups, spans, _ = _analyze_file_internal(path, recursive=recursive, config=config)
+    return groups, spans
 
 
 def _callee_key(name: str) -> str:
@@ -4331,10 +4422,81 @@ def _render_mermaid_component(
     return "\n".join(lines), summary
 
 
+def _render_component_callsite_evidence(
+    *,
+    component: list[str],
+    nodes: dict[str, dict[str, str]],
+    bundle_map: dict[str, set[str]],
+    documented_bundles_by_path: dict[Path, set[tuple[str, ...]]],
+    declared_global: set[tuple[str, ...]],
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
+    root: Path,
+    max_sites_per_bundle: int = 5,
+) -> list[str]:
+    """Render machine-actionable callsite evidence for undocumented bundles in a component.
+
+    This assumes internal IDs and evidence payloads are well-formed; drift should
+    fail loudly to force reification rather than silently degrade fidelity.
+    """
+    fn_nodes = [n for n in component if nodes[n]["kind"] == "fn"]
+    bundle_nodes = [n for n in component if nodes[n]["kind"] == "bundle"]
+    component_paths: set[Path] = set()
+    for n in fn_nodes:
+        parts = n.split("::", 2)
+        if len(parts) == 3:
+            component_paths.add(Path(parts[1]))
+    documented: set[tuple[str, ...]] = set()
+    for path in component_paths:
+        documented |= documented_bundles_by_path.get(path, set())
+
+    bundle_counts: dict[tuple[str, ...], int] = defaultdict(int)
+    bundle_key_by_node: dict[str, tuple[str, ...]] = {}
+    for n in bundle_nodes:
+        key = tuple(sorted(bundle_map[n]))
+        bundle_key_by_node[n] = key
+        bundle_counts[key] += 1
+
+    # Keep output deterministic and review-friendly.
+    ordered_nodes = sorted(
+        bundle_key_by_node,
+        key=lambda node_id: (
+            node_id.split("::", 3)[1:],
+            bundle_key_by_node.get(node_id, ()),
+        ),
+    )
+
+    lines: list[str] = []
+    for bundle_id in ordered_nodes:
+        bundle_key = bundle_key_by_node[bundle_id]
+        observed_only = (not declared_global) or (bundle_key not in declared_global)
+        if not observed_only or bundle_key in documented:
+            continue
+        tier = "tier-2" if bundle_counts.get(bundle_key, 1) > 1 else "tier-3"
+
+        _, file_id, fn_name, idx_str = bundle_id.split("::", 3)
+        bundle_idx = int(idx_str)
+        path = Path(file_id)
+        fn_sites = bundle_sites_by_path[path][fn_name]
+        for site in fn_sites[bundle_idx][:max_sites_per_bundle]:
+            start_line, start_col, end_line, end_col = site["span"]
+            loc = f"{start_line + 1}:{start_col + 1}-{end_line + 1}:{end_col + 1}"
+            rel = _normalize_snapshot_path(path, root)
+            callee = str(site.get("callee") or "")
+            params = ", ".join(site.get("params") or [])
+            slots = ", ".join(site.get("slots") or [])
+            bundle_label = ", ".join(bundle_key)
+            lines.append(
+                f"{rel}:{loc}: {fn_name} -> {callee} forwards {params} "
+                f"({tier}, undocumented bundle: {bundle_label}; slots: {slots})"
+            )
+    return lines
+
+
 def _emit_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
@@ -4366,6 +4528,10 @@ def _emit_report(
     # audits don't accidentally ingest virtualenvs or unrelated files.
     file_paths = sorted(groups_by_path) if groups_by_path else []
     config_bundles_by_path = _collect_config_bundles(file_paths)
+    declared_global: set[tuple[str, ...]] = set()
+    for bundles in config_bundles_by_path.values():
+        for fields in bundles.values():
+            declared_global.add(tuple(sorted(fields)))
     documented_bundles_by_path = {}
     symbol_table = _build_symbol_table(
         file_paths,
@@ -4415,6 +4581,22 @@ def _emit_report(
             lines.append(summary)
             lines.append("```")
             lines.append("")
+            if bundle_sites_by_path:
+                evidence = _render_component_callsite_evidence(
+                    component=comp,
+                    nodes=nodes,
+                    bundle_map=bundle_map,
+                    documented_bundles_by_path=documented_bundles_by_path,
+                    declared_global=declared_global,
+                    bundle_sites_by_path=bundle_sites_by_path,
+                    root=root,
+                )
+                if evidence:
+                    lines.append("Callsite evidence (undocumented bundles):")
+                    lines.append("```")
+                    lines.extend(evidence)
+                    lines.append("```")
+                    lines.append("")
             for line in summary.splitlines():
                 # Violation strings are semantic objects; avoid leaking markdown
                 # bullets into baseline keys.
@@ -5597,6 +5779,7 @@ def render_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
@@ -5620,6 +5803,7 @@ def render_report(
     return _emit_report(
         groups_by_path,
         max_components,
+        bundle_sites_by_path=bundle_sites_by_path,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,
@@ -5685,11 +5869,15 @@ def analyze_paths(
     file_paths = _iter_paths([str(p) for p in paths], config)
     groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
     param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = {}
     invariant_propositions: list[InvariantProposition] = []
     for path in file_paths:
-        groups, spans = analyze_file(path, recursive=recursive, config=config)
+        groups, spans, sites = _analyze_file_internal(
+            path, recursive=recursive, config=config
+        )
         groups_by_path[path] = groups
         param_spans_by_path[path] = spans
+        bundle_sites_by_path[path] = sites
         if include_invariant_propositions:
             invariant_propositions.extend(
                 _collect_invariant_propositions(
@@ -5858,6 +6046,7 @@ def analyze_paths(
     return AnalysisResult(
         groups_by_path=groups_by_path,
         param_spans_by_path=param_spans_by_path,
+        bundle_sites_by_path=bundle_sites_by_path,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
         constant_smells=constant_smells,

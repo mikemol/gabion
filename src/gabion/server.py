@@ -391,6 +391,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         report, violations = render_report(
             analysis.groups_by_path,
             max_components,
+            bundle_sites_by_path=analysis.bundle_sites_by_path,
             type_suggestions=analysis.type_suggestions if type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
             constant_smells=analysis.constant_smells,

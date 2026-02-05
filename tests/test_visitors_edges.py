@@ -218,6 +218,22 @@ def test_bind_sequence_edge_cases() -> None:
         ctx=ast.Load(),
     )
     assert visitor._bind_sequence(nested_target, nested_rhs) is True
+
+
+def test_starred_list_literal_records_forward_without_site() -> None:
+    code = "def f(a):\n    return [*a]\n"
+    tree, visitor, use_map, _ = _make_use_visitor(code, ["a"], strictness="low")
+    visitor.visit(tree)
+    assert ("args[*]", "arg[*]") in use_map["a"].direct_forward
+    assert use_map["a"].forward_sites == {}
+
+
+def test_record_forward_skips_call_without_span() -> None:
+    tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"], strictness="low")
+    call = ast.Call(func=ast.Name(id="g", ctx=ast.Load()), args=[], keywords=[])
+    visitor._record_forward("a", "g", "arg[0]", call)
+    assert ("g", "arg[0]") in use_map["a"].direct_forward
+    assert use_map["a"].forward_sites == {}
     mismatch_target = ast.Tuple(
         elts=[ast.Name(id="x", ctx=ast.Store())],
         ctx=ast.Store(),

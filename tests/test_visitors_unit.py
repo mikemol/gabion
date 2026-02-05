@@ -86,6 +86,11 @@ def test_usevisitor_span_adjusts_zero_width_call() -> None:
     )
 
 
+def test_usevisitor_node_span_none_without_locations() -> None:
+    *_, UseVisitor = _load()
+    assert UseVisitor._node_span(ast.AST()) is None
+
+
 def test_usevisitor_alias_binding_and_non_forward() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
