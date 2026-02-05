@@ -10,29 +10,7 @@ merge_overlap_threshold = 0.75
 tier1 = []
 tier2 = []
 tier3 = []
-ignore_params = [
-  "a",
-  "args",
-  "b",
-  "current_module",
-  "import_map",
-  "key",
-  "left",
-  "lint",
-  "ls",
-  "name",
-  "node",
-  "part",
-  "payload",
-  "prime",
-  "registry",
-  "request",
-  "right",
-  "scope",
-  "start",
-  "strict",
-  "updated_node",
-]
+ignore_params = []
 
 [exceptions]
 never = [

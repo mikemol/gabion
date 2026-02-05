@@ -39,6 +39,8 @@ consolidation_report="$snapshot_dir/consolidation_report.md"
 consolidation_suggestions="$snapshot_dir/consolidation_suggestions.json"
 docflow="$snapshot_dir/docflow_audit.txt"
 lint="$snapshot_dir/lint.txt"
+lint_jsonl="$snapshot_dir/lint.jsonl"
+lint_sarif="$snapshot_dir/lint.sarif"
 
 case "${1:-}" in
   --report) echo "$report" ;;
@@ -59,6 +61,8 @@ case "${1:-}" in
   --consolidation-suggestions) echo "$consolidation_suggestions" ;;
   --docflow) echo "$docflow" ;;
   --lint) echo "$lint" ;;
+  --lint-jsonl) echo "$lint_jsonl" ;;
+  --lint-sarif) echo "$lint_sarif" ;;
   --dir) echo "$snapshot_dir" ;;
   "")
     echo "Latest snapshot:"
@@ -80,9 +84,11 @@ case "${1:-}" in
     echo "- $consolidation_suggestions"
     echo "- $docflow"
     echo "- $lint"
+    echo "- $lint_jsonl"
+    echo "- $lint_sarif"
     ;;
   *)
-    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--fingerprint-rewrite-plans|--fingerprint-exception-obligations|--fingerprint-handledness|--decision|--decision-tier-candidates|--consolidation-report|--consolidation-suggestions|--docflow|--lint|--dir]" >&2
+    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--fingerprint-rewrite-plans|--fingerprint-exception-obligations|--fingerprint-handledness|--decision|--decision-tier-candidates|--consolidation-report|--consolidation-suggestions|--docflow|--lint|--lint-jsonl|--lint-sarif|--dir]" >&2
     exit 2
     ;;
 esac

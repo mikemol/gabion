@@ -31,6 +31,8 @@ consolidation_report="${artifacts_dir}/consolidation_report.md"
 consolidation_suggestions="${artifacts_dir}/consolidation_suggestions.json"
 docflow_report="${artifacts_dir}/docflow_audit.txt"
 lint_report="${artifacts_dir}/lint.txt"
+lint_jsonl="${artifacts_dir}/lint.jsonl"
+lint_sarif="${artifacts_dir}/lint.sarif"
 
 mise exec -- python -m gabion dataflow-audit "$root" \
   --root "$root" \
@@ -50,7 +52,9 @@ mise exec -- python -m gabion dataflow-audit "$root" \
   --fingerprint-exception-obligations-json "$dataflow_fingerprint_exception_obligations" \
   --fingerprint-handledness-json "$dataflow_fingerprint_handledness" \
   --emit-decision-snapshot "$decision_snapshot" \
-  --lint > "$lint_report"
+  --lint \
+  --lint-jsonl "$lint_jsonl" \
+  --lint-sarif "$lint_sarif" > "$lint_report"
 
 mise exec -- python scripts/audit_tools.py docflow --root "$root" > "$docflow_report"
 mise exec -- python scripts/audit_tools.py decision-tiers --root "$root" > "$decision_tier_candidates"
@@ -79,4 +83,6 @@ echo "- $consolidation_report"
 echo "- $consolidation_suggestions"
 echo "- $docflow_report"
 echo "- $lint_report"
+echo "- $lint_jsonl"
+echo "- $lint_sarif"
 echo "- $latest_marker"

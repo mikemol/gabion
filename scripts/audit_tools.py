@@ -123,20 +123,17 @@ def _latest_lint_path(root: Path) -> Path:
 
 
 def _parse_lint_entry(line: str) -> LintEntry | None:
-    parts = line.strip().split(": ", 1)
-    if len(parts) != 2:
+    match = re.match(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$", line.strip())
+    if not match:
         return None
-    location, remainder = parts
-    loc_parts = location.split(":")
-    if len(loc_parts) < 3:
-        return None
-    path = ":".join(loc_parts[:-2])
+    path = match.group("path")
     try:
-        line_no = int(loc_parts[-2])
-        col_no = int(loc_parts[-1])
+        line_no = int(match.group("line"))
+        col_no = int(match.group("col"))
     except ValueError:
         return None
-    remainder_parts = remainder.split(" ", 1)
+    remainder = match.group("rest")
+    remainder_parts = remainder.split(" ", 1) if remainder else []
     if not remainder_parts:
         return None
     code = remainder_parts[0]

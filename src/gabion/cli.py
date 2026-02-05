@@ -8,6 +8,7 @@ import argparse
 import json
 import subprocess
 import sys
+import re
 
 import typer
 
@@ -22,6 +23,8 @@ from gabion.json_types import JSONObject
 app = typer.Typer(add_completion=False)
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
+
+_LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 
 @dataclass(frozen=True)
@@ -49,6 +52,96 @@ def _split_csv(value: Optional[str]) -> list[str] | None:
         return None
     items = [part.strip() for part in value.split(",") if part.strip()]
     return items or None
+
+
+def _parse_lint_line(line: str) -> dict[str, object] | None:
+    match = _LINT_RE.match(line.strip())
+    if not match:
+        return None
+    try:
+        line_no = int(match.group("line"))
+        col_no = int(match.group("col"))
+    except ValueError:
+        return None
+    rest = match.group("rest").strip()
+    if not rest:
+        return None
+    code, _, message = rest.partition(" ")
+    return {
+        "path": match.group("path"),
+        "line": line_no,
+        "col": col_no,
+        "code": code,
+        "message": message,
+        "severity": "warning",
+    }
+
+
+def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for line in lines:
+        parsed = _parse_lint_line(line)
+        if parsed is not None:
+            entries.append(parsed)
+    return entries
+
+
+def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
+    payload = "\n".join(json.dumps(entry, sort_keys=True) for entry in entries)
+    if target == "-":
+        typer.echo(payload)
+    else:
+        Path(target).write_text(payload + ("\n" if payload else ""))
+
+
+def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
+    rules: dict[str, dict[str, object]] = {}
+    results: list[dict[str, object]] = []
+    for entry in entries:
+        code = str(entry.get("code") or "GABION")
+        message = str(entry.get("message") or "").strip()
+        path = str(entry.get("path") or "")
+        line = int(entry.get("line") or 1)
+        col = int(entry.get("col") or 1)
+        if code not in rules:
+            rules[code] = {
+                "id": code,
+                "name": code,
+                "shortDescription": {"text": code},
+            }
+        results.append(
+            {
+                "ruleId": code,
+                "level": "warning",
+                "message": {"text": message or code},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": path},
+                            "region": {
+                                "startLine": line,
+                                "startColumn": col,
+                            },
+                        }
+                    }
+                ],
+            }
+        )
+    sarif = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {"driver": {"name": "gabion", "rules": list(rules.values())}},
+                "results": results,
+            }
+        ],
+    }
+    payload = json.dumps(sarif, indent=2, sort_keys=True)
+    if target == "-":
+        typer.echo(payload)
+    else:
+        Path(target).write_text(payload + "\n")
 
 
 def build_check_payload(
@@ -124,7 +217,7 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "type_audit": opts.type_audit,
         "type_audit_report": opts.type_audit_report,
         "type_audit_max": opts.type_audit_max,
-        "lint": opts.lint,
+        "lint": bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
         "decision_snapshot": str(opts.emit_decision_snapshot)
         if opts.emit_decision_snapshot
         else None,
@@ -298,9 +391,16 @@ def check(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
     lint: bool = typer.Option(False, "--lint/--no-lint"),
+    lint_jsonl: Optional[Path] = typer.Option(
+        None, "--lint-jsonl", help="Write lint JSONL to file or '-' for stdout."
+    ),
+    lint_sarif: Optional[Path] = typer.Option(
+        None, "--lint-sarif", help="Write lint SARIF to file or '-' for stdout."
+    ),
 ) -> None:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     """Run the dataflow grammar audit with strict defaults."""
+    lint_enabled = lint or bool(lint_jsonl or lint_sarif)
     result = run_check(
         paths=paths,
         report=report,
@@ -316,11 +416,18 @@ def check(
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
-        lint=lint,
+        lint=lint_enabled,
     )
+    lint_lines = result.get("lint_lines", []) or []
     if lint:
-        for line in result.get("lint_lines", []) or []:
+        for line in lint_lines:
             typer.echo(line)
+    if lint_jsonl or lint_sarif:
+        entries = _collect_lint_entries(lint_lines)
+        if lint_jsonl is not None:
+            _write_lint_jsonl(str(lint_jsonl), entries)
+        if lint_sarif is not None:
+            _write_lint_sarif(str(lint_sarif), entries)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -340,9 +447,16 @@ def _dataflow_audit(
         root=Path(opts.root),
         runner=runner,
     )
+    lint_lines = result.get("lint_lines", []) or []
     if opts.lint:
-        for line in result.get("lint_lines", []) or []:
+        for line in lint_lines:
             typer.echo(line)
+    if opts.lint_jsonl or opts.lint_sarif:
+        entries = _collect_lint_entries(lint_lines)
+        if opts.lint_jsonl is not None:
+            _write_lint_jsonl(str(opts.lint_jsonl), entries)
+        if opts.lint_sarif is not None:
+            _write_lint_sarif(str(opts.lint_sarif), entries)
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
         ambiguities = result.get("type_ambiguities", [])
@@ -520,6 +634,16 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         "--lint",
         action="store_true",
         help="Emit lint-style lines (path:line:col: CODE message).",
+    )
+    parser.add_argument(
+        "--lint-jsonl",
+        default=None,
+        help="Write lint JSONL to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--lint-sarif",
+        default=None,
+        help="Write lint SARIF to file or '-' for stdout.",
     )
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(
