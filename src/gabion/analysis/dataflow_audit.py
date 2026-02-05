@@ -2420,6 +2420,40 @@ def _lint_lines_from_type_evidence(evidence: Iterable[str]) -> list[str]:
     return lines
 
 
+def _lint_lines_from_unused_arg_smells(smells: Iterable[str]) -> list[str]:
+    lines: list[str] = []
+    for entry in smells:
+        parsed = _parse_lint_location(entry)
+        if not parsed:
+            continue
+        path, lineno, col, remainder = parsed
+        message = remainder or "unused argument flow"
+        lines.append(_lint_line(path, lineno, col, "GABION_UNUSED_ARG", message))
+    return lines
+
+
+def _extract_smell_sample(entry: str) -> str | None:
+    match = re.search(r"\(e\.g\.\s*([^)]+)\)", entry)
+    if not match:
+        return None
+    return match.group(1).strip()
+
+
+def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:
+    lines: list[str] = []
+    for entry in smells:
+        parsed = _parse_lint_location(entry)
+        if not parsed:
+            sample = _extract_smell_sample(entry)
+            if sample:
+                parsed = _parse_lint_location(sample)
+        if not parsed:
+            continue
+        path, lineno, col, _ = parsed
+        lines.append(_lint_line(path, lineno, col, "GABION_CONST_FLOW", entry))
+    return lines
+
+
 def _parse_exception_path_id(value: str) -> tuple[str, int, int] | None:
     parts = value.split(":", 5)
     if len(parts) != 6:
@@ -2511,6 +2545,8 @@ def _compute_lint_lines(
     type_callsite_evidence: list[str],
     exception_obligations: list[JSONObject],
     decision_lint_lines: list[str],
+    constant_smells: list[str],
+    unused_arg_smells: list[str],
 ) -> list[str]:
     lint_lines: list[str] = []
     bundle_evidence = _collect_bundle_evidence_lines(
@@ -2521,6 +2557,8 @@ def _compute_lint_lines(
     lint_lines.extend(_lint_lines_from_type_evidence(type_callsite_evidence))
     lint_lines.extend(_exception_protocol_lint_lines(exception_obligations))
     lint_lines.extend(decision_lint_lines)
+    lint_lines.extend(_lint_lines_from_constant_smells(constant_smells))
+    lint_lines.extend(_lint_lines_from_unused_arg_smells(unused_arg_smells))
     return sorted(set(lint_lines))
 
 
@@ -6592,6 +6630,8 @@ def analyze_paths(
             type_callsite_evidence=type_callsite_evidence,
             exception_obligations=exception_obligations,
             decision_lint_lines=decision_lint_lines,
+            constant_smells=constant_smells,
+            unused_arg_smells=unused_arg_smells,
         )
 
     return AnalysisResult(

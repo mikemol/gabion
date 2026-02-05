@@ -49,3 +49,21 @@ def test_lint_lines_from_type_and_exception_evidence() -> None:
     assert lint_lines == [
         "mod.py:3:1: GABION_EXC_NEVER never-throw exception NeverRaise (status=FORBIDDEN)"
     ]
+
+
+def test_lint_lines_from_constant_and_unused_smells() -> None:
+    da = _load()
+    constant_smell = (
+        "mod.py:f.a only observed constant 1 across 2 non-test call(s) "
+        "(e.g. mod.py:10:4:f)"
+    )
+    const_lines = da._lint_lines_from_constant_smells([constant_smell])
+    assert const_lines == [
+        "mod.py:10:4: GABION_CONST_FLOW "
+        "mod.py:f.a only observed constant 1 across 2 non-test call(s) (e.g. mod.py:10:4:f)"
+    ]
+    unused_smell = "mod.py:12:3:f passes param x to unused mod.py:g.y"
+    unused_lines = da._lint_lines_from_unused_arg_smells([unused_smell])
+    assert unused_lines == [
+        "mod.py:12:3: GABION_UNUSED_ARG f passes param x to unused mod.py:g.y"
+    ]
