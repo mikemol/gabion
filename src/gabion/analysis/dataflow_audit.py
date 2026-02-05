@@ -667,7 +667,7 @@ def analyze_decision_surfaces_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], list[str]]:
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -700,29 +700,59 @@ def analyze_decision_surfaces_repo(
 
     surfaces: list[str] = []
     warnings: list[str] = []
+    lint_lines: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
         if not info.decision_params:
             continue
         caller_count = len(callers_by_qual.get(info.qual, set()))
         boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
+        params = sorted(info.decision_params)
         surfaces.append(
             f"{info.path.name}:{info.qual} decision surface params: "
-            + ", ".join(sorted(info.decision_params))
+            + ", ".join(params)
             + f" ({boundary})"
         )
+        for param in params:
+            lint = _decision_param_lint_line(
+                info,
+                param,
+                project_root=project_root,
+                code="GABION_DECISION_SURFACE",
+                message=f"decision surface param '{param}' ({boundary})",
+            )
+            if lint is not None:
+                lint_lines.append(lint)
         if tier_map:
-            for param in sorted(info.decision_params):
+            for param in params:
                 tier = tier_map.get(param)
                 if tier is None:
-                    warnings.append(
-                        f"{info.path.name}:{info.qual} decision param '{param}' missing decision tier metadata"
+                    message = f"decision param '{param}' missing decision tier metadata"
+                    warnings.append(f"{info.path.name}:{info.qual} {message}")
+                    lint = _decision_param_lint_line(
+                        info,
+                        param,
+                        project_root=project_root,
+                        code="GABION_DECISION_TIER",
+                        message=message,
                     )
+                    if lint is not None:
+                        lint_lines.append(lint)
                 elif tier in {2, 3} and caller_count > 0:
-                    warnings.append(
-                        f"{info.path.name}:{info.qual} tier-{tier} decision param '{param}' used below boundary ({boundary})"
+                    message = (
+                        f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
                     )
-    return sorted(surfaces), sorted(set(warnings))
+                    warnings.append(f"{info.path.name}:{info.qual} {message}")
+                    lint = _decision_param_lint_line(
+                        info,
+                        param,
+                        project_root=project_root,
+                        code="GABION_DECISION_TIER",
+                        message=message,
+                    )
+                    if lint is not None:
+                        lint_lines.append(lint)
+    return sorted(surfaces), sorted(set(warnings)), sorted(set(lint_lines))
 
 
 def analyze_value_encoded_decisions_repo(
@@ -734,7 +764,7 @@ def analyze_value_encoded_decisions_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
-) -> tuple[list[str], list[str], list[str]]:
+) -> tuple[list[str], list[str], list[str], list[str]]:
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -767,6 +797,7 @@ def analyze_value_encoded_decisions_repo(
     surfaces: list[str] = []
     warnings: list[str] = []
     rewrites: list[str] = []
+    lint_lines: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
         if not info.value_decision_params:
@@ -774,28 +805,64 @@ def analyze_value_encoded_decisions_repo(
         reasons = ", ".join(sorted(info.value_decision_reasons)) or "heuristic"
         caller_count = len(callers_by_qual.get(info.qual, set()))
         boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
+        params = sorted(info.value_decision_params)
         surfaces.append(
             f"{info.path.name}:{info.qual} value-encoded decision params: "
-            + ", ".join(sorted(info.value_decision_params))
+            + ", ".join(params)
             + f" ({reasons})"
         )
         rewrites.append(
             f"{info.path.name}:{info.qual} consider rebranching value-encoded decision params: "
-            + ", ".join(sorted(info.value_decision_params))
+            + ", ".join(params)
             + f" ({reasons})"
         )
+        for param in params:
+            lint = _decision_param_lint_line(
+                info,
+                param,
+                project_root=project_root,
+                code="GABION_VALUE_DECISION_SURFACE",
+                message=f"value-encoded decision param '{param}' ({boundary}; {reasons})",
+            )
+            if lint is not None:
+                lint_lines.append(lint)
         if tier_map:
-            for param in sorted(info.value_decision_params):
+            for param in params:
                 tier = tier_map.get(param)
                 if tier is None:
-                    warnings.append(
-                        f"{info.path.name}:{info.qual} value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
+                    message = (
+                        f"value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
                     )
+                    warnings.append(f"{info.path.name}:{info.qual} {message}")
+                    lint = _decision_param_lint_line(
+                        info,
+                        param,
+                        project_root=project_root,
+                        code="GABION_VALUE_DECISION_TIER",
+                        message=message,
+                    )
+                    if lint is not None:
+                        lint_lines.append(lint)
                 elif tier in {2, 3} and caller_count > 0:
-                    warnings.append(
-                        f"{info.path.name}:{info.qual} tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
+                    message = (
+                        f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
                     )
-    return sorted(surfaces), sorted(set(warnings)), sorted(set(rewrites))
+                    warnings.append(f"{info.path.name}:{info.qual} {message}")
+                    lint = _decision_param_lint_line(
+                        info,
+                        param,
+                        project_root=project_root,
+                        code="GABION_VALUE_DECISION_TIER",
+                        message=message,
+                    )
+                    if lint is not None:
+                        lint_lines.append(lint)
+    return (
+        sorted(surfaces),
+        sorted(set(warnings)),
+        sorted(set(rewrites)),
+        sorted(set(lint_lines)),
+    )
 
 
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
@@ -2313,6 +2380,22 @@ def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
     return f"{path}:{line}:{col}: {code} {message}".strip()
 
 
+def _decision_param_lint_line(
+    info: "FunctionInfo",
+    param: str,
+    *,
+    project_root: Path | None,
+    code: str,
+    message: str,
+) -> str | None:
+    span = info.param_spans.get(param)
+    if span is None:
+        return None
+    path = _normalize_snapshot_path(info.path, project_root)
+    line, col, _, _ = span
+    return _lint_line(path, line + 1, col + 1, code, message)
+
+
 def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
     lines: list[str] = []
     for entry in evidence:
@@ -2427,6 +2510,7 @@ def _compute_lint_lines(
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
     type_callsite_evidence: list[str],
     exception_obligations: list[JSONObject],
+    decision_lint_lines: list[str],
 ) -> list[str]:
     lint_lines: list[str] = []
     bundle_evidence = _collect_bundle_evidence_lines(
@@ -2436,6 +2520,7 @@ def _compute_lint_lines(
     lint_lines.extend(_lint_lines_from_bundle_evidence(bundle_evidence))
     lint_lines.extend(_lint_lines_from_type_evidence(type_callsite_evidence))
     lint_lines.extend(_exception_protocol_lint_lines(exception_obligations))
+    lint_lines.extend(decision_lint_lines)
     return sorted(set(lint_lines))
 
 
@@ -6385,15 +6470,18 @@ def analyze_paths(
 
     decision_surfaces: list[str] = []
     decision_warnings: list[str] = []
+    decision_lint_lines: list[str] = []
     if include_decision_surfaces:
-        decision_surfaces, decision_warnings = analyze_decision_surfaces_repo(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-            decision_tiers=config.decision_tiers,
+        decision_surfaces, decision_warnings, decision_lint_lines = (
+            analyze_decision_surfaces_repo(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                external_filter=config.external_filter,
+                transparent_decorators=config.transparent_decorators,
+                decision_tiers=config.decision_tiers,
+            )
         )
     value_decision_surfaces: list[str] = []
     value_decision_rewrites: list[str] = []
@@ -6402,6 +6490,7 @@ def analyze_paths(
             value_decision_surfaces,
             value_warnings,
             value_decision_rewrites,
+            value_lint_lines,
         ) = analyze_value_encoded_decisions_repo(
             file_paths,
             project_root=config.project_root,
@@ -6412,6 +6501,7 @@ def analyze_paths(
             decision_tiers=config.decision_tiers,
         )
         decision_warnings.extend(value_warnings)
+        decision_lint_lines.extend(value_lint_lines)
     fingerprint_warnings: list[str] = []
     fingerprint_matches: list[str] = []
     fingerprint_synth: list[str] = []
@@ -6501,6 +6591,7 @@ def analyze_paths(
             bundle_sites_by_path=bundle_sites_by_path,
             type_callsite_evidence=type_callsite_evidence,
             exception_obligations=exception_obligations,
+            decision_lint_lines=decision_lint_lines,
         )
 
     return AnalysisResult(

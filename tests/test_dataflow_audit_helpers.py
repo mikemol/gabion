@@ -159,7 +159,7 @@ def test_analyze_decision_surfaces_repo_warnings(tmp_path: Path) -> None:
         "def caller(a):\n"
         "    return callee(a)\n",
     )
-    surfaces, warnings = da.analyze_decision_surfaces_repo(
+    surfaces, warnings, lint_lines = da.analyze_decision_surfaces_repo(
         [module_path, test_path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -170,6 +170,8 @@ def test_analyze_decision_surfaces_repo_warnings(tmp_path: Path) -> None:
     assert surfaces
     assert any("missing decision tier metadata" in warning for warning in warnings)
     assert any("tier-2 decision param" in warning for warning in warnings)
+    assert any("GABION_DECISION_TIER" in line for line in lint_lines)
+    assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
 
 
 def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
@@ -197,7 +199,7 @@ def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
         "def vcaller(flag):\n"
         "    return vcallee(flag)\n",
     )
-    surfaces, warnings, rewrites = da.analyze_value_encoded_decisions_repo(
+    surfaces, warnings, rewrites, lint_lines = da.analyze_value_encoded_decisions_repo(
         [module_path, test_path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -209,6 +211,8 @@ def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
     assert rewrites
     assert any("missing decision tier metadata" in warning for warning in warnings)
     assert any("tier-2 value-encoded" in warning for warning in warnings)
+    assert any("GABION_VALUE_DECISION_TIER" in line for line in lint_lines)
+    assert any("GABION_VALUE_DECISION_SURFACE" in line for line in lint_lines)
 
 
 def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:

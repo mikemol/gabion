@@ -52,7 +52,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         "        return a\n"
         "    return b\n"
     )
-    surfaces, warnings = da.analyze_decision_surfaces_repo(
+    surfaces, warnings, lint_lines = da.analyze_decision_surfaces_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -62,6 +62,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
     )
     assert surfaces == ["mod.py:mod.f decision surface params: b (boundary)"]
     assert warnings == []
+    assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
 
     analysis = da.analyze_paths(
         [path],
@@ -77,7 +78,12 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
     assert analysis.decision_surfaces == surfaces
     assert analysis.decision_warnings == warnings
 
-    value_surfaces, value_warnings, value_rewrites = da.analyze_value_encoded_decisions_repo(
+    (
+        value_surfaces,
+        value_warnings,
+        value_rewrites,
+        value_lint_lines,
+    ) = da.analyze_value_encoded_decisions_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -88,6 +94,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
     assert value_surfaces == []
     assert value_warnings == []
     assert value_rewrites == []
+    assert value_lint_lines == []
 
 
 def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
@@ -100,7 +107,7 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
         "    z = mask & 1\n"
         "    return x + y + z\n"
     )
-    surfaces, warnings, rewrites = da.analyze_value_encoded_decisions_repo(
+    surfaces, warnings, rewrites, lint_lines = da.analyze_value_encoded_decisions_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -115,6 +122,7 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
     assert rewrites == [
         "mod.py:mod.f consider rebranching value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
     ]
+    assert any("GABION_VALUE_DECISION_SURFACE" in line for line in lint_lines)
 
 
 def test_emit_report_includes_value_rewrites(tmp_path: Path) -> None:
@@ -142,7 +150,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         "def g(x, y):\n"
         "    return f(x, y)\n"
     )
-    surfaces, warnings = da.analyze_decision_surfaces_repo(
+    surfaces, warnings, lint_lines = da.analyze_decision_surfaces_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -152,6 +160,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
     )
     assert surfaces == ["mod.py:mod.f decision surface params: b (internal callers: 1)"]
     assert warnings == []
+    assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
 
     analysis = da.analyze_paths(
         [path],
@@ -194,7 +203,7 @@ def test_decision_surface_tier_warning_internal(tmp_path: Path) -> None:
         "def api(user_mode):\n"
         "    return internal(user_mode)\n"
     )
-    _, warnings = da.analyze_decision_surfaces_repo(
+    _, warnings, lint_lines = da.analyze_decision_surfaces_repo(
         [path],
         project_root=tmp_path,
         ignore_params=set(),
@@ -204,3 +213,4 @@ def test_decision_surface_tier_warning_internal(tmp_path: Path) -> None:
         decision_tiers={"user_mode": 3},
     )
     assert any("tier-3 decision param 'user_mode'" in warning for warning in warnings)
+    assert any("GABION_DECISION_TIER" in line for line in lint_lines)
