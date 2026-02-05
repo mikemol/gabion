@@ -15,9 +15,14 @@ doc_requires:
   - POLICY_SEED.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 71
-  AGENTS.md: 12
-  POLICY_SEED.md: 28
+  CONTRIBUTING.md: 72
+  AGENTS.md: 13
+  POLICY_SEED.md: 29
+doc_review_notes:
+  README.md: "Reviewed for attribute-carrier terminology; no conflicts."
+  CONTRIBUTING.md: "Workflow review discipline aligns with glossary obligations."
+  AGENTS.md: "Agent discipline consistent with glossary commutation rules."
+  POLICY_SEED.md: "Review-discipline invariant aligns with glossary test obligations."
 doc_commutes_with:
   - POLICY_SEED.md
 doc_change_protocol: "POLICY_SEED.md §6"

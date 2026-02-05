@@ -17,11 +17,17 @@ doc_requires:
   - CONTRIBUTING.md
   - AGENTS.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 28
+  POLICY_SEED.md: 29
   glossary.md: 20
   README.md: 58
-  CONTRIBUTING.md: 71
-  AGENTS.md: 12
+  CONTRIBUTING.md: 72
+  AGENTS.md: 13
+doc_review_notes:
+  POLICY_SEED.md: "Review-discipline invariant does not alter coverage semantics."
+  glossary.md: "Attribute Carrier/Transport entries do not change coverage rules."
+  README.md: "Scope references remain accurate."
+  CONTRIBUTING.md: "Review discipline aligns with coverage enforcement workflow."
+  AGENTS.md: "Agent review discipline consistent with coverage obligations."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - coverage_is_evidence

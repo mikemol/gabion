@@ -1,5 +1,5 @@
 ---
-doc_revision: 71
+doc_revision: 72
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,10 +17,16 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  AGENTS.md: 12
-  POLICY_SEED.md: 28
+  AGENTS.md: 13
+  POLICY_SEED.md: 29
   glossary.md: 20
   docs/coverage_semantics.md: 6
+doc_review_notes:
+  README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
+  AGENTS.md: "Agent review discipline aligns with contributor workflow."
+  POLICY_SEED.md: "Review discipline invariant incorporated here."
+  glossary.md: "Attribute Carrier/Transport entries are consistent with workflow guidance."
+  docs/coverage_semantics.md: "Coverage semantics unchanged by review discipline."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake
@@ -42,6 +48,12 @@ self-hosted runners. Please read `POLICY_SEED.md` before making changes.
 Execution safety is governed by `POLICY_SEED.md`. Semantic correctness is
 governed by `glossary.md`. Both contracts must be satisfied for any change to be
 valid.
+
+## Documentation review discipline (normative)
+- `doc_reviewed_as_of` updates must reflect a real content review.
+- Each update must include a non-empty `doc_review_notes` entry describing the
+  dependency interaction.
+- Mechanical version stamping is prohibited and treated as a governance breach.
 
 ## Architectural invariants (normative)
 - **LSP-first invariant:** the language server is the semantic core; the CLI is

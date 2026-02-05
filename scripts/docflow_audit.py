@@ -34,6 +34,7 @@ REQUIRED_FIELDS = [
     "doc_authority",
     "doc_requires",
     "doc_reviewed_as_of",
+    "doc_review_notes",
     "doc_change_protocol",
 ]
 LIST_FIELDS = {
@@ -45,6 +46,7 @@ LIST_FIELDS = {
 }
 MAP_FIELDS = {
     "doc_reviewed_as_of",
+    "doc_review_notes",
 }
 
 FrontmatterScalar: TypeAlias = str | int
@@ -180,8 +182,11 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
         for field in ("doc_scope", "doc_requires"):
             if field in fm and not isinstance(fm[field], list):
                 violations.append(f"{rel}: frontmatter field '{field}' must be a list")
-        if "doc_reviewed_as_of" in fm and not isinstance(fm["doc_reviewed_as_of"], dict):
-            violations.append(f"{rel}: frontmatter field 'doc_reviewed_as_of' must be a map")
+        for field in ("doc_reviewed_as_of", "doc_review_notes"):
+            if field in fm and not isinstance(fm[field], dict):
+                violations.append(
+                    f"{rel}: frontmatter field '{field}' must be a map"
+                )
         # Normative docs must require the governance bundle.
         if fm.get("doc_authority") == "normative":
             requires = set(fm.get("doc_requires", []))
@@ -221,6 +226,7 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
                     violations.append(f"{rel}: missing explicit reference to {req}")
         # Convergence check (re-reviewed as of)
         reviewed = fm.get("doc_reviewed_as_of")
+        review_notes = fm.get("doc_review_notes")
         if isinstance(requires, list) and requires:
             if not isinstance(reviewed, dict):
                 violations.append(f"{rel}: doc_reviewed_as_of missing or invalid")
@@ -240,6 +246,15 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
                     elif seen != expected:
                         violations.append(
                             f"{rel}: doc_reviewed_as_of[{req}]={seen} does not match {expected}"
+                        )
+            if not isinstance(review_notes, dict):
+                violations.append(f"{rel}: doc_review_notes missing or invalid")
+            else:
+                for req in requires:
+                    note = review_notes.get(req)
+                    if not isinstance(note, str) or not note.strip():
+                        violations.append(
+                            f"{rel}: doc_review_notes[{req}] missing or empty"
                         )
 
     warnings.extend(_tooling_warnings(root, docs))
