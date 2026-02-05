@@ -34,6 +34,7 @@ fingerprint_rewrite_plans="$snapshot_dir/fingerprint_rewrite_plans.json"
 fingerprint_exception_obligations="$snapshot_dir/fingerprint_exception_obligations.json"
 fingerprint_handledness="$snapshot_dir/fingerprint_handledness.json"
 decision="$snapshot_dir/decision_snapshot.json"
+decision_tier_candidates="$snapshot_dir/decision_tier_candidates.toml"
 docflow="$snapshot_dir/docflow_audit.txt"
 lint="$snapshot_dir/lint.txt"
 
@@ -51,6 +52,7 @@ case "${1:-}" in
   --fingerprint-exception-obligations) echo "$fingerprint_exception_obligations" ;;
   --fingerprint-handledness) echo "$fingerprint_handledness" ;;
   --decision) echo "$decision" ;;
+  --decision-tier-candidates) echo "$decision_tier_candidates" ;;
   --docflow) echo "$docflow" ;;
   --lint) echo "$lint" ;;
   --dir) echo "$snapshot_dir" ;;
@@ -69,11 +71,12 @@ case "${1:-}" in
     echo "- $fingerprint_exception_obligations"
     echo "- $fingerprint_handledness"
     echo "- $decision"
+    echo "- $decision_tier_candidates"
     echo "- $docflow"
     echo "- $lint"
     ;;
   *)
-    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--fingerprint-rewrite-plans|--fingerprint-exception-obligations|--fingerprint-handledness|--decision|--docflow|--lint|--dir]" >&2
+    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--fingerprint-rewrite-plans|--fingerprint-exception-obligations|--fingerprint-handledness|--decision|--decision-tier-candidates|--docflow|--lint|--dir]" >&2
     exit 2
     ;;
 esac

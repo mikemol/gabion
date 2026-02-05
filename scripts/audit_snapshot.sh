@@ -26,6 +26,7 @@ dataflow_fingerprint_rewrite_plans="${artifacts_dir}/fingerprint_rewrite_plans.j
 dataflow_fingerprint_exception_obligations="${artifacts_dir}/fingerprint_exception_obligations.json"
 dataflow_fingerprint_handledness="${artifacts_dir}/fingerprint_handledness.json"
 decision_snapshot="${artifacts_dir}/decision_snapshot.json"
+decision_tier_candidates="${artifacts_dir}/decision_tier_candidates.toml"
 docflow_report="${artifacts_dir}/docflow_audit.txt"
 lint_report="${artifacts_dir}/lint.txt"
 
@@ -50,6 +51,7 @@ mise exec -- python -m gabion dataflow-audit "$root" \
   --lint > "$lint_report"
 
 mise exec -- python scripts/docflow_audit.py --root "$root" > "$docflow_report"
+mise exec -- python scripts/decision_tier_candidates.py --root "$root" > "$decision_tier_candidates"
 
 echo "$timestamp" > "$latest_marker"
 
@@ -67,6 +69,7 @@ echo "- $dataflow_fingerprint_rewrite_plans"
 echo "- $dataflow_fingerprint_exception_obligations"
 echo "- $dataflow_fingerprint_handledness"
 echo "- $decision_snapshot"
+echo "- $decision_tier_candidates"
 echo "- $docflow_report"
 echo "- $lint_report"
 echo "- $latest_marker"
