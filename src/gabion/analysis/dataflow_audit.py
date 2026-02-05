@@ -713,16 +713,17 @@ def analyze_decision_surfaces_repo(
             + ", ".join(params)
             + f" ({boundary})"
         )
-        for param in params:
-            lint = _decision_param_lint_line(
-                info,
-                param,
-                project_root=project_root,
-                code="GABION_DECISION_SURFACE",
-                message=f"decision surface param '{param}' ({boundary})",
-            )
-            if lint is not None:
-                lint_lines.append(lint)
+        if caller_count == 0:
+            for param in params:
+                lint = _decision_param_lint_line(
+                    info,
+                    param,
+                    project_root=project_root,
+                    code="GABION_DECISION_SURFACE",
+                    message=f"decision surface param '{param}' ({boundary})",
+                )
+                if lint is not None:
+                    lint_lines.append(lint)
         if tier_map:
             for param in params:
                 tier = tier_map.get(param)

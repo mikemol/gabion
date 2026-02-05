@@ -160,7 +160,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
     )
     assert surfaces == ["mod.py:mod.f decision surface params: b (internal callers: 1)"]
     assert warnings == []
-    assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
+    assert lint_lines == []
 
     analysis = da.analyze_paths(
         [path],
