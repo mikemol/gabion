@@ -35,6 +35,8 @@ fingerprint_exception_obligations="$snapshot_dir/fingerprint_exception_obligatio
 fingerprint_handledness="$snapshot_dir/fingerprint_handledness.json"
 decision="$snapshot_dir/decision_snapshot.json"
 decision_tier_candidates="$snapshot_dir/decision_tier_candidates.toml"
+consolidation_report="$snapshot_dir/consolidation_report.md"
+consolidation_suggestions="$snapshot_dir/consolidation_suggestions.json"
 docflow="$snapshot_dir/docflow_audit.txt"
 lint="$snapshot_dir/lint.txt"
 
@@ -53,6 +55,8 @@ case "${1:-}" in
   --fingerprint-handledness) echo "$fingerprint_handledness" ;;
   --decision) echo "$decision" ;;
   --decision-tier-candidates) echo "$decision_tier_candidates" ;;
+  --consolidation-report) echo "$consolidation_report" ;;
+  --consolidation-suggestions) echo "$consolidation_suggestions" ;;
   --docflow) echo "$docflow" ;;
   --lint) echo "$lint" ;;
   --dir) echo "$snapshot_dir" ;;
@@ -72,11 +76,13 @@ case "${1:-}" in
     echo "- $fingerprint_handledness"
     echo "- $decision"
     echo "- $decision_tier_candidates"
+    echo "- $consolidation_report"
+    echo "- $consolidation_suggestions"
     echo "- $docflow"
     echo "- $lint"
     ;;
   *)
-    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--fingerprint-rewrite-plans|--fingerprint-exception-obligations|--fingerprint-handledness|--decision|--decision-tier-candidates|--docflow|--lint|--dir]" >&2
+    echo "Usage: scripts/latest_snapshot.sh [--report|--dot|--plan|--protocols|--refactor|--fingerprint-synth|--fingerprint-provenance|--fingerprint-deadness|--fingerprint-coherence|--fingerprint-rewrite-plans|--fingerprint-exception-obligations|--fingerprint-handledness|--decision|--decision-tier-candidates|--consolidation-report|--consolidation-suggestions|--docflow|--lint|--dir]" >&2
     exit 2
     ;;
 esac
