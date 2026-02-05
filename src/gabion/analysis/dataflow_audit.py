@@ -697,6 +697,7 @@ def analyze_decision_surfaces_repo(
                 if callee is None:
                     continue
                 callers_by_qual[callee.qual].add(info.qual)
+    transitive_callers = _collect_transitive_callers(callers_by_qual, by_qual)
 
     surfaces: list[str] = []
     warnings: list[str] = []
@@ -705,7 +706,7 @@ def analyze_decision_surfaces_repo(
     for info in by_qual.values():
         if not info.decision_params:
             continue
-        caller_count = len(callers_by_qual.get(info.qual, set()))
+        caller_count = len(transitive_callers.get(info.qual, set()))
         boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
         params = sorted(info.decision_params)
         surfaces.append(
@@ -800,6 +801,7 @@ def analyze_value_encoded_decisions_repo(
                 if callee is None:
                     continue
                 callers_by_qual[callee.qual].add(info.qual)
+    transitive_callers = _collect_transitive_callers(callers_by_qual, by_qual)
     surfaces: list[str] = []
     warnings: list[str] = []
     rewrites: list[str] = []
@@ -809,7 +811,7 @@ def analyze_value_encoded_decisions_repo(
         if not info.value_decision_params:
             continue
         reasons = ", ".join(sorted(info.value_decision_reasons)) or "heuristic"
-        caller_count = len(callers_by_qual.get(info.qual, set()))
+        caller_count = len(transitive_callers.get(info.qual, set()))
         boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
         params = sorted(info.value_decision_params)
         surfaces.append(
@@ -2429,6 +2431,24 @@ def _decision_tier_for(
         if key in tier_map:
             return tier_map[key]
     return None
+
+
+def _collect_transitive_callers(
+    callers_by_qual: dict[str, set[str]],
+    by_qual: dict[str, FunctionInfo],
+) -> dict[str, set[str]]:
+    transitive: dict[str, set[str]] = {}
+    for qual in by_qual:
+        seen: set[str] = set()
+        stack = list(callers_by_qual.get(qual, set()))
+        while stack:
+            caller = stack.pop()
+            if caller in seen:
+                continue
+            seen.add(caller)
+            stack.extend(callers_by_qual.get(caller, set()))
+        transitive[qual] = seen
+    return transitive
 
 
 def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
