@@ -158,7 +158,9 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         external_filter=True,
         transparent_decorators=None,
     )
-    assert surfaces == ["mod.py:mod.f decision surface params: b (internal callers: 1)"]
+    assert surfaces == [
+        "mod.py:mod.f decision surface params: b (internal callers (transitive): 1)"
+    ]
     assert warnings == []
     assert lint_lines == []
 
@@ -174,7 +176,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         config=da.AuditConfig(project_root=tmp_path),
     )
     assert analysis.context_suggestions == [
-        "Consider contextvar for mod.py:mod.f decision surface params: b (internal callers: 1)"
+        "Consider contextvar for mod.py:mod.f decision surface params: b (internal callers (transitive): 1)"
     ]
 
 

@@ -51,6 +51,7 @@ from gabion.analysis import (
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
+    decision_ignore_list,
     decision_tier_map,
     exception_defaults,
     exception_never_list,
@@ -214,6 +215,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     lint = bool(payload.get("lint", False))
     exclude_dirs = set(payload.get("exclude", []))
     ignore_params = set(payload.get("ignore_params", []))
+    decision_ignore_params = set(ignore_params)
+    decision_ignore_params.update(decision_ignore_list(decision_section))
     allow_external = payload.get("allow_external", False)
     strictness = payload.get("strictness", "high")
     transparent_decorators = _normalize_transparent_decorators(
@@ -247,6 +250,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         project_root=Path(root),
         exclude_dirs=exclude_dirs,
         ignore_params=ignore_params,
+        decision_ignore_params=decision_ignore_params,
         external_filter=not allow_external,
         strictness=strictness,
         transparent_decorators=transparent_decorators,

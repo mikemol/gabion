@@ -98,6 +98,14 @@ def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
     return tiers
 
 
+def decision_ignore_list(section: TomlTable | None) -> list[str]:
+    if section is None:
+        return []
+    if not isinstance(section, dict):
+        return []
+    return _normalize_name_list(section.get("ignore_params"))
+
+
 def exception_never_list(section: TomlTable | None) -> list[str]:
     if section is None:
         return []

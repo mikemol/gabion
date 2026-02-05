@@ -52,9 +52,9 @@ mise exec -- python -m gabion dataflow-audit "$root" \
   --emit-decision-snapshot "$decision_snapshot" \
   --lint > "$lint_report"
 
-mise exec -- python scripts/docflow_audit.py --root "$root" > "$docflow_report"
-mise exec -- python scripts/decision_tier_candidates.py --root "$root" > "$decision_tier_candidates"
-mise exec -- python scripts/consolidation_audit.py --root "$root" \
+mise exec -- python scripts/audit_tools.py docflow --root "$root" > "$docflow_report"
+mise exec -- python scripts/audit_tools.py decision-tiers --root "$root" > "$decision_tier_candidates"
+mise exec -- python scripts/audit_tools.py consolidation --root "$root" \
   --output "$consolidation_report" \
   --json-output "$consolidation_suggestions"
 

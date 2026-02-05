@@ -21,7 +21,7 @@ import json
 import hashlib
 import os
 import sys
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
@@ -38,6 +38,7 @@ from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
+    decision_ignore_list,
     decision_tier_map,
     exception_defaults,
     exception_never_list,
@@ -158,6 +159,7 @@ class AuditConfig:
     project_root: Path | None = None
     exclude_dirs: set[str] = field(default_factory=set)
     ignore_params: set[str] = field(default_factory=set)
+    decision_ignore_params: set[str] = field(default_factory=set)
     external_filter: bool = True
     strictness: str = "high"
     transparent_decorators: set[str] | None = None
@@ -668,46 +670,30 @@ def analyze_decision_surfaces_repo(
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    by_name, by_qual = _build_function_index(
+    by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
-        project_root,
-        ignore_params,
-        strictness,
-        transparent_decorators,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
     )
-    symbol_table = _build_symbol_table(
-        paths, project_root, external_filter=external_filter
-    )
-    class_index = _collect_class_index(paths, project_root)
-    callers_by_qual: dict[str, set[str]] = defaultdict(set)
-    for infos in by_name.values():
-        for info in infos:
-            for call in info.calls:
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
-                )
-                if callee is None:
-                    continue
-                callers_by_qual[callee.qual].add(info.qual)
-    transitive_callers = _collect_transitive_callers(callers_by_qual, by_qual)
 
     surfaces: list[str] = []
     warnings: list[str] = []
     lint_lines: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
+        if _is_test_path(info.path):
+            continue
         if not info.decision_params:
             continue
         caller_count = len(transitive_callers.get(info.qual, set()))
-        boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
+        boundary = (
+            "boundary"
+            if caller_count == 0
+            else f"internal callers (transitive): {caller_count}"
+        )
         params = sorted(info.decision_params)
         surfaces.append(
             f"{info.path.name}:{info.qual} decision surface params: "
@@ -772,47 +758,31 @@ def analyze_value_encoded_decisions_repo(
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
-    by_name, by_qual = _build_function_index(
+    by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
-        project_root,
-        ignore_params,
-        strictness,
-        transparent_decorators,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
     )
-    symbol_table = _build_symbol_table(
-        paths, project_root, external_filter=external_filter
-    )
-    class_index = _collect_class_index(paths, project_root)
-    callers_by_qual: dict[str, set[str]] = defaultdict(set)
-    for infos in by_name.values():
-        for info in infos:
-            for call in info.calls:
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
-                )
-                if callee is None:
-                    continue
-                callers_by_qual[callee.qual].add(info.qual)
-    transitive_callers = _collect_transitive_callers(callers_by_qual, by_qual)
     surfaces: list[str] = []
     warnings: list[str] = []
     rewrites: list[str] = []
     lint_lines: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
+        if _is_test_path(info.path):
+            continue
         if not info.value_decision_params:
             continue
         reasons = ", ".join(sorted(info.value_decision_reasons)) or "heuristic"
         caller_count = len(transitive_callers.get(info.qual, set()))
-        boundary = "boundary" if caller_count == 0 else f"internal callers: {caller_count}"
+        boundary = (
+            "boundary"
+            if caller_count == 0
+            else f"internal callers (transitive): {caller_count}"
+        )
         params = sorted(info.value_decision_params)
         surfaces.append(
             f"{info.path.name}:{info.qual} value-encoded decision params: "
@@ -2449,6 +2419,48 @@ def _collect_transitive_callers(
             stack.extend(callers_by_qual.get(caller, set()))
         transitive[qual] = seen
     return transitive
+
+
+def _build_call_graph(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
+    by_name, by_qual = _build_function_index(
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        paths, project_root, external_filter=external_filter
+    )
+    class_index = _collect_class_index(paths, project_root)
+    callers_by_qual: dict[str, set[str]] = defaultdict(set)
+    for infos in by_name.values():
+        for info in infos:
+            for call in info.calls:
+                if call.is_test:
+                    continue
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                )
+                if callee is None:
+                    continue
+                callers_by_qual[callee.qual].add(info.qual)
+    transitive_callers = _collect_transitive_callers(callers_by_qual, by_qual)
+    return by_name, by_qual, transitive_callers
 
 
 def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
@@ -5886,6 +5898,46 @@ def build_synthesis_plan(
     )
     counts = _bundle_counts(groups_by_path)
     counts = _merge_counts_by_knobs(counts, knob_names)
+    bundle_evidence: dict[frozenset[str], set[str]] = defaultdict(set)
+    for bundle in counts:
+        bundle_evidence[frozenset(bundle)].add("dataflow")
+
+    decision_params_by_fn: dict[tuple[Path, str], set[str]] = {}
+    decision_ignore = (
+        audit_config.decision_ignore_params or audit_config.ignore_params
+    )
+    for info in by_qual.values():
+        if not info.decision_params and not info.value_decision_params:
+            continue
+        fn_key = _function_key(info.scope, info.name)
+        params = (set(info.decision_params) | set(info.value_decision_params)) - decision_ignore
+        decision_params_by_fn[(info.path, fn_key)] = params
+
+    for path, groups in groups_by_path.items():
+        for fn_key, bundles in groups.items():
+            decision_params = decision_params_by_fn.get((path, fn_key))
+            if not decision_params:
+                continue
+            for bundle in bundles:
+                bundle_evidence[frozenset(bundle)].add("control_context")
+
+    decision_counts: dict[tuple[str, ...], int] = defaultdict(int)
+    value_decision_counts: dict[tuple[str, ...], int] = defaultdict(int)
+    for info in by_qual.values():
+        if info.decision_params:
+            bundle = tuple(sorted(info.decision_params))
+            decision_counts[bundle] += 1
+            bundle_evidence[frozenset(bundle)].add("decision_surface")
+        if info.value_decision_params:
+            bundle = tuple(sorted(info.value_decision_params))
+            value_decision_counts[bundle] += 1
+            bundle_evidence[frozenset(bundle)].add("value_decision_surface")
+    for bundle, count in decision_counts.items():
+        if bundle not in counts:
+            counts[bundle] = count
+    for bundle, count in value_decision_counts.items():
+        if bundle not in counts:
+            counts[bundle] = count
     if not counts:
         response = SynthesisResponse(
             protocols=[],
@@ -5906,6 +5958,7 @@ def build_synthesis_plan(
             bundle_fields.add(field)
 
     merged_bundle_tiers: dict[frozenset[str], int] = {}
+    merged_bundle_evidence: dict[frozenset[str], set[str]] = {}
     original_bundles = [set(bundle) for bundle in counts]
     synth_config = SynthesisConfig(
         max_tier=max_tier,
@@ -5935,6 +5988,20 @@ def build_synthesis_plan(
             merged_bundle_tiers[frozenset(merged)] = tier
         if merged_bundle_tiers:
             bundle_tiers = merged_bundle_tiers
+            for merged in merged_bundles:
+                members = [
+                    bundle
+                    for bundle in original_bundles
+                    if bundle and bundle.issubset(merged)
+                ]
+                if not members:
+                    continue
+                evidence: set[str] = set()
+                for member in members:
+                    evidence.update(bundle_evidence.get(frozenset(member), set()))
+                merged_bundle_evidence[frozenset(merged)] = evidence
+            if merged_bundle_evidence:
+                bundle_evidence = merged_bundle_evidence
 
     naming_context = NamingContext(frequency=dict(frequency))
     field_types: dict[str, str] = {}
@@ -6014,6 +6081,7 @@ def build_synthesis_plan(
                 "bundle": sorted(spec.bundle),
                 "tier": spec.tier,
                 "rationale": spec.rationale,
+                "evidence": sorted(bundle_evidence.get(frozenset(spec.bundle), set())),
             }
             for spec in plan.protocols
         ],
@@ -6031,6 +6099,7 @@ def render_synthesis_section(plan: JSONObject) -> str:
     if not protocols:
         lines.append("No protocol candidates.")
     else:
+        evidence_counts: Counter[str] = Counter()
         for spec in protocols:
             name = spec.get("name", "Bundle")
             tier = spec.get("tier", "?")
@@ -6042,7 +6111,19 @@ def render_synthesis_section(plan: JSONObject) -> str:
                 if fname:
                     parts.append(f"{fname}: {type_hint}")
             field_list = ", ".join(parts) if parts else "(no fields)"
-            lines.append(f"- {name} (tier {tier}): {field_list}")
+            evidence = spec.get("evidence", [])
+            if evidence:
+                evidence_str = ", ".join(sorted(evidence))
+                lines.append(f"- {name} (tier {tier}; evidence: {evidence_str}): {field_list}")
+                evidence_counts.update(evidence)
+            else:
+                lines.append(f"- {name} (tier {tier}): {field_list}")
+        if evidence_counts:
+            summary = ", ".join(
+                f"{key}={count}" for key, count in evidence_counts.most_common()
+            )
+            lines.append("")
+            lines.append(f"Evidence summary: {summary}")
     if warnings:
         lines.append("")
         lines.append("Warnings:")
@@ -6569,7 +6650,7 @@ def analyze_paths(
             analyze_decision_surfaces_repo(
                 file_paths,
                 project_root=config.project_root,
-                ignore_params=config.ignore_params,
+                ignore_params=config.decision_ignore_params or config.ignore_params,
                 strictness=config.strictness,
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
@@ -6587,7 +6668,7 @@ def analyze_paths(
         ) = analyze_value_encoded_decisions_repo(
             file_paths,
             project_root=config.project_root,
-            ignore_params=config.ignore_params,
+            ignore_params=config.decision_ignore_params or config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
@@ -6675,7 +6756,7 @@ def analyze_paths(
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
-            if "(internal callers:" in entry:
+            if "(internal callers" in entry:
                 context_suggestions.append(f"Consider contextvar for {entry}")
     lint_lines: list[str] = []
     if include_lint_lines:
@@ -7015,6 +7096,8 @@ def run(argv: list[str] | None = None) -> int:
     )
     exclude_dirs = set(merged.get("exclude", []) or [])
     ignore_params_set = set(merged.get("ignore_params", []) or [])
+    decision_ignore_params = set(ignore_params_set)
+    decision_ignore_params.update(decision_ignore_list(decision_section))
     allow_external = bool(merged.get("allow_external", False))
     strictness = merged.get("strictness") or "high"
     if strictness not in {"high", "low"}:
@@ -7026,6 +7109,7 @@ def run(argv: list[str] | None = None) -> int:
         project_root=Path(args.root),
         exclude_dirs=exclude_dirs,
         ignore_params=ignore_params_set,
+        decision_ignore_params=decision_ignore_params,
         external_filter=not allow_external,
         strictness=strictness,
         transparent_decorators=transparent_decorators,
