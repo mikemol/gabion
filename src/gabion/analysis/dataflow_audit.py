@@ -2013,13 +2013,6 @@ def _collect_handledness_witnesses(
             if not isinstance(node, (ast.Raise, ast.Assert)):
                 continue
             try_node = _find_handling_try(node, parents)
-            if try_node is None:
-                continue
-            handler = next(
-                (h for h in try_node.handlers if _handler_is_broad(h)), None
-            )
-            if handler is None:
-                continue
             source_kind = "E0"
             kind = "raise" if isinstance(node, ast.Raise) else "assert"
             fn_node = _enclosing_function_node(node, parents)
@@ -2031,6 +2024,7 @@ def _collect_handledness_witnesses(
                 function = _function_key(scopes, fn_node.name)
                 params = params_by_fn.get(fn_node, set())
             expr = node.exc if isinstance(node, ast.Raise) else node.test
+            exception_name = _exception_type_name(expr)
             bundle = _exception_param_names(expr, params)
             lineno = getattr(node, "lineno", 0)
             col = getattr(node, "col_offset", 0)
@@ -2042,8 +2036,21 @@ def _collect_handledness_witnesses(
                 col=col,
                 kind=kind,
             )
-            handler_label = _handler_label(handler)
             handledness_id = f"handled:{exception_id}"
+            handler_kind = None
+            handler_boundary = None
+            if try_node is not None:
+                handler = next(
+                    (h for h in try_node.handlers if _handler_is_broad(h)), None
+                )
+                if handler is not None:
+                    handler_kind = "catch"
+                    handler_boundary = _handler_label(handler)
+            if handler_kind is None and exception_name == "SystemExit":
+                handler_kind = "convert"
+                handler_boundary = "process exit"
+            if handler_kind is None:
+                continue
             witnesses.append(
                 {
                     "handledness_id": handledness_id,
@@ -2053,10 +2060,14 @@ def _collect_handledness_witnesses(
                         "function": function,
                         "bundle": bundle,
                     },
-                    "handler_kind": "catch",
-                    "handler_boundary": handler_label,
+                    "handler_kind": handler_kind,
+                    "handler_boundary": handler_boundary,
                     "environment": {},
-                    "core": [f"enclosed by {handler_label}"],
+                    "core": (
+                        [f"enclosed by {handler_boundary}"]
+                        if handler_kind == "catch"
+                        else ["converted to process exit"]
+                    ),
                     "result": "HANDLED",
                 }
             )

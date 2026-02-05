@@ -99,6 +99,7 @@ class UseVisitor(ast.NodeVisitor):
         return (start_line, start_col, end_line, end_col)
 
     def _record_forward(self, param_name: str, callee: str, slot: str, call: ast.Call | None) -> None:
+        # dataflow-bundle: callee, slot
         self.use_map[param_name].direct_forward.add((callee, slot))
         if call is None:
             return
