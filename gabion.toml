@@ -7,17 +7,29 @@ type_audit = true
 merge_overlap_threshold = 0.75
 
 [decision]
-tier1 = []
+tier1 = [
+  "src/gabion/analysis/dataflow_audit.py:862:16",
+  "src/gabion/analysis/dataflow_audit.py:3442:5",
+  "src/gabion/analysis/type_fingerprints.py:101:17",
+  "src/gabion/analysis/type_fingerprints.py:565:5",
+  "src/gabion/analysis/type_fingerprints.py:635:35",
+  "src/gabion/analysis/type_fingerprints.py:635:60",
+  "src/gabion/analysis/visitors.py:90:20",
+  "src/gabion/cli.py:435:5",
+  "src/gabion/synthesis/merge.py:6:14",
+  "src/gabion/synthesis/merge.py:6:30",
+  "src/gabion/synthesis/schedule.py:60:15",
+]
 tier2 = []
 tier3 = [
   "scripts/audit_tools.py:113:29",
   "scripts/audit_tools.py:674:22",
   "scripts/audit_tools.py:700:28",
   "scripts/audit_tools.py:723:27",
-  "src/gabion/analysis/dataflow_audit.py:121:23",
-  "src/gabion/analysis/dataflow_audit.py:121:44",
-  "src/gabion/analysis/dataflow_audit.py:131:49",
-  "src/gabion/analysis/dataflow_audit.py:2870:17",
+  "src/gabion/analysis/dataflow_audit.py:122:23",
+  "src/gabion/analysis/dataflow_audit.py:122:44",
+  "src/gabion/analysis/dataflow_audit.py:132:49",
+  "src/gabion/analysis/dataflow_audit.py:2880:17",
   "src/gabion/analysis/schema_audit.py:143:33",
   "src/gabion/analysis/schema_audit.py:152:38",
   "src/gabion/analysis/schema_audit.py:161:25",
@@ -41,15 +53,15 @@ tier3 = [
   "src/gabion/cli.py:397:5",
   "src/gabion/refactor/engine.py:14:40",
   "src/gabion/refactor/engine.py:838:51",
-  "src/gabion/server.py:151:41",
-  "src/gabion/server.py:546:43",
-  "src/gabion/server.py:603:22",
-  "src/gabion/server.py:603:42",
-  "src/gabion/server.py:647:48",
-  "src/gabion/server.py:666:49",
-  "src/gabion/server.py:694:47",
-  "src/gabion/server.py:734:14",
-  "src/gabion/server.py:743:14",
+  "src/gabion/server.py:152:41",
+  "src/gabion/server.py:549:43",
+  "src/gabion/server.py:606:22",
+  "src/gabion/server.py:606:42",
+  "src/gabion/server.py:650:48",
+  "src/gabion/server.py:669:49",
+  "src/gabion/server.py:697:47",
+  "src/gabion/server.py:737:14",
+  "src/gabion/server.py:746:14",
 ]
 ignore_params = []
 
