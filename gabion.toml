@@ -65,6 +65,11 @@ tier3 = [
 ]
 ignore_params = []
 
+[consolidation]
+min_functions = 3
+min_files = 2
+max_examples = 5
+
 [exceptions]
 never = [
   "NeverRaise",

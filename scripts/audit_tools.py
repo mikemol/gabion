@@ -5,6 +5,7 @@ import argparse
 import json
 import re
 import sys
+import tomllib
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -96,6 +97,13 @@ class LintEntry:
     param: str | None
 
 
+@dataclass(frozen=True)
+class ConsolidationConfig:
+    min_functions: int = 3
+    min_files: int = 2
+    max_examples: int = 5
+
+
 def _coerce_argv(argv: list[str] | None) -> list[str]:
     return argv if argv is not None else sys.argv[1:]
 
@@ -120,6 +128,31 @@ def _scope_match(path: str, scope: str | None) -> bool:
 def _latest_lint_path(root: Path) -> Path:
     snapshot = _latest_snapshot_dir(root)
     return snapshot / "lint.txt"
+
+
+def _load_consolidation_config(root: Path) -> ConsolidationConfig:
+    config_path = root / "gabion.toml"
+    if not config_path.exists():
+        return ConsolidationConfig()
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ConsolidationConfig()
+    section = data.get("consolidation", {})
+    if not isinstance(section, dict):
+        return ConsolidationConfig()
+
+    def _coerce_int(key: str, default: int) -> int:
+        try:
+            return int(section.get(key, default) or default)
+        except (TypeError, ValueError):
+            return default
+
+    return ConsolidationConfig(
+        min_functions=_coerce_int("min_functions", 3),
+        min_files=_coerce_int("min_files", 2),
+        max_examples=_coerce_int("max_examples", 5),
+    )
 
 
 def _parse_lint_entry(line: str) -> LintEntry | None:
@@ -459,7 +492,11 @@ def _parse_lint_entries(lines: Iterable[str]) -> list[LintEntry]:
     return entries
 
 
-def _render_bundle_candidates(bundle_counts: dict[tuple[str, ...], list[DecisionSurface]]) -> list[str]:
+def _render_bundle_candidates(
+    bundle_counts: dict[tuple[str, ...], list[DecisionSurface]],
+    *,
+    max_examples: int,
+) -> list[str]:
     lines: list[str] = []
     for params, surfaces in sorted(
         bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
@@ -468,12 +505,16 @@ def _render_bundle_candidates(bundle_counts: dict[tuple[str, ...], list[Decision
             continue
         bundle = ", ".join(params)
         lines.append(f"- Bundle candidate `{bundle}` appears in {len(surfaces)} functions:")
-        for surface in surfaces[:5]:
+        for surface in surfaces[:max_examples]:
             lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
     return lines
 
 
-def _render_param_clusters(param_to_surfaces: dict[str, list[DecisionSurface]]) -> list[str]:
+def _render_param_clusters(
+    param_to_surfaces: dict[str, list[DecisionSurface]],
+    *,
+    max_examples: int,
+) -> list[str]:
     lines: list[str] = []
     for param, surfaces in sorted(
         param_to_surfaces.items(), key=lambda kv: (-len(kv[1]), kv[0])
@@ -481,7 +522,33 @@ def _render_param_clusters(param_to_surfaces: dict[str, list[DecisionSurface]]) 
         if len(surfaces) < 2:
             continue
         lines.append(f"- Param `{param}` appears in {len(surfaces)} functions:")
-        for surface in surfaces[:5]:
+        for surface in surfaces[:max_examples]:
+            lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
+    return lines
+
+
+def _render_higher_order_candidates(
+    bundle_counts: dict[tuple[str, ...], list[DecisionSurface]],
+    *,
+    min_functions: int,
+    min_files: int,
+    max_examples: int,
+) -> list[str]:
+    lines: list[str] = []
+    for params, surfaces in sorted(
+        bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
+    ):
+        if len(surfaces) < min_functions:
+            continue
+        file_count = len({s.path for s in surfaces})
+        if file_count < min_files:
+            continue
+        bundle = ", ".join(params)
+        lines.append(
+            f"- Higher-order bundle `{bundle}` appears in {len(surfaces)} functions "
+            f"across {file_count} files:"
+        )
+        for surface in surfaces[:max_examples]:
             lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
     return lines
 
@@ -489,6 +556,7 @@ def _render_param_clusters(param_to_surfaces: dict[str, list[DecisionSurface]]) 
 def _build_suggestions(
     decision_surfaces: list[DecisionSurface],
     value_surfaces: list[DecisionSurface],
+    config: ConsolidationConfig,
 ) -> dict[str, object]:
     bundle_counts: dict[tuple[str, ...], list[DecisionSurface]] = defaultdict(list)
     param_counts: dict[str, list[DecisionSurface]] = defaultdict(list)
@@ -513,7 +581,8 @@ def _build_suggestions(
                 "internal_count": internal_count,
                 "score": score,
                 "sample_functions": [
-                    f"{s.path}:{s.qual} ({s.meta})" for s in surfaces[:5]
+                    f"{s.path}:{s.qual} ({s.meta})"
+                    for s in surfaces[: config.max_examples]
                 ],
             }
         )
@@ -534,11 +603,38 @@ def _build_suggestions(
                 "internal_count": internal_count,
                 "score": score,
                 "sample_functions": [
-                    f"{s.path}:{s.qual} ({s.meta})" for s in surfaces[:5]
+                    f"{s.path}:{s.qual} ({s.meta})"
+                    for s in surfaces[: config.max_examples]
                 ],
             }
         )
     param_suggestions.sort(key=lambda item: (-item["score"], item["param"]))
+
+    higher_order: list[dict[str, object]] = []
+    for params, surfaces in bundle_counts.items():
+        if len(surfaces) < config.min_functions:
+            continue
+        file_count = len({s.path for s in surfaces})
+        if file_count < config.min_files:
+            continue
+        boundary_count = sum(1 for s in surfaces if s.is_boundary)
+        internal_count = len(surfaces) - boundary_count
+        score = len(surfaces) + file_count * 2 + boundary_count
+        higher_order.append(
+            {
+                "params": list(params),
+                "count": len(surfaces),
+                "file_count": file_count,
+                "boundary_count": boundary_count,
+                "internal_count": internal_count,
+                "score": score,
+                "sample_functions": [
+                    f"{s.path}:{s.qual} ({s.meta})"
+                    for s in surfaces[: config.max_examples]
+                ],
+            }
+        )
+    higher_order.sort(key=lambda item: (-item["score"], item["params"]))
 
     value_decision = [
         {
@@ -552,6 +648,7 @@ def _build_suggestions(
 
     return {
         "bundle_candidates": bundle_suggestions,
+        "higher_order_bundles": higher_order,
         "param_clusters": param_suggestions,
         "value_decision_surfaces": value_decision,
     }
@@ -564,6 +661,7 @@ def _write_consolidation_report(
     decision_surfaces: list[DecisionSurface],
     value_surfaces: list[DecisionSurface],
     lint_entries: list[LintEntry],
+    config: ConsolidationConfig,
 ) -> None:
     boundary_surfaces = [s for s in decision_surfaces if s.is_boundary]
     param_to_surfaces: dict[str, list[DecisionSurface]] = defaultdict(list)
@@ -586,6 +684,10 @@ def _write_consolidation_report(
     )
     lines.append(f"- Value-encoded decision surfaces: {len(value_surfaces)}")
     lines.append(f"- Lint findings: {len(lint_entries)}")
+    lines.append(
+        f"- Higher-order thresholds: min_functions={config.min_functions}, "
+        f"min_files={config.min_files}, max_examples={config.max_examples}"
+    )
     if lint_by_code:
         lines.append("- Lint codes: " + ", ".join(
             f"{code}={count}" for code, count in lint_by_code.most_common()
@@ -593,12 +695,28 @@ def _write_consolidation_report(
     lines.append("")
 
     lines.append("## Bundle candidates (repeated param sets)")
-    bundle_lines = _render_bundle_candidates(bundle_counts)
+    bundle_lines = _render_bundle_candidates(bundle_counts, max_examples=config.max_examples)
     lines.extend(bundle_lines if bundle_lines else ["- None (no repeated param sets)."])
     lines.append("")
 
+    lines.append("## Higher-order bundles (repeated param sets across files)")
+    higher_order_lines = _render_higher_order_candidates(
+        bundle_counts,
+        min_functions=config.min_functions,
+        min_files=config.min_files,
+        max_examples=config.max_examples,
+    )
+    lines.extend(
+        higher_order_lines
+        if higher_order_lines
+        else [
+            "- None (no repeated param sets across files at configured thresholds)."
+        ]
+    )
+    lines.append("")
+
     lines.append("## Param clusters (repeated params)")
-    cluster_lines = _render_param_clusters(param_to_surfaces)
+    cluster_lines = _render_param_clusters(param_to_surfaces, max_examples=config.max_examples)
     lines.extend(cluster_lines if cluster_lines else ["- None (no repeated params)."])
     lines.append("")
 
@@ -704,6 +822,7 @@ def _consolidation_command(args: argparse.Namespace) -> int:
     lint_path = args.lint or (snapshot_dir / "lint.txt")
     output_path = args.output or (snapshot_dir / "consolidation_report.md")
 
+    config = _load_consolidation_config(root)
     decision_obj = json.loads(decision_path.read_text())
     decision_lines = decision_obj.get("decision_surfaces", [])
     value_lines = decision_obj.get("value_decision_surfaces", [])
@@ -712,9 +831,11 @@ def _consolidation_command(args: argparse.Namespace) -> int:
     value_surfaces = _parse_surfaces(value_lines, value_encoded=True)
     lint_entries = _parse_lint_entries(lint_path.read_text().splitlines())
 
-    _write_consolidation_report(output_path, decision_surfaces, value_surfaces, lint_entries)
+    _write_consolidation_report(
+        output_path, decision_surfaces, value_surfaces, lint_entries, config
+    )
     if args.json_output is not None:
-        suggestions = _build_suggestions(decision_surfaces, value_surfaces)
+        suggestions = _build_suggestions(decision_surfaces, value_surfaces, config)
         args.json_output.write_text(json.dumps(suggestions, indent=2, sort_keys=True))
     print(f"Wrote {output_path}")
     return 0

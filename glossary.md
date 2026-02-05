@@ -1,5 +1,5 @@
 ---
-doc_revision: 21
+doc_revision: 22
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -245,6 +245,53 @@ interface contract and its declared bundles remain.
 - Interface identity stable under internal refactors.
 - Bundles and decision surfaces remain visible at the interface boundary.
 - All consumers route through the interface (no parallel entry points).
+
+---
+
+## 3.1 Higher‑Order Bundle (2‑Path)
+
+### Meaning
+
+**Definition:** A parameter set that recurs across multiple functions within a
+declared scope (module or subsystem), forming a second‑order co‑occurrence
+signal. It is a bundle‑of‑bundles: repeated co‑occurrence of the *same* param
+set across multiple functions.
+
+### Axis
+
+**Axis:** Structural (multi‑function co‑occurrence / module cohesion).
+
+### Desired Commutation (Order & Alias Invariance)
+
+Let `H` be a higher‑order bundle and `alias(·)` a bijective renaming of symbols.
+
+```
+hbundle_id(alias(H), scope) = hbundle_id(H, scope)
+```
+
+Function ordering and naming must not change the higher‑order identity.
+
+### Failure Modes
+
+- repeated param sets remain scattered across modules
+- higher‑order bundles are detected but not reified as interfaces
+- bundle identity changes due to function renames or ordering
+
+### Normative Rule
+
+> Higher‑order bundles observed above declared thresholds must be treated as
+> candidates for a **Subsystem Interface (Template)**. If adopted, the
+> interface becomes the canonical boundary for those bundles in the scope.
+
+### Erasure
+
+Function names, ordering, and file layout are erased; only the repeated param
+set and declared scope counts remain.
+
+### Test Obligations (to be mapped)
+
+- Consolidation audit surfaces higher‑order bundles at configured thresholds.
+- Higher‑order bundle identity stable under function renames and reordering.
 
 ---
 
