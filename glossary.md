@@ -1,5 +1,5 @@
 ---
-doc_revision: 20
+doc_revision: 21
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -19,10 +19,10 @@ doc_reviewed_as_of:
   AGENTS.md: 13
   POLICY_SEED.md: 29
 doc_review_notes:
-  README.md: "Reviewed for attribute-carrier terminology; no conflicts."
-  CONTRIBUTING.md: "Workflow review discipline aligns with glossary obligations."
-  AGENTS.md: "Agent discipline consistent with glossary commutation rules."
-  POLICY_SEED.md: "Review-discipline invariant aligns with glossary test obligations."
+  README.md: "Reviewed for subsystem-interface terminology; no conflicts."
+  CONTRIBUTING.md: "No workflow conflicts with subsystem-interface definition."
+  AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
+  POLICY_SEED.md: "No policy conflicts with subsystem-interface definition."
 doc_commutes_with:
   - POLICY_SEED.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -195,6 +195,56 @@ occurrence counts within scope contribute to tier.
 - Graph outputs in Mermaid and/or DOT format.
 - Component summaries that list observed bundles by tier.
 - A violations list for undocumented or unreified bundles.
+
+---
+
+## 3. Subsystem Interface (Template)
+
+### Meaning
+
+**Definition:** A named, minimal boundary (module + exported functions/Protocol)
+that reifies a recurring code-flow structure. It is the code-flow analogue of a
+bundle: when the same parameter clusters and decision surfaces recur across
+functions, a subsystem interface captures that common structure as a reusable
+unit.
+
+### Axis
+
+**Axis:** Structural (code-flow boundary / interface contract).
+
+### Desired Commutation (Refactor Invariance)
+
+Let `S` be a subsystem interface and `refactor_internal(·)` be any refactor that
+preserves the interface contract (signatures, bundles, and documented decision
+surface).
+
+```
+interface_id(refactor_internal(S)) = interface_id(S)
+```
+
+### Failure Modes
+
+- recurring param clusters remain scattered across modules
+- interface identity changes with internal refactors
+- decision surfaces are not reflected at the interface boundary
+
+### Normative Rule
+
+> Recurring parameter clusters and decision surfaces that cross module
+> boundaries must be candidates for a subsystem interface template
+> (module + exported functions/Protocol). If adopted, the interface must
+> be the sole entry point for those bundles in the affected scope.
+
+### Erasure
+
+Internal function placement, helper naming, and file layout are erased; only the
+interface contract and its declared bundles remain.
+
+### Test Obligations (to be mapped)
+
+- Interface identity stable under internal refactors.
+- Bundles and decision surfaces remain visible at the interface boundary.
+- All consumers route through the interface (no parallel entry points).
 
 ---
 

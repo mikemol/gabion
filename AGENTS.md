@@ -17,12 +17,12 @@ doc_reviewed_as_of:
   README.md: 58
   CONTRIBUTING.md: 72
   POLICY_SEED.md: 29
-  glossary.md: 20
+  glossary.md: 21
 doc_review_notes:
   README.md: "Reviewed for attribute-carrier/transport policy impact; no conflicts."
   CONTRIBUTING.md: "Review discipline requirements align with agent workflow."
   POLICY_SEED.md: "Adopts review discipline invariant; agent enforcement updated."
-  glossary.md: "Attribute Carrier/Transport entries align with LSP-first workflow."
+  glossary.md: "Subsystem interface template aligns with LSP-first workflow."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - read_policy_glossary_first

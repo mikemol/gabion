@@ -19,13 +19,13 @@ doc_reviewed_as_of:
   README.md: 58
   AGENTS.md: 13
   POLICY_SEED.md: 29
-  glossary.md: 20
+  glossary.md: 21
   docs/coverage_semantics.md: 6
 doc_review_notes:
   README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md: "Review discipline invariant incorporated here."
-  glossary.md: "Attribute Carrier/Transport entries are consistent with workflow guidance."
+  glossary.md: "Subsystem interface template is consistent with workflow guidance."
   docs/coverage_semantics.md: "Coverage semantics unchanged by review discipline."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:

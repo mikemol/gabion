@@ -15,12 +15,12 @@ doc_requires:
   - CONTRIBUTING.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 20
+  glossary.md: 21
   AGENTS.md: 13
   CONTRIBUTING.md: 72
 doc_review_notes:
   POLICY_SEED.md: "Reviewed for review-discipline invariant; aligns with README scope."
-  glossary.md: "Attribute Carrier/Transport entries do not alter README claims."
+  glossary.md: "Subsystem interface template does not alter README claims."
   AGENTS.md: "Agent obligations updated; README references remain valid."
   CONTRIBUTING.md: "Contributor workflow updates reflected; no README changes needed."
 doc_change_protocol: "POLICY_SEED.md §6"
