@@ -21,6 +21,8 @@ from lsprotocol.types import (
     WorkspaceEdit,
 )
 
+from gabion.json_types import JSONObject, JSONValue
+
 from gabion.analysis import (
     AuditConfig,
     analyze_paths,
@@ -173,7 +175,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
-    fingerprint_spec: dict[str, object] = {}
+    fingerprint_spec: dict[str, JSONValue] = {}
     if isinstance(fingerprint_section, dict):
         fingerprint_spec = {
             key: value
@@ -308,7 +310,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "context_suggestions": analysis.context_suggestions,
     }
 
-    synthesis_plan: dict[str, object] | None = None
+    synthesis_plan: JSONObject | None = None
     if synthesis_plan_path or synthesis_report or synthesis_protocols_path:
         synthesis_plan = build_synthesis_plan(
             analysis.groups_by_path,
@@ -333,7 +335,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             else:
                 Path(synthesis_protocols_path).write_text(stubs)
 
-    refactor_plan_payload: dict[str, object] | None = None
+    refactor_plan_payload: JSONObject | None = None
     if refactor_plan or refactor_plan_json:
         refactor_plan_payload = build_refactor_plan(
             analysis.groups_by_path,
@@ -659,7 +661,7 @@ def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> 
     except (TypeError, ValueError):
         min_count_int = 2
     reuse = compute_structure_reuse(snapshot, min_count=min_count_int)
-    response: dict[str, object] = {"exit_code": 0, "reuse": reuse}
+    response: JSONObject = {"exit_code": 0, "reuse": reuse}
     if lemma_stubs_path:
         stubs = render_reuse_lemma_stubs(reuse)
         if lemma_stubs_path == "-":

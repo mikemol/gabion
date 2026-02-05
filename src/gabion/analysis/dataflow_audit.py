@@ -33,6 +33,7 @@ from gabion.analysis.evidence import (
     exception_obligation_summary_for_site,
     normalize_bundle_key,
 )
+from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.config import (
     dataflow_defaults,
@@ -81,6 +82,7 @@ class CallArgs:
     star_pos: list[tuple[int, str]]
     star_kw: list[str]
     is_test: bool
+    span: tuple[int, int, int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -90,8 +92,8 @@ class InvariantProposition:
     scope: str | None = None
     source: str | None = None
 
-    def as_dict(self) -> dict[str, object]:
-        payload: dict[str, object] = {
+    def as_dict(self) -> JSONObject:
+        payload: JSONObject = {
             "form": self.form,
             "terms": list(self.terms),
         }
@@ -195,19 +197,19 @@ class AnalysisResult:
     type_ambiguities: list[str]
     constant_smells: list[str]
     unused_arg_smells: list[str]
-    deadness_witnesses: list[dict[str, object]] = field(default_factory=list)
-    coherence_witnesses: list[dict[str, object]] = field(default_factory=list)
-    rewrite_plans: list[dict[str, object]] = field(default_factory=list)
-    exception_obligations: list[dict[str, object]] = field(default_factory=list)
-    handledness_witnesses: list[dict[str, object]] = field(default_factory=list)
+    deadness_witnesses: list[JSONObject] = field(default_factory=list)
+    coherence_witnesses: list[JSONObject] = field(default_factory=list)
+    rewrite_plans: list[JSONObject] = field(default_factory=list)
+    exception_obligations: list[JSONObject] = field(default_factory=list)
+    handledness_witnesses: list[JSONObject] = field(default_factory=list)
     decision_surfaces: list[str] = field(default_factory=list)
     value_decision_surfaces: list[str] = field(default_factory=list)
     decision_warnings: list[str] = field(default_factory=list)
     fingerprint_warnings: list[str] = field(default_factory=list)
     fingerprint_matches: list[str] = field(default_factory=list)
     fingerprint_synth: list[str] = field(default_factory=list)
-    fingerprint_synth_registry: dict[str, object] | None = None
-    fingerprint_provenance: list[dict[str, object]] = field(default_factory=list)
+    fingerprint_synth_registry: JSONObject | None = None
+    fingerprint_provenance: list[JSONObject] = field(default_factory=list)
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
@@ -1107,8 +1109,8 @@ def _compute_fingerprint_provenance(
     project_root: Path | None = None,
     index: dict[Fingerprint, set[str]] | None = None,
     ctor_registry: TypeConstructorRegistry | None = None,
-) -> list[dict[str, object]]:
-    entries: list[dict[str, object]] = []
+) -> list[JSONObject]:
+    entries: list[JSONObject] = []
     for path, groups in groups_by_path.items():
         path_value = _normalize_snapshot_path(path, project_root)
         annots_by_fn = annotations_by_path.get(path, {})
@@ -1180,14 +1182,14 @@ def _compute_fingerprint_provenance(
 
 
 def _summarize_fingerprint_provenance(
-    entries: list[dict[str, object]],
+    entries: list[JSONObject],
     *,
     max_groups: int = 20,
     max_examples: int = 3,
 ) -> list[str]:
     if not entries:
         return []
-    grouped: dict[tuple[object, ...], list[dict[str, object]]] = {}
+    grouped: dict[tuple[object, ...], list[JSONObject]] = {}
     for entry in entries:
         matches = entry.get("glossary_matches") or []
         if isinstance(matches, list) and matches:
@@ -1222,7 +1224,7 @@ def _summarize_fingerprint_provenance(
 
 
 def _summarize_deadness_witnesses(
-    entries: list[dict[str, object]],
+    entries: list[JSONObject],
     *,
     max_entries: int = 10,
 ) -> list[str]:
@@ -1248,11 +1250,11 @@ def _summarize_deadness_witnesses(
 
 
 def _compute_fingerprint_coherence(
-    entries: list[dict[str, object]],
+    entries: list[JSONObject],
     *,
     synth_version: str,
-) -> list[dict[str, object]]:
-    witnesses: list[dict[str, object]] = []
+) -> list[JSONObject]:
+    witnesses: list[JSONObject] = []
     for entry in entries:
         matches = entry.get("glossary_matches") or []
         if not isinstance(matches, list) or len(matches) < 2:
@@ -1297,7 +1299,7 @@ def _compute_fingerprint_coherence(
 
 
 def _summarize_coherence_witnesses(
-    entries: list[dict[str, object]],
+    entries: list[JSONObject],
     *,
     max_entries: int = 10,
 ) -> list[str]:
@@ -1322,13 +1324,13 @@ def _summarize_coherence_witnesses(
 
 
 def _compute_fingerprint_rewrite_plans(
-    provenance: list[dict[str, object]],
-    coherence: list[dict[str, object]],
+    provenance: list[JSONObject],
+    coherence: list[JSONObject],
     *,
     synth_version: str,
-    exception_obligations: list[dict[str, object]] | None = None,
-) -> list[dict[str, object]]:
-    coherence_map: dict[tuple[str, str, str], dict[str, object]] = {}
+    exception_obligations: list[JSONObject] | None = None,
+) -> list[JSONObject]:
+    coherence_map: dict[tuple[str, str, str], JSONObject] = {}
     for entry in coherence:
         raw_site = entry.get("site", {}) or {}
         site = Site.from_payload(raw_site)
@@ -1356,7 +1358,7 @@ def _compute_fingerprint_rewrite_plans(
             summary[status] += 1
             summary["total"] += 1
 
-    plans: list[dict[str, object]] = []
+    plans: list[JSONObject] = []
     for entry in provenance:
         matches = entry.get("glossary_matches") or []
         if not isinstance(matches, list) or len(matches) < 2:
@@ -1474,10 +1476,10 @@ def _normalize_bundle_key(bundle: object) -> str:
 
 
 def _find_provenance_entry_for_site(
-    provenance: list[dict[str, object]],
+    provenance: list[JSONObject],
     *,
     site: Site,
-) -> dict[str, object] | None:
+) -> JSONObject | None:
     target_key = site.key()
     for entry in provenance:
         entry_site = Site.from_payload(entry)
@@ -1489,7 +1491,7 @@ def _find_provenance_entry_for_site(
 
 
 def _exception_obligation_summary_for_site(
-    obligations: list[dict[str, object]],
+    obligations: list[JSONObject],
     *,
     site: Site,
 ) -> dict[str, int]:
@@ -1497,11 +1499,11 @@ def _exception_obligation_summary_for_site(
 
 
 def verify_rewrite_plan(
-    plan: dict[str, object],
+    plan: JSONObject,
     *,
-    post_provenance: list[dict[str, object]],
-    post_exception_obligations: list[dict[str, object]] | None = None,
-) -> dict[str, object]:
+    post_provenance: list[JSONObject],
+    post_exception_obligations: list[JSONObject] | None = None,
+) -> JSONObject:
     """Verify a single rewrite plan using a post-state provenance artifact.
 
     The pre-state is taken from the plan's embedded boundary evidence; the
@@ -1556,7 +1558,7 @@ def verify_rewrite_plan(
     post_matches = post_entry.get("glossary_matches") or []
     post_strata = _glossary_match_strata(post_matches)
 
-    predicate_results: list[dict[str, object]] = []
+    predicate_results: list[JSONObject] = []
 
     expected_candidates: list[str] = []
     rewrite = plan.get("rewrite") or {}
@@ -1567,7 +1569,7 @@ def verify_rewrite_plan(
         params = {}
     expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
 
-    requested_predicates: list[dict[str, object]] = []
+    requested_predicates: list[JSONObject] = []
     verification = plan.get("verification") or {}
     if isinstance(verification, dict):
         predicates = verification.get("predicates")
@@ -1732,11 +1734,11 @@ def verify_rewrite_plan(
 
 
 def verify_rewrite_plans(
-    plans: list[dict[str, object]],
+    plans: list[JSONObject],
     *,
-    post_provenance: list[dict[str, object]],
-    post_exception_obligations: list[dict[str, object]] | None = None,
-) -> list[dict[str, object]]:
+    post_provenance: list[JSONObject],
+    post_exception_obligations: list[JSONObject] | None = None,
+) -> list[JSONObject]:
     return [
         verify_rewrite_plan(
             plan,
@@ -1748,7 +1750,7 @@ def verify_rewrite_plans(
 
 
 def _summarize_rewrite_plans(
-    entries: list[dict[str, object]],
+    entries: list[JSONObject],
     *,
     max_entries: int = 10,
 ) -> list[str]:
@@ -1862,21 +1864,24 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
     return names
 
 
-def _eval_value_expr(expr: ast.AST, env: dict[str, object]) -> object | None:
+def _eval_value_expr(expr: ast.AST, env: dict[str, JSONValue]) -> JSONValue | None:
     if isinstance(expr, ast.Constant):
-        return expr.value
+        value = expr.value
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        return None
     if isinstance(expr, ast.Name):
         if expr.id in env:
             return env[expr.id]
         return None
     if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, (ast.USub, ast.UAdd)):
         operand = _eval_value_expr(expr.operand, env)
-        if isinstance(operand, (int, float, complex)):
+        if isinstance(operand, (int, float)):
             return -operand if isinstance(expr.op, ast.USub) else operand
     return None
 
 
-def _eval_bool_expr(expr: ast.AST, env: dict[str, object]) -> bool | None:
+def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> bool | None:
     if isinstance(expr, ast.Constant):
         return bool(expr.value)
     if isinstance(expr, ast.Name):
@@ -1931,7 +1936,7 @@ def _eval_bool_expr(expr: ast.AST, env: dict[str, object]) -> bool | None:
 def _branch_reachability_under_env(
     node: ast.AST,
     parents: dict[ast.AST, ast.AST],
-    env: dict[str, object],
+    env: dict[str, JSONValue],
 ) -> bool | None:
     """Conservatively evaluate nested-if constraints for `node` under `env`."""
     constraints: list[tuple[ast.AST, bool]] = []
@@ -1963,8 +1968,8 @@ def _collect_handledness_witnesses(
     *,
     project_root: Path | None,
     ignore_params: set[str],
-) -> list[dict[str, object]]:
-    witnesses: list[dict[str, object]] = []
+) -> list[JSONObject]:
+    witnesses: list[JSONObject] = []
     for path in paths:
         try:
             tree = ast.parse(path.read_text())
@@ -2044,17 +2049,17 @@ def _collect_exception_obligations(
     *,
     project_root: Path | None,
     ignore_params: set[str],
-    handledness_witnesses: list[dict[str, object]] | None = None,
-    deadness_witnesses: list[dict[str, object]] | None = None,
-) -> list[dict[str, object]]:
-    obligations: list[dict[str, object]] = []
-    handled_map: dict[str, dict[str, object]] = {}
+    handledness_witnesses: list[JSONObject] | None = None,
+    deadness_witnesses: list[JSONObject] | None = None,
+) -> list[JSONObject]:
+    obligations: list[JSONObject] = []
+    handled_map: dict[str, JSONObject] = {}
     if handledness_witnesses:
         for entry in handledness_witnesses:
             exception_id = str(entry.get("exception_path_id", ""))
             if exception_id:
                 handled_map[exception_id] = entry
-    dead_env_map: dict[tuple[str, str], dict[str, tuple[object, dict[str, object]]]] = {}
+    dead_env_map: dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]] = {}
     if deadness_witnesses:
         for entry in deadness_witnesses:
             path_value = str(entry.get("path", ""))
@@ -2117,8 +2122,8 @@ def _collect_exception_obligations(
             handled = handled_map.get(exception_id)
             status = "UNKNOWN"
             witness_ref = None
-            remainder: dict[str, object] | None = {"exception_kind": kind}
-            environment_ref: dict[str, object] | None = None
+            remainder: JSONObject | None = {"exception_kind": kind}
+            environment_ref: JSONObject | None = None
             if handled:
                 status = "HANDLED"
                 witness_ref = handled.get("handledness_id")
@@ -2173,7 +2178,7 @@ def _collect_exception_obligations(
 
 
 def _summarize_exception_obligations(
-    entries: list[dict[str, object]],
+    entries: list[JSONObject],
     *,
     max_entries: int = 10,
 ) -> list[str]:
@@ -2196,7 +2201,7 @@ def _summarize_exception_obligations(
 
 
 def _summarize_handledness_witnesses(
-    entries: list[dict[str, object]],
+    entries: list[JSONObject],
     *,
     max_entries: int = 10,
 ) -> list[str]:
@@ -2224,7 +2229,7 @@ def _compute_fingerprint_synth(
     min_occurrences: int,
     version: str,
     existing: SynthRegistry | None = None,
-) -> tuple[list[str], dict[str, object] | None]:
+) -> tuple[list[str], JSONObject | None]:
     if min_occurrences < 2 and existing is None:
         return [], None
     fingerprints: list[Fingerprint] = []
@@ -2293,8 +2298,8 @@ def _build_synth_registry_payload(
     registry: PrimeRegistry,
     *,
     min_occurrences: int,
-) -> dict[str, object]:
-    entries: list[dict[str, object]] = []
+) -> JSONObject:
+    entries: list[JSONObject] = []
     for prime, tail in sorted(synth_registry.tails.items()):
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
             tail.base.product, registry
@@ -3433,8 +3438,12 @@ def analyze_constant_flow_repo(
     smells: list[str] = []
     for detail in details:
         path_name = detail.path.name if isinstance(detail.path, Path) else str(detail.path)
+        site_suffix = ""
+        if detail.sites:
+            sample = ", ".join(detail.sites[:3])
+            site_suffix = f" (e.g. {sample})"
         smells.append(
-            f"{path_name}:{detail.name}.{detail.param} only observed constant {detail.value} across {detail.count} non-test call(s)"
+            f"{path_name}:{detail.name}.{detail.param} only observed constant {detail.value} across {detail.count} non-test call(s){site_suffix}"
         )
     return sorted(smells)
 
@@ -3447,6 +3456,7 @@ class ConstantFlowDetail:
     param: str
     value: str
     count: int
+    sites: tuple[str, ...] = ()
 
 
 def _collect_constant_flow_details(
@@ -3472,6 +3482,16 @@ def _collect_constant_flow_details(
     const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
     non_const: dict[tuple[str, str], bool] = defaultdict(bool)
     call_counts: dict[tuple[str, str], int] = defaultdict(int)
+    call_sites: dict[tuple[str, str], set[str]] = defaultdict(set)
+
+    def _record_site(key: tuple[str, str], caller: FunctionInfo, call: CallArgs) -> None:
+        span = call.span
+        caller_name = _function_key(caller.scope, caller.name)
+        if span is None:
+            call_sites[key].add(f"{caller.path.name}:{caller_name}")
+            return
+        line, col, _, _ = span
+        call_sites[key].add(f"{caller.path.name}:{line + 1}:{col + 1}:{caller_name}")
 
     for infos in by_name.values():
         for info in infos:
@@ -3510,6 +3530,7 @@ def _collect_constant_flow_details(
                     key = (callee.qual, callee_params[idx])
                     const_values[key].add(value)
                     call_counts[key] += 1
+                    _record_site(key, info, call)
                 for idx_str in call.pos_map:
                     idx = int(idx_str)
                     if idx >= len(callee_params):
@@ -3537,6 +3558,7 @@ def _collect_constant_flow_details(
                     key = (callee.qual, kw)
                     const_values[key].add(value)
                     call_counts[key] += 1
+                    _record_site(key, info, call)
                 for kw in call.kw_map:
                     if kw not in callee_params:
                         continue
@@ -3581,6 +3603,7 @@ def _collect_constant_flow_details(
                 param=param,
                 value=next(iter(values)),
                 count=count,
+                sites=tuple(sorted(call_sites.get(key, set()))),
             )
         )
     return sorted(details, key=lambda entry: (str(entry.path), entry.name, entry.param))
@@ -3594,7 +3617,7 @@ def analyze_deadness_flow_repo(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-) -> list[dict[str, object]]:
+) -> list[JSONObject]:
     """Emit deadness witnesses based on constant-only parameter flows."""
     details = _collect_constant_flow_details(
         paths,
@@ -3604,7 +3627,7 @@ def analyze_deadness_flow_repo(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
     )
-    witnesses: list[dict[str, object]] = []
+    witnesses: list[JSONObject] = []
     for detail in details:
         path_value = _normalize_snapshot_path(detail.path, project_root)
         predicate = f"{detail.param} != {detail.value}"
@@ -3622,6 +3645,7 @@ def analyze_deadness_flow_repo(
                 "predicate": predicate,
                 "core": core,
                 "result": "UNREACHABLE",
+                "call_sites": list(detail.sites[:10]),
                 "projection": (
                     f"{detail.name}.{detail.param} constant {detail.value} across "
                     f"{detail.count} non-test call(s)"
@@ -3771,10 +3795,16 @@ def analyze_unused_arg_flow_repo(
         callee: FunctionInfo,
         callee_param: str,
         arg_desc: str,
+        *,
+        call: CallArgs | None = None,
     ) -> str:
         # dataflow-bundle: callee, caller
+        prefix = f"{caller.path.name}:{caller.name}"
+        if call is not None and call.span is not None:
+            line, col, _, _ = call.span
+            prefix = f"{caller.path.name}:{line + 1}:{col + 1}:{caller.name}"
         return (
-            f"{caller.path.name}:{caller.name} passes {arg_desc} "
+            f"{prefix} passes {arg_desc} "
             f"to unused {callee.path.name}:{callee.name}.{callee_param}"
         )
 
@@ -3826,6 +3856,7 @@ def analyze_unused_arg_flow_repo(
                                 callee,
                                 callee_param,
                                 f"param {caller_param}",
+                                call=call,
                             )
                         )
                 for idx_str in call.non_const_pos:
@@ -3840,6 +3871,7 @@ def analyze_unused_arg_flow_repo(
                                 callee,
                                 callee_param,
                                 f"non-constant arg at position {idx}",
+                                call=call,
                             )
                         )
                 for kw, caller_param in call.kw_map.items():
@@ -3852,6 +3884,7 @@ def analyze_unused_arg_flow_repo(
                                 callee,
                                 kw,
                                 f"param {caller_param}",
+                                call=call,
                             )
                         )
                 for kw in call.non_const_kw:
@@ -3864,6 +3897,7 @@ def analyze_unused_arg_flow_repo(
                                 callee,
                                 kw,
                                 f"non-constant kw '{kw}'",
+                                call=call,
                             )
                         )
                 if strictness == "low":
@@ -3876,6 +3910,7 @@ def analyze_unused_arg_flow_repo(
                                         callee,
                                         param,
                                         f"non-constant arg at position {idx}",
+                                        call=call,
                                     )
                                 )
                     if len(call.star_kw) == 1:
@@ -3887,6 +3922,7 @@ def analyze_unused_arg_flow_repo(
                                         callee,
                                         param,
                                         f"non-constant kw '{param}'",
+                                        call=call,
                                     )
                                 )
     return sorted(smells)
@@ -4296,18 +4332,18 @@ def _emit_report(
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
-    deadness_witnesses: list[dict[str, object]] | None = None,
-    coherence_witnesses: list[dict[str, object]] | None = None,
-    rewrite_plans: list[dict[str, object]] | None = None,
-    exception_obligations: list[dict[str, object]] | None = None,
-    handledness_witnesses: list[dict[str, object]] | None = None,
+    deadness_witnesses: list[JSONObject] | None = None,
+    coherence_witnesses: list[JSONObject] | None = None,
+    rewrite_plans: list[JSONObject] | None = None,
+    exception_obligations: list[JSONObject] | None = None,
+    handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
     fingerprint_synth: list[str] | None = None,
-    fingerprint_provenance: list[dict[str, object]] | None = None,
+    fingerprint_provenance: list[JSONObject] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
     value_decision_rewrites: list[str] | None = None,
@@ -4528,7 +4564,7 @@ def _normalize_snapshot_path(path: Path, root: Path | None) -> str:
     return str(path)
 
 
-def load_structure_snapshot(path: Path) -> dict[str, object]:
+def load_structure_snapshot(path: Path) -> JSONObject:
     try:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as exc:
@@ -4540,7 +4576,7 @@ def load_structure_snapshot(path: Path) -> dict[str, object]:
 
 def compute_structure_metrics(
     groups_by_path: dict[Path, dict[str, list[set[str]]]]
-) -> dict[str, object]:
+) -> JSONObject:
     file_count = len(groups_by_path)
     function_count = sum(len(groups) for groups in groups_by_path.values())
     bundle_sizes: list[int] = []
@@ -4560,7 +4596,10 @@ def compute_structure_metrics(
         "bundles": bundle_count,
         "mean_bundle_size": mean_bundle_size,
         "max_bundle_size": max_bundle_size,
-        "bundle_size_histogram": dict(sorted(size_histogram.items())),
+        # JSON object keys are strings; use explicit conversion for stability.
+        "bundle_size_histogram": {
+            str(size): count for size, count in sorted(size_histogram.items())
+        },
     }
 
 
@@ -4569,7 +4608,7 @@ def render_structure_snapshot(
     *,
     project_root: Path | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
-) -> dict[str, object]:
+) -> JSONObject:
     root = project_root or _infer_root(groups_by_path)
     invariant_map: dict[tuple[str, str], list[InvariantProposition]] = {}
     if invariant_propositions:
@@ -4578,18 +4617,18 @@ def render_structure_snapshot(
                 continue
             scope_path, fn_name = prop.scope.rsplit(":", 1)
             invariant_map.setdefault((scope_path, fn_name), []).append(prop)
-    files: list[dict[str, object]] = []
+    files: list[JSONObject] = []
     for path in sorted(
         groups_by_path, key=lambda p: _normalize_snapshot_path(p, root)
     ):
         groups = groups_by_path[path]
-        functions: list[dict[str, object]] = []
+        functions: list[JSONObject] = []
         path_key = _normalize_snapshot_path(path, root)
         for fn_name in sorted(groups):
             bundles = groups[fn_name]
             normalized = [sorted(bundle) for bundle in bundles]
             normalized.sort(key=lambda bundle: (len(bundle), bundle))
-            entry: dict[str, object] = {"name": fn_name, "bundles": normalized}
+            entry: JSONObject = {"name": fn_name, "bundles": normalized}
             invariants = invariant_map.get((path_key, fn_name))
             if invariants:
                 entry["invariants"] = [
@@ -4619,7 +4658,7 @@ def render_decision_snapshot(
     decision_surfaces: list[str],
     value_decision_surfaces: list[str],
     project_root: Path | None = None,
-) -> dict[str, object]:
+) -> JSONObject:
     return {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
@@ -4632,7 +4671,7 @@ def render_decision_snapshot(
     }
 
 
-def load_decision_snapshot(path: Path) -> dict[str, object]:
+def load_decision_snapshot(path: Path) -> JSONObject:
     try:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as exc:
@@ -4643,9 +4682,9 @@ def load_decision_snapshot(path: Path) -> dict[str, object]:
 
 
 def diff_decision_snapshots(
-    baseline: dict[str, object],
-    current: dict[str, object],
-) -> dict[str, object]:
+    baseline: JSONObject,
+    current: JSONObject,
+) -> JSONObject:
     base_decisions = set(baseline.get("decision_surfaces") or [])
     curr_decisions = set(current.get("decision_surfaces") or [])
     base_value = set(baseline.get("value_decision_surfaces") or [])
@@ -4665,7 +4704,7 @@ def diff_decision_snapshots(
     }
 
 
-def _bundle_counts_from_snapshot(snapshot: dict[str, object]) -> dict[tuple[str, ...], int]:
+def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], int]:
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     files = snapshot.get("files") or []
     for file_entry in files:
@@ -4684,18 +4723,18 @@ def _bundle_counts_from_snapshot(snapshot: dict[str, object]) -> dict[tuple[str,
 
 
 def diff_structure_snapshots(
-    baseline: dict[str, object],
-    current: dict[str, object],
-) -> dict[str, object]:
+    baseline: JSONObject,
+    current: JSONObject,
+) -> JSONObject:
     baseline_counts = _bundle_counts_from_snapshot(baseline)
     current_counts = _bundle_counts_from_snapshot(current)
     all_bundles = sorted(
         set(baseline_counts) | set(current_counts),
         key=lambda bundle: (len(bundle), list(bundle)),
     )
-    added: list[dict[str, object]] = []
-    removed: list[dict[str, object]] = []
-    changed: list[dict[str, object]] = []
+    added: list[JSONObject] = []
+    removed: list[JSONObject] = []
+    changed: list[JSONObject] = []
     for bundle in all_bundles:
         before = baseline_counts.get(bundle, 0)
         after = current_counts.get(bundle, 0)
@@ -4731,7 +4770,7 @@ def diff_structure_snapshots(
 def diff_structure_snapshot_files(
     baseline_path: Path,
     current_path: Path,
-) -> dict[str, object]:
+) -> JSONObject:
     # dataflow-bundle: baseline_path, current_path
     baseline = load_structure_snapshot(baseline_path)
     current = load_structure_snapshot(current_path)
@@ -4739,11 +4778,11 @@ def diff_structure_snapshot_files(
 
 
 def compute_structure_reuse(
-    snapshot: dict[str, object],
+    snapshot: JSONObject,
     *,
     min_count: int = 2,
     hash_fn: Callable[[str, object | None, list[str]], str] | None = None,
-) -> dict[str, object]:
+) -> JSONObject:
     if min_count < 2:
         min_count = 2
     files = snapshot.get("files") or []
@@ -4752,7 +4791,7 @@ def compute_structure_reuse(
     bundle_name_map: dict[tuple[str, ...], set[str]] = {}
     if root_path is not None and root_path.exists():
         bundle_name_map = _bundle_name_registry(root_path)
-    reuse_map: dict[str, dict[str, object]] = {}
+    reuse_map: dict[str, JSONObject] = {}
     warnings: list[str] = []
 
     def _hash_node(kind: str, value: object | None, child_hashes: list[str]) -> str:
@@ -4853,8 +4892,8 @@ def compute_structure_reuse(
             entry.get("hash", ""),
         )
     )
-    suggested: list[dict[str, object]] = []
-    replacement_map: dict[str, list[dict[str, object]]] = {}
+    suggested: list[JSONObject] = []
+    replacement_map: dict[str, list[JSONObject]] = {}
     for entry in reused:
         kind = entry.get("kind")
         if kind not in {"bundle", "function"}:
@@ -4903,9 +4942,9 @@ def compute_structure_reuse(
 
 
 def _build_reuse_replacement_map(
-    suggested: list[dict[str, object]],
-) -> dict[str, list[dict[str, object]]]:
-    replacement_map: dict[str, list[dict[str, object]]] = {}
+    suggested: list[JSONObject],
+) -> dict[str, list[JSONObject]]:
+    replacement_map: dict[str, list[JSONObject]] = {}
     for suggestion in suggested:
         locations = suggestion.get("locations") or []
         if not isinstance(locations, list):
@@ -4923,7 +4962,7 @@ def _build_reuse_replacement_map(
     return replacement_map
 
 
-def render_reuse_lemma_stubs(reuse: dict[str, object]) -> str:
+def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     suggested = reuse.get("suggested_lemmas") or []
     lines = [
         "# Generated by gabion structure-reuse",
@@ -5009,7 +5048,7 @@ def build_synthesis_plan(
     allow_singletons: bool = False,
     merge_overlap_threshold: float | None = None,
     config: AuditConfig | None = None,
-) -> dict[str, object]:
+) -> JSONObject:
     audit_config = config or AuditConfig(
         project_root=project_root or _infer_root(groups_by_path)
     )
@@ -5175,7 +5214,7 @@ def build_synthesis_plan(
     return response.model_dump()
 
 
-def render_synthesis_section(plan: dict[str, object]) -> str:
+def render_synthesis_section(plan: JSONObject) -> str:
     protocols = plan.get("protocols", [])
     warnings = plan.get("warnings", [])
     errors = plan.get("errors", [])
@@ -5210,7 +5249,7 @@ def render_synthesis_section(plan: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
-def render_protocol_stubs(plan: dict[str, object], kind: str = "dataclass") -> str:
+def render_protocol_stubs(plan: JSONObject, kind: str = "dataclass") -> str:
     protocols = plan.get("protocols", [])
     if kind not in {"dataclass", "protocol"}:
         kind = "dataclass"
@@ -5286,7 +5325,7 @@ def build_refactor_plan(
     paths: list[Path],
     *,
     config: AuditConfig,
-) -> dict[str, object]:
+) -> JSONObject:
     file_paths = _iter_paths([str(p) for p in paths], config)
     if not file_paths:
         return {"bundles": [], "warnings": ["No files available for refactor plan."]}
@@ -5317,7 +5356,7 @@ def build_refactor_plan(
                 if info is not None:
                     bundle_map[key][info.qual] = info
 
-    plans: list[dict[str, object]] = []
+    plans: list[JSONObject] = []
     for bundle, infos in sorted(bundle_map.items(), key=lambda item: (len(item[0]), item[0])):
         comp = dict(infos)
         deps: dict[str, set[str]] = {qual: set() for qual in comp}
@@ -5354,7 +5393,7 @@ def build_refactor_plan(
     return {"bundles": plans, "warnings": warnings}
 
 
-def render_refactor_plan(plan: dict[str, object]) -> str:
+def render_refactor_plan(plan: JSONObject) -> str:
     bundles = plan.get("bundles", [])
     warnings = plan.get("warnings", [])
     lines = ["", "## Refactoring plan (prototype)", ""]
@@ -5555,18 +5594,18 @@ def render_report(
     type_ambiguities: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
-    deadness_witnesses: list[dict[str, object]] | None = None,
-    coherence_witnesses: list[dict[str, object]] | None = None,
-    rewrite_plans: list[dict[str, object]] | None = None,
-    exception_obligations: list[dict[str, object]] | None = None,
-    handledness_witnesses: list[dict[str, object]] | None = None,
+    deadness_witnesses: list[JSONObject] | None = None,
+    coherence_witnesses: list[JSONObject] | None = None,
+    rewrite_plans: list[JSONObject] | None = None,
+    exception_obligations: list[JSONObject] | None = None,
+    handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
     decision_warnings: list[str] | None = None,
     fingerprint_warnings: list[str] | None = None,
     fingerprint_matches: list[str] | None = None,
     fingerprint_synth: list[str] | None = None,
-    fingerprint_provenance: list[dict[str, object]] | None = None,
+    fingerprint_provenance: list[JSONObject] | None = None,
     context_suggestions: list[str] | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
     value_decision_rewrites: list[str] | None = None,
@@ -5690,7 +5729,7 @@ def analyze_paths(
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
         )
-    deadness_witnesses: list[dict[str, object]] = []
+    deadness_witnesses: list[JSONObject] = []
     if include_deadness_witnesses:
         deadness_witnesses = analyze_deadness_flow_repo(
             file_paths,
@@ -5733,12 +5772,12 @@ def analyze_paths(
     fingerprint_warnings: list[str] = []
     fingerprint_matches: list[str] = []
     fingerprint_synth: list[str] = []
-    fingerprint_synth_registry: dict[str, object] | None = None
-    fingerprint_provenance: list[dict[str, object]] = []
-    coherence_witnesses: list[dict[str, object]] = []
-    rewrite_plans: list[dict[str, object]] = []
-    exception_obligations: list[dict[str, object]] = []
-    handledness_witnesses: list[dict[str, object]] = []
+    fingerprint_synth_registry: JSONObject | None = None
+    fingerprint_provenance: list[JSONObject] = []
+    coherence_witnesses: list[JSONObject] = []
+    rewrite_plans: list[JSONObject] = []
+    exception_obligations: list[JSONObject] = []
+    handledness_witnesses: list[JSONObject] = []
     if include_exception_obligations or include_handledness_witnesses:
         handledness_witnesses = _collect_handledness_witnesses(
             file_paths,
@@ -6082,7 +6121,7 @@ def run(argv: list[str] | None = None) -> int:
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
     synth_registry: SynthRegistry | None = None
-    fingerprint_spec: dict[str, object] = {}
+    fingerprint_spec: dict[str, JSONValue] = {}
     if isinstance(fingerprint_section, dict):
         # The [fingerprints] section mixes bundle specs with synth settings.
         # Filter out the settings so they do not pollute the registry/index.
@@ -6313,7 +6352,7 @@ def run(argv: list[str] | None = None) -> int:
             or structure_metrics_path
         ):
             return 0
-    synthesis_plan: dict[str, object] | None = None
+    synthesis_plan: JSONObject | None = None
     merge_overlap_threshold = None
     if args.synthesis_merge_overlap is not None:
         merge_overlap_threshold = args.synthesis_merge_overlap
@@ -6347,7 +6386,7 @@ def run(argv: list[str] | None = None) -> int:
                 print(stubs)
             else:
                 Path(args.synthesis_protocols).write_text(stubs)
-    refactor_plan: dict[str, object] | None = None
+    refactor_plan: JSONObject | None = None
     if args.refactor_plan or args.refactor_plan_json:
         refactor_plan = build_refactor_plan(
             analysis.groups_by_path,

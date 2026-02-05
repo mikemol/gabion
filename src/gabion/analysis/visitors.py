@@ -88,6 +88,17 @@ class UseVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         callee = self.callee_name(node)
+        span: tuple[int, int, int, int] | None = None
+        if hasattr(node, "lineno") and hasattr(node, "col_offset"):
+            start_line = max(getattr(node, "lineno", 1) - 1, 0)
+            start_col = max(getattr(node, "col_offset", 0), 0)
+            end_line = max(
+                getattr(node, "end_lineno", getattr(node, "lineno", 1)) - 1, 0
+            )
+            end_col = getattr(node, "end_col_offset", start_col + 1)
+            if end_line == start_line and end_col <= start_col:
+                end_col = start_col + 1
+            span = (start_line, start_col, end_line, end_col)
         pos_map: dict[str, str] = {}
         kw_map: dict[str, str] = {}
         const_pos: dict[str, str] = {}
@@ -138,6 +149,7 @@ class UseVisitor(ast.NodeVisitor):
                 star_pos=star_pos,
                 star_kw=star_kw,
                 is_test=self.is_test,
+                span=span,
             )
         )
         self.generic_visit(node)

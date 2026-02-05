@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any
+from typing import TypeAlias
 import tomllib
 
 DEFAULT_CONFIG_NAME = "gabion.toml"
 
+TomlScalar: TypeAlias = str | int | float | bool | None | date | datetime | time
+TomlValue: TypeAlias = TomlScalar | list["TomlValue"] | dict[str, "TomlValue"]
+TomlTable: TypeAlias = dict[str, TomlValue]
 
-def _load_toml(path: Path) -> dict[str, Any]:
+
+def _load_toml(path: Path) -> TomlTable:
     try:
         raw = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -21,7 +26,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def load_config(root: Path | None = None, config_path: Path | None = None) -> dict[str, Any]:
+def load_config(root: Path | None = None, config_path: Path | None = None) -> TomlTable:
     if config_path is None:
         base = root if root is not None else Path.cwd()
         config_path = base / DEFAULT_CONFIG_NAME
@@ -30,7 +35,7 @@ def load_config(root: Path | None = None, config_path: Path | None = None) -> di
 
 def dataflow_defaults(
     root: Path | None = None, config_path: Path | None = None
-) -> dict[str, Any]:
+) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
     section = data.get("dataflow", {})
     return section if isinstance(section, dict) else {}
@@ -38,7 +43,7 @@ def dataflow_defaults(
 
 def synthesis_defaults(
     root: Path | None = None, config_path: Path | None = None
-) -> dict[str, Any]:
+) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
     section = data.get("synthesis", {})
     return section if isinstance(section, dict) else {}
@@ -46,7 +51,7 @@ def synthesis_defaults(
 
 def decision_defaults(
     root: Path | None = None, config_path: Path | None = None
-) -> dict[str, Any]:
+) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
     section = data.get("decision", {})
     return section if isinstance(section, dict) else {}
@@ -54,13 +59,13 @@ def decision_defaults(
 
 def fingerprint_defaults(
     root: Path | None = None, config_path: Path | None = None
-) -> dict[str, Any]:
+) -> TomlTable:
     data = load_config(root=root, config_path=config_path)
     section = data.get("fingerprints", {})
     return section if isinstance(section, dict) else {}
 
 
-def _normalize_name_list(value: Any) -> list[str]:
+def _normalize_name_list(value: TomlValue) -> list[str]:
     items: list[str] = []
     if value is None:
         return items
@@ -73,7 +78,7 @@ def _normalize_name_list(value: Any) -> list[str]:
     return [item for item in items if item]
 
 
-def decision_tier_map(section: dict[str, Any] | None) -> dict[str, int]:
+def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
     if section is None:
         return {}
     if not isinstance(section, dict):
@@ -85,7 +90,7 @@ def decision_tier_map(section: dict[str, Any] | None) -> dict[str, int]:
     return tiers
 
 
-def merge_payload(payload: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
+def merge_payload(payload: TomlTable, defaults: TomlTable) -> TomlTable:
     merged = dict(defaults)
     for key, value in payload.items():
         if value is None:

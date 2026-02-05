@@ -23,4 +23,4 @@ def test_compute_structure_metrics_counts() -> None:
     assert metrics["functions"] == 2
     assert metrics["bundles"] == 3
     assert metrics["max_bundle_size"] == 2
-    assert metrics["bundle_size_histogram"] == {1: 2, 2: 1}
+    assert metrics["bundle_size_histogram"] == {"1": 2, "2": 1}

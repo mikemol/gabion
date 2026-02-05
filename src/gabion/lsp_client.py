@@ -5,7 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Callable
+
+from gabion.json_types import JSONObject
 
 
 class LspClientError(RuntimeError):
@@ -15,10 +17,10 @@ class LspClientError(RuntimeError):
 @dataclass(frozen=True)
 class CommandRequest:
     command: str
-    arguments: list[dict] | None = None
+    arguments: list[JSONObject] | None = None
 
 
-def _read_rpc(stream) -> dict:
+def _read_rpc(stream) -> JSONObject:
     header = b""
     while b"\r\n\r\n" not in header:
         chunk = stream.read(1)
@@ -36,17 +38,20 @@ def _read_rpc(stream) -> dict:
     body = rest
     if len(body) < length:
         body += stream.read(length - len(body))
-    return json.loads(body.decode("utf-8"))
+    message = json.loads(body.decode("utf-8"))
+    if not isinstance(message, dict):
+        raise LspClientError("Invalid LSP message payload")
+    return message
 
 
-def _write_rpc(stream, message: dict) -> None:
+def _write_rpc(stream, message: JSONObject) -> None:
     payload = json.dumps(message).encode("utf-8")
     header = f"Content-Length: {len(payload)}\r\n\r\n".encode("utf-8")
     stream.write(header + payload)
     stream.flush()
 
 
-def _read_response(stream, request_id: int) -> dict:
+def _read_response(stream, request_id: int) -> JSONObject:
     while True:
         message = _read_rpc(stream)
         if message.get("id") == request_id:
@@ -59,7 +64,7 @@ def run_command(
     root: Path | None = None,
     timeout: float = 5.0,
     process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
-) -> dict[str, Any]:
+) -> JSONObject:
     proc = process_factory(
         [sys.executable, "-m", "gabion.server"],
         stdin=subprocess.PIPE,
@@ -109,4 +114,7 @@ def run_command(
         detail = err.decode("utf-8", errors="replace").strip()
         if detail:
             raise LspClientError(f"LSP server error output: {detail}")
-    return response.get("result", {})
+    result = response.get("result", {})
+    if not isinstance(result, dict):
+        raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
+    return result

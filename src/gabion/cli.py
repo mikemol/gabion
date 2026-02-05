@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Any, Callable
+from typing import Callable, List, Optional, TypeAlias
 import argparse
 import json
 import subprocess
@@ -18,15 +18,17 @@ STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 from gabion.lsp_client import CommandRequest, run_command
+from gabion.json_types import JSONObject
 app = typer.Typer(add_completion=False)
-DEFAULT_RUNNER: Callable[..., dict[str, Any]] = run_command
+Runner: TypeAlias = Callable[..., JSONObject]
+DEFAULT_RUNNER: Runner = run_command
 
 
 @dataclass(frozen=True)
 class DataflowAuditRequest:
     ctx: typer.Context
     args: List[str] | None = None
-    runner: Callable[..., dict[str, Any]] | None = None
+    runner: Runner | None = None
 
 
 def _find_repo_root() -> Path:
@@ -65,7 +67,7 @@ def build_check_payload(
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
-) -> dict[str, Any]:
+) -> JSONObject:
     # dataflow-bundle: ignore_params, transparent_decorators
     if not paths:
         paths = [Path(".")]
@@ -101,11 +103,11 @@ def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
+def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
     exclude_dirs = _split_csv_entries(opts.exclude)
     ignore_list = _split_csv(opts.ignore_params)
     transparent_list = _split_csv(opts.transparent_decorators)
-    payload: dict[str, Any] = {
+    payload: JSONObject = {
         "paths": [str(p) for p in opts.paths],
         "root": str(opts.root),
         "config": str(opts.config) if opts.config is not None else None,
@@ -177,7 +179,7 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
 
 def build_refactor_payload(
     *,
-    input_payload: Optional[dict[str, Any]] = None,
+    input_payload: Optional[JSONObject] = None,
     protocol_name: Optional[str],
     bundle: Optional[List[str]],
     field: Optional[List[str]],
@@ -185,7 +187,7 @@ def build_refactor_payload(
     target_functions: Optional[List[str]],
     compatibility_shim: bool,
     rationale: Optional[str],
-) -> dict[str, Any]:
+) -> JSONObject:
     if input_payload is not None:
         return input_payload
     if protocol_name is None or target_path is None:
@@ -216,10 +218,10 @@ def build_refactor_payload(
 def dispatch_command(
     *,
     command: str,
-    payload: dict[str, Any],
+    payload: JSONObject,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] = run_command,
-) -> dict[str, Any]:
+    runner: Runner = run_command,
+) -> JSONObject:
     request = CommandRequest(command, [payload])
     return runner(request, root=root)
 
@@ -240,8 +242,8 @@ def run_check(
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
-    runner: Callable[..., dict[str, Any]] = run_command,
-) -> dict[str, Any]:
+    runner: Runner = run_command,
+) -> JSONObject:
     # dataflow-bundle: ignore_params, transparent_decorators
     payload = build_check_payload(
         paths=paths,
@@ -641,8 +643,8 @@ def _run_synth(
     synthesis_protocols_kind: str,
     refactor_plan: bool,
     fail_on_violations: bool,
-    runner: Callable[..., dict[str, Any]] = run_command,
-) -> tuple[dict[str, Any], dict[str, Path], Path | None]:
+    runner: Runner = run_command,
+) -> tuple[JSONObject, dict[str, Path], Path | None]:
     if not paths:
         paths = [Path(".")]
     exclude_dirs: list[str] | None = None
@@ -688,7 +690,7 @@ def _run_synth(
     )
     fingerprint_handledness_path = output_root / "fingerprint_handledness.json"
 
-    payload: dict[str, Any] = {
+    payload: JSONObject = {
         "paths": [str(p) for p in paths],
         "root": str(root),
         "config": str(config) if config is not None else None,
@@ -828,15 +830,18 @@ def _run_synthesis_plan(
     *,
     input_path: Optional[Path],
     output_path: Optional[Path],
-    runner: Callable[..., dict[str, Any]] = run_command,
+    runner: Runner = run_command,
 ) -> None:
     """Generate a synthesis plan from a JSON payload (prototype)."""
-    payload: dict[str, Any] = {}
+    payload: JSONObject = {}
     if input_path is not None:
         try:
-            payload = json.loads(input_path.read_text())
+            loaded = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
+        if not isinstance(loaded, dict):
+            raise typer.BadParameter("Synthesis payload must be a JSON object.")
+        payload = loaded
     result = dispatch_command(
         command=SYNTHESIS_COMMAND,
         payload=payload,
@@ -883,8 +888,8 @@ def run_structure_diff(
     baseline: Path,
     current: Path,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+    runner: Runner | None = None,
+) -> JSONObject:
     # dataflow-bundle: baseline, current
     payload = {"baseline": str(baseline), "current": str(current)}
     runner = runner or DEFAULT_RUNNER
@@ -901,8 +906,8 @@ def run_decision_diff(
     baseline: Path,
     current: Path,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+    runner: Runner | None = None,
+) -> JSONObject:
     payload = {"baseline": str(baseline), "current": str(current)}
     runner = runner or DEFAULT_RUNNER
     return dispatch_command(
@@ -919,8 +924,8 @@ def run_structure_reuse(
     min_count: int = 2,
     lemma_stubs: Path | None = None,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+    runner: Runner | None = None,
+) -> JSONObject:
     payload = {"snapshot": str(snapshot), "min_count": int(min_count)}
     if lemma_stubs is not None:
         payload["lemma_stubs"] = str(lemma_stubs)
@@ -933,7 +938,7 @@ def run_structure_reuse(
     )
 
 
-def _emit_structure_diff(result: dict[str, Any]) -> None:
+def _emit_structure_diff(result: JSONObject) -> None:
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -944,7 +949,7 @@ def _emit_structure_diff(result: dict[str, Any]) -> None:
         raise typer.Exit(code=exit_code)
 
 
-def _emit_decision_diff(result: dict[str, Any]) -> None:
+def _emit_decision_diff(result: JSONObject) -> None:
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -955,7 +960,7 @@ def _emit_decision_diff(result: dict[str, Any]) -> None:
         raise typer.Exit(code=exit_code)
 
 
-def _emit_structure_reuse(result: dict[str, Any]) -> None:
+def _emit_structure_reuse(result: JSONObject) -> None:
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -1031,12 +1036,15 @@ def refactor_protocol(
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
-    input_payload: dict[str, Any] | None = None
+    input_payload: JSONObject | None = None
     if input_path is not None:
         try:
-            input_payload = json.loads(input_path.read_text())
+            loaded = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
+        if not isinstance(loaded, dict):
+            raise typer.BadParameter("Refactor payload must be a JSON object.")
+        input_payload = loaded
     payload = build_refactor_payload(
         input_payload=input_payload,
         protocol_name=protocol_name,

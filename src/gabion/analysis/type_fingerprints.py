@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Iterable
 import math
 
+from gabion.analysis.json_types import JSONObject, JSONValue
 
 def _split_top_level(value: str, sep: str) -> list[str]:
     parts: list[str] = []
@@ -446,8 +447,8 @@ def synth_registry_payload(
     registry: PrimeRegistry,
     *,
     min_occurrences: int,
-) -> dict[str, object]:
-    entries: list[dict[str, object]] = []
+) -> JSONObject:
+    entries: list[JSONObject] = []
     for prime, tail in sorted(synth_registry.tails.items()):
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
             tail.base.product, registry
@@ -508,8 +509,8 @@ def synth_registry_payload(
 
 
 def load_synth_registry_payload(
-    payload: dict[str, object],
-) -> tuple[list[dict[str, object]], str, int]:
+    payload: JSONObject,
+) -> tuple[list[JSONObject], str, int]:
     version = str(payload.get("version", "synth@1"))
     min_occurrences = int(payload.get("min_occurrences", 2))
     entries = payload.get("entries", [])
@@ -519,7 +520,7 @@ def load_synth_registry_payload(
 
 
 def build_synth_registry_from_payload(
-    payload: dict[str, object],
+    payload: JSONObject,
     registry: PrimeRegistry,
 ) -> SynthRegistry:
     _apply_registry_payload(payload.get("registry"), registry)
@@ -712,7 +713,7 @@ def fingerprint_hybrid(types: Iterable[str], registry: PrimeRegistry) -> tuple[i
 
 
 def build_fingerprint_registry(
-    spec: dict[str, object],
+    spec: dict[str, JSONValue],
 ) -> tuple[PrimeRegistry, dict[Fingerprint, set[str]]]:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)

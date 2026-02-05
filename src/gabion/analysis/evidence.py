@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
+from gabion.analysis.json_types import JSONValue
 
 def normalize_bundle_key(bundle: object) -> str:
     """Canonicalize a bundle payload into a stable join key.
@@ -61,7 +62,7 @@ class Site:
 
 
 def exception_obligation_summary_for_site(
-    obligations: Iterable[Mapping[str, object]],
+    obligations: Iterable[Mapping[str, JSONValue]],
     *,
     site: Site,
 ) -> dict[str, int]:

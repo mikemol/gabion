@@ -56,7 +56,8 @@ def test_star_import_resolution_disambiguates(tmp_path: Path) -> None:
         external_filter=True,
     )
     assert any(
-        "b.py:caller passes param x to unused a.py:helper.a" in smell for smell in smells
+        smell.startswith("b.py:") and "passes param x to unused a.py:helper.a" in smell
+        for smell in smells
     )
 
 
@@ -96,5 +97,6 @@ def test_star_import_resolves_reexport(tmp_path: Path) -> None:
         external_filter=True,
     )
     assert any(
-        "c.py:caller passes param x to unused a.py:helper.a" in smell for smell in smells
+        smell.startswith("c.py:") and "passes param x to unused a.py:helper.a" in smell
+        for smell in smells
     )

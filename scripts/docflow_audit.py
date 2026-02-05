@@ -7,9 +7,10 @@ Validates required cross-references and commutation symmetry.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 import sys
-from typing import Dict, List, Tuple
+from typing import List, Tuple, TypeAlias
 
 CORE_GOVERNANCE_DOCS = [
     "POLICY_SEED.md",
@@ -46,8 +47,18 @@ MAP_FIELDS = {
     "doc_reviewed_as_of",
 }
 
+FrontmatterScalar: TypeAlias = str | int
+FrontmatterValue: TypeAlias = FrontmatterScalar | List[str] | dict[str, FrontmatterScalar]
+Frontmatter: TypeAlias = dict[str, FrontmatterValue]
 
-def _parse_frontmatter(text: str) -> Tuple[Dict[str, object], str]:
+
+@dataclass(frozen=True)
+class Doc:
+    frontmatter: Frontmatter
+    body: str
+
+
+def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
     if not text.startswith("---\n"):
         return {}, text
     lines = text.split("\n")
@@ -66,8 +77,8 @@ def _parse_frontmatter(text: str) -> Tuple[Dict[str, object], str]:
     return _parse_yaml_like(fm_lines), body
 
 
-def _parse_yaml_like(lines: List[str]) -> Dict[str, object]:
-    data: Dict[str, object] = {}
+def _parse_yaml_like(lines: List[str]) -> Frontmatter:
+    data: Frontmatter = {}
     current_list_key: str | None = None
     current_map_key: str | None = None
     for raw in lines:
@@ -82,10 +93,7 @@ def _parse_yaml_like(lines: List[str]) -> Dict[str, object]:
             value = value.strip()
             if value.startswith("\"") and value.endswith("\""):
                 value = value[1:-1]
-            if value.isdigit():
-                parsed: object = int(value)
-            else:
-                parsed = value
+            parsed: FrontmatterScalar = int(value) if value.isdigit() else value
             mapping = data.get(current_map_key)
             if not isinstance(mapping, dict):
                 mapping = {}
@@ -132,8 +140,8 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
     violations: List[str] = []
     warnings: List[str] = []
 
-    docs: Dict[str, Dict[str, object]] = {}
-    doc_ids: Dict[str, str] = {}
+    docs: dict[str, Doc] = {}
+    doc_ids: dict[str, str] = {}
 
     for rel in GOVERNANCE_DOCS:
         path = root / rel
@@ -142,7 +150,7 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
             continue
         text = path.read_text(encoding="utf-8")
         fm, body = _parse_frontmatter(text)
-        docs[rel] = {"frontmatter": fm, "body": body}
+        docs[rel] = Doc(frontmatter=fm, body=body)
         doc_id = fm.get("doc_id")
         if isinstance(doc_id, str):
             if doc_id in doc_ids:
@@ -155,15 +163,15 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
     governance_set = set(GOVERNANCE_DOCS)
     core_set = set(CORE_GOVERNANCE_DOCS)
 
-    revisions: Dict[str, int] = {}
+    revisions: dict[str, int] = {}
     for rel, payload in docs.items():
-        fm = payload["frontmatter"]
+        fm = payload.frontmatter
         if isinstance(fm.get("doc_revision"), int):
             revisions[rel] = fm["doc_revision"]
 
     for rel, payload in docs.items():
-        fm = payload["frontmatter"]
-        body = payload["body"]
+        fm = payload.frontmatter
+        body = payload.body
         # Required fields
         for field in REQUIRED_FIELDS:
             if field not in fm:
@@ -187,11 +195,12 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
         commutes = fm.get("doc_commutes_with")
         if isinstance(commutes, list):
             for other in commutes:
-                other_fm = docs.get(other, {}).get("frontmatter", {})
-                other_commutes = other_fm.get("doc_commutes_with", [])
-                if other not in docs:
+                other_doc = docs.get(other)
+                if other_doc is None:
                     violations.append(f"{rel}: doc_commutes_with target missing: {other}")
                     continue
+                other_fm = other_doc.frontmatter
+                other_commutes = other_fm.get("doc_commutes_with", [])
                 if not isinstance(other_commutes, list) or rel not in other_commutes:
                     violations.append(
                         f"{rel}: commutation with {other} not reciprocated"
@@ -239,19 +248,21 @@ def _audit(root: Path) -> Tuple[List[str], List[str]]:
     return violations, warnings
 
 
-def _tooling_warnings(root: Path, docs: Dict[str, Dict[str, object]]) -> List[str]:
+def _tooling_warnings(root: Path, docs: dict[str, Doc]) -> List[str]:
     warnings: List[str] = []
     makefile = root / "Makefile"
     if makefile.exists():
         for rel in ("README.md", "CONTRIBUTING.md"):
-            body = docs.get(rel, {}).get("body", "")
+            doc = docs.get(rel)
+            body = doc.body if doc is not None else ""
             if "make " not in body and "Make targets" not in body:
                 warnings.append(
                     f"{rel}: Makefile present but make targets are not documented"
                 )
     checks_script = root / "scripts" / "checks.sh"
     if checks_script.exists():
-        body = docs.get("CONTRIBUTING.md", {}).get("body", "")
+        doc = docs.get("CONTRIBUTING.md")
+        body = doc.body if doc is not None else ""
         if "scripts/checks.sh" not in body:
             warnings.append(
                 "CONTRIBUTING.md: scripts/checks.sh present but not documented"
