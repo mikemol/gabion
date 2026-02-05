@@ -295,7 +295,7 @@ def _extract_invariant_from_expr(
     params: set[str],
     *,
     scope: str,
-    source: str,
+    source: str = "assert",
 ) -> InvariantProposition | None:
     if not isinstance(expr, ast.Compare):
         return None
@@ -337,7 +337,6 @@ class _InvariantCollector(ast.NodeVisitor):
             node.test,
             self._params,
             scope=self._scope,
-            source="assert",
         )
         if prop is not None:
             key = (prop.form, prop.terms, prop.scope or "")
@@ -6345,7 +6344,6 @@ def analyze_paths(
             strictness=config.strictness,
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
-            max_sites_per_param=3,
         )
         if type_audit_report:
             type_suggestions = type_suggestions[:type_audit_max]
