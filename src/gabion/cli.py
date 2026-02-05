@@ -1036,6 +1036,33 @@ def refactor_protocol(
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
+    _run_refactor_protocol(
+        input_path=input_path,
+        output_path=output_path,
+        protocol_name=protocol_name,
+        bundle=bundle,
+        field=field,
+        target_path=target_path,
+        target_functions=target_functions,
+        compatibility_shim=compatibility_shim,
+        rationale=rationale,
+    )
+
+
+def _run_refactor_protocol(
+    *,
+    input_path: Optional[Path],
+    output_path: Optional[Path],
+    protocol_name: Optional[str],
+    bundle: Optional[List[str]],
+    field: Optional[List[str]],
+    target_path: Optional[Path],
+    target_functions: Optional[List[str]],
+    compatibility_shim: bool,
+    rationale: Optional[str],
+    runner: Runner = run_command,
+) -> None:
+    """Generate protocol refactor edits from a JSON payload (prototype)."""
     input_payload: JSONObject | None = None
     if input_path is not None:
         try:
@@ -1059,6 +1086,7 @@ def refactor_protocol(
         command=REFACTOR_COMMAND,
         payload=payload,
         root=None,
+        runner=runner,
     )
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:

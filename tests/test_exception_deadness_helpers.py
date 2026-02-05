@@ -37,6 +37,7 @@ def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     assert da._eval_value_expr(ast.parse("x").body[0].value, {}) is None
     assert da._eval_value_expr(ast.parse("-1").body[0].value, {}) == -1
     assert da._eval_value_expr(ast.parse("+2").body[0].value, {}) == 2
+    assert da._eval_value_expr(ast.parse("b'hi'").body[0].value, {}) is None
     assert da._eval_value_expr(ast.parse("foo()").body[0].value, {}) is None
 
     # _eval_bool_expr: constants + unknown names.

@@ -357,6 +357,56 @@ def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
     assert output_path.read_text().strip()
 
 
+def test_run_synthesis_plan_rejects_non_object_payload(tmp_path: Path) -> None:
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text("[]\n")
+    with pytest.raises(typer.BadParameter) as exc:
+        cli._run_synthesis_plan(
+            input_path=payload_path,
+            output_path=None,
+            runner=lambda *_args, **_kwargs: {"protocols": []},
+        )
+    assert "json object" in str(exc.value).lower()
+
+
+def test_refactor_protocol_rejects_non_object_payload(tmp_path: Path) -> None:
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text("[]\n")
+    with pytest.raises(typer.BadParameter) as exc:
+        cli.refactor_protocol(input_path=payload_path)
+    assert "json object" in str(exc.value).lower()
+
+
+def test_run_refactor_protocol_accepts_object_payload(tmp_path: Path) -> None:
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text("{\"protocol_name\": \"Bundle\", \"bundle\": [\"a\"]}\n")
+
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"ok": True}
+
+    output_path = tmp_path / "out.json"
+    cli._run_refactor_protocol(
+        input_path=payload_path,
+        output_path=output_path,
+        protocol_name=None,
+        bundle=None,
+        field=None,
+        target_path=None,
+        target_functions=None,
+        compatibility_shim=False,
+        rationale=None,
+        runner=runner,
+    )
+    assert captured["command"] == cli.REFACTOR_COMMAND
+    assert captured["root"] is None
+    assert output_path.read_text().strip()
+
+
 def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 

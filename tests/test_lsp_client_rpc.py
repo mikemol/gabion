@@ -79,3 +79,15 @@ def test_read_rpc_accepts_prefetched_body() -> None:
     stream = _Chunky(header + body)
     message = _read_rpc(stream)
     assert message["id"] == 9
+
+
+def test_read_rpc_rejects_non_object_payload() -> None:
+    body = json.dumps([]).encode("utf-8")
+    header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
+    stream = io.BytesIO(header + body)
+    try:
+        _read_rpc(stream)
+    except LspClientError as exc:
+        assert "payload" in str(exc).lower()
+    else:
+        raise AssertionError("Expected LspClientError for non-object payload")

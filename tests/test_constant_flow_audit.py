@@ -196,3 +196,49 @@ def test_deadness_witnesses_from_constant_flow(tmp_path: Path) -> None:
     assert entry["bundle"] == ["a"]
     assert entry["environment"] == {"a": "1"}
     assert entry["result"] == "UNREACHABLE"
+
+
+def test_format_call_site_handles_missing_span(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root / "src"))
+    from gabion.analysis.dataflow_audit import CallArgs, FunctionInfo, _format_call_site
+
+    caller = FunctionInfo(
+        name="caller",
+        qual="pkg.mod.caller",
+        path=tmp_path / "mod.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        scope=("pkg", "mod"),
+    )
+    call = CallArgs(
+        callee="callee",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=None,
+    )
+    assert _format_call_site(caller, call) == "mod.py:pkg.mod.caller"
+
+    call_with_span = CallArgs(
+        callee="callee",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(4, 5, 4, 6),
+    )
+    assert _format_call_site(caller, call_with_span) == "mod.py:5:6:pkg.mod.caller"

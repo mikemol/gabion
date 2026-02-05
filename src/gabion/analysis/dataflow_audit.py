@@ -3459,6 +3459,19 @@ class ConstantFlowDetail:
     sites: tuple[str, ...] = ()
 
 
+def _format_call_site(caller: FunctionInfo, call: CallArgs) -> str:
+    """Render a stable, human-friendly call site identifier.
+
+    Spans are stored 0-based; we report 1-based line/col for readability.
+    """
+    caller_name = _function_key(caller.scope, caller.name)
+    span = call.span
+    if span is None:
+        return f"{caller.path.name}:{caller_name}"
+    line, col, _, _ = span
+    return f"{caller.path.name}:{line + 1}:{col + 1}:{caller_name}"
+
+
 def _collect_constant_flow_details(
     paths: list[Path],
     *,
@@ -3485,13 +3498,7 @@ def _collect_constant_flow_details(
     call_sites: dict[tuple[str, str], set[str]] = defaultdict(set)
 
     def _record_site(key: tuple[str, str], caller: FunctionInfo, call: CallArgs) -> None:
-        span = call.span
-        caller_name = _function_key(caller.scope, caller.name)
-        if span is None:
-            call_sites[key].add(f"{caller.path.name}:{caller_name}")
-            return
-        line, col, _, _ = span
-        call_sites[key].add(f"{caller.path.name}:{line + 1}:{col + 1}:{caller_name}")
+        call_sites[key].add(_format_call_site(caller, call))
 
     for infos in by_name.values():
         for info in infos:
