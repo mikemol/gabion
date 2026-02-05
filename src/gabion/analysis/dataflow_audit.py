@@ -199,6 +199,7 @@ class AnalysisResult:
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]]
     type_suggestions: list[str]
     type_ambiguities: list[str]
+    type_callsite_evidence: list[str]
     constant_smells: list[str]
     unused_arg_smells: list[str]
     deadness_witnesses: list[JSONObject] = field(default_factory=list)
@@ -908,9 +909,23 @@ def _param_annotations(
             except Exception:
                 annots[name] = None
     if fn.args.vararg:
-        annots[fn.args.vararg.arg] = None
+        vararg = fn.args.vararg
+        if vararg.annotation is None:
+            annots[vararg.arg] = None
+        else:
+            try:
+                annots[vararg.arg] = ast.unparse(vararg.annotation)
+            except Exception:  # pragma: no cover - defensive against malformed AST nodes
+                annots[vararg.arg] = None  # pragma: no cover
     if fn.args.kwarg:
-        annots[fn.args.kwarg.arg] = None
+        kwarg = fn.args.kwarg
+        if kwarg.annotation is None:
+            annots[kwarg.arg] = None
+        else:
+            try:
+                annots[kwarg.arg] = ast.unparse(kwarg.annotation)
+            except Exception:  # pragma: no cover - defensive against malformed AST nodes
+                annots[kwarg.arg] = None  # pragma: no cover
     if names and names[0] in {"self", "cls"}:
         annots.pop(names[0], None)
     if ignore_params:
@@ -2945,6 +2960,11 @@ class FunctionInfo:
     decision_params: set[str] = field(default_factory=set)
     value_decision_params: set[str] = field(default_factory=set)
     value_decision_reasons: set[str] = field(default_factory=set)
+    positional_params: tuple[str, ...] = ()
+    kwonly_params: tuple[str, ...] = ()
+    vararg: str | None = None
+    kwarg: str | None = None
+    param_spans: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
 
 
 @dataclass
@@ -3249,6 +3269,25 @@ def _build_function_index(
             value_params, value_reasons = _value_encoded_decision_params(
                 fn, ignore_params
             )
+            pos_args = [a.arg for a in (fn.args.posonlyargs + fn.args.args)]
+            kwonly_args = [a.arg for a in fn.args.kwonlyargs]
+            if pos_args and pos_args[0] in {"self", "cls"}:
+                pos_args = pos_args[1:]
+            if ignore_params:
+                pos_args = [name for name in pos_args if name not in ignore_params]
+                kwonly_args = [
+                    name for name in kwonly_args if name not in ignore_params
+                ]
+            vararg = None
+            if fn.args.vararg is not None:
+                candidate = fn.args.vararg.arg
+                if not ignore_params or candidate not in ignore_params:
+                    vararg = candidate
+            kwarg = None
+            if fn.args.kwarg is not None:
+                candidate = fn.args.kwarg.arg
+                if not ignore_params or candidate not in ignore_params:
+                    kwarg = candidate
             qual_parts = [module] if module else []
             if scopes:
                 qual_parts.extend(scopes)
@@ -3270,6 +3309,11 @@ def _build_function_index(
                 decision_params=_decision_surface_params(fn, ignore_params),
                 value_decision_params=value_params,
                 value_decision_reasons=value_reasons,
+                positional_params=tuple(pos_args),
+                kwonly_params=tuple(kwonly_args),
+                vararg=vararg,
+                kwarg=kwarg,
+                param_spans=_param_spans(fn, ignore_params),
             )
             by_name[fn.name].append(info)
             by_qual[info.qual] = info
@@ -3386,7 +3430,30 @@ def _resolve_callee(
     return None
 
 
-def analyze_type_flow_repo_with_map(
+def _format_type_flow_site(
+    *,
+    caller: FunctionInfo,
+    call: CallArgs,
+    callee: FunctionInfo,
+    caller_param: str,
+    callee_param: str,
+    annot: str,
+    project_root: Path | None,
+) -> str:
+    """Format a stable, machine-actionable callsite for type-flow evidence."""
+    caller_name = _function_key(caller.scope, caller.name)
+    caller_path = _normalize_snapshot_path(caller.path, project_root)
+    if call.span is None:
+        loc = f"{caller_path}:{caller_name}"
+    else:
+        line, col, _, _ = call.span
+        loc = f"{caller_path}:{line + 1}:{col + 1}"
+    return (
+        f"{loc}: {caller_name}.{caller_param} -> {callee.qual}.{callee_param} expects {annot}"
+    )
+
+
+def _infer_type_flow(
     paths: list[Path],
     *,
     project_root: Path | None,
@@ -3394,8 +3461,9 @@ def analyze_type_flow_repo_with_map(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
-    """Repo-wide fixed-point pass for downstream type tightening."""
+    max_sites_per_param: int = 3,
+) -> tuple[dict[str, dict[str, str | None]], list[str], list[str], list[str]]:
+    """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -3415,8 +3483,81 @@ def analyze_type_flow_repo_with_map(
     def _get_annot(info: FunctionInfo, param: str) -> str | None:
         return inferred.get(info.qual, {}).get(param)
 
-    suggestions: set[str] = set()
-    ambiguities: set[str] = set()
+    def _downstream_for(info: FunctionInfo) -> tuple[dict[str, set[str]], dict[str, dict[str, set[str]]]]:
+        downstream: dict[str, set[str]] = defaultdict(set)
+        sites: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+        for call in info.calls:
+            callee = _resolve_callee(
+                call.callee,
+                info,
+                by_name,
+                by_qual,
+                symbol_table,
+                project_root,
+                class_index,
+            )
+            if callee is None or not callee.transparent:
+                continue
+            pos_params = (
+                list(callee.positional_params)
+                if callee.positional_params
+                else list(callee.params)
+            )
+            kwonly_params = set(callee.kwonly_params or ())
+            named_params = set(pos_params) | kwonly_params
+            mapped_params: set[str] = set()
+            callee_to_caller: dict[str, set[str]] = defaultdict(set)
+            for pos_idx, caller_param in call.pos_map.items():
+                idx = int(pos_idx)
+                if idx < len(pos_params):
+                    callee_param = pos_params[idx]
+                elif callee.vararg is not None:
+                    callee_param = callee.vararg
+                else:
+                    continue
+                mapped_params.add(callee_param)
+                callee_to_caller[callee_param].add(caller_param)
+            for kw_name, caller_param in call.kw_map.items():
+                if kw_name in named_params:
+                    mapped_params.add(kw_name)
+                    callee_to_caller[kw_name].add(caller_param)
+                elif callee.kwarg is not None:
+                    mapped_params.add(callee.kwarg)
+                    callee_to_caller[callee.kwarg].add(caller_param)
+            if strictness == "low":
+                remaining = [p for p in sorted(named_params) if p not in mapped_params]
+                if callee.vararg is not None and callee.vararg not in mapped_params:
+                    remaining.append(callee.vararg)
+                if callee.kwarg is not None and callee.kwarg not in mapped_params:
+                    remaining.append(callee.kwarg)
+                if len(call.star_pos) == 1:
+                    _, star_param = call.star_pos[0]
+                    for param in remaining:
+                        callee_to_caller[param].add(star_param)
+                if len(call.star_kw) == 1:
+                    star_param = call.star_kw[0]
+                    for param in remaining:
+                        callee_to_caller[param].add(star_param)
+            for callee_param, callers in callee_to_caller.items():
+                annot = _get_annot(callee, callee_param)
+                if not annot:
+                    continue
+                for caller_param in callers:
+                    downstream[caller_param].add(annot)
+                    sites[caller_param][annot].add(
+                        _format_type_flow_site(
+                            caller=info,
+                            call=call,
+                            callee=callee,
+                            caller_param=caller_param,
+                            callee_param=callee_param,
+                            annot=annot,
+                            project_root=project_root,
+                        )
+                    )
+        return downstream, sites
+
+    # Fixed-point inference pass.
     changed = True
     while changed:
         changed = False
@@ -3424,57 +3565,9 @@ def analyze_type_flow_repo_with_map(
             for info in infos:
                 if _is_test_path(info.path):
                     continue
-                downstream: dict[str, set[str]] = defaultdict(set)
-                for call in info.calls:
-                    callee = _resolve_callee(
-                        call.callee,
-                        info,
-                        by_name,
-                        by_qual,
-                        symbol_table,
-                        project_root,
-                        class_index,
-                    )
-                    if callee is None:
-                        continue
-                    if not callee.transparent:
-                        continue
-                    callee_params = callee.params
-                    mapped_params: set[str] = set()
-                    callee_to_caller: dict[str, set[str]] = defaultdict(set)
-                    for pos_idx, param in call.pos_map.items():
-                        idx = int(pos_idx)
-                        if idx >= len(callee_params):
-                            continue
-                        callee_param = callee_params[idx]
-                        mapped_params.add(callee_param)
-                        callee_to_caller[callee_param].add(param)
-                    for kw_name, param in call.kw_map.items():
-                        if kw_name not in callee_params:
-                            continue
-                        mapped_params.add(kw_name)
-                        callee_to_caller[kw_name].add(param)
-                    if strictness == "low":
-                        remaining = [p for p in callee_params if p not in mapped_params]
-                        if len(call.star_pos) == 1:
-                            _, star_param = call.star_pos[0]
-                            for param in remaining:
-                                callee_to_caller[param].add(star_param)
-                        if len(call.star_kw) == 1:
-                            star_param = call.star_kw[0]
-                            for param in remaining:
-                                callee_to_caller[param].add(star_param)
-                    for callee_param, callers in callee_to_caller.items():
-                        annot = _get_annot(callee, callee_param)
-                        if not annot:
-                            continue
-                        for caller_param in callers:
-                            downstream[caller_param].add(annot)
+                downstream, _ = _downstream_for(info)
                 for param, annots in downstream.items():
-                    if len(annots) > 1:
-                        ambiguities.add(
-                            f"{info.path.name}:{info.name}.{param} downstream types conflict: {sorted(annots)}"
-                        )
+                    if len(annots) != 1:
                         continue
                     downstream_annot = next(iter(annots))
                     current = _get_annot(info, param)
@@ -3482,10 +3575,83 @@ def analyze_type_flow_repo_with_map(
                         if inferred[info.qual].get(param) != downstream_annot:
                             inferred[info.qual][param] = downstream_annot
                             changed = True
-                        suggestions.add(
-                            f"{info.path.name}:{info.name}.{param} can tighten to {downstream_annot}"
-                        )
-    return inferred, sorted(suggestions), sorted(ambiguities)
+
+    suggestions: set[str] = set()
+    ambiguities: set[str] = set()
+    evidence_lines: set[str] = set()
+    for infos in by_name.values():
+        for info in infos:
+            if _is_test_path(info.path):
+                continue
+            downstream, sites = _downstream_for(info)
+            fn_key = _function_key(info.scope, info.name)
+            path_key = _normalize_snapshot_path(info.path, project_root)
+            for param, annots in downstream.items():
+                if len(annots) > 1:
+                    ambiguities.add(
+                        f"{path_key}:{fn_key}.{param} downstream types conflict: {sorted(annots)}"
+                    )
+                    for annot in sorted(annots):
+                        for site in sorted(sites.get(param, {}).get(annot, set()))[
+                            :max_sites_per_param
+                        ]:
+                            evidence_lines.add(site)
+                    continue
+                downstream_annot = next(iter(annots))
+                original = info.annots.get(param)
+                final = inferred.get(info.qual, {}).get(param)
+                if _is_broad_type(original) and final == downstream_annot and downstream_annot:
+                    suggestions.add(
+                        f"{path_key}:{fn_key}.{param} can tighten to {downstream_annot}"
+                    )
+                    for site in sorted(
+                        sites.get(param, {}).get(downstream_annot, set())
+                    )[:max_sites_per_param]:
+                        evidence_lines.add(site)
+    return inferred, sorted(suggestions), sorted(ambiguities), sorted(evidence_lines)
+
+
+def analyze_type_flow_repo_with_map(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
+    """Repo-wide fixed-point pass for downstream type tightening."""
+    inferred, suggestions, ambiguities, _ = _infer_type_flow(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+    )
+    return inferred, suggestions, ambiguities
+
+
+def analyze_type_flow_repo_with_evidence(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+    max_sites_per_param: int = 3,
+) -> tuple[list[str], list[str], list[str]]:
+    _, suggestions, ambiguities, evidence = _infer_type_flow(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        max_sites_per_param=max_sites_per_param,
+    )
+    return suggestions, ambiguities, evidence
 
 
 def analyze_type_flow_repo(
@@ -3609,62 +3775,74 @@ def _collect_constant_flow_details(
                     continue
                 if not callee.transparent:
                     continue
-                callee_params = callee.params
+                pos_params = (
+                    list(callee.positional_params)
+                    if callee.positional_params
+                    else list(callee.params)
+                )
+                kwonly_params = set(callee.kwonly_params or ())
+                named_params = set(pos_params) | kwonly_params
                 mapped_params = set()
                 for idx_str in call.pos_map:
                     idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    mapped_params.add(callee_params[idx])
+                    if idx < len(pos_params):
+                        mapped_params.add(pos_params[idx])
+                    elif callee.vararg is not None:
+                        mapped_params.add(callee.vararg)
                 for kw in call.kw_map:
-                    if kw in callee_params:
+                    if kw in named_params:
                         mapped_params.add(kw)
-                remaining = [p for p in callee_params if p not in mapped_params]
+                remaining = [p for p in named_params if p not in mapped_params]
 
                 for idx_str, value in call.const_pos.items():
                     idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    key = (callee.qual, callee_params[idx])
-                    const_values[key].add(value)
-                    call_counts[key] += 1
-                    _record_site(key, info, call)
+                    if idx < len(pos_params):
+                        key = (callee.qual, pos_params[idx])
+                        const_values[key].add(value)
+                        call_counts[key] += 1
+                        _record_site(key, info, call)
+                    elif callee.vararg is not None:
+                        non_const[(callee.qual, callee.vararg)] = True
                 for idx_str in call.pos_map:
                     idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    key = (callee.qual, callee_params[idx])
-                    non_const[key] = True
-                    call_counts[key] += 1
+                    if idx < len(pos_params):
+                        key = (callee.qual, pos_params[idx])
+                        non_const[key] = True
+                        call_counts[key] += 1
+                    elif callee.vararg is not None:
+                        non_const[(callee.qual, callee.vararg)] = True
                 for idx_str in call.non_const_pos:
                     idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    key = (callee.qual, callee_params[idx])
-                    non_const[key] = True
-                    call_counts[key] += 1
+                    if idx < len(pos_params):
+                        key = (callee.qual, pos_params[idx])
+                        non_const[key] = True
+                        call_counts[key] += 1
+                    elif callee.vararg is not None:
+                        non_const[(callee.qual, callee.vararg)] = True
                 if strictness == "low":
                     if len(call.star_pos) == 1:
                         for param in remaining:
                             key = (callee.qual, param)
                             non_const[key] = True
                             call_counts[key] += 1
+                        if callee.vararg is not None:
+                            non_const[(callee.qual, callee.vararg)] = True
 
                 for kw, value in call.const_kw.items():
-                    if kw not in callee_params:
+                    if kw not in named_params:
                         continue
                     key = (callee.qual, kw)
                     const_values[key].add(value)
                     call_counts[key] += 1
                     _record_site(key, info, call)
                 for kw in call.kw_map:
-                    if kw not in callee_params:
+                    if kw not in named_params:
                         continue
                     key = (callee.qual, kw)
                     non_const[key] = True
                     call_counts[key] += 1
                 for kw in call.non_const_kw:
-                    if kw not in callee_params:
+                    if kw not in named_params:
                         continue
                     key = (callee.qual, kw)
                     non_const[key] = True
@@ -3675,6 +3853,8 @@ def _collect_constant_flow_details(
                             key = (callee.qual, param)
                             non_const[key] = True
                             call_counts[key] += 1
+                        if callee.kwarg is not None:
+                            non_const[(callee.qual, callee.kwarg)] = True
 
     details: list[ConstantFlowDetail] = []
     for key, values in const_values.items():
@@ -3791,56 +3971,78 @@ def _compute_knob_param_names(
                 if callee is None or not callee.transparent:
                     continue
                 call_counts[callee.qual] += 1
-                callee_params = callee.params
-                remaining = [p for p in callee_params]
+                pos_params = (
+                    list(callee.positional_params)
+                    if callee.positional_params
+                    else list(callee.params)
+                )
+                kwonly_params = set(callee.kwonly_params or ())
+                named_params = set(pos_params) | kwonly_params
+                remaining = set(named_params)
+                if callee.vararg is not None:
+                    remaining.add(callee.vararg)
+                if callee.kwarg is not None:
+                    remaining.add(callee.kwarg)
                 for idx_str, value in call.const_pos.items():
                     idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    param = callee_params[idx]
-                    const_values[(callee.qual, param)].add(value)
-                    explicit_passed[(callee.qual, param)] = True
-                    if param in remaining:
-                        remaining.remove(param)
+                    if idx < len(pos_params):
+                        param = pos_params[idx]
+                        const_values[(callee.qual, param)].add(value)
+                        explicit_passed[(callee.qual, param)] = True
+                        remaining.discard(param)
+                    elif callee.vararg is not None:
+                        non_const[(callee.qual, callee.vararg)] = True
+                        explicit_passed[(callee.qual, callee.vararg)] = True
+                        remaining.discard(callee.vararg)
                 for idx_str in call.pos_map:
                     idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    param = callee_params[idx]
-                    non_const[(callee.qual, param)] = True
-                    explicit_passed[(callee.qual, param)] = True
-                    if param in remaining:
-                        remaining.remove(param)
+                    if idx < len(pos_params):
+                        param = pos_params[idx]
+                        non_const[(callee.qual, param)] = True
+                        explicit_passed[(callee.qual, param)] = True
+                        remaining.discard(param)
+                    elif callee.vararg is not None:
+                        non_const[(callee.qual, callee.vararg)] = True
+                        explicit_passed[(callee.qual, callee.vararg)] = True
+                        remaining.discard(callee.vararg)
                 for idx_str in call.non_const_pos:
                     idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    param = callee_params[idx]
-                    non_const[(callee.qual, param)] = True
-                    explicit_passed[(callee.qual, param)] = True
-                    if param in remaining:
-                        remaining.remove(param)
+                    if idx < len(pos_params):
+                        param = pos_params[idx]
+                        non_const[(callee.qual, param)] = True
+                        explicit_passed[(callee.qual, param)] = True
+                        remaining.discard(param)
+                    elif callee.vararg is not None:
+                        non_const[(callee.qual, callee.vararg)] = True
+                        explicit_passed[(callee.qual, callee.vararg)] = True
+                        remaining.discard(callee.vararg)
                 for kw, value in call.const_kw.items():
-                    if kw not in callee_params:
-                        continue
-                    const_values[(callee.qual, kw)].add(value)
-                    explicit_passed[(callee.qual, kw)] = True
-                    if kw in remaining:
-                        remaining.remove(kw)
+                    if kw in named_params:
+                        const_values[(callee.qual, kw)].add(value)
+                        explicit_passed[(callee.qual, kw)] = True
+                        remaining.discard(kw)
+                    elif callee.kwarg is not None:
+                        non_const[(callee.qual, callee.kwarg)] = True
+                        explicit_passed[(callee.qual, callee.kwarg)] = True
+                        remaining.discard(callee.kwarg)
                 for kw in call.kw_map:
-                    if kw not in callee_params:
-                        continue
-                    non_const[(callee.qual, kw)] = True
-                    explicit_passed[(callee.qual, kw)] = True
-                    if kw in remaining:
-                        remaining.remove(kw)
+                    if kw in named_params:
+                        non_const[(callee.qual, kw)] = True
+                        explicit_passed[(callee.qual, kw)] = True
+                        remaining.discard(kw)
+                    elif callee.kwarg is not None:
+                        non_const[(callee.qual, callee.kwarg)] = True
+                        explicit_passed[(callee.qual, callee.kwarg)] = True
+                        remaining.discard(callee.kwarg)
                 for kw in call.non_const_kw:
-                    if kw not in callee_params:
-                        continue
-                    non_const[(callee.qual, kw)] = True
-                    explicit_passed[(callee.qual, kw)] = True
-                    if kw in remaining:
-                        remaining.remove(kw)
+                    if kw in named_params:
+                        non_const[(callee.qual, kw)] = True
+                        explicit_passed[(callee.qual, kw)] = True
+                        remaining.discard(kw)
+                    elif callee.kwarg is not None:
+                        non_const[(callee.qual, callee.kwarg)] = True
+                        explicit_passed[(callee.qual, callee.kwarg)] = True
+                        remaining.discard(callee.kwarg)
                 if strictness == "low":
                     if len(call.star_pos) == 1:
                         for param in remaining:
@@ -4499,6 +4701,7 @@ def _emit_report(
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
+    type_callsite_evidence: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     deadness_witnesses: list[JSONObject] | None = None,
@@ -4626,6 +4829,11 @@ def _emit_report(
             lines.append("Type ambiguities (conflicting downstream expectations):")
             lines.append("```")
             lines.extend(type_ambiguities)
+            lines.append("```")
+        if type_callsite_evidence:
+            lines.append("Type-flow callsite evidence:")
+            lines.append("```")
+            lines.extend(type_callsite_evidence)
             lines.append("```")
     if constant_smells:
         lines.append("Constant-propagation smells (non-test call sites):")
@@ -5782,6 +5990,7 @@ def render_report(
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
+    type_callsite_evidence: list[str] | None = None,
     constant_smells: list[str] | None = None,
     unused_arg_smells: list[str] | None = None,
     deadness_witnesses: list[JSONObject] | None = None,
@@ -5806,6 +6015,7 @@ def render_report(
         bundle_sites_by_path=bundle_sites_by_path,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
+        type_callsite_evidence=type_callsite_evidence,
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
         deadness_witnesses=deadness_witnesses,
@@ -5890,18 +6100,22 @@ def analyze_paths(
 
     type_suggestions: list[str] = []
     type_ambiguities: list[str] = []
+    type_callsite_evidence: list[str] = []
     if type_audit or type_audit_report:
-        type_suggestions, type_ambiguities = analyze_type_flow_repo(
+        type_suggestions, type_ambiguities, type_callsite_evidence = analyze_type_flow_repo_with_evidence(
             file_paths,
             project_root=config.project_root,
             ignore_params=config.ignore_params,
             strictness=config.strictness,
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
+            max_sites_per_param=3,
         )
         if type_audit_report:
             type_suggestions = type_suggestions[:type_audit_max]
             type_ambiguities = type_ambiguities[:type_audit_max]
+            # Trim evidence opportunistically so reports remain reviewable.
+            type_callsite_evidence = type_callsite_evidence[:type_audit_max]
 
     constant_smells: list[str] = []
     if include_constant_smells:
@@ -6049,6 +6263,7 @@ def analyze_paths(
         bundle_sites_by_path=bundle_sites_by_path,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
+        type_callsite_evidence=type_callsite_evidence,
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
         deadness_witnesses=deadness_witnesses,

@@ -289,6 +289,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     response: dict = {
         "type_suggestions": analysis.type_suggestions,
         "type_ambiguities": analysis.type_ambiguities,
+        "type_callsite_evidence": analysis.type_callsite_evidence,
         "unused_arg_smells": analysis.unused_arg_smells,
         "decision_surfaces": analysis.decision_surfaces,
         "value_decision_surfaces": analysis.value_decision_surfaces,
@@ -388,12 +389,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     violations: list[str] = []
     effective_violations: list[str] | None = None
     if report_path:
+        include_type_section = bool(type_audit_report or fail_on_type_ambiguities)
         report, violations = render_report(
             analysis.groups_by_path,
             max_components,
             bundle_sites_by_path=analysis.bundle_sites_by_path,
-            type_suggestions=analysis.type_suggestions if type_audit_report else None,
-            type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
+            type_suggestions=analysis.type_suggestions if include_type_section else None,
+            type_ambiguities=analysis.type_ambiguities if include_type_section else None,
+            type_callsite_evidence=analysis.type_callsite_evidence if include_type_section else None,
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
             deadness_witnesses=analysis.deadness_witnesses,
