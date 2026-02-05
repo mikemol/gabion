@@ -39,6 +39,7 @@ from gabion.config import (
     dataflow_defaults,
     decision_defaults,
     decision_ignore_list,
+    decision_require_tiers,
     decision_tier_map,
     exception_defaults,
     exception_never_list,
@@ -164,6 +165,7 @@ class AuditConfig:
     strictness: str = "high"
     transparent_decorators: set[str] | None = None
     decision_tiers: dict[str, int] = field(default_factory=dict)
+    decision_require_tiers: bool = False
     never_exceptions: set[str] = field(default_factory=set)
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
@@ -669,6 +671,7 @@ def analyze_decision_surfaces_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
+    require_tiers: bool = False,
 ) -> tuple[list[str], list[str], list[str]]:
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
@@ -720,17 +723,21 @@ def analyze_decision_surfaces_repo(
             if not tier_map:
                 continue
             if tier is None:
-                message = f"decision param '{param}' missing decision tier metadata"
-                warnings.append(f"{info.path.name}:{info.qual} {message}")
-                lint = _decision_param_lint_line(
-                    info,
-                    param,
-                    project_root=project_root,
-                    code="GABION_DECISION_TIER",
-                    message=message,
-                )
-                if lint is not None:
-                    lint_lines.append(lint)
+                if require_tiers:
+                    message = (
+                        f"decision param '{param}' missing decision tier metadata"
+                    )
+                    warnings.append(f"{info.path.name}:{info.qual} {message}")
+                    lint = _decision_param_lint_line(
+                        info,
+                        param,
+                        project_root=project_root,
+                        code="GABION_DECISION_TIER",
+                        message=message,
+                    )
+                    if lint is not None:
+                        lint_lines.append(lint)
+                continue
             elif tier in {2, 3} and caller_count > 0:
                 message = (
                     f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
@@ -757,6 +764,7 @@ def analyze_value_encoded_decisions_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
+    require_tiers: bool = False,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
@@ -814,19 +822,21 @@ def analyze_value_encoded_decisions_repo(
             if not tier_map:
                 continue
             if tier is None:
-                message = (
-                    f"value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
-                )
-                warnings.append(f"{info.path.name}:{info.qual} {message}")
-                lint = _decision_param_lint_line(
-                    info,
-                    param,
-                    project_root=project_root,
-                    code="GABION_VALUE_DECISION_TIER",
-                    message=message,
-                )
-                if lint is not None:
-                    lint_lines.append(lint)
+                if require_tiers:
+                    message = (
+                        f"value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
+                    )
+                    warnings.append(f"{info.path.name}:{info.qual} {message}")
+                    lint = _decision_param_lint_line(
+                        info,
+                        param,
+                        project_root=project_root,
+                        code="GABION_VALUE_DECISION_TIER",
+                        message=message,
+                    )
+                    if lint is not None:
+                        lint_lines.append(lint)
+                continue
             elif tier in {2, 3} and caller_count > 0:
                 message = (
                     f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
@@ -6655,6 +6665,7 @@ def analyze_paths(
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
                 decision_tiers=config.decision_tiers,
+                require_tiers=config.decision_require_tiers,
             )
         )
     value_decision_surfaces: list[str] = []
@@ -6673,6 +6684,7 @@ def analyze_paths(
             external_filter=config.external_filter,
             transparent_decorators=config.transparent_decorators,
             decision_tiers=config.decision_tiers,
+            require_tiers=config.decision_require_tiers,
         )
         decision_warnings.extend(value_warnings)
         decision_lint_lines.extend(value_lint_lines)
@@ -7032,6 +7044,7 @@ def run(argv: list[str] | None = None) -> int:
     synth_defaults = synthesis_defaults(Path(args.root), config_path)
     decision_section = decision_defaults(Path(args.root), config_path)
     decision_tiers = decision_tier_map(decision_section)
+    decision_require = decision_require_tiers(decision_section)
     exception_section = exception_defaults(Path(args.root), config_path)
     never_exceptions = set(exception_never_list(exception_section))
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
@@ -7114,6 +7127,7 @@ def run(argv: list[str] | None = None) -> int:
         strictness=strictness,
         transparent_decorators=transparent_decorators,
         decision_tiers=decision_tiers,
+        decision_require_tiers=decision_require,
         never_exceptions=never_exceptions,
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,

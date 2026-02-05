@@ -52,6 +52,7 @@ from gabion.config import (
     dataflow_defaults,
     decision_defaults,
     decision_ignore_list,
+    decision_require_tiers,
     decision_tier_map,
     exception_defaults,
     exception_never_list,
@@ -160,6 +161,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         Path(root), Path(config_path) if config_path else None
     )
     decision_tiers = decision_tier_map(decision_section)
+    decision_require = decision_require_tiers(decision_section)
     exception_section = exception_defaults(
         Path(root), Path(config_path) if config_path else None
     )
@@ -255,6 +257,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         strictness=strictness,
         transparent_decorators=transparent_decorators,
         decision_tiers=decision_tiers,
+        decision_require_tiers=decision_require,
         never_exceptions=never_exceptions,
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,

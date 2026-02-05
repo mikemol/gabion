@@ -86,6 +86,16 @@ def _normalize_name_list(value: TomlValue) -> list[str]:
     return [item for item in items if item]
 
 
+def _as_bool(value: TomlValue) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False
+
+
 def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
     if section is None:
         return {}
@@ -96,6 +106,14 @@ def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
         for name in _normalize_name_list(section.get(key)):
             tiers[name] = tier
     return tiers
+
+
+def decision_require_tiers(section: TomlTable | None) -> bool:
+    if section is None:
+        return False
+    if not isinstance(section, dict):
+        return False
+    return _as_bool(section.get("require_tiers"))
 
 
 def decision_ignore_list(section: TomlTable | None) -> list[str]:
