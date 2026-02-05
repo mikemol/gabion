@@ -67,6 +67,7 @@ def build_check_payload(
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
+    lint: bool,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params, transparent_decorators
     if not paths:
@@ -94,6 +95,7 @@ def build_check_payload(
         "allow_external": allow_external,
         "strictness": strictness,
         "type_audit": True if fail_on_type_ambiguities else None,
+        "lint": lint,
     }
     return payload
 
@@ -122,6 +124,7 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "type_audit": opts.type_audit,
         "type_audit_report": opts.type_audit_report,
         "type_audit_max": opts.type_audit_max,
+        "lint": opts.lint,
         "decision_snapshot": str(opts.emit_decision_snapshot)
         if opts.emit_decision_snapshot
         else None,
@@ -242,6 +245,7 @@ def run_check(
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
+    lint: bool,
     runner: Runner = run_command,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params, transparent_decorators
@@ -260,6 +264,7 @@ def run_check(
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
+        lint=lint,
     )
     return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
 
@@ -292,6 +297,7 @@ def check(
     fail_on_type_ambiguities: bool = typer.Option(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
+    lint: bool = typer.Option(False, "--lint/--no-lint"),
 ) -> None:
     # dataflow-bundle: ignore_params, transparent_decorators
     """Run the dataflow grammar audit with strict defaults."""
@@ -310,7 +316,11 @@ def check(
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
+        lint=lint,
     )
+    if lint:
+        for line in result.get("lint_lines", []) or []:
+            typer.echo(line)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -330,6 +340,9 @@ def _dataflow_audit(
         root=Path(opts.root),
         runner=runner,
     )
+    if opts.lint:
+        for line in result.get("lint_lines", []) or []:
+            typer.echo(line)
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
         ambiguities = result.get("type_ambiguities", [])
@@ -503,6 +516,11 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         help="Write decision surface snapshot JSON to file or '-' for stdout.",
     )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
+    parser.add_argument(
+        "--lint",
+        action="store_true",
+        help="Emit lint-style lines (path:line:col: CODE message).",
+    )
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(
         "--type-audit",

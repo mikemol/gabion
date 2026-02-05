@@ -57,6 +57,14 @@ def decision_defaults(
     return section if isinstance(section, dict) else {}
 
 
+def exception_defaults(
+    root: Path | None = None, config_path: Path | None = None
+) -> TomlTable:
+    data = load_config(root=root, config_path=config_path)
+    section = data.get("exceptions", {})
+    return section if isinstance(section, dict) else {}
+
+
 def fingerprint_defaults(
     root: Path | None = None, config_path: Path | None = None
 ) -> TomlTable:
@@ -88,6 +96,14 @@ def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
         for name in _normalize_name_list(section.get(key)):
             tiers[name] = tier
     return tiers
+
+
+def exception_never_list(section: TomlTable | None) -> list[str]:
+    if section is None:
+        return []
+    if not isinstance(section, dict):
+        return []
+    return _normalize_name_list(section.get("never"))
 
 
 def merge_payload(payload: TomlTable, defaults: TomlTable) -> TomlTable:

@@ -1,5 +1,5 @@
 ---
-doc_revision: 17
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -1153,3 +1153,261 @@ Syntactic formatting is erased; derivation identity is not.
 ### Test Obligations (to be mapped)
 
 - Packed derivations are visible in reports or JSON artifacts.
+
+---
+
+## 28. Never‑Throw Exception Protocol
+
+### Meaning
+
+**Definition:** A named exception type (e.g., `gabion.exceptions.NeverRaise`)
+used to mark a branch as *semantically unreachable*. Raising it is a static
+analysis signal, not a runtime control path.
+
+### Axis
+
+**Axis:** Control‑flow + error boundary (proof obligation).
+
+### Desired Commutation (Unreachable ↔ Assertion)
+
+Replacing a never‑throw raise with an equivalent unreachable assertion
+(e.g., `assert False`) must commute **only** when the branch is proven
+unreachable by analysis.
+
+### Failure Modes
+
+- Never‑throw exceptions are caught/handled as ordinary runtime errors.
+- Never‑throw exceptions are used for normal control flow.
+- Reachability proof is missing but no violation is emitted.
+
+### Normative Rule
+
+> Any raise of a Never‑Throw exception must be proven unreachable (DEAD) by
+> Gabion analysis; otherwise it is a violation.
+
+### Erasure
+
+Exception message text and subclassing details are erased. The protocol
+identity and reachability obligation are not.
+
+### Test Obligations (to be mapped)
+
+- Reports include never‑throw callsite evidence with spans.
+- Violations are emitted when reachability is not proven.
+
+---
+
+## 29. Deadness Witness
+
+### Meaning
+
+**Definition:** A structured proof object that a branch is unreachable under an
+explicit environment (inherited attribute constraints).
+
+### Axis
+
+**Axis:** Control‑flow + evidence (negative).
+
+### Desired Commutation (Environment ↔ Witness)
+
+Serializing and reloading the environment must commute with the deadness claim:
+the witness remains valid for the same environment assumptions.
+
+### Failure Modes
+
+- DEAD asserted without a witness artifact.
+- Environment omitted or implicit.
+- UNKNOWN coerced to DEAD.
+
+### Normative Rule
+
+> Any DEAD claim must reference a Deadness Witness that includes environment,
+> predicate, and reduced core evidence.
+
+### Erasure
+
+Formatting and ordering are erased; environment assumptions are **not**.
+
+### Test Obligations (to be mapped)
+
+- Deadness artifacts are deterministic and schema‑complete.
+
+---
+
+## 30. Coherence Witness
+
+### Meaning
+
+**Definition:** A structured proof that multiple admissible derivations share
+the same surface boundary while remaining distinct internally.
+
+### Axis
+
+**Axis:** Semantic + evidence (positive higher).
+
+### Desired Commutation (Alternative Order)
+
+Reordering alternative derivations must commute with the witness identity and
+boundary equivalence claim.
+
+### Failure Modes
+
+- COHERENT asserted without a witness artifact.
+- Fork signature or frack path omitted.
+- UNKNOWN coerced to COHERENT.
+
+### Normative Rule
+
+> Any COHERENT claim must reference a Coherence Witness with explicit boundary,
+> fork signature, frack path, and alternatives.
+
+### Erasure
+
+Ordering of alternatives is erased; boundary and fork identity are **not**.
+
+### Test Obligations (to be mapped)
+
+- Coherence artifacts are deterministic and schema‑complete.
+
+---
+
+## 31. Rewrite Plan (Proof‑Carrying Refactor)
+
+### Meaning
+
+**Definition:** A refactor proposal that carries explicit evidence links
+(provenance/deadness/coherence) and a verification predicate.
+
+### Axis
+
+**Axis:** Refactoring + verification.
+
+### Desired Commutation (Rewrite ↔ Re‑audit)
+
+Applying a rewrite and re‑auditing must commute with the stated boundary
+invariants (base/ctor conservation and obligation non‑regression).
+
+### Failure Modes
+
+- Plan emitted without evidence links.
+- Verification predicate missing or non‑executable.
+- UNKNOWN evidence treated as verified.
+
+### Normative Rule
+
+> A rewrite plan is admissible only if its verification predicate is executable
+> and passes on the post‑state.
+
+### Erasure
+
+Formatting is erased; plan identity and evidence links are **not**.
+
+### Test Obligations (to be mapped)
+
+- Plan artifacts include verification predicates that fail on counterexamples.
+
+---
+
+## 32. Exception Path
+
+### Meaning
+
+**Definition:** A potential runtime exception path enumerated by the audit
+(explicit raise, known thrower, or declared contract).
+
+### Axis
+
+**Axis:** Control‑flow + error boundary.
+
+### Desired Commutation (Enumeration Stability)
+
+Syntactic refactoring and formatting changes must not alter which explicit
+exception paths are enumerated.
+
+### Failure Modes
+
+- Explicit raise sites are not enumerated.
+- Enumeration is non‑deterministic across runs.
+
+### Normative Rule
+
+> All explicit raise sites (E0) must be enumerated as Exception Paths.
+
+### Erasure
+
+Exception message text is erased; path identity is **not**.
+
+### Test Obligations (to be mapped)
+
+- Exception path enumeration is deterministic for E0 sites.
+
+---
+
+## 33. Handledness Witness
+
+### Meaning
+
+**Definition:** Structured evidence that an exception path is dominated by a
+handler or converted into a declared outcome.
+
+### Axis
+
+**Axis:** Control‑flow + error boundary.
+
+### Desired Commutation (Handler Dominance)
+
+Refactoring that preserves handler dominance must commute with handledness
+claims.
+
+### Failure Modes
+
+- HANDLED asserted without a witness artifact.
+- Handler boundary unspecified.
+
+### Normative Rule
+
+> Any HANDLED claim must reference a Handledness Witness with explicit handler
+> kind and boundary outcome.
+
+### Erasure
+
+Formatting is erased; handler boundary is **not**.
+
+### Test Obligations (to be mapped)
+
+- Handledness witnesses are schema‑complete when emitted.
+
+---
+
+## 34. Exception Obligation
+
+### Meaning
+
+**Definition:** A status binding of an Exception Path to its discharge outcome
+(DEAD, HANDLED, or UNKNOWN) with an evidence reference.
+
+### Axis
+
+**Axis:** Governance + control‑flow correctness.
+
+### Desired Commutation (Status ↔ Evidence)
+
+Status updates must commute with evidence references; UNKNOWN must never be
+coerced into a discharged state without a witness.
+
+### Failure Modes
+
+- UNKNOWN treated as discharged.
+- Status set without evidence reference.
+
+### Normative Rule
+
+> Exception obligations must be explicit and block acceptance when configured.
+
+### Erasure
+
+Ordering is erased; obligation identity is **not**.
+
+### Test Obligations (to be mapped)
+
+- Exception obligation artifacts are deterministic and evidence‑linked.

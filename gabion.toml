@@ -11,6 +11,13 @@ tier1 = []
 tier2 = []
 tier3 = []
 
+[exceptions]
+never = [
+  "NeverRaise",
+  "gabion.NeverRaise",
+  "gabion.exceptions.NeverRaise",
+]
+
 [fingerprints]
 synth_min_occurrences = 2
 synth_version = "synth@1"

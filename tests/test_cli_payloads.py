@@ -24,6 +24,7 @@ def test_check_builds_payload() -> None:
         allow_external=None,
         strictness=None,
         fail_on_type_ambiguities=True,
+        lint=False,
     )
     assert payload["paths"] == ["."]
     assert payload["fail_on_violations"] is True
@@ -48,6 +49,7 @@ def test_check_payload_strictness_validation() -> None:
             allow_external=None,
             strictness="medium",
             fail_on_type_ambiguities=False,
+            lint=False,
         )
 
 
@@ -67,6 +69,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         allow_external=None,
         strictness=None,
         fail_on_type_ambiguities=False,
+        lint=False,
     )
     assert payload["baseline_write"] is None
 
@@ -175,6 +178,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         allow_external=None,
         strictness=None,
         fail_on_type_ambiguities=True,
+        lint=False,
         runner=runner,
     )
     assert result["exit_code"] == 0

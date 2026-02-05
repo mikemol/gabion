@@ -1,5 +1,7 @@
 """Gabion package root."""
 
-__all__ = ["__version__"]
+from gabion.exceptions import NeverRaise
+
+__all__ = ["__version__", "NeverRaise"]
 
 __version__ = "0.1.5"

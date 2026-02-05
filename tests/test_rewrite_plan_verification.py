@@ -22,10 +22,10 @@ def test_glossary_match_strata_classification() -> None:
 
 def test_normalize_bundle_key_covers_edges() -> None:
     da = _load()
-    assert da._normalize_bundle_key("not-a-list") == ""
-    assert da._normalize_bundle_key([]) == ""
-    assert da._normalize_bundle_key(["a", 1, None]) == "a"
-    assert da._normalize_bundle_key(["a", "b"]) == "a,b"
+    assert da.normalize_bundle_key("not-a-list") == ""
+    assert da.normalize_bundle_key([]) == ""
+    assert da.normalize_bundle_key(["a", 1, None]) == "a"
+    assert da.normalize_bundle_key(["a", "b"]) == "a,b"
 
 
 def _plan(**overrides: object) -> dict[str, object]:

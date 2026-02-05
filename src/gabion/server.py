@@ -52,6 +52,8 @@ from gabion.config import (
     dataflow_defaults,
     decision_defaults,
     decision_tier_map,
+    exception_defaults,
+    exception_never_list,
     fingerprint_defaults,
     merge_payload,
 )
@@ -157,6 +159,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         Path(root), Path(config_path) if config_path else None
     )
     decision_tiers = decision_tier_map(decision_section)
+    exception_section = exception_defaults(
+        Path(root), Path(config_path) if config_path else None
+    )
+    never_exceptions = set(exception_never_list(exception_section))
     fingerprint_section = fingerprint_defaults(
         Path(root), Path(config_path) if config_path else None
     )
@@ -205,6 +211,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     type_audit_report = payload.get("type_audit_report", False)
     type_audit_max = payload.get("type_audit_max", 50)
     fail_on_type_ambiguities = payload.get("fail_on_type_ambiguities", False)
+    lint = bool(payload.get("lint", False))
     exclude_dirs = set(payload.get("exclude", []))
     ignore_params = set(payload.get("ignore_params", []))
     allow_external = payload.get("allow_external", False)
@@ -244,6 +251,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         strictness=strictness,
         transparent_decorators=transparent_decorators,
         decision_tiers=decision_tiers,
+        never_exceptions=never_exceptions,
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
         constructor_registry=constructor_registry,
@@ -283,6 +291,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
+        include_lint_lines=lint,
         config=config,
     )
 
@@ -310,6 +319,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         ],
         "context_suggestions": analysis.context_suggestions,
     }
+    if lint:
+        response["lint_lines"] = analysis.lint_lines
 
     synthesis_plan: JSONObject | None = None
     if synthesis_plan_path or synthesis_report or synthesis_protocols_path:

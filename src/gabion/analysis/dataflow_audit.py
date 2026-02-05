@@ -39,6 +39,8 @@ from gabion.config import (
     dataflow_defaults,
     decision_defaults,
     decision_tier_map,
+    exception_defaults,
+    exception_never_list,
     fingerprint_defaults,
     merge_payload,
     synthesis_defaults,
@@ -160,6 +162,7 @@ class AuditConfig:
     strictness: str = "high"
     transparent_decorators: set[str] | None = None
     decision_tiers: dict[str, int] = field(default_factory=dict)
+    never_exceptions: set[str] = field(default_factory=set)
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
     constructor_registry: TypeConstructorRegistry | None = None
@@ -202,6 +205,7 @@ class AnalysisResult:
     type_callsite_evidence: list[str]
     constant_smells: list[str]
     unused_arg_smells: list[str]
+    lint_lines: list[str] = field(default_factory=list)
     deadness_witnesses: list[JSONObject] = field(default_factory=list)
     coherence_witnesses: list[JSONObject] = field(default_factory=list)
     rewrite_plans: list[JSONObject] = field(default_factory=list)
@@ -1490,10 +1494,6 @@ def _glossary_match_strata(matches: object) -> str:
     return "ambiguous"
 
 
-def _normalize_bundle_key(bundle: object) -> str:
-    return normalize_bundle_key(bundle)
-
-
 def _find_provenance_entry_for_site(
     provenance: list[JSONObject],
     *,
@@ -1813,6 +1813,14 @@ def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
     return sorted(names)
 
 
+def _exception_type_name(expr: ast.AST | None) -> str | None:
+    if expr is None:
+        return None
+    if isinstance(expr, ast.Call):
+        return _decorator_name(expr.func)
+    return _decorator_name(expr)
+
+
 def _exception_path_id(
     *,
     path: str,
@@ -2070,8 +2078,10 @@ def _collect_exception_obligations(
     ignore_params: set[str],
     handledness_witnesses: list[JSONObject] | None = None,
     deadness_witnesses: list[JSONObject] | None = None,
+    never_exceptions: set[str] | None = None,
 ) -> list[JSONObject]:
     obligations: list[JSONObject] = []
+    never_exceptions_set = set(never_exceptions or [])
     handled_map: dict[str, JSONObject] = {}
     if handledness_witnesses:
         for entry in handledness_witnesses:
@@ -2127,6 +2137,14 @@ def _collect_exception_obligations(
                 function = _function_key(scopes, fn_node.name)
                 params = params_by_fn.get(fn_node, set())
             expr = node.exc if isinstance(node, ast.Raise) else node.test
+            exception_name = _exception_type_name(expr)
+            protocol: str | None = None
+            if (
+                exception_name
+                and never_exceptions_set
+                and _decorator_matches(exception_name, never_exceptions_set)
+            ):
+                protocol = "never"
             bundle = _exception_param_names(expr, params)
             lineno = getattr(node, "lineno", 0)
             col = getattr(node, "col_offset", 0)
@@ -2169,6 +2187,8 @@ def _collect_exception_obligations(
                             remainder = {}
                             environment_ref = witness.get("environment") or {}
                             break
+            if protocol == "never" and status != "DEAD":
+                status = "FORBIDDEN"
             obligations.append(
                 {
                     "exception_path_id": exception_id,
@@ -2182,6 +2202,8 @@ def _collect_exception_obligations(
                     "witness_ref": witness_ref,
                     "remainder": remainder,
                     "environment_ref": environment_ref,
+                    "exception_name": exception_name,
+                    "protocol": protocol,
                 }
             )
     return sorted(
@@ -2211,12 +2233,200 @@ def _summarize_exception_obligations(
         bundle = site.get("bundle", [])
         status = entry.get("status", "UNKNOWN")
         source = entry.get("source_kind", "?")
+        exception_name = entry.get("exception_name")
+        protocol = entry.get("protocol")
+        suffix = ""
+        if exception_name:
+            suffix += f" exception={exception_name}"
+        if protocol:
+            suffix += f" protocol={protocol}"
         lines.append(
-            f"{path}:{function} bundle={bundle} source={source} status={status}"
+            f"{path}:{function} bundle={bundle} source={source} status={status}{suffix}"
         )
     if len(entries) > max_entries:
         lines.append(f"... {len(entries) - max_entries} more")
     return lines
+
+
+def _exception_protocol_warnings(entries: list[JSONObject]) -> list[str]:
+    warnings: list[str] = []
+    for entry in entries:
+        if entry.get("protocol") != "never":
+            continue
+        if entry.get("status") == "DEAD":
+            continue
+        site = entry.get("site", {}) or {}
+        path = site.get("path", "?")
+        function = site.get("function", "?")
+        exception_name = entry.get("exception_name") or "?"
+        status = entry.get("status", "UNKNOWN")
+        warnings.append(
+            f"{path}:{function} raises {exception_name} (protocol=never, status={status})"
+        )
+    return warnings
+
+
+def _exception_protocol_evidence(entries: list[JSONObject]) -> list[str]:
+    lines: list[str] = []
+    for entry in entries:
+        if entry.get("protocol") != "never":
+            continue
+        exception_id = entry.get("exception_path_id", "?")
+        exception_name = entry.get("exception_name") or "?"
+        status = entry.get("status", "UNKNOWN")
+        lines.append(
+            f"{exception_id} exception={exception_name} protocol=never status={status}"
+        )
+    return lines
+
+
+def _parse_lint_location(line: str) -> tuple[str, int, int, str] | None:
+    match = re.match(r"^(?P<path>[^:]+):(?P<line>\d+):(?P<col>\d+)", line)
+    if not match:
+        return None
+    path = match.group("path")
+    try:
+        lineno = int(match.group("line"))
+        col = int(match.group("col"))
+    except ValueError:
+        return None
+    remainder = line[match.end() :].lstrip(": ").strip()
+    if remainder.startswith("-"):
+        trimmed = remainder[1:]
+        range_match = re.match(r"^(\d+):(\d+)(:)?\s*", trimmed)
+        if range_match:
+            remainder = trimmed[range_match.end() :].strip()
+    return path, lineno, col, remainder
+
+
+def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
+    return f"{path}:{line}:{col}: {code} {message}".strip()
+
+
+def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
+    lines: list[str] = []
+    for entry in evidence:
+        parsed = _parse_lint_location(entry)
+        if not parsed:
+            continue
+        path, lineno, col, remainder = parsed
+        message = remainder or "undocumented bundle"
+        lines.append(_lint_line(path, lineno, col, "GABION_BUNDLE_UNDOC", message))
+    return lines
+
+
+def _lint_lines_from_type_evidence(evidence: Iterable[str]) -> list[str]:
+    lines: list[str] = []
+    for entry in evidence:
+        parsed = _parse_lint_location(entry)
+        if not parsed:
+            continue
+        path, lineno, col, remainder = parsed
+        message = remainder or "type-flow evidence"
+        lines.append(_lint_line(path, lineno, col, "GABION_TYPE_FLOW", message))
+    return lines
+
+
+def _parse_exception_path_id(value: str) -> tuple[str, int, int] | None:
+    parts = value.split(":", 5)
+    if len(parts) != 6:
+        return None
+    path = parts[0]
+    try:
+        lineno = int(parts[3])
+        col = int(parts[4])
+    except ValueError:
+        return None
+    return path, lineno, col
+
+
+def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
+    lines: list[str] = []
+    for entry in entries:
+        if entry.get("protocol") != "never":
+            continue
+        if entry.get("status") == "DEAD":
+            continue
+        exception_id = str(entry.get("exception_path_id", ""))
+        parsed = _parse_exception_path_id(exception_id)
+        if not parsed:
+            continue
+        path, lineno, col = parsed
+        exception_name = entry.get("exception_name") or "?"
+        status = entry.get("status", "UNKNOWN")
+        message = f"never-throw exception {exception_name} (status={status})"
+        lines.append(_lint_line(path, lineno, col, "GABION_EXC_NEVER", message))
+    return lines
+
+
+def _collect_bundle_evidence_lines(
+    *,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
+) -> list[str]:
+    if not groups_by_path:
+        return []
+    nodes, adj, bundle_map = _component_graph(groups_by_path)
+    components = _connected_components(nodes, adj)
+    common = os.path.commonpath([str(p) for p in groups_by_path])
+    root = Path(common)
+    file_paths = sorted(groups_by_path)
+    config_bundles_by_path = _collect_config_bundles(file_paths)
+    declared_global: set[tuple[str, ...]] = set()
+    for bundles in config_bundles_by_path.values():
+        for fields in bundles.values():
+            declared_global.add(tuple(sorted(fields)))
+    symbol_table = _build_symbol_table(
+        file_paths,
+        root,
+        external_filter=True,
+    )
+    dataclass_registry = _collect_dataclass_registry(
+        file_paths,
+        project_root=root,
+    )
+    documented_bundles_by_path: dict[Path, set[tuple[str, ...]]] = {}
+    for path in file_paths:
+        documented = _iter_documented_bundles(path)
+        promoted = _iter_dataclass_call_bundles(
+            path,
+            project_root=root,
+            symbol_table=symbol_table,
+            dataclass_registry=dataclass_registry,
+        )
+        documented_bundles_by_path[path] = documented | promoted
+    evidence_lines: list[str] = []
+    for comp in components:
+        evidence = _render_component_callsite_evidence(
+            component=comp,
+            nodes=nodes,
+            bundle_map=bundle_map,
+            documented_bundles_by_path=documented_bundles_by_path,
+            declared_global=declared_global,
+            bundle_sites_by_path=bundle_sites_by_path,
+            root=root,
+        )
+        if evidence:
+            evidence_lines.extend(evidence)
+    return evidence_lines
+
+
+def _compute_lint_lines(
+    *,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
+    type_callsite_evidence: list[str],
+    exception_obligations: list[JSONObject],
+) -> list[str]:
+    lint_lines: list[str] = []
+    bundle_evidence = _collect_bundle_evidence_lines(
+        groups_by_path=groups_by_path,
+        bundle_sites_by_path=bundle_sites_by_path,
+    )
+    lint_lines.extend(_lint_lines_from_bundle_evidence(bundle_evidence))
+    lint_lines.extend(_lint_lines_from_type_evidence(type_callsite_evidence))
+    lint_lines.extend(_exception_protocol_lint_lines(exception_obligations))
+    return sorted(set(lint_lines))
 
 
 def _summarize_handledness_witnesses(
@@ -4873,6 +5083,19 @@ def _emit_report(
             lines.append("```")
             lines.extend(summary)
             lines.append("```")
+        protocol_evidence = _exception_protocol_evidence(exception_obligations)
+        if protocol_evidence:
+            lines.append("Exception protocol evidence:")
+            lines.append("```")
+            lines.extend(protocol_evidence)
+            lines.append("```")
+        protocol_warnings = _exception_protocol_warnings(exception_obligations)
+        if protocol_warnings:
+            lines.append("Exception protocol violations:")
+            lines.append("```")
+            lines.extend(protocol_warnings)
+            lines.append("```")
+            violations.extend(protocol_warnings)
     if handledness_witnesses:
         summary = _summarize_handledness_witnesses(handledness_witnesses)
         if summary:
@@ -6072,6 +6295,7 @@ def analyze_paths(
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
+    include_lint_lines: bool = False,
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
     if config is None:
@@ -6187,19 +6411,23 @@ def analyze_paths(
     rewrite_plans: list[JSONObject] = []
     exception_obligations: list[JSONObject] = []
     handledness_witnesses: list[JSONObject] = []
-    if include_exception_obligations or include_handledness_witnesses:
+    need_exception_obligations = include_exception_obligations or (
+        include_lint_lines and bool(config.never_exceptions)
+    )
+    if need_exception_obligations or include_handledness_witnesses:
         handledness_witnesses = _collect_handledness_witnesses(
             file_paths,
             project_root=config.project_root,
             ignore_params=config.ignore_params,
         )
-    if include_exception_obligations:
+    if need_exception_obligations:
         exception_obligations = _collect_exception_obligations(
             file_paths,
             project_root=config.project_root,
             ignore_params=config.ignore_params,
             handledness_witnesses=handledness_witnesses,
             deadness_witnesses=deadness_witnesses,
+            never_exceptions=config.never_exceptions,
         )
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
@@ -6256,6 +6484,14 @@ def analyze_paths(
         for entry in decision_surfaces:
             if "(internal callers:" in entry:
                 context_suggestions.append(f"Consider contextvar for {entry}")
+    lint_lines: list[str] = []
+    if include_lint_lines:
+        lint_lines = _compute_lint_lines(
+            groups_by_path=groups_by_path,
+            bundle_sites_by_path=bundle_sites_by_path,
+            type_callsite_evidence=type_callsite_evidence,
+            exception_obligations=exception_obligations,
+        )
 
     return AnalysisResult(
         groups_by_path=groups_by_path,
@@ -6266,6 +6502,7 @@ def analyze_paths(
         type_callsite_evidence=type_callsite_evidence,
         constant_smells=constant_smells,
         unused_arg_smells=unused_arg_smells,
+        lint_lines=lint_lines,
         deadness_witnesses=deadness_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
@@ -6371,6 +6608,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Write decision surface snapshot JSON to file or '-' for stdout.",
     )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
+    parser.add_argument(
+        "--lint",
+        action="store_true",
+        help="Emit lint-style lines (path:line:col: CODE message).",
+    )
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(
         "--type-audit",
@@ -6513,6 +6755,8 @@ def run(argv: list[str] | None = None) -> int:
     synth_defaults = synthesis_defaults(Path(args.root), config_path)
     decision_section = decision_defaults(Path(args.root), config_path)
     decision_tiers = decision_tier_map(decision_section)
+    exception_section = exception_defaults(Path(args.root), config_path)
+    never_exceptions = set(exception_never_list(exception_section))
     fingerprint_section = fingerprint_defaults(Path(args.root), config_path)
     synth_min_occurrences = 0
     synth_version = "synth@1"
@@ -6590,6 +6834,7 @@ def run(argv: list[str] | None = None) -> int:
         strictness=strictness,
         transparent_decorators=transparent_decorators,
         decision_tiers=decision_tiers,
+        never_exceptions=never_exceptions,
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
         constructor_registry=constructor_registry,
@@ -6637,6 +6882,7 @@ def run(argv: list[str] | None = None) -> int:
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
+        include_lint_lines=bool(args.lint),
         config=config,
     )
 
@@ -6697,6 +6943,9 @@ def run(argv: list[str] | None = None) -> int:
             print(payload_json)
         else:
             Path(fingerprint_handledness_json).write_text(payload_json)
+    if args.lint:
+        for line in analysis.lint_lines:
+            print(line)
     structure_tree_path = args.emit_structure_tree
     structure_metrics_path = args.emit_structure_metrics
     if structure_tree_path:
