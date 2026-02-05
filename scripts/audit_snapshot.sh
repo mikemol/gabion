@@ -27,6 +27,7 @@ dataflow_fingerprint_exception_obligations="${artifacts_dir}/fingerprint_excepti
 dataflow_fingerprint_handledness="${artifacts_dir}/fingerprint_handledness.json"
 decision_snapshot="${artifacts_dir}/decision_snapshot.json"
 docflow_report="${artifacts_dir}/docflow_audit.txt"
+lint_report="${artifacts_dir}/lint.txt"
 
 mise exec -- python -m gabion dataflow-audit "$root" \
   --root "$root" \
@@ -45,7 +46,8 @@ mise exec -- python -m gabion dataflow-audit "$root" \
   --fingerprint-rewrite-plans-json "$dataflow_fingerprint_rewrite_plans" \
   --fingerprint-exception-obligations-json "$dataflow_fingerprint_exception_obligations" \
   --fingerprint-handledness-json "$dataflow_fingerprint_handledness" \
-  --emit-decision-snapshot "$decision_snapshot"
+  --emit-decision-snapshot "$decision_snapshot" \
+  --lint > "$lint_report"
 
 mise exec -- python scripts/docflow_audit.py --root "$root" > "$docflow_report"
 
@@ -66,4 +68,5 @@ echo "- $dataflow_fingerprint_exception_obligations"
 echo "- $dataflow_fingerprint_handledness"
 echo "- $decision_snapshot"
 echo "- $docflow_report"
+echo "- $lint_report"
 echo "- $latest_marker"

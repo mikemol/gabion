@@ -3655,7 +3655,7 @@ def _format_type_flow_site(
     *,
     caller: FunctionInfo,
     call: CallArgs,
-    callee: FunctionInfo,
+    callee_info: FunctionInfo,
     caller_param: str,
     callee_param: str,
     annot: str,
@@ -3670,7 +3670,7 @@ def _format_type_flow_site(
         line, col, _, _ = call.span
         loc = f"{caller_path}:{line + 1}:{col + 1}"
     return (
-        f"{loc}: {caller_name}.{caller_param} -> {callee.qual}.{callee_param} expects {annot}"
+        f"{loc}: {caller_name}.{caller_param} -> {callee_info.qual}.{callee_param} expects {annot}"
     )
 
 
@@ -3769,7 +3769,7 @@ def _infer_type_flow(
                         _format_type_flow_site(
                             caller=info,
                             call=call,
-                            callee=callee,
+                            callee_info=callee,
                             caller_param=caller_param,
                             callee_param=callee_param,
                             annot=annot,
@@ -4313,20 +4313,20 @@ def analyze_unused_arg_flow_repo(
 
     def _format(
         caller: FunctionInfo,
-        callee: FunctionInfo,
+        callee_info: FunctionInfo,
         callee_param: str,
         arg_desc: str,
         *,
         call: CallArgs | None = None,
     ) -> str:
-        # dataflow-bundle: callee, caller
+        # dataflow-bundle: callee_info, caller
         prefix = f"{caller.path.name}:{caller.name}"
         if call is not None and call.span is not None:
             line, col, _, _ = call.span
             prefix = f"{caller.path.name}:{line + 1}:{col + 1}:{caller.name}"
         return (
             f"{prefix} passes {arg_desc} "
-            f"to unused {callee.path.name}:{callee.name}.{callee_param}"
+            f"to unused {callee_info.path.name}:{callee_info.name}.{callee_param}"
         )
 
     for infos in by_name.values():
@@ -5313,17 +5313,17 @@ def load_decision_snapshot(path: Path) -> JSONObject:
 
 
 def diff_decision_snapshots(
-    baseline: JSONObject,
-    current: JSONObject,
+    baseline_snapshot: JSONObject,
+    current_snapshot: JSONObject,
 ) -> JSONObject:
-    base_decisions = set(baseline.get("decision_surfaces") or [])
-    curr_decisions = set(current.get("decision_surfaces") or [])
-    base_value = set(baseline.get("value_decision_surfaces") or [])
-    curr_value = set(current.get("value_decision_surfaces") or [])
+    base_decisions = set(baseline_snapshot.get("decision_surfaces") or [])
+    curr_decisions = set(current_snapshot.get("decision_surfaces") or [])
+    base_value = set(baseline_snapshot.get("value_decision_surfaces") or [])
+    curr_value = set(current_snapshot.get("value_decision_surfaces") or [])
     return {
         "format_version": 1,
-        "baseline_root": baseline.get("root"),
-        "current_root": current.get("root"),
+        "baseline_root": baseline_snapshot.get("root"),
+        "current_root": current_snapshot.get("root"),
         "decision_surfaces": {
             "added": sorted(curr_decisions - base_decisions),
             "removed": sorted(base_decisions - curr_decisions),
@@ -5353,12 +5353,13 @@ def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], 
     return counts
 
 
+# dataflow-bundle: baseline_snapshot, current_snapshot
 def diff_structure_snapshots(
-    baseline: JSONObject,
-    current: JSONObject,
+    baseline_snapshot: JSONObject,
+    current_snapshot: JSONObject,
 ) -> JSONObject:
-    baseline_counts = _bundle_counts_from_snapshot(baseline)
-    current_counts = _bundle_counts_from_snapshot(current)
+    baseline_counts = _bundle_counts_from_snapshot(baseline_snapshot)
+    current_counts = _bundle_counts_from_snapshot(current_snapshot)
     all_bundles = sorted(
         set(baseline_counts) | set(current_counts),
         key=lambda bundle: (len(bundle), list(bundle)),
@@ -6186,12 +6187,12 @@ def _write_baseline(path: Path, violations: list[str]) -> None:
 
 
 def _apply_baseline(
-    violations: list[str], baseline: set[str]
+    violations: list[str], baseline_allowlist: set[str]
 ) -> tuple[list[str], list[str]]:
-    if not baseline:
+    if not baseline_allowlist:
         return violations, []
-    new = [line for line in violations if line not in baseline]
-    suppressed = [line for line in violations if line in baseline]
+    new = [line for line in violations if line not in baseline_allowlist]
+    suppressed = [line for line in violations if line in baseline_allowlist]
     return new, suppressed
 
 
@@ -6208,9 +6209,9 @@ def write_baseline(path: Path, violations: list[str]) -> None:
 
 
 def apply_baseline(
-    violations: list[str], baseline: set[str]
+    violations: list[str], baseline_allowlist: set[str]
 ) -> tuple[list[str], list[str]]:
-    return _apply_baseline(violations, baseline)
+    return _apply_baseline(violations, baseline_allowlist)
 
 
 def render_dot(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> str:

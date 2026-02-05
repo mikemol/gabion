@@ -62,21 +62,21 @@ def build_check_payload(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     exclude: Optional[List[str]],
-    ignore_params: Optional[str],
-    transparent_decorators: Optional[str],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
     lint: bool,
 ) -> JSONObject:
-    # dataflow-bundle: ignore_params, transparent_decorators
+    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     if not paths:
         paths = [Path(".")]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
     exclude_dirs = _split_csv_entries(exclude)
-    ignore_list = _split_csv(ignore_params)
-    transparent_list = _split_csv(transparent_decorators)
+    ignore_list = _split_csv(ignore_params_csv)
+    transparent_list = _split_csv(transparent_decorators_csv)
     baseline_write_value: bool | None = baseline_write if baseline is not None else None
     root = root or Path(".")
     payload = {
@@ -240,15 +240,15 @@ def run_check(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     exclude: Optional[List[str]],
-    ignore_params: Optional[str],
-    transparent_decorators: Optional[str],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
     lint: bool,
     runner: Runner = run_command,
 ) -> JSONObject:
-    # dataflow-bundle: ignore_params, transparent_decorators
+    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     payload = build_check_payload(
         paths=paths,
         report=report,
@@ -259,8 +259,8 @@ def run_check(
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
         exclude=exclude,
-        ignore_params=ignore_params,
-        transparent_decorators=transparent_decorators,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
@@ -286,8 +286,8 @@ def check(
         False, "--baseline-write", help="Write current violations to baseline."
     ),
     exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators: Optional[str] = typer.Option(
+    ignore_params_csv: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators_csv: Optional[str] = typer.Option(
         None, "--transparent-decorators"
     ),
     allow_external: Optional[bool] = typer.Option(
@@ -299,7 +299,7 @@ def check(
     ),
     lint: bool = typer.Option(False, "--lint/--no-lint"),
 ) -> None:
-    # dataflow-bundle: ignore_params, transparent_decorators
+    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     """Run the dataflow grammar audit with strict defaults."""
     result = run_check(
         paths=paths,
@@ -311,8 +311,8 @@ def check(
         baseline_write=baseline_write,
         decision_snapshot=decision_snapshot,
         exclude=exclude,
-        ignore_params=ignore_params,
-        transparent_decorators=transparent_decorators,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
@@ -647,8 +647,8 @@ def _run_synth(
     no_timestamp: bool,
     config: Optional[Path],
     exclude: Optional[List[str]],
-    ignore_params: Optional[str],
-    transparent_decorators: Optional[str],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
     strictness: Optional[str],
     no_recursive: bool,
@@ -671,12 +671,12 @@ def _run_synth(
         for entry in exclude:
             exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
     ignore_list: list[str] | None = None
-    if ignore_params is not None:
-        ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
+    if ignore_params_csv is not None:
+        ignore_list = [p.strip() for p in ignore_params_csv.split(",") if p.strip()]
     transparent_list: list[str] | None = None
-    if transparent_decorators is not None:
+    if transparent_decorators_csv is not None:
         transparent_list = [
-            p.strip() for p in transparent_decorators.split(",") if p.strip()
+            p.strip() for p in transparent_decorators_csv.split(",") if p.strip()
         ]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
@@ -773,8 +773,8 @@ def synth(
     no_timestamp: bool = typer.Option(False, "--no-timestamp"),
     config: Optional[Path] = typer.Option(None, "--config"),
     exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators: Optional[str] = typer.Option(
+    ignore_params_csv: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators_csv: Optional[str] = typer.Option(
         None, "--transparent-decorators"
     ),
     allow_external: Optional[bool] = typer.Option(
@@ -808,8 +808,8 @@ def synth(
         no_timestamp=no_timestamp,
         config=config,
         exclude=exclude,
-        ignore_params=ignore_params,
-        transparent_decorators=transparent_decorators,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
         allow_external=allow_external,
         strictness=strictness,
         no_recursive=no_recursive,
