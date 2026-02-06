@@ -2598,6 +2598,13 @@ def _has_bundles(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> bool:
     return False
 
 
+def _forbid_adhoc_bundle_discovery(reason: str) -> None:
+    if os.environ.get("GABION_FORBID_ADHOC_BUNDLES") == "1":
+        raise AssertionError(
+            f"Ad-hoc bundle discovery invoked while forest-only invariant active: {reason}"
+        )
+
+
 def _collect_bundle_evidence_lines(
     *,
     forest: Forest | None,
@@ -4779,6 +4786,7 @@ def _iter_config_fields(path: Path) -> dict[str, set[str]]:
 
 
 def _collect_config_bundles(paths: list[Path]) -> dict[Path, dict[str, set[str]]]:
+    _forbid_adhoc_bundle_discovery("_collect_config_bundles")
     bundles_by_path: dict[Path, dict[str, set[str]]] = {}
     for path in paths:
         bundles = _iter_config_fields(path)
@@ -4792,6 +4800,7 @@ _BUNDLE_MARKER = re.compile(r"dataflow-bundle:\s*(.*)")
 
 def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
     """Return bundles documented via '# dataflow-bundle: a, b' markers."""
+    _forbid_adhoc_bundle_discovery("_iter_documented_bundles")
     bundles: set[tuple[str, ...]] = set()
     try:
         text = path.read_text()
@@ -4877,6 +4886,7 @@ def _iter_dataclass_call_bundles(
     dataclass_registry: dict[str, list[str]] | None = None,
 ) -> set[tuple[str, ...]]:
     """Return bundles promoted via @dataclass constructor calls."""
+    _forbid_adhoc_bundle_discovery("_iter_dataclass_call_bundles")
     bundles: set[tuple[str, ...]] = set()
     try:
         tree = ast.parse(path.read_text())
@@ -5732,6 +5742,7 @@ def diff_decision_snapshots(
 
 
 def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], int]:
+    _forbid_adhoc_bundle_discovery("_bundle_counts_from_snapshot")
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     files = snapshot.get("files") or []
     for file_entry in files:
@@ -6028,6 +6039,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
 def _bundle_counts(
     groups_by_path: dict[Path, dict[str, list[set[str]]]]
 ) -> dict[tuple[str, ...], int]:
+    _forbid_adhoc_bundle_discovery("_bundle_counts")
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     for groups in groups_by_path.values():
         for bundles in groups.values():
@@ -6058,6 +6070,7 @@ def _merge_counts_by_knobs(
 
 
 def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
+    _forbid_adhoc_bundle_discovery("_collect_declared_bundles")
     declared: set[tuple[str, ...]] = set()
     file_paths = sorted(root.rglob("*.py"))
     bundles_by_path = _collect_config_bundles(file_paths)
