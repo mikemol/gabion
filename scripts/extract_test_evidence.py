@@ -35,7 +35,6 @@ def main(argv: list[str] | None = None) -> int:
         root=root,
         include=args.tests,
         exclude=args.exclude,
-        root_display=str(Path(args.root)),
     )
     test_evidence.write_test_evidence(payload, Path(args.out))
     return 0

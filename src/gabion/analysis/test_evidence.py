@@ -31,7 +31,7 @@ def build_test_evidence_payload(
     root_display: str | None = None,
 ) -> dict[str, object]:
     root = root.resolve()
-    display_root = root_display if root_display is not None else "."
+    display_root = "."
     exclude_set = {str(item) for item in (exclude or [])}
     include_list = [str(item) for item in (include or [])]
     files = _collect_test_files(paths, root=root, exclude=exclude_set)

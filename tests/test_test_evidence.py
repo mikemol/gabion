@@ -116,6 +116,7 @@ def test_handles_missing_and_direct_file_paths(tmp_path: Path) -> None:
         [source], root=root, include=["tests/test_direct.py"], exclude=[]
     )
     assert payload["tests"][0]["test_id"].endswith("tests/test_direct.py::test_direct")
+    assert payload["scope"]["root"] == "."
 
     out_path = tmp_path / "out" / "test_evidence.json"
     test_evidence.write_test_evidence(payload, out_path)
