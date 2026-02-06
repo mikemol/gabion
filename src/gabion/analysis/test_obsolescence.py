@@ -97,7 +97,8 @@ def compute_dominators(
         for other_id in test_ids:
             if other_id == test_id:
                 continue
-            if target.issubset(evidence_sets[other_id]):
+            other_set = evidence_sets[other_id]
+            if target and target.issubset(other_set) and target != other_set:
                 candidates.append(other_id)
         if not candidates:
             dominators[test_id] = []
@@ -120,16 +121,19 @@ def classify_candidates(
         test_id: _normalize_evidence_list(evidence)
         for test_id, evidence in evidence_by_test.items()
     }
-    dominators = compute_dominators(normalized_evidence)
+    mapped_evidence = {
+        test_id: evidence
+        for test_id, evidence in normalized_evidence.items()
+        if status_by_test.get(test_id) == "mapped" and evidence
+    }
+    dominators = compute_dominators(mapped_evidence)
     high_risk = sorted(
         evidence_id
         for evidence_id, info in risk_registry.items()
         if info.risk.lower() == "high"
     )
     evidence_to_tests: dict[str, set[str]] = {}
-    for test_id, evidence in normalized_evidence.items():
-        if status_by_test.get(test_id) != "mapped":
-            continue
+    for test_id, evidence in mapped_evidence.items():
         for evidence_id in evidence:
             evidence_to_tests.setdefault(evidence_id, set()).add(test_id)
     last_witness_by_test: dict[str, list[str]] = {}
@@ -141,8 +145,16 @@ def classify_candidates(
     for evidence_ids in last_witness_by_test.values():
         evidence_ids.sort()
 
+    equivalence: dict[tuple[str, ...], list[str]] = {}
+    for test_id, evidence in mapped_evidence.items():
+        key = tuple(evidence)
+        equivalence.setdefault(key, []).append(test_id)
+    for peers in equivalence.values():
+        peers.sort()
+
     summary = {
         "redundant_by_evidence": 0,
+        "equivalent_witness": 0,
         "obsolete_candidate": 0,
         "unmapped": 0,
     }
@@ -158,15 +170,19 @@ def classify_candidates(
             reason["status"] = status
             doms = []
         else:
+            peers = equivalence.get(tuple(evidence), [])
+            has_equivalent = len(peers) > 1
             if doms:
-                if guardrail_evidence:
-                    class_name = "obsolete_candidate"
-                    reason["guardrail"] = "high-risk-last-witness"
-                    reason["guardrail_evidence"] = guardrail_evidence
-                else:
-                    class_name = "redundant_by_evidence"
+                class_name = "redundant_by_evidence"
+            elif has_equivalent:
+                class_name = "equivalent_witness"
+                reason["equivalence_class_size"] = len(peers)
             else:
                 class_name = "obsolete_candidate"
+            if doms and guardrail_evidence:
+                class_name = "obsolete_candidate"
+                reason["guardrail"] = "high-risk-last-witness"
+                reason["guardrail_evidence"] = guardrail_evidence
         summary[class_name] += 1
         candidates.append(
             {
@@ -178,8 +194,9 @@ def classify_candidates(
         )
     class_order = {
         "redundant_by_evidence": 0,
-        "obsolete_candidate": 1,
-        "unmapped": 2,
+        "equivalent_witness": 1,
+        "obsolete_candidate": 2,
+        "unmapped": 3,
     }
     candidates.sort(
         key=lambda entry: (
@@ -199,12 +216,18 @@ def render_markdown(
     lines.append("# Test Obsolescence Report")
     lines.append("")
     lines.append("Summary:")
-    for key in ["redundant_by_evidence", "obsolete_candidate", "unmapped"]:
+    for key in [
+        "redundant_by_evidence",
+        "equivalent_witness",
+        "obsolete_candidate",
+        "unmapped",
+    ]:
         lines.append(f"- {key}: {summary_counts.get(key, 0)}")
     lines.append("")
 
     sections = [
         ("redundant_by_evidence", "Redundant By Evidence"),
+        ("equivalent_witness", "Equivalent Witnesses"),
         ("obsolete_candidate", "Obsolete Candidates"),
         ("unmapped", "Unmapped"),
     ]

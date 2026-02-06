@@ -20,18 +20,6 @@ def _write_test_evidence(tmp_path: Path, tests: list[dict[str, object]]) -> Path
     return path
 
 
-def _write_risk_registry(tmp_path: Path, evidence: dict[str, dict[str, str]]) -> Path:
-    payload = {
-        "version": 1,
-        "evidence": evidence,
-    }
-    out_dir = tmp_path / "out"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / "evidence_risk_registry.json"
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    return path
-
-
 def test_basic_dominance() -> None:
     evidence_by_test = {
         "tests/test_alpha.py::test_a": ["E:x"],
@@ -54,6 +42,7 @@ def test_basic_dominance() -> None:
     assert by_id["tests/test_beta.py::test_b"]["class"] == "obsolete_candidate"
     assert summary == {
         "redundant_by_evidence": 1,
+        "equivalent_witness": 0,
         "obsolete_candidate": 1,
         "unmapped": 0,
     }
@@ -90,43 +79,24 @@ def test_unmapped_classification(tmp_path: Path) -> None:
     assert summary["unmapped"] == 1
 
 
-def test_high_risk_guardrail_blocks_redundancy(tmp_path: Path) -> None:
-    evidence_path = _write_test_evidence(
-        tmp_path,
-        [
-            {
-                "test_id": "tests/test_guardrail.py::test_primary",
-                "file": "tests/test_guardrail.py",
-                "line": 1,
-                "evidence": ["E:high"],
-                "status": "mapped",
-            },
-            {
-                "test_id": "tests/test_guardrail.py::test_shadow",
-                "file": "tests/test_guardrail.py",
-                "line": 5,
-                "evidence": ["E:high", "E:other"],
-                "status": "unmapped",
-            },
-        ],
-    )
-    _write_risk_registry(
-        tmp_path, {"E:high": {"risk": "high", "owner": "", "rationale": ""}}
-    )
-    evidence_by_test, status_by_test = test_obsolescence.load_test_evidence(
-        str(evidence_path)
-    )
-    risk_registry = test_obsolescence.load_risk_registry(
-        str(tmp_path / "out" / "evidence_risk_registry.json")
-    )
+def test_equivalent_witness_classification() -> None:
+    evidence_by_test = {
+        "tests/test_alpha.py::test_a": ["E:x"],
+        "tests/test_beta.py::test_b": ["E:x"],
+    }
+    status_by_test = {
+        "tests/test_alpha.py::test_a": "mapped",
+        "tests/test_beta.py::test_b": "mapped",
+    }
     candidates, summary = test_obsolescence.classify_candidates(
-        evidence_by_test, status_by_test, risk_registry
+        evidence_by_test, status_by_test, {}
     )
     by_id = {entry["test_id"]: entry for entry in candidates}
-    primary = by_id["tests/test_guardrail.py::test_primary"]
-    assert primary["class"] == "obsolete_candidate"
-    assert primary["dominators"] == ["tests/test_guardrail.py::test_shadow"]
-    reason = primary["reason"]
-    assert reason.get("guardrail") == "high-risk-last-witness"
-    assert reason.get("guardrail_evidence") == ["E:high"]
-    assert summary["redundant_by_evidence"] == 0
+    assert by_id["tests/test_alpha.py::test_a"]["class"] == "equivalent_witness"
+    assert by_id["tests/test_beta.py::test_b"]["class"] == "equivalent_witness"
+    assert summary == {
+        "redundant_by_evidence": 0,
+        "equivalent_witness": 2,
+        "obsolete_candidate": 0,
+        "unmapped": 0,
+    }

@@ -443,7 +443,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             evidence_by_test, status_by_test, risk_registry
         )
         report_payload = {
-            "version": 1,
+            "version": 2,
             "summary": summary_counts,
             "candidates": candidates,
         }

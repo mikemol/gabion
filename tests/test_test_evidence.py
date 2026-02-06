@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from gabion.analysis import test_evidence
 
 
@@ -125,3 +127,26 @@ def test_handles_missing_and_direct_file_paths(tmp_path: Path) -> None:
     missing = tmp_path / "tests" / "missing.py"
     entries = test_evidence._extract_file_evidence(missing, root)
     assert entries == []
+
+
+def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
+    root = tmp_path
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    source = tests_dir / "test_dupe.py"
+    source.write_text(
+        "\n".join(
+            [
+                "def test_dupe():",
+                "    assert True",
+                "",
+                "def test_dupe():",
+                "    assert True",
+            ]
+        )
+        + "\n"
+    )
+    with pytest.raises(ValueError, match="Duplicate test_id"):
+        test_evidence.build_test_evidence_payload(
+            [tests_dir], root=root, include=["tests"], exclude=[]
+        )

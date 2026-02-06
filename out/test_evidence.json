@@ -3434,28 +3434,35 @@
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 90,
+      "line": 92,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_excludes_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 8,
+      "line": 10,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_extracts_evidence_tags_and_unmapped"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 108,
+      "line": 110,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_handles_missing_and_direct_file_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 58,
+      "line": 132,
+      "status": "unmapped",
+      "test_id": "tests/test_test_evidence.py::test_rejects_duplicate_test_ids"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_evidence.py",
+      "line": 60,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_requires_adjacent_tag_and_skips_bad_files"
     },
@@ -3504,14 +3511,14 @@
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 93,
+      "line": 94,
       "status": "unmapped",
-      "test_id": "tests/test_test_obsolescence.py::test_high_risk_guardrail_blocks_redundancy"
+      "test_id": "tests/test_test_obsolescence.py::test_equivalent_witness_classification"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 62,
+      "line": 63,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_unmapped_classification"
     },
@@ -3539,16 +3546,16 @@
     {
       "evidence": [],
       "file": "tests/test_type_fingerprints.py",
-      "line": 404,
+      "line": 567,
       "status": "unmapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries"
     },
     {
       "evidence": [],
       "file": "tests/test_type_fingerprints.py",
-      "line": 567,
+      "line": 404,
       "status": "unmapped",
-      "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries"
+      "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries_with_valid"
     },
     {
       "evidence": [],

@@ -4,6 +4,7 @@ import ast
 import json
 import re
 import tokenize
+from collections import Counter
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
@@ -38,6 +39,19 @@ def build_test_evidence_payload(
     entries: list[TestEvidence] = []
     for path in files:
         entries.extend(_extract_file_evidence(path, root))
+
+    test_ids = [entry.test_id for entry in entries]
+    duplicates = sorted(
+        {
+            test_id
+            for test_id, count in Counter(test_ids).items()
+            if count > 1
+        }
+    )
+    if duplicates:
+        preview = ", ".join(duplicates[:5])
+        suffix = "" if len(duplicates) <= 5 else f" (+{len(duplicates) - 5} more)"
+        raise ValueError(f"Duplicate test_id entries found: {preview}{suffix}")
 
     tests_sorted = sorted(entries, key=lambda entry: entry.test_id)
     tests_payload = [

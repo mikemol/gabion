@@ -405,8 +405,8 @@ def test_build_fingerprint_registry_skips_empty_entries() -> None:
     tf = _load()
     registry, index = tf.build_fingerprint_registry({"empty": []})
     assert index == {}
-    assert registry.prime_for("ctor:dict") is not None
-    assert registry.prime_for("ctor:list") is not None
+    assert registry.primes == {}
+    assert registry.bit_positions == {}
 
 
 def test_collect_atoms_and_constructors() -> None:
@@ -564,7 +564,7 @@ def test_bundle_fingerprint_with_empty_and_constructor_bitmask() -> None:
     assert tf.fingerprint_bitmask(["int"], registry) == 0
 
 
-def test_build_fingerprint_registry_skips_empty_entries() -> None:
+def test_build_fingerprint_registry_skips_empty_entries_with_valid() -> None:
     tf = _load()
     registry, index = tf.build_fingerprint_registry(
         {"empty": [], "valid": ["int"]}
