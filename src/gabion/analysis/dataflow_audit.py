@@ -445,6 +445,7 @@ def _decorator_matches(name: str, allowlist: set[str]) -> bool:
 
 
 _NEVER_MARKERS = {"never", "gabion.never", "gabion.invariants.never"}
+_NEVER_STATUS_ORDER = {"VIOLATION": 0, "OBLIGATION": 1, "PROVEN_UNREACHABLE": 2}
 
 
 def _is_never_call(call: ast.Call) -> bool:
@@ -452,6 +453,25 @@ def _is_never_call(call: ast.Call) -> bool:
     if not name:
         return False
     return _decorator_matches(name, _NEVER_MARKERS)
+
+
+def _never_sort_key(entry: JSONObject) -> tuple:
+    status = str(entry.get("status", "UNKNOWN"))
+    order = _NEVER_STATUS_ORDER.get(status, 3)
+    site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+    path = str(site.get("path", ""))
+    function = str(site.get("function", ""))
+    span = entry.get("span")
+    line = -1
+    col = -1
+    if isinstance(span, list) and len(span) == 4:
+        try:
+            line = int(span[0])
+            col = int(span[1])
+        except (TypeError, ValueError):
+            line = -1
+            col = -1
+    return (order, path, function, line, col, str(entry.get("never_id", "")))
 
 
 def _decorators_transparent(
@@ -2391,6 +2411,7 @@ def _collect_never_invariants(
             status = "OBLIGATION"
             witness_ref = None
             environment_ref: JSONObject | None = None
+            undecidable_reason = None
             env_entries = dead_env_map.get((path_value, function), {})
             if env_entries:
                 env = {name: value for name, (value, _) in env_entries.items()}
@@ -2415,6 +2436,16 @@ def _collect_never_invariants(
                 elif reachability is True:
                     status = "VIOLATION"
                     environment_ref = env
+                else:
+                    names: set[str] = set()
+                    current = parents.get(node)
+                    while current is not None:
+                        if isinstance(current, ast.If):
+                            names.update(_names_in_expr(current.test))
+                        current = parents.get(current)
+                    undecidable_params = sorted(n for n in names if n not in env_entries)
+                    if undecidable_params:
+                        undecidable_reason = f"depends on params: {', '.join(undecidable_params)}"
             entry: JSONObject = {
                 "never_id": never_id,
                 "site": {
@@ -2425,6 +2456,8 @@ def _collect_never_invariants(
                 "status": status,
                 "reason": reason,
             }
+            if undecidable_reason:
+                entry["undecidable_reason"] = undecidable_reason
             if witness_ref is not None:
                 entry["witness_ref"] = witness_ref
             if environment_ref is not None:
@@ -2485,26 +2518,84 @@ def _summarize_exception_obligations(
 def _summarize_never_invariants(
     entries: list[JSONObject],
     *,
-    max_entries: int = 10,
+    max_entries: int = 50,
+    include_proven_unreachable: bool = True,
 ) -> list[str]:
     if not entries:
         return []
-    lines: list[str] = []
-    for entry in entries[:max_entries]:
+    def _format_span(entry: JSONObject) -> str:
+        span = entry.get("span")
+        if not isinstance(span, list) or len(span) != 4:
+            return ""
+        try:
+            line, col, end_line, end_col = (int(part) for part in span)
+        except (TypeError, ValueError):
+            return ""
+        return f"{line + 1}:{col + 1}-{end_line + 1}:{end_col + 1}"
+
+    def _format_site(entry: JSONObject) -> str:
         site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
         path = site.get("path", "?")
         function = site.get("function", "?")
-        bundle = site.get("bundle") or []
-        status = entry.get("status", "UNKNOWN")
-        reason = entry.get("reason") or ""
-        suffix = f" status={status}"
-        if bundle:
-            suffix += f" bundle={','.join(bundle)}"
-        if reason:
-            suffix += f" reason={reason}"
-        lines.append(f"{path}:{function} never(){suffix}")
-    if len(entries) > max_entries:
-        lines.append(f"... {len(entries) - max_entries} more")
+        span = _format_span(entry)
+        if span:
+            return f"{path}:{function}@{span}"
+        return f"{path}:{function}"
+
+    def _format_evidence(entry: JSONObject, status: str) -> str:
+        witness_ref = entry.get("witness_ref")
+        env = entry.get("environment_ref")
+        undecidable = entry.get("undecidable_reason") or ""
+        parts: list[str] = []
+        if status == "VIOLATION":
+            if witness_ref:
+                parts.append(f"witness={witness_ref}")
+            if env:
+                parts.append(f"env={json.dumps(env, sort_keys=True)}")
+        elif status == "PROVEN_UNREACHABLE":
+            if witness_ref:
+                parts.append(f"deadness={witness_ref}")
+            if env:
+                parts.append(f"env={json.dumps(env, sort_keys=True)}")
+        elif status == "OBLIGATION":
+            if undecidable:
+                parts.append(f"why={undecidable}")
+            else:
+                parts.append("why=no witness env available")
+        return "; ".join(parts)
+
+    lines: list[str] = []
+    grouped: dict[str, list[JSONObject]] = {"VIOLATION": [], "OBLIGATION": [], "PROVEN_UNREACHABLE": []}
+    for entry in sorted(entries, key=_never_sort_key):
+        status = str(entry.get("status", "UNKNOWN"))
+        if status not in grouped:
+            grouped.setdefault(status, []).append(entry)
+        else:
+            grouped[status].append(entry)
+
+    ordered_statuses = ["VIOLATION", "OBLIGATION", "PROVEN_UNREACHABLE"]
+    extra_statuses = sorted(
+        status for status in grouped.keys() if status not in ordered_statuses
+    )
+    for status in ordered_statuses + extra_statuses:
+        if status == "PROVEN_UNREACHABLE" and not include_proven_unreachable:
+            continue
+        items = grouped.get(status) or []
+        if not items:
+            continue
+        lines.append(f"{status}:")
+        for entry in items[:max_entries]:
+            reason = entry.get("reason") or ""
+            evidence = _format_evidence(entry, status)
+            bits: list[str] = []
+            if reason:
+                bits.append(f"reason={reason}")
+            if evidence:
+                bits.append(evidence)
+            suffix = f" ({'; '.join(bits)})" if bits else ""
+            lines.append(f"- {_format_site(entry)} never(){suffix}")
+        if len(items) > max_entries:
+            lines.append(f"... {len(items) - max_entries} more")
     return lines
 
 
@@ -2754,7 +2845,7 @@ def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
 
 def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
     lines: list[str] = []
-    for entry in entries:
+    for entry in sorted(entries, key=_never_sort_key):
         status = entry.get("status", "UNKNOWN")
         if status == "PROVEN_UNREACHABLE":
             continue
@@ -2763,8 +2854,24 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
             continue
         site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
         path = str(site.get("path", "?"))
+        reason = entry.get("reason") or ""
+        witness_ref = entry.get("witness_ref")
+        env = entry.get("environment_ref")
+        undecidable = entry.get("undecidable_reason") or ""
         line, col, _, _ = span
-        message = f"never() invariant (status={status})"
+        bits: list[str] = [f"status={status}"]
+        if reason:
+            bits.append(f"reason={reason}")
+        if witness_ref:
+            bits.append(f"witness={witness_ref}")
+        if env:
+            bits.append(f"env={json.dumps(env, sort_keys=True)}")
+        if status == "OBLIGATION":
+            if undecidable:
+                bits.append(f"why={undecidable}")
+            else:
+                bits.append("why=no witness env available")
+        message = f"never() invariant ({'; '.join(bits)})"
         lines.append(_lint_line(path, int(line) + 1, int(col) + 1, "GABION_NEVER_INVARIANT", message))
     return lines
 
