@@ -142,3 +142,21 @@ def test_exception_obligations_deadness_selection_skips_unknown_names(tmp_path: 
         deadness_witnesses=deadness,
     )
     assert any(entry.get("status") == "DEAD" for entry in obligations)
+
+
+def test_exception_obligations_skip_never_marker_raise(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "mod.py"
+    module.write_text(
+        "from gabion.exceptions import NeverThrown\n"
+        "\n"
+        "def never():\n"
+        "    raise NeverThrown('boom')\n"
+    )
+    obligations = da._collect_exception_obligations(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        never_exceptions={"NeverThrown"},
+    )
+    assert obligations == []

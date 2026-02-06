@@ -455,6 +455,18 @@ def _is_never_call(call: ast.Call) -> bool:
     return _decorator_matches(name, _NEVER_MARKERS)
 
 
+def _is_never_marker_raise(
+    function: str,
+    exception_name: str | None,
+    never_exceptions: set[str],
+) -> bool:
+    if not exception_name or not never_exceptions:
+        return False
+    if not _decorator_matches(exception_name, never_exceptions):
+        return False
+    return function == "never" or function.endswith(".never")
+
+
 def _never_sort_key(entry: JSONObject) -> tuple:
     status = str(entry.get("status", "UNKNOWN"))
     order = _NEVER_STATUS_ORDER.get(status, 3)
@@ -2282,6 +2294,8 @@ def _collect_exception_obligations(
                 and _decorator_matches(exception_name, never_exceptions_set)
             ):
                 protocol = "never"
+            if _is_never_marker_raise(function, exception_name, never_exceptions_set):
+                continue
             bundle = _exception_param_names(expr, params)
             lineno = getattr(node, "lineno", 0)
             col = getattr(node, "col_offset", 0)
