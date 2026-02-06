@@ -18,6 +18,7 @@ def test_check_builds_payload() -> None:
         baseline=None,
         baseline_write=False,
         decision_snapshot=None,
+        emit_test_obsolescence=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -30,6 +31,7 @@ def test_check_builds_payload() -> None:
     assert payload["fail_on_violations"] is True
     assert payload["fail_on_type_ambiguities"] is True
     assert payload["type_audit"] is True
+    assert payload["emit_test_obsolescence"] is False
 
 
 def test_check_payload_strictness_validation() -> None:
@@ -43,6 +45,7 @@ def test_check_payload_strictness_validation() -> None:
             baseline=None,
             baseline_write=False,
             decision_snapshot=None,
+            emit_test_obsolescence=False,
             exclude=None,
             ignore_params_csv=None,
             transparent_decorators_csv=None,
@@ -63,6 +66,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         baseline=None,
         baseline_write=True,
         decision_snapshot=None,
+        emit_test_obsolescence=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -172,6 +176,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         baseline=None,
         baseline_write=False,
         decision_snapshot=None,
+        emit_test_obsolescence=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -184,4 +189,5 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert result["exit_code"] == 0
     assert captured["command"] == cli.DATAFLOW_COMMAND
     assert captured["payload"]["paths"] == [str(tmp_path)]
+    assert captured["payload"]["emit_test_obsolescence"] is False
     assert captured["root"] == tmp_path

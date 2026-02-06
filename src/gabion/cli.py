@@ -169,6 +169,7 @@ def build_check_payload(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
+    emit_test_obsolescence: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -197,6 +198,7 @@ def build_check_payload(
         "baseline": str(baseline) if baseline is not None else None,
         "baseline_write": baseline_write_value,
         "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
+        "emit_test_obsolescence": emit_test_obsolescence,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -347,6 +349,7 @@ def run_check(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
+    emit_test_obsolescence: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -366,6 +369,7 @@ def run_check(
         baseline=baseline,
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
+        emit_test_obsolescence=emit_test_obsolescence,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,
@@ -386,6 +390,11 @@ def check(
     config: Optional[Path] = typer.Option(None, "--config"),
     decision_snapshot: Optional[Path] = typer.Option(
         None, "--decision-snapshot", help="Write decision surface snapshot JSON."
+    ),
+    emit_test_obsolescence: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence/--no-emit-test-obsolescence",
+        help="Write test obsolescence report to out/.",
     ),
     baseline: Optional[Path] = typer.Option(
         None, "--baseline", help="Baseline file of allowed violations."
@@ -425,6 +434,7 @@ def check(
         baseline=baseline,
         baseline_write=baseline_write,
         decision_snapshot=decision_snapshot,
+        emit_test_obsolescence=emit_test_obsolescence,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,

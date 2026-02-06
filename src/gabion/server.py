@@ -48,6 +48,7 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
+from gabion.analysis import test_obsolescence
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -231,6 +232,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     structure_tree_path = payload.get("structure_tree")
     structure_metrics_path = payload.get("structure_metrics")
     decision_snapshot_path = payload.get("decision_snapshot")
+    emit_test_obsolescence = bool(payload.get("emit_test_obsolescence", False))
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -408,6 +410,29 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["decision_snapshot"] = snapshot
         else:
             Path(decision_snapshot_path).write_text(payload_json)
+    if emit_test_obsolescence:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        risk_registry_path = report_root / "out" / "evidence_risk_registry.json"
+        evidence_by_test, status_by_test = test_obsolescence.load_test_evidence(
+            str(evidence_path)
+        )
+        risk_registry = test_obsolescence.load_risk_registry(str(risk_registry_path))
+        candidates, summary_counts = test_obsolescence.classify_candidates(
+            evidence_by_test, status_by_test, risk_registry
+        )
+        report_payload = {
+            "version": 1,
+            "summary": summary_counts,
+            "candidates": candidates,
+        }
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = json.dumps(report_payload, indent=2, sort_keys=True) + "\n"
+        report_md = test_obsolescence.render_markdown(candidates, summary_counts)
+        (output_dir / "test_obsolescence_report.json").write_text(report_json)
+        (output_dir / "test_obsolescence_report.md").write_text(report_md)
+        response["test_obsolescence_summary"] = summary_counts
 
     violations: list[str] = []
     effective_violations: list[str] | None = None
