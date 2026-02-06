@@ -15,9 +15,14 @@ def test_suggests_alias_invariance() -> None:
         status="unmapped",
     )
     suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.total == 1
     assert summary.suggested == 1
+    assert summary.skipped_mapped == 0
+    assert summary.skipped_no_match == 0
     assert suggestions[0].suggested == ("E:bundle/alias_invariance",)
     assert suggestions[0].matches == ("alias_invariance",)
+    assert summary.unmapped_modules == (("tests/test_alias_attribute.py", 1),)
+    assert summary.unmapped_prefixes == (("test_alias", 1),)
 
 
 def test_suggests_aspf_bundle_pair() -> None:
@@ -29,6 +34,7 @@ def test_suggests_aspf_bundle_pair() -> None:
         status="unmapped",
     )
     suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.total == 1
     assert summary.suggested == 1
     assert suggestions[0].suggested == (
         "E:forest/canonical_paramset",
@@ -46,6 +52,7 @@ def test_skips_mapped_entries() -> None:
     )
     suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
     assert suggestions == []
+    assert summary.total == 1
     assert summary.skipped_mapped == 1
 
 
@@ -59,7 +66,47 @@ def test_skips_no_match_entries() -> None:
     )
     suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
     assert suggestions == []
+    assert summary.total == 1
     assert summary.skipped_no_match == 1
+
+
+def test_suggests_decision_surface_direct() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_decision_surfaces.py::test_decision_surface_params_collects_names",
+        file="tests/test_decision_surfaces.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:decision_surface/direct",)
+
+
+def test_suggests_value_encoded_decision() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_decision_surfaces.py::test_value_encoded_decision_params_collects_names",
+        file="tests/test_decision_surfaces.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:decision_surface/value_encoded",)
+
+
+def test_suggests_docflow_contract() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_cli_commands.py::test_cli_docflow_audit",
+        file="tests/test_cli_commands.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:policy/docflow_contract",)
 
 
 def test_load_test_evidence_payload(tmp_path: Path) -> None:
