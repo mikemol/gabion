@@ -18,13 +18,13 @@ doc_requires:
   - AGENTS.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 20
+  glossary.md: 22
   README.md: 58
   CONTRIBUTING.md: 72
   AGENTS.md: 13
 doc_review_notes:
   POLICY_SEED.md: "Review-discipline invariant does not alter coverage semantics."
-  glossary.md: "Attribute Carrier/Transport entries do not change coverage rules."
+  glossary.md: "Higher-order bundle definition does not change coverage rules."
   README.md: "Scope references remain accurate."
   CONTRIBUTING.md: "Review discipline aligns with coverage enforcement workflow."
   AGENTS.md: "Agent review discipline consistent with coverage obligations."

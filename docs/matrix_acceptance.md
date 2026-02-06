@@ -16,12 +16,12 @@ doc_requires:
   - README.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 20
+  glossary.md: 22
   CONTRIBUTING.md: 72
   README.md: 58
 doc_review_notes:
   POLICY_SEED.md: "Review discipline invariant does not change matrix acceptance requirements."
-  glossary.md: "Attribute Carrier/Transport entries align with evidence artifacts."
+  glossary.md: "Higher-order bundle definition aligns with matrix acceptance framing."
   CONTRIBUTING.md: "Review discipline aligns with test mapping workflow."
   README.md: "Scope references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
