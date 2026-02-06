@@ -1,5 +1,5 @@
 ---
-doc_revision: 3
+doc_revision: 39
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -15,10 +15,15 @@ doc_requires:
   - CONTRIBUTING.md
   - README.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 28
-  glossary.md: 13
-  CONTRIBUTING.md: 70
+  POLICY_SEED.md: 29
+  glossary.md: 22
+  CONTRIBUTING.md: 72
   README.md: 58
+doc_review_notes:
+  POLICY_SEED.md: "Review discipline does not alter inbox→outbox mapping."
+  glossary.md: "Higher-order bundle definition does not change influence tracking semantics."
+  CONTRIBUTING.md: "Review discipline aligns with tracking workflow."
+  README.md: "Scope references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -57,3 +62,16 @@ Status legend:
 - in/in-12.md — **partial** (LSP integration + LibCST refactor engine present; analysis still AST‑based.)
 - in/in-13.md — **adopted** (LSP‑first architecture + CLI as thin client implemented.)
 - in/in-14.md — **adopted** (repo scaffold + CLI/LSP split aligned with current structure.)
+- in/in-15.md — **partial** (decision surfaces + boundary classification + tier enforcement; context suggestions; remaining rewrite work; SPPF/GH-60, GH-61.)
+- in/in-16.md — **adopted** (structural snapshots/diffing/metrics + baseline ratchet implemented; SPPF/GH-62/63/64/23.)
+- in/in-17.md — **partial** (subtree reuse detection + hashing in structure snapshot; remaining lemma synthesis hooks; SPPF/GH-65.)
+- in/in-18.md — **partial** (value‑encoded decision detection + reports + glossary warnings + decision snapshot/diff + audit snapshot capture + rebranch suggestions; remaining rewrite work; SPPF/GH-66.)
+- in/in-19.md — **partial** (proposition model + assert-based invariants + emitter hooks implemented; dependent‑type synthesis remains; SPPF/GH-67.)
+- in/in-20.md — **partial** (prime registry + canonical type keys + arithmetic ops + glossary warnings + reverse mapping + hybrid bitmask + nested ctor registry implemented; remaining rewrite work; SPPF/GH-68.)
+- in/in-21.md — **partial** (longform expansion of in-20; nested ctor registry + hybrid bitmask + reverse mapping + glossary warnings + arithmetic ops implemented; remaining rewrite work; SPPF/GH-68.)
+- in/in-22.md — **partial** (ASPF/SPPF equivalence framing; dimensional fingerprints incl. provenance/synth dimensions; entropy-controlled synthesis tracked in SPPF GH-70/GH-71/GH-72.)
+- in/in-23.md — **adopted** (ASPF carrier formalization discharged via deterministic registry basis + artifact/verification checks; SPPF/GH-73.)
+- in/in-24.md — **adopted** (deadness evidence artifacts emitted from constant-flow analysis + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-74.)
+- in/in-25.md — **adopted** (coherence evidence artifacts emitted from glossary ambiguity + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-75.)
+- in/in-26.md — **partial** (proof-carrying rewrite plans emitted + verified incl. exception-obligation non-regression; remaining rewrite kinds tracked; SPPF/GH-76, GH-78, GH-79.)
+- in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; exception-aware rewrite acceptance predicates implemented; remaining handledness refinement tracked; SPPF/GH-77, GH-80.)

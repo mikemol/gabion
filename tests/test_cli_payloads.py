@@ -17,12 +17,14 @@ def test_check_builds_payload() -> None:
         config=None,
         baseline=None,
         baseline_write=False,
+        decision_snapshot=None,
         exclude=None,
-        ignore_params=None,
-        transparent_decorators=None,
+        ignore_params_csv=None,
+        transparent_decorators_csv=None,
         allow_external=None,
         strictness=None,
         fail_on_type_ambiguities=True,
+        lint=False,
     )
     assert payload["paths"] == ["."]
     assert payload["fail_on_violations"] is True
@@ -40,12 +42,14 @@ def test_check_payload_strictness_validation() -> None:
             config=None,
             baseline=None,
             baseline_write=False,
+            decision_snapshot=None,
             exclude=None,
-            ignore_params=None,
-            transparent_decorators=None,
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
             allow_external=None,
             strictness="medium",
             fail_on_type_ambiguities=False,
+            lint=False,
         )
 
 
@@ -58,12 +62,14 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         config=None,
         baseline=None,
         baseline_write=True,
+        decision_snapshot=None,
         exclude=None,
-        ignore_params=None,
-        transparent_decorators=None,
+        ignore_params_csv=None,
+        transparent_decorators_csv=None,
         allow_external=None,
         strictness=None,
         fail_on_type_ambiguities=False,
+        lint=False,
     )
     assert payload["baseline_write"] is None
 
@@ -80,6 +86,12 @@ def test_dataflow_audit_payload_parsing() -> None:
             "x,y",
             "--no-recursive",
             "--fail-on-violations",
+            "--emit-structure-tree",
+            "snapshot.json",
+            "--emit-structure-metrics",
+            "metrics.json",
+            "--emit-decision-snapshot",
+            "decisions.json",
         ]
     )
     payload = cli.build_dataflow_payload(opts)
@@ -89,6 +101,9 @@ def test_dataflow_audit_payload_parsing() -> None:
     assert payload["ignore_params"] == ["x", "y"]
     assert payload["no_recursive"] is True
     assert payload["fail_on_violations"] is True
+    assert payload["structure_tree"] == "snapshot.json"
+    assert payload["structure_metrics"] == "metrics.json"
+    assert payload["decision_snapshot"] == "decisions.json"
 
 
 def test_dataflow_payload_baseline_and_transparent() -> None:
@@ -156,12 +171,14 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         config=None,
         baseline=None,
         baseline_write=False,
+        decision_snapshot=None,
         exclude=None,
-        ignore_params=None,
-        transparent_decorators=None,
+        ignore_params_csv=None,
+        transparent_decorators_csv=None,
         allow_external=None,
         strictness=None,
         fail_on_type_ambiguities=True,
+        lint=False,
         runner=runner,
     )
     assert result["exit_code"] == 0

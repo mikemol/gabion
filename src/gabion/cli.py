@@ -3,26 +3,35 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Any, Callable
+from typing import Callable, List, Optional, TypeAlias
 import argparse
 import json
 import subprocess
 import sys
+import re
 
 import typer
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
+STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
+STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
+DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 from gabion.lsp_client import CommandRequest, run_command
+from gabion.json_types import JSONObject
 app = typer.Typer(add_completion=False)
+Runner: TypeAlias = Callable[..., JSONObject]
+DEFAULT_RUNNER: Runner = run_command
+
+_LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 
 @dataclass(frozen=True)
 class DataflowAuditRequest:
     ctx: typer.Context
     args: List[str] | None = None
-    runner: Callable[..., dict[str, Any]] | None = None
+    runner: Runner | None = None
 
 
 def _find_repo_root() -> Path:
@@ -45,6 +54,111 @@ def _split_csv(value: Optional[str]) -> list[str] | None:
     return items or None
 
 
+def _parse_lint_line(line: str) -> dict[str, object] | None:
+    match = _LINT_RE.match(line.strip())
+    if not match:
+        return None
+    line_no = int(match.group("line"))
+    col_no = int(match.group("col"))
+    rest = match.group("rest").strip()
+    if not rest:
+        return None
+    code, _, message = rest.partition(" ")
+    return {
+        "path": match.group("path"),
+        "line": line_no,
+        "col": col_no,
+        "code": code,
+        "message": message,
+        "severity": "warning",
+    }
+
+
+def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for line in lines:
+        parsed = _parse_lint_line(line)
+        if parsed is not None:
+            entries.append(parsed)
+    return entries
+
+
+def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
+    payload = "\n".join(json.dumps(entry, sort_keys=True) for entry in entries)
+    if target == "-":
+        typer.echo(payload)
+    else:
+        Path(target).write_text(payload + ("\n" if payload else ""))
+
+
+def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
+    rules: dict[str, dict[str, object]] = {}
+    results: list[dict[str, object]] = []
+    for entry in entries:
+        code = str(entry.get("code") or "GABION")
+        message = str(entry.get("message") or "").strip()
+        path = str(entry.get("path") or "")
+        line = int(entry.get("line") or 1)
+        col = int(entry.get("col") or 1)
+        if code not in rules:
+            rules[code] = {
+                "id": code,
+                "name": code,
+                "shortDescription": {"text": code},
+            }
+        results.append(
+            {
+                "ruleId": code,
+                "level": "warning",
+                "message": {"text": message or code},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": path},
+                            "region": {
+                                "startLine": line,
+                                "startColumn": col,
+                            },
+                        }
+                    }
+                ],
+            }
+        )
+    sarif = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {"driver": {"name": "gabion", "rules": list(rules.values())}},
+                "results": results,
+            }
+        ],
+    }
+    payload = json.dumps(sarif, indent=2, sort_keys=True)
+    if target == "-":
+        typer.echo(payload)
+    else:
+        Path(target).write_text(payload + "\n")
+
+
+def _emit_lint_outputs(
+    lint_lines: list[str],
+    *,
+    lint: bool,
+    lint_jsonl: Optional[Path],
+    lint_sarif: Optional[Path],
+) -> None:
+    if lint:
+        for line in lint_lines:
+            typer.echo(line)
+    if lint_jsonl or lint_sarif:
+        entries = _collect_lint_entries(lint_lines)
+        if lint_jsonl is not None:
+            _write_lint_jsonl(str(lint_jsonl), entries)
+        if lint_sarif is not None:
+            _write_lint_sarif(str(lint_sarif), entries)
+
+
 def build_check_payload(
     *,
     paths: Optional[List[Path]],
@@ -54,21 +168,23 @@ def build_check_payload(
     config: Optional[Path],
     baseline: Optional[Path],
     baseline_write: bool,
+    decision_snapshot: Optional[Path],
     exclude: Optional[List[str]],
-    ignore_params: Optional[str],
-    transparent_decorators: Optional[str],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
-) -> dict[str, Any]:
-    # dataflow-bundle: ignore_params, transparent_decorators
+    lint: bool,
+) -> JSONObject:
+    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     if not paths:
         paths = [Path(".")]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
     exclude_dirs = _split_csv_entries(exclude)
-    ignore_list = _split_csv(ignore_params)
-    transparent_list = _split_csv(transparent_decorators)
+    ignore_list = _split_csv(ignore_params_csv)
+    transparent_list = _split_csv(transparent_decorators_csv)
     baseline_write_value: bool | None = baseline_write if baseline is not None else None
     root = root or Path(".")
     payload = {
@@ -80,12 +196,14 @@ def build_check_payload(
         "config": str(config) if config is not None else None,
         "baseline": str(baseline) if baseline is not None else None,
         "baseline_write": baseline_write_value,
+        "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
         "allow_external": allow_external,
         "strictness": strictness,
         "type_audit": True if fail_on_type_ambiguities else None,
+        "lint": lint,
     }
     return payload
 
@@ -95,11 +213,11 @@ def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
+def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
     exclude_dirs = _split_csv_entries(opts.exclude)
     ignore_list = _split_csv(opts.ignore_params)
     transparent_list = _split_csv(opts.transparent_decorators)
-    payload: dict[str, Any] = {
+    payload: JSONObject = {
         "paths": [str(p) for p in opts.paths],
         "root": str(opts.root),
         "config": str(opts.config) if opts.config is not None else None,
@@ -114,6 +232,10 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "type_audit": opts.type_audit,
         "type_audit_report": opts.type_audit_report,
         "type_audit_max": opts.type_audit_max,
+        "lint": bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
+        "decision_snapshot": str(opts.emit_decision_snapshot)
+        if opts.emit_decision_snapshot
+        else None,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -132,14 +254,43 @@ def build_dataflow_payload(opts: argparse.Namespace) -> dict[str, Any]:
         "refactor_plan_json": str(opts.refactor_plan_json)
         if opts.refactor_plan_json
         else None,
+        "fingerprint_synth_json": str(opts.fingerprint_synth_json)
+        if opts.fingerprint_synth_json
+        else None,
+        "fingerprint_provenance_json": str(opts.fingerprint_provenance_json)
+        if opts.fingerprint_provenance_json
+        else None,
+        "fingerprint_deadness_json": str(opts.fingerprint_deadness_json)
+        if opts.fingerprint_deadness_json
+        else None,
+        "fingerprint_coherence_json": str(opts.fingerprint_coherence_json)
+        if opts.fingerprint_coherence_json
+        else None,
+        "fingerprint_rewrite_plans_json": str(opts.fingerprint_rewrite_plans_json)
+        if opts.fingerprint_rewrite_plans_json
+        else None,
+        "fingerprint_exception_obligations_json": str(
+            opts.fingerprint_exception_obligations_json
+        )
+        if opts.fingerprint_exception_obligations_json
+        else None,
+        "fingerprint_handledness_json": str(opts.fingerprint_handledness_json)
+        if opts.fingerprint_handledness_json
+        else None,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
+        "structure_tree": str(opts.emit_structure_tree)
+        if opts.emit_structure_tree
+        else None,
+        "structure_metrics": str(opts.emit_structure_metrics)
+        if opts.emit_structure_metrics
+        else None,
     }
     return payload
 
 
 def build_refactor_payload(
     *,
-    input_payload: Optional[dict[str, Any]] = None,
+    input_payload: Optional[JSONObject] = None,
     protocol_name: Optional[str],
     bundle: Optional[List[str]],
     field: Optional[List[str]],
@@ -147,7 +298,7 @@ def build_refactor_payload(
     target_functions: Optional[List[str]],
     compatibility_shim: bool,
     rationale: Optional[str],
-) -> dict[str, Any]:
+) -> JSONObject:
     if input_payload is not None:
         return input_payload
     if protocol_name is None or target_path is None:
@@ -178,10 +329,10 @@ def build_refactor_payload(
 def dispatch_command(
     *,
     command: str,
-    payload: dict[str, Any],
+    payload: JSONObject,
     root: Path | None = None,
-    runner: Callable[..., dict[str, Any]] = run_command,
-) -> dict[str, Any]:
+    runner: Runner = run_command,
+) -> JSONObject:
     request = CommandRequest(command, [payload])
     return runner(request, root=root)
 
@@ -195,15 +346,17 @@ def run_check(
     config: Optional[Path],
     baseline: Optional[Path],
     baseline_write: bool,
+    decision_snapshot: Optional[Path],
     exclude: Optional[List[str]],
-    ignore_params: Optional[str],
-    transparent_decorators: Optional[str],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
-    runner: Callable[..., dict[str, Any]] = run_command,
-) -> dict[str, Any]:
-    # dataflow-bundle: ignore_params, transparent_decorators
+    lint: bool,
+    runner: Runner = run_command,
+) -> JSONObject:
+    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     payload = build_check_payload(
         paths=paths,
         report=report,
@@ -212,12 +365,14 @@ def run_check(
         config=config,
         baseline=baseline,
         baseline_write=baseline_write if baseline is not None else False,
+        decision_snapshot=decision_snapshot,
         exclude=exclude,
-        ignore_params=ignore_params,
-        transparent_decorators=transparent_decorators,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
+        lint=lint,
     )
     return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
 
@@ -229,6 +384,9 @@ def check(
     fail_on_violations: bool = typer.Option(True, "--fail-on-violations/--no-fail-on-violations"),
     root: Path = typer.Option(Path("."), "--root"),
     config: Optional[Path] = typer.Option(None, "--config"),
+    decision_snapshot: Optional[Path] = typer.Option(
+        None, "--decision-snapshot", help="Write decision surface snapshot JSON."
+    ),
     baseline: Optional[Path] = typer.Option(
         None, "--baseline", help="Baseline file of allowed violations."
     ),
@@ -236,8 +394,8 @@ def check(
         False, "--baseline-write", help="Write current violations to baseline."
     ),
     exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators: Optional[str] = typer.Option(
+    ignore_params_csv: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators_csv: Optional[str] = typer.Option(
         None, "--transparent-decorators"
     ),
     allow_external: Optional[bool] = typer.Option(
@@ -247,9 +405,17 @@ def check(
     fail_on_type_ambiguities: bool = typer.Option(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
+    lint: bool = typer.Option(False, "--lint/--no-lint"),
+    lint_jsonl: Optional[Path] = typer.Option(
+        None, "--lint-jsonl", help="Write lint JSONL to file or '-' for stdout."
+    ),
+    lint_sarif: Optional[Path] = typer.Option(
+        None, "--lint-sarif", help="Write lint SARIF to file or '-' for stdout."
+    ),
 ) -> None:
-    # dataflow-bundle: ignore_params, transparent_decorators
+    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     """Run the dataflow grammar audit with strict defaults."""
+    lint_enabled = lint or bool(lint_jsonl or lint_sarif)
     result = run_check(
         paths=paths,
         report=report,
@@ -258,12 +424,21 @@ def check(
         config=config,
         baseline=baseline,
         baseline_write=baseline_write,
+        decision_snapshot=decision_snapshot,
         exclude=exclude,
-        ignore_params=ignore_params,
-        transparent_decorators=transparent_decorators,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
+        lint=lint_enabled,
+    )
+    lint_lines = result.get("lint_lines", []) or []
+    _emit_lint_outputs(
+        lint_lines,
+        lint=lint,
+        lint_jsonl=lint_jsonl,
+        lint_sarif=lint_sarif,
     )
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
@@ -284,6 +459,13 @@ def _dataflow_audit(
         root=Path(opts.root),
         runner=runner,
     )
+    lint_lines = result.get("lint_lines", []) or []
+    _emit_lint_outputs(
+        lint_lines,
+        lint=opts.lint,
+        lint_jsonl=opts.lint_jsonl,
+        lint_sarif=opts.lint_sarif,
+    )
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
         ambiguities = result.get("type_ambiguities", [])
@@ -303,6 +485,68 @@ def _dataflow_audit(
         typer.echo(result["synthesis_protocols"])
     if opts.refactor_plan_json == "-" and "refactor_plan" in result:
         typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
+    if (
+        opts.fingerprint_synth_json == "-"
+        and "fingerprint_synth_registry" in result
+    ):
+        typer.echo(
+            json.dumps(
+                result["fingerprint_synth_registry"], indent=2, sort_keys=True
+            )
+        )
+    if (
+        opts.fingerprint_provenance_json == "-"
+        and "fingerprint_provenance" in result
+    ):
+        typer.echo(
+            json.dumps(
+                result["fingerprint_provenance"], indent=2, sort_keys=True
+            )
+        )
+    if opts.fingerprint_deadness_json == "-" and "fingerprint_deadness" in result:
+        typer.echo(
+            json.dumps(
+                result["fingerprint_deadness"], indent=2, sort_keys=True
+            )
+        )
+    if opts.fingerprint_coherence_json == "-" and "fingerprint_coherence" in result:
+        typer.echo(
+            json.dumps(
+                result["fingerprint_coherence"], indent=2, sort_keys=True
+            )
+        )
+    if (
+        opts.fingerprint_rewrite_plans_json == "-"
+        and "fingerprint_rewrite_plans" in result
+    ):
+        typer.echo(
+            json.dumps(
+                result["fingerprint_rewrite_plans"], indent=2, sort_keys=True
+            )
+        )
+    if (
+        opts.fingerprint_exception_obligations_json == "-"
+        and "fingerprint_exception_obligations" in result
+    ):
+        typer.echo(
+            json.dumps(
+                result["fingerprint_exception_obligations"],
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    if opts.fingerprint_handledness_json == "-" and "fingerprint_handledness" in result:
+        typer.echo(
+            json.dumps(
+                result["fingerprint_handledness"], indent=2, sort_keys=True
+            )
+        )
+    if opts.emit_structure_tree == "-" and "structure_tree" in result:
+        typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
+    if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
+        typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
+    if opts.emit_decision_snapshot == "-" and "decision_snapshot" in result:
+        typer.echo(json.dumps(result["decision_snapshot"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -344,7 +588,72 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
     parser.add_argument("--strictness", choices=["high", "low"], default=None)
     parser.add_argument("--no-recursive", action="store_true")
     parser.add_argument("--dot", default=None, help="Write DOT graph to file or '-' for stdout.")
+    parser.add_argument(
+        "--emit-structure-tree",
+        default=None,
+        help="Write canonical structure snapshot JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--emit-structure-metrics",
+        default=None,
+        help="Write structure metrics JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-synth-json",
+        default=None,
+        help="Write fingerprint synth registry JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-provenance-json",
+        default=None,
+        help="Write fingerprint provenance JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-deadness-json",
+        default=None,
+        help="Write fingerprint deadness JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-coherence-json",
+        default=None,
+        help="Write fingerprint coherence JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-rewrite-plans-json",
+        default=None,
+        help="Write fingerprint rewrite plans JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-exception-obligations-json",
+        default=None,
+        help="Write fingerprint exception obligations JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--fingerprint-handledness-json",
+        default=None,
+        help="Write fingerprint handledness JSON to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--emit-decision-snapshot",
+        default=None,
+        help="Write decision surface snapshot JSON to file or '-' for stdout.",
+    )
     parser.add_argument("--report", default=None, help="Write Markdown report (mermaid) to file.")
+    parser.add_argument(
+        "--lint",
+        action="store_true",
+        help="Emit lint-style lines (path:line:col: CODE message).",
+    )
+    parser.add_argument(
+        "--lint-jsonl",
+        default=None,
+        help="Write lint JSONL to file or '-' for stdout.",
+    )
+    parser.add_argument(
+        "--lint-sarif",
+        default=None,
+        help="Write lint SARIF to file or '-' for stdout.",
+    )
     parser.add_argument("--max-components", type=int, default=10, help="Max components in report.")
     parser.add_argument(
         "--type-audit",
@@ -471,8 +780,8 @@ def _run_synth(
     no_timestamp: bool,
     config: Optional[Path],
     exclude: Optional[List[str]],
-    ignore_params: Optional[str],
-    transparent_decorators: Optional[str],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
     strictness: Optional[str],
     no_recursive: bool,
@@ -485,8 +794,8 @@ def _run_synth(
     synthesis_protocols_kind: str,
     refactor_plan: bool,
     fail_on_violations: bool,
-    runner: Callable[..., dict[str, Any]] = run_command,
-) -> tuple[dict[str, Any], dict[str, Path], Path | None]:
+    runner: Runner = run_command,
+) -> tuple[JSONObject, dict[str, Path], Path | None]:
     if not paths:
         paths = [Path(".")]
     exclude_dirs: list[str] | None = None
@@ -495,12 +804,12 @@ def _run_synth(
         for entry in exclude:
             exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
     ignore_list: list[str] | None = None
-    if ignore_params is not None:
-        ignore_list = [p.strip() for p in ignore_params.split(",") if p.strip()]
+    if ignore_params_csv is not None:
+        ignore_list = [p.strip() for p in ignore_params_csv.split(",") if p.strip()]
     transparent_list: list[str] | None = None
-    if transparent_decorators is not None:
+    if transparent_decorators_csv is not None:
         transparent_list = [
-            p.strip() for p in transparent_decorators.split(",") if p.strip()
+            p.strip() for p in transparent_decorators_csv.split(",") if p.strip()
         ]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
@@ -523,8 +832,16 @@ def _run_synth(
     plan_path = output_root / "synthesis_plan.json"
     protocol_path = output_root / "protocol_stubs.py"
     refactor_plan_path = output_root / "refactor_plan.json"
+    fingerprint_synth_path = output_root / "fingerprint_synth.json"
+    fingerprint_provenance_path = output_root / "fingerprint_provenance.json"
+    fingerprint_coherence_path = output_root / "fingerprint_coherence.json"
+    fingerprint_rewrite_plans_path = output_root / "fingerprint_rewrite_plans.json"
+    fingerprint_exception_obligations_path = (
+        output_root / "fingerprint_exception_obligations.json"
+    )
+    fingerprint_handledness_path = output_root / "fingerprint_handledness.json"
 
-    payload: dict[str, Any] = {
+    payload: JSONObject = {
         "paths": [str(p) for p in paths],
         "root": str(root),
         "config": str(config) if config is not None else None,
@@ -549,6 +866,14 @@ def _run_synth(
         "synthesis_allow_singletons": synthesis_allow_singletons,
         "refactor_plan": refactor_plan,
         "refactor_plan_json": str(refactor_plan_path) if refactor_plan else None,
+        "fingerprint_synth_json": str(fingerprint_synth_path),
+        "fingerprint_provenance_json": str(fingerprint_provenance_path),
+        "fingerprint_coherence_json": str(fingerprint_coherence_path),
+        "fingerprint_rewrite_plans_json": str(fingerprint_rewrite_plans_path),
+        "fingerprint_exception_obligations_json": str(
+            fingerprint_exception_obligations_path
+        ),
+        "fingerprint_handledness_json": str(fingerprint_handledness_path),
     }
     result = dispatch_command(
         command=DATAFLOW_COMMAND,
@@ -562,6 +887,12 @@ def _run_synth(
         "plan": plan_path,
         "protocol": protocol_path,
         "refactor": refactor_plan_path,
+        "fingerprint_synth": fingerprint_synth_path,
+        "fingerprint_provenance": fingerprint_provenance_path,
+        "fingerprint_coherence": fingerprint_coherence_path,
+        "fingerprint_rewrite_plans": fingerprint_rewrite_plans_path,
+        "fingerprint_exception_obligations": fingerprint_exception_obligations_path,
+        "fingerprint_handledness": fingerprint_handledness_path,
         "output_root": output_root,
     }
     return result, paths_out, timestamp
@@ -575,8 +906,8 @@ def synth(
     no_timestamp: bool = typer.Option(False, "--no-timestamp"),
     config: Optional[Path] = typer.Option(None, "--config"),
     exclude: Optional[List[str]] = typer.Option(None, "--exclude"),
-    ignore_params: Optional[str] = typer.Option(None, "--ignore-params"),
-    transparent_decorators: Optional[str] = typer.Option(
+    ignore_params_csv: Optional[str] = typer.Option(None, "--ignore-params"),
+    transparent_decorators_csv: Optional[str] = typer.Option(
         None, "--transparent-decorators"
     ),
     allow_external: Optional[bool] = typer.Option(
@@ -610,8 +941,8 @@ def synth(
         no_timestamp=no_timestamp,
         config=config,
         exclude=exclude,
-        ignore_params=ignore_params,
-        transparent_decorators=transparent_decorators,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
         allow_external=allow_external,
         strictness=strictness,
         no_recursive=no_recursive,
@@ -625,14 +956,11 @@ def synth(
         refactor_plan=refactor_plan,
         fail_on_violations=fail_on_violations,
     )
-    if timestamp:
-        typer.echo(f"Snapshot: {paths_out['output_root']}")
-    typer.echo(f"- {paths_out['report']}")
-    typer.echo(f"- {paths_out['dot']}")
-    typer.echo(f"- {paths_out['plan']}")
-    typer.echo(f"- {paths_out['protocol']}")
-    if refactor_plan:
-        typer.echo(f"- {paths_out['refactor']}")
+    _emit_synth_outputs(
+        paths_out=paths_out,
+        timestamp=timestamp,
+        refactor_plan=refactor_plan,
+    )
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -653,15 +981,18 @@ def _run_synthesis_plan(
     *,
     input_path: Optional[Path],
     output_path: Optional[Path],
-    runner: Callable[..., dict[str, Any]] = run_command,
+    runner: Runner = run_command,
 ) -> None:
     """Generate a synthesis plan from a JSON payload (prototype)."""
-    payload: dict[str, Any] = {}
+    payload: JSONObject = {}
     if input_path is not None:
         try:
-            payload = json.loads(input_path.read_text())
+            loaded = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
+        if not isinstance(loaded, dict):
+            raise typer.BadParameter("Synthesis payload must be a JSON object.")
+        payload = loaded
     result = dispatch_command(
         command=SYNTHESIS_COMMAND,
         payload=payload,
@@ -673,6 +1004,164 @@ def _run_synthesis_plan(
         typer.echo(output)
     else:
         output_path.write_text(output)
+
+
+def _emit_synth_outputs(
+    *,
+    paths_out: dict[str, Path],
+    timestamp: Path | None,
+    refactor_plan: bool,
+) -> None:
+    if timestamp:
+        typer.echo(f"Snapshot: {paths_out['output_root']}")
+    typer.echo(f"- {paths_out['report']}")
+    typer.echo(f"- {paths_out['dot']}")
+    typer.echo(f"- {paths_out['plan']}")
+    typer.echo(f"- {paths_out['protocol']}")
+    if paths_out["fingerprint_synth"].exists():
+        typer.echo(f"- {paths_out['fingerprint_synth']}")
+    if paths_out["fingerprint_provenance"].exists():
+        typer.echo(f"- {paths_out['fingerprint_provenance']}")
+    if paths_out["fingerprint_coherence"].exists():
+        typer.echo(f"- {paths_out['fingerprint_coherence']}")
+    if paths_out["fingerprint_rewrite_plans"].exists():
+        typer.echo(f"- {paths_out['fingerprint_rewrite_plans']}")
+    if paths_out["fingerprint_exception_obligations"].exists():
+        typer.echo(f"- {paths_out['fingerprint_exception_obligations']}")
+    if paths_out["fingerprint_handledness"].exists():
+        typer.echo(f"- {paths_out['fingerprint_handledness']}")
+    if refactor_plan:
+        typer.echo(f"- {paths_out['refactor']}")
+
+
+def run_structure_diff(
+    *,
+    baseline: Path,
+    current: Path,
+    root: Path | None = None,
+    runner: Runner | None = None,
+) -> JSONObject:
+    # dataflow-bundle: baseline, current
+    payload = {"baseline": str(baseline), "current": str(current)}
+    runner = runner or DEFAULT_RUNNER
+    return dispatch_command(
+        command=STRUCTURE_DIFF_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+    )
+
+
+def run_decision_diff(
+    *,
+    baseline: Path,
+    current: Path,
+    root: Path | None = None,
+    runner: Runner | None = None,
+) -> JSONObject:
+    payload = {"baseline": str(baseline), "current": str(current)}
+    runner = runner or DEFAULT_RUNNER
+    return dispatch_command(
+        command=DECISION_DIFF_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+    )
+
+
+def run_structure_reuse(
+    *,
+    snapshot: Path,
+    min_count: int = 2,
+    lemma_stubs: Path | None = None,
+    root: Path | None = None,
+    runner: Runner | None = None,
+) -> JSONObject:
+    payload = {"snapshot": str(snapshot), "min_count": int(min_count)}
+    if lemma_stubs is not None:
+        payload["lemma_stubs"] = str(lemma_stubs)
+    runner = runner or DEFAULT_RUNNER
+    return dispatch_command(
+        command=STRUCTURE_REUSE_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+    )
+
+
+def _emit_structure_diff(result: JSONObject) -> None:
+    errors = result.get("errors")
+    exit_code = int(result.get("exit_code", 0))
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    if errors:
+        for error in errors:
+            typer.secho(str(error), err=True, fg=typer.colors.RED)
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+def _emit_decision_diff(result: JSONObject) -> None:
+    errors = result.get("errors")
+    exit_code = int(result.get("exit_code", 0))
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    if errors:
+        for error in errors:
+            typer.secho(str(error), err=True, fg=typer.colors.RED)
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+def _emit_structure_reuse(result: JSONObject) -> None:
+    errors = result.get("errors")
+    exit_code = int(result.get("exit_code", 0))
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    if errors:
+        for error in errors:
+            typer.secho(str(error), err=True, fg=typer.colors.RED)
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+@app.command("structure-diff")
+def structure_diff(
+    baseline: Path = typer.Option(..., "--baseline"),
+    current: Path = typer.Option(..., "--current"),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Compare two structure snapshots and emit a JSON diff."""
+    # dataflow-bundle: baseline, current
+    result = run_structure_diff(baseline=baseline, current=current, root=root)
+    _emit_structure_diff(result)
+
+
+@app.command("decision-diff")
+def decision_diff(
+    baseline: Path = typer.Option(..., "--baseline"),
+    current: Path = typer.Option(..., "--current"),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Compare two decision surface snapshots and emit a JSON diff."""
+    result = run_decision_diff(baseline=baseline, current=current, root=root)
+    _emit_decision_diff(result)
+
+
+@app.command("structure-reuse")
+def structure_reuse(
+    snapshot: Path = typer.Option(..., "--snapshot"),
+    min_count: int = typer.Option(2, "--min-count"),
+    lemma_stubs: Optional[Path] = typer.Option(
+        None, "--lemma-stubs", help="Write lemma stubs to file or '-' for stdout."
+    ),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Detect repeated subtrees in a structure snapshot."""
+    result = run_structure_reuse(
+        snapshot=snapshot,
+        min_count=min_count,
+        lemma_stubs=lemma_stubs,
+        root=root,
+    )
+    _emit_structure_reuse(result)
 
 
 @app.command("refactor-protocol")
@@ -698,12 +1187,42 @@ def refactor_protocol(
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
-    input_payload: dict[str, Any] | None = None
+    _run_refactor_protocol(
+        input_path=input_path,
+        output_path=output_path,
+        protocol_name=protocol_name,
+        bundle=bundle,
+        field=field,
+        target_path=target_path,
+        target_functions=target_functions,
+        compatibility_shim=compatibility_shim,
+        rationale=rationale,
+    )
+
+
+def _run_refactor_protocol(
+    *,
+    input_path: Optional[Path],
+    output_path: Optional[Path],
+    protocol_name: Optional[str],
+    bundle: Optional[List[str]],
+    field: Optional[List[str]],
+    target_path: Optional[Path],
+    target_functions: Optional[List[str]],
+    compatibility_shim: bool,
+    rationale: Optional[str],
+    runner: Runner = run_command,
+) -> None:
+    """Generate protocol refactor edits from a JSON payload (prototype)."""
+    input_payload: JSONObject | None = None
     if input_path is not None:
         try:
-            input_payload = json.loads(input_path.read_text())
+            loaded = json.loads(input_path.read_text())
         except json.JSONDecodeError as exc:
             raise typer.BadParameter(f"Invalid JSON payload: {exc}") from exc
+        if not isinstance(loaded, dict):
+            raise typer.BadParameter("Refactor payload must be a JSON object.")
+        input_payload = loaded
     payload = build_refactor_payload(
         input_payload=input_payload,
         protocol_name=protocol_name,
@@ -718,6 +1237,7 @@ def refactor_protocol(
         command=REFACTOR_COMMAND,
         payload=payload,
         root=None,
+        runner=runner,
     )
     output = json.dumps(result, indent=2, sort_keys=True)
     if output_path is None:

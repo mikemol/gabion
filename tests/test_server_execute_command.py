@@ -105,6 +105,108 @@ def test_execute_command_report_and_dot(tmp_path: Path) -> None:
     assert "violations" in result
 
 
+def test_execute_command_structure_tree(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    snapshot_path = tmp_path / "snapshot.json"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_tree": str(snapshot_path),
+        },
+    )
+    assert snapshot_path.exists()
+    assert "violations" in result
+
+
+def test_execute_command_structure_tree_stdout(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_tree": "-",
+        },
+    )
+    assert "structure_tree" in result
+    assert result["structure_tree"]["files"]
+
+
+def test_execute_structure_diff(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    baseline.write_text("{\"files\": [{\"path\": \"a.py\", \"functions\": []}]}")
+    current.write_text("{\"files\": [{\"path\": \"a.py\", \"functions\": [{\"name\": \"f\", \"bundles\": [[\"a\"]]}]}]}")
+    result = server.execute_structure_diff(
+        None,
+        {"baseline": str(baseline), "current": str(current)},
+    )
+    assert result["exit_code"] == 0
+    assert result["diff"]["added"][0]["bundle"] == ["a"]
+
+
+def test_execute_structure_diff_missing_payload() -> None:
+    result = server.execute_structure_diff(None, None)
+    assert result["exit_code"] == 2
+
+
+def test_execute_structure_diff_missing_paths() -> None:
+    result = server.execute_structure_diff(None, {})
+    assert result["exit_code"] == 2
+    assert "required" in result["errors"][0]
+
+
+def test_execute_structure_diff_invalid_snapshot(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    baseline.write_text("{bad-json")
+    current.write_text("{\"files\": []}")
+    result = server.execute_structure_diff(
+        None,
+        {"baseline": str(baseline), "current": str(current)},
+    )
+    assert result["exit_code"] == 2
+    assert "Invalid snapshot JSON" in result["errors"][0]
+
+
+def test_execute_command_structure_metrics(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    metrics_path = tmp_path / "metrics.json"
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_metrics": str(metrics_path),
+        },
+    )
+    assert metrics_path.exists()
+    assert "violations" in result
+
+
+def test_execute_command_structure_metrics_stdout(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "structure_metrics": "-",
+        },
+    )
+    assert "structure_metrics" in result
+
+
 def test_execute_command_synthesis_outputs(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)

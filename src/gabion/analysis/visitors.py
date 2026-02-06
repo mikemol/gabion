@@ -86,8 +86,32 @@ class UseVisitor(ast.NodeVisitor):
         self._attr_alias_to_param: dict[tuple[str, str], str] = {}
         self._key_alias_to_param: dict[tuple[str, str], str] = {}
 
+    @staticmethod
+    def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
+        if not (hasattr(node, "lineno") and hasattr(node, "col_offset")):
+            return None
+        start_line = max(getattr(node, "lineno", 1) - 1, 0)
+        start_col = max(getattr(node, "col_offset", 0), 0)
+        end_line = max(getattr(node, "end_lineno", getattr(node, "lineno", 1)) - 1, 0)
+        end_col = getattr(node, "end_col_offset", start_col + 1)
+        if end_line == start_line and end_col <= start_col:
+            end_col = start_col + 1
+        return (start_line, start_col, end_line, end_col)
+
+    def _record_forward(self, param_name: str, callee: str, slot: str, call: ast.Call | None) -> None:
+        # dataflow-bundle: callee, slot
+        self.use_map[param_name].direct_forward.add((callee, slot))
+        if call is None:
+            return
+        span = self._node_span(call)
+        if span is None:
+            return
+        sites = self.use_map[param_name].forward_sites.setdefault((callee, slot), set())
+        sites.add(span)
+
     def visit_Call(self, node: ast.Call) -> None:
         callee = self.callee_name(node)
+        span = self._node_span(node)
         pos_map: dict[str, str] = {}
         kw_map: dict[str, str] = {}
         const_pos: dict[str, str] = {}
@@ -138,6 +162,7 @@ class UseVisitor(ast.NodeVisitor):
                 star_pos=star_pos,
                 star_kw=star_kw,
                 is_test=self.is_test,
+                span=span,
             )
         )
         self.generic_visit(node)
@@ -351,14 +376,16 @@ class UseVisitor(ast.NodeVisitor):
             if self.strictness == "high":
                 self.use_map[param_name].non_forward = True
                 return
-            self.use_map[param_name].direct_forward.add(("args[*]", "arg[*]"))
+            call, _ = self.call_context(node, self.parents)
+            self._record_forward(param_name, "args[*]", "arg[*]", call)
             return
         if isinstance(parent, ast.keyword) and parent.arg is None:
             param_name = self.alias_to_param[node.id]
             if self.strictness == "high":
                 self.use_map[param_name].non_forward = True
                 return
-            self.use_map[param_name].direct_forward.add(("kwargs[*]", "kw[*]"))
+            call, _ = self.call_context(node, self.parents)
+            self._record_forward(param_name, "kwargs[*]", "kw[*]", call)
             return
         param_name = self.alias_to_param[node.id]
         if param_name in self._suspend_non_forward:
@@ -380,7 +407,7 @@ class UseVisitor(ast.NodeVisitor):
                     break
         if slot is None:
             slot = "arg[?]"
-        self.use_map[param_name].direct_forward.add((callee, slot))
+        self._record_forward(param_name, callee, slot, call)
 
     def _root_name(self, node: ast.AST) -> str | None:
         current = node
@@ -428,7 +455,7 @@ class UseVisitor(ast.NodeVisitor):
                     break
         if slot is None:
             slot = "arg[?]"
-        self.use_map[param_name].direct_forward.add((callee, slot))
+        self._record_forward(param_name, callee, slot, call)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
         if not isinstance(node.ctx, ast.Load):
@@ -479,4 +506,4 @@ class UseVisitor(ast.NodeVisitor):
                     break
         if slot is None:
             slot = "arg[?]"
-        self.use_map[param_name].direct_forward.add((callee, slot))
+        self._record_forward(param_name, callee, slot, call)

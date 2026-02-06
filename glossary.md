@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 22
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -15,9 +15,14 @@ doc_requires:
   - POLICY_SEED.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 70
-  AGENTS.md: 12
-  POLICY_SEED.md: 28
+  CONTRIBUTING.md: 72
+  AGENTS.md: 13
+  POLICY_SEED.md: 29
+doc_review_notes:
+  README.md: "Reviewed for subsystem-interface terminology; no conflicts."
+  CONTRIBUTING.md: "No workflow conflicts with subsystem-interface definition."
+  AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
+  POLICY_SEED.md: "No policy conflicts with subsystem-interface definition."
 doc_commutes_with:
   - POLICY_SEED.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -190,6 +195,103 @@ occurrence counts within scope contribute to tier.
 - Graph outputs in Mermaid and/or DOT format.
 - Component summaries that list observed bundles by tier.
 - A violations list for undocumented or unreified bundles.
+
+---
+
+## 3. Subsystem Interface (Template)
+
+### Meaning
+
+**Definition:** A named, minimal boundary (module + exported functions/Protocol)
+that reifies a recurring code-flow structure. It is the code-flow analogue of a
+bundle: when the same parameter clusters and decision surfaces recur across
+functions, a subsystem interface captures that common structure as a reusable
+unit.
+
+### Axis
+
+**Axis:** Structural (code-flow boundary / interface contract).
+
+### Desired Commutation (Refactor Invariance)
+
+Let `S` be a subsystem interface and `refactor_internal(·)` be any refactor that
+preserves the interface contract (signatures, bundles, and documented decision
+surface).
+
+```
+interface_id(refactor_internal(S)) = interface_id(S)
+```
+
+### Failure Modes
+
+- recurring param clusters remain scattered across modules
+- interface identity changes with internal refactors
+- decision surfaces are not reflected at the interface boundary
+
+### Normative Rule
+
+> Recurring parameter clusters and decision surfaces that cross module
+> boundaries must be candidates for a subsystem interface template
+> (module + exported functions/Protocol). If adopted, the interface must
+> be the sole entry point for those bundles in the affected scope.
+
+### Erasure
+
+Internal function placement, helper naming, and file layout are erased; only the
+interface contract and its declared bundles remain.
+
+### Test Obligations (to be mapped)
+
+- Interface identity stable under internal refactors.
+- Bundles and decision surfaces remain visible at the interface boundary.
+- All consumers route through the interface (no parallel entry points).
+
+---
+
+## 3.1 Higher‑Order Bundle (2‑Path)
+
+### Meaning
+
+**Definition:** A parameter set that recurs across multiple functions within a
+declared scope (module or subsystem), forming a second‑order co‑occurrence
+signal. It is a bundle‑of‑bundles: repeated co‑occurrence of the *same* param
+set across multiple functions.
+
+### Axis
+
+**Axis:** Structural (multi‑function co‑occurrence / module cohesion).
+
+### Desired Commutation (Order & Alias Invariance)
+
+Let `H` be a higher‑order bundle and `alias(·)` a bijective renaming of symbols.
+
+```
+hbundle_id(alias(H), scope) = hbundle_id(H, scope)
+```
+
+Function ordering and naming must not change the higher‑order identity.
+
+### Failure Modes
+
+- repeated param sets remain scattered across modules
+- higher‑order bundles are detected but not reified as interfaces
+- bundle identity changes due to function renames or ordering
+
+### Normative Rule
+
+> Higher‑order bundles observed above declared thresholds must be treated as
+> candidates for a **Subsystem Interface (Template)**. If adopted, the
+> interface becomes the canonical boundary for those bundles in the scope.
+
+### Erasure
+
+Function names, ordering, and file layout are erased; only the repeated param
+set and declared scope counts remain.
+
+### Test Obligations (to be mapped)
+
+- Consolidation audit surfaces higher‑order bundles at configured thresholds.
+- Higher‑order bundle identity stable under function renames and reordering.
 
 ---
 
@@ -677,3 +779,820 @@ equivalent.
 
 - Schema validation (reject invalid decision states).
 - Positive/negative/edge cases derived from the protocol.
+
+---
+
+## 15. Decision Surface (Control-Flow Boundary)
+
+### Meaning
+
+**Definition:** An input, predicate, or derived value that bifurcates behavior
+and therefore defines a control boundary (e.g., API surface decisions).
+
+### Axis
+
+**Axis:** Control-flow (semantic boundary).
+
+### Desired Commutation (Surface Equivalence)
+
+Equivalent decision expressions (e.g., `if x` vs `if x is True`) must not change
+the identity of the decision surface.
+
+### Failure Modes
+
+- Decision surfaces appear deep in internal helpers instead of boundary layers.
+- Tier-2/Tier-3 decision variables used below permitted scope.
+- Decision logic hidden by refactors (loss of surface visibility).
+
+### Normative Rule
+
+> Decision surfaces must be documented or elevated to the appropriate boundary.
+> Tier rules for decision surfaces follow the Decision Table/Bundle/Protocol
+> ladder (Tier-3/2/1 respectively).
+
+### Erasure
+
+Predicate naming and formatting are erased if semantics are preserved.
+
+### Test Obligations (to be mapped)
+
+- Boundary placement checks for declared decision surfaces.
+
+---
+
+## 16. Value-Encoded Decision (Branchless Control)
+
+### Meaning
+
+**Definition:** Control-flow encoded in arithmetic or bitwise expressions rather
+than explicit branches (e.g., `min/max`, masks, boolean arithmetic).
+
+### Axis
+
+**Axis:** Control-flow (algebraic encoding).
+
+### Desired Commutation (Branchless ↔ Branched)
+
+Replacing value-encoded control with an equivalent `if`/`else` must not change
+semantic classification or tier enforcement.
+
+### Failure Modes
+
+- Decision audits miss algebraic control paths.
+- Tier violations bypassed due to branchless encoding.
+- Algebraic rewrites change behavior (non-equivalence).
+
+### Normative Rule
+
+> Value-encoded decisions are decision surfaces and inherit all tier rules.
+> Detection must be semantics-driven, not syntax-only.
+
+### Erasure
+
+Choice of algebraic encoding is erased if behavior is equivalent.
+
+### Test Obligations (to be mapped)
+
+- Spot checks that branchless forms are detected as decision surfaces.
+
+---
+
+## 17. Structural Snapshot (Audit Artifact)
+
+### Meaning
+
+**Definition:** A canonical, serialized representation of an analysis result
+(e.g., factorization tree, bundle/tier listings) suitable for diffing.
+
+### Axis
+
+**Axis:** Evidence (audit artifact).
+
+### Desired Commutation (Canonicalization)
+
+Snapshot contents must be invariant to ordering, formatting, and stable renames.
+
+### Failure Modes
+
+- Non-canonical ordering causing noisy diffs.
+- Snapshot treated as semantic source of truth (instead of audit artifact).
+- Missing glossary/tier context in snapshots.
+
+### Normative Rule
+
+> Snapshots must be canonical and treated as evidence only. Baselines may
+> allowlist existing violations but must be explicit and reviewed.
+
+### Erasure
+
+Formatting and serialization choices are erased.
+
+### Test Obligations (to be mapped)
+
+- Snapshot stability under deterministic re-runs.
+
+---
+
+## 18. Structural Diff (Audit Delta)
+
+### Meaning
+
+**Definition:** A comparison between two structural snapshots to identify new
+bundles, tier shifts, or violations.
+
+### Axis
+
+**Axis:** Evidence (change detection).
+
+### Desired Commutation (Order Independence)
+
+Diff results must depend only on snapshot contents, not creation order.
+
+### Failure Modes
+
+- Diffs driven by non-canonical snapshot noise.
+- Baseline updates performed implicitly in CI.
+
+### Normative Rule
+
+> Structural diffs are used to detect regressions; baseline updates are manual
+> and must be reviewed.
+
+### Erasure
+
+Diff presentation is erased; only semantic deltas matter.
+
+### Test Obligations (to be mapped)
+
+- Diff detects new bundles and tier changes in fixtures.
+
+---
+
+## 19. Structural Metrics (Audit Summary)
+
+### Meaning
+
+**Definition:** Aggregate statistics derived from structural snapshots
+(bundle counts, tier counts, violations).
+
+### Axis
+
+**Axis:** Evidence (summary reporting).
+
+### Desired Commutation (Derivation Invariance)
+
+Metrics must be derived deterministically from snapshots.
+
+### Failure Modes
+
+- Metrics computed from non-canonical inputs.
+- Metrics treated as semantic truth rather than indicators.
+
+### Normative Rule
+
+> Metrics are advisory summaries and must be traceable to snapshots.
+
+### Erasure
+
+Presentation format and dashboard tooling are erased.
+
+### Test Obligations (to be mapped)
+
+- Metric totals reconcile with snapshot contents.
+
+---
+
+## 20. Structural Fingerprint (Algebraic Encoding)
+
+### Meaning
+
+**Definition:** A canonical algebraic encoding of a bundle or type structure
+(e.g., prime products or bitmask fingerprints).
+
+**Multiplicity note (normative):** By default, fingerprints are **multiset**
+encodings—duplicate type keys multiply the same prime multiple times. Any
+set‑like projection that erases multiplicity must be explicit and treated as
+an erasure (not the default identity).
+
+### Axis
+
+**Axis:** Structural (algebraic identity).
+
+### Desired Commutation (Order + Alias Invariance)
+
+Permuting fields or renaming aliases must not change the fingerprint.
+
+### Failure Modes
+
+- Collisions or lossy encodings without declaration.
+- Fingerprints diverge from glossary-defined bundle identity.
+
+### Normative Rule
+
+> Fingerprints must be declared invertible or explicitly marked as lossy.
+> Glossary mappings must state whether multiplicity is preserved.
+> Set‑like fingerprints are permitted only as explicit projections that erase
+> multiplicity; multiset fingerprints remain the canonical encoding.
+
+### Erasure
+
+Ordering and superficial naming are erased.
+
+### Test Obligations (to be mapped)
+
+- Fingerprint equality for equivalent structures.
+
+---
+
+## 21. Invariant Proposition (Dependent Constraint)
+
+### Meaning
+
+**Definition:** A declared relationship between bundle fields or tree nodes
+(e.g., length equality, ordering, alignment).
+
+### Axis
+
+**Axis:** Semantic (constraint).
+
+### Desired Commutation (Refactor Preservation)
+
+Refactors must preserve declared invariants.
+
+### Failure Modes
+
+- Invariants lost during synthesis.
+- Constraints inferred but not recorded.
+
+### Normative Rule
+
+> Extracted invariants must be preserved by refactors and surfaced in
+> synthesis outputs when available.
+
+### Erasure
+
+Constraint serialization and syntax are erased if meaning is preserved.
+
+### Test Obligations (to be mapped)
+
+- Property tests or proofs aligned with invariant propositions.
+
+---
+
+## 22. Structural Lemma (Reuse Candidate)
+
+### Meaning
+
+**Definition:** A reusable subtree or structural fragment extracted from the
+factorization tree to reduce duplication.
+
+### Axis
+
+**Axis:** Synthesis (reuse).
+
+### Desired Commutation (Factor ↔ Expand)
+
+Factoring a lemma out and expanding it inline must commute.
+
+### Failure Modes
+
+- Lemma extraction changes semantics.
+- Reuse suggested without glossary alignment where appropriate.
+
+### Normative Rule
+
+> Lemma suggestions are advisory unless promoted to explicit refactor plans.
+
+### Erasure
+
+Lemma naming and placement are erased if semantics are preserved.
+
+### Test Obligations (to be mapped)
+
+- Equivalence checks between factored and unfactored forms.
+
+---
+
+## 23. ASPF (Algebraic Structural Prime Fingerprint)
+
+### Meaning
+
+**Definition:** A dimensional fingerprint system where structural meaning is
+encoded as prime products across orthogonal carriers (base, constructor,
+provenance, synth). ASPF is treated as a **packed-forest label**, not a hash.
+
+### Axis
+
+**Axis:** Structural + semantic (packed‑derivation carrier).
+
+### Desired Commutation (Derivation Equivalence)
+
+Equivalent derivations may commute in **base/constructor** space while
+remaining distinct in **provenance** space. Commutation is permitted only when
+the provenance carrier records the equivalence class explicitly.
+
+### Failure Modes
+
+- ASPF used as a lossy hash without provenance semantics.
+- Non‑deterministic prime assignment causing unstable meanings.
+
+### Normative Rule
+
+> ASPF must be deterministic and reversible at the base/constructor layer.
+> Provenance must remain inspectable and must not be erased by default.
+
+### Erasure
+
+Formatting and ordering of input types are erased; provenance is **not**.
+
+**Bitmask note (normative):** bitmask carriers are filters only; prime products
+remain authoritative for equivalence.
+
+### Test Obligations (to be mapped)
+
+- Deterministic seeding yields stable fingerprints across runs.
+- Provenance carrier is emitted when requested.
+
+---
+
+## 24. Fingerprint Dimension (Carrier)
+
+### Meaning
+
+**Definition:** One orthogonal carrier within ASPF (e.g., base, constructor,
+provenance, synth). Dimensions are algebraically independent but jointly
+constrained.
+
+### Axis
+
+**Axis:** Structural (orthogonal carriers).
+
+### Desired Commutation (Carrier Independence)
+
+Operations in one dimension must not mutate another dimension, except via
+explicit synthesis rules (e.g., synth tail attachment).
+
+### Failure Modes
+
+- Cross‑dimension contamination (e.g., base keys leaking into provenance).
+- Carrier soundness violated (mask/product mismatch).
+
+### Normative Rule
+
+> Each dimension must preserve its own algebraic identity and pass carrier
+> soundness checks against its peers.
+
+### Erasure
+
+Internal bit positions are erased; carrier identity is retained.
+
+### Test Obligations (to be mapped)
+
+- Carrier soundness checks pass for non‑empty dimensions.
+
+---
+
+## 25. Provenance Carrier
+
+### Meaning
+
+**Definition:** The ASPF dimension that encodes **how** a composite structure
+arose (packed derivation path).
+
+### Axis
+
+**Axis:** Semantic (derivation).
+
+### Desired Commutation (Derivation Transparency)
+
+Semantically equivalent derivations may commute **only if** provenance is
+explicitly recorded and preserved.
+
+### Failure Modes
+
+- Provenance dropped while treating ASPF as a complete semantic carrier.
+- Packed derivations conflated without evidence.
+
+### Normative Rule
+
+> Provenance is mandatory when ASPF is used for equivalence claims.
+> Loss of provenance must be declared as an erasure.
+
+### Erasure
+
+Provenance may be erased only in explicitly lossy projections.
+
+### Test Obligations (to be mapped)
+
+- Provenance summary is emitted in audit reports when enabled.
+
+---
+
+## 26. Synth Tail (Entropy Control)
+
+### Meaning
+
+**Definition:** A reversible mapping from a synthesized prime to the composite
+tail it represents (the “definition” of a synthesized carrier).
+
+### Axis
+
+**Axis:** Structural (compression).
+
+### Desired Commutation (Fold ↔ Unfold)
+
+Synth tails must commute with expansion: unfolding a synthesized prime yields
+the original composite tail.
+
+### Failure Modes
+
+- Synth primes without tails (non‑reversible compression).
+- Tail mismatch across runs (non‑deterministic seeding).
+
+### Normative Rule
+
+> Every synthesized prime must carry a tail that is reversible and stable.
+
+### Erasure
+
+Synth tail ordering is erased; tail identity is preserved.
+
+### Test Obligations (to be mapped)
+
+- Tail round‑trip tests for synth registry payloads.
+
+---
+
+## 27. Packed Derivation (SPPF Node)
+
+### Meaning
+
+**Definition:** A shared derivation node in an SPPF; in Gabion, represented by
+an ASPF fingerprint plus provenance metadata.
+
+### Axis
+
+**Axis:** Structural + semantic (packed derivation).
+
+### Desired Commutation (Share ↔ Expand)
+
+Sharing a derivation node must commute with expanding it into its derivations
+without semantic loss.
+
+### Failure Modes
+
+- Packed nodes treated as opaque hashes.
+- Loss of derivation identity during refactor.
+
+### Normative Rule
+
+> Packed derivations must be inspectable and traceable to their components.
+
+### Erasure
+
+Syntactic formatting is erased; derivation identity is not.
+
+### Test Obligations (to be mapped)
+
+- Packed derivations are visible in reports or JSON artifacts.
+
+---
+
+## 28. Never‑Throw Exception Protocol
+
+### Meaning
+
+**Definition:** A named exception type (e.g., `gabion.exceptions.NeverRaise`)
+used to mark a branch as *semantically unreachable*. Raising it is a static
+analysis signal, not a runtime control path.
+
+### Axis
+
+**Axis:** Control‑flow + error boundary (proof obligation).
+
+### Desired Commutation (Unreachable ↔ Assertion)
+
+Replacing a never‑throw raise with an equivalent unreachable assertion
+(e.g., `assert False`) must commute **only** when the branch is proven
+unreachable by analysis.
+
+### Failure Modes
+
+- Never‑throw exceptions are caught/handled as ordinary runtime errors.
+- Never‑throw exceptions are used for normal control flow.
+- Reachability proof is missing but no violation is emitted.
+
+### Normative Rule
+
+> Any raise of a Never‑Throw exception must be proven unreachable (DEAD) by
+> Gabion analysis; otherwise it is a violation.
+
+### Erasure
+
+Exception message text and subclassing details are erased. The protocol
+identity and reachability obligation are not.
+
+### Test Obligations (to be mapped)
+
+- Reports include never‑throw callsite evidence with spans.
+- Violations are emitted when reachability is not proven.
+
+---
+
+## 29. Deadness Witness
+
+### Meaning
+
+**Definition:** A structured proof object that a branch is unreachable under an
+explicit environment (inherited attribute constraints).
+
+### Axis
+
+**Axis:** Control‑flow + evidence (negative).
+
+### Desired Commutation (Environment ↔ Witness)
+
+Serializing and reloading the environment must commute with the deadness claim:
+the witness remains valid for the same environment assumptions.
+
+### Failure Modes
+
+- DEAD asserted without a witness artifact.
+- Environment omitted or implicit.
+- UNKNOWN coerced to DEAD.
+
+### Normative Rule
+
+> Any DEAD claim must reference a Deadness Witness that includes environment,
+> predicate, and reduced core evidence.
+
+### Erasure
+
+Formatting and ordering are erased; environment assumptions are **not**.
+
+### Test Obligations (to be mapped)
+
+- Deadness artifacts are deterministic and schema‑complete.
+
+---
+
+## 30. Coherence Witness
+
+### Meaning
+
+**Definition:** A structured proof that multiple admissible derivations share
+the same surface boundary while remaining distinct internally.
+
+### Axis
+
+**Axis:** Semantic + evidence (positive higher).
+
+### Desired Commutation (Alternative Order)
+
+Reordering alternative derivations must commute with the witness identity and
+boundary equivalence claim.
+
+### Failure Modes
+
+- COHERENT asserted without a witness artifact.
+- Fork signature or frack path omitted.
+- UNKNOWN coerced to COHERENT.
+
+### Normative Rule
+
+> Any COHERENT claim must reference a Coherence Witness with explicit boundary,
+> fork signature, frack path, and alternatives.
+
+### Erasure
+
+Ordering of alternatives is erased; boundary and fork identity are **not**.
+
+### Test Obligations (to be mapped)
+
+- Coherence artifacts are deterministic and schema‑complete.
+
+---
+
+## 31. Rewrite Plan (Proof‑Carrying Refactor)
+
+### Meaning
+
+**Definition:** A refactor proposal that carries explicit evidence links
+(provenance/deadness/coherence) and a verification predicate.
+
+### Axis
+
+**Axis:** Refactoring + verification.
+
+### Desired Commutation (Rewrite ↔ Re‑audit)
+
+Applying a rewrite and re‑auditing must commute with the stated boundary
+invariants (base/ctor conservation and obligation non‑regression).
+
+### Failure Modes
+
+- Plan emitted without evidence links.
+- Verification predicate missing or non‑executable.
+- UNKNOWN evidence treated as verified.
+
+### Normative Rule
+
+> A rewrite plan is admissible only if its verification predicate is executable
+> and passes on the post‑state.
+
+### Erasure
+
+Formatting is erased; plan identity and evidence links are **not**.
+
+### Test Obligations (to be mapped)
+
+- Plan artifacts include verification predicates that fail on counterexamples.
+
+---
+
+## 32. Exception Path
+
+### Meaning
+
+**Definition:** A potential runtime exception path enumerated by the audit
+(explicit raise, known thrower, or declared contract).
+
+### Axis
+
+**Axis:** Control‑flow + error boundary.
+
+### Desired Commutation (Enumeration Stability)
+
+Syntactic refactoring and formatting changes must not alter which explicit
+exception paths are enumerated.
+
+### Failure Modes
+
+- Explicit raise sites are not enumerated.
+- Enumeration is non‑deterministic across runs.
+
+### Normative Rule
+
+> All explicit raise sites (E0) must be enumerated as Exception Paths.
+
+### Erasure
+
+Exception message text is erased; path identity is **not**.
+
+### Test Obligations (to be mapped)
+
+- Exception path enumeration is deterministic for E0 sites.
+
+---
+
+## 33. Handledness Witness
+
+### Meaning
+
+**Definition:** Structured evidence that an exception path is dominated by a
+handler or converted into a declared outcome.
+
+### Axis
+
+**Axis:** Control‑flow + error boundary.
+
+### Desired Commutation (Handler Dominance)
+
+Refactoring that preserves handler dominance must commute with handledness
+claims.
+
+### Failure Modes
+
+- HANDLED asserted without a witness artifact.
+- Handler boundary unspecified.
+
+### Normative Rule
+
+> Any HANDLED claim must reference a Handledness Witness with explicit handler
+> kind and boundary outcome.
+
+### Erasure
+
+Formatting is erased; handler boundary is **not**.
+
+### Test Obligations (to be mapped)
+
+- Handledness witnesses are schema‑complete when emitted.
+
+---
+
+## 34. Exception Obligation
+
+### Meaning
+
+**Definition:** A status binding of an Exception Path to its discharge outcome
+(DEAD, HANDLED, or UNKNOWN) with an evidence reference.
+
+### Axis
+
+**Axis:** Governance + control‑flow correctness.
+
+### Desired Commutation (Status ↔ Evidence)
+
+Status updates must commute with evidence references; UNKNOWN must never be
+coerced into a discharged state without a witness.
+
+### Failure Modes
+
+- UNKNOWN treated as discharged.
+- Status set without evidence reference.
+
+### Normative Rule
+
+> Exception obligations must be explicit and block acceptance when configured.
+
+### Erasure
+
+Ordering is erased; obligation identity is **not**.
+
+### Test Obligations (to be mapped)
+
+- Exception obligation artifacts are deterministic and evidence‑linked.
+
+---
+
+## 35. Attribute Carrier
+
+### Meaning
+
+**Definition:** The explicit, structured representation of attribute values
+in an attribute‑grammar view (e.g., environment frames, evidence bundles,
+invariant bindings).
+
+### Axis
+
+**Axis:** Semantic (attribute grammar / evidence structure).
+
+### Desired Commutation (Transport Transparency)
+
+Attribute meaning must commute with transport mechanism:
+
+```
+carrier(param‑threaded) = carrier(context‑transported)
+```
+
+### Failure Modes
+
+- Attribute values exist only as implicit globals or ad‑hoc locals.
+- Multiple competing carrier shapes for the same attribute family.
+- Transport mechanism changes semantics (hidden mutation or aliasing).
+
+### Normative Rule
+
+> Attributes must be reified as explicit carriers (dataclass/DTO). The default
+> is explicit parameter threading. Context‑based transport is allowed only at
+> declared edge adapters and must preserve carrier shape.
+
+### Erasure
+
+Transport mechanism is erased; carrier shape and values are **not**.
+
+### Test Obligations (to be mapped)
+
+- Carrier schema is stable and serialized in artifacts when applicable.
+
+---
+
+## 36. Attribute Transport (ContextVar)
+
+### Meaning
+
+**Definition:** A transport mechanism for inherited attributes that avoids
+explicit parameter threading by using a scoped ambient context.
+
+### Axis
+
+**Axis:** Operational (transport / wiring).
+
+### Desired Commutation (Carrier Equivalence)
+
+Attribute transport must commute with explicit threading:
+
+```
+transport(carrier) ⇔ pass(carrier)
+```
+
+### Failure Modes
+
+- Hidden dependencies (ambient reads without declared ownership).
+- Context leakage across async/task boundaries.
+- Multiple modules mutating the same attribute context.
+
+### Normative Rule
+
+> ContextVar transport is permitted only through a single owning module with
+> typed accessors and a context manager. Core logic must treat carriers as
+> explicit data; transport remains an edge concern.
+
+### Erasure
+
+ContextVar identity is erased; carrier content is **not**.
+
+### Test Obligations (to be mapped)
+
+- Access is centralized (single module); no direct reads/writes elsewhere.

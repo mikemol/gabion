@@ -8,5 +8,9 @@ venv/
 .env
 .pytest_cache/
 .coverage
+.coverage.*
 artifacts/*
 !artifacts/.gitkeep
+
+node_modules/
+package-lock.json

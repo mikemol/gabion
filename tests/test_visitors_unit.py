@@ -68,6 +68,29 @@ def test_usevisitor_star_forwarding_low_strictness() -> None:
     assert ("kwargs[*]", "kw[*]") in use_map["kwargs"].direct_forward
 
 
+def test_usevisitor_span_adjusts_zero_width_call() -> None:
+    tree = ast.parse("def f(a, b, *args, **kwargs):\n    g(a)\n")
+    call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
+    # Force a degenerate end position to exercise the span widening branch.
+    call.end_lineno = call.lineno
+    call.end_col_offset = call.col_offset
+
+    visitor, _, _, call_args = _make_visitor(tree, strictness="high")
+    visitor.visit(tree)
+    assert call_args
+    assert call_args[0].span == (
+        call.lineno - 1,
+        call.col_offset,
+        call.lineno - 1,
+        call.col_offset + 1,
+    )
+
+
+def test_usevisitor_node_span_none_without_locations() -> None:
+    *_, UseVisitor = _load()
+    assert UseVisitor._node_span(ast.AST()) is None
+
+
 def test_usevisitor_alias_binding_and_non_forward() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"

@@ -60,6 +60,26 @@ def test_run_dot_stdout_short_circuit(tmp_path: Path, capsys) -> None:
     assert "digraph dataflow_grammar" in captured.out
 
 
+def test_run_structure_tree_stdout_short_circuit(tmp_path: Path, capsys) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    _write_bundle_module(target)
+    code = da.run([str(target), "--emit-structure-tree", "-"])
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "\"format_version\"" in captured.out
+
+
+def test_run_structure_metrics_stdout_short_circuit(tmp_path: Path, capsys) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    _write_bundle_module(target)
+    code = da.run([str(target), "--emit-structure-metrics", "-"])
+    assert code == 0
+    captured = capsys.readouterr()
+    assert "\"bundle_size_histogram\"" in captured.out
+
+
 def test_run_report_baseline_write_and_apply(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

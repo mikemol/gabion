@@ -21,15 +21,26 @@ from lsprotocol.types import (
     WorkspaceEdit,
 )
 
+from gabion.json_types import JSONObject, JSONValue
+
 from gabion.analysis import (
     AuditConfig,
     analyze_paths,
     apply_baseline,
+    compute_structure_metrics,
+    compute_structure_reuse,
+    render_reuse_lemma_stubs,
     compute_violations,
     build_refactor_plan,
     build_synthesis_plan,
+    diff_structure_snapshots,
+    diff_decision_snapshots,
+    load_structure_snapshot,
+    load_decision_snapshot,
     load_baseline,
     render_dot,
+    render_structure_snapshot,
+    render_decision_snapshot,
     render_protocol_stubs,
     render_refactor_plan,
     render_report,
@@ -37,7 +48,23 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
-from gabion.config import dataflow_defaults, merge_payload
+from gabion.config import (
+    dataflow_defaults,
+    decision_defaults,
+    decision_ignore_list,
+    decision_require_tiers,
+    decision_tier_map,
+    exception_defaults,
+    exception_never_list,
+    fingerprint_defaults,
+    merge_payload,
+)
+from gabion.analysis.type_fingerprints import (
+    Fingerprint,
+    PrimeRegistry,
+    TypeConstructorRegistry,
+    build_fingerprint_registry,
+)
 from gabion.refactor import (
     FieldSpec,
     RefactorEngine,
@@ -56,6 +83,9 @@ server = LanguageServer("gabion", "0.1.0")
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
 REFACTOR_COMMAND = "gabion.refactorProtocol"
+STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
+STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
+DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 
 
 def _uri_to_path(uri: str) -> Path:
@@ -127,6 +157,46 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     defaults = dataflow_defaults(
         Path(root), Path(config_path) if config_path else None
     )
+    decision_section = decision_defaults(
+        Path(root), Path(config_path) if config_path else None
+    )
+    decision_tiers = decision_tier_map(decision_section)
+    decision_require = decision_require_tiers(decision_section)
+    exception_section = exception_defaults(
+        Path(root), Path(config_path) if config_path else None
+    )
+    never_exceptions = set(exception_never_list(exception_section))
+    fingerprint_section = fingerprint_defaults(
+        Path(root), Path(config_path) if config_path else None
+    )
+    synth_min_occurrences = 0
+    synth_version = "synth@1"
+    if isinstance(fingerprint_section, dict):
+        try:
+            synth_min_occurrences = int(
+                fingerprint_section.get("synth_min_occurrences", 0) or 0
+            )
+        except (TypeError, ValueError):
+            synth_min_occurrences = 0
+        synth_version = str(
+            fingerprint_section.get("synth_version", synth_version) or synth_version
+        )
+    fingerprint_registry: PrimeRegistry | None = None
+    fingerprint_index: dict[Fingerprint, set[str]] = {}
+    constructor_registry: TypeConstructorRegistry | None = None
+    fingerprint_spec: dict[str, JSONValue] = {}
+    if isinstance(fingerprint_section, dict):
+        fingerprint_spec = {
+            key: value
+            for key, value in fingerprint_section.items()
+            if not str(key).startswith("synth_")
+        }
+    if fingerprint_spec:
+        registry, index = build_fingerprint_registry(fingerprint_spec)
+        if index:
+            fingerprint_registry = registry
+            fingerprint_index = index
+            constructor_registry = TypeConstructorRegistry(registry)
     payload = merge_payload(payload, defaults)
 
     raw_paths = payload.get("paths") or []
@@ -144,8 +214,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     type_audit_report = payload.get("type_audit_report", False)
     type_audit_max = payload.get("type_audit_max", 50)
     fail_on_type_ambiguities = payload.get("fail_on_type_ambiguities", False)
+    lint = bool(payload.get("lint", False))
     exclude_dirs = set(payload.get("exclude", []))
     ignore_params = set(payload.get("ignore_params", []))
+    decision_ignore_params = set(ignore_params)
+    decision_ignore_params.update(decision_ignore_list(decision_section))
     allow_external = payload.get("allow_external", False)
     strictness = payload.get("strictness", "high")
     transparent_decorators = _normalize_transparent_decorators(
@@ -155,6 +228,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     baseline_write = bool(payload.get("baseline_write", False)) and baseline_path is not None
     synthesis_plan_path = payload.get("synthesis_plan")
     synthesis_report = payload.get("synthesis_report", False)
+    structure_tree_path = payload.get("structure_tree")
+    structure_metrics_path = payload.get("structure_metrics")
+    decision_snapshot_path = payload.get("decision_snapshot")
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -162,17 +238,51 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     synthesis_protocols_kind = payload.get("synthesis_protocols_kind", "dataclass")
     refactor_plan = payload.get("refactor_plan", False)
     refactor_plan_json = payload.get("refactor_plan_json")
+    fingerprint_synth_json = payload.get("fingerprint_synth_json")
+    fingerprint_provenance_json = payload.get("fingerprint_provenance_json")
+    fingerprint_deadness_json = payload.get("fingerprint_deadness_json")
+    fingerprint_coherence_json = payload.get("fingerprint_coherence_json")
+    fingerprint_rewrite_plans_json = payload.get("fingerprint_rewrite_plans_json")
+    fingerprint_exception_obligations_json = payload.get(
+        "fingerprint_exception_obligations_json"
+    )
+    fingerprint_handledness_json = payload.get("fingerprint_handledness_json")
 
     config = AuditConfig(
         project_root=Path(root),
         exclude_dirs=exclude_dirs,
         ignore_params=ignore_params,
+        decision_ignore_params=decision_ignore_params,
         external_filter=not allow_external,
         strictness=strictness,
         transparent_decorators=transparent_decorators,
+        decision_tiers=decision_tiers,
+        decision_require_tiers=decision_require,
+        never_exceptions=never_exceptions,
+        fingerprint_registry=fingerprint_registry,
+        fingerprint_index=fingerprint_index,
+        constructor_registry=constructor_registry,
+        fingerprint_synth_min_occurrences=synth_min_occurrences,
+        fingerprint_synth_version=synth_version,
     )
     if fail_on_type_ambiguities:
         type_audit = True
+    include_decisions = bool(report_path) or bool(decision_snapshot_path) or bool(
+        fail_on_violations
+    )
+    if decision_tiers:
+        include_decisions = True
+    include_rewrite_plans = bool(report_path) or bool(fingerprint_rewrite_plans_json)
+    include_exception_obligations = bool(report_path) or bool(
+        fingerprint_exception_obligations_json
+    )
+    include_handledness_witnesses = bool(report_path) or bool(
+        fingerprint_handledness_json
+    )
+    include_never_invariants = bool(report_path)
+    include_coherence = (
+        bool(report_path) or bool(fingerprint_coherence_json) or include_rewrite_plans
+    )
     analysis = analyze_paths(
         paths,
         recursive=not no_recursive,
@@ -181,16 +291,49 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         type_audit_max=type_audit_max,
         include_constant_smells=bool(report_path),
         include_unused_arg_smells=bool(report_path),
+        include_deadness_witnesses=bool(report_path) or bool(fingerprint_deadness_json),
+        include_coherence_witnesses=include_coherence,
+        include_rewrite_plans=include_rewrite_plans,
+        include_exception_obligations=include_exception_obligations,
+        include_handledness_witnesses=include_handledness_witnesses,
+        include_never_invariants=include_never_invariants,
+        include_decision_surfaces=include_decisions,
+        include_value_decision_surfaces=include_decisions,
+        include_invariant_propositions=bool(report_path),
+        include_lint_lines=lint,
+        include_bundle_forest=True,
         config=config,
     )
 
     response: dict = {
         "type_suggestions": analysis.type_suggestions,
         "type_ambiguities": analysis.type_ambiguities,
+        "type_callsite_evidence": analysis.type_callsite_evidence,
         "unused_arg_smells": analysis.unused_arg_smells,
+        "decision_surfaces": analysis.decision_surfaces,
+        "value_decision_surfaces": analysis.value_decision_surfaces,
+        "value_decision_rewrites": analysis.value_decision_rewrites,
+        "decision_warnings": analysis.decision_warnings,
+        "fingerprint_warnings": analysis.fingerprint_warnings,
+        "fingerprint_matches": analysis.fingerprint_matches,
+        "fingerprint_synth": analysis.fingerprint_synth,
+        "fingerprint_synth_registry": analysis.fingerprint_synth_registry,
+        "fingerprint_provenance": analysis.fingerprint_provenance,
+        "fingerprint_deadness": analysis.deadness_witnesses,
+        "fingerprint_coherence": analysis.coherence_witnesses,
+        "fingerprint_rewrite_plans": analysis.rewrite_plans,
+        "fingerprint_exception_obligations": analysis.exception_obligations,
+        "fingerprint_handledness": analysis.handledness_witnesses,
+        "never_invariants": analysis.never_invariants,
+        "invariant_propositions": [
+            prop.as_dict() for prop in analysis.invariant_propositions
+        ],
+        "context_suggestions": analysis.context_suggestions,
     }
+    if lint:
+        response["lint_lines"] = analysis.lint_lines
 
-    synthesis_plan: dict[str, object] | None = None
+    synthesis_plan: JSONObject | None = None
     if synthesis_plan_path or synthesis_report or synthesis_protocols_path:
         synthesis_plan = build_synthesis_plan(
             analysis.groups_by_path,
@@ -215,7 +358,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             else:
                 Path(synthesis_protocols_path).write_text(stubs)
 
-    refactor_plan_payload: dict[str, object] | None = None
+    refactor_plan_payload: JSONObject | None = None
     if refactor_plan or refactor_plan_json:
         refactor_plan_payload = build_refactor_plan(
             analysis.groups_by_path,
@@ -230,22 +373,72 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 Path(refactor_plan_json).write_text(payload_json)
 
     if dot_path:
-        dot = render_dot(analysis.groups_by_path)
+        dot = render_dot(analysis.forest)
         if dot_path == "-":
             response["dot"] = dot
         else:
             Path(dot_path).write_text(dot)
+    if structure_tree_path:
+        snapshot = render_structure_snapshot(
+            analysis.groups_by_path,
+            project_root=config.project_root,
+            invariant_propositions=analysis.invariant_propositions,
+        )
+        payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
+        if structure_tree_path == "-":
+            response["structure_tree"] = snapshot
+        else:
+            Path(structure_tree_path).write_text(payload_json)
+    if structure_metrics_path:
+        metrics = compute_structure_metrics(analysis.groups_by_path)
+        payload_json = json.dumps(metrics, indent=2, sort_keys=True)
+        if structure_metrics_path == "-":
+            response["structure_metrics"] = metrics
+        else:
+            Path(structure_metrics_path).write_text(payload_json)
+    if decision_snapshot_path:
+        snapshot = render_decision_snapshot(
+            decision_surfaces=analysis.decision_surfaces,
+            value_decision_surfaces=analysis.value_decision_surfaces,
+            project_root=config.project_root,
+            forest=analysis.forest,
+        )
+        payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
+        if decision_snapshot_path == "-":
+            response["decision_snapshot"] = snapshot
+        else:
+            Path(decision_snapshot_path).write_text(payload_json)
 
     violations: list[str] = []
     effective_violations: list[str] | None = None
     if report_path:
+        include_type_section = bool(type_audit_report or fail_on_type_ambiguities)
         report, violations = render_report(
             analysis.groups_by_path,
             max_components,
-            type_suggestions=analysis.type_suggestions if type_audit_report else None,
-            type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
+            forest=analysis.forest,
+            bundle_sites_by_path=analysis.bundle_sites_by_path,
+            type_suggestions=analysis.type_suggestions if include_type_section else None,
+            type_ambiguities=analysis.type_ambiguities if include_type_section else None,
+            type_callsite_evidence=analysis.type_callsite_evidence if include_type_section else None,
             constant_smells=analysis.constant_smells,
             unused_arg_smells=analysis.unused_arg_smells,
+            deadness_witnesses=analysis.deadness_witnesses,
+            coherence_witnesses=analysis.coherence_witnesses,
+            rewrite_plans=analysis.rewrite_plans,
+            exception_obligations=analysis.exception_obligations,
+            never_invariants=analysis.never_invariants,
+            handledness_witnesses=analysis.handledness_witnesses,
+            decision_surfaces=analysis.decision_surfaces,
+            value_decision_surfaces=analysis.value_decision_surfaces,
+            value_decision_rewrites=analysis.value_decision_rewrites,
+            decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
+            fingerprint_matches=analysis.fingerprint_matches,
+            fingerprint_synth=analysis.fingerprint_synth,
+            fingerprint_provenance=analysis.fingerprint_provenance,
+            context_suggestions=analysis.context_suggestions,
+            invariant_propositions=analysis.invariant_propositions,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)
@@ -274,8 +467,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         violations = compute_violations(
             analysis.groups_by_path,
             max_components,
+            forest=analysis.forest,
             type_suggestions=analysis.type_suggestions if type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
+            decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)
@@ -288,6 +484,62 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     if effective_violations is None:
         effective_violations = violations
     response["violations"] = len(effective_violations)
+    if fingerprint_synth_json and analysis.fingerprint_synth_registry:
+        payload_json = json.dumps(
+            analysis.fingerprint_synth_registry, indent=2, sort_keys=True
+        )
+        if fingerprint_synth_json == "-":
+            response["fingerprint_synth_registry"] = analysis.fingerprint_synth_registry
+        else:
+            Path(fingerprint_synth_json).write_text(payload_json)
+    if fingerprint_provenance_json and analysis.fingerprint_provenance:
+        payload_json = json.dumps(
+            analysis.fingerprint_provenance, indent=2, sort_keys=True
+        )
+        if fingerprint_provenance_json == "-":
+            response["fingerprint_provenance"] = analysis.fingerprint_provenance
+        else:
+            Path(fingerprint_provenance_json).write_text(payload_json)
+    if fingerprint_deadness_json is not None:
+        payload_json = json.dumps(
+            analysis.deadness_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_deadness_json == "-":
+            response["fingerprint_deadness"] = analysis.deadness_witnesses
+        else:
+            Path(fingerprint_deadness_json).write_text(payload_json)
+    if fingerprint_coherence_json is not None:
+        payload_json = json.dumps(
+            analysis.coherence_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_coherence_json == "-":
+            response["fingerprint_coherence"] = analysis.coherence_witnesses
+        else:
+            Path(fingerprint_coherence_json).write_text(payload_json)
+    if fingerprint_rewrite_plans_json is not None:
+        payload_json = json.dumps(analysis.rewrite_plans, indent=2, sort_keys=True)
+        if fingerprint_rewrite_plans_json == "-":
+            response["fingerprint_rewrite_plans"] = analysis.rewrite_plans
+        else:
+            Path(fingerprint_rewrite_plans_json).write_text(payload_json)
+    if fingerprint_exception_obligations_json is not None:
+        payload_json = json.dumps(
+            analysis.exception_obligations, indent=2, sort_keys=True
+        )
+        if fingerprint_exception_obligations_json == "-":
+            response["fingerprint_exception_obligations"] = (
+                analysis.exception_obligations
+            )
+        else:
+            Path(fingerprint_exception_obligations_json).write_text(payload_json)
+    if fingerprint_handledness_json is not None:
+        payload_json = json.dumps(
+            analysis.handledness_witnesses, indent=2, sort_keys=True
+        )
+        if fingerprint_handledness_json == "-":
+            response["fingerprint_handledness"] = analysis.handledness_witnesses
+        else:
+            Path(fingerprint_handledness_json).write_text(payload_json)
     if baseline_path is not None:
         response["baseline_path"] = str(baseline_path)
         response["baseline_written"] = bool(baseline_write)
@@ -400,6 +652,72 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
         errors=plan.errors,
     )
     return response.model_dump()
+
+
+@server.command(STRUCTURE_DIFF_COMMAND)
+def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    baseline_path = payload.get("baseline")
+    current_path = payload.get("current")
+    if not baseline_path or not current_path:
+        return {
+            "exit_code": 2,
+            "errors": ["baseline and current snapshot paths are required"],
+        }
+    try:
+        baseline = load_structure_snapshot(Path(baseline_path))
+        current = load_structure_snapshot(Path(current_path))
+    except ValueError as exc:
+        return {"exit_code": 2, "errors": [str(exc)]}
+    return {"exit_code": 0, "diff": diff_structure_snapshots(baseline, current)}
+
+
+@server.command(STRUCTURE_REUSE_COMMAND)
+def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    snapshot_path = payload.get("snapshot")
+    lemma_stubs_path = payload.get("lemma_stubs")
+    min_count = payload.get("min_count", 2)
+    if not snapshot_path:
+        return {"exit_code": 2, "errors": ["snapshot path is required"]}
+    try:
+        snapshot = load_structure_snapshot(Path(snapshot_path))
+    except ValueError as exc:
+        return {"exit_code": 2, "errors": [str(exc)]}
+    try:
+        min_count_int = int(min_count)
+    except (TypeError, ValueError):
+        min_count_int = 2
+    reuse = compute_structure_reuse(snapshot, min_count=min_count_int)
+    response: JSONObject = {"exit_code": 0, "reuse": reuse}
+    if lemma_stubs_path:
+        stubs = render_reuse_lemma_stubs(reuse)
+        if lemma_stubs_path == "-":
+            response["lemma_stubs"] = stubs
+        else:
+            Path(lemma_stubs_path).write_text(stubs)
+    return response
+
+
+@server.command(DECISION_DIFF_COMMAND)
+def execute_decision_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
+    if payload is None:
+        payload = {}
+    baseline_path = payload.get("baseline")
+    current_path = payload.get("current")
+    if not baseline_path or not current_path:
+        return {
+            "exit_code": 2,
+            "errors": ["baseline and current decision snapshot paths are required"],
+        }
+    try:
+        baseline = load_decision_snapshot(Path(baseline_path))
+        current = load_decision_snapshot(Path(current_path))
+    except ValueError as exc:
+        return {"exit_code": 2, "errors": [str(exc)]}
+    return {"exit_code": 0, "diff": diff_decision_snapshots(baseline, current)}
 
 
 @server.feature(TEXT_DOCUMENT_CODE_ACTION)

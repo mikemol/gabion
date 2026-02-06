@@ -1,5 +1,5 @@
 ---
-doc_revision: 70
+doc_revision: 72
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,10 +17,16 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  AGENTS.md: 12
-  POLICY_SEED.md: 28
-  glossary.md: 13
+  AGENTS.md: 13
+  POLICY_SEED.md: 29
+  glossary.md: 22
   docs/coverage_semantics.md: 6
+doc_review_notes:
+  README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
+  AGENTS.md: "Agent review discipline aligns with contributor workflow."
+  POLICY_SEED.md: "Review discipline invariant incorporated here."
+  glossary.md: "Higher-order bundle definition is consistent with workflow guidance."
+  docs/coverage_semantics.md: "Coverage semantics unchanged by review discipline."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake
@@ -42,6 +48,12 @@ self-hosted runners. Please read `POLICY_SEED.md` before making changes.
 Execution safety is governed by `POLICY_SEED.md`. Semantic correctness is
 governed by `glossary.md`. Both contracts must be satisfied for any change to be
 valid.
+
+## Documentation review discipline (normative)
+- `doc_reviewed_as_of` updates must reflect a real content review.
+- Each update must include a non-empty `doc_review_notes` entry describing the
+  dependency interaction.
+- Mechanical version stamping is prohibited and treated as a governance breach.
 
 ## Architectural invariants (normative)
 - **LSP-first invariant:** the language server is the semantic core; the CLI is
@@ -116,6 +128,16 @@ until a merge to `main` with `Closes #17` (GitHub auto-closes on merge).
 To automate this locally on `stage`, set `GABION_SPPF_SYNC=1` and re-run
 `scripts/install_hooks.sh` to enable a pre-push sync (comments + `done-on-stage`
 label) before pushing.
+
+## Issue lifecycle / kanban (normative)
+Issues are not closed until a release containing the fix is published.
+When work lands on `stage`, apply `done-on-stage` + `status/pending-release`.
+On release, swap to `status/released` and close the issue.
+Recommended status labels:
+- `status/backlog`
+- `status/in-progress`
+- `status/pending-release`
+- `status/released`
 
 ## Development setup
 This project ships prototype analysis + refactor features. Treat outputs as

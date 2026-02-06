@@ -18,6 +18,49 @@ def test_split_csv_helpers() -> None:
     assert cli._split_csv(" ,") is None
 
 
+def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
+    good_line = "mod.py:10:2: GABION_CODE something happened"
+    parsed = cli._parse_lint_line(good_line)
+    assert parsed is not None
+    assert parsed["code"] == "GABION_CODE"
+    assert cli._parse_lint_line("bad line") is None
+    assert cli._parse_lint_line("mod.py:1:2:") is None
+
+    entries = cli._collect_lint_entries([good_line, "bad"])
+    assert len(entries) == 1
+
+    cli._write_lint_jsonl("-", entries)
+    out = capsys.readouterr().out
+    assert "GABION_CODE" in out
+
+    jsonl_path = tmp_path / "lint.jsonl"
+    cli._write_lint_jsonl(str(jsonl_path), entries)
+    assert jsonl_path.read_text().strip()
+
+    sarif_path = tmp_path / "lint.sarif"
+    cli._write_lint_sarif(str(sarif_path), entries)
+    sarif_text = sarif_path.read_text()
+    assert "sarif-2.1.0.json" in sarif_text
+    cli._write_lint_sarif("-", entries)
+    assert "sarif-2.1.0.json" in capsys.readouterr().out
+
+
+def test_emit_lint_outputs_writes_artifacts(tmp_path: Path, capsys) -> None:
+    lines = ["mod.py:1:1: GABION_CODE message"]
+    jsonl_path = tmp_path / "lint.jsonl"
+    sarif_path = tmp_path / "lint.sarif"
+    cli._emit_lint_outputs(
+        lines,
+        lint=True,
+        lint_jsonl=jsonl_path,
+        lint_sarif=sarif_path,
+    )
+    out = capsys.readouterr().out
+    assert "GABION_CODE" in out
+    assert jsonl_path.exists()
+    assert sarif_path.exists()
+
+
 def test_build_refactor_payload_input_payload_passthrough() -> None:
     payload = {"protocol_name": "Bundle", "bundle": ["a"]}
     assert cli.build_refactor_payload(
@@ -113,6 +156,196 @@ def test_dataflow_audit_type_audit_empty_findings() -> None:
     assert exc.value.exit_code == 0
 
 
+def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "lint_lines": ["mod.py:1:1: GABION_CODE message"],
+        }
+
+    jsonl_path = tmp_path / "lint.jsonl"
+    sarif_path = tmp_path / "lint.sarif"
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=[
+            "sample.py",
+            "--lint",
+            "--lint-jsonl",
+            str(jsonl_path),
+            "--lint-sarif",
+            str(sarif_path),
+        ],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    out = capsys.readouterr().out
+    assert "GABION_CODE" in out
+    assert jsonl_path.exists()
+    assert sarif_path.exists()
+
+
+def test_dataflow_audit_emits_structure_tree(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "structure_tree": {"format_version": 1, "root": ".", "files": []},
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=["sample.py", "--emit-structure-tree", "-"],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"format_version\": 1" in captured.out
+
+
+def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "structure_metrics": {
+                "files": 0,
+                "functions": 0,
+                "bundles": 0,
+                "mean_bundle_size": 0.0,
+                "max_bundle_size": 0,
+                "bundle_size_histogram": {},
+            },
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=["sample.py", "--emit-structure-metrics", "-"],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"bundle_size_histogram\"" in captured.out
+
+
+def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "decision_snapshot": {
+                "format_version": 1,
+                "root": ".",
+                "decision_surfaces": [],
+                "value_decision_surfaces": [],
+                "summary": {},
+            },
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=["sample.py", "--emit-decision-snapshot", "-"],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"decision_surfaces\"" in captured.out
+
+
+def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args: object, **_kwargs: object) -> dict[str, object]:
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "fingerprint_synth_registry": {"version": "synth@1", "entries": []},
+            "fingerprint_provenance": [{"path": "x.py", "bundle": ["a"]}],
+            "fingerprint_deadness": [{"path": "x.py", "bundle": ["a"], "result": "UNREACHABLE"}],
+            "fingerprint_coherence": [
+                {
+                    "site": {"path": "x.py", "function": "f", "bundle": ["a"]},
+                    "result": "UNKNOWN",
+                }
+            ],
+            "fingerprint_rewrite_plans": [
+                {
+                    "plan_id": "rewrite:x.py:f:a",
+                    "site": {"path": "x.py", "function": "f", "bundle": ["a"]},
+                    "status": "UNVERIFIED",
+                }
+            ],
+            "fingerprint_exception_obligations": [
+                {
+                    "exception_path_id": "x.py:f:E0:1:0:raise",
+                    "site": {"path": "x.py", "function": "f", "bundle": ["a"]},
+                    "status": "UNKNOWN",
+                }
+            ],
+            "fingerprint_handledness": [
+                {
+                    "handledness_id": "handled:x.py:f:E0:1:0:raise",
+                    "exception_path_id": "x.py:f:E0:1:0:raise",
+                }
+            ],
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=[
+            "sample.py",
+            "--fingerprint-synth-json",
+            "-",
+            "--fingerprint-provenance-json",
+            "-",
+            "--fingerprint-deadness-json",
+            "-",
+            "--fingerprint-coherence-json",
+            "-",
+            "--fingerprint-rewrite-plans-json",
+            "-",
+            "--fingerprint-exception-obligations-json",
+            "-",
+            "--fingerprint-handledness-json",
+            "-",
+        ],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"bundle\"" in captured.out
+    assert "\"version\"" in captured.out
+    assert "\"UNREACHABLE\"" in captured.out
+    assert "\"fingerprint_coherence\"" not in captured.out
+    assert "\"UNKNOWN\"" in captured.out
+    assert "\"plan_id\"" in captured.out
+    assert "\"exception_path_id\"" in captured.out
+    assert "\"handledness_id\"" in captured.out
+
+
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -125,8 +358,8 @@ def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
         no_timestamp=True,
         config=None,
         exclude=["a, b"],
-        ignore_params="x, y",
-        transparent_decorators="deco",
+        ignore_params_csv="x, y",
+        transparent_decorators_csv="deco",
         allow_external=None,
         strictness=None,
         no_recursive=False,
@@ -146,6 +379,43 @@ def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     assert paths_out["output_root"].exists()
 
 
+def test_emit_synth_outputs_lists_optional_paths(tmp_path: Path, capsys) -> None:
+    root = tmp_path / "out"
+    root.mkdir()
+    paths_out = {
+        "output_root": root,
+        "report": root / "dataflow_report.md",
+        "dot": root / "graph.dot",
+        "plan": root / "plan.json",
+        "protocol": root / "protocols.py",
+        "refactor": root / "refactor.json",
+        "fingerprint_synth": root / "fingerprint_synth.json",
+        "fingerprint_provenance": root / "fingerprint_provenance.json",
+        "fingerprint_coherence": root / "fingerprint_coherence.json",
+        "fingerprint_rewrite_plans": root / "fingerprint_rewrite_plans.json",
+        "fingerprint_exception_obligations": root / "fingerprint_exception_obligations.json",
+        "fingerprint_handledness": root / "fingerprint_handledness.json",
+    }
+    paths_out["fingerprint_synth"].write_text("{}")
+    paths_out["fingerprint_provenance"].write_text("{}")
+    paths_out["fingerprint_coherence"].write_text("{}")
+    paths_out["fingerprint_rewrite_plans"].write_text("{}")
+    paths_out["fingerprint_exception_obligations"].write_text("{}")
+    paths_out["fingerprint_handledness"].write_text("{}")
+    cli._emit_synth_outputs(
+        paths_out=paths_out,
+        timestamp=None,
+        refactor_plan=False,
+    )
+    output = capsys.readouterr().out
+    assert "fingerprint_synth.json" in output
+    assert "fingerprint_provenance.json" in output
+    assert "fingerprint_coherence.json" in output
+    assert "fingerprint_rewrite_plans.json" in output
+    assert "fingerprint_exception_obligations.json" in output
+    assert "fingerprint_handledness.json" in output
+
+
 def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
     captured = {}
 
@@ -162,3 +432,210 @@ def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
     )
     assert captured["root"] is None
     assert output_path.read_text().strip()
+
+
+def test_run_synthesis_plan_rejects_non_object_payload(tmp_path: Path) -> None:
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text("[]\n")
+    with pytest.raises(typer.BadParameter) as exc:
+        cli._run_synthesis_plan(
+            input_path=payload_path,
+            output_path=None,
+            runner=lambda *_args, **_kwargs: {"protocols": []},
+        )
+    assert "json object" in str(exc.value).lower()
+
+
+def test_refactor_protocol_rejects_non_object_payload(tmp_path: Path) -> None:
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text("[]\n")
+    with pytest.raises(typer.BadParameter) as exc:
+        cli.refactor_protocol(input_path=payload_path)
+    assert "json object" in str(exc.value).lower()
+
+
+def test_run_refactor_protocol_accepts_object_payload(tmp_path: Path) -> None:
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text("{\"protocol_name\": \"Bundle\", \"bundle\": [\"a\"]}\n")
+
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"ok": True}
+
+    output_path = tmp_path / "out.json"
+    cli._run_refactor_protocol(
+        input_path=payload_path,
+        output_path=output_path,
+        protocol_name=None,
+        bundle=None,
+        field=None,
+        target_path=None,
+        target_functions=None,
+        compatibility_shim=False,
+        rationale=None,
+        runner=runner,
+    )
+    assert captured["command"] == cli.REFACTOR_COMMAND
+    assert captured["root"] is None
+    assert output_path.read_text().strip()
+
+
+def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"added_bundles": []}
+
+    baseline = tmp_path / "base.json"
+    current = tmp_path / "current.json"
+    result = cli.run_structure_diff(
+        baseline=baseline,
+        current=current,
+        root=tmp_path,
+        runner=runner,
+    )
+    assert captured["command"] == cli.STRUCTURE_DIFF_COMMAND
+    assert captured["payload"] == {"baseline": str(baseline), "current": str(current)}
+    assert captured["root"] == tmp_path
+    assert result == {"added_bundles": []}
+
+
+def test_run_decision_diff_uses_runner(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"exit_code": 0}
+
+    baseline = tmp_path / "base.json"
+    current = tmp_path / "current.json"
+    result = cli.run_decision_diff(
+        baseline=baseline,
+        current=current,
+        root=tmp_path,
+        runner=runner,
+    )
+    assert captured["command"] == cli.DECISION_DIFF_COMMAND
+    assert captured["payload"] == {"baseline": str(baseline), "current": str(current)}
+    assert result == {"exit_code": 0}
+
+
+def test_run_structure_reuse_uses_runner(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"exit_code": 0}
+
+    snapshot = tmp_path / "snapshot.json"
+    lemma = tmp_path / "lemmas.py"
+    result = cli.run_structure_reuse(
+        snapshot=snapshot,
+        min_count=3,
+        lemma_stubs=lemma,
+        root=tmp_path,
+        runner=runner,
+    )
+    assert captured["command"] == cli.STRUCTURE_REUSE_COMMAND
+    assert captured["payload"]["snapshot"] == str(snapshot)
+    assert captured["payload"]["min_count"] == 3
+    assert captured["payload"]["lemma_stubs"] == str(lemma)
+    assert result == {"exit_code": 0}
+
+
+def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
+    calls: list[str] = []
+
+    def runner(request, root=None):
+        calls.append(request.command)
+        if request.command == cli.STRUCTURE_REUSE_COMMAND:
+            return {"exit_code": 0, "reuse": {"format_version": 1}}
+        return {"exit_code": 0, "diff": {"format_version": 1}}
+
+    saved = cli.DEFAULT_RUNNER
+    cli.DEFAULT_RUNNER = runner
+    try:
+        cli.structure_diff(
+            baseline=Path("baseline.json"),
+            current=Path("current.json"),
+            root=None,
+        )
+        cli.decision_diff(
+            baseline=Path("baseline.json"),
+            current=Path("current.json"),
+            root=None,
+        )
+        cli.structure_reuse(
+            snapshot=Path("snapshot.json"),
+            min_count=2,
+            lemma_stubs=None,
+            root=None,
+        )
+    finally:
+        cli.DEFAULT_RUNNER = saved
+    captured = capsys.readouterr().out
+    assert "format_version" in captured
+    assert cli.STRUCTURE_DIFF_COMMAND in calls
+    assert cli.DECISION_DIFF_COMMAND in calls
+    assert cli.STRUCTURE_REUSE_COMMAND in calls
+
+
+def test_emit_structure_diff_success(capsys) -> None:
+    result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
+    cli._emit_structure_diff(result)
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 0" in captured.out
+    assert captured.err == ""
+
+
+def test_emit_structure_diff_errors_exit(capsys) -> None:
+    result = {"exit_code": 2, "errors": ["bad snapshot"], "diff": {}}
+    with pytest.raises(typer.Exit) as exc:
+        cli._emit_structure_diff(result)
+    assert exc.value.exit_code == 2
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 2" in captured.out
+    assert "bad snapshot" in captured.err
+
+
+def test_emit_decision_diff_success(capsys) -> None:
+    result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
+    cli._emit_decision_diff(result)
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 0" in captured.out
+
+
+def test_emit_decision_diff_errors_exit(capsys) -> None:
+    result = {"exit_code": 2, "errors": ["bad decision"], "diff": {}}
+    with pytest.raises(typer.Exit) as exc:
+        cli._emit_decision_diff(result)
+    assert exc.value.exit_code == 2
+    captured = capsys.readouterr()
+    assert "bad decision" in captured.err
+
+
+def test_emit_structure_reuse_success(capsys) -> None:
+    result = {"exit_code": 0, "reuse": {"summary": {}}}
+    cli._emit_structure_reuse(result)
+    captured = capsys.readouterr()
+    assert "\"exit_code\": 0" in captured.out
+
+
+def test_emit_structure_reuse_errors_exit(capsys) -> None:
+    result = {"exit_code": 2, "errors": ["bad reuse"], "reuse": {}}
+    with pytest.raises(typer.Exit) as exc:
+        cli._emit_structure_reuse(result)
+    assert exc.value.exit_code == 2
+    captured = capsys.readouterr()
+    assert "bad reuse" in captured.err

@@ -50,6 +50,7 @@ class SynthesisProtocolDTO(BaseModel):
     bundle: List[str]
     tier: int
     rationale: Optional[str] = None
+    evidence: List[str] = []
 
 
 class SynthesisResponse(BaseModel):

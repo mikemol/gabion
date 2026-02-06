@@ -1,5 +1,5 @@
 ---
-doc_revision: 12
+doc_revision: 13
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -15,9 +15,14 @@ doc_requires:
   - glossary.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 70
-  POLICY_SEED.md: 28
-  glossary.md: 13
+  CONTRIBUTING.md: 72
+  POLICY_SEED.md: 29
+  glossary.md: 22
+doc_review_notes:
+  README.md: "Reviewed for attribute-carrier/transport policy impact; no conflicts."
+  CONTRIBUTING.md: "Review discipline requirements align with agent workflow."
+  POLICY_SEED.md: "Adopts review discipline invariant; agent enforcement updated."
+  glossary.md: "Higher-order bundle definition aligns with LSP-first workflow."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - read_policy_glossary_first
@@ -55,6 +60,8 @@ Semantic correctness is governed by `glossary.md` (co-equal contract).
   interpreter and dependencies are used.
 - Treat docflow as repo-local convenience only; do not project it as a
   general Gabion feature without explicit policy change.
+- Do not mechanistically bump `doc_reviewed_as_of`; update only with explicit
+  `doc_review_notes` based on a real content review.
 
 ## Dataflow grammar invariant
 - Recurring parameter bundles are type-level obligations.

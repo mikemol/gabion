@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import json
 
 import pytest
 from typer.testing import CliRunner
@@ -118,6 +119,7 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "Snapshot:" in result.output
 
+
     result = runner.invoke(
         cli.app,
         [
@@ -152,6 +154,29 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert output_path.exists()
+
+
+@pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_cli_structure_diff(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    baseline.write_text(json.dumps({"files": []}))
+    current.write_text(json.dumps({"files": [{"functions": [{"bundles": [["a"]]}]}]}))
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "structure-diff",
+            "--baseline",
+            str(baseline),
+            "--current",
+            str(current),
+            "--root",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "\"diff\"" in result.output
 
 
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")

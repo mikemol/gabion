@@ -37,6 +37,21 @@ def _write_bundle_code(path: Path) -> None:
     )
 
 
+def _write_typed_bundle_code(path: Path) -> None:
+    path.write_text(
+        "def callee(x: int):\n"
+        "    return x\n"
+        "\n"
+        "def caller_one(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+        "\n"
+        "def caller_two(a: int, b: int):\n"
+        "    callee(a)\n"
+        "    callee(b)\n"
+    )
+
+
 def test_run_baseline_write_requires_path(tmp_path: Path) -> None:
     dataflow_audit = _load()
     code = dataflow_audit.run(
@@ -215,6 +230,222 @@ def test_run_synthesis_uses_config_overlap(tmp_path: Path) -> None:
         ]
     )
     assert plan_path.exists()
+    assert code == 0
+
+
+def test_run_fingerprint_outputs_and_decision_snapshot(tmp_path: Path, capsys) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = 2\n"
+        "\n"
+        "[decision]\n"
+        "tier2 = [\"a\"]\n"
+    )
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+            "--fingerprint-synth-json",
+            "-",
+            "--fingerprint-provenance-json",
+            "-",
+            "--fingerprint-deadness-json",
+            "-",
+            "--fingerprint-coherence-json",
+            "-",
+            "--fingerprint-rewrite-plans-json",
+            "-",
+            "--fingerprint-exception-obligations-json",
+            "-",
+            "--fingerprint-handledness-json",
+            "-",
+            "--emit-decision-snapshot",
+            "-",
+        ]
+    )
+    output = capsys.readouterr().out
+    assert "fingerprint" in output
+    assert "decision_surfaces" in output
+    assert code == 0
+
+
+def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    synth_registry_path = tmp_path / "synth_registry.json"
+    synth_registry_path.write_text(
+        "{\"version\": \"synth@1\", \"min_occurrences\": 2, \"entries\": []}"
+    )
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = 2\n"
+        f"synth_registry_path = \"{synth_registry_path}\"\n"
+    )
+    synth_path = tmp_path / "fingerprint_synth.json"
+    provenance_path = tmp_path / "fingerprint_provenance.json"
+    deadness_path = tmp_path / "fingerprint_deadness.json"
+    coherence_path = tmp_path / "fingerprint_coherence.json"
+    rewrite_plans_path = tmp_path / "fingerprint_rewrite_plans.json"
+    exception_obligations_path = tmp_path / "fingerprint_exception_obligations.json"
+    handledness_path = tmp_path / "fingerprint_handledness.json"
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+            "--fingerprint-synth-json",
+            str(synth_path),
+            "--fingerprint-provenance-json",
+            str(provenance_path),
+            "--fingerprint-deadness-json",
+            str(deadness_path),
+            "--fingerprint-coherence-json",
+            str(coherence_path),
+            "--fingerprint-rewrite-plans-json",
+            str(rewrite_plans_path),
+            "--fingerprint-exception-obligations-json",
+            str(exception_obligations_path),
+            "--fingerprint-handledness-json",
+            str(handledness_path),
+        ]
+    )
+    assert code == 0
+    assert synth_path.exists()
+    assert provenance_path.exists()
+    assert deadness_path.exists()
+    assert coherence_path.exists()
+    assert rewrite_plans_path.exists()
+    assert exception_obligations_path.exists()
+    assert handledness_path.exists()
+
+
+def test_run_lint_outputs(capsys, tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "never_mod.py"
+    sample.write_text(
+        "from gabion.invariants import never\n"
+        "\n"
+        "def f(flag):\n"
+        "    if flag:\n"
+        "        never('boom')\n"
+    )
+    report_path = tmp_path / "report.md"
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--report",
+            str(report_path),
+            "--lint",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "GABION_NEVER_INVARIANT" in out
+    assert code == 0
+
+
+def test_run_decision_snapshot_writes_file(tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    decision_path = tmp_path / "decision.json"
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--emit-decision-snapshot",
+            str(decision_path),
+        ]
+    )
+    assert code == 0
+    assert decision_path.exists()
+
+
+def test_run_synth_registry_path_invalid_json(tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    synth_path = tmp_path / "synth.json"
+    synth_path.write_text("{invalid")
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_min_occurrences = \"bad\"\n"
+        f"synth_registry_path = \"{synth_path}\"\n"
+    )
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+        ]
+    )
+    assert code == 0
+
+
+def test_run_synth_registry_path_missing_latest(tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        "synth_registry_path = \"out/LATEST/fingerprint_synth.json\"\n"
+    )
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+        ]
+    )
+    assert code == 0
+
+
+def test_run_synth_registry_path_valid_json(tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    synth_path = tmp_path / "synth.json"
+    synth_path.write_text(
+        "{\"version\": \"synth@1\", \"min_occurrences\": 2, \"entries\": []}"
+    )
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "user_context = [\"int\"]\n"
+        f"synth_registry_path = \"{synth_path}\"\n"
+    )
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+        ]
+    )
     assert code == 0
 
 

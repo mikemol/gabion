@@ -1,5 +1,5 @@
 ---
-doc_revision: 28
+doc_revision: 29
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -20,17 +20,25 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 70
-  AGENTS.md: 12
-  glossary.md: 13
+  CONTRIBUTING.md: 72
+  AGENTS.md: 13
+  glossary.md: 22
   docs/publishing_practices.md: 23
   docs/coverage_semantics.md: 6
+doc_review_notes:
+  README.md: "Reviewed for attribute-carrier/transport policy alignment; no conflicts with scope/status."
+  CONTRIBUTING.md: "Review discipline now documented; contributor workflow matches new policy."
+  AGENTS.md: "Agent obligations updated to forbid mechanical review stamping."
+  glossary.md: "Higher-order bundle definition aligns with policy defaults."
+  docs/publishing_practices.md: "Publishing guidance unaffected by review discipline/attribute transport."
+  docs/coverage_semantics.md: "Coverage policy unaffected; no conflicts with attribute-carrier rules."
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - prime_invariant
   - gabion_protocol_invariant
+  - review_discipline_invariant
 doc_erasure:
   - formatting
   - typos
@@ -108,6 +116,12 @@ Any change to one must be checked for consistency with the others.
 incomplete until the dependent documents have been **re‑reviewed as of** the
 new `doc_revision`. Each document must record this in `doc_reviewed_as_of`.
 If `doc_reviewed_as_of[X] != doc_revision(X)`, the document is stale.
+
+**Review discipline invariant (normative):** Updating `doc_reviewed_as_of` is
+security‑relevant and must not be mechanical. Each updated entry must be
+accompanied by an explicit review note in `doc_review_notes` describing the
+dependency interaction. Missing or empty notes are a violation. Mechanistic
+version bumps without content review are treated as a governance breach.
 
 ---
 

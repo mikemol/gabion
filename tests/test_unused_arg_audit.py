@@ -40,9 +40,10 @@ def test_unused_arg_smell_detected(tmp_path: Path) -> None:
         strictness="high",
         external_filter=True,
     )
-    assert (
-        "sample.py:caller passes param foo to unused sample.py:callee.x"
-        in smells
+    assert any(
+        smell.startswith("sample.py:")
+        and "caller passes param foo to unused sample.py:callee.x" in smell
+        for smell in smells
     )
 
 
