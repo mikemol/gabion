@@ -67,6 +67,7 @@ DECISION_RE = re.compile(
 VALUE_DECISION_RE = re.compile(
     r"^(?P<path>[^:]+):(?P<qual>\S+) value-encoded decision params: (?P<params>.+) \((?P<meta>[^)]+)\)$"
 )
+FOREST_FALLBACK_MARKER = "FOREST_FALLBACK_USED"
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,7 @@ class ConsolidationConfig:
     min_functions: int = 3
     min_files: int = 2
     max_examples: int = 5
+    require_forest: bool = False
 
 
 def _coerce_argv(argv: list[str] | None) -> list[str]:
@@ -148,10 +150,21 @@ def _load_consolidation_config(root: Path) -> ConsolidationConfig:
         except (TypeError, ValueError):
             return default
 
+    def _coerce_bool(key: str, default: bool) -> bool:
+        value = section.get(key, default)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int):
+            return value != 0
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return default
+
     return ConsolidationConfig(
         min_functions=_coerce_int("min_functions", 3),
         min_files=_coerce_int("min_files", 2),
         max_examples=_coerce_int("max_examples", 5),
+        require_forest=_coerce_bool("require_forest", False),
     )
 
 
@@ -734,6 +747,7 @@ def _write_consolidation_report(
     value_surfaces: list[DecisionSurface],
     lint_entries: list[LintEntry],
     config: ConsolidationConfig,
+    fallback_notes: list[str] | None = None,
 ) -> None:
     boundary_surfaces = [s for s in decision_surfaces if s.is_boundary]
     param_to_surfaces: dict[str, list[DecisionSurface]] = defaultdict(list)
@@ -760,6 +774,11 @@ def _write_consolidation_report(
         f"- Higher-order thresholds: min_functions={config.min_functions}, "
         f"min_files={config.min_files}, max_examples={config.max_examples}"
     )
+    lines.append(f"- Forest required: {config.require_forest}")
+    if fallback_notes:
+        lines.append(
+            f"- {FOREST_FALLBACK_MARKER}: " + "; ".join(sorted(set(fallback_notes)))
+        )
     if lint_by_code:
         lines.append("- Lint codes: " + ", ".join(
             f"{code}={count}" for code, count in lint_by_code.most_common()
@@ -888,11 +907,19 @@ def _decision_tiers_command(args: argparse.Namespace) -> int:
 
 
 def _consolidation_command(args: argparse.Namespace) -> int:
-    root = args.root
-    snapshot_dir = _latest_snapshot_dir(root)
-    decision_path = args.decision or (snapshot_dir / "decision_snapshot.json")
-    lint_path = args.lint or (snapshot_dir / "lint.txt")
-    output_path = args.output or (snapshot_dir / "consolidation_report.md")
+    root = Path(args.root)
+    decision_path = Path(args.decision) if args.decision is not None else None
+    lint_path = Path(args.lint) if args.lint is not None else None
+    output_path = Path(args.output) if args.output is not None else None
+    snapshot_dir = None
+    if decision_path is None or lint_path is None or output_path is None:
+        snapshot_dir = _latest_snapshot_dir(root)
+    if decision_path is None:
+        decision_path = snapshot_dir / "decision_snapshot.json"
+    if lint_path is None:
+        lint_path = snapshot_dir / "lint.txt"
+    if output_path is None:
+        output_path = snapshot_dir / "consolidation_report.md"
 
     config = _load_consolidation_config(root)
     decision_obj = json.loads(decision_path.read_text())
@@ -902,15 +929,34 @@ def _consolidation_command(args: argparse.Namespace) -> int:
 
     decision_surfaces: list[DecisionSurface]
     value_surfaces: list[DecisionSurface]
+    fallback_notes: list[str] = []
+    forest_used = False
     if isinstance(forest_obj, dict):
         decision_surfaces, value_surfaces = _surfaces_from_forest(forest_obj)
+        if decision_surfaces or value_surfaces or (not decision_lines and not value_lines):
+            forest_used = True
+        else:
+            fallback_notes.append("forest missing decision/value surface alts")
     else:
+        fallback_notes.append("missing forest payload")
+
+    if not forest_used:
+        if config.require_forest:
+            raise SystemExit(
+                "forest-only mode enabled but decision snapshot forest is missing/incomplete; "
+                "rerun gabion audit with --emit-decision-snapshot or set require_forest=false"
+            )
         decision_surfaces = _parse_surfaces(decision_lines, value_encoded=False)
         value_surfaces = _parse_surfaces(value_lines, value_encoded=True)
     lint_entries = _parse_lint_entries(lint_path.read_text().splitlines())
 
     _write_consolidation_report(
-        output_path, decision_surfaces, value_surfaces, lint_entries, config
+        output_path,
+        decision_surfaces,
+        value_surfaces,
+        lint_entries,
+        config,
+        fallback_notes=fallback_notes if not forest_used else None,
     )
     if args.json_output is not None:
         suggestions = _build_suggestions(decision_surfaces, value_surfaces, config)
