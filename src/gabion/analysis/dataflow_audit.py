@@ -2445,7 +2445,7 @@ def _collect_never_invariants(
                         witness_ref = witness.get("deadness_id")
                         environment_ref = witness.get("environment") or {}
                         break
-                    if status == "PROVEN_UNREACHABLE" and environment_ref is None:
+                    if status == "PROVEN_UNREACHABLE" and not environment_ref:
                         environment_ref = env
                 elif reachability is True:
                     status = "VIOLATION"
@@ -2650,11 +2650,8 @@ def _parse_lint_location(line: str) -> tuple[str, int, int, str] | None:
     if not match:
         return None
     path = match.group("path")
-    try:
-        lineno = int(match.group("line"))
-        col = int(match.group("col"))
-    except ValueError:
-        return None
+    lineno = int(match.group("line"))
+    col = int(match.group("col"))
     remainder = line[match.end() :].lstrip(": ").strip()
     if remainder.startswith("-"):
         trimmed = remainder[1:]

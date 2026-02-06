@@ -58,11 +58,8 @@ def _parse_lint_line(line: str) -> dict[str, object] | None:
     match = _LINT_RE.match(line.strip())
     if not match:
         return None
-    try:
-        line_no = int(match.group("line"))
-        col_no = int(match.group("col"))
-    except ValueError:
-        return None
+    line_no = int(match.group("line"))
+    col_no = int(match.group("col"))
     rest = match.group("rest").strip()
     if not rest:
         return None
@@ -142,6 +139,24 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
         typer.echo(payload)
     else:
         Path(target).write_text(payload + "\n")
+
+
+def _emit_lint_outputs(
+    lint_lines: list[str],
+    *,
+    lint: bool,
+    lint_jsonl: Optional[Path],
+    lint_sarif: Optional[Path],
+) -> None:
+    if lint:
+        for line in lint_lines:
+            typer.echo(line)
+    if lint_jsonl or lint_sarif:
+        entries = _collect_lint_entries(lint_lines)
+        if lint_jsonl is not None:
+            _write_lint_jsonl(str(lint_jsonl), entries)
+        if lint_sarif is not None:
+            _write_lint_sarif(str(lint_sarif), entries)
 
 
 def build_check_payload(
@@ -419,15 +434,12 @@ def check(
         lint=lint_enabled,
     )
     lint_lines = result.get("lint_lines", []) or []
-    if lint:
-        for line in lint_lines:
-            typer.echo(line)
-    if lint_jsonl or lint_sarif:
-        entries = _collect_lint_entries(lint_lines)
-        if lint_jsonl is not None:
-            _write_lint_jsonl(str(lint_jsonl), entries)
-        if lint_sarif is not None:
-            _write_lint_sarif(str(lint_sarif), entries)
+    _emit_lint_outputs(
+        lint_lines,
+        lint=lint,
+        lint_jsonl=lint_jsonl,
+        lint_sarif=lint_sarif,
+    )
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -448,15 +460,12 @@ def _dataflow_audit(
         runner=runner,
     )
     lint_lines = result.get("lint_lines", []) or []
-    if opts.lint:
-        for line in lint_lines:
-            typer.echo(line)
-    if opts.lint_jsonl or opts.lint_sarif:
-        entries = _collect_lint_entries(lint_lines)
-        if opts.lint_jsonl is not None:
-            _write_lint_jsonl(str(opts.lint_jsonl), entries)
-        if opts.lint_sarif is not None:
-            _write_lint_sarif(str(opts.lint_sarif), entries)
+    _emit_lint_outputs(
+        lint_lines,
+        lint=opts.lint,
+        lint_jsonl=opts.lint_jsonl,
+        lint_sarif=opts.lint_sarif,
+    )
     if opts.type_audit:
         suggestions = result.get("type_suggestions", [])
         ambiguities = result.get("type_ambiguities", [])

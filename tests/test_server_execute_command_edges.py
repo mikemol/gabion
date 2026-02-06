@@ -252,6 +252,21 @@ def test_execute_command_fail_on_type_ambiguities(tmp_path: Path) -> None:
     assert result.get("type_ambiguities")
 
 
+def test_execute_command_includes_lint_lines(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "lint": True,
+        },
+    )
+    assert "lint_lines" in result
+
+
 def test_execute_command_report_baseline_write(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)

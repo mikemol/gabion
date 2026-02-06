@@ -16,3 +16,10 @@ def test_paramset_packed_reuse() -> None:
 
     alts = [alt for alt in forest.alts if alt.kind in {"DecisionSurface", "ValueDecisionSurface"}]
     assert len(alts) == 2
+
+
+def test_add_site_records_span() -> None:
+    forest = Forest()
+    site = forest.add_site("mod.py", "mod.fn", span=(1, 2, 3, 4))
+    node = forest.nodes[site]
+    assert node.meta["span"] == [1, 2, 3, 4]

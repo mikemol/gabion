@@ -332,6 +332,32 @@ def test_run_fingerprint_outputs_write_files(tmp_path: Path) -> None:
     assert handledness_path.exists()
 
 
+def test_run_lint_outputs(capsys, tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "never_mod.py"
+    sample.write_text(
+        "from gabion.invariants import never\n"
+        "\n"
+        "def f(flag):\n"
+        "    if flag:\n"
+        "        never('boom')\n"
+    )
+    report_path = tmp_path / "report.md"
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--report",
+            str(report_path),
+            "--lint",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "GABION_NEVER_INVARIANT" in out
+    assert code == 0
+
+
 def test_run_decision_snapshot_writes_file(tmp_path: Path) -> None:
     dataflow_audit = _load()
     sample = tmp_path / "typed.py"

@@ -34,3 +34,24 @@ def test_decision_tier_map_normalizes_inputs() -> None:
     assert tiers["c"] == 2
     assert tiers["d"] == 2
     assert tiers["e"] == 3
+
+
+def test_config_helpers_cover_bool_and_lists() -> None:
+    assert config._normalize_name_list(["a, b", "c"]) == ["a", "b", "c"]
+    assert config._as_bool(True) is True
+    assert config._as_bool(0) is False
+    assert config._as_bool(2) is True
+    assert config._as_bool("yes") is True
+    assert config._as_bool("nope") is False
+
+    assert config.decision_require_tiers(None) is False
+    assert config.decision_require_tiers("bad") is False
+    assert config.decision_require_tiers({"require_tiers": "on"}) is True
+
+    assert config.decision_ignore_list(None) == []
+    assert config.decision_ignore_list("bad") == []
+    assert config.decision_ignore_list({"ignore_params": ["a", "b"]}) == ["a", "b"]
+
+    assert config.exception_never_list(None) == []
+    assert config.exception_never_list("bad") == []
+    assert config.exception_never_list({"never": "A, B"}) == ["A", "B"]

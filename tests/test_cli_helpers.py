@@ -18,6 +18,49 @@ def test_split_csv_helpers() -> None:
     assert cli._split_csv(" ,") is None
 
 
+def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
+    good_line = "mod.py:10:2: GABION_CODE something happened"
+    parsed = cli._parse_lint_line(good_line)
+    assert parsed is not None
+    assert parsed["code"] == "GABION_CODE"
+    assert cli._parse_lint_line("bad line") is None
+    assert cli._parse_lint_line("mod.py:1:2:") is None
+
+    entries = cli._collect_lint_entries([good_line, "bad"])
+    assert len(entries) == 1
+
+    cli._write_lint_jsonl("-", entries)
+    out = capsys.readouterr().out
+    assert "GABION_CODE" in out
+
+    jsonl_path = tmp_path / "lint.jsonl"
+    cli._write_lint_jsonl(str(jsonl_path), entries)
+    assert jsonl_path.read_text().strip()
+
+    sarif_path = tmp_path / "lint.sarif"
+    cli._write_lint_sarif(str(sarif_path), entries)
+    sarif_text = sarif_path.read_text()
+    assert "sarif-2.1.0.json" in sarif_text
+    cli._write_lint_sarif("-", entries)
+    assert "sarif-2.1.0.json" in capsys.readouterr().out
+
+
+def test_emit_lint_outputs_writes_artifacts(tmp_path: Path, capsys) -> None:
+    lines = ["mod.py:1:1: GABION_CODE message"]
+    jsonl_path = tmp_path / "lint.jsonl"
+    sarif_path = tmp_path / "lint.sarif"
+    cli._emit_lint_outputs(
+        lines,
+        lint=True,
+        lint_jsonl=jsonl_path,
+        lint_sarif=sarif_path,
+    )
+    out = capsys.readouterr().out
+    assert "GABION_CODE" in out
+    assert jsonl_path.exists()
+    assert sarif_path.exists()
+
+
 def test_build_refactor_payload_input_payload_passthrough() -> None:
     payload = {"protocol_name": "Bundle", "bundle": ["a"]}
     assert cli.build_refactor_payload(
@@ -111,6 +154,40 @@ def test_dataflow_audit_type_audit_empty_findings() -> None:
     with pytest.raises(typer.Exit) as exc:
         cli._dataflow_audit(request)
     assert exc.value.exit_code == 0
+
+
+def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "lint_lines": ["mod.py:1:1: GABION_CODE message"],
+        }
+
+    jsonl_path = tmp_path / "lint.jsonl"
+    sarif_path = tmp_path / "lint.sarif"
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=[
+            "sample.py",
+            "--lint",
+            "--lint-jsonl",
+            str(jsonl_path),
+            "--lint-sarif",
+            str(sarif_path),
+        ],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    out = capsys.readouterr().out
+    assert "GABION_CODE" in out
+    assert jsonl_path.exists()
+    assert sarif_path.exists()
 
 
 def test_dataflow_audit_emits_structure_tree(capsys) -> None:
