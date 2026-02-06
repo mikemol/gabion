@@ -16,6 +16,19 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content)
 
 
+def _forest_for_groups(
+    da, groups_by_path: dict[Path, dict[str, list[set[str]]]], project_root: Path
+):
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=sorted(groups_by_path),
+        project_root=project_root,
+    )
+    return forest
+
+
 def test_emit_report_empty_groups() -> None:
     da = _load()
     report, violations = da._emit_report({}, 3)
@@ -45,9 +58,11 @@ def test_emit_report_component_summary(tmp_path: Path) -> None:
         path: {"f": [set(["a", "b"]), set(["x", "y"])]},
         extra_path: {},
     }
+    forest = _forest_for_groups(da, groups_by_path, tmp_path)
     report, violations = da._emit_report(
         groups_by_path,
         3,
+        forest=forest,
         type_suggestions=["f.a can tighten to int"],
         type_ambiguities=["f.b downstream types conflict: ['int', 'str']"],
         constant_smells=["mod.py:f.a only observed constant 1 across 1 non-test call(s)"],
@@ -114,9 +129,11 @@ def test_emit_report_fingerprint_matches_and_synth(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     _write(path, "def f(a, b):\n    return a\n")
     groups_by_path = {path: {"f": [set(["a", "b"])]}}
+    forest = _forest_for_groups(da, groups_by_path, tmp_path)
     report, _ = da._emit_report(
         groups_by_path,
         3,
+        forest=forest,
         fingerprint_matches=["mod.py:f bundle ['a', 'b'] fingerprint {base=2} matches: user_context"],
         fingerprint_synth=["synth registry synth@1:"],
         invariant_propositions=[
@@ -253,33 +270,36 @@ def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     _write(path, "def f(a, b):\n    return a\n")
     groups_by_path = {path: {"f": [set(["a", "b"])]}}
-    report, _ = da._emit_report(groups_by_path, 0)
+    forest = _forest_for_groups(da, groups_by_path, tmp_path)
+    report, _ = da._emit_report(groups_by_path, 0, forest=forest)
     assert "Showing top 0 components" in report
 
 
 def test_render_mermaid_component_declared_none_documented(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
-    fn_key = f"fn::{path}::f"
-    bundle_a = "bundle::a"
-    bundle_b = "bundle::b"
+    fn_id = da.NodeId(kind="FunctionSite", key=(path.name, "f"))
+    bundle_id = da.NodeId(kind="ParamSet", key=("a", "b"))
     nodes = {
-        fn_key: {"kind": "fn", "label": "f"},
-        bundle_a: {"kind": "bundle", "label": "a,b"},
-        bundle_b: {"kind": "bundle", "label": "a,b"},
+        fn_id: {"kind": "fn", "label": "mod.py:f", "path": path.name, "qual": "f"},
+        bundle_id: {"kind": "bundle", "label": "a, b"},
     }
-    bundle_map = {bundle_a: {"a", "b"}, bundle_b: {"a", "b"}}
-    adj = {fn_key: {bundle_a, bundle_b}}
-    component = [fn_key, bundle_a, bundle_b]
-    config_bundles_by_path = {tmp_path / "other.py": {"Cfg": {"x", "y"}}}
-    documented_bundles_by_path = {path: {("a", "b")}}
+    bundle_map = {bundle_id: ("a", "b")}
+    bundle_counts = {("a", "b"): 2}
+    adj = {fn_id: {bundle_id}, bundle_id: {fn_id}}
+    component = [fn_id, bundle_id]
+    declared_global = {("x", "y")}
+    declared_by_path = {"other.py": {("x", "y")}}
+    documented_by_path = {path.name: {("a", "b")}}
     _, summary = da._render_mermaid_component(
         nodes,
         bundle_map,
+        bundle_counts,
         adj,
         component,
-        config_bundles_by_path,
-        documented_bundles_by_path,
+        declared_global,
+        declared_by_path,
+        documented_by_path,
     )
     assert "Declared Config bundles: none found for this component." in summary
     assert "Documented bundles" in summary

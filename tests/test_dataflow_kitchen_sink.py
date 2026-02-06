@@ -156,11 +156,13 @@ def test_kitchen_sink_analysis_outputs(tmp_path: Path) -> None:
         type_audit_max=5,
         include_constant_smells=True,
         include_unused_arg_smells=True,
+        include_bundle_forest=True,
         config=config,
     )
     report, violations = render_report(
         analysis.groups_by_path,
         5,
+        forest=analysis.forest,
         type_suggestions=analysis.type_suggestions,
         type_ambiguities=analysis.type_ambiguities,
         constant_smells=analysis.constant_smells,
@@ -169,7 +171,7 @@ def test_kitchen_sink_analysis_outputs(tmp_path: Path) -> None:
     assert "Dataflow grammar" in report or "dataflow-grammar" in report
     assert isinstance(violations, list)
 
-    dot = render_dot(analysis.groups_by_path)
+    dot = render_dot(analysis.forest)
     assert "digraph" in dot
 
     plan = build_synthesis_plan(

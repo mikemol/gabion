@@ -130,9 +130,17 @@ def test_emit_report_includes_value_rewrites(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     path.write_text("def f(a):\n    return a\n")
     groups_by_path = {path: {"f": [set(["a", "b"])]}}
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[path],
+        project_root=tmp_path,
+    )
     report, _ = da._emit_report(
         groups_by_path,
         1,
+        forest=forest,
         value_decision_rewrites=["mod.py:f consider rebranching value-encoded decision params: a (min/max)"],
     )
     assert "Value-encoded decision rebranch suggestions" in report
@@ -185,9 +193,17 @@ def test_emit_report_includes_decision_surfaces(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     path.write_text("def f(a):\n    return a\n")
     groups_by_path = {path: {"f": [set(["a", "b"])]}}
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[path],
+        project_root=tmp_path,
+    )
     report, _ = da._emit_report(
         groups_by_path,
         1,
+        forest=forest,
         decision_surfaces=["mod.py:f decision surface params: a"],
     )
     assert "Decision surface candidates" in report

@@ -299,6 +299,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
         include_lint_lines=lint,
+        include_bundle_forest=True,
         config=config,
     )
 
@@ -369,7 +370,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 Path(refactor_plan_json).write_text(payload_json)
 
     if dot_path:
-        dot = render_dot(analysis.groups_by_path)
+        dot = render_dot(analysis.forest)
         if dot_path == "-":
             response["dot"] = dot
         else:
@@ -412,6 +413,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         report, violations = render_report(
             analysis.groups_by_path,
             max_components,
+            forest=analysis.forest,
             bundle_sites_by_path=analysis.bundle_sites_by_path,
             type_suggestions=analysis.type_suggestions if include_type_section else None,
             type_ambiguities=analysis.type_ambiguities if include_type_section else None,
@@ -461,6 +463,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         violations = compute_violations(
             analysis.groups_by_path,
             max_components,
+            forest=analysis.forest,
             type_suggestions=analysis.type_suggestions if type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
             decision_warnings=analysis.decision_warnings,

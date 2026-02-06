@@ -59,11 +59,13 @@ def test_config_dataclass_declares_bundle_outside_config_py(tmp_path: Path) -> N
         type_audit_max=0,
         include_constant_smells=False,
         include_unused_arg_smells=False,
+        include_bundle_forest=True,
         config=config,
     )
     violations = compute_violations(
         analysis.groups_by_path,
         max_components=10,
+        forest=analysis.forest,
     )
     joined = "\n".join(violations)
     assert "a, b" not in joined

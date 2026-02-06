@@ -456,9 +456,29 @@ def test_render_helpers_and_baseline(tmp_path: Path) -> None:
 def test_emit_report_tier2_violation(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "a.py"
-    target.write_text("def caller(a, b):\n    return a\n")
-    groups_by_path = {target: {"caller": [{"a", "b"}, {"a", "b"}]}}
-    report, violations = da._emit_report(groups_by_path, max_components=10)
+    target.write_text(
+        "def caller(a, b):\n"
+        "    return a\n"
+        "\n"
+        "def caller2(a, b):\n"
+        "    return b\n"
+    )
+    groups_by_path = {
+        target: {
+            "caller": [{"a", "b"}],
+            "caller2": [{"a", "b"}],
+        }
+    }
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[target],
+        project_root=tmp_path,
+    )
+    report, violations = da._emit_report(
+        groups_by_path, max_components=10, forest=forest
+    )
     assert "tier-2" in report
     assert violations
 

@@ -35,7 +35,7 @@ from gabion.analysis.evidence import (
 )
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
-from gabion.analysis.aspf import Forest, NodeId
+from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -2590,52 +2590,39 @@ def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
     return lines
 
 
+def _has_bundles(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> bool:
+    for groups in groups_by_path.values():
+        for bundles in groups.values():
+            if bundles:
+                return True
+    return False
+
+
 def _collect_bundle_evidence_lines(
     *,
+    forest: Forest | None,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
 ) -> list[str]:
-    if not groups_by_path:
+    if not groups_by_path or not _has_bundles(groups_by_path) or forest is None:
         return []
-    nodes, adj, bundle_map = _component_graph(groups_by_path)
-    components = _connected_components(nodes, adj)
-    common = os.path.commonpath([str(p) for p in groups_by_path])
-    root = Path(common)
     file_paths = sorted(groups_by_path)
-    config_bundles_by_path = _collect_config_bundles(file_paths)
-    declared_global: set[tuple[str, ...]] = set()
-    for bundles in config_bundles_by_path.values():
-        for fields in bundles.values():
-            declared_global.add(tuple(sorted(fields)))
-    symbol_table = _build_symbol_table(
-        file_paths,
-        root,
-        external_filter=True,
-    )
-    dataclass_registry = _collect_dataclass_registry(
-        file_paths,
-        project_root=root,
-    )
-    documented_bundles_by_path: dict[Path, set[tuple[str, ...]]] = {}
-    for path in file_paths:
-        documented = _iter_documented_bundles(path)
-        promoted = _iter_dataclass_call_bundles(
-            path,
-            project_root=root,
-            symbol_table=symbol_table,
-            dataclass_registry=dataclass_registry,
-        )
-        documented_bundles_by_path[path] = documented | promoted
+    projection = _bundle_projection_from_forest(forest, file_paths=file_paths)
+    components = _connected_components(projection.nodes, projection.adj)
+    bundle_site_index = _bundle_site_index(groups_by_path, bundle_sites_by_path)
     evidence_lines: list[str] = []
     for comp in components:
         evidence = _render_component_callsite_evidence(
             component=comp,
-            nodes=nodes,
-            bundle_map=bundle_map,
-            documented_bundles_by_path=documented_bundles_by_path,
-            declared_global=declared_global,
-            bundle_sites_by_path=bundle_sites_by_path,
-            root=root,
+            nodes=projection.nodes,
+            bundle_map=projection.bundle_map,
+            bundle_counts=projection.bundle_counts,
+            adj=projection.adj,
+            documented_by_path=projection.documented_by_path,
+            declared_global=projection.declared_global,
+            bundle_site_index=bundle_site_index,
+            root=projection.root,
+            path_lookup=projection.path_lookup,
         )
         if evidence:
             evidence_lines.extend(evidence)
@@ -2727,6 +2714,7 @@ def _populate_bundle_forest(
 
 def _compute_lint_lines(
     *,
+    forest: Forest | None,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
     type_callsite_evidence: list[str],
@@ -2737,6 +2725,7 @@ def _compute_lint_lines(
 ) -> list[str]:
     lint_lines: list[str] = []
     bundle_evidence = _collect_bundle_evidence_lines(
+        forest=forest,
         groups_by_path=groups_by_path,
         bundle_sites_by_path=bundle_sites_by_path,
     )
@@ -4986,65 +4975,159 @@ def _iter_dataclass_call_bundles(
     return bundles
 
 
-def _emit_dot(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> str:
+@dataclass(frozen=True)
+class BundleProjection:
+    nodes: dict[NodeId, dict[str, str]]
+    adj: dict[NodeId, set[NodeId]]
+    bundle_map: dict[NodeId, tuple[str, ...]]
+    bundle_counts: dict[tuple[str, ...], int]
+    declared_global: set[tuple[str, ...]]
+    declared_by_path: dict[str, set[tuple[str, ...]]]
+    documented_by_path: dict[str, set[tuple[str, ...]]]
+    root: Path
+    path_lookup: dict[str, Path]
+
+
+def _alt_input(alt: Alt, kind: str) -> NodeId | None:
+    for node_id in alt.inputs:
+        if node_id.kind == kind:
+            return node_id
+    return None
+
+
+def _paramset_key(forest: Forest, paramset_id: NodeId) -> tuple[str, ...]:
+    node = forest.nodes.get(paramset_id)
+    if node is not None:
+        params = node.meta.get("params")
+        if isinstance(params, list):
+            return tuple(str(p) for p in params)
+    return tuple(str(p) for p in paramset_id.key)
+
+
+def _bundle_projection_from_forest(
+    forest: Forest,
+    *,
+    file_paths: list[Path],
+) -> BundleProjection:
+    nodes: dict[NodeId, dict[str, str]] = {}
+    adj: dict[NodeId, set[NodeId]] = defaultdict(set)
+    bundle_map: dict[NodeId, tuple[str, ...]] = {}
+    bundle_counts: dict[tuple[str, ...], int] = defaultdict(int)
+    for alt in forest.alts:
+        if alt.kind != "SignatureBundle":
+            continue
+        site_id = _alt_input(alt, "FunctionSite")
+        paramset_id = _alt_input(alt, "ParamSet")
+        if site_id is None or paramset_id is None:
+            continue
+        site_node = forest.nodes.get(site_id)
+        if site_node is None:
+            continue
+        path = str(site_node.meta.get("path", "?"))
+        qual = str(site_node.meta.get("qual", "?"))
+        nodes[site_id] = {"kind": "fn", "label": f"{path}:{qual}", "path": path, "qual": qual}
+        bundle_key = _paramset_key(forest, paramset_id)
+        nodes[paramset_id] = {
+            "kind": "bundle",
+            "label": ", ".join(bundle_key),
+        }
+        bundle_map[paramset_id] = bundle_key
+        adj[site_id].add(paramset_id)
+        adj[paramset_id].add(site_id)
+        bundle_counts[bundle_key] += 1
+
+    declared_global: set[tuple[str, ...]] = set()
+    declared_by_path: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+    documented_by_path: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+    for alt in forest.alts:
+        paramset_id = _alt_input(alt, "ParamSet")
+        if paramset_id is None:
+            continue
+        bundle_key = _paramset_key(forest, paramset_id)
+        if alt.kind == "ConfigBundle":
+            declared_global.add(bundle_key)
+            path = str(alt.evidence.get("path") or "")
+            if path:
+                declared_by_path[path].add(bundle_key)
+        elif alt.kind in ("MarkerBundle", "DataclassCallBundle"):
+            path = str(alt.evidence.get("path") or "")
+            if path:
+                documented_by_path[path].add(bundle_key)
+
+    if file_paths:
+        root = Path(os.path.commonpath([str(p) for p in file_paths]))
+    else:
+        root = Path(".")
+    path_lookup: dict[str, Path] = {}
+    for path in file_paths:
+        path_lookup.setdefault(path.name, path)
+    return BundleProjection(
+        nodes=nodes,
+        adj=adj,
+        bundle_map=bundle_map,
+        bundle_counts=bundle_counts,
+        declared_global=declared_global,
+        declared_by_path=declared_by_path,
+        documented_by_path=documented_by_path,
+        root=root,
+        path_lookup=path_lookup,
+    )
+
+
+def _bundle_site_index(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
+) -> dict[tuple[str, str, tuple[str, ...]], list[list[JSONObject]]]:
+    index: dict[tuple[str, str, tuple[str, ...]], list[list[JSONObject]]] = {}
+    for path, groups in groups_by_path.items():
+        fn_sites = bundle_sites_by_path.get(path, {})
+        for fn_name, bundles in groups.items():
+            sites = fn_sites.get(fn_name, [])
+            for idx, bundle in enumerate(bundles):
+                bundle_key = tuple(sorted(bundle))
+                entry = index.setdefault((path.name, fn_name, bundle_key), [])
+                if idx < len(sites):
+                    entry.append(sites[idx])
+    return index
+
+
+def _emit_dot(forest: Forest | None) -> str:
+    if forest is None:
+        raise RuntimeError("forest required for dataflow dot output")
+    projection = _bundle_projection_from_forest(forest, file_paths=[])
     lines = [
         "digraph dataflow_grammar {",
         "  rankdir=LR;",
         "  node [fontsize=10];",
     ]
-    for path, groups in groups_by_path.items():
-        file_id = str(path).replace("/", "_").replace(".", "_")
-        lines.append(f"  subgraph cluster_{file_id} {{")
-        lines.append(f"    label=\"{path}\";")
-        for fn, bundles in groups.items():
-            if not bundles:
-                continue
-            fn_id = f"fn_{file_id}_{fn}"
-            lines.append(f"    {fn_id} [shape=box,label=\"{fn}\"];")
-            for idx, bundle in enumerate(bundles):
-                bundle_id = f"b_{file_id}_{fn}_{idx}"
-                label = ", ".join(sorted(bundle))
+    for node_id, meta in projection.nodes.items():
+        label = meta["label"].replace('"', "'")
+        if meta["kind"] == "fn":
+            lines.append(f'  {abs(hash(node_id.sort_key()))} [shape=box,label="{label}"];')
+        else:
+            lines.append(f'  {abs(hash(node_id.sort_key()))} [shape=ellipse,label="{label}"];')
+    for src, targets in projection.adj.items():
+        for dst in targets:
+            if projection.nodes.get(src, {}).get("kind") == "fn":
                 lines.append(
-                    f"    {bundle_id} [shape=ellipse,label=\"{label}\"];"
+                    f"  {abs(hash(src.sort_key()))} -> {abs(hash(dst.sort_key()))};"
                 )
-                lines.append(f"    {fn_id} -> {bundle_id};")
-        lines.append("  }")
     lines.append("}")
     return "\n".join(lines)
 
 
-def _component_graph(groups_by_path: dict[Path, dict[str, list[set[str]]]]):
-    nodes: dict[str, dict[str, str]] = {}
-    adj: dict[str, set[str]] = defaultdict(set)
-    bundle_map: dict[str, set[str]] = {}
-    for path, groups in groups_by_path.items():
-        file_id = str(path)
-        for fn, bundles in groups.items():
-            if not bundles:
-                continue
-            fn_id = f"fn::{file_id}::{fn}"
-            nodes[fn_id] = {"kind": "fn", "label": f"{path.name}:{fn}"}
-            for idx, bundle in enumerate(bundles):
-                bundle_id = f"b::{file_id}::{fn}::{idx}"
-                nodes[bundle_id] = {
-                    "kind": "bundle",
-                    "label": ", ".join(sorted(bundle)),
-                }
-                bundle_map[bundle_id] = bundle
-                adj[fn_id].add(bundle_id)
-                adj[bundle_id].add(fn_id)
-    return nodes, adj, bundle_map
-
-
-def _connected_components(nodes: dict[str, dict[str, str]], adj: dict[str, set[str]]) -> list[list[str]]:
-    seen: set[str] = set()
-    comps: list[list[str]] = []
+def _connected_components(
+    nodes: dict[NodeId, dict[str, str]],
+    adj: dict[NodeId, set[NodeId]],
+) -> list[list[NodeId]]:
+    seen: set[NodeId] = set()
+    comps: list[list[NodeId]] = []
     for node in nodes:
         if node in seen:
             continue
-        q: deque[str] = deque([node])
+        q: deque[NodeId] = deque([node])
         seen.add(node)
-        comp: list[str] = []
+        comp: list[NodeId] = []
         while q:
             curr = q.popleft()
             comp.append(curr)
@@ -5052,69 +5135,61 @@ def _connected_components(nodes: dict[str, dict[str, str]], adj: dict[str, set[s
                 if nxt not in seen:
                     seen.add(nxt)
                     q.append(nxt)
-        comps.append(sorted(comp))
+        comps.append(sorted(comp, key=lambda node_id: node_id.sort_key()))
     return comps
 
 
 def _render_mermaid_component(
-    nodes: dict[str, dict[str, str]],
-    bundle_map: dict[str, set[str]],
-    adj: dict[str, set[str]],
-    component: list[str],
-    config_bundles_by_path: dict[Path, dict[str, set[str]]],
-    documented_bundles_by_path: dict[Path, set[tuple[str, ...]]],
+    nodes: dict[NodeId, dict[str, str]],
+    bundle_map: dict[NodeId, tuple[str, ...]],
+    bundle_counts: dict[tuple[str, ...], int],
+    adj: dict[NodeId, set[NodeId]],
+    component: list[NodeId],
+    declared_global: set[tuple[str, ...]],
+    declared_by_path: dict[str, set[tuple[str, ...]]],
+    documented_by_path: dict[str, set[tuple[str, ...]]],
 ) -> tuple[str, str]:
-    # dataflow-bundle: adj, config_bundles_by_path, documented_bundles_by_path, nodes
+    # dataflow-bundle: adj, declared_by_path, documented_by_path, nodes
     lines = ["```mermaid", "flowchart LR"]
     fn_nodes = [n for n in component if nodes[n]["kind"] == "fn"]
     bundle_nodes = [n for n in component if nodes[n]["kind"] == "bundle"]
     for n in fn_nodes:
         label = nodes[n]["label"].replace('"', "'")
-        lines.append(f'  {abs(hash(n))}["{label}"]')
+        lines.append(f'  {abs(hash(n.sort_key()))}["{label}"]')
     for n in bundle_nodes:
         label = nodes[n]["label"].replace('"', "'")
-        lines.append(f'  {abs(hash(n))}(({label}))')
+        lines.append(f'  {abs(hash(n.sort_key()))}(({label}))')
     for n in component:
         for nxt in adj.get(n, ()):
             if nxt in component and nodes[n]["kind"] == "fn":
-                lines.append(f"  {abs(hash(n))} --> {abs(hash(nxt))}")
+                lines.append(
+                    f"  {abs(hash(n.sort_key()))} --> {abs(hash(nxt.sort_key()))}"
+                )
     lines.append("  classDef fn fill:#cfe8ff,stroke:#2b6cb0,stroke-width:1px;")
     lines.append("  classDef bundle fill:#ffe9c6,stroke:#c05621,stroke-width:1px;")
     if fn_nodes:
         lines.append(
             "  class "
-            + ",".join(str(abs(hash(n))) for n in fn_nodes)
+            + ",".join(str(abs(hash(n.sort_key()))) for n in fn_nodes)
             + " fn;"
         )
     if bundle_nodes:
         lines.append(
             "  class "
-            + ",".join(str(abs(hash(n))) for n in bundle_nodes)
+            + ",".join(str(abs(hash(n.sort_key()))) for n in bundle_nodes)
             + " bundle;"
         )
     lines.append("```")
 
     observed = [bundle_map[n] for n in bundle_nodes if n in bundle_map]
-    bundle_counts: dict[tuple[str, ...], int] = defaultdict(int)
-    for bundle in observed:
-        bundle_counts[tuple(sorted(bundle))] += 1
-    component_paths: set[Path] = set()
+    component_paths: set[str] = set()
     for n in fn_nodes:
-        parts = n.split("::", 2)
-        if len(parts) == 3:
-            component_paths.add(Path(parts[1]))
-    declared_global = set()
-    for bundles in config_bundles_by_path.values():
-        for fields in bundles.values():
-            declared_global.add(tuple(sorted(fields)))
+        component_paths.add(nodes[n]["path"])
     declared_local = set()
     documented = set()
     for path in component_paths:
-        bundles = config_bundles_by_path.get(path)
-        if bundles:
-            for fields in bundles.values():
-                declared_local.add(tuple(sorted(fields)))
-        documented |= documented_bundles_by_path.get(path, set())
+        declared_local |= declared_by_path.get(path, set())
+        documented |= documented_by_path.get(path, set())
     observed_norm = {tuple(sorted(b)) for b in observed}
     observed_only = (
         sorted(observed_norm - declared_global)
@@ -5123,11 +5198,13 @@ def _render_mermaid_component(
     )
     declared_only = sorted(declared_local - observed_norm)
     documented_only = sorted(observed_norm & documented)
+
     def _tier(bundle: tuple[str, ...]) -> str:
         count = bundle_counts.get(bundle, 1)
         if count > 1:
             return "tier-2"
         return "tier-3"
+
     summary_lines = [
         f"Functions: {len(fn_nodes)}",
         f"Observed bundles: {len(observed_norm)}",
@@ -5156,13 +5233,16 @@ def _render_mermaid_component(
 
 def _render_component_callsite_evidence(
     *,
-    component: list[str],
-    nodes: dict[str, dict[str, str]],
-    bundle_map: dict[str, set[str]],
-    documented_bundles_by_path: dict[Path, set[tuple[str, ...]]],
+    component: list[NodeId],
+    nodes: dict[NodeId, dict[str, str]],
+    bundle_map: dict[NodeId, tuple[str, ...]],
+    bundle_counts: dict[tuple[str, ...], int],
+    adj: dict[NodeId, set[NodeId]],
+    documented_by_path: dict[str, set[tuple[str, ...]]],
     declared_global: set[tuple[str, ...]],
-    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
+    bundle_site_index: dict[tuple[str, str, tuple[str, ...]], list[list[JSONObject]]],
     root: Path,
+    path_lookup: dict[str, Path],
     max_sites_per_bundle: int = 5,
 ) -> list[str]:
     """Render machine-actionable callsite evidence for undocumented bundles in a component.
@@ -5172,29 +5252,22 @@ def _render_component_callsite_evidence(
     """
     fn_nodes = [n for n in component if nodes[n]["kind"] == "fn"]
     bundle_nodes = [n for n in component if nodes[n]["kind"] == "bundle"]
-    component_paths: set[Path] = set()
+    component_paths: set[str] = set()
     for n in fn_nodes:
-        parts = n.split("::", 2)
-        if len(parts) == 3:
-            component_paths.add(Path(parts[1]))
+        component_paths.add(nodes[n]["path"])
     documented: set[tuple[str, ...]] = set()
     for path in component_paths:
-        documented |= documented_bundles_by_path.get(path, set())
+        documented |= documented_by_path.get(path, set())
 
-    bundle_counts: dict[tuple[str, ...], int] = defaultdict(int)
-    bundle_key_by_node: dict[str, tuple[str, ...]] = {}
+    bundle_key_by_node: dict[NodeId, tuple[str, ...]] = {}
     for n in bundle_nodes:
         key = tuple(sorted(bundle_map[n]))
         bundle_key_by_node[n] = key
-        bundle_counts[key] += 1
 
     # Keep output deterministic and review-friendly.
     ordered_nodes = sorted(
         bundle_key_by_node,
-        key=lambda node_id: (
-            node_id.split("::", 3)[1:],
-            bundle_key_by_node.get(node_id, ()),
-        ),
+        key=lambda node_id: (node_id.sort_key(), bundle_key_by_node.get(node_id, ())),
     )
 
     lines: list[str] = []
@@ -5204,23 +5277,33 @@ def _render_component_callsite_evidence(
         if not observed_only or bundle_key in documented:
             continue
         tier = "tier-2" if bundle_counts.get(bundle_key, 1) > 1 else "tier-3"
-
-        _, file_id, fn_name, idx_str = bundle_id.split("::", 3)
-        bundle_idx = int(idx_str)
-        path = Path(file_id)
-        fn_sites = bundle_sites_by_path[path][fn_name]
-        for site in fn_sites[bundle_idx][:max_sites_per_bundle]:
-            start_line, start_col, end_line, end_col = site["span"]
-            loc = f"{start_line + 1}:{start_col + 1}-{end_line + 1}:{end_col + 1}"
-            rel = _normalize_snapshot_path(path, root)
-            callee = str(site.get("callee") or "")
-            params = ", ".join(site.get("params") or [])
-            slots = ", ".join(site.get("slots") or [])
-            bundle_label = ", ".join(bundle_key)
-            lines.append(
-                f"{rel}:{loc}: {fn_name} -> {callee} forwards {params} "
-                f"({tier}, undocumented bundle: {bundle_label}; slots: {slots})"
-            )
+        adjacent_sites = [
+            node_id
+            for node_id in sorted(adj.get(bundle_id, set()), key=lambda node: node.sort_key())
+            if nodes.get(node_id, {}).get("kind") == "fn"
+        ]
+        for site_id in adjacent_sites:
+            path_name = nodes[site_id]["path"]
+            fn_name = nodes[site_id]["qual"]
+            evidence_sets = bundle_site_index.get((path_name, fn_name, bundle_key), [])
+            if not evidence_sets:
+                continue
+            path = path_lookup.get(path_name, Path(path_name))
+            evidence_entries: list[JSONObject] = []
+            for entry in evidence_sets:
+                evidence_entries.extend(entry)
+            for site in evidence_entries[:max_sites_per_bundle]:
+                start_line, start_col, end_line, end_col = site["span"]
+                loc = f"{start_line + 1}:{start_col + 1}-{end_line + 1}:{end_col + 1}"
+                rel = _normalize_snapshot_path(path, root)
+                callee = str(site.get("callee") or "")
+                params = ", ".join(site.get("params") or [])
+                slots = ", ".join(site.get("slots") or [])
+                bundle_label = ", ".join(bundle_key)
+                lines.append(
+                    f"{rel}:{loc}: {fn_name} -> {callee} forwards {params} "
+                    f"({tier}, undocumented bundle: {bundle_label}; slots: {slots})"
+                )
     return lines
 
 
@@ -5228,6 +5311,7 @@ def _emit_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    forest: Forest | None = None,
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
@@ -5250,9 +5334,12 @@ def _emit_report(
     invariant_propositions: list[InvariantProposition] | None = None,
     value_decision_rewrites: list[str] | None = None,
 ) -> tuple[str, list[str]]:
-    nodes, adj, bundle_map = _component_graph(groups_by_path)
-    components = _connected_components(nodes, adj)
+    has_bundles = _has_bundles(groups_by_path)
     if groups_by_path:
+        if has_bundles and forest is None:
+            raise RuntimeError(
+                "forest required for dataflow grammar report; rerun with forest emission enabled"
+            )
         common = os.path.commonpath([str(p) for p in groups_by_path])
         root = Path(common)
     else:
@@ -5260,30 +5347,21 @@ def _emit_report(
     # Use the analyzed file set (not a repo-wide rglob) so reports and schema
     # audits don't accidentally ingest virtualenvs or unrelated files.
     file_paths = sorted(groups_by_path) if groups_by_path else []
-    config_bundles_by_path = _collect_config_bundles(file_paths)
-    declared_global: set[tuple[str, ...]] = set()
-    for bundles in config_bundles_by_path.values():
-        for fields in bundles.values():
-            declared_global.add(tuple(sorted(fields)))
-    documented_bundles_by_path = {}
-    symbol_table = _build_symbol_table(
-        file_paths,
-        root,
-        external_filter=True,
+    projection = (
+        _bundle_projection_from_forest(forest, file_paths=file_paths)
+        if forest is not None and has_bundles
+        else None
     )
-    dataclass_registry = _collect_dataclass_registry(
-        file_paths,
-        project_root=root,
+    components = (
+        _connected_components(projection.nodes, projection.adj)
+        if projection is not None
+        else []
     )
-    for path in file_paths:
-        documented = _iter_documented_bundles(path)
-        promoted = _iter_dataclass_call_bundles(
-            path,
-            project_root=root,
-            symbol_table=symbol_table,
-            dataclass_registry=dataclass_registry,
-        )
-        documented_bundles_by_path[path] = documented | promoted
+    bundle_site_index = (
+        _bundle_site_index(groups_by_path, bundle_sites_by_path)
+        if bundle_sites_by_path
+        else {}
+    )
     lines = [
         "<!-- dataflow-grammar -->",
         "Dataflow grammar audit (observed forwarding bundles).",
@@ -5300,12 +5378,14 @@ def _emit_report(
         for idx, comp in enumerate(components[:max_components], start=1):
             lines.append(f"### Component {idx}")
             mermaid, summary = _render_mermaid_component(
-                nodes,
-                bundle_map,
-                adj,
+                projection.nodes,
+                projection.bundle_map,
+                projection.bundle_counts,
+                projection.adj,
                 comp,
-                config_bundles_by_path,
-                documented_bundles_by_path,
+                projection.declared_global,
+                projection.declared_by_path,
+                projection.documented_by_path,
             )
             lines.append(mermaid)
             lines.append("")
@@ -5317,12 +5397,15 @@ def _emit_report(
             if bundle_sites_by_path:
                 evidence = _render_component_callsite_evidence(
                     component=comp,
-                    nodes=nodes,
-                    bundle_map=bundle_map,
-                    documented_bundles_by_path=documented_bundles_by_path,
-                    declared_global=declared_global,
-                    bundle_sites_by_path=bundle_sites_by_path,
-                    root=root,
+                    nodes=projection.nodes,
+                    bundle_map=projection.bundle_map,
+                    bundle_counts=projection.bundle_counts,
+                    adj=projection.adj,
+                    documented_by_path=projection.documented_by_path,
+                    declared_global=projection.declared_global,
+                    bundle_site_index=bundle_site_index,
+                    root=projection.root,
+                    path_lookup=projection.path_lookup,
                 )
                 if evidence:
                     lines.append("Callsite evidence (undocumented bundles):")
@@ -6490,6 +6573,7 @@ def _compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    forest: Forest | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -6498,6 +6582,7 @@ def _compute_violations(
     _, violations = _emit_report(
         groups_by_path,
         max_components,
+        forest=forest,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
         constant_smells=[],
@@ -6596,14 +6681,15 @@ def apply_baseline(
     return _apply_baseline(violations, baseline_allowlist)
 
 
-def render_dot(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> str:
-    return _emit_dot(groups_by_path)
+def render_dot(forest: Forest | None) -> str:
+    return _emit_dot(forest)
 
 
 def render_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    forest: Forest | None = None,
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
@@ -6629,6 +6715,7 @@ def render_report(
     return _emit_report(
         groups_by_path,
         max_components,
+        forest=forest,
         bundle_sites_by_path=bundle_sites_by_path,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
@@ -6657,6 +6744,7 @@ def compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
+    forest: Forest | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -6665,6 +6753,7 @@ def compute_violations(
     return _compute_violations(
         groups_by_path,
         max_components,
+        forest=forest,
         type_suggestions=type_suggestions,
         type_ambiguities=type_ambiguities,
         decision_warnings=decision_warnings,
@@ -6690,6 +6779,7 @@ def analyze_paths(
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
     include_lint_lines: bool = False,
+    include_bundle_forest: bool = False,
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
     if config is None:
@@ -6717,7 +6807,12 @@ def analyze_paths(
             )
 
     forest: Forest | None = None
-    if include_decision_surfaces or include_value_decision_surfaces or include_lint_lines:
+    if (
+        include_bundle_forest
+        or include_decision_surfaces
+        or include_value_decision_surfaces
+        or include_lint_lines
+    ):
         forest = Forest()
         _populate_bundle_forest(
             forest,
@@ -6899,6 +6994,7 @@ def analyze_paths(
     lint_lines: list[str] = []
     if include_lint_lines:
         lint_lines = _compute_lint_lines(
+            forest=forest,
             groups_by_path=groups_by_path,
             bundle_sites_by_path=bundle_sites_by_path,
             type_callsite_evidence=type_callsite_evidence,
@@ -7304,6 +7400,9 @@ def run(argv: list[str] | None = None) -> int:
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
         include_lint_lines=bool(args.lint),
+        include_bundle_forest=bool(args.report)
+        or bool(args.dot)
+        or bool(args.fail_on_violations),
         config=config,
     )
 
@@ -7482,7 +7581,7 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 Path(args.refactor_plan_json).write_text(payload)
     if args.dot is not None:
-        dot = _emit_dot(analysis.groups_by_path)
+        dot = _emit_dot(analysis.forest)
         if args.dot.strip() == "-":
             print(dot)
         else:
@@ -7518,6 +7617,7 @@ def run(argv: list[str] | None = None) -> int:
         report, violations = _emit_report(
             analysis.groups_by_path,
             args.max_components,
+            forest=analysis.forest,
             type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
             constant_smells=analysis.constant_smells,
@@ -7585,6 +7685,7 @@ def run(argv: list[str] | None = None) -> int:
         violations = _compute_violations(
             analysis.groups_by_path,
             args.max_components,
+            forest=analysis.forest,
             type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
             decision_warnings=analysis.decision_warnings,

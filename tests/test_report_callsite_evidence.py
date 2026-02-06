@@ -34,11 +34,13 @@ def test_report_includes_callsite_evidence_for_undocumented_bundle(tmp_path: Pat
         type_audit_max=0,
         include_constant_smells=False,
         include_unused_arg_smells=False,
+        include_bundle_forest=True,
         config=config,
     )
     report, _ = render_report(
         analysis.groups_by_path,
         10,
+        forest=analysis.forest,
         bundle_sites_by_path=analysis.bundle_sites_by_path,
     )
     assert "Callsite evidence (undocumented bundles):" in report
@@ -70,11 +72,13 @@ def test_report_omits_callsite_evidence_for_documented_bundle(tmp_path: Path) ->
         type_audit_max=0,
         include_constant_smells=False,
         include_unused_arg_smells=False,
+        include_bundle_forest=True,
         config=config,
     )
     report, _ = render_report(
         analysis.groups_by_path,
         10,
+        forest=analysis.forest,
         bundle_sites_by_path=analysis.bundle_sites_by_path,
     )
     assert "Callsite evidence (undocumented bundles):" in report
