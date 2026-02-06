@@ -69,6 +69,7 @@ ignore_params = []
 min_functions = 3
 min_files = 2
 max_examples = 5
+require_forest = true
 
 [exceptions]
 never = [
