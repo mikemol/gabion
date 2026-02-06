@@ -6,7 +6,7 @@
     "include": [
       "tests"
     ],
-    "root": "/home/mikemol/github/gabion"
+    "root": "."
   },
   "tests": [
     {

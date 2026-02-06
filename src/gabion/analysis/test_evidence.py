@@ -28,8 +28,10 @@ def build_test_evidence_payload(
     root: Path,
     include: Iterable[str] | None = None,
     exclude: Iterable[str] | None = None,
+    root_display: str | None = None,
 ) -> dict[str, object]:
     root = root.resolve()
+    display_root = root_display if root_display is not None else "."
     exclude_set = {str(item) for item in (exclude or [])}
     include_list = [str(item) for item in (include or [])]
     files = _collect_test_files(paths, root=root, exclude=exclude_set)
@@ -62,7 +64,7 @@ def build_test_evidence_payload(
     return {
         "schema_version": 1,
         "scope": {
-            "root": str(root),
+            "root": display_root,
             "include": include_list,
             "exclude": sorted(exclude_set),
         },
