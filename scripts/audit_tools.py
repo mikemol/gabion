@@ -482,6 +482,78 @@ def _parse_surfaces(lines: Iterable[str], *, value_encoded: bool) -> list[Decisi
     return surfaces
 
 
+def _surfaces_from_forest(forest: dict[str, object]) -> tuple[list[DecisionSurface], list[DecisionSurface]]:
+    nodes = forest.get("nodes")
+    alts = forest.get("alts")
+    if not isinstance(nodes, list) or not isinstance(alts, list):
+        return [], []
+
+    node_meta: dict[tuple[str, tuple[object, ...]], dict[str, object]] = {}
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        kind = node.get("kind")
+        key = node.get("key")
+        if not isinstance(kind, str) or not isinstance(key, list):
+            continue
+        meta = node.get("meta")
+        node_meta[(kind, tuple(key))] = meta if isinstance(meta, dict) else {}
+
+    decision_surfaces: list[DecisionSurface] = []
+    value_surfaces: list[DecisionSurface] = []
+    for alt in alts:
+        if not isinstance(alt, dict):
+            continue
+        kind = alt.get("kind")
+        if kind not in {"DecisionSurface", "ValueDecisionSurface"}:
+            continue
+        inputs = alt.get("inputs")
+        if not isinstance(inputs, list):
+            continue
+        site_path = None
+        site_qual = None
+        params: tuple[str, ...] = ()
+        for entry in inputs:
+            if not isinstance(entry, dict):
+                continue
+            entry_kind = entry.get("kind")
+            entry_key = entry.get("key")
+            if not isinstance(entry_kind, str) or not isinstance(entry_key, list):
+                continue
+            meta = node_meta.get((entry_kind, tuple(entry_key)), {})
+            if entry_kind == "FunctionSite":
+                site_path = meta.get("path") if isinstance(meta, dict) else None
+                site_qual = meta.get("qual") if isinstance(meta, dict) else None
+                if site_path is None and entry_key:
+                    site_path = str(entry_key[0])
+                if site_qual is None and len(entry_key) > 1:
+                    site_qual = str(entry_key[1])
+            elif entry_kind == "ParamSet":
+                if isinstance(meta, dict) and isinstance(meta.get("params"), list):
+                    params = tuple(str(p) for p in meta.get("params"))
+                else:
+                    params = tuple(str(p) for p in entry_key)
+
+        if site_path is None or site_qual is None:
+            continue
+        evidence = alt.get("evidence")
+        meta_text = ""
+        if isinstance(evidence, dict):
+            meta_text = str(evidence.get("meta") or "")
+        surface = DecisionSurface(
+            path=str(site_path),
+            qual=str(site_qual),
+            params=params,
+            meta=meta_text,
+        )
+        if kind == "DecisionSurface":
+            decision_surfaces.append(surface)
+        else:
+            value_surfaces.append(surface)
+
+    return decision_surfaces, value_surfaces
+
+
 def _parse_lint_entries(lines: Iterable[str]) -> list[LintEntry]:
     entries: list[LintEntry] = []
     for line in lines:
@@ -826,9 +898,15 @@ def _consolidation_command(args: argparse.Namespace) -> int:
     decision_obj = json.loads(decision_path.read_text())
     decision_lines = decision_obj.get("decision_surfaces", [])
     value_lines = decision_obj.get("value_decision_surfaces", [])
+    forest_obj = decision_obj.get("forest")
 
-    decision_surfaces = _parse_surfaces(decision_lines, value_encoded=False)
-    value_surfaces = _parse_surfaces(value_lines, value_encoded=True)
+    decision_surfaces: list[DecisionSurface]
+    value_surfaces: list[DecisionSurface]
+    if isinstance(forest_obj, dict):
+        decision_surfaces, value_surfaces = _surfaces_from_forest(forest_obj)
+    else:
+        decision_surfaces = _parse_surfaces(decision_lines, value_encoded=False)
+        value_surfaces = _parse_surfaces(value_lines, value_encoded=True)
     lint_entries = _parse_lint_entries(lint_path.read_text().splitlines())
 
     _write_consolidation_report(

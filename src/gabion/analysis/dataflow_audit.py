@@ -35,6 +35,7 @@ from gabion.analysis.evidence import (
 )
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
+from gabion.analysis.aspf import Forest
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -226,6 +227,7 @@ class AnalysisResult:
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
+    decision_forest: Forest | None = None
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -672,6 +674,7 @@ def analyze_decision_surfaces_repo(
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
     require_tiers: bool = False,
+    forest: Forest | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
@@ -698,6 +701,17 @@ def analyze_decision_surfaces_repo(
             else f"internal callers (transitive): {caller_count}"
         )
         params = sorted(info.decision_params)
+        if forest is not None:
+            site_id = forest.add_site(info.path.name, info.qual)
+            paramset_id = forest.add_paramset(params)
+            forest.add_alt(
+                "DecisionSurface",
+                (site_id, paramset_id),
+                evidence={
+                    "meta": boundary,
+                    "boundary": boundary,
+                },
+            )
         surfaces.append(
             f"{info.path.name}:{info.qual} decision surface params: "
             + ", ".join(params)
@@ -765,6 +779,7 @@ def analyze_value_encoded_decisions_repo(
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
     require_tiers: bool = False,
+    forest: Forest | None = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
@@ -792,6 +807,18 @@ def analyze_value_encoded_decisions_repo(
             else f"internal callers (transitive): {caller_count}"
         )
         params = sorted(info.value_decision_params)
+        if forest is not None:
+            site_id = forest.add_site(info.path.name, info.qual)
+            paramset_id = forest.add_paramset(params)
+            forest.add_alt(
+                "ValueDecisionSurface",
+                (site_id, paramset_id),
+                evidence={
+                    "meta": reasons,
+                    "boundary": boundary,
+                    "reasons": reasons,
+                },
+            )
         surfaces.append(
             f"{info.path.name}:{info.qual} value-encoded decision params: "
             + ", ".join(params)
@@ -5488,8 +5515,9 @@ def render_decision_snapshot(
     decision_surfaces: list[str],
     value_decision_surfaces: list[str],
     project_root: Path | None = None,
+    forest: Forest | None = None,
 ) -> JSONObject:
-    return {
+    snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
         "decision_surfaces": sorted(decision_surfaces),
@@ -5499,6 +5527,9 @@ def render_decision_snapshot(
             "value_decision_surfaces": len(value_decision_surfaces),
         },
     }
+    if forest is not None:
+        snapshot["forest"] = forest.to_json()
+    return snapshot
 
 
 def load_decision_snapshot(path: Path) -> JSONObject:
@@ -6655,7 +6686,9 @@ def analyze_paths(
     decision_surfaces: list[str] = []
     decision_warnings: list[str] = []
     decision_lint_lines: list[str] = []
+    decision_forest: Forest | None = None
     if include_decision_surfaces:
+        decision_forest = Forest()
         decision_surfaces, decision_warnings, decision_lint_lines = (
             analyze_decision_surfaces_repo(
                 file_paths,
@@ -6666,6 +6699,7 @@ def analyze_paths(
                 transparent_decorators=config.transparent_decorators,
                 decision_tiers=config.decision_tiers,
                 require_tiers=config.decision_require_tiers,
+                forest=decision_forest,
             )
         )
     value_decision_surfaces: list[str] = []
@@ -6685,6 +6719,7 @@ def analyze_paths(
             transparent_decorators=config.transparent_decorators,
             decision_tiers=config.decision_tiers,
             require_tiers=config.decision_require_tiers,
+            forest=decision_forest,
         )
         decision_warnings.extend(value_warnings)
         decision_lint_lines.extend(value_lint_lines)
@@ -6808,6 +6843,7 @@ def analyze_paths(
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
+        decision_forest=decision_forest,
     )
 
 
@@ -7289,6 +7325,7 @@ def run(argv: list[str] | None = None) -> int:
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             project_root=config.project_root,
+            forest=analysis.decision_forest,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path.strip() == "-":
