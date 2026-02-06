@@ -2180,6 +2180,36 @@ def _collect_handledness_witnesses(
     )
 
 
+def _dead_env_map(
+    deadness_witnesses: list[JSONObject] | None,
+) -> dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]]:
+    dead_env_map: dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]] = {}
+    if not deadness_witnesses:
+        return dead_env_map
+    for entry in deadness_witnesses:
+        path_value = str(entry.get("path", ""))
+        function_value = str(entry.get("function", ""))
+        bundle = entry.get("bundle", []) or []
+        if not isinstance(bundle, list) or not bundle:
+            continue
+        param = str(bundle[0])
+        environment = entry.get("environment", {})
+        if not isinstance(environment, dict):
+            continue
+        value_str = environment.get(param)
+        if not isinstance(value_str, str):
+            continue
+        try:
+            literal_value = ast.literal_eval(value_str)
+        except Exception:
+            continue
+        dead_env_map.setdefault((path_value, function_value), {})[param] = (
+            literal_value,
+            entry,
+        )
+    return dead_env_map
+
+
 def _collect_exception_obligations(
     paths: list[Path],
     *,
@@ -2197,29 +2227,7 @@ def _collect_exception_obligations(
             exception_id = str(entry.get("exception_path_id", ""))
             if exception_id:
                 handled_map[exception_id] = entry
-    dead_env_map: dict[tuple[str, str], dict[str, tuple[JSONValue, JSONObject]]] = {}
-    if deadness_witnesses:
-        for entry in deadness_witnesses:
-            path_value = str(entry.get("path", ""))
-            function_value = str(entry.get("function", ""))
-            bundle = entry.get("bundle", []) or []
-            if not isinstance(bundle, list) or not bundle:
-                continue
-            param = str(bundle[0])
-            environment = entry.get("environment", {})
-            if not isinstance(environment, dict):
-                continue
-            value_str = environment.get(param)
-            if not isinstance(value_str, str):
-                continue
-            try:
-                literal_value = ast.literal_eval(value_str)
-            except Exception:
-                continue
-            dead_env_map.setdefault((path_value, function_value), {})[param] = (
-                literal_value,
-                entry,
-            )
+    dead_env_map = _dead_env_map(deadness_witnesses)
     for path in paths:
         try:
             tree = ast.parse(path.read_text())
@@ -2345,8 +2353,10 @@ def _collect_never_invariants(
     project_root: Path | None,
     ignore_params: set[str],
     forest: Forest | None = None,
+    deadness_witnesses: list[JSONObject] | None = None,
 ) -> list[JSONObject]:
     invariants: list[JSONObject] = []
+    dead_env_map = _dead_env_map(deadness_witnesses)
     for path in paths:
         try:
             tree = ast.parse(path.read_text())
@@ -2378,6 +2388,33 @@ def _collect_never_invariants(
             col = getattr(node, "col_offset", 0)
             never_id = f"never:{path_value}:{function}:{lineno}:{col}"
             reason = _never_reason(node) or ""
+            status = "OBLIGATION"
+            witness_ref = None
+            environment_ref: JSONObject | None = None
+            env_entries = dead_env_map.get((path_value, function), {})
+            if env_entries:
+                env = {name: value for name, (value, _) in env_entries.items()}
+                reachability = _branch_reachability_under_env(node, parents, env)
+                if reachability is False:
+                    names: set[str] = set()
+                    current = parents.get(node)
+                    while current is not None:
+                        if isinstance(current, ast.If):
+                            names.update(_names_in_expr(current.test))
+                        current = parents.get(current)
+                    for name in sorted(names):
+                        if name not in env_entries:
+                            continue
+                        _, witness = env_entries[name]
+                        status = "PROVEN_UNREACHABLE"
+                        witness_ref = witness.get("deadness_id")
+                        environment_ref = witness.get("environment") or {}
+                        break
+                    if status == "PROVEN_UNREACHABLE" and environment_ref is None:
+                        environment_ref = env
+                elif reachability is True:
+                    status = "VIOLATION"
+                    environment_ref = env
             entry: JSONObject = {
                 "never_id": never_id,
                 "site": {
@@ -2385,9 +2422,13 @@ def _collect_never_invariants(
                     "function": function,
                     "bundle": bundle,
                 },
-                "status": "OBLIGATION",
+                "status": status,
                 "reason": reason,
             }
+            if witness_ref is not None:
+                entry["witness_ref"] = witness_ref
+            if environment_ref is not None:
+                entry["environment_ref"] = environment_ref
             if span is not None:
                 entry["span"] = list(span)
             invariants.append(entry)
@@ -2711,6 +2752,23 @@ def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
     return lines
 
 
+def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
+    lines: list[str] = []
+    for entry in entries:
+        status = entry.get("status", "UNKNOWN")
+        if status == "PROVEN_UNREACHABLE":
+            continue
+        span = entry.get("span")
+        if not isinstance(span, list) or len(span) != 4:
+            continue
+        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        path = str(site.get("path", "?"))
+        line, col, _, _ = span
+        message = f"never() invariant (status={status})"
+        lines.append(_lint_line(path, int(line) + 1, int(col) + 1, "GABION_NEVER_INVARIANT", message))
+    return lines
+
+
 def _has_bundles(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> bool:
     for groups in groups_by_path.values():
         for bundles in groups.values():
@@ -2847,6 +2905,7 @@ def _compute_lint_lines(
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
     type_callsite_evidence: list[str],
     exception_obligations: list[JSONObject],
+    never_invariants: list[JSONObject],
     decision_lint_lines: list[str],
     constant_smells: list[str],
     unused_arg_smells: list[str],
@@ -2860,6 +2919,7 @@ def _compute_lint_lines(
     lint_lines.extend(_lint_lines_from_bundle_evidence(bundle_evidence))
     lint_lines.extend(_lint_lines_from_type_evidence(type_callsite_evidence))
     lint_lines.extend(_exception_protocol_lint_lines(exception_obligations))
+    lint_lines.extend(_never_invariant_lint_lines(never_invariants))
     lint_lines.extend(decision_lint_lines)
     lint_lines.extend(_lint_lines_from_constant_smells(constant_smells))
     lint_lines.extend(_lint_lines_from_unused_arg_smells(unused_arg_smells))
@@ -7089,6 +7149,7 @@ def analyze_paths(
             project_root=config.project_root,
             ignore_params=config.ignore_params,
             forest=forest,
+            deadness_witnesses=deadness_witnesses,
         )
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
@@ -7153,6 +7214,7 @@ def analyze_paths(
             bundle_sites_by_path=bundle_sites_by_path,
             type_callsite_evidence=type_callsite_evidence,
             exception_obligations=exception_obligations,
+            never_invariants=never_invariants,
             decision_lint_lines=decision_lint_lines,
             constant_smells=constant_smells,
             unused_arg_smells=unused_arg_smells,
