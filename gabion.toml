@@ -76,6 +76,9 @@ never = [
   "NeverRaise",
   "gabion.NeverRaise",
   "gabion.exceptions.NeverRaise",
+  "NeverThrown",
+  "gabion.NeverThrown",
+  "gabion.exceptions.NeverThrown",
 ]
 
 [fingerprints]

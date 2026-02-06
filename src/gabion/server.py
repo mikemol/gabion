@@ -279,6 +279,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     include_handledness_witnesses = bool(report_path) or bool(
         fingerprint_handledness_json
     )
+    include_never_invariants = bool(report_path)
     include_coherence = (
         bool(report_path) or bool(fingerprint_coherence_json) or include_rewrite_plans
     )
@@ -295,6 +296,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_rewrite_plans=include_rewrite_plans,
         include_exception_obligations=include_exception_obligations,
         include_handledness_witnesses=include_handledness_witnesses,
+        include_never_invariants=include_never_invariants,
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
@@ -322,6 +324,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_rewrite_plans": analysis.rewrite_plans,
         "fingerprint_exception_obligations": analysis.exception_obligations,
         "fingerprint_handledness": analysis.handledness_witnesses,
+        "never_invariants": analysis.never_invariants,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -424,6 +427,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             coherence_witnesses=analysis.coherence_witnesses,
             rewrite_plans=analysis.rewrite_plans,
             exception_obligations=analysis.exception_obligations,
+            never_invariants=analysis.never_invariants,
             handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,

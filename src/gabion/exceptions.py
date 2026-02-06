@@ -9,3 +9,6 @@ class NeverRaise(RuntimeError):
     treat it as a violation.
     """
 
+
+class NeverThrown(NeverRaise):
+    """Alias for NeverRaise used by the explicit never() marker."""

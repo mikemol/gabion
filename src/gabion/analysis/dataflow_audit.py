@@ -215,6 +215,7 @@ class AnalysisResult:
     coherence_witnesses: list[JSONObject] = field(default_factory=list)
     rewrite_plans: list[JSONObject] = field(default_factory=list)
     exception_obligations: list[JSONObject] = field(default_factory=list)
+    never_invariants: list[JSONObject] = field(default_factory=list)
     handledness_witnesses: list[JSONObject] = field(default_factory=list)
     decision_surfaces: list[str] = field(default_factory=list)
     value_decision_surfaces: list[str] = field(default_factory=list)
@@ -441,6 +442,16 @@ def _decorator_matches(name: str, allowlist: set[str]) -> bool:
     if "." in name and name.split(".")[-1] in allowlist:
         return True
     return False
+
+
+_NEVER_MARKERS = {"never", "gabion.never", "gabion.invariants.never"}
+
+
+def _is_never_call(call: ast.Call) -> bool:
+    name = _decorator_name(call.func)
+    if not name:
+        return False
+    return _decorator_matches(name, _NEVER_MARKERS)
 
 
 def _decorators_transparent(
@@ -2316,6 +2327,90 @@ def _collect_exception_obligations(
     )
 
 
+def _never_reason(call: ast.Call) -> str | None:
+    if call.args:
+        first = call.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            return first.value
+    for kw in call.keywords:
+        if kw.arg == "reason":
+            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                return kw.value.value
+    return None
+
+
+def _collect_never_invariants(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    forest: Forest | None = None,
+) -> list[JSONObject]:
+    invariants: list[JSONObject] = []
+    for path in paths:
+        try:
+            tree = ast.parse(path.read_text())
+        except SyntaxError:
+            continue
+        parent = ParentAnnotator()
+        parent.visit(tree)
+        parents = parent.parents
+        params_by_fn: dict[ast.AST, set[str]] = {}
+        for fn in _collect_functions(tree):
+            params_by_fn[fn] = set(_param_names(fn, ignore_params))
+        path_value = _normalize_snapshot_path(path, project_root)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not _is_never_call(node):
+                continue
+            fn_node = _enclosing_function_node(node, parents)
+            if fn_node is None:
+                function = "<module>"
+                params = set()
+            else:
+                scopes = _enclosing_scopes(fn_node, parents)
+                function = _function_key(scopes, fn_node.name)
+                params = params_by_fn.get(fn_node, set())
+            bundle = _exception_param_names(node, params)
+            span = _node_span(node)
+            lineno = getattr(node, "lineno", 0)
+            col = getattr(node, "col_offset", 0)
+            never_id = f"never:{path_value}:{function}:{lineno}:{col}"
+            reason = _never_reason(node) or ""
+            entry: JSONObject = {
+                "never_id": never_id,
+                "site": {
+                    "path": path_value,
+                    "function": function,
+                    "bundle": bundle,
+                },
+                "status": "OBLIGATION",
+                "reason": reason,
+            }
+            if span is not None:
+                entry["span"] = list(span)
+            invariants.append(entry)
+            if forest is not None:
+                site_id = forest.add_site(path.name, function)
+                paramset_id = forest.add_paramset(bundle)
+                evidence: dict[str, object] = {"path": path.name, "qual": function}
+                if reason:
+                    evidence["reason"] = reason
+                if span is not None:
+                    evidence["span"] = list(span)
+                forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
+    return sorted(
+        invariants,
+        key=lambda entry: (
+            str(entry.get("site", {}).get("path", "")),
+            str(entry.get("site", {}).get("function", "")),
+            ",".join(entry.get("site", {}).get("bundle", []) or []),
+            str(entry.get("never_id", "")),
+        ),
+    )
+
+
 def _summarize_exception_obligations(
     entries: list[JSONObject],
     *,
@@ -2341,6 +2436,32 @@ def _summarize_exception_obligations(
         lines.append(
             f"{path}:{function} bundle={bundle} source={source} status={status}{suffix}"
         )
+    if len(entries) > max_entries:
+        lines.append(f"... {len(entries) - max_entries} more")
+    return lines
+
+
+def _summarize_never_invariants(
+    entries: list[JSONObject],
+    *,
+    max_entries: int = 10,
+) -> list[str]:
+    if not entries:
+        return []
+    lines: list[str] = []
+    for entry in entries[:max_entries]:
+        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        path = site.get("path", "?")
+        function = site.get("function", "?")
+        bundle = site.get("bundle") or []
+        status = entry.get("status", "UNKNOWN")
+        reason = entry.get("reason") or ""
+        suffix = f" status={status}"
+        if bundle:
+            suffix += f" bundle={','.join(bundle)}"
+        if reason:
+            suffix += f" reason={reason}"
+        lines.append(f"{path}:{function} never(){suffix}")
     if len(entries) > max_entries:
         lines.append(f"... {len(entries) - max_entries} more")
     return lines
@@ -5332,6 +5453,7 @@ def _emit_report(
     coherence_witnesses: list[JSONObject] | None = None,
     rewrite_plans: list[JSONObject] | None = None,
     exception_obligations: list[JSONObject] | None = None,
+    never_invariants: list[JSONObject] | None = None,
     handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
@@ -5486,6 +5608,13 @@ def _emit_report(
         summary = _summarize_rewrite_plans(rewrite_plans)
         if summary:
             lines.append("Rewrite plans:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
+    if never_invariants:
+        summary = _summarize_never_invariants(never_invariants)
+        if summary:
+            lines.append("Never invariants:")
             lines.append("```")
             lines.extend(summary)
             lines.append("```")
@@ -6713,6 +6842,7 @@ def render_report(
     coherence_witnesses: list[JSONObject] | None = None,
     rewrite_plans: list[JSONObject] | None = None,
     exception_obligations: list[JSONObject] | None = None,
+    never_invariants: list[JSONObject] | None = None,
     handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
@@ -6739,6 +6869,7 @@ def render_report(
         coherence_witnesses=coherence_witnesses,
         rewrite_plans=rewrite_plans,
         exception_obligations=exception_obligations,
+        never_invariants=never_invariants,
         handledness_witnesses=handledness_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
@@ -6788,6 +6919,7 @@ def analyze_paths(
     include_rewrite_plans: bool = False,
     include_exception_obligations: bool = False,
     include_handledness_witnesses: bool = False,
+    include_never_invariants: bool = False,
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
@@ -6825,6 +6957,7 @@ def analyze_paths(
         or include_decision_surfaces
         or include_value_decision_surfaces
         or include_lint_lines
+        or include_never_invariants
     ):
         forest = Forest()
         _populate_bundle_forest(
@@ -6930,6 +7063,7 @@ def analyze_paths(
     coherence_witnesses: list[JSONObject] = []
     rewrite_plans: list[JSONObject] = []
     exception_obligations: list[JSONObject] = []
+    never_invariants: list[JSONObject] = []
     handledness_witnesses: list[JSONObject] = []
     need_exception_obligations = include_exception_obligations or (
         include_lint_lines and bool(config.never_exceptions)
@@ -6948,6 +7082,13 @@ def analyze_paths(
             handledness_witnesses=handledness_witnesses,
             deadness_witnesses=deadness_witnesses,
             never_exceptions=config.never_exceptions,
+        )
+    if include_never_invariants:
+        never_invariants = _collect_never_invariants(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            forest=forest,
         )
     if config.fingerprint_registry is not None and config.fingerprint_index:
         annotations_by_path = _param_annotations_by_path(
@@ -7039,6 +7180,7 @@ def analyze_paths(
         coherence_witnesses=coherence_witnesses,
         rewrite_plans=rewrite_plans,
         exception_obligations=exception_obligations,
+        never_invariants=never_invariants,
         handledness_witnesses=handledness_witnesses,
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
@@ -7391,6 +7533,7 @@ def run(argv: list[str] | None = None) -> int:
     include_handledness_witnesses = bool(args.report) or bool(
         fingerprint_handledness_json
     )
+    include_never_invariants = bool(args.report)
     include_coherence = (
         bool(args.report)
         or bool(fingerprint_coherence_json)
@@ -7409,6 +7552,7 @@ def run(argv: list[str] | None = None) -> int:
         include_rewrite_plans=include_rewrite_plans,
         include_exception_obligations=include_exception_obligations,
         include_handledness_witnesses=include_handledness_witnesses,
+        include_never_invariants=include_never_invariants,
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
@@ -7639,6 +7783,7 @@ def run(argv: list[str] | None = None) -> int:
             coherence_witnesses=analysis.coherence_witnesses,
             rewrite_plans=analysis.rewrite_plans,
             exception_obligations=analysis.exception_obligations,
+            never_invariants=analysis.never_invariants,
             handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
