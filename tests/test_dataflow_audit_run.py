@@ -40,6 +40,7 @@ def _write_type_module(path: Path) -> None:
     )
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_baseline_write_requires_path(tmp_path: Path, capsys) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -80,6 +81,7 @@ def test_run_structure_metrics_stdout_short_circuit(tmp_path: Path, capsys) -> N
     assert "\"bundle_size_histogram\"" in captured.out
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_report_baseline_write_and_apply(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

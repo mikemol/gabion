@@ -15,6 +15,7 @@ def _load():
     return _analyze_function, _collect_return_aliases, ParentAnnotator
 
 
+# gabion:evidence E:bundle/alias_invariance
 def test_alias_propagation_via_return() -> None:
     _analyze_function, _collect_return_aliases, ParentAnnotator = _load()
     source = textwrap.dedent(

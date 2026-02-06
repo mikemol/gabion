@@ -214,6 +214,7 @@ def test_execute_command_writes_decision_snapshot(tmp_path: Path) -> None:
     assert decision_path.exists()
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_execute_command_baseline_apply(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -267,6 +268,7 @@ def test_execute_command_includes_lint_lines(tmp_path: Path) -> None:
     assert "lint_lines" in result
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_execute_command_report_baseline_write(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)

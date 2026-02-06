@@ -52,6 +52,7 @@ def _write_typed_bundle_code(path: Path) -> None:
     )
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_baseline_write_requires_path(tmp_path: Path) -> None:
     dataflow_audit = _load()
     code = dataflow_audit.run(
@@ -102,6 +103,7 @@ def test_run_fail_on_type_ambiguities_with_synthesis_plan(tmp_path: Path) -> Non
     assert code == 1
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_report_with_baseline_write(tmp_path: Path) -> None:
     dataflow_audit = _load()
     sample = tmp_path / "sample.py"
@@ -126,6 +128,7 @@ def test_run_report_with_baseline_write(tmp_path: Path) -> None:
     assert baseline_path.exists()
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_report_with_baseline_apply(tmp_path: Path) -> None:
     dataflow_audit = _load()
     sample = tmp_path / "sample.py"
@@ -506,6 +509,7 @@ def test_run_dot_stdout_returns_early(tmp_path: Path, capsys) -> None:
     assert code == 0
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_fail_on_violations_with_baseline(tmp_path: Path, capsys) -> None:
     dataflow_audit = _load()
     sample = tmp_path / "sample.py"
@@ -527,6 +531,7 @@ def test_run_fail_on_violations_with_baseline(tmp_path: Path, capsys) -> None:
     assert code == 1
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_fail_on_violations_baseline_write(tmp_path: Path) -> None:
     dataflow_audit = _load()
     sample = tmp_path / "sample.py"

@@ -12,6 +12,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:never/sink_classification
 def test_never_invariants_emit_forest_and_report(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -49,6 +50,7 @@ def test_never_invariants_emit_forest_and_report(tmp_path: Path) -> None:
     assert "Never invariants" in report
 
 
+# gabion:evidence E:never/sink_classification
 def test_never_invariant_violation(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -84,6 +86,7 @@ def test_never_invariant_violation(tmp_path: Path) -> None:
     )
 
 
+# gabion:evidence E:never/sink_classification
 def test_never_invariant_proven_unreachable(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -118,6 +121,7 @@ def test_never_invariant_proven_unreachable(tmp_path: Path) -> None:
     assert not any("GABION_NEVER_INVARIANT" in line for line in analysis.lint_lines)
 
 
+# gabion:evidence E:never/sink_classification
 def test_never_invariant_obligation(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -155,6 +159,7 @@ def test_never_invariant_obligation(tmp_path: Path) -> None:
     )
 
 
+# gabion:evidence E:never/sink_classification
 def test_never_invariant_report_order_and_evidence(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

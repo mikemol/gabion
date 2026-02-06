@@ -170,6 +170,7 @@ def test_rewrite_call_sites_empty_targets(tmp_path: Path) -> None:
     assert updated is None
 
 
+# gabion:evidence E:bundle/alias_invariance
 def test_rewrite_call_sites_module_alias_and_method_target(tmp_path: Path) -> None:
     source = (
         "import pkg.mod as pm\n"

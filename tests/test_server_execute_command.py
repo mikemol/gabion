@@ -65,6 +65,7 @@ def test_execute_command_no_violations(tmp_path: Path) -> None:
     ) == _CommandResult(exit_code=0, violations=0)
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_execute_command_baseline_write(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)

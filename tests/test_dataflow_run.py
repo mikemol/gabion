@@ -75,6 +75,7 @@ def test_run_generates_outputs(tmp_path: Path) -> None:
     assert metrics.exists()
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_run_baseline_write_and_apply(tmp_path: Path) -> None:
     dataflow_audit = _load()
     sample = tmp_path / "sample.py"

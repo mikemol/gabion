@@ -12,6 +12,7 @@ def _load():
     return apply_baseline, load_baseline, resolve_baseline_path, write_baseline
 
 
+# gabion:evidence E:baseline/ratchet_monotonicity
 def test_baseline_write_and_apply(tmp_path: Path) -> None:
     apply_baseline, load_baseline, resolve_baseline_path, write_baseline = _load()
     baseline_path = resolve_baseline_path("baseline.txt", tmp_path)
