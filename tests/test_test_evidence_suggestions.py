@@ -106,7 +106,98 @@ def test_suggests_docflow_contract() -> None:
     )
     suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
     assert summary.suggested == 1
-    assert suggestions[0].suggested == ("E:policy/docflow_contract",)
+    assert "E:policy/docflow_contract" in suggestions[0].suggested
+
+
+def test_suggests_fingerprint_registry_determinism() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_type_fingerprints.py::test_prime_registry_assigns_stable_primes",
+        file="tests/test_type_fingerprints.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:fingerprint/registry_determinism",)
+
+
+def test_suggests_fingerprint_provenance() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_dataflow_report_helpers.py::test_emit_report_fingerprint_provenance_summary",
+        file="tests/test_dataflow_report_helpers.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:fingerprint/match_provenance",)
+
+
+def test_suggests_fingerprint_rewrite_plan() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_dataflow_report_helpers.py::test_emit_report_rewrite_plan_summary",
+        file="tests/test_dataflow_report_helpers.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:fingerprint/rewrite_plan_verification",)
+
+
+def test_suggests_schema_surfaces() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_finds_common_sites",
+        file="tests/test_schema_audit.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:schema/anonymous_payload_surfaces",)
+
+
+def test_suggests_cli_command_surface_integrity() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_cli_helpers.py::test_run_docflow_audit_missing_script",
+        file="tests/test_cli_helpers.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert "E:cli/command_surface_integrity" in suggestions[0].suggested
+
+
+def test_suggests_server_command_dispatch() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
+        file="tests/test_server_execute_command_edges.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert "E:transport/server_command_dispatch" in suggestions[0].suggested
+
+
+def test_suggests_transport_payload_roundtrip() -> None:
+    entry = test_evidence_suggestions.TestEvidenceEntry(
+        test_id="tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
+        file="tests/test_dataflow_run_edges.py",
+        line=1,
+        evidence=(),
+        status="unmapped",
+    )
+    suggestions, summary = test_evidence_suggestions.suggest_evidence([entry])
+    assert summary.suggested == 1
+    assert suggestions[0].suggested == ("E:transport/payload_roundtrip",)
 
 
 def test_load_test_evidence_payload(tmp_path: Path) -> None:
