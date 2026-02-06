@@ -49,6 +49,7 @@ from gabion.analysis import (
     write_baseline,
 )
 from gabion.analysis import test_obsolescence
+from gabion.analysis import test_evidence_suggestions
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -233,6 +234,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     structure_metrics_path = payload.get("structure_metrics")
     decision_snapshot_path = payload.get("decision_snapshot")
     emit_test_obsolescence = bool(payload.get("emit_test_obsolescence", False))
+    emit_test_evidence_suggestions = bool(
+        payload.get("emit_test_evidence_suggestions", False)
+    )
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -410,6 +414,23 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["decision_snapshot"] = snapshot
         else:
             Path(decision_snapshot_path).write_text(payload_json)
+    if emit_test_evidence_suggestions:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
+        suggestions, summary = test_evidence_suggestions.suggest_evidence(entries)
+        suggestions_payload = test_evidence_suggestions.render_json_payload(
+            suggestions, summary
+        )
+        report_md = test_evidence_suggestions.render_markdown(suggestions, summary)
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = json.dumps(suggestions_payload, indent=2, sort_keys=True) + "\n"
+        (output_dir / "test_evidence_suggestions.json").write_text(report_json)
+        (output_dir / "test_evidence_suggestions.md").write_text(report_md)
+        response["test_evidence_suggestions_summary"] = (
+            suggestions_payload.get("summary", {})
+        )
     if emit_test_obsolescence:
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"
