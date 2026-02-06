@@ -166,6 +166,7 @@ def test_analyze_decision_surfaces_repo_warnings(tmp_path: Path) -> None:
         strictness="high",
         external_filter=True,
         decision_tiers={"a": 2},
+        require_tiers=True,
     )
     assert surfaces
     assert any("missing decision tier metadata" in warning for warning in warnings)
@@ -206,6 +207,7 @@ def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
         strictness="high",
         external_filter=True,
         decision_tiers={"flag": 2},
+        require_tiers=True,
     )
     assert surfaces
     assert rewrites

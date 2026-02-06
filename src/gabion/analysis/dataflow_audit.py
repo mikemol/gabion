@@ -35,7 +35,7 @@ from gabion.analysis.evidence import (
 )
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
-from gabion.analysis.aspf import Forest
+from gabion.analysis.aspf import Forest, NodeId
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -227,7 +227,7 @@ class AnalysisResult:
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
-    decision_forest: Forest | None = None
+    forest: Forest | None = None
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -2642,6 +2642,89 @@ def _collect_bundle_evidence_lines(
     return evidence_lines
 
 
+def _populate_bundle_forest(
+    forest: Forest,
+    *,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    file_paths: list[Path],
+    project_root: Path | None,
+) -> None:
+    if not groups_by_path:
+        return
+    seen: set[tuple[str, tuple[NodeId, ...], tuple[tuple[str, str], ...]]] = set()
+
+    def _add_alt(
+        kind: str,
+        inputs: Iterable[NodeId],
+        evidence: dict[str, object] | None = None,
+    ) -> None:
+        items = tuple(sorted((k, str(v)) for k, v in (evidence or {}).items()))
+        key = (kind, tuple(inputs), items)
+        if key in seen:
+            return
+        seen.add(key)
+        forest.add_alt(kind, inputs, evidence)
+
+    for path in sorted(groups_by_path):
+        groups = groups_by_path[path]
+        for fn_name in sorted(groups):
+            site_id = forest.add_site(path.name, fn_name)
+            for bundle in groups[fn_name]:
+                paramset_id = forest.add_paramset(bundle)
+                _add_alt(
+                    "SignatureBundle",
+                    (site_id, paramset_id),
+                    evidence={"path": path.name, "qual": fn_name},
+                )
+
+    config_bundles_by_path = _collect_config_bundles(file_paths)
+    for path in sorted(config_bundles_by_path):
+        bundles = config_bundles_by_path[path]
+        for name in sorted(bundles):
+            paramset_id = forest.add_paramset(bundles[name])
+            _add_alt(
+                "ConfigBundle",
+                (paramset_id,),
+                evidence={"path": path.name, "name": name},
+            )
+
+    dataclass_registry = _collect_dataclass_registry(
+        file_paths,
+        project_root=project_root,
+    )
+    for qual_name in sorted(dataclass_registry):
+        paramset_id = forest.add_paramset(dataclass_registry[qual_name])
+        _add_alt(
+            "DataclassBundle",
+            (paramset_id,),
+            evidence={"qual": qual_name},
+        )
+
+    symbol_table = _build_symbol_table(
+        file_paths,
+        project_root,
+        external_filter=True,
+    )
+    for path in sorted(file_paths):
+        for bundle in sorted(_iter_documented_bundles(path)):
+            paramset_id = forest.add_paramset(bundle)
+            _add_alt("MarkerBundle", (paramset_id,), evidence={"path": path.name})
+        for bundle in sorted(
+            _iter_dataclass_call_bundles(
+                path,
+                project_root=project_root,
+                symbol_table=symbol_table,
+                dataclass_registry=dataclass_registry,
+            )
+        ):
+            paramset_id = forest.add_paramset(bundle)
+            _add_alt(
+                "DataclassCallBundle",
+                (paramset_id,),
+                evidence={"path": path.name},
+            )
+
+
 def _compute_lint_lines(
     *,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
@@ -3881,7 +3964,7 @@ def _format_type_flow_site(
     *,
     caller: FunctionInfo,
     call: CallArgs,
-    callee_info: FunctionInfo,
+    callee: FunctionInfo,
     caller_param: str,
     callee_param: str,
     annot: str,
@@ -3896,7 +3979,7 @@ def _format_type_flow_site(
         line, col, _, _ = call.span
         loc = f"{caller_path}:{line + 1}:{col + 1}"
     return (
-        f"{loc}: {caller_name}.{caller_param} -> {callee_info.qual}.{callee_param} expects {annot}"
+        f"{loc}: {caller_name}.{caller_param} -> {callee.qual}.{callee_param} expects {annot}"
     )
 
 
@@ -3995,7 +4078,7 @@ def _infer_type_flow(
                         _format_type_flow_site(
                             caller=info,
                             call=call,
-                            callee_info=callee,
+                            callee=callee,
                             caller_param=caller_param,
                             callee_param=callee_param,
                             annot=annot,
@@ -5614,8 +5697,8 @@ def diff_structure_snapshots(
             changed.append(entry)
     return {
         "format_version": 1,
-        "baseline_root": baseline.get("root"),
-        "current_root": current.get("root"),
+        "baseline_root": baseline_snapshot.get("root"),
+        "current_root": current_snapshot.get("root"),
         "added": added,
         "removed": removed,
         "changed": changed,
@@ -6633,6 +6716,16 @@ def analyze_paths(
                 )
             )
 
+    forest: Forest | None = None
+    if include_decision_surfaces or include_value_decision_surfaces or include_lint_lines:
+        forest = Forest()
+        _populate_bundle_forest(
+            forest,
+            groups_by_path=groups_by_path,
+            file_paths=file_paths,
+            project_root=config.project_root,
+        )
+
     type_suggestions: list[str] = []
     type_ambiguities: list[str] = []
     type_callsite_evidence: list[str] = []
@@ -6686,9 +6779,7 @@ def analyze_paths(
     decision_surfaces: list[str] = []
     decision_warnings: list[str] = []
     decision_lint_lines: list[str] = []
-    decision_forest: Forest | None = None
     if include_decision_surfaces:
-        decision_forest = Forest()
         decision_surfaces, decision_warnings, decision_lint_lines = (
             analyze_decision_surfaces_repo(
                 file_paths,
@@ -6699,7 +6790,7 @@ def analyze_paths(
                 transparent_decorators=config.transparent_decorators,
                 decision_tiers=config.decision_tiers,
                 require_tiers=config.decision_require_tiers,
-                forest=decision_forest,
+                forest=forest,
             )
         )
     value_decision_surfaces: list[str] = []
@@ -6719,7 +6810,7 @@ def analyze_paths(
             transparent_decorators=config.transparent_decorators,
             decision_tiers=config.decision_tiers,
             require_tiers=config.decision_require_tiers,
-            forest=decision_forest,
+            forest=forest,
         )
         decision_warnings.extend(value_warnings)
         decision_lint_lines.extend(value_lint_lines)
@@ -6843,7 +6934,7 @@ def analyze_paths(
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
-        decision_forest=decision_forest,
+        forest=forest,
     )
 
 
@@ -7325,7 +7416,7 @@ def run(argv: list[str] | None = None) -> int:
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             project_root=config.project_root,
-            forest=analysis.decision_forest,
+            forest=analysis.forest,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path.strip() == "-":

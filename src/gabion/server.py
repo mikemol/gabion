@@ -397,6 +397,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,
             project_root=config.project_root,
+            forest=analysis.forest,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path == "-":
