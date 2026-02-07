@@ -19,7 +19,9 @@ def test_check_builds_payload() -> None:
         baseline_write=False,
         decision_snapshot=None,
         emit_test_obsolescence=False,
+        emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        write_test_obsolescence_baseline=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -33,7 +35,9 @@ def test_check_builds_payload() -> None:
     assert payload["fail_on_type_ambiguities"] is True
     assert payload["type_audit"] is True
     assert payload["emit_test_obsolescence"] is False
+    assert payload["emit_test_obsolescence_delta"] is False
     assert payload["emit_test_evidence_suggestions"] is False
+    assert payload["write_test_obsolescence_baseline"] is False
 
 
 def test_check_payload_strictness_validation() -> None:
@@ -48,7 +52,9 @@ def test_check_payload_strictness_validation() -> None:
             baseline_write=False,
             decision_snapshot=None,
             emit_test_obsolescence=False,
+            emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
+            write_test_obsolescence_baseline=False,
             exclude=None,
             ignore_params_csv=None,
             transparent_decorators_csv=None,
@@ -71,7 +77,9 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         baseline_write=True,
         decision_snapshot=None,
         emit_test_obsolescence=False,
+        emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        write_test_obsolescence_baseline=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -183,7 +191,9 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         emit_test_obsolescence=False,
+        emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        write_test_obsolescence_baseline=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -197,5 +207,32 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["command"] == cli.DATAFLOW_COMMAND
     assert captured["payload"]["paths"] == [str(tmp_path)]
     assert captured["payload"]["emit_test_obsolescence"] is False
+    assert captured["payload"]["emit_test_obsolescence_delta"] is False
     assert captured["payload"]["emit_test_evidence_suggestions"] is False
+    assert captured["payload"]["write_test_obsolescence_baseline"] is False
     assert captured["root"] == tmp_path
+
+
+def test_check_payload_rejects_delta_and_baseline_write() -> None:
+    with pytest.raises(typer.BadParameter):
+        cli.build_check_payload(
+            paths=[Path(".")],
+            report=None,
+            fail_on_violations=True,
+            root=Path("."),
+            config=None,
+            baseline=None,
+            baseline_write=False,
+            decision_snapshot=None,
+            emit_test_obsolescence=False,
+            emit_test_obsolescence_delta=True,
+            emit_test_evidence_suggestions=False,
+            write_test_obsolescence_baseline=True,
+            exclude=None,
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+            allow_external=None,
+            strictness=None,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        )

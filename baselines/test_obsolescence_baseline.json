@@ -1,0 +1,2590 @@
+{
+  "evidence_index": [
+    {
+      "display": "E:baseline/ratchet_monotonicity",
+      "key": {
+        "k": "opaque",
+        "s": "E:baseline/ratchet_monotonicity"
+      },
+      "witness_count": 15
+    },
+    {
+      "display": "E:bundle/alias_invariance",
+      "key": {
+        "k": "opaque",
+        "s": "E:bundle/alias_invariance"
+      },
+      "witness_count": 16
+    },
+    {
+      "display": "E:forest/canonical_paramset",
+      "key": {
+        "k": "opaque",
+        "s": "E:forest/canonical_paramset"
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:forest/packed_reuse",
+      "key": {
+        "k": "opaque",
+        "s": "E:forest/packed_reuse"
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:never/sink_classification",
+      "key": {
+        "k": "opaque",
+        "s": "E:never/sink_classification"
+      },
+      "witness_count": 7
+    }
+  ],
+  "generated_by_spec": {
+    "domain": "test_obsolescence_baseline",
+    "name": "test_obsolescence_baseline",
+    "params": {},
+    "pipeline": [],
+    "spec_version": 1
+  },
+  "generated_by_spec_id": "d3454cce58ad58f08551264a1079d2b5b894b013a045c5aeda2f3eff302c98b6",
+  "opaque_evidence_count": 40,
+  "summary": {
+    "equivalent_witness": 40,
+    "obsolete_candidate": 0,
+    "redundant_by_evidence": 0,
+    "unmapped": 592
+  },
+  "tests": [
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_alias_attribute.py::test_alias_attribute_forwarding"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_alias_attribute.py::test_alias_attribute_object_attr"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_alias_rename_invariance.py::test_chained_alias_preserves_bundle_identity"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_alias_rename_invariance.py::test_direct_rename_preserves_bundle_identity"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_alias_return_propagation.py::test_alias_propagation_via_return"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_alias_unpacking.py::test_tuple_unpacking_preserves_bundle"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_aspf.py::test_add_site_records_span"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_aspf.py::test_paramset_packed_reuse"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_baseline_ratchet.py::test_baseline_write_and_apply"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_callsite_evidence_helper.py::test_callsite_evidence_dedupes_duplicate_calls"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_callsite_evidence_helper.py::test_callsite_evidence_records_star_args_and_star_kwargs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_callsite_evidence_helper.py::test_callsite_evidence_skips_calls_without_span"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_class_method_propagation.py::test_inherited_method_call_propagates_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_class_method_propagation.py::test_method_call_propagates_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_check_and_dataflow_audit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_dataflow_audit_requires_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_docflow_audit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol_invalid_json"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol_output_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_structure_diff"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_synth_and_synthesis_plan"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_synth_invalid_protocols_kind"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_synth_invalid_strictness"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_synthesis_plan_stdout"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_build_refactor_payload_input_payload_passthrough"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_build_refactor_payload_requires_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_cli_diff_and_reuse_commands_use_default_runner"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_decision_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_fingerprint_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_lint_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_structure_metrics"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_structure_tree"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_skips_type_audit_output"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_type_audit_empty_findings"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_errors_exit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_success"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_lint_outputs_writes_artifacts"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_errors_exit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_success"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_errors_exit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_success"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_emit_synth_outputs_lists_optional_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_lint_parsing_and_writers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_refactor_protocol_rejects_non_object_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_decision_diff_uses_runner"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_missing_script"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_refactor_protocol_accepts_object_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_structure_diff_uses_runner"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_structure_reuse_uses_runner"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_synth_parses_optional_inputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_synthesis_plan_rejects_non_object_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_run_synthesis_plan_without_input"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_split_csv_helpers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_check_builds_payload"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_strictness_validation"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_code_action_stub.py::test_code_action_refactor_stub"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_declarations_anywhere.py::test_config_dataclass_declares_bundle_outside_config_py"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_defaults.py::test_dataflow_defaults_reads_toml"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_defaults.py::test_merge_payload_prefers_explicit_values"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_edges.py::test_config_helpers_cover_bool_and_lists"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_edges.py::test_decision_tier_map_normalizes_inputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_edges.py::test_load_config_default_path"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_edges.py::test_load_toml_missing_and_invalid"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_config_fields.py::test_iter_config_fields_expands_config_dataclass"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_consolidation_forest_guardrail.py::test_consolidation_allows_fallback_in_permissive_mode"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_consolidation_forest_guardrail.py::test_consolidation_requires_forest_in_strict_mode"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_detects_constant_kw_and_ignores_non_const"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_ignores_extra_pos_args"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_low_strictness_star_handling"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_skips_multi_value_constants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_skips_test_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_smells_and_star_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_tracks_non_const_kw"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_deadness_witnesses_from_constant_flow"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_audit.py::test_format_call_site_handles_missing_span"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_constant_flow_varargs_and_knobs.py::test_constant_flow_varargs_and_knob_branches"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataclass_call_bundles.py::test_dataclass_call_bundles_accepts_expression_values"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataclass_call_bundles.py::test_dataclass_call_bundles_resolve_cross_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_bundle_projection_and_emitters"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_handledness_system_exit"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_classifies"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_skips_bad_syntax"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_deadness_and_coherence_summaries_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_decision_param_lint_line_missing_span_and_transitive_callers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_and_handledness_summary_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_collection_and_summaries_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_helpers_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_obligation_summary_helper_covers_filters_and_status_normalization"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_protocol_warning_filters"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_type_name_and_protocol_lint_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_coherence_and_rewrite_plans_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_forbid_adhoc_bundle_discovery_guard"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_never_helpers_and_sort_key_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_never_invariant_lint_and_summary_formats"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_populate_bundle_forest_dedupes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_evidence_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_handles_empty_bundle_members"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_value_decision_counts"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_value_decision_surfaces_emit_forest"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_callee_globals"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_ambiguous"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_globals_only"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_recursive_false"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_base_identifier_invalid_attribute"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_none_and_nontransparent"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_nontransparent_dependency"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_unresolved_and_opaque"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_build_synthesis_plan_skips_empty_members"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_collect_module_exports_augassign_only"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_all_params_ignored"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_empty_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_compute_knob_param_names_non_const_kw"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_emit_report_tier2_violation"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_infer_root_with_groups"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_external_filtered"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_global_and_imported"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_imports_and_self"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_local_callee_ambiguity_and_scope"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_method_in_hierarchy_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_flows.py::test_analyze_paths_config_default"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_flows.py::test_flow_analyses_edge_cases"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analyze_decision_surfaces_repo_warnings"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analyze_value_encoded_decisions_repo_warnings"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_collect_invariant_emitters_type_error"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_matches_skips_missing_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_matches_skips_missing_types"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_provenance_skips_missing_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_provenance_skips_none_types"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_synth_includes_ctor_keys"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_synth_skips_missing_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_synth_skips_none_types"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_decision_helpers_cover_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_decision_surface_params_match_ifexp_and_match"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_exception_obligations_enum_and_handledness"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_extract_invariant_from_expr_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_format_invariant_proposition_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_invariant_collector_skips_nested_defs_and_lambda"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_load_decision_snapshot_errors"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_param_annotations_by_path_skips_parse_errors"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_render_structure_snapshot_skips_invalid_invariant_scope"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_resolve_synth_registry_path_latest"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_summarize_fingerprint_provenance_empty"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_value_encoded_decision_params_branches"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_copies_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_marks_missing_signature"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_never_invariants.py::test_format_span_fields_handles_invalid_values"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_never_invariants.py::test_render_decision_snapshot_marks_partial_when_missing_forest"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_never_invariants.py::test_summarize_never_invariants_filters_and_formats"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_audit_run.py::test_run_baseline_write_requires_path"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_run.py::test_run_dot_stdout_short_circuit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_run.py::test_run_fail_on_violations_no_report"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_audit_run.py::test_run_report_baseline_write_and_apply"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_run.py::test_run_structure_metrics_stdout_short_circuit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_run.py::test_run_structure_tree_stdout_short_circuit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_audit_run.py::test_run_type_audit_early_return"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_class_resolution.py::test_local_class_bases_and_method_resolution"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_class_resolution.py::test_resolve_class_candidates_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_class_resolution.py::test_resolve_method_in_hierarchy"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_dataclass_bundles.py::test_collect_dataclass_registry_without_project_root"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_dataclass_bundles.py::test_config_and_documented_bundles_error_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_dataclass_bundles.py::test_config_bundles_and_documented_markers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_dataclass_bundles.py::test_dataclass_registry_and_call_bundles"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_dataclass_bundles.py::test_iter_dataclass_call_bundles_invalid_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_grouping.py::test_analyze_file_ambiguous_local_callee"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_grouping.py::test_group_by_signature_and_union_groups"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_grouping.py::test_propagate_groups_low_strictness_star"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_grouping.py::test_propagate_groups_skips_opaque"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_audit_config_ignored_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_base_identifier_and_exports"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_callee_normalization_and_decorators"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_collect_local_class_bases_skips_unknown"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_collect_return_aliases_conflict"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_const_repr_and_type_from_const_repr"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_is_test_path"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_local_class_helpers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_module_name_and_strings"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_param_defaults_and_return_aliases"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_param_helpers_and_scopes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_param_spans_ignore_var_kw"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_param_spans_include_var_kw"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_resolve_star_external_filtered"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_return_aliases_bare_return"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_return_aliases_tuple_and_conflict"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_split_and_combine_type_hints"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_helpers.py::test_symbol_table_resolution_and_call_context"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_kitchen_sink.py::test_kitchen_sink_analysis_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_main.py::test_dataflow_audit_main_executes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_collect_module_exports_includes_annassign"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_decorator_name_attribute_without_root"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_iter_dataclass_call_bundles_captures_assign_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_iter_paths_ignored_candidate_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_iter_paths_ignored_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_normalize_callee_long_self_chain"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_normalize_transparent_decorators_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_string_list_non_list_returns_none"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_misc_edges.py::test_symbol_table_resolve_star_external_filtered"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_anonymous_schema_surfaces"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_anonymous_schema_surfaces_truncates_long_list"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_coherence_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_component_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_deadness_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_empty_groups"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_exception_obligation_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_fingerprint_matches_and_synth"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_fingerprint_provenance_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_handledness_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_max_components_cutoff"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_rewrite_plan_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_merge_counts_by_knobs_merges_subset"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_render_mermaid_component_declared_none_documented"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_ambiguous_then_global"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_class_hierarchy"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_globals_only"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_import_and_star"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_import_filtered_out"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_self_and_base_import"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_self_class_candidates"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_run.py::test_run_baseline_write_and_apply"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run.py::test_run_generates_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run.py::test_run_invalid_strictness_from_config"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_lint_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_snapshots.py::test_render_and_diff_decision_snapshots"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_analyze_decision_surfaces_repo"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_analyze_value_encoded_decisions_repo"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_decision_surface_internal_caller"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_decision_surface_location_tier_suppresses_lint"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_decision_surface_params_collects_names"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_decision_surface_tier_warning_internal"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_emit_report_includes_decision_surfaces"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_emit_report_includes_value_rewrites"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decision_surfaces.py::test_value_encoded_decision_params_collects_names"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decorator_transparency.py::test_decorated_function_opaque_without_allowlist"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_decorator_transparency.py::test_decorated_function_transparent_by_default"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_evidence.py::test_normalize_bundle_key_accepts_lists_tuples_and_sets"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_evidence.py::test_normalize_string_list_handles_multiple_payload_shapes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_evidence.py::test_site_from_payload_filters_and_normalizes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_evidence_keys.py::test_evidence_keys_normalize_and_render"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_evidence_keys.py::test_is_opaque"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_evidence_keys.py::test_parse_display_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_evidence_keys.py::test_render_display_handles_non_list_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_exception_deadness_helpers.py::test_deadness_helper_evaluators_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_exception_deadness_helpers.py::test_exception_obligation_deadness_parsing_skips_invalid_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_exception_deadness_helpers.py::test_exception_obligations_deadness_selection_skips_unknown_names"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_exception_deadness_helpers.py::test_exception_obligations_skip_never_marker_raise"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_exception_protocol_never.py::test_exception_protocol_never_violation"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_soundness.py::test_fingerprint_soundness_issues_detects_overlap"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_soundness.py::test_fingerprint_soundness_issues_skip_empty"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_build_synth_registry_payload_includes_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_matches_cover_remainder_and_missing"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_matches_index_empty"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_matches_report_known_entry"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_provenance_emits_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_provenance_skips_none_annotations"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_synth_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_synth_empty_registry_returns_none"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_synth_existing_registry_remainder"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_synth_reports_tail"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_warnings_handles_missing_and_none_annotations"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_warnings_index_empty"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_warnings_match_known_entry"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_warnings_missing_match"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_warnings_remainder_with_ctor_keys"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_fingerprint_warnings_soundness_detected"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_fingerprint_warnings.py::test_summarize_fingerprint_provenance_groups"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_bundles.py::test_bundle_forest_reuses_paramset"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_only_invariant.py::test_report_uses_forest_only_invariant"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_signature.py::test_forest_signature_deterministic"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_signature.py::test_forest_signature_from_groups"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_signature.py::test_normalize_key_handles_objects"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_signature.py::test_path_name_falls_back_to_str"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_forest_spec_metadata_contains_id_and_spec"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_forest_spec_normalization_idempotent"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_forest_spec_to_dict_roundtrip_handles_invalid_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_normalize_decision_tiers_ignores_invalid"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_import_shadowing.py::test_local_definition_overrides_import"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_invariant_emitter_hooks.py::test_invariant_emitters_are_applied"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_invariant_propositions.py::test_invariant_extracts_len_equality"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_invariant_propositions.py::test_invariant_extracts_param_equality"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_invariant_propositions.py::test_invariant_ignores_non_param_asserts"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_invariants.py::test_never_raises_never_thrown"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_knob_merge.py::test_knob_merge_by_constant_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lint_lines.py::test_lint_lines_from_constant_and_unused_smells"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lint_lines.py::test_lint_lines_from_type_and_exception_evidence"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lint_lines.py::test_lint_location_parser_and_bundle_lines"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_errors.py::test_run_command_unknown_command_raises"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_rpc.py::test_read_response_skips_unmatched_ids"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_accepts_prefetched_body"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_invalid_length"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_missing_content_length_header"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_rejects_non_object_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_skips_non_content_length_headers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_stream_closed"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_allows_blank_stderr"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_nonzero_returncode"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_stderr_output"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_non_object_result"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_smoke.py::test_lsp_execute_command"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_lsp_smoke.py::test_lsp_execute_command_writes_structure_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_matrix_acceptance_artifacts.py::test_matrix_artifacts_are_deterministic_and_have_required_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_misc_coverage.py::test_lsp_client_rpc_roundtrip"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_misc_coverage.py::test_main_entrypoint_invokes_app"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_misc_coverage.py::test_main_module_import"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_misc_coverage.py::test_server_code_actions_and_diagnostics"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_nested_resolution.py::test_nested_function_resolution"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_never_invariants.py::test_never_invariant_obligation"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_never_invariants.py::test_never_invariant_proven_unreachable"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_never_invariants.py::test_never_invariant_report_order_and_evidence"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_never_invariants.py::test_never_invariant_violation"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_never_invariants.py::test_never_invariants_emit_forest_and_report"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_param_spans.py::test_param_spans_capture_signature_positions"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_count_by_and_sort_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_with_custom_normalizer_handles_invalid_ops"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_normalize_helpers_cover_branches"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_normalize_pipeline_skips_empty_and_unknown_ops"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_sort_value_and_hashable_helpers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_spec_from_dict_handles_invalid_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_count_by_groups_rows"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_limit_roundtrip_and_desc_normalization"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_noop_select_elided"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_normalize_idempotent_and_hash_stable"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_select_fusion_equivalence"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_sort_canonicalization_equivalence"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine.py::test_refactor_engine_emits_compat_shim"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine.py::test_refactor_engine_emits_protocol_stub"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine.py::test_refactor_engine_preserves_type_hints"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine.py::test_refactor_engine_rewrites_call_sites"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine.py::test_refactor_engine_rewrites_imported_call_sites"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine.py::test_refactor_engine_rewrites_signature_and_preamble"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_has_typing_import_handles_attribute_module"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_module_expr_to_str_and_import_index"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_module_name_strips_src_prefix"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_handles_missing_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_handles_parse_error"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_invalid_type_hint_warns"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_requires_bundle_or_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_requires_protocol_name"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_helpers.py::test_collect_import_context"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_helpers.py::test_import_helpers_and_insert_index"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_helpers.py::test_module_expr_to_str"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_helpers.py::test_rewrite_call_sites_in_project"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_helpers.py::test_rewrite_call_sites_target_and_imports"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_call_site_transformer_helpers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_collect_import_context_skips_import_star_matching_module"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_collect_import_context_skips_nonmatching"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_module_name_handles_value_error"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_plan_protocol_extraction_typing_import_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_refactor_transformer_async_and_no_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_refactor_transformer_helpers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_rewrite_call_sites_empty_targets"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_rewrite_call_sites_in_project_read_errors"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_refactor_engine_more.py::test_rewrite_call_sites_module_alias_and_method_target"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_rewrite_call_sites_uses_protocol_alias"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_engine_more.py::test_typing_import_helpers_negative_branches"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_idempotency.py::test_refactor_idempotency"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_refactor_plan.py::test_refactor_plan_orders_callee_first"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_report_callsite_evidence.py::test_report_includes_callsite_evidence_for_undocumented_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_report_callsite_evidence.py::test_report_omits_callsite_evidence_for_documented_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_find_provenance_entry_for_site_covers_misses_and_hit"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_glossary_match_strata_classification"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_normalize_bundle_key_covers_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_accepts_happy_path_and_list_helper"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_detects_candidate_mismatch"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_detects_remainder_regression"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_requested"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_handles_non_dict_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_handles_non_dict_remainder_and_params"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_missing_post_entry"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_rejects_missing_or_invalid_site"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_finds_common_sites"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_ignores_test_roles"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_name_handles_attribute_and_unknown_nodes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_normalize_path_outside_root_returns_absolute"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_subscript_helpers_cover_non_tuple_slices"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_suggest_type_name_singularizes_and_handles_provenance"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_unparse_fallback_for_invalid_ast"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_baseline_write"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_no_violations"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_report_and_dot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_metrics"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_metrics_stdout"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_tree"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_refactor_invalid_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_invalid_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_missing_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_missing_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_execute_synthesis_minimal_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_normalize_transparent_decorators"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_uri_to_path_file_scheme"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command.py::test_uri_to_path_plain_path"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_invalid_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_missing_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_none"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_valid_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_invalid_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_missing_snapshot"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_none"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_helpers.py::test_diagnostics_for_path_reports_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_helpers.py::test_normalize_transparent_decorators"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_helpers.py::test_start_uses_injected_callable"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_server_helpers.py::test_uri_to_path"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_star_import_resolution.py::test_star_import_resolution_disambiguates"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_star_import_resolution.py::test_star_import_resolves_reexport"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_diff.py::test_bundle_counts_skips_invalid_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_diff.py::test_diff_structure_snapshot_files"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_diff.py::test_diff_structure_snapshots_counts_and_summary"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_diff.py::test_load_structure_snapshot_invalid_json"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_diff.py::test_load_structure_snapshot_non_object"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_metrics.py::test_compute_structure_metrics_counts"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse.py::test_compute_structure_reuse_detects_repeated_subtrees"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse.py::test_render_reuse_lemma_stubs_includes_names"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse.py::test_structure_reuse_prefers_declared_bundle_names"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_list_locations"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_string_locations"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse_edges.py::test_compute_structure_reuse_handles_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse_edges.py::test_compute_structure_reuse_skips_non_list_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_no_suggestions"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_skips_invalid_names"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_with_child_count"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_snapshot.py::test_render_structure_snapshot_handles_outside_root"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_snapshot.py::test_render_structure_snapshot_orders_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_structure_snapshot_invariants.py::test_structure_snapshot_includes_invariants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_control_context.py::test_synthesis_plan_includes_control_context_evidence"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_merge.py::test_merge_bundles_combines_overlaps"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_merge.py::test_merge_bundles_keeps_distinct"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_merge_integration.py::test_build_synthesis_plan_merges_overlapping_bundles"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_naming.py::test_suggest_name_avoids_collisions"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_naming.py::test_suggest_name_uses_frequency"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_naming.py::test_suggest_name_with_empty_fields"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_filters_and_builds_specs"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_skips_empty_bundle"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_uses_existing_names"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_warns_on_empty"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_schedule.py::test_topological_schedule_orders_dependencies"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_schedule.py::test_topological_schedule_reports_cycles"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_stubs.py::test_render_protocol_stubs_emits_dataclass"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_stubs.py::test_render_protocol_stubs_emits_protocol"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_tiers.py::test_synthesis_plan_applies_tiers_and_max_tier"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_includes_type_hints"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_infers_types_from_constants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_resolves_conflicts_to_union"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence.py::test_excludes_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence.py::test_extracts_evidence_tags_and_unmapped"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence.py::test_handles_missing_and_direct_file_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence.py::test_rejects_duplicate_test_ids"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence.py::test_requires_adjacent_tag_and_skips_bad_files"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_errors.py::test_extract_file_evidence_handles_missing_file"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_errors.py::test_extract_file_evidence_handles_syntax_error"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_decision_surface_suggestion"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_resolution_blocks_heuristics"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_heuristic_fallback_when_graph_unavailable"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_skips_mapped_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_build_indices_and_helper_functions"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_reachable_skips_visited"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_evidence_for_alt_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_graph_suggestions_cache_and_unresolved"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_graph_suggestions_paths_filtered"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_load_test_evidence_errors_and_defaults"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_render_markdown_and_payload"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_basic_dominance"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_compute_dominators_handles_empty_evidence"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_equivalent_witness_classification"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_load_risk_registry_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_errors"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_skips_invalid_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_normalize_evidence_refs_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_render_json_payload_includes_spec_metadata"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_spec_metadata"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_suffix_details"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_risk_info_from_payload_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_summarize_candidates_handles_bad_counts"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_unmapped_classification"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_build_evidence_index_merges_displays"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_helpers_cover_edge_cases"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_load_baseline_rejects_non_object"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_filters_invalid_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_rejects_bad_version"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_merges_duplicates"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_spec_metadata"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_with_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_apply_synth_dimension_attaches_tail"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_apply_synth_dimension_noop_when_missing"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries_with_valid"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_applies_registry_basis_to_empty_registry"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_assigns_bits_when_missing"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_ignores_non_string_registry_keys"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_bit_mismatch"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_duplicate_bit_positions"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_duplicate_primes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_registry_mismatch"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_skips_non_dict_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_multiplies_primes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_setlike_ignores_duplicates"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_constructors_skips_empty_keys"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_empty_and_constructor_bitmask"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_canonical_type_key_normalizes_generics"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_canonical_type_key_normalizes_union_and_optional"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_canonical_type_key_with_constructor_handles_union_and_optional"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_canonical_type_key_with_constructor_pipe_union_and_empty"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_carrier_soundness_mask_disjoint_implies_gcd_one"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_carrier_soundness_mask_overlap_true"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_collect_atoms_and_constructors"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_collect_atoms_union_and_optional_paths"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_collect_base_atoms_and_constructors_cover_empty_and_unions"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_constructor_registry_assigns_primes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_dimension_helpers_and_formatting"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_dimensional_fingerprint_includes_constructors"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_fingerprint_arithmetic_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_fingerprint_arithmetic_ops"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_fingerprint_bitmask_skips_empty_keys"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_fingerprint_hybrid_bitmask"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_fingerprint_to_type_keys_roundtrip"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_fingerprint_to_type_keys_with_remainder_and_strict"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_format_fingerprint_str_and_synth_dimension_none"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_normalization_helpers_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_normalize_type_list_variants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_prime_checks_and_key_lookup"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_prime_registry_assigns_stable_primes"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_registry_helpers_cover_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_synth_registry_assigns_primes_deterministically"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_synth_registry_from_payload_overrides_prime"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_synth_registry_payload_handles_non_list_entries"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_fingerprints.py::test_synth_registry_payload_roundtrip"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_flow_audit.py::test_type_flow_suggestions_and_ambiguities"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_flow_callsite_evidence.py::test_format_type_flow_site_handles_missing_span"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_type_flow_callsite_evidence.py::test_type_flow_evidence_in_report"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_edge_branches"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_ignores_constants"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_ignores_extra_pos_args"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_non_const_pos_and_kw"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_skips_test_calls"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_smell_detected"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_star_kw_low_strictness"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_edges.py::test_alias_from_call_branches"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_edges.py::test_alias_from_call_keyword_branches"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_annassign_edges"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_attr_and_subscript_slot_fallbacks_with_aliases"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_attribute_and_subscript_aliases"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_edges.py::test_bind_return_alias_rejects_invalid_targets"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_bind_sequence_edge_cases"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_check_write_clears_attr_and_key_aliases"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_edges.py::test_collect_alias_sources_default"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_import_visitor_relative_and_star"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_record_forward_skips_call_without_span"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_star_args_strictness"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_starred_list_literal_records_forward_without_site"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_subscript_and_attribute_slot_fallbacks"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_subscript_non_name_root_sets_non_forward"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_edges.py::test_visit_name_attribute_subscript_edges"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_unit.py::test_alias_from_call_rejects_starred"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_unit.py::test_attribute_and_subscript_forwarding"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_unit.py::test_bind_sequence_mismatch_marks_non_forward"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_unit.py::test_import_visitor_basic_and_relative"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_unit.py::test_usevisitor_node_span_none_without_locations"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_unit.py::test_usevisitor_span_adjusts_zero_width_call"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_visitors_unit.py::test_usevisitor_star_forwarding_low_strictness"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_wildcard_forwarding.py::test_unused_arg_flow_maps_star_args_low_strictness"
+    }
+  ],
+  "version": 1
+}

@@ -49,6 +49,7 @@ from gabion.analysis import (
     write_baseline,
 )
 from gabion.analysis import test_obsolescence
+from gabion.analysis import test_obsolescence_delta
 from gabion.analysis import test_evidence_suggestions
 from gabion.config import (
     dataflow_defaults,
@@ -234,6 +235,12 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     structure_metrics_path = payload.get("structure_metrics")
     decision_snapshot_path = payload.get("decision_snapshot")
     emit_test_obsolescence = bool(payload.get("emit_test_obsolescence", False))
+    emit_test_obsolescence_delta = bool(
+        payload.get("emit_test_obsolescence_delta", False)
+    )
+    write_test_obsolescence_baseline = bool(
+        payload.get("write_test_obsolescence_baseline", False)
+    )
     emit_test_evidence_suggestions = bool(
         payload.get("emit_test_evidence_suggestions", False)
     )
@@ -419,6 +426,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["decision_snapshot"] = snapshot
         else:
             Path(decision_snapshot_path).write_text(payload_json)
+    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
+        raise ValueError(
+            "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+        )
+
     if emit_test_evidence_suggestions:
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"
@@ -442,7 +454,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         response["test_evidence_suggestions_summary"] = (
             suggestions_payload.get("summary", {})
         )
-    if emit_test_obsolescence:
+    if emit_test_obsolescence or emit_test_obsolescence_delta or write_test_obsolescence_baseline:
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"
         risk_registry_path = report_root / "out" / "evidence_risk_registry.json"
@@ -453,6 +465,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         candidates, summary_counts = test_obsolescence.classify_candidates(
             evidence_by_test, status_by_test, risk_registry
         )
+
+    if emit_test_obsolescence:
         report_payload = test_obsolescence.render_json_payload(
             candidates, summary_counts
         )
@@ -463,6 +477,42 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         (output_dir / "test_obsolescence_report.json").write_text(report_json)
         (output_dir / "test_obsolescence_report.md").write_text(report_md)
         response["test_obsolescence_summary"] = summary_counts
+
+    if emit_test_obsolescence_delta or write_test_obsolescence_baseline:
+        baseline_payload = test_obsolescence_delta.build_baseline_payload(
+            evidence_by_test, status_by_test, candidates, summary_counts
+        )
+        baseline_path = test_obsolescence_delta.resolve_baseline_path(report_root)
+        response["test_obsolescence_baseline_path"] = str(baseline_path)
+        if write_test_obsolescence_baseline:
+            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            test_obsolescence_delta.write_baseline(
+                str(baseline_path), baseline_payload
+            )
+            response["test_obsolescence_baseline_written"] = True
+        else:
+            response["test_obsolescence_baseline_written"] = False
+        if emit_test_obsolescence_delta:
+            if not baseline_path.exists():
+                raise FileNotFoundError(
+                    f"Test obsolescence baseline not found: {baseline_path}"
+                )
+            baseline = test_obsolescence_delta.load_baseline(str(baseline_path))
+            current = test_obsolescence_delta.parse_baseline_payload(
+                baseline_payload
+            )
+            delta_payload = test_obsolescence_delta.build_delta_payload(
+                baseline, current, baseline_path=str(baseline_path)
+            )
+            output_dir = report_root / "out"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
+            report_md = test_obsolescence_delta.render_markdown(delta_payload)
+            (output_dir / "test_obsolescence_delta.json").write_text(report_json)
+            (output_dir / "test_obsolescence_delta.md").write_text(report_md)
+            response["test_obsolescence_delta_summary"] = delta_payload.get(
+                "summary", {}
+            )
 
     violations: list[str] = []
     effective_violations: list[str] | None = None

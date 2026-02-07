@@ -72,6 +72,20 @@ TEST_OBSOLESCENCE_SUMMARY_SPEC = ProjectionSpec(
 )
 
 
+TEST_OBSOLESCENCE_BASELINE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="test_obsolescence_baseline",
+    domain="test_obsolescence_baseline",
+)
+
+
+TEST_OBSOLESCENCE_DELTA_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="test_obsolescence_delta",
+    domain="test_obsolescence_delta",
+)
+
+
 def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
     spec_id = spec_hash(spec)
     spec_json = spec_canonical_json(spec)
@@ -89,7 +103,12 @@ def spec_metadata_payload(spec: ProjectionSpec) -> dict[str, JSONValue]:
 
 
 def iter_registered_specs() -> Iterable[ProjectionSpec]:
-    return (NEVER_INVARIANTS_SPEC, TEST_OBSOLESCENCE_SUMMARY_SPEC)
+    return (
+        NEVER_INVARIANTS_SPEC,
+        TEST_OBSOLESCENCE_SUMMARY_SPEC,
+        TEST_OBSOLESCENCE_BASELINE_SPEC,
+        TEST_OBSOLESCENCE_DELTA_SPEC,
+    )
 
 
 REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}

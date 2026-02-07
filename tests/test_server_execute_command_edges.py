@@ -4,7 +4,10 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 from gabion import server
+from gabion.analysis import test_obsolescence_delta
 
 
 class _DummyWorkspace:
@@ -441,6 +444,146 @@ def test_execute_command_emits_test_reports(tmp_path: Path) -> None:
     assert (out_dir / "test_obsolescence_report.json").exists()
     assert "test_evidence_suggestions_summary" in result
     assert "test_obsolescence_summary" in result
+
+
+def test_execute_command_emits_obsolescence_delta(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": [], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [
+                    {"key": {"k": "paramset", "params": ["x"]}, "display": "E:paramset::x"}
+                ],
+                "status": "mapped",
+            }
+        ],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    baseline_payload = test_obsolescence_delta.build_baseline_payload_from_paths(
+        str(out_dir / "test_evidence.json"),
+        str(out_dir / "evidence_risk_registry.json"),
+    )
+    baseline_path = test_obsolescence_delta.resolve_baseline_path(tmp_path)
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    test_obsolescence_delta.write_baseline(str(baseline_path), baseline_payload)
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_obsolescence_delta": True,
+        },
+    )
+    assert (out_dir / "test_obsolescence_delta.json").exists()
+    assert (out_dir / "test_obsolescence_delta.md").exists()
+    assert "test_obsolescence_delta_summary" in result
+
+
+def test_execute_command_writes_obsolescence_baseline(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": [], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [],
+                "status": "unmapped",
+            }
+        ],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "write_test_obsolescence_baseline": True,
+        },
+    )
+    baseline_path = test_obsolescence_delta.resolve_baseline_path(tmp_path)
+    assert baseline_path.exists()
+    assert result.get("test_obsolescence_baseline_written") is True
+
+
+def test_execute_command_rejects_conflicting_obsolescence_flags(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(ValueError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_obsolescence_delta": True,
+                "write_test_obsolescence_baseline": True,
+            },
+        )
+
+
+def test_execute_command_requires_obsolescence_baseline(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": [], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [],
+                "status": "unmapped",
+            }
+        ],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_obsolescence_delta": True,
+            },
+        )
 
 
 def test_execute_command_defaults_payload(tmp_path: Path) -> None:

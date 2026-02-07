@@ -16,6 +16,8 @@ out/test_evidence_suggestions.json
 out/test_evidence_suggestions.md
 out/test_obsolescence_report.json
 out/test_obsolescence_report.md
+out/test_obsolescence_delta.json
+out/test_obsolescence_delta.md
 
 node_modules/
 package-lock.json

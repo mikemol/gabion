@@ -593,21 +593,28 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 63,
+      "line": 69,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 39,
+      "line": 216,
+      "status": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_cli_payloads.py",
+      "line": 43,
       "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_strictness_validation"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 86,
+      "line": 94,
       "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
     },
@@ -622,28 +629,28 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 119,
+      "line": 127,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 154,
+      "line": 162,
       "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 138,
+      "line": 146,
       "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 167,
+      "line": 175,
       "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
@@ -3350,63 +3357,77 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 219,
+      "line": 222,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 51,
+      "line": 54,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 446,
+      "line": 589,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 406,
+      "line": 449,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 409,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 241,
+      "line": 244,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 93,
+      "line": 96,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 257,
+      "line": 260,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 72,
+      "line": 75,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 378,
+      "line": 535,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 381,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections"
     },
@@ -3421,133 +3442,147 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 273,
+      "line": 276,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 201,
+      "line": 553,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 204,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 143,
+      "line": 146,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 350,
+      "line": 497,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 353,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_invalid_snapshot"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 340,
+      "line": 343,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_missing_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 345,
+      "line": 348,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_none"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 360,
+      "line": 363,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_valid_snapshot"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 471,
+      "line": 614,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 477,
+      "line": 620,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 453,
+      "line": 596,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 306,
+      "line": 309,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_invalid_snapshot"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 296,
+      "line": 299,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_missing_snapshot"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 301,
+      "line": 304,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_none"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 313,
+      "line": 316,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 326,
+      "line": 329,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs_file"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 483,
+      "line": 626,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 504,
+      "line": 647,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 489,
+      "line": 632,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
     },
     {
       "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 510,
+      "line": 653,
       "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
     },
@@ -4096,6 +4131,76 @@
       "line": 83,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_unmapped_classification"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 32,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 178,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_build_evidence_index_merges_displays"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 57,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 165,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_helpers_cover_edge_cases"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 158,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_load_baseline_rejects_non_object"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 278,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_filters_invalid_entries"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 153,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_rejects_bad_version"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 206,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_merges_duplicates"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 135,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_spec_metadata"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence_delta.py",
+      "line": 218,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_with_entries"
     },
     {
       "evidence": [],

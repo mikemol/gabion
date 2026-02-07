@@ -170,7 +170,9 @@ def build_check_payload(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     emit_test_obsolescence: bool,
+    emit_test_obsolescence_delta: bool,
     emit_test_evidence_suggestions: bool,
+    write_test_obsolescence_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -184,6 +186,10 @@ def build_check_payload(
         paths = [Path(".")]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
+    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
+        raise typer.BadParameter(
+            "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+        )
     exclude_dirs = _split_csv_entries(exclude)
     ignore_list = _split_csv(ignore_params_csv)
     transparent_list = _split_csv(transparent_decorators_csv)
@@ -200,7 +206,9 @@ def build_check_payload(
         "baseline_write": baseline_write_value,
         "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
         "emit_test_obsolescence": emit_test_obsolescence,
+        "emit_test_obsolescence_delta": emit_test_obsolescence_delta,
         "emit_test_evidence_suggestions": emit_test_evidence_suggestions,
+        "write_test_obsolescence_baseline": write_test_obsolescence_baseline,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -352,7 +360,9 @@ def run_check(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     emit_test_obsolescence: bool,
+    emit_test_obsolescence_delta: bool,
     emit_test_evidence_suggestions: bool,
+    write_test_obsolescence_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -373,7 +383,9 @@ def run_check(
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
         emit_test_obsolescence=emit_test_obsolescence,
+        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
         emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,
@@ -400,10 +412,20 @@ def check(
         "--emit-test-obsolescence/--no-emit-test-obsolescence",
         help="Write test obsolescence report to out/.",
     ),
+    emit_test_obsolescence_delta: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence-delta/--no-emit-test-obsolescence-delta",
+        help="Write test obsolescence delta report to out/.",
+    ),
     emit_test_evidence_suggestions: bool = typer.Option(
         False,
         "--emit-test-evidence-suggestions/--no-emit-test-evidence-suggestions",
         help="Write test evidence suggestions to out/.",
+    ),
+    write_test_obsolescence_baseline: bool = typer.Option(
+        False,
+        "--write-test-obsolescence-baseline/--no-write-test-obsolescence-baseline",
+        help="Write the current test obsolescence baseline to baselines/.",
     ),
     baseline: Optional[Path] = typer.Option(
         None, "--baseline", help="Baseline file of allowed violations."
@@ -444,7 +466,9 @@ def check(
         baseline_write=baseline_write,
         decision_snapshot=decision_snapshot,
         emit_test_obsolescence=emit_test_obsolescence,
+        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
         emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,
