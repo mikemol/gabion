@@ -66,6 +66,7 @@ def test_analysis_engine_and_model_defaults() -> None:
     assert param_use.current_aliases == set()
 
 
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 def test_lsp_client_rpc_roundtrip() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -101,6 +102,7 @@ def test_lsp_client_rpc_roundtrip() -> None:
     assert data in out_value
 
 
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.did_open::ls E:decision_surface/direct::server.py::gabion.server.did_save::ls
 def test_server_code_actions_and_diagnostics(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))

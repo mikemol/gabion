@@ -56,6 +56,7 @@ def test_config_bundles_and_documented_markers(tmp_path: Path) -> None:
     assert ("single",) not in documented
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
 def test_dataclass_registry_and_call_bundles(tmp_path: Path) -> None:
     da = _load()
     pkg = tmp_path / "pkg"
@@ -125,6 +126,7 @@ def test_config_and_documented_bundles_error_paths(tmp_path: Path) -> None:
     assert da._iter_config_fields(bad_config) == {}
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_collect_dataclass_registry_without_project_root(tmp_path: Path) -> None:
     da = _load()
     good = tmp_path / "good.py"
@@ -142,6 +144,7 @@ def test_collect_dataclass_registry_without_project_root(tmp_path: Path) -> None
     assert any(key.endswith(".Config") for key in registry)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_iter_dataclass_call_bundles_invalid_file(tmp_path: Path) -> None:
     da = _load()
     bad = tmp_path / "bad.py"

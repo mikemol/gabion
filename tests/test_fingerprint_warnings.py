@@ -13,6 +13,7 @@ def _load():
     return da, build_fingerprint_registry
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index
 def test_fingerprint_warnings_missing_match(tmp_path: Path) -> None:
     da, build_registry = _load()
     path = tmp_path / "mod.py"
@@ -30,6 +31,7 @@ def test_fingerprint_warnings_missing_match(tmp_path: Path) -> None:
     assert any("fingerprint" in warning for warning in warnings)
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index
 def test_fingerprint_warnings_match_known_entry(tmp_path: Path) -> None:
     da, build_registry = _load()
     path = tmp_path / "mod.py"
@@ -47,6 +49,7 @@ def test_fingerprint_warnings_match_known_entry(tmp_path: Path) -> None:
     assert warnings == []
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::index
 def test_fingerprint_matches_report_known_entry(tmp_path: Path) -> None:
     da, build_registry = _load()
     path = tmp_path / "mod.py"
@@ -64,6 +67,7 @@ def test_fingerprint_matches_report_known_entry(tmp_path: Path) -> None:
     assert any("user_context" in match for match in matches)
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences
 def test_fingerprint_synth_reports_tail(tmp_path: Path) -> None:
     da, build_registry = _load()
     path = tmp_path / "mod.py"
@@ -85,6 +89,7 @@ def test_fingerprint_synth_reports_tail(tmp_path: Path) -> None:
     assert payload.get("entries")
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::index E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_fingerprint_provenance_emits_entries(tmp_path: Path) -> None:
     da, build_registry = _load()
     path = tmp_path / "mod.py"
@@ -106,6 +111,7 @@ def test_fingerprint_provenance_emits_entries(tmp_path: Path) -> None:
     assert entry["glossary_matches"] == ["user_context"]
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index
 def test_fingerprint_warnings_index_empty(tmp_path: Path) -> None:
     da, _ = _load()
     path = tmp_path / "mod.py"
@@ -120,6 +126,7 @@ def test_fingerprint_warnings_index_empty(tmp_path: Path) -> None:
     assert warnings == []
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index
 def test_fingerprint_warnings_handles_missing_and_none_annotations(tmp_path: Path) -> None:
     da, build_registry = _load()
     path = tmp_path / "mod.py"
@@ -145,6 +152,7 @@ def test_fingerprint_warnings_handles_missing_and_none_annotations(tmp_path: Pat
     assert warnings == []
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index
 def test_fingerprint_warnings_remainder_with_ctor_keys(tmp_path: Path) -> None:
     da, _ = _load()
 
@@ -171,6 +179,7 @@ def test_fingerprint_warnings_remainder_with_ctor_keys(tmp_path: Path) -> None:
     assert any("remainder" in warning for warning in warnings)
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index
 def test_fingerprint_warnings_soundness_detected(tmp_path: Path) -> None:
     da, _ = _load()
     registry = da.PrimeRegistry()
@@ -193,6 +202,7 @@ def test_fingerprint_warnings_soundness_detected(tmp_path: Path) -> None:
     assert any("carrier soundness" in warning for warning in warnings)
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::index
 def test_fingerprint_matches_cover_remainder_and_missing(tmp_path: Path) -> None:
     da, _ = _load()
 
@@ -230,6 +240,7 @@ def test_fingerprint_matches_cover_remainder_and_missing(tmp_path: Path) -> None
     assert any("remainder" in match for match in matches)
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::index
 def test_fingerprint_matches_index_empty(tmp_path: Path) -> None:
     da, _ = _load()
     path = tmp_path / "mod.py"
@@ -244,6 +255,7 @@ def test_fingerprint_matches_index_empty(tmp_path: Path) -> None:
     assert matches == []
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::index E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_fingerprint_provenance_skips_none_annotations(tmp_path: Path) -> None:
     da, _ = _load()
     path = tmp_path / "mod.py"
@@ -259,6 +271,7 @@ def test_fingerprint_provenance_skips_none_annotations(tmp_path: Path) -> None:
     assert provenance == []
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples
 def test_summarize_fingerprint_provenance_groups() -> None:
     da, _ = _load()
     entries = [
@@ -271,6 +284,7 @@ def test_summarize_fingerprint_provenance_groups() -> None:
     assert any("... (2 more)" in line for line in lines)
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences
 def test_fingerprint_synth_edges(tmp_path: Path) -> None:
     da, _ = _load()
     path = tmp_path / "mod.py"
@@ -289,6 +303,7 @@ def test_fingerprint_synth_edges(tmp_path: Path) -> None:
     assert payload is None
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences
 def test_fingerprint_synth_existing_registry_remainder(tmp_path: Path) -> None:
     da, _ = _load()
     registry = da.PrimeRegistry()
@@ -312,6 +327,7 @@ def test_fingerprint_synth_existing_registry_remainder(tmp_path: Path) -> None:
     assert payload is not None
 
 
+# gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences
 def test_fingerprint_synth_empty_registry_returns_none(tmp_path: Path) -> None:
     da, _ = _load()
     path = tmp_path / "mod.py"

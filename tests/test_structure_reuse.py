@@ -12,6 +12,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count
 def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     da = _load()
     snapshot = {
@@ -71,6 +72,7 @@ def test_render_reuse_lemma_stubs_includes_names() -> None:
     assert "_gabion_bundle_lemma_deadbeef" in stubs
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count
 def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

@@ -14,6 +14,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._string_list::node E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
 def test_collect_module_exports_augassign_only() -> None:
     da = _load()
     module = ast.parse("__all__ += ['A']\nA = 1\n")
@@ -26,6 +27,7 @@ def test_collect_module_exports_augassign_only() -> None:
     assert export_map["A"] == "demo.A"
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::node
 def test_base_identifier_invalid_attribute() -> None:
     da = _load()
     bad_attr = ast.Attribute(
@@ -36,6 +38,7 @@ def test_base_identifier_invalid_attribute() -> None:
     assert da._base_identifier(bad_attr) is None
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
 def test_collect_return_aliases_empty_params() -> None:
     da = _load()
     tree = ast.parse(
@@ -51,6 +54,7 @@ def test_collect_return_aliases_empty_params() -> None:
     assert aliases == {}
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
 def test_collect_return_aliases_all_params_ignored() -> None:
     da = _load()
     tree = ast.parse(
@@ -66,6 +70,7 @@ def test_collect_return_aliases_all_params_ignored() -> None:
     assert aliases == {}
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
 def test_analyze_file_recursive_false(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -82,6 +87,7 @@ def test_analyze_file_recursive_false(tmp_path: Path) -> None:
     assert spans
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
 def test_resolve_local_callee_ambiguity_and_scope(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -119,6 +125,7 @@ def test_resolve_local_callee_ambiguity_and_scope(tmp_path: Path) -> None:
     assert groups
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
 def test_analyze_file_local_callee_globals(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -143,6 +150,7 @@ def test_analyze_file_local_callee_globals(tmp_path: Path) -> None:
     assert groups
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_annotations::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_defaults::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorators_transparent::fn,transparent_decorators E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
 def test_resolve_callee_imports_and_self(tmp_path: Path) -> None:
     da = _load()
     pkg_root = tmp_path / "pkg"
@@ -205,6 +213,7 @@ def test_resolve_callee_imports_and_self(tmp_path: Path) -> None:
     assert resolved_method is not None
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_annotations::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_defaults::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorators_transparent::fn,transparent_decorators E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
 def test_resolve_callee_external_filtered(tmp_path: Path) -> None:
     da = _load()
     mod_a = tmp_path / "a.py"
@@ -236,6 +245,7 @@ def test_resolve_callee_external_filtered(tmp_path: Path) -> None:
     assert resolved is None
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_global_and_imported(tmp_path: Path) -> None:
     da = _load()
     mod_path = tmp_path / "mod.py"
@@ -319,6 +329,7 @@ def test_resolve_callee_global_and_imported(tmp_path: Path) -> None:
     assert resolved == helper
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen
 def test_resolve_method_in_hierarchy_edges() -> None:
     da = _load()
     class_index = {
@@ -454,6 +465,7 @@ def test_render_helpers_and_baseline(tmp_path: Path) -> None:
     assert "Warnings:" in refactor_text
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path
 def test_emit_report_tier2_violation(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "a.py"
@@ -484,6 +496,7 @@ def test_emit_report_tier2_violation(tmp_path: Path) -> None:
     assert violations
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path
 def test_infer_root_with_groups(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "a.py"
@@ -491,6 +504,7 @@ def test_infer_root_with_groups(tmp_path: Path) -> None:
     assert da._infer_root(groups_by_path) == target
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params
 def test_build_refactor_plan_skips_unresolved_and_opaque(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -530,6 +544,7 @@ def test_build_refactor_plan_skips_unresolved_and_opaque(tmp_path: Path) -> None
     assert "bundles" in plan
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params
 def test_build_refactor_plan_skips_none_and_nontransparent(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -572,6 +587,7 @@ def test_render_type_mermaid_edges() -> None:
     assert "flowchart LR" in graph
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_annotations::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_defaults::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorators_transparent::fn,transparent_decorators E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::strictness E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
 def test_compute_knob_param_names_non_const_kw(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -603,6 +619,7 @@ def test_compute_knob_param_names_non_const_kw(tmp_path: Path) -> None:
     assert "a" in knob_names or "b" in knob_names
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
 def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
     da = _load()
     root = tmp_path / "src"
@@ -673,6 +690,7 @@ def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
     assert tuple(sorted(("a", "b"))) in bundles
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::merge.py::gabion.synthesis.merge.merge_bundles::min_overlap E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::strictness
 def test_build_synthesis_plan_skips_empty_members(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -689,6 +707,7 @@ def test_build_synthesis_plan_skips_empty_members(tmp_path: Path) -> None:
     assert "protocols" in plan
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
 def test_analyze_file_local_resolution_ambiguous(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -726,6 +745,7 @@ def test_analyze_file_local_resolution_ambiguous(tmp_path: Path) -> None:
     assert isinstance(groups, dict)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
 def test_analyze_file_local_resolution_globals_only(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -757,6 +777,7 @@ def test_analyze_file_local_resolution_globals_only(tmp_path: Path) -> None:
     assert isinstance(groups, dict)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params
 def test_build_refactor_plan_skips_nontransparent_dependency(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

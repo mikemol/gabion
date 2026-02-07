@@ -12,6 +12,7 @@ def _load():
     return sa
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> None:
     sa = _load()
     path = tmp_path / "mod.py"
@@ -56,6 +57,7 @@ def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> No
     assert attr.suggestion is None
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> None:
     sa = _load()
     test_prefixed = tmp_path / "test_mod.py"
@@ -75,6 +77,7 @@ def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> No
     ) == []
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._suggest_type_name::name E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._singularize_token::token
 def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
     sa = _load()
     assert sa._suggest_type_name("deadness_witnesses") == "DeadnessWitness"
@@ -85,6 +88,7 @@ def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
     assert sa._suggest_type_name("___") is None
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
     sa = _load()
     root = tmp_path / "root"
@@ -93,6 +97,7 @@ def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
     assert sa._normalize_path(path, root) == str(path)
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
 def test_subscript_helpers_cover_non_tuple_slices() -> None:
     sa = _load()
     tree = sa.ast.parse("x: list[int]\n")
@@ -107,6 +112,7 @@ def test_subscript_helpers_cover_non_tuple_slices() -> None:
     assert sa._is_anonymous_dict_subscript(dict_ann) is False
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
 def test_name_handles_attribute_and_unknown_nodes() -> None:
     sa = _load()
     attr = sa.ast.Attribute(value=sa.ast.Name(id="typing", ctx=sa.ast.Load()), attr="Dict")

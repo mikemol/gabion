@@ -12,6 +12,7 @@ def _load():
     return evidence
 
 
+# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_bundle_key::bundle
 def test_normalize_bundle_key_accepts_lists_tuples_and_sets() -> None:
     evidence = _load()
 
@@ -22,6 +23,7 @@ def test_normalize_bundle_key_accepts_lists_tuples_and_sets() -> None:
     assert evidence.normalize_bundle_key({"b", "a"}) == "a,b"
 
 
+# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value
 def test_normalize_string_list_handles_multiple_payload_shapes() -> None:
     evidence = _load()
 
@@ -34,6 +36,7 @@ def test_normalize_string_list_handles_multiple_payload_shapes() -> None:
     assert evidence.normalize_string_list(123) == []
 
 
+# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value
 def test_site_from_payload_filters_and_normalizes() -> None:
     evidence = _load()
 

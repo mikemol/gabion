@@ -63,10 +63,12 @@ def test_plan_protocol_extraction_typing_import_variants(tmp_path: Path) -> None
     assert "class Proto(Protocol)" in plan_protocol.edits[0].replacement
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::project_root
 def test_module_name_handles_value_error(tmp_path: Path) -> None:
     assert _module_name(Path("mod.py"), tmp_path / "other") == "mod"
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr
 def test_typing_import_helpers_negative_branches() -> None:
     module = cst.parse_module("from typing_extensions import Protocol\n")
     assert _has_typing_protocol_import(list(module.body)) is False
@@ -76,6 +78,7 @@ def test_typing_import_helpers_negative_branches() -> None:
     assert _module_expr_to_str(expr) == "pkg.mod"
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets
 def test_rewrite_call_sites_uses_protocol_alias(tmp_path: Path) -> None:
     source = (
         "from pkg.mod import target, Bundle as PB\n"
@@ -98,6 +101,7 @@ def test_rewrite_call_sites_uses_protocol_alias(tmp_path: Path) -> None:
     assert "PB(" in updated.code
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module
 def test_collect_import_context_skips_nonmatching() -> None:
     module = cst.Module(
         body=[
@@ -134,6 +138,7 @@ def test_collect_import_context_skips_nonmatching() -> None:
     assert protocol_alias is None
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module
 def test_collect_import_context_skips_import_star_matching_module() -> None:
     module = cst.Module(
         body=[
@@ -155,6 +160,7 @@ def test_collect_import_context_skips_import_star_matching_module() -> None:
     assert protocol_alias is None
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets
 def test_rewrite_call_sites_empty_targets(tmp_path: Path) -> None:
     module = cst.parse_module("def f(a):\n    return a\n")
     warnings, updated = _rewrite_call_sites(
@@ -198,6 +204,7 @@ def test_rewrite_call_sites_module_alias_and_method_target(tmp_path: Path) -> No
     assert warnings == []
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites_in_project::target_path
 def test_rewrite_call_sites_in_project_read_errors(tmp_path: Path) -> None:
     root = tmp_path / "src"
     root.mkdir()

@@ -11,6 +11,7 @@ from gabion.analysis.forest_spec import (
 )
 
 
+# gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.normalize_forest_spec::spec E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_value::value E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._sorted_strings::values
 def test_forest_spec_normalization_idempotent() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -32,6 +33,7 @@ def test_forest_spec_normalization_idempotent() -> None:
     assert forest_spec_hash(spec) == forest_spec_hash(roundtrip)
 
 
+# gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.normalize_forest_spec::spec E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._sorted_strings::values
 def test_forest_spec_metadata_contains_id_and_spec() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -44,6 +46,7 @@ def test_forest_spec_metadata_contains_id_and_spec() -> None:
     assert "generated_by_forest_spec" in metadata
 
 
+# gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._sorted_strings::values
 def test_forest_spec_to_dict_roundtrip_handles_invalid_payload() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -63,6 +66,7 @@ def test_forest_spec_to_dict_roundtrip_handles_invalid_payload() -> None:
     assert roundtrip.collectors[0].name == "collector"
 
 
+# gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers
 def test_normalize_decision_tiers_ignores_invalid() -> None:
     tiers = {"": 1, "ok": "bad", "fine": 2}
     assert _normalize_decision_tiers(tiers) == {"fine": 2}

@@ -13,6 +13,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table
 def test_resolve_class_candidates_variants() -> None:
     da = _load()
     symbol_table = da.SymbolTable()
@@ -42,6 +43,7 @@ def test_resolve_class_candidates_variants() -> None:
     assert "pkg.mod.Base" in bare
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen
 def test_resolve_method_in_hierarchy() -> None:
     da = _load()
     base_info = da.FunctionInfo(
@@ -72,6 +74,7 @@ def test_resolve_method_in_hierarchy() -> None:
     assert resolved is base_info
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._local_class_name::base,class_bases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_local_method_in_hierarchy::class_name,local_functions,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::node
 def test_local_class_bases_and_method_resolution() -> None:
     da = _load()
     tree = ast.parse(

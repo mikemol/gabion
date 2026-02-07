@@ -86,6 +86,7 @@ def test_usevisitor_span_adjusts_zero_width_call() -> None:
     )
 
 
+# gabion:evidence E:decision_surface/direct::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node E:decision_surface/value_encoded::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node
 def test_usevisitor_node_span_none_without_locations() -> None:
     *_, UseVisitor = _load()
     assert UseVisitor._node_span(ast.AST()) is None

@@ -15,6 +15,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries
 def test_deadness_and_coherence_summaries_cover_edges() -> None:
     da = _load()
 
@@ -48,6 +49,7 @@ def test_deadness_and_coherence_summaries_cover_edges() -> None:
     assert any("... 2 more" in line for line in lines)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans::exception_obligations E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload
 def test_fingerprint_coherence_and_rewrite_plans_cover_edges() -> None:
     da = _load()
     provenance_entries = [
@@ -100,6 +102,7 @@ def test_fingerprint_coherence_and_rewrite_plans_cover_edges() -> None:
     assert any("... 2 more" in line for line in lines)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_is_broad::handler E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_label::handler E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_in_try_body::node
 def test_exception_helpers_cover_edges() -> None:
     da = _load()
 
@@ -145,6 +148,7 @@ def test_exception_helpers_cover_edges() -> None:
     assert da._node_in_try_body(other_call, try_node) is False
 
 
+# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.exception_obligation_summary_for_site::site
 def test_exception_obligation_summary_helper_covers_filters_and_status_normalization() -> None:
     da = _load()
     site = da.Site(path="a.py", function="f", bundle=("a",))
@@ -162,6 +166,7 @@ def test_exception_obligation_summary_helper_covers_filters_and_status_normaliza
     assert summary == {"UNKNOWN": 1, "DEAD": 1, "HANDLED": 1, "total": 3}
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_is_broad::handler E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_label::handler E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._find_handling_try::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_exception_collection_and_summaries_cover_edges(tmp_path: Path) -> None:
     da = _load()
 
@@ -202,6 +207,7 @@ def test_exception_collection_and_summaries_cover_edges(tmp_path: Path) -> None:
     assert obligations
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._never_reason::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._never_sort_key::entry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_name::node
 def test_never_helpers_and_sort_key_cover_edges() -> None:
     da = _load()
     call = ast.parse("never('boom')").body[0].value
@@ -223,6 +229,7 @@ def test_never_helpers_and_sort_key_cover_edges() -> None:
     assert key[3] == -1
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_name::node
 def test_exception_type_name_and_protocol_lint_edges() -> None:
     da = _load()
     assert da._exception_type_name(None) is None
@@ -241,6 +248,7 @@ def test_exception_type_name_and_protocol_lint_edges() -> None:
     assert any("GABION_EXC_NEVER" in line for line in lines)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_is_broad::handler E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_label::handler E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._find_handling_try::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_collect_handledness_system_exit(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "sys_exit.py"
@@ -338,6 +346,7 @@ def test_collect_never_invariants_skips_bad_syntax(tmp_path: Path) -> None:
     assert invariants == []
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants._format_evidence::status
 def test_never_invariant_lint_and_summary_formats() -> None:
     da = _load()
     assert da._summarize_never_invariants([]) == []
@@ -403,6 +412,7 @@ def test_parse_lint_location_and_smell_helpers() -> None:
     assert da._lint_lines_from_constant_smells([constant])
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_decision_param_lint_line_missing_span_and_transitive_callers() -> None:
     da = _load()
     info = da.FunctionInfo(
@@ -427,6 +437,7 @@ def test_decision_param_lint_line_missing_span_and_transitive_callers() -> None:
     assert transitive["a"]
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_bundle_evidence_lines::forest,groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind
 def test_bundle_projection_and_emitters(tmp_path: Path) -> None:
     da = _load()
     forest = da.Forest()
@@ -502,6 +513,7 @@ def test_exception_protocol_warning_filters() -> None:
     assert "Boom" in warnings[0]
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries
 def test_exception_and_handledness_summary_edges() -> None:
     da = _load()
     assert da._summarize_exception_obligations([]) == []
@@ -528,6 +540,7 @@ def test_exception_and_handledness_summary_edges() -> None:
     assert any("... 2 more" in line for line in lines)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_value_encoded_decisions_repo::forest,require_tiers E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decision_tier_for::tier_map
 def test_value_decision_surfaces_emit_forest(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -544,6 +557,7 @@ def test_value_decision_surfaces_emit_forest(tmp_path: Path) -> None:
     assert any(alt.kind == "ValueDecisionSurface" for alt in forest.alts)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path
 def test_populate_bundle_forest_dedupes(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -559,6 +573,7 @@ def test_populate_bundle_forest_dedupes(tmp_path: Path) -> None:
     assert any(alt.kind == "SignatureBundle" for alt in forest.alts)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::merge.py::gabion.synthesis.merge.merge_bundles::min_overlap E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::strictness
 def test_synthesis_plan_value_decision_counts(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -573,6 +588,7 @@ def test_synthesis_plan_value_decision_counts(tmp_path: Path) -> None:
     assert "protocols" in plan
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::merge.py::gabion.synthesis.merge.merge_bundles::min_overlap E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::strictness
 def test_synthesis_plan_handles_empty_bundle_members(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

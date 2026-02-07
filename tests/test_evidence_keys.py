@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.analysis import evidence_keys
 
 
+# gabion:evidence E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
 def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.normalize_params([" b", "a", "a", ""]) == ["a", "b"]
     assert evidence_keys.normalize_param_string("b, a ,") == "a,b"
@@ -61,6 +62,7 @@ def test_render_display_handles_non_list_params() -> None:
     )
 
 
+# gabion:evidence E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
 def test_parse_display_variants() -> None:
     assert evidence_keys.parse_display("nope") is None
     assert evidence_keys.parse_display("E:") is None

@@ -12,6 +12,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest
 def test_compute_structure_metrics_counts() -> None:
     da = _load()
     groups_by_path = {

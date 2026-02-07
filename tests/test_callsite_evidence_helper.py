@@ -12,6 +12,7 @@ def _load():
     return CallArgs, _callsite_evidence_for_bundle
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle
 def test_callsite_evidence_skips_calls_without_span() -> None:
     CallArgs, _callsite_evidence_for_bundle = _load()
     call = CallArgs(
@@ -30,6 +31,7 @@ def test_callsite_evidence_skips_calls_without_span() -> None:
     assert _callsite_evidence_for_bundle([call], {"a", "b"}) == []
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle
 def test_callsite_evidence_records_star_args_and_star_kwargs() -> None:
     CallArgs, _callsite_evidence_for_bundle = _load()
     call = CallArgs(
@@ -50,6 +52,7 @@ def test_callsite_evidence_records_star_args_and_star_kwargs() -> None:
     assert evidence[0]["slots"] == ["arg[0]*", "kw[**]"]
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle
 def test_callsite_evidence_dedupes_duplicate_calls() -> None:
     CallArgs, _callsite_evidence_for_bundle = _load()
     call = CallArgs(

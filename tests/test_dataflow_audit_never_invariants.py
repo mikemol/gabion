@@ -11,6 +11,7 @@ def test_format_span_fields_handles_invalid_values() -> None:
     assert dataflow_audit._format_span_fields(0, 0, 1, 2) == "1:1-2:3"
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants._format_evidence::status
 def test_summarize_never_invariants_filters_and_formats() -> None:
     entries = [
         "not-a-mapping",
@@ -64,6 +65,7 @@ def test_copy_forest_signature_metadata_copies_fields() -> None:
     assert payload["x_forest_signature_basis"] == "bundles_only"
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root
 def test_render_decision_snapshot_marks_partial_when_missing_forest(tmp_path: Path) -> None:
     snapshot = dataflow_audit.render_decision_snapshot(
         decision_surfaces=[],

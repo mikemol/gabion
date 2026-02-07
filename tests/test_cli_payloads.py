@@ -8,6 +8,7 @@ import typer
 from gabion import cli
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_check_builds_payload() -> None:
     payload = cli.build_check_payload(
         paths=None,
@@ -40,6 +41,7 @@ def test_check_builds_payload() -> None:
     assert payload["write_test_obsolescence_baseline"] is False
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_check_payload_strictness_validation() -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_check_payload(
@@ -91,6 +93,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
     assert payload["baseline_write"] is None
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_dataflow_audit_payload_parsing() -> None:
     opts = cli.parse_dataflow_args(
         [
@@ -143,6 +146,7 @@ def test_dataflow_payload_baseline_and_transparent() -> None:
     assert payload["fail_on_type_ambiguities"] is True
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path
 def test_refactor_protocol_payload(tmp_path: Path) -> None:
     payload = cli.build_refactor_payload(
         protocol_name="Bundle",
@@ -159,6 +163,7 @@ def test_refactor_protocol_payload(tmp_path: Path) -> None:
     assert payload["compatibility_shim"] is True
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path
 def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
     payload = cli.build_refactor_payload(
         protocol_name="Bundle",
@@ -172,6 +177,7 @@ def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
     assert payload["bundle"] == ["a", "b"]
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_check::baseline E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline
 def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -213,6 +219,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["root"] == tmp_path
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_check_payload_rejects_delta_and_baseline_write() -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_check_payload(

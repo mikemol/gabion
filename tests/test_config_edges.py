@@ -16,6 +16,7 @@ def test_load_toml_missing_and_invalid(tmp_path: Path) -> None:
     assert config._load_toml(tmp_path) == {}
 
 
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root
 def test_load_config_default_path(tmp_path: Path) -> None:
     cfg = tmp_path / config.DEFAULT_CONFIG_NAME
     cfg.write_text("[dataflow]\nstrictness = 'low'\n", encoding="utf-8")
@@ -23,6 +24,7 @@ def test_load_config_default_path(tmp_path: Path) -> None:
     assert data["dataflow"]["strictness"] == "low"
 
 
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config._normalize_name_list::value
 def test_decision_tier_map_normalizes_inputs() -> None:
     assert config.decision_tier_map(None) == {}
     assert config.decision_tier_map("bad") == {}
@@ -36,6 +38,7 @@ def test_decision_tier_map_normalizes_inputs() -> None:
     assert tiers["e"] == 3
 
 
+# gabion:evidence E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::config.py::gabion.config._as_bool::value E:decision_surface/direct::config.py::gabion.config._normalize_name_list::value
 def test_config_helpers_cover_bool_and_lists() -> None:
     assert config._normalize_name_list(["a, b", "c"]) == ["a", "b", "c"]
     assert config._as_bool(True) is True

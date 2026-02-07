@@ -42,6 +42,7 @@ def test_read_rpc_stream_closed() -> None:
         raise AssertionError("Expected LspClientError for closed stream")
 
 
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 def test_read_response_skips_unmatched_ids() -> None:
     msg1 = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {"ok": True}})
     msg2 = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {"answer": 42}})

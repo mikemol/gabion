@@ -99,6 +99,7 @@ def test_render_markdown_and_payload() -> None:
     assert "tests/test_sample.py" in empty_markdown
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path
 def test_graph_suggestions_paths_filtered(tmp_path: Path) -> None:
     forest = Forest()
     entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
@@ -115,6 +116,7 @@ def test_graph_suggestions_paths_filtered(tmp_path: Path) -> None:
     assert resolved == set()
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path
 def test_graph_suggestions_cache_and_unresolved(tmp_path: Path) -> None:
     app = tmp_path / "app.py"
     app.write_text("def helper(x):\n    return x\n", encoding="utf-8")
@@ -174,6 +176,7 @@ def test_collect_reachable_skips_visited() -> None:
     assert reachable == []
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
 def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
     path = tmp_path / "sample.py"
     info = FunctionInfo(
@@ -244,6 +247,7 @@ def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
     assert rule.matches(file="file", name="skip_alpha") is False
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
 def test_evidence_for_alt_variants() -> None:
     forest = Forest()
     site_id = forest.add_site("a.py", "f")

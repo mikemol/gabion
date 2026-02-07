@@ -16,6 +16,7 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count
 def test_compute_structure_reuse_handles_edges(tmp_path: Path) -> None:
     da = _load()
     model_path = tmp_path / "models.py"
@@ -112,6 +113,7 @@ def test_render_reuse_lemma_stubs_skips_invalid_names() -> None:
     assert "def " not in stubs
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count
 def test_compute_structure_reuse_skips_non_list_bundle() -> None:
     da = _load()
     snapshot = {

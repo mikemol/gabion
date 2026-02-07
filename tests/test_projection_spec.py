@@ -10,6 +10,7 @@ from gabion.analysis.projection_spec import (
 )
 
 
+# gabion:evidence E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 def test_normalize_idempotent_and_hash_stable() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -29,6 +30,7 @@ def test_normalize_idempotent_and_hash_stable() -> None:
     assert spec_hash(spec) == spec_hash(roundtrip)
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 def test_select_fusion_equivalence() -> None:
     rows = [{"value": 1}, {"value": 2}, {"value": 3}, {"value": 4}]
 
@@ -62,6 +64,7 @@ def test_select_fusion_equivalence() -> None:
     assert spec_hash(spec) == spec_hash(fused)
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 def test_sort_canonicalization_equivalence() -> None:
     rows = [{"a": 2, "b": 2}, {"a": 1, "b": 3}, {"a": 1, "b": 2}]
     spec_list = ProjectionSpec(
@@ -85,6 +88,7 @@ def test_sort_canonicalization_equivalence() -> None:
     assert apply_spec(spec_list, rows) == apply_spec(spec_dict, rows)
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 def test_noop_select_elided() -> None:
     rows = [{"value": 1}, {"value": 2}]
     spec = ProjectionSpec(
@@ -98,6 +102,7 @@ def test_noop_select_elided() -> None:
     assert apply_spec(spec, rows) == rows
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec::spec E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 def test_limit_roundtrip_and_desc_normalization() -> None:
     rows = [{"value": 1}, {"value": 2}, {"value": 3}]
     spec = ProjectionSpec(
@@ -117,6 +122,7 @@ def test_limit_roundtrip_and_desc_normalization() -> None:
     assert apply_spec(roundtrip, rows) == [{"value": 3}, {"value": 2}]
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 def test_count_by_groups_rows() -> None:
     rows = [
         {"class": "a", "value": 1},

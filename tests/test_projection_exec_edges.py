@@ -33,6 +33,7 @@ def test_spec_from_dict_handles_invalid_entries() -> None:
     assert spec.pipeline == (ProjectionOp(op="select", params={}),)
 
 
+# gabion:evidence E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_limit::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_sort_by::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 def test_normalize_pipeline_skips_empty_and_unknown_ops() -> None:
     pipeline = (
         ProjectionOp("select", {"predicates": [" "]}),
@@ -48,6 +49,7 @@ def test_normalize_pipeline_skips_empty_and_unknown_ops() -> None:
     ]
 
 
+# gabion:evidence E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_fields::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_limit::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_sort_by::value E:decision_surface/direct::projection_normalize.py::gabion.analysis.projection_normalize._normalize_value::value
 def test_normalize_helpers_cover_branches() -> None:
     preds = _extract_predicates({"predicate": "one", "predicates": ["two", " "]})
     assert preds == ["one", "two", ""]
@@ -81,6 +83,7 @@ def test_normalize_helpers_cover_branches() -> None:
     assert _normalize_value([{"b": 2, "a": 1}]) == [{"a": 1, "b": 2}]
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 def test_apply_spec_with_custom_normalizer_handles_invalid_ops() -> None:
     rows = [
         {"group": ["a"], "value": 1},
@@ -117,6 +120,7 @@ def test_apply_spec_with_custom_normalizer_handles_invalid_ops() -> None:
     assert result == [{"group": ["a"], "count": 2}]
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 def test_sort_value_and_hashable_helpers() -> None:
     assert _sort_value(None) == (1, "")
     assert _sort_value(3) == (0, 3)
@@ -125,6 +129,7 @@ def test_sort_value_and_hashable_helpers() -> None:
     assert _hashable(2) == 2
 
 
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 def test_apply_spec_count_by_and_sort_edges() -> None:
     rows = [{"group": "a"}, {"group": "b"}]
 
