@@ -47,13 +47,16 @@ def test_extracts_evidence_tags_and_unmapped(tmp_path: Path) -> None:
     assert tests[1]["test_id"].endswith("tests/test_sample.py::test_async")
     assert tests[2]["test_id"].endswith("tests/test_sample.py::test_top")
     assert tests[3]["test_id"].endswith("tests/test_sample.py::test_unmapped")
-    assert tests[0]["evidence"] == ["E:decision/x"]
-    assert tests[1]["evidence"] == ["E:async/one"]
-    assert tests[2]["evidence"] == ["E:bundle/foo", "E:never/bar"]
+    assert [item["display"] for item in tests[0]["evidence"]] == ["E:decision/x"]
+    assert [item["display"] for item in tests[1]["evidence"]] == ["E:async/one"]
+    assert [item["display"] for item in tests[2]["evidence"]] == [
+        "E:bundle/foo",
+        "E:never/bar",
+    ]
     assert tests[3]["status"] == "unmapped"
 
     index = payload["evidence_index"]
-    evidence_ids = [entry["evidence_id"] for entry in index]
+    evidence_ids = [entry["display"] for entry in index]
     assert evidence_ids == ["E:async/one", "E:bundle/foo", "E:decision/x", "E:never/bar"]
 
 

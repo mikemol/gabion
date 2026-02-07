@@ -1,7 +1,11 @@
 {
   "evidence_index": [
     {
-      "evidence_id": "E:baseline/ratchet_monotonicity",
+      "display": "E:baseline/ratchet_monotonicity",
+      "key": {
+        "k": "opaque",
+        "s": "E:baseline/ratchet_monotonicity"
+      },
       "tests": [
         "tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
         "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline",
@@ -21,7 +25,11 @@
       ]
     },
     {
-      "evidence_id": "E:bundle/alias_invariance",
+      "display": "E:bundle/alias_invariance",
+      "key": {
+        "k": "opaque",
+        "s": "E:bundle/alias_invariance"
+      },
       "tests": [
         "tests/test_alias_attribute.py::test_alias_attribute_forwarding",
         "tests/test_alias_attribute.py::test_alias_attribute_object_attr",
@@ -42,21 +50,33 @@
       ]
     },
     {
-      "evidence_id": "E:forest/canonical_paramset",
+      "display": "E:forest/canonical_paramset",
+      "key": {
+        "k": "opaque",
+        "s": "E:forest/canonical_paramset"
+      },
       "tests": [
         "tests/test_aspf.py::test_add_site_records_span",
         "tests/test_aspf.py::test_paramset_packed_reuse"
       ]
     },
     {
-      "evidence_id": "E:forest/packed_reuse",
+      "display": "E:forest/packed_reuse",
+      "key": {
+        "k": "opaque",
+        "s": "E:forest/packed_reuse"
+      },
       "tests": [
         "tests/test_aspf.py::test_add_site_records_span",
         "tests/test_aspf.py::test_paramset_packed_reuse"
       ]
     },
     {
-      "evidence_id": "E:never/sink_classification",
+      "display": "E:never/sink_classification",
+      "key": {
+        "k": "opaque",
+        "s": "E:never/sink_classification"
+      },
       "tests": [
         "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_classifies",
         "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_skips_bad_syntax",
@@ -68,7 +88,7 @@
       ]
     }
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "scope": {
     "exclude": [],
     "include": [
@@ -79,7 +99,13 @@
   "tests": [
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_alias_attribute.py",
       "line": 17,
@@ -88,7 +114,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_alias_attribute.py",
       "line": 48,
@@ -97,7 +129,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_alias_rename_invariance.py",
       "line": 49,
@@ -106,7 +144,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_alias_rename_invariance.py",
       "line": 17,
@@ -115,7 +159,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_alias_return_propagation.py",
       "line": 19,
@@ -124,7 +174,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_alias_unpacking.py",
       "line": 17,
@@ -133,8 +189,20 @@
     },
     {
       "evidence": [
-        "E:forest/canonical_paramset",
-        "E:forest/packed_reuse"
+        {
+          "display": "E:forest/canonical_paramset",
+          "key": {
+            "k": "opaque",
+            "s": "E:forest/canonical_paramset"
+          }
+        },
+        {
+          "display": "E:forest/packed_reuse",
+          "key": {
+            "k": "opaque",
+            "s": "E:forest/packed_reuse"
+          }
+        }
       ],
       "file": "tests/test_aspf.py",
       "line": 23,
@@ -143,8 +211,20 @@
     },
     {
       "evidence": [
-        "E:forest/canonical_paramset",
-        "E:forest/packed_reuse"
+        {
+          "display": "E:forest/canonical_paramset",
+          "key": {
+            "k": "opaque",
+            "s": "E:forest/canonical_paramset"
+          }
+        },
+        {
+          "display": "E:forest/packed_reuse",
+          "key": {
+            "k": "opaque",
+            "s": "E:forest/packed_reuse"
+          }
+        }
       ],
       "file": "tests/test_aspf.py",
       "line": 7,
@@ -153,7 +233,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_baseline_ratchet.py",
       "line": 16,
@@ -498,7 +584,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_cli_payloads.py",
       "line": 63,
@@ -521,7 +613,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_cli_payloads.py",
       "line": 119,
@@ -726,7 +824,13 @@
     },
     {
       "evidence": [
-        "E:never/sink_classification"
+        {
+          "display": "E:never/sink_classification",
+          "key": {
+            "k": "opaque",
+            "s": "E:never/sink_classification"
+          }
+        }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
       "line": 255,
@@ -735,7 +839,13 @@
     },
     {
       "evidence": [
-        "E:never/sink_classification"
+        {
+          "display": "E:never/sink_classification",
+          "key": {
+            "k": "opaque",
+            "s": "E:never/sink_classification"
+          }
+        }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
       "line": 331,
@@ -982,7 +1092,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
       "line": 366,
@@ -1201,7 +1317,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_audit_run.py",
       "line": 44,
@@ -1224,7 +1346,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_audit_run.py",
       "line": 85,
@@ -1688,7 +1816,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_run.py",
       "line": 79,
@@ -1711,7 +1845,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_run_edges.py",
       "line": 56,
@@ -1748,7 +1888,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_run_edges.py",
       "line": 535,
@@ -1757,7 +1903,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_run_edges.py",
       "line": 513,
@@ -1801,7 +1953,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_run_edges.py",
       "line": 132,
@@ -1810,7 +1968,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_dataflow_run_edges.py",
       "line": 107,
@@ -2155,6 +2319,34 @@
     },
     {
       "evidence": [],
+      "file": "tests/test_forest_signature.py",
+      "line": 10,
+      "status": "unmapped",
+      "test_id": "tests/test_forest_signature.py::test_forest_signature_deterministic"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_forest_signature.py",
+      "line": 20,
+      "status": "unmapped",
+      "test_id": "tests/test_forest_signature.py::test_forest_signature_from_groups"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_forest_spec.py",
+      "line": 33,
+      "status": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_forest_spec_metadata_contains_id_and_spec"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_forest_spec.py",
+      "line": 12,
+      "status": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_forest_spec_normalization_idempotent"
+    },
+    {
+      "evidence": [],
       "file": "tests/test_import_shadowing.py",
       "line": 23,
       "status": "unmapped",
@@ -2372,7 +2564,13 @@
     },
     {
       "evidence": [
-        "E:never/sink_classification"
+        {
+          "display": "E:never/sink_classification",
+          "key": {
+            "k": "opaque",
+            "s": "E:never/sink_classification"
+          }
+        }
       ],
       "file": "tests/test_never_invariants.py",
       "line": 125,
@@ -2381,7 +2579,13 @@
     },
     {
       "evidence": [
-        "E:never/sink_classification"
+        {
+          "display": "E:never/sink_classification",
+          "key": {
+            "k": "opaque",
+            "s": "E:never/sink_classification"
+          }
+        }
       ],
       "file": "tests/test_never_invariants.py",
       "line": 90,
@@ -2390,7 +2594,13 @@
     },
     {
       "evidence": [
-        "E:never/sink_classification"
+        {
+          "display": "E:never/sink_classification",
+          "key": {
+            "k": "opaque",
+            "s": "E:never/sink_classification"
+          }
+        }
       ],
       "file": "tests/test_never_invariants.py",
       "line": 163,
@@ -2399,7 +2609,13 @@
     },
     {
       "evidence": [
-        "E:never/sink_classification"
+        {
+          "display": "E:never/sink_classification",
+          "key": {
+            "k": "opaque",
+            "s": "E:never/sink_classification"
+          }
+        }
       ],
       "file": "tests/test_never_invariants.py",
       "line": 54,
@@ -2408,7 +2624,13 @@
     },
     {
       "evidence": [
-        "E:never/sink_classification"
+        {
+          "display": "E:never/sink_classification",
+          "key": {
+            "k": "opaque",
+            "s": "E:never/sink_classification"
+          }
+        }
       ],
       "file": "tests/test_never_invariants.py",
       "line": 16,
@@ -2421,6 +2643,48 @@
       "line": 16,
       "status": "unmapped",
       "test_id": "tests/test_param_spans.py::test_param_spans_capture_signature_positions"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_spec.py",
+      "line": 120,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_count_by_groups_rows"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_spec.py",
+      "line": 101,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_limit_roundtrip_and_desc_normalization"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_spec.py",
+      "line": 88,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_noop_select_elided"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_spec.py",
+      "line": 13,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_normalize_idempotent_and_hash_stable"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_spec.py",
+      "line": 32,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_select_fusion_equivalence"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_spec.py",
+      "line": 65,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_spec.py::test_sort_canonicalization_equivalence"
     },
     {
       "evidence": [],
@@ -2627,7 +2891,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_refactor_engine_more.py",
       "line": 174,
@@ -2811,7 +3081,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_server_execute_command.py",
       "line": 69,
@@ -2932,7 +3208,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_server_execute_command_edges.py",
       "line": 218,
@@ -2990,7 +3272,13 @@
     },
     {
       "evidence": [
-        "E:baseline/ratchet_monotonicity"
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
       ],
       "file": "tests/test_server_execute_command_edges.py",
       "line": 272,
@@ -3175,7 +3463,7 @@
     {
       "evidence": [],
       "file": "tests/test_structure_diff.py",
-      "line": 81,
+      "line": 85,
       "status": "unmapped",
       "test_id": "tests/test_structure_diff.py::test_diff_structure_snapshot_files"
     },
@@ -3217,14 +3505,14 @@
     {
       "evidence": [],
       "file": "tests/test_structure_reuse.py",
-      "line": 52,
+      "line": 54,
       "status": "unmapped",
       "test_id": "tests/test_structure_reuse.py::test_render_reuse_lemma_stubs_includes_names"
     },
     {
       "evidence": [],
       "file": "tests/test_structure_reuse.py",
-      "line": 72,
+      "line": 74,
       "status": "unmapped",
       "test_id": "tests/test_structure_reuse.py::test_structure_reuse_prefers_declared_bundle_names"
     },
@@ -3280,7 +3568,7 @@
     {
       "evidence": [],
       "file": "tests/test_structure_snapshot.py",
-      "line": 33,
+      "line": 38,
       "status": "unmapped",
       "test_id": "tests/test_structure_snapshot.py::test_render_structure_snapshot_handles_outside_root"
     },
@@ -3434,7 +3722,7 @@
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 92,
+      "line": 95,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_excludes_paths"
     },
@@ -3448,77 +3736,91 @@
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 110,
+      "line": 113,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_handles_missing_and_direct_file_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 132,
+      "line": 135,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_rejects_duplicate_test_ids"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence.py",
-      "line": 60,
+      "line": 63,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence.py::test_requires_adjacent_tag_and_skips_bad_files"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 65,
+      "line": 28,
+      "status": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_decision_surface_suggestion"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_evidence_suggestions.py",
+      "line": 85,
+      "status": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_resolution_blocks_heuristics"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_evidence_suggestions.py",
+      "line": 67,
+      "status": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_heuristic_fallback_when_graph_unavailable"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_evidence_suggestions.py",
+      "line": 131,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 39,
+      "line": 113,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_skips_mapped_entries"
     },
     {
       "evidence": [],
-      "file": "tests/test_test_evidence_suggestions.py",
-      "line": 52,
-      "status": "unmapped",
-      "test_id": "tests/test_test_evidence_suggestions.py::test_skips_no_match_entries"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_test_evidence_suggestions.py",
-      "line": 9,
-      "status": "unmapped",
-      "test_id": "tests/test_test_evidence_suggestions.py::test_suggests_alias_invariance"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_test_evidence_suggestions.py",
-      "line": 23,
-      "status": "unmapped",
-      "test_id": "tests/test_test_evidence_suggestions.py::test_suggests_aspf_bundle_pair"
-    },
-    {
-      "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 35,
+      "line": 28,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_basic_dominance"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 94,
+      "line": 112,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_equivalent_witness_classification"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 63,
+      "line": 156,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_render_json_payload_includes_spec_metadata"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence.py",
+      "line": 141,
+      "status": "unmapped",
+      "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_spec_metadata"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_obsolescence.py",
+      "line": 81,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_unmapped_classification"
     },
@@ -3546,14 +3848,14 @@
     {
       "evidence": [],
       "file": "tests/test_type_fingerprints.py",
-      "line": 567,
+      "line": 404,
       "status": "unmapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries"
     },
     {
       "evidence": [],
       "file": "tests/test_type_fingerprints.py",
-      "line": 404,
+      "line": 567,
       "status": "unmapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries_with_valid"
     },
@@ -3909,7 +4211,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_edges.py",
       "line": 105,
@@ -3918,7 +4226,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_edges.py",
       "line": 251,
@@ -3927,7 +4241,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_edges.py",
       "line": 267,
@@ -3957,7 +4277,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_edges.py",
       "line": 281,
@@ -3966,7 +4292,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_edges.py",
       "line": 129,
@@ -3989,7 +4321,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_edges.py",
       "line": 397,
@@ -4047,7 +4385,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_unit.py",
       "line": 143,
@@ -4077,7 +4421,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_unit.py",
       "line": 132,
@@ -4086,7 +4436,13 @@
     },
     {
       "evidence": [
-        "E:bundle/alias_invariance"
+        {
+          "display": "E:bundle/alias_invariance",
+          "key": {
+            "k": "opaque",
+            "s": "E:bundle/alias_invariance"
+          }
+        }
       ],
       "file": "tests/test_visitors_unit.py",
       "line": 95,

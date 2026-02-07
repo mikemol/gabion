@@ -1,9 +1,37 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping, Sequence
+
+from gabion.analysis import evidence_keys
+from gabion.analysis.aspf import Alt, Forest, NodeId
+from gabion.analysis.dataflow_audit import (
+    AuditConfig,
+    FunctionInfo,
+    _alt_input,
+    _build_function_index,
+    _build_symbol_table,
+    _collect_class_index,
+    _is_test_path,
+    _iter_paths,
+    _paramset_key,
+    _resolve_callee,
+)
+
+
+GRAPH_SOURCE = "graph"
+HEURISTIC_SOURCE = "heuristic"
+DEFAULT_MAX_DEPTH = 2
+
+_ALT_EVIDENCE_PREFIX = {
+    "DecisionSurface": "decision_surface/direct",
+    "ValueDecisionSurface": "decision_surface/value_encoded",
+    "NeverInvariantSink": "never/sink",
+    "SignatureBundle": "paramset",
+}
 
 
 @dataclass(frozen=True)
@@ -16,20 +44,34 @@ class TestEvidenceEntry:
 
 
 @dataclass(frozen=True)
+class EvidenceSuggestion:
+    key: dict[str, object]
+    display: str
+
+    @property
+    def identity(self) -> str:
+        return evidence_keys.key_identity(self.key)
+
+
+@dataclass(frozen=True)
 class Suggestion:
     test_id: str
     file: str
     line: int
-    suggested: tuple[str, ...]
+    suggested: tuple[EvidenceSuggestion, ...]
     matches: tuple[str, ...]
+    source: str
 
 
 @dataclass(frozen=True)
 class SuggestionSummary:
     total: int
     suggested: int
+    suggested_graph: int
+    suggested_heuristic: int
     skipped_mapped: int
     skipped_no_match: int
+    graph_unresolved: int
     unmapped_modules: tuple[tuple[str, int], ...]
     unmapped_prefixes: tuple[tuple[str, int], ...]
 
@@ -37,9 +79,9 @@ class SuggestionSummary:
 def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     schema_version = payload.get("schema_version")
-    if schema_version != 1:
+    if schema_version not in {1, 2}:
         raise ValueError(
-            f"Unsupported test evidence schema_version={schema_version!r}; expected 1"
+            f"Unsupported test evidence schema_version={schema_version!r}; expected 1 or 2"
         )
     tests = payload.get("tests", [])
     if not isinstance(tests, list):
@@ -72,36 +114,77 @@ def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
 
 def suggest_evidence(
     entries: Iterable[TestEvidenceEntry],
+    *,
+    root: Path | str = ".",
+    paths: Iterable[Path] | None = None,
+    forest: Forest | None = None,
+    config: AuditConfig | None = None,
+    max_depth: int = DEFAULT_MAX_DEPTH,
+    include_heuristics: bool = True,
 ) -> tuple[list[Suggestion], SuggestionSummary]:
-    # dataflow-bundle: entries
+    # dataflow-bundle: entries, root, paths, forest, config
     suggestions: list[Suggestion] = []
     skipped_mapped = 0
     skipped_no_match = 0
+    suggested_graph = 0
+    suggested_heuristic = 0
+    graph_unresolved = 0
     entry_list = sorted(entries, key=lambda item: item.test_id)
     total = len(entry_list)
+    root_path = Path(root)
+    graph_suggestions, graph_resolved = _graph_suggestions(
+        entry_list,
+        root=root_path,
+        paths=paths,
+        forest=forest,
+        config=config,
+        max_depth=max_depth,
+    )
     for entry in entry_list:
         if entry.evidence:
             skipped_mapped += 1
             continue
-        suggested, matches = _suggest_for_entry(entry)
-        if not suggested:
-            skipped_no_match += 1
-            continue
-        suggestions.append(
-            Suggestion(
-                test_id=entry.test_id,
-                file=entry.file,
-                line=entry.line,
-                suggested=tuple(suggested),
-                matches=tuple(matches),
+        if entry.test_id not in graph_resolved:
+            graph_unresolved += 1
+        graph_suggested = graph_suggestions.get(entry.test_id)
+        if graph_suggested:
+            suggestions.append(
+                Suggestion(
+                    test_id=entry.test_id,
+                    file=entry.file,
+                    line=entry.line,
+                    suggested=graph_suggested,
+                    matches=(),
+                    source=GRAPH_SOURCE,
+                )
             )
-        )
+            suggested_graph += 1
+            continue
+        if include_heuristics and entry.test_id not in graph_resolved:
+            heuristic_suggested, matches = _suggest_for_entry(entry)
+            if heuristic_suggested:
+                suggestions.append(
+                    Suggestion(
+                        test_id=entry.test_id,
+                        file=entry.file,
+                        line=entry.line,
+                        suggested=tuple(heuristic_suggested),
+                        matches=tuple(matches),
+                        source=HEURISTIC_SOURCE,
+                    )
+                )
+                suggested_heuristic += 1
+                continue
+        skipped_no_match += 1
     unmapped_modules, unmapped_prefixes = _summarize_unmapped(entry_list)
     summary = SuggestionSummary(
         total=total,
         suggested=len(suggestions),
+        suggested_graph=suggested_graph,
+        suggested_heuristic=suggested_heuristic,
         skipped_mapped=skipped_mapped,
         skipped_no_match=skipped_no_match,
+        graph_unresolved=graph_unresolved,
         unmapped_modules=unmapped_modules,
         unmapped_prefixes=unmapped_prefixes,
     )
@@ -119,8 +202,11 @@ def render_markdown(
     lines.append("Summary:")
     lines.append(f"- total: {summary.total}")
     lines.append(f"- suggested: {summary.suggested}")
+    lines.append(f"- suggested_graph: {summary.suggested_graph}")
+    lines.append(f"- suggested_heuristic: {summary.suggested_heuristic}")
     lines.append(f"- skipped_mapped: {summary.skipped_mapped}")
     lines.append(f"- skipped_no_match: {summary.skipped_no_match}")
+    lines.append(f"- graph_unresolved: {summary.graph_unresolved}")
     lines.append("")
     lines.append("Top Unmapped Modules:")
     if summary.unmapped_modules:
@@ -142,10 +228,12 @@ def render_markdown(
         return "\n".join(lines).rstrip() + "\n"
 
     for entry in sorted(suggestions, key=lambda item: item.test_id):
-        evidence_list = ", ".join(entry.suggested)
-        match_list = ", ".join(entry.matches)
+        evidence_list = ", ".join(item.display for item in entry.suggested)
+        details = [f"source: {entry.source}"]
+        if entry.matches:
+            details.append(f"matched: {', '.join(entry.matches)}")
         lines.append(
-            f"- `{entry.test_id}` -> {evidence_list} (matched: {match_list})"
+            f"- `{entry.test_id}` -> {evidence_list} ({'; '.join(details)})"
         )
     return "\n".join(lines).rstrip() + "\n"
 
@@ -156,12 +244,15 @@ def render_json_payload(
 ) -> dict[str, object]:
     # dataflow-bundle: suggestions, summary
     return {
-        "version": 2,
+        "version": 4,
         "summary": {
             "total": summary.total,
             "suggested": summary.suggested,
+            "suggested_graph": summary.suggested_graph,
+            "suggested_heuristic": summary.suggested_heuristic,
             "skipped_mapped": summary.skipped_mapped,
             "skipped_no_match": summary.skipped_no_match,
+            "graph_unresolved": summary.graph_unresolved,
         },
         "unmapped_modules": [
             {"module": module, "count": count}
@@ -176,24 +267,265 @@ def render_json_payload(
                 "test_id": entry.test_id,
                 "file": entry.file,
                 "line": entry.line,
-                "suggested": list(entry.suggested),
+                "suggested": [
+                    {"key": item.key, "display": item.display}
+                    for item in entry.suggested
+                ],
                 "matched": list(entry.matches),
+                "source": entry.source,
             }
             for entry in sorted(suggestions, key=lambda item: item.test_id)
         ],
     }
 
 
-def _suggest_for_entry(entry: TestEvidenceEntry) -> tuple[list[str], list[str]]:
+def _graph_suggestions(
+    entries: Sequence[TestEvidenceEntry],
+    *,
+    root: Path,
+    paths: Iterable[Path] | None,
+    forest: Forest | None,
+    config: AuditConfig | None,
+    max_depth: int,
+) -> tuple[dict[str, tuple[EvidenceSuggestion, ...]], set[str]]:
+    # dataflow-bundle: entries, root, paths, forest, config
+    if forest is None or not entries:
+        return {}, set()
+    config = config or AuditConfig(project_root=root)
+    project_root = config.project_root or root
+    path_list = _iter_paths([str(p) for p in (paths or [root])], config)
+    if not path_list:
+        return {}, set()
+    by_name, by_qual = _build_function_index(
+        path_list,
+        project_root,
+        config.ignore_params,
+        config.strictness,
+        config.transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        path_list,
+        project_root,
+        external_filter=config.external_filter,
+    )
+    class_index = _collect_class_index(path_list, project_root)
+    test_index = _build_test_index(by_qual, project_root)
+    site_index, evidence_by_site = _build_forest_evidence_index(forest)
+    resolved: set[str] = set()
+    suggestions: dict[str, tuple[EvidenceSuggestion, ...]] = {}
+    cache: dict[str, tuple[FunctionInfo, ...]] = {}
+
+    def _resolved_callees(info: FunctionInfo) -> tuple[FunctionInfo, ...]:
+        if info.qual in cache:
+            return cache[info.qual]
+        resolved_callees: dict[str, FunctionInfo] = {}
+        for call in info.calls:
+            callee = _resolve_callee(
+                call.callee,
+                info,
+                by_name,
+                by_qual,
+                symbol_table,
+                project_root,
+                class_index,
+            )
+            if callee is None:
+                continue
+            resolved_callees[callee.qual] = callee
+        ordered = tuple(resolved_callees[key] for key in sorted(resolved_callees))
+        cache[info.qual] = ordered
+        return ordered
+
+    for entry in entries:
+        info = test_index.get(entry.test_id)
+        if info is None:
+            continue
+        resolved.add(entry.test_id)
+        reachable = _collect_reachable(
+            info,
+            max_depth=max_depth,
+            resolve_callees=_resolved_callees,
+        )
+        evidence_items: dict[str, EvidenceSuggestion] = {}
+        for callee in reachable:
+            if _is_test_path(callee.path):
+                continue
+            site_id = site_index.get((callee.path.name, callee.qual))
+            if site_id is None:
+                continue
+            for item in evidence_by_site.get(site_id, ()):
+                evidence_items[item.identity] = item
+        if evidence_items:
+            ordered = tuple(evidence_items[key] for key in sorted(evidence_items))
+            suggestions[entry.test_id] = ordered
+    return suggestions, resolved
+
+
+def _collect_reachable(
+    start: FunctionInfo,
+    *,
+    max_depth: int,
+    resolve_callees: Callable[[FunctionInfo], Sequence[FunctionInfo]],
+) -> list[FunctionInfo]:
+    visited = {start.qual}
+    frontier = [start]
+    reachable: list[FunctionInfo] = []
+    for _ in range(max_depth):
+        if not frontier:
+            break
+        next_frontier: list[FunctionInfo] = []
+        for info in sorted(frontier, key=lambda item: item.qual):
+            for callee in resolve_callees(info):
+                if callee.qual in visited:
+                    continue
+                visited.add(callee.qual)
+                reachable.append(callee)
+                next_frontier.append(callee)
+        frontier = next_frontier
+    return reachable
+
+
+def _build_test_index(
+    by_qual: Mapping[str, FunctionInfo],
+    project_root: Path | None,
+) -> dict[str, FunctionInfo]:
+    index: dict[str, FunctionInfo] = {}
+    for info in by_qual.values():
+        rel_path = _rel_path(info.path, project_root)
+        scopes = list(info.scope)
+        qualname = "::".join([*scopes, info.name]) if scopes else info.name
+        test_id = f"{rel_path}::{qualname}"
+        index[test_id] = info
+    return index
+
+
+def _rel_path(path: Path, project_root: Path | None) -> str:
+    if project_root is None:
+        return str(path)
+    try:
+        return str(path.resolve().relative_to(project_root.resolve()))
+    except Exception:
+        return str(path)
+
+
+def _build_forest_evidence_index(
+    forest: Forest,
+) -> tuple[dict[tuple[str, str], NodeId], dict[NodeId, tuple[EvidenceSuggestion, ...]]]:
+    site_index: dict[tuple[str, str], NodeId] = {}
+    for node_id, node in forest.nodes.items():
+        if node_id.kind != "FunctionSite":
+            continue
+        path, qual = _site_parts(node_id, forest)
+        if not path or not qual:
+            continue
+        site_index[(path, qual)] = node_id
+
+    evidence_by_site: dict[NodeId, dict[str, EvidenceSuggestion]] = defaultdict(dict)
+    for alt in forest.alts:
+        if alt.kind not in _ALT_EVIDENCE_PREFIX:
+            continue
+        site_id = _alt_input(alt, "FunctionSite")
+        if site_id is None:
+            continue
+        suggestion = _evidence_for_alt(alt, forest)
+        if suggestion is None:
+            continue
+        evidence_by_site[site_id][suggestion.identity] = suggestion
+    ordered: dict[NodeId, tuple[EvidenceSuggestion, ...]] = {}
+    for site_id, items in evidence_by_site.items():
+        ordered[site_id] = tuple(items[key] for key in sorted(items))
+    return site_index, ordered
+
+
+def _evidence_for_alt(alt: Alt, forest: Forest) -> EvidenceSuggestion | None:
+    prefix = _ALT_EVIDENCE_PREFIX.get(alt.kind)
+    if prefix is None:
+        return None
+    paramset_id = _alt_input(alt, "ParamSet")
+    if paramset_id is None:
+        return None
+    paramset_key = _format_paramset(_paramset_key(forest, paramset_id))
+    if not paramset_key:
+        return None
+    if alt.kind == "SignatureBundle":
+        key = evidence_keys.make_paramset_key(paramset_key.split(","))
+        display = evidence_keys.render_display(key)
+        return EvidenceSuggestion(key=key, display=display)
+    site_id = _alt_input(alt, "FunctionSite")
+    if site_id is None:
+        return None
+    path, qual = _site_parts(site_id, forest)
+    if not path or not qual:
+        return None
+    if prefix == "decision_surface/direct":
+        key = evidence_keys.make_decision_surface_key(
+            mode="direct",
+            path=path,
+            qual=qual,
+            param=paramset_key,
+        )
+    elif prefix == "decision_surface/value_encoded":
+        key = evidence_keys.make_decision_surface_key(
+            mode="value_encoded",
+            path=path,
+            qual=qual,
+            param=paramset_key,
+        )
+    elif prefix == "never/sink":
+        key = evidence_keys.make_never_sink_key(
+            path=path,
+            qual=qual,
+            param=paramset_key,
+        )
+    else:
+        return None
+    display = evidence_keys.render_display(key)
+    return EvidenceSuggestion(key=key, display=display)
+
+
+def _site_parts(node_id: NodeId, forest: Forest) -> tuple[str, str]:
+    node = forest.nodes.get(node_id)
+    path = ""
+    qual = ""
+    if node is not None:
+        path = str(node.meta.get("path") or "")
+        qual = str(node.meta.get("qual") or "")
+    if not path and node_id.key:
+        path = str(node_id.key[0])
+    if not qual and len(node_id.key) > 1:
+        qual = str(node_id.key[1])
+    return path, qual
+
+
+def _format_paramset(items: Sequence[str]) -> str:
+    return ",".join(items)
+
+
+def _suggest_for_entry(entry: TestEvidenceEntry) -> tuple[list[EvidenceSuggestion], list[str]]:
     file_haystack, name_haystack = _suggestion_haystack(entry)
     rules = _suggestion_rules()
-    suggested: list[str] = []
+    suggested: list[EvidenceSuggestion] = []
     matches: list[str] = []
     for rule in rules:
         if rule.matches(file=file_haystack, name=name_haystack):
-            suggested.extend(rule.evidence)
+            for display in rule.evidence:
+                key = evidence_keys.parse_display(display)
+                if key is None:
+                    key = evidence_keys.make_opaque_key(display)
+                key = evidence_keys.normalize_key(key)
+                rendered = evidence_keys.render_display(key)
+                if evidence_keys.is_opaque(key):
+                    rendered = display
+                suggested.append(EvidenceSuggestion(key=key, display=rendered))
             matches.append(rule.rule_id)
-    return sorted(set(suggested)), matches
+    return _dedupe_suggestions(suggested), matches
+
+
+def _dedupe_suggestions(items: list[EvidenceSuggestion]) -> list[EvidenceSuggestion]:
+    seen: dict[str, EvidenceSuggestion] = {}
+    for item in items:
+        seen[item.identity] = item
+    return [seen[key] for key in sorted(seen)]
 
 
 def _suggestion_haystack(entry: TestEvidenceEntry) -> tuple[str, str]:
@@ -341,7 +673,13 @@ def _normalize_evidence_list(value: object) -> list[str]:
     if isinstance(value, str):
         items = [value]
     elif isinstance(value, (list, tuple, set)):
-        items = [item for item in value if isinstance(item, str)]
+        for item in value:
+            if isinstance(item, str):
+                items.append(item)
+            elif isinstance(item, Mapping):
+                display = item.get("display")
+                if isinstance(display, str):
+                    items.append(display)
     else:
         return []
     cleaned = [item.strip() for item in items if item.strip()]

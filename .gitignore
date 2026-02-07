@@ -12,5 +12,10 @@ venv/
 artifacts/*
 !artifacts/.gitkeep
 
+out/test_evidence_suggestions.json
+out/test_evidence_suggestions.md
+out/test_obsolescence_report.json
+out/test_obsolescence_report.md
+
 node_modules/
 package-lock.json

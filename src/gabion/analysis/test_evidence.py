@@ -10,6 +10,8 @@ from io import StringIO
 from pathlib import Path
 from typing import Iterable
 
+from gabion.analysis import evidence_keys
+
 EVIDENCE_TAG = "gabion:evidence"
 _TAG_RE = re.compile(r"#\s*gabion:evidence\s+(?P<ids>.+)")
 
@@ -19,8 +21,18 @@ class TestEvidence:
     test_id: str
     path: str
     line: int
-    evidence: tuple[str, ...]
+    evidence: tuple["EvidenceItem", ...]
     status: str
+
+
+@dataclass(frozen=True)
+class EvidenceItem:
+    key: dict[str, object]
+    display: str
+
+    @property
+    def identity(self) -> str:
+        return evidence_keys.key_identity(self.key)
 
 
 def build_test_evidence_payload(
@@ -54,29 +66,47 @@ def build_test_evidence_payload(
         raise ValueError(f"Duplicate test_id entries found: {preview}{suffix}")
 
     tests_sorted = sorted(entries, key=lambda entry: entry.test_id)
-    tests_payload = [
-        {
-            "test_id": entry.test_id,
-            "file": entry.path,
-            "line": entry.line,
-            "evidence": list(entry.evidence),
-            "status": entry.status,
-        }
-        for entry in tests_sorted
-    ]
-
-    evidence_index: dict[str, list[str]] = {}
+    tests_payload = []
+    evidence_index: dict[str, dict[str, object]] = {}
     for entry in tests_sorted:
-        for evidence_id in entry.evidence:
-            evidence_index.setdefault(evidence_id, []).append(entry.test_id)
+        evidence_payload = [
+            {"key": item.key, "display": item.display} for item in entry.evidence
+        ]
+        tests_payload.append(
+            {
+                "test_id": entry.test_id,
+                "file": entry.path,
+                "line": entry.line,
+                "evidence": evidence_payload,
+                "status": entry.status,
+            }
+        )
+        for item in entry.evidence:
+            identity = item.identity
+            record = evidence_index.get(identity)
+            if record is None:
+                record = {
+                    "key": item.key,
+                    "display": item.display,
+                    "tests": [],
+                }
+                evidence_index[identity] = record
+            record["tests"].append(entry.test_id)
 
-    evidence_payload = [
-        {"evidence_id": evidence_id, "tests": sorted(test_ids)}
-        for evidence_id, test_ids in sorted(evidence_index.items())
-    ]
+    evidence_payload = []
+    for identity in sorted(evidence_index):
+        record = evidence_index[identity]
+        tests = sorted(record["tests"])
+        evidence_payload.append(
+            {
+                "key": record["key"],
+                "display": record["display"],
+                "tests": tests,
+            }
+        )
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "scope": {
             "root": display_root,
             "include": include_list,
@@ -176,6 +206,29 @@ def _find_evidence_tags(
     return []
 
 
+def _normalize_evidence_items(values: Iterable[str]) -> tuple[EvidenceItem, ...]:
+    items: list[EvidenceItem] = []
+    seen: set[str] = set()
+    for token in values:
+        display = str(token).strip()
+        if not display:
+            continue
+        key = evidence_keys.parse_display(display)
+        if key is None:
+            key = evidence_keys.make_opaque_key(display)
+        key = evidence_keys.normalize_key(key)
+        identity = evidence_keys.key_identity(key)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        rendered = evidence_keys.render_display(key)
+        if evidence_keys.is_opaque(key):
+            rendered = display
+        items.append(EvidenceItem(key=key, display=rendered))
+    items.sort(key=lambda item: item.identity)
+    return tuple(items)
+
+
 def _is_test_function(name: str, class_stack: list[str]) -> bool:
     if not name.startswith("test"):
         return False
@@ -219,16 +272,16 @@ class _TestCollector(ast.NodeVisitor):
         else:
             start_line = getattr(node, "lineno", 1)
         evidence = _find_evidence_tags(self._lines, self._comment_map, start_line)
-        unique = tuple(sorted(set(evidence)))
+        items = _normalize_evidence_items(evidence)
         qualname = "::".join([*self._class_stack, name])
         test_id = f"{self._rel_path}::{qualname}"
-        status = "mapped" if unique else "unmapped"
+        status = "mapped" if items else "unmapped"
         self.entries.append(
             TestEvidence(
                 test_id=test_id,
                 path=self._rel_path,
                 line=getattr(node, "lineno", 0),
-                evidence=unique,
+                evidence=items,
                 status=status,
             )
         )

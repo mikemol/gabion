@@ -1,5 +1,5 @@
 ---
-doc_revision: 6
+doc_revision: 8
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -18,13 +18,13 @@ doc_requires:
   - AGENTS.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 22
+  glossary.md: 24
   README.md: 58
   CONTRIBUTING.md: 72
   AGENTS.md: 13
 doc_review_notes:
   POLICY_SEED.md: "Review-discipline invariant does not alter coverage semantics."
-  glossary.md: "Higher-order bundle definition does not change coverage rules."
+  glossary.md: "Reviewed glossary update (Evidence Key / dominance); coverage semantics aligned."
   README.md: "Scope references remain accurate."
   CONTRIBUTING.md: "Review discipline aligns with coverage enforcement workflow."
   AGENTS.md: "Agent review discipline consistent with coverage obligations."
@@ -82,6 +82,20 @@ When control-flow is refactored into decision structures, tests must include:
 - **Tier-1 (Decision Protocol):** schema validation + edge cases derived from the protocol.
 
 See `glossary.md` §§12–14 for decision-flow tier definitions.
+
+### 1.6 Evidence surface coverage (required)
+The canonical semantic coverage carrier is `out/test_evidence.json`. It records
+the evidence surface discharged by tests and explicitly lists unmapped tests.
+
+Projections derived from this carrier (e.g., `out/test_obsolescence_report.*`,
+`out/test_evidence_suggestions.*`) are advisory and must be deterministic.
+CI enforces drift control for `out/test_evidence.json` by regenerating it and
+failing if the output changes without being committed.
+
+By default, only `out/test_evidence.json` is committed and gated. The
+projection outputs (`out/test_obsolescence_report.*`,
+`out/test_evidence_suggestions.*`) are local advisory artifacts and should not
+be committed unless explicitly promoted to a gated artifact.
 
 ## 2. Ratchet Policy (No Regression)
 
