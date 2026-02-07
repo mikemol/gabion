@@ -2548,6 +2548,7 @@ def _format_span_fields(
     end_line: object,
     end_col: object,
 ) -> str:
+    # dataflow-bundle: col, end_col, end_line, line
     try:
         line_value = int(line)
         col_value = int(col)
