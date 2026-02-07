@@ -33,6 +33,53 @@ def _normalize_target(target: object) -> tuple[str, str] | None:
     return path, qual
 
 
+def _normalize_span(value: object) -> list[int] | None:
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        parts = [
+            value.get("line"),
+            value.get("col"),
+            value.get("end_line"),
+            value.get("end_col"),
+        ]
+    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        parts = list(value)
+    else:
+        return None
+    if len(parts) != 4:
+        return None
+    normalized: list[int] = []
+    for part in parts:
+        try:
+            item = int(part)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+        if item < 0:
+            return None
+        normalized.append(item)
+    return normalized
+
+
+def _normalize_site(site: object) -> dict[str, object]:
+    if isinstance(site, Mapping):
+        path = str(site.get("path", "") or "").strip()
+        qual = str(site.get("qual", "") or "").strip()
+        span = _normalize_span(site.get("span"))
+    elif isinstance(site, Sequence) and not isinstance(site, (str, bytes)):
+        if len(site) < 2:
+            return {"path": "", "qual": ""}
+        path = str(site[0]).strip()
+        qual = str(site[1]).strip()
+        span = None
+    else:
+        return {"path": "", "qual": ""}
+    payload: dict[str, object] = {"path": path, "qual": qual}
+    if span:
+        payload["span"] = span
+    return payload
+
+
 def normalize_targets(targets: Iterable[object]) -> list[dict[str, str]]:
     cleaned: dict[tuple[str, str], dict[str, str]] = {}
     for target in targets:
@@ -121,6 +168,58 @@ def make_call_footprint_key(
     }
 
 
+def make_ambiguity_set_key(
+    *,
+    path: str,
+    qual: str,
+    span: Iterable[object] | None = None,
+    candidates: Iterable[object],
+) -> dict[str, object]:
+    # dataflow-bundle: candidates, path, qual
+    site: dict[str, object] = {
+        "path": str(path).strip(),
+        "qual": str(qual).strip(),
+    }
+    normalized_span = _normalize_span(span)
+    if normalized_span:
+        site["span"] = normalized_span
+    return {
+        "k": "ambiguity_set",
+        "site": site,
+        "candidates": normalize_targets(candidates),
+    }
+
+
+def make_partition_witness_key(
+    *,
+    kind: str,
+    site: Mapping[str, object],
+    ambiguity: Mapping[str, object],
+    support: Mapping[str, object] | None = None,
+    collapse: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    # dataflow-bundle: ambiguity, kind, site
+    payload: dict[str, object] = {
+        "k": "partition_witness",
+        "kind": str(kind).strip(),
+        "site": _normalize_site(site),
+        "ambiguity": normalize_key(ambiguity),
+    }
+    if support:
+        payload["support"] = {
+            str(key): str(value).strip()
+            for key, value in support.items()
+            if str(value).strip()
+        }
+    if collapse:
+        payload["collapse"] = {
+            str(key): str(value).strip()
+            for key, value in collapse.items()
+            if str(value).strip()
+        }
+    return payload
+
+
 def make_opaque_key(display: str) -> dict[str, object]:
     return {"k": "opaque", "s": str(display).strip()}
 
@@ -164,10 +263,8 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
         return make_function_site_key(path=path, qual=qual)
     if kind == "call_footprint":
         site = key.get("site", {})
-        if not isinstance(site, Mapping):
-            site = {}
-        path = str(site.get("path", "") or "")
-        qual = str(site.get("qual", "") or "")
+        path = str(site.get("path", "") or "") if isinstance(site, Mapping) else ""
+        qual = str(site.get("qual", "") or "") if isinstance(site, Mapping) else ""
         targets = key.get("targets", [])
         if isinstance(targets, str):
             targets = []
@@ -175,6 +272,36 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
             path=path,
             qual=qual,
             targets=targets if isinstance(targets, Iterable) else [],
+        )
+    if kind == "ambiguity_set":
+        site = key.get("site", {})
+        normalized_site = _normalize_site(site)
+        path = str(normalized_site.get("path", "") or "")
+        qual = str(normalized_site.get("qual", "") or "")
+        span = normalized_site.get("span")
+        candidates = key.get("candidates", [])
+        if isinstance(candidates, str):
+            candidates = []
+        return make_ambiguity_set_key(
+            path=path,
+            qual=qual,
+            span=span if isinstance(span, Iterable) else None,
+            candidates=candidates if isinstance(candidates, Iterable) else [],
+        )
+    if kind == "partition_witness":
+        kind_value = str(key.get("kind", "") or "")
+        site = key.get("site", {})
+        ambiguity = key.get("ambiguity", {})
+        support = key.get("support")
+        collapse = key.get("collapse")
+        support_map = support if isinstance(support, Mapping) else None
+        collapse_map = collapse if isinstance(collapse, Mapping) else None
+        return make_partition_witness_key(
+            kind=kind_value,
+            site=site if isinstance(site, Mapping) else {},
+            ambiguity=ambiguity if isinstance(ambiguity, Mapping) else {},
+            support=support_map,
+            collapse=collapse_map,
         )
     if kind == "opaque":
         return make_opaque_key(str(key.get("s", "") or ""))
@@ -241,6 +368,12 @@ def render_display(
                     continue
                 parts.extend([target_path, target_qual])
         return "E:call_footprint::" + "::".join(parts)
+    if kind == "ambiguity_set":
+        payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+        return f"E:ambiguity_set::{payload}"
+    if kind == "partition_witness":
+        payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+        return f"E:partition_witness::{payload}"
     return f"E:{kind}"
 
 
@@ -285,6 +418,26 @@ def parse_display(display: str) -> dict[str, object] | None:
         for idx in range(0, len(targets), 2):
             target_pairs.append((targets[idx], targets[idx + 1]))
         return make_call_footprint_key(path=path, qual=qual, targets=target_pairs)
+    if prefix == "ambiguity_set":
+        if not rest:
+            return None
+        try:
+            payload = json.loads("::".join(rest))
+        except json.JSONDecodeError:
+            return None
+        if isinstance(payload, Mapping):
+            return normalize_key(payload)
+        return None
+    if prefix == "partition_witness":
+        if not rest:
+            return None
+        try:
+            payload = json.loads("::".join(rest))
+        except json.JSONDecodeError:
+            return None
+        if isinstance(payload, Mapping):
+            return normalize_key(payload)
+        return None
     return None
 
 

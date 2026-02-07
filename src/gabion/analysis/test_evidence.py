@@ -26,6 +26,14 @@ class TestEvidence:
 
 
 @dataclass(frozen=True)
+class TestEvidenceTag:
+    test_id: str
+    path: str
+    line: int
+    tags: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class EvidenceItem:
     key: dict[str, object]
     display: str
@@ -117,6 +125,22 @@ def build_test_evidence_payload(
     }
 
 
+def collect_test_tags(
+    paths: Iterable[Path],
+    *,
+    root: Path,
+    include: Iterable[str] | None = None,
+    exclude: Iterable[str] | None = None,
+) -> list[TestEvidenceTag]:
+    root = root.resolve()
+    exclude_set = {str(item) for item in (exclude or [])}
+    files = _collect_test_files(paths, root=root, exclude=exclude_set)
+    entries: list[TestEvidenceTag] = []
+    for path in files:
+        entries.extend(_extract_file_tags(path, root))
+    return sorted(entries, key=lambda entry: entry.test_id)
+
+
 def write_test_evidence(
     payload: dict[str, object],
     output_path: Path,
@@ -167,6 +191,23 @@ def _extract_file_evidence(path: Path, root: Path) -> list[TestEvidence]:
     comments = _evidence_comments(text)
     rel_path = str(path.resolve().relative_to(root))
     collector = _TestCollector(lines, comments, rel_path)
+    collector.visit(tree)
+    return collector.entries
+
+
+def _extract_file_tags(path: Path, root: Path) -> list[TestEvidenceTag]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    lines = text.splitlines()
+    comments = _evidence_comments(text)
+    rel_path = str(path.resolve().relative_to(root))
+    collector = _TagCollector(lines, comments, rel_path)
     collector.visit(tree)
     return collector.entries
 
@@ -283,5 +324,53 @@ class _TestCollector(ast.NodeVisitor):
                 line=getattr(node, "lineno", 0),
                 evidence=items,
                 status=status,
+            )
+        )
+
+
+class _TagCollector(ast.NodeVisitor):
+    def __init__(
+        self,
+        lines: list[str],
+        comment_map: dict[int, list[str]],
+        rel_path: str,
+    ) -> None:
+        self._lines = lines
+        self._comment_map = comment_map
+        self._rel_path = rel_path
+        self._class_stack: list[str] = []
+        self.entries: list[TestEvidenceTag] = []
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+        self._class_stack.append(node.name)
+        for child in node.body:
+            self.visit(child)
+        self._class_stack.pop()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+        self._handle_function(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:  # noqa: N802
+        self._handle_function(node)
+
+    def _handle_function(self, node: ast.AST) -> None:
+        name = getattr(node, "name", "")
+        if not _is_test_function(name, self._class_stack):
+            return
+        decorators = getattr(node, "decorator_list", [])
+        if decorators:
+            start_line = min(getattr(dec, "lineno", node.lineno) for dec in decorators)
+        else:
+            start_line = getattr(node, "lineno", 1)
+        raw_tags = _find_evidence_tags(self._lines, self._comment_map, start_line)
+        tags = tuple(dict.fromkeys(raw_tags))
+        qualname = "::".join([*self._class_stack, name])
+        test_id = f"{self._rel_path}::{qualname}"
+        self.entries.append(
+            TestEvidenceTag(
+                test_id=test_id,
+                path=self._rel_path,
+                line=getattr(node, "lineno", 0),
+                tags=tags,
             )
         )

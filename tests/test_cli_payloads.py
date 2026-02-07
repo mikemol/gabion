@@ -22,7 +22,12 @@ def test_check_builds_payload() -> None:
         emit_test_obsolescence=False,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        emit_test_annotation_drift=False,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
         write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        write_ambiguity_baseline=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -38,7 +43,12 @@ def test_check_builds_payload() -> None:
     assert payload["emit_test_obsolescence"] is False
     assert payload["emit_test_obsolescence_delta"] is False
     assert payload["emit_test_evidence_suggestions"] is False
+    assert payload["emit_test_annotation_drift"] is False
+    assert payload["emit_test_annotation_drift_delta"] is False
+    assert payload["write_test_annotation_drift_baseline"] is False
     assert payload["write_test_obsolescence_baseline"] is False
+    assert payload["emit_ambiguity_delta"] is False
+    assert payload["write_ambiguity_baseline"] is False
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
@@ -56,7 +66,12 @@ def test_check_payload_strictness_validation() -> None:
             emit_test_obsolescence=False,
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
+            emit_test_annotation_drift=False,
+            emit_test_annotation_drift_delta=False,
+            write_test_annotation_drift_baseline=False,
             write_test_obsolescence_baseline=False,
+            emit_ambiguity_delta=False,
+            write_ambiguity_baseline=False,
             exclude=None,
             ignore_params_csv=None,
             transparent_decorators_csv=None,
@@ -81,7 +96,12 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         emit_test_obsolescence=False,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        emit_test_annotation_drift=False,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
         write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        write_ambiguity_baseline=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -199,7 +219,12 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         emit_test_obsolescence=False,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        emit_test_annotation_drift=False,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
         write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        write_ambiguity_baseline=False,
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -215,7 +240,12 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["payload"]["emit_test_obsolescence"] is False
     assert captured["payload"]["emit_test_obsolescence_delta"] is False
     assert captured["payload"]["emit_test_evidence_suggestions"] is False
+    assert captured["payload"]["emit_test_annotation_drift"] is False
+    assert captured["payload"]["emit_test_annotation_drift_delta"] is False
+    assert captured["payload"]["write_test_annotation_drift_baseline"] is False
     assert captured["payload"]["write_test_obsolescence_baseline"] is False
+    assert captured["payload"]["emit_ambiguity_delta"] is False
+    assert captured["payload"]["write_ambiguity_baseline"] is False
     assert captured["root"] == tmp_path
 
 
@@ -234,7 +264,74 @@ def test_check_payload_rejects_delta_and_baseline_write() -> None:
             emit_test_obsolescence=False,
             emit_test_obsolescence_delta=True,
             emit_test_evidence_suggestions=False,
+            emit_test_annotation_drift=False,
+            emit_test_annotation_drift_delta=False,
+            write_test_annotation_drift_baseline=False,
             write_test_obsolescence_baseline=True,
+            emit_ambiguity_delta=False,
+            write_ambiguity_baseline=False,
+            exclude=None,
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+            allow_external=None,
+            strictness=None,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        )
+
+
+# gabion:evidence E:baseline/ratchet_monotonicity
+def test_check_payload_rejects_annotation_drift_delta_and_baseline_write() -> None:
+    with pytest.raises(typer.BadParameter):
+        cli.build_check_payload(
+            paths=[Path(".")],
+            report=None,
+            fail_on_violations=True,
+            root=Path("."),
+            config=None,
+            baseline=None,
+            baseline_write=False,
+            decision_snapshot=None,
+            emit_test_obsolescence=False,
+            emit_test_obsolescence_delta=False,
+            emit_test_evidence_suggestions=False,
+            emit_test_annotation_drift=False,
+            emit_test_annotation_drift_delta=True,
+            write_test_annotation_drift_baseline=True,
+            write_test_obsolescence_baseline=False,
+            emit_ambiguity_delta=False,
+            write_ambiguity_baseline=False,
+            exclude=None,
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+            allow_external=None,
+            strictness=None,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        )
+
+
+# gabion:evidence E:baseline/ratchet_monotonicity
+def test_check_payload_rejects_ambiguity_delta_and_baseline_write() -> None:
+    with pytest.raises(typer.BadParameter):
+        cli.build_check_payload(
+            paths=[Path(".")],
+            report=None,
+            fail_on_violations=True,
+            root=Path("."),
+            config=None,
+            baseline=None,
+            baseline_write=False,
+            decision_snapshot=None,
+            emit_test_obsolescence=False,
+            emit_test_obsolescence_delta=False,
+            emit_test_evidence_suggestions=False,
+            emit_test_annotation_drift=False,
+            emit_test_annotation_drift_delta=False,
+            write_test_annotation_drift_baseline=False,
+            write_test_obsolescence_baseline=False,
+            emit_ambiguity_delta=True,
+            write_ambiguity_baseline=True,
             exclude=None,
             ignore_params_csv=None,
             transparent_decorators_csv=None,

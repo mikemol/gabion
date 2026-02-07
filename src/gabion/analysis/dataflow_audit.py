@@ -36,6 +36,7 @@ from gabion.analysis.evidence import (
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.analysis.aspf import Alt, Forest, NodeId
+from gabion.analysis import evidence_keys
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -74,7 +75,11 @@ from .forest_spec import (
     forest_spec_metadata,
 )
 from .projection_exec import apply_spec
-from .projection_registry import NEVER_INVARIANTS_SPEC, spec_metadata_lines
+from .projection_registry import (
+    AMBIGUITY_SUMMARY_SPEC,
+    NEVER_INVARIANTS_SPEC,
+    spec_metadata_lines,
+)
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
@@ -240,8 +245,19 @@ class AnalysisResult:
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
+    ambiguity_witnesses: list[JSONObject] = field(default_factory=list)
     forest: Forest | None = None
     forest_spec: ForestSpec | None = None
+
+
+@dataclass(frozen=True)
+class CallAmbiguity:
+    kind: str
+    caller: FunctionInfo
+    call: CallArgs | None
+    callee_key: str
+    candidates: tuple[FunctionInfo, ...]
+    phase: str
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -2542,6 +2558,78 @@ def _summarize_exception_obligations(
     return lines
 
 
+def _summarize_call_ambiguities(
+    entries: list[JSONObject],
+    *,
+    max_entries: int = 20,
+) -> list[str]:
+    if not entries:
+        return []
+    relation: list[dict[str, JSONValue]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        kind = str(entry.get("kind", "") or "unknown")
+        site = entry.get("site", {})
+        if not isinstance(site, Mapping):
+            site = {}
+        path = str(site.get("path", "") or "")
+        function = str(site.get("function", "") or "")
+        span = site.get("span")
+        line = col = end_line = end_col = -1
+        if isinstance(span, list) and len(span) == 4:
+            try:
+                line = int(span[0])
+                col = int(span[1])
+                end_line = int(span[2])
+                end_col = int(span[3])
+            except (TypeError, ValueError):
+                line = col = end_line = end_col = -1
+        candidate_count = entry.get("candidate_count")
+        try:
+            candidate_count = int(candidate_count) if candidate_count is not None else 0
+        except (TypeError, ValueError):
+            candidate_count = 0
+        relation.append(
+            {
+                "kind": kind,
+                "site_path": path,
+                "site_function": function,
+                "span_line": line,
+                "span_col": col,
+                "span_end_line": end_line,
+                "span_end_col": end_col,
+                "candidate_count": candidate_count,
+            }
+        )
+    projected = apply_spec(AMBIGUITY_SUMMARY_SPEC, relation)
+    counts: dict[str, int] = {}
+    for row in relation:
+        kind = str(row.get("kind", "") or "unknown")
+        counts[kind] = counts.get(kind, 0) + 1
+    lines: list[str] = []
+    lines.extend(spec_metadata_lines(AMBIGUITY_SUMMARY_SPEC))
+    lines.append("Counts by witness kind:")
+    for kind in sorted(counts):
+        lines.append(f"- {kind}: {counts[kind]}")
+    lines.append("Top ambiguous sites:")
+    for row in projected[:max_entries]:
+        path = row.get("site_path") or "?"
+        function = row.get("site_function") or "?"
+        span = _format_span_fields(
+            row.get("span_line", -1),
+            row.get("span_col", -1),
+            row.get("span_end_line", -1),
+            row.get("span_end_col", -1),
+        )
+        count = row.get("candidate_count", 0)
+        suffix = f"@{span}" if span else ""
+        lines.append(f"- {path}:{function}{suffix} candidates={count}")
+    if len(projected) > max_entries:
+        lines.append(f"... {len(projected) - max_entries} more")
+    return lines
+
+
 def _format_span_fields(
     line: object,
     col: object,
@@ -2856,6 +2944,186 @@ def _build_call_graph(
     return by_name, by_qual, transitive_callers
 
 
+def _collect_call_ambiguities(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> list[CallAmbiguity]:
+    by_name, by_qual = _build_function_index(
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        paths, project_root, external_filter=external_filter
+    )
+    class_index = _collect_class_index(paths, project_root)
+    ambiguities: list[CallAmbiguity] = []
+
+    def _sink(
+        caller: FunctionInfo,
+        call: CallArgs | None,
+        candidates: list[FunctionInfo],
+        phase: str,
+        callee_key: str,
+    ) -> None:
+        ordered = tuple(sorted(candidates, key=lambda info: info.qual))
+        ambiguities.append(
+            CallAmbiguity(
+                kind="local_resolution_ambiguous",
+                caller=caller,
+                call=call,
+                callee_key=callee_key,
+                candidates=ordered,
+                phase=phase,
+            )
+        )
+
+    for infos in by_name.values():
+        for info in infos:
+            for call in info.calls:
+                if call.is_test:
+                    continue
+                _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                    call=call,
+                    ambiguity_sink=_sink,
+                )
+    return _dedupe_call_ambiguities(ambiguities)
+
+
+def _dedupe_call_ambiguities(
+    ambiguities: Iterable[CallAmbiguity],
+) -> list[CallAmbiguity]:
+    seen: set[tuple[object, ...]] = set()
+    ordered: list[CallAmbiguity] = []
+    for entry in ambiguities:
+        span = entry.call.span if entry.call is not None else None
+        candidate_keys = tuple(
+            (candidate.path, candidate.qual) for candidate in entry.candidates
+        )
+        key = (
+            entry.kind,
+            entry.caller.path,
+            entry.caller.qual,
+            span,
+            entry.callee_key,
+            candidate_keys,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(entry)
+    return ordered
+
+
+def _emit_call_ambiguities(
+    ambiguities: Iterable[CallAmbiguity],
+    *,
+    project_root: Path | None,
+    forest: Forest | None,
+) -> list[JSONObject]:
+    entries: list[JSONObject] = []
+    for entry in ambiguities:
+        call_span = entry.call.span if entry.call is not None else None
+        site_path = _normalize_snapshot_path(entry.caller.path, project_root)
+        site_payload: JSONObject = {
+            "path": site_path,
+            "function": entry.caller.qual,
+        }
+        if call_span is not None:
+            site_payload["span"] = list(call_span)
+        candidate_targets: list[dict[str, str]] = []
+        for candidate in entry.candidates:
+            candidate_targets.append(
+                {
+                    "path": _normalize_snapshot_path(candidate.path, project_root),
+                    "qual": candidate.qual,
+                }
+            )
+        candidate_targets = evidence_keys.normalize_targets(candidate_targets)
+        payload: JSONObject = {
+            "kind": entry.kind,
+            "site": site_payload,
+            "candidates": candidate_targets,
+            "candidate_count": len(candidate_targets),
+            "phase": entry.phase,
+        }
+        entries.append(payload)
+        if forest is None:
+            continue
+        call_site_id = forest.add_site(
+            entry.caller.path.name,
+            entry.caller.qual,
+            call_span,
+        )
+        candidate_nodes = [
+            forest.add_site(candidate.path.name, candidate.qual)
+            for candidate in entry.candidates
+        ]
+        ambiguity_key = evidence_keys.make_ambiguity_set_key(
+            path=site_path,
+            qual=entry.caller.qual,
+            span=call_span,
+            candidates=candidate_targets,
+        )
+        ambiguity_key = evidence_keys.normalize_key(ambiguity_key)
+        ambiguity_identity = evidence_keys.key_identity(ambiguity_key)
+        ambiguity_node = forest.add_node(
+            "AmbiguitySet",
+            (ambiguity_identity,),
+            meta={"evidence_key": ambiguity_key},
+        )
+        witness_key = evidence_keys.make_partition_witness_key(
+            kind=entry.kind,
+            site=ambiguity_key.get("site", {}),
+            ambiguity=ambiguity_key,
+            support={
+                "phase": entry.phase,
+                "reason": "multiple local candidates",
+            },
+            collapse={
+                "hint": "add explicit qualifier or disambiguating annotation",
+            },
+        )
+        witness_key = evidence_keys.normalize_key(witness_key)
+        witness_identity = evidence_keys.key_identity(witness_key)
+        witness_node = forest.add_node(
+            "PartitionWitness",
+            (witness_identity,),
+            meta={"evidence_key": witness_key},
+        )
+        forest.add_alt(
+            "AmbiguitySet",
+            (call_site_id, ambiguity_node, *sorted(candidate_nodes, key=lambda node: node.sort_key())),
+            evidence={
+                "kind": entry.kind,
+                "candidate_count": len(candidate_nodes),
+            },
+        )
+        forest.add_alt(
+            "PartitionWitness",
+            (call_site_id, ambiguity_node, witness_node),
+            evidence={
+                "kind": entry.kind,
+                "phase": entry.phase,
+            },
+        )
+    return entries
+
+
 def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
     lines: list[str] = []
     for entry in evidence:
@@ -2877,6 +3145,36 @@ def _lint_lines_from_type_evidence(evidence: Iterable[str]) -> list[str]:
         path, lineno, col, remainder = parsed
         message = remainder or "type-flow evidence"
         lines.append(_lint_line(path, lineno, col, "GABION_TYPE_FLOW", message))
+    return lines
+
+
+def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str]:
+    lines: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        site = entry.get("site", {})
+        if not isinstance(site, Mapping):
+            continue
+        path = str(site.get("path", "") or "")
+        span = site.get("span")
+        if not path:
+            continue
+        lineno = col = None
+        if isinstance(span, list) and len(span) == 4:
+            try:
+                lineno = int(span[0]) + 1
+                col = int(span[1]) + 1
+            except (TypeError, ValueError):
+                lineno = col = None
+        candidate_count = entry.get("candidate_count")
+        try:
+            count_value = int(candidate_count) if candidate_count is not None else 0
+        except (TypeError, ValueError):
+            count_value = 0
+        kind = str(entry.get("kind", "") or "ambiguity")
+        message = f"{kind} candidates={count_value}"
+        lines.append(_lint_line(path, lineno or 1, col or 1, "GABION_AMBIGUITY", message))
     return lines
 
 
@@ -3131,6 +3429,7 @@ def _compute_lint_lines(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
     type_callsite_evidence: list[str],
+    ambiguity_witnesses: list[JSONObject],
     exception_obligations: list[JSONObject],
     never_invariants: list[JSONObject],
     decision_lint_lines: list[str],
@@ -3145,6 +3444,7 @@ def _compute_lint_lines(
     )
     lint_lines.extend(_lint_lines_from_bundle_evidence(bundle_evidence))
     lint_lines.extend(_lint_lines_from_type_evidence(type_callsite_evidence))
+    lint_lines.extend(_lint_lines_from_call_ambiguities(ambiguity_witnesses))
     lint_lines.extend(_exception_protocol_lint_lines(exception_obligations))
     lint_lines.extend(_never_invariant_lint_lines(never_invariants))
     lint_lines.extend(decision_lint_lines)
@@ -4262,6 +4562,9 @@ def _resolve_callee(
     symbol_table: SymbolTable | None = None,
     project_root: Path | None = None,
     class_index: dict[str, ClassInfo] | None = None,
+    call: CallArgs | None = None,
+    ambiguity_sink: Callable[[FunctionInfo, CallArgs | None, list[FunctionInfo], str, str], None]
+    | None = None,
 ) -> FunctionInfo | None:
     # dataflow-bundle: by_name, caller
     if not callee_key:
@@ -4282,6 +4585,8 @@ def _resolve_callee(
                 return scoped[0]
             if len(scoped) > 1:
                 ambiguous = True
+                if ambiguity_sink is not None:
+                    ambiguity_sink(caller, call, scoped, "local_resolution", callee_key)
                 break
             if not effective_scope:
                 break
@@ -5741,6 +6046,7 @@ def _emit_report(
     rewrite_plans: list[JSONObject] | None = None,
     exception_obligations: list[JSONObject] | None = None,
     never_invariants: list[JSONObject] | None = None,
+    ambiguity_witnesses: list[JSONObject] | None = None,
     handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
@@ -5902,6 +6208,13 @@ def _emit_report(
         summary = _summarize_never_invariants(never_invariants)
         if summary:
             lines.append("Never invariants:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
+    if ambiguity_witnesses:
+        summary = _summarize_call_ambiguities(ambiguity_witnesses)
+        if summary:
+            lines.append("Ambiguities:")
             lines.append("```")
             lines.extend(summary)
             lines.append("```")
@@ -7100,6 +7413,7 @@ def _compute_violations(
         decision_warnings=decision_warnings,
         fingerprint_warnings=fingerprint_warnings,
         context_suggestions=[],
+        ambiguity_witnesses=[],
     )
     return violations
 
@@ -7209,6 +7523,7 @@ def render_report(
     rewrite_plans: list[JSONObject] | None = None,
     exception_obligations: list[JSONObject] | None = None,
     never_invariants: list[JSONObject] | None = None,
+    ambiguity_witnesses: list[JSONObject] | None = None,
     handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
@@ -7236,6 +7551,7 @@ def render_report(
         rewrite_plans=rewrite_plans,
         exception_obligations=exception_obligations,
         never_invariants=never_invariants,
+        ambiguity_witnesses=ambiguity_witnesses,
         handledness_witnesses=handledness_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
@@ -7290,6 +7606,7 @@ def analyze_paths(
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
     include_lint_lines: bool = False,
+    include_ambiguities: bool = False,
     include_bundle_forest: bool = False,
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
@@ -7319,6 +7636,7 @@ def analyze_paths(
 
     forest: Forest | None = None
     forest_spec: ForestSpec | None = None
+    ambiguity_witnesses: list[JSONObject] = []
     if (
         include_bundle_forest
         or include_decision_surfaces
@@ -7342,6 +7660,7 @@ def analyze_paths(
             include_decision_surfaces=include_decision_surfaces,
             include_value_decision_surfaces=include_value_decision_surfaces,
             include_never_invariants=include_never_invariants,
+            include_ambiguities=include_ambiguities,
             include_all_sites=True,
             ignore_params=config.ignore_params,
             decision_ignore_params=config.decision_ignore_params
@@ -7351,6 +7670,20 @@ def analyze_paths(
             decision_tiers=config.decision_tiers,
             require_tiers=config.decision_require_tiers,
             external_filter=config.external_filter,
+        )
+    if include_ambiguities:
+        call_ambiguities = _collect_call_ambiguities(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
+        )
+        ambiguity_witnesses = _emit_call_ambiguities(
+            call_ambiguities,
+            project_root=config.project_root,
+            forest=forest,
         )
 
     type_suggestions: list[str] = []
@@ -7539,6 +7872,7 @@ def analyze_paths(
             groups_by_path=groups_by_path,
             bundle_sites_by_path=bundle_sites_by_path,
             type_callsite_evidence=type_callsite_evidence,
+            ambiguity_witnesses=ambiguity_witnesses,
             exception_obligations=exception_obligations,
             never_invariants=never_invariants,
             decision_lint_lines=decision_lint_lines,
@@ -7573,6 +7907,7 @@ def analyze_paths(
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
+        ambiguity_witnesses=ambiguity_witnesses,
         forest=forest,
         forest_spec=forest_spec,
     )
@@ -7923,6 +8258,7 @@ def run(argv: list[str] | None = None) -> int:
         fingerprint_handledness_json
     )
     include_never_invariants = bool(args.report)
+    include_ambiguities = bool(args.report) or bool(args.lint)
     include_coherence = (
         bool(args.report)
         or bool(fingerprint_coherence_json)
@@ -7946,6 +8282,7 @@ def run(argv: list[str] | None = None) -> int:
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
         include_lint_lines=bool(args.lint),
+        include_ambiguities=include_ambiguities,
         include_bundle_forest=bool(args.report)
         or bool(args.dot)
         or bool(args.fail_on_violations),
@@ -8178,6 +8515,7 @@ def run(argv: list[str] | None = None) -> int:
             rewrite_plans=analysis.rewrite_plans,
             exception_obligations=analysis.exception_obligations,
             never_invariants=analysis.never_invariants,
+            ambiguity_witnesses=analysis.ambiguity_witnesses,
             handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,

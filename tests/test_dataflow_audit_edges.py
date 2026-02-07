@@ -125,6 +125,62 @@ def test_resolve_local_callee_ambiguity_and_scope(tmp_path: Path) -> None:
     assert groups
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities
+def test_ambiguity_witnesses_emit(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def outer():
+                def inner(x):
+                    return x
+                def inner(x):
+                    return x
+                def caller(y):
+                    return inner(y)
+                return caller
+            """
+        ).strip()
+        + "\n"
+    )
+    config = da.AuditConfig(project_root=tmp_path)
+    analysis = da.analyze_paths(
+        [tmp_path],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=10,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_deadness_witnesses=False,
+        include_coherence_witnesses=False,
+        include_rewrite_plans=False,
+        include_exception_obligations=False,
+        include_handledness_witnesses=False,
+        include_never_invariants=False,
+        include_decision_surfaces=False,
+        include_value_decision_surfaces=False,
+        include_invariant_propositions=False,
+        include_lint_lines=True,
+        include_ambiguities=True,
+        include_bundle_forest=True,
+        config=config,
+    )
+    assert analysis.ambiguity_witnesses
+    assert any(
+        entry.get("kind") == "local_resolution_ambiguous"
+        for entry in analysis.ambiguity_witnesses
+        if isinstance(entry, dict)
+    )
+    assert any("GABION_AMBIGUITY" in line for line in analysis.lint_lines)
+    assert analysis.forest is not None
+    assert any(node.kind == "AmbiguitySet" for node in analysis.forest.nodes)
+    summary = da._summarize_call_ambiguities(analysis.ambiguity_witnesses)
+    assert summary
+    assert summary[0].startswith("generated_by_spec_id:")
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
 def test_analyze_file_local_callee_globals(tmp_path: Path) -> None:
     da = _load()

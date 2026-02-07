@@ -37,6 +37,21 @@ def test_evidence_keys_normalize_and_render() -> None:
         targets=[("a.py", "mod.fn"), {"path": "b.py", "qual": "mod.fn2"}],
     )
     assert footprint["k"] == "call_footprint"
+    ambiguity = evidence_keys.make_ambiguity_set_key(
+        path="p",
+        qual="q",
+        span=[1, 2, 3, 4],
+        candidates=[("a.py", "mod.fn"), {"path": "b.py", "qual": "mod.fn2"}],
+    )
+    assert ambiguity["k"] == "ambiguity_set"
+    witness = evidence_keys.make_partition_witness_key(
+        kind="local_resolution_ambiguous",
+        site={"path": "p", "qual": "q"},
+        ambiguity=ambiguity,
+        support={"phase": "resolve"},
+        collapse={"hint": "qualify"},
+    )
+    assert witness["k"] == "partition_witness"
 
     assert evidence_keys.normalize_key({"k": "paramset", "params": "b,a"})["params"] == [
         "a",
@@ -62,6 +77,8 @@ def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.render_display(never).startswith("E:never/sink")
     assert evidence_keys.render_display(site).startswith("E:function_site")
     assert evidence_keys.render_display(footprint).startswith("E:call_footprint")
+    assert evidence_keys.render_display(ambiguity).startswith("E:ambiguity_set::")
+    assert evidence_keys.render_display(witness).startswith("E:partition_witness::")
     assert evidence_keys.render_display({"k": "custom"}) == "E:custom"
 
 
@@ -119,6 +136,27 @@ def test_parse_display_variants() -> None:
             {"path": "b.py", "qual": "mod.fn2"},
         ],
     }
+    ambiguity = evidence_keys.make_ambiguity_set_key(
+        path="p",
+        qual="q",
+        span=[1, 2, 3, 4],
+        candidates=[("a.py", "mod.fn")],
+    )
+    ambiguity_display = evidence_keys.render_display(ambiguity)
+    assert evidence_keys.parse_display(ambiguity_display) == evidence_keys.normalize_key(
+        ambiguity
+    )
+    witness = evidence_keys.make_partition_witness_key(
+        kind="local_resolution_ambiguous",
+        site={"path": "p", "qual": "q"},
+        ambiguity=ambiguity,
+        support={"phase": "resolve"},
+        collapse={"hint": "qualify"},
+    )
+    witness_display = evidence_keys.render_display(witness)
+    assert evidence_keys.parse_display(witness_display) == evidence_keys.normalize_key(
+        witness
+    )
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque

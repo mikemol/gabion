@@ -1,5 +1,5 @@
 ---
-doc_revision: 26
+doc_revision: 27
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -1892,3 +1892,117 @@ Display formatting is erased; key identity is not.
 ### Test Obligations (to be mapped)
 
 - Key rendering/parsing is deterministic and stable.
+
+---
+
+## 45. Ambiguity Set
+
+### Meaning
+
+**Definition:** A canonical, order-independent set of candidate carriers when
+resolution is not unique. Ambiguity sets are derived from the graph carrier
+and recorded as first-class nodes.
+
+### Axis
+
+**Axis:** Resolution (ambiguity carrier).
+
+### Desired Commutation (Candidate Order)
+
+Let `A` be an ambiguity set with candidate list `C`.
+
+```
+permute(C) ⇒ same Ambiguity Set
+```
+
+### Failure Modes
+
+- Ambiguity erased or silently resolved without recording candidates.
+- Candidate ordering treated as identity.
+
+### Normative Rule
+
+> Ambiguity Sets must be derived from the graph carrier and recorded with
+> canonical candidate ordering. Resolution must not drop candidates.
+
+### Erasure
+
+Candidate ordering is erased; candidate identity is not.
+
+### Test Obligations (to be mapped)
+
+- Ambiguity sets are deterministic and order-independent.
+
+---
+
+## 46. Partition Witness
+
+### Meaning
+
+**Definition:** A structured certificate explaining why an ambiguity exists
+and what would collapse it, anchored to a specific Ambiguity Set.
+
+### Axis
+
+**Axis:** Resolution (witness).
+
+### Desired Commutation (Witness Stability)
+
+```
+permute(candidates) ⇒ same Partition Witness
+```
+
+### Failure Modes
+
+- Ambiguity recorded without a witness.
+- Witness depends on non-semantic presentation details.
+
+### Normative Rule
+
+> Each Ambiguity Set must have at least one Partition Witness that records
+> the resolution phase and a minimal collapse hint.
+
+### Erasure
+
+Formatting of witness details is erased; witness identity is not.
+
+### Test Obligations (to be mapped)
+
+- Witness emission is deterministic and stable.
+
+---
+
+## 47. Annotation Drift
+
+### Meaning
+
+**Definition:** Evidence tags that no longer resolve to the current evidence
+universe (or fail to parse), indicating stale or orphaned annotations.
+
+### Axis
+
+**Axis:** Evidence (hygiene).
+
+### Desired Commutation (Presentation)
+
+```
+render(key) changes ⇒ no drift
+```
+
+### Failure Modes
+
+- Orphaned tags remain undetected.
+- Drift is computed from display strings rather than keys.
+
+### Normative Rule
+
+> Annotation drift is defined by Evidence Key identity, not display. Orphaned
+> tags must be reported via an advisory projection before any ratchet.
+
+### Erasure
+
+Display formatting is erased; key identity is not.
+
+### Test Obligations (to be mapped)
+
+- Drift audit detects orphaned tags deterministically.

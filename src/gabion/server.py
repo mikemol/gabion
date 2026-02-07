@@ -48,6 +48,9 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
+from gabion.analysis import test_annotation_drift
+from gabion.analysis import ambiguity_delta
+from gabion.analysis import test_annotation_drift_delta
 from gabion.analysis import test_obsolescence
 from gabion.analysis import test_obsolescence_delta
 from gabion.analysis import test_evidence_suggestions
@@ -244,6 +247,17 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     emit_test_evidence_suggestions = bool(
         payload.get("emit_test_evidence_suggestions", False)
     )
+    emit_test_annotation_drift = bool(
+        payload.get("emit_test_annotation_drift", False)
+    )
+    emit_test_annotation_drift_delta = bool(
+        payload.get("emit_test_annotation_drift_delta", False)
+    )
+    write_test_annotation_drift_baseline = bool(
+        payload.get("write_test_annotation_drift_baseline", False)
+    )
+    emit_ambiguity_delta = bool(payload.get("emit_ambiguity_delta", False))
+    write_ambiguity_baseline = bool(payload.get("write_ambiguity_baseline", False))
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -293,6 +307,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         fingerprint_handledness_json
     )
     include_never_invariants = bool(report_path)
+    include_ambiguities = (
+        bool(report_path) or lint or emit_ambiguity_delta or write_ambiguity_baseline
+    )
     include_coherence = (
         bool(report_path) or bool(fingerprint_coherence_json) or include_rewrite_plans
     )
@@ -314,6 +331,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
         include_lint_lines=lint,
+        include_ambiguities=include_ambiguities,
         include_bundle_forest=True,
         config=config,
     )
@@ -338,6 +356,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_exception_obligations": analysis.exception_obligations,
         "fingerprint_handledness": analysis.handledness_witnesses,
         "never_invariants": analysis.never_invariants,
+        "ambiguity_witnesses": analysis.ambiguity_witnesses,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -430,6 +449,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         raise ValueError(
             "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
         )
+    if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
+        raise ValueError(
+            "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
+        )
+    if emit_ambiguity_delta and write_ambiguity_baseline:
+        raise ValueError(
+            "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
+        )
 
     if emit_test_evidence_suggestions:
         report_root = Path(root)
@@ -454,6 +481,70 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         response["test_evidence_suggestions_summary"] = (
             suggestions_payload.get("summary", {})
         )
+    drift_payload = None
+    if (
+        emit_test_annotation_drift
+        or emit_test_annotation_drift_delta
+        or write_test_annotation_drift_baseline
+    ):
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        drift_payload = test_annotation_drift.build_annotation_drift_payload(
+            paths,
+            root=report_root,
+            evidence_path=evidence_path,
+        )
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        if emit_test_annotation_drift:
+            report_json = json.dumps(drift_payload, indent=2, sort_keys=True) + "\n"
+            report_md = test_annotation_drift.render_markdown(drift_payload)
+            (output_dir / "test_annotation_drift.json").write_text(report_json)
+            (output_dir / "test_annotation_drift.md").write_text(report_md)
+            response["test_annotation_drift_summary"] = drift_payload.get(
+                "summary", {}
+            )
+        if emit_test_annotation_drift_delta or write_test_annotation_drift_baseline:
+            baseline_payload = test_annotation_drift_delta.build_baseline_payload(
+                drift_payload.get("summary", {})
+            )
+            baseline_path = test_annotation_drift_delta.resolve_baseline_path(
+                report_root
+            )
+            response["test_annotation_drift_baseline_path"] = str(baseline_path)
+            if write_test_annotation_drift_baseline:
+                baseline_path.parent.mkdir(parents=True, exist_ok=True)
+                test_annotation_drift_delta.write_baseline(
+                    str(baseline_path), baseline_payload
+                )
+                response["test_annotation_drift_baseline_written"] = True
+            else:
+                response["test_annotation_drift_baseline_written"] = False
+            if emit_test_annotation_drift_delta:
+                if not baseline_path.exists():
+                    raise FileNotFoundError(
+                        f"Annotation drift baseline not found: {baseline_path}"
+                    )
+                baseline = test_annotation_drift_delta.load_baseline(
+                    str(baseline_path)
+                )
+                current = test_annotation_drift_delta.parse_baseline_payload(
+                    baseline_payload
+                )
+                delta_payload = test_annotation_drift_delta.build_delta_payload(
+                    baseline, current, baseline_path=str(baseline_path)
+                )
+                report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
+                report_md = test_annotation_drift_delta.render_markdown(
+                    delta_payload
+                )
+                (output_dir / "test_annotation_drift_delta.json").write_text(
+                    report_json
+                )
+                (output_dir / "test_annotation_drift_delta.md").write_text(report_md)
+                response["test_annotation_drift_delta_summary"] = delta_payload.get(
+                    "summary", {}
+                )
     if emit_test_obsolescence or emit_test_obsolescence_delta or write_test_obsolescence_baseline:
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"
@@ -514,6 +605,37 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 "summary", {}
             )
 
+    if emit_ambiguity_delta or write_ambiguity_baseline:
+        report_root = Path(root)
+        baseline_payload = ambiguity_delta.build_baseline_payload(
+            analysis.ambiguity_witnesses
+        )
+        baseline_path = ambiguity_delta.resolve_baseline_path(report_root)
+        response["ambiguity_baseline_path"] = str(baseline_path)
+        if write_ambiguity_baseline:
+            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            ambiguity_delta.write_baseline(str(baseline_path), baseline_payload)
+            response["ambiguity_baseline_written"] = True
+        else:
+            response["ambiguity_baseline_written"] = False
+        if emit_ambiguity_delta:
+            if not baseline_path.exists():
+                raise FileNotFoundError(
+                    f"Ambiguity baseline not found: {baseline_path}"
+                )
+            baseline = ambiguity_delta.load_baseline(str(baseline_path))
+            current = ambiguity_delta.parse_baseline_payload(baseline_payload)
+            delta_payload = ambiguity_delta.build_delta_payload(
+                baseline, current, baseline_path=str(baseline_path)
+            )
+            output_dir = report_root / "out"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
+            report_md = ambiguity_delta.render_markdown(delta_payload)
+            (output_dir / "ambiguity_delta.json").write_text(report_json)
+            (output_dir / "ambiguity_delta.md").write_text(report_md)
+            response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
+
     violations: list[str] = []
     effective_violations: list[str] | None = None
     if report_path:
@@ -533,6 +655,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             rewrite_plans=analysis.rewrite_plans,
             exception_obligations=analysis.exception_obligations,
             never_invariants=analysis.never_invariants,
+            ambiguity_witnesses=analysis.ambiguity_witnesses,
             handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,

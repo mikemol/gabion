@@ -86,6 +86,94 @@ TEST_OBSOLESCENCE_DELTA_SPEC = ProjectionSpec(
 )
 
 
+AMBIGUITY_SUMMARY_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="ambiguity_summary",
+    domain="ambiguity_witnesses",
+    pipeline=(
+        ProjectionOp(
+            "project",
+            {
+                "fields": [
+                    "kind",
+                    "site_path",
+                    "site_function",
+                    "span_line",
+                    "span_col",
+                    "span_end_line",
+                    "span_end_col",
+                    "candidate_count",
+                ]
+            },
+        ),
+        ProjectionOp(
+            "sort",
+            {
+                "by": [
+                    "kind",
+                    "site_path",
+                    "site_function",
+                    "span_line",
+                    "span_col",
+                    "candidate_count",
+                ]
+            },
+        ),
+    ),
+    params={
+        "max_entries": 20,
+    },
+)
+
+
+TEST_ANNOTATION_DRIFT_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="test_annotation_drift",
+    domain="test_annotation_drift",
+    pipeline=(
+        ProjectionOp("project", {"fields": ["status", "test_id", "tag", "reason"]}),
+        ProjectionOp(
+            "sort",
+            {
+                "by": [
+                    "status",
+                    "test_id",
+                    "tag",
+                ]
+            },
+        ),
+    ),
+)
+
+
+TEST_ANNOTATION_DRIFT_BASELINE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="test_annotation_drift_baseline",
+    domain="test_annotation_drift_baseline",
+)
+
+
+TEST_ANNOTATION_DRIFT_DELTA_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="test_annotation_drift_delta",
+    domain="test_annotation_drift_delta",
+)
+
+
+AMBIGUITY_BASELINE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="ambiguity_baseline",
+    domain="ambiguity_baseline",
+)
+
+
+AMBIGUITY_DELTA_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="ambiguity_delta",
+    domain="ambiguity_delta",
+)
+
+
 def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
     spec_id = spec_hash(spec)
     spec_json = spec_canonical_json(spec)
@@ -108,6 +196,12 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         TEST_OBSOLESCENCE_SUMMARY_SPEC,
         TEST_OBSOLESCENCE_BASELINE_SPEC,
         TEST_OBSOLESCENCE_DELTA_SPEC,
+        AMBIGUITY_SUMMARY_SPEC,
+        TEST_ANNOTATION_DRIFT_SPEC,
+        TEST_ANNOTATION_DRIFT_BASELINE_SPEC,
+        TEST_ANNOTATION_DRIFT_DELTA_SPEC,
+        AMBIGUITY_BASELINE_SPEC,
+        AMBIGUITY_DELTA_SPEC,
     )
 
 

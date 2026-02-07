@@ -17,12 +17,12 @@ doc_reviewed_as_of:
   README.md: 58
   CONTRIBUTING.md: 72
   POLICY_SEED.md: 29
-  glossary.md: 26
+  glossary.md: 27
 doc_review_notes:
   README.md: "Reviewed for attribute-carrier/transport policy impact; no conflicts."
   CONTRIBUTING.md: "Review discipline requirements align with agent workflow."
   POLICY_SEED.md: "Adopts review discipline invariant; agent enforcement updated."
-  glossary.md: "Reviewed glossary update (call_footprint evidence key); agent obligations unchanged."
+  glossary.md: "Reviewed glossary update (ambiguity set / partition witness / annotation drift); agent obligations unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - read_policy_glossary_first

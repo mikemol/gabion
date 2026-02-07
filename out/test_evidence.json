@@ -5059,6 +5059,20 @@
       ]
     },
     {
+      "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "annotation_drift_orphaned_gate.py",
+          "qual": "scripts.annotation_drift_orphaned_gate.check_gate"
+        }
+      },
+      "tests": [
+        "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_disabled",
+        "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_enabled"
+      ]
+    },
+    {
       "display": "E:function_site::cli.py::gabion.cli._emit_decision_diff",
       "key": {
         "k": "function_site",
@@ -5230,6 +5244,19 @@
       "tests": [
         "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_copies_fields",
         "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_marks_missing_signature"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._emit_call_ambiguities"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_edges.py::test_ambiguity_witnesses_emit"
       ]
     },
     {
@@ -5869,6 +5896,19 @@
       },
       "tests": [
         "tests/test_server_helpers.py::test_start_uses_injected_callable"
+      ]
+    },
+    {
+      "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift.py",
+          "qual": "gabion.analysis.test_annotation_drift.build_annotation_drift_payload"
+        }
+      },
+      "tests": [
+        "tests/test_test_annotation_drift.py::test_annotation_drift_orphaned"
       ]
     },
     {
@@ -6574,6 +6614,8 @@
       "tests": [
         "tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
         "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline",
+        "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write",
+        "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write",
         "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent",
         "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline",
         "tests/test_dataflow_audit_run.py::test_run_baseline_write_requires_path",
@@ -6751,6 +6793,42 @@
       "line": 17,
       "status": "mapped",
       "test_id": "tests/test_alias_unpacking.py::test_tuple_unpacking_preserves_bundle"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "annotation_drift_orphaned_gate.py",
+              "qual": "scripts.annotation_drift_orphaned_gate.check_gate"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_annotation_drift_gate.py",
+      "line": 10,
+      "status": "mapped",
+      "test_id": "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_disabled"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "annotation_drift_orphaned_gate.py",
+              "qual": "scripts.annotation_drift_orphaned_gate.check_gate"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_annotation_drift_gate.py",
+      "line": 26,
+      "status": "mapped",
+      "test_id": "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_enabled"
     },
     {
       "evidence": [
@@ -8366,9 +8444,39 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 71,
+      "line": 86,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
+      ],
+      "file": "tests/test_cli_payloads.py",
+      "line": 315,
+      "status": "mapped",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:baseline/ratchet_monotonicity",
+          "key": {
+            "k": "opaque",
+            "s": "E:baseline/ratchet_monotonicity"
+          }
+        }
+      ],
+      "file": "tests/test_cli_payloads.py",
+      "line": 284,
+      "status": "mapped",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
     },
     {
       "evidence": [
@@ -8410,7 +8518,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 223,
+      "line": 253,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
     },
@@ -8454,7 +8562,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 45,
+      "line": 55,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_strictness_validation"
     },
@@ -8498,7 +8606,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 97,
+      "line": 117,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
     },
@@ -8513,7 +8621,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 130,
+      "line": 150,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
     },
@@ -8533,7 +8641,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 167,
+      "line": 187,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
     },
@@ -8553,7 +8661,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 150,
+      "line": 170,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
     },
@@ -8585,7 +8693,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 181,
+      "line": 201,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
@@ -10790,6 +10898,24 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._emit_call_ambiguities"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 129,
+      "status": "mapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_ambiguity_witnesses_emit"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive",
           "key": {
             "k": "decision_surface",
@@ -10803,7 +10929,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 129,
+      "line": 185,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_callee_globals"
     },
@@ -10823,7 +10949,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 712,
+      "line": 768,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_ambiguous"
     },
@@ -10843,7 +10969,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 750,
+      "line": 806,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_globals_only"
     },
@@ -10927,7 +11053,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 548,
+      "line": 604,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_none_and_nontransparent"
     },
@@ -10971,7 +11097,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 782,
+      "line": 838,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_nontransparent_dependency"
     },
@@ -11027,7 +11153,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 508,
+      "line": 564,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_unresolved_and_opaque"
     },
@@ -11119,7 +11245,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 695,
+      "line": 751,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_synthesis_plan_skips_empty_members"
     },
@@ -11367,7 +11493,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 592,
+      "line": 648,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_knob_param_names_non_const_kw"
     },
@@ -11531,7 +11657,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 469,
+      "line": 525,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_emit_report_tier2_violation"
     },
@@ -11551,7 +11677,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 500,
+      "line": 556,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_infer_root_with_groups"
     },
@@ -11619,7 +11745,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 624,
+      "line": 680,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
     },
@@ -11637,7 +11763,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 815,
+      "line": 871,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
@@ -11652,7 +11778,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 377,
+      "line": 433,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
@@ -11670,7 +11796,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 582,
+      "line": 638,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
     },
@@ -11858,7 +11984,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 217,
+      "line": 273,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_external_filtered"
     },
@@ -11926,7 +12052,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 249,
+      "line": 305,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_global_and_imported"
     },
@@ -12114,7 +12240,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 154,
+      "line": 210,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_imports_and_self"
     },
@@ -12166,7 +12292,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 333,
+      "line": 389,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_method_in_hierarchy_edges"
     },
@@ -23768,7 +23894,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 131,
+      "line": 169,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_call_footprint_normalization_edges"
     },
@@ -23806,7 +23932,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 125,
+      "line": 163,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_is_opaque"
     },
@@ -23826,7 +23952,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 82,
+      "line": 99,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_variants"
     },
@@ -23844,7 +23970,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 69,
+      "line": 86,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_render_display_handles_non_list_params"
     },
@@ -36200,6 +36326,24 @@
       "line": 61,
       "status": "mapped",
       "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_resolves_conflicts_to_union"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_annotation_drift.py",
+              "qual": "gabion.analysis.test_annotation_drift.build_annotation_drift_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_annotation_drift.py",
+      "line": 10,
+      "status": "mapped",
+      "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_orphaned"
     },
     {
       "evidence": [

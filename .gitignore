@@ -18,6 +18,12 @@ out/test_obsolescence_report.json
 out/test_obsolescence_report.md
 out/test_obsolescence_delta.json
 out/test_obsolescence_delta.md
+out/test_annotation_drift.json
+out/test_annotation_drift.md
+out/test_annotation_drift_delta.json
+out/test_annotation_drift_delta.md
+out/ambiguity_delta.json
+out/ambiguity_delta.md
 
 node_modules/
 package-lock.json
