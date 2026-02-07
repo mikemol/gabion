@@ -2380,6 +2380,721 @@
       "witness_count": 7
     },
     {
+      "display": "E:function_site::cli.py::gabion.cli._emit_decision_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli._emit_decision_diff"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli._emit_structure_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli._emit_structure_diff"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli._emit_structure_reuse",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli._emit_structure_reuse"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli.run_decision_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.run_decision_diff"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli.run_structure_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.run_structure_diff"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::config.py::gabion.config._load_toml",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "config.py",
+          "qual": "gabion.config._load_toml"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::config.py::gabion.config.merge_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "config.py",
+          "qual": "gabion.config.merge_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_reuse_replacement_map",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._build_reuse_replacement_map"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_synth_registry_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._build_synth_registry_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_counts_from_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._bundle_counts_from_snapshot"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._call_context",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._call_context"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_config_bundles",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._collect_config_bundles"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._copy_forest_signature_metadata"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_lint_lines",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._exception_protocol_lint_lines"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_warnings",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._exception_protocol_warnings"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._extract_smell_sample",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._extract_smell_sample"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_call_site",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._format_call_site"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_span_fields",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._format_span_fields"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._iter_config_fields"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_documented_bundles",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._iter_documented_bundles"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_constant_smells"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_type_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_type_evidence"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_exception_path_id",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._parse_exception_path_id"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._parse_lint_location"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._render_type_mermaid"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.diff_structure_snapshot_files"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshots",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.diff_structure_snapshots"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_decision_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.load_decision_snapshot"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.load_structure_snapshot"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.render_reuse_lemma_stubs"
+        }
+      },
+      "witness_count": 4
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_synthesis_section",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.render_synthesis_section"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.is_opaque"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.key_identity"
+        }
+      },
+      "witness_count": 8
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+        }
+      },
+      "witness_count": 7
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+        }
+      },
+      "witness_count": 8
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.normalize_key"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.parse_display"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.render_display"
+        }
+      },
+      "witness_count": 7
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature._normalize_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature._normalize_key"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature._path_name",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature._path_name"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature.build_forest_signature"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_from_groups",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature.build_forest_signature_from_groups"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::invariants.py::gabion.invariants.never",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "invariants.py",
+          "qual": "gabion.invariants.never"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "lsp_client.py",
+          "qual": "gabion.lsp_client._read_rpc"
+        }
+      },
+      "witness_count": 6
+    },
+    {
+      "display": "E:function_site::naming.py::gabion.synthesis.naming._normalize_identifier",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "naming.py",
+          "qual": "gabion.synthesis.naming._normalize_identifier"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::naming.py::gabion.synthesis.naming.suggest_name",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "naming.py",
+          "qual": "gabion.synthesis.naming.suggest_name"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "projection_registry.py",
+          "qual": "gabion.analysis.projection_registry.spec_metadata_lines"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "projection_registry.py",
+          "qual": "gabion.analysis.projection_registry.spec_metadata_payload"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "projection_spec.py",
+          "qual": "gabion.analysis.projection_spec.spec_from_dict"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "schedule.py",
+          "qual": "gabion.synthesis.schedule.topological_schedule"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::schema_audit.py::gabion.analysis.schema_audit._unparse",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "schema_audit.py",
+          "qual": "gabion.analysis.schema_audit._unparse"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::server.py::gabion.server._uri_to_path",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server._uri_to_path"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::server.py::gabion.server.code_action",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server.code_action"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::server.py::gabion.server.start",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server.start"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints._dimension_from_keys"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.apply_synth_dimension",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.apply_synth_dimension"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint"
+        }
+      },
+      "witness_count": 4
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_setlike"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.fingerprint_bitmask"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_hybrid",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.fingerprint_hybrid"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.load_synth_registry_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.load_synth_registry_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:baseline/ratchet_monotonicity",
       "key": {
         "k": "opaque",
@@ -2430,10 +3145,10 @@
   "generated_by_spec_id": "d3454cce58ad58f08551264a1079d2b5b894b013a045c5aeda2f3eff302c98b6",
   "opaque_evidence_count": 40,
   "summary": {
-    "equivalent_witness": 234,
-    "obsolete_candidate": 43,
-    "redundant_by_evidence": 180,
-    "unmapped": 175
+    "equivalent_witness": 263,
+    "obsolete_candidate": 78,
+    "redundant_by_evidence": 205,
+    "unmapped": 87
   },
   "tests": [
     {
@@ -2581,11 +3296,11 @@
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_type_audit_empty_findings"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_errors_exit"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_success"
     },
     {
@@ -2593,19 +3308,19 @@
       "test_id": "tests/test_cli_helpers.py::test_emit_lint_outputs_writes_artifacts"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_errors_exit"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_success"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_errors_exit"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_success"
     },
     {
@@ -2621,7 +3336,7 @@
       "test_id": "tests/test_cli_helpers.py::test_refactor_protocol_rejects_non_object_payload"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_helpers.py::test_run_decision_diff_uses_runner"
     },
     {
@@ -2637,7 +3352,7 @@
       "test_id": "tests/test_cli_helpers.py::test_run_refactor_protocol_accepts_object_payload"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_helpers.py::test_run_structure_diff_uses_runner"
     },
     {
@@ -2697,7 +3412,7 @@
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_code_action_stub.py::test_code_action_refactor_stub"
     },
     {
@@ -2709,7 +3424,7 @@
       "test_id": "tests/test_config_defaults.py::test_dataflow_defaults_reads_toml"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_config_defaults.py::test_merge_payload_prefers_explicit_values"
     },
     {
@@ -2725,11 +3440,11 @@
       "test_id": "tests/test_config_edges.py::test_load_config_default_path"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_config_edges.py::test_load_toml_missing_and_invalid"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_config_fields.py::test_iter_config_fields_expands_config_dataclass"
     },
     {
@@ -2773,7 +3488,7 @@
       "test_id": "tests/test_constant_flow_audit.py::test_deadness_witnesses_from_constant_flow"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_constant_flow_audit.py::test_format_call_site_handles_missing_span"
     },
     {
@@ -2829,7 +3544,7 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_obligation_summary_helper_covers_filters_and_status_normalization"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_protocol_warning_filters"
     },
     {
@@ -2841,7 +3556,7 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_coherence_and_rewrite_plans_cover_edges"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_forbid_adhoc_bundle_discovery_guard"
     },
     {
@@ -2853,7 +3568,7 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_never_invariant_lint_and_summary_formats"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers"
     },
     {
@@ -2861,7 +3576,7 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_populate_bundle_forest_dedupes"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_evidence_summary"
     },
     {
@@ -2945,7 +3660,7 @@
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
     },
     {
@@ -3041,7 +3756,7 @@
       "test_id": "tests/test_dataflow_audit_helpers.py::test_invariant_collector_skips_nested_defs_and_lambda"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_load_decision_snapshot_errors"
     },
     {
@@ -3065,15 +3780,15 @@
       "test_id": "tests/test_dataflow_audit_helpers.py::test_value_encoded_decision_params_branches"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_copies_fields"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_marks_missing_signature"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_format_span_fields_handles_invalid_values"
     },
     {
@@ -3129,11 +3844,11 @@
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_collect_dataclass_registry_without_project_root"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_config_and_documented_bundles_error_paths"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_config_bundles_and_documented_markers"
     },
     {
@@ -3229,7 +3944,7 @@
       "test_id": "tests/test_dataflow_helpers.py::test_split_and_combine_type_hints"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_helpers.py::test_symbol_table_resolution_and_call_context"
     },
     {
@@ -3521,7 +4236,7 @@
       "test_id": "tests/test_evidence_keys.py::test_evidence_keys_normalize_and_render"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_evidence_keys.py::test_is_opaque"
     },
     {
@@ -3529,7 +4244,7 @@
       "test_id": "tests/test_evidence_keys.py::test_parse_display_variants"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_evidence_keys.py::test_render_display_handles_non_list_params"
     },
     {
@@ -3561,7 +4276,7 @@
       "test_id": "tests/test_fingerprint_soundness.py::test_fingerprint_soundness_issues_skip_empty"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_fingerprint_warnings.py::test_build_synth_registry_payload_includes_entries"
     },
     {
@@ -3637,19 +4352,19 @@
       "test_id": "tests/test_forest_only_invariant.py::test_report_uses_forest_only_invariant"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_forest_signature.py::test_forest_signature_deterministic"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_forest_signature.py::test_forest_signature_from_groups"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_forest_signature.py::test_normalize_key_handles_objects"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_forest_signature.py::test_path_name_falls_back_to_str"
     },
     {
@@ -3689,7 +4404,7 @@
       "test_id": "tests/test_invariant_propositions.py::test_invariant_ignores_non_param_asserts"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_invariants.py::test_never_raises_never_thrown"
     },
     {
@@ -3697,15 +4412,15 @@
       "test_id": "tests/test_knob_merge.py::test_knob_merge_by_constant_params"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_lint_lines.py::test_lint_lines_from_constant_and_unused_smells"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_lint_lines.py::test_lint_lines_from_type_and_exception_evidence"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_lint_lines.py::test_lint_location_parser_and_bundle_lines"
     },
     {
@@ -3717,27 +4432,27 @@
       "test_id": "tests/test_lsp_client_rpc.py::test_read_response_skips_unmatched_ids"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_accepts_prefetched_body"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_invalid_length"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_missing_content_length_header"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_rejects_non_object_payload"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_skips_non_content_length_headers"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_stream_closed"
     },
     {
@@ -3837,7 +4552,7 @@
       "test_id": "tests/test_projection_exec_edges.py::test_sort_value_and_hashable_helpers"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_projection_exec_edges.py::test_spec_from_dict_handles_invalid_entries"
     },
     {
@@ -4081,7 +4796,7 @@
       "test_id": "tests/test_schema_audit.py::test_suggest_type_name_singularizes_and_handles_provenance"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_schema_audit.py::test_unparse_fallback_for_invalid_ast"
     },
     {
@@ -4145,11 +4860,11 @@
       "test_id": "tests/test_server_execute_command.py::test_normalize_transparent_decorators"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_server_execute_command.py::test_uri_to_path_file_scheme"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_server_execute_command.py::test_uri_to_path_plain_path"
     },
     {
@@ -4289,11 +5004,11 @@
       "test_id": "tests/test_server_helpers.py::test_normalize_transparent_decorators"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_server_helpers.py::test_start_uses_injected_callable"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_server_helpers.py::test_uri_to_path"
     },
     {
@@ -4305,23 +5020,23 @@
       "test_id": "tests/test_star_import_resolution.py::test_star_import_resolves_reexport"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_structure_diff.py::test_bundle_counts_skips_invalid_entries"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_structure_diff.py::test_diff_structure_snapshot_files"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_structure_diff.py::test_diff_structure_snapshots_counts_and_summary"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_diff.py::test_load_structure_snapshot_invalid_json"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_diff.py::test_load_structure_snapshot_non_object"
     },
     {
@@ -4333,7 +5048,7 @@
       "test_id": "tests/test_structure_reuse.py::test_compute_structure_reuse_detects_repeated_subtrees"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_reuse.py::test_render_reuse_lemma_stubs_includes_names"
     },
     {
@@ -4341,11 +5056,11 @@
       "test_id": "tests/test_structure_reuse.py::test_structure_reuse_prefers_declared_bundle_names"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_list_locations"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_string_locations"
     },
     {
@@ -4357,15 +5072,15 @@
       "test_id": "tests/test_structure_reuse_edges.py::test_compute_structure_reuse_skips_non_list_bundle"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_no_suggestions"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_skips_invalid_names"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_with_child_count"
     },
     {
@@ -4397,15 +5112,15 @@
       "test_id": "tests/test_synthesis_merge_integration.py::test_build_synthesis_plan_merges_overlapping_bundles"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_naming.py::test_suggest_name_avoids_collisions"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_naming.py::test_suggest_name_uses_frequency"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_synthesis_naming.py::test_suggest_name_with_empty_fields"
     },
     {
@@ -4425,11 +5140,11 @@
       "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_warns_on_empty"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_schedule.py::test_topological_schedule_orders_dependencies"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_schedule.py::test_topological_schedule_reports_cycles"
     },
     {
@@ -4485,12 +5200,16 @@
       "test_id": "tests/test_test_evidence_errors.py::test_extract_file_evidence_handles_syntax_error"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
     },
     {
       "class": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_decision_surface_suggestion"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback"
     },
     {
       "class": "unmapped",
@@ -4533,11 +5252,11 @@
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_load_test_evidence_errors_and_defaults"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_render_markdown_and_payload"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_basic_dominance"
     },
     {
@@ -4545,11 +5264,11 @@
       "test_id": "tests/test_test_obsolescence.py::test_compute_dominators_handles_empty_evidence"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_equivalent_witness_classification"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence"
     },
     {
@@ -4565,19 +5284,19 @@
       "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_skips_invalid_entries"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_normalize_evidence_refs_variants"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_render_json_payload_includes_spec_metadata"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_spec_metadata"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_suffix_details"
     },
     {
@@ -4589,19 +5308,19 @@
       "test_id": "tests/test_test_obsolescence.py::test_summarize_candidates_handles_bad_counts"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_unmapped_classification"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_evidence_index_merges_displays"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes"
     },
     {
@@ -4621,15 +5340,15 @@
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_rejects_bad_version"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_merges_duplicates"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_spec_metadata"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_with_entries"
     },
     {
@@ -4637,7 +5356,7 @@
       "test_id": "tests/test_type_fingerprints.py::test_apply_synth_dimension_attaches_tail"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_type_fingerprints.py::test_apply_synth_dimension_noop_when_missing"
     },
     {
@@ -4685,19 +5404,19 @@
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_skips_non_dict_entries"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_multiplies_primes"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_setlike_ignores_duplicates"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_constructors_skips_empty_keys"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_empty_and_constructor_bitmask"
     },
     {
@@ -4757,11 +5476,11 @@
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_arithmetic_ops"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_bitmask_skips_empty_keys"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_hybrid_bitmask"
     },
     {
@@ -4773,7 +5492,7 @@
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_to_type_keys_with_remainder_and_strict"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_type_fingerprints.py::test_format_fingerprint_str_and_synth_dimension_none"
     },
     {
@@ -4805,7 +5524,7 @@
       "test_id": "tests/test_type_fingerprints.py::test_synth_registry_from_payload_overrides_prime"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_type_fingerprints.py::test_synth_registry_payload_handles_non_list_entries"
     },
     {

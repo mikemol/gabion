@@ -395,6 +395,7 @@ def test_never_invariant_lint_and_summary_formats() -> None:
     assert any("why=depends on params" in line for line in lint)
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._extract_smell_sample E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_type_evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location
 def test_parse_lint_location_and_smell_helpers() -> None:
     da = _load()
     assert da._parse_lint_location("bad") is None
@@ -488,6 +489,7 @@ def test_bundle_projection_and_emitters(tmp_path: Path) -> None:
         da._emit_report({path: {"f": [set(["x"])]}}, 3, forest=None)
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery
 def test_forbid_adhoc_bundle_discovery_guard() -> None:
     da = _load()
     prev = os.environ.get("GABION_FORBID_ADHOC_BUNDLES")
@@ -502,6 +504,7 @@ def test_forbid_adhoc_bundle_discovery_guard() -> None:
             os.environ["GABION_FORBID_ADHOC_BUNDLES"] = prev
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_warnings
 def test_exception_protocol_warning_filters() -> None:
     da = _load()
     entries = [
@@ -605,6 +608,7 @@ def test_synthesis_plan_handles_empty_bundle_members(tmp_path: Path) -> None:
     assert "protocols" in plan
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_synthesis_section
 def test_render_synthesis_section_evidence_summary() -> None:
     da = _load()
     plan = {

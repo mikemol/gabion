@@ -52,6 +52,7 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     assert any(location.startswith("a.py::f") for location in replacement_map)
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs
 def test_render_reuse_lemma_stubs_includes_names() -> None:
     da = _load()
     reuse = {

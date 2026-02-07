@@ -346,6 +346,7 @@ def test_fingerprint_synth_empty_registry_returns_none(tmp_path: Path) -> None:
     assert payload is None
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_synth_registry_payload
 def test_build_synth_registry_payload_includes_entries() -> None:
     da, _ = _load()
     registry = da.PrimeRegistry()

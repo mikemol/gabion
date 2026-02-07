@@ -28,6 +28,9 @@ def test_evidence_keys_normalize_and_render() -> None:
     )
     assert never["reason"] == "why"
 
+    site = evidence_keys.make_function_site_key(path="p", qual="q")
+    assert site["k"] == "function_site"
+
     assert evidence_keys.normalize_key({"k": "paramset", "params": "b,a"})["params"] == [
         "a",
         "b",
@@ -38,6 +41,9 @@ def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.normalize_key(
         {"k": "never_sink", "site": "bad", "param": "x"}
     )["site"]["path"] == ""
+    assert evidence_keys.normalize_key({"k": "function_site", "site": "bad"})["site"][
+        "path"
+    ] == ""
     assert evidence_keys.normalize_key({"k": "opaque", "s": "X"})["s"] == "X"
     assert evidence_keys.normalize_key({"k": ""})["k"] == "opaque"
     assert evidence_keys.normalize_key({"k": "custom", "value": 1})["k"] == "custom"
@@ -47,9 +53,11 @@ def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.render_display(paramset).startswith("E:paramset")
     assert evidence_keys.render_display(decision).startswith("E:decision_surface/")
     assert evidence_keys.render_display(never).startswith("E:never/sink")
+    assert evidence_keys.render_display(site).startswith("E:function_site")
     assert evidence_keys.render_display({"k": "custom"}) == "E:custom"
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
 def test_render_display_handles_non_list_params() -> None:
     def fake_normalize_key(_key):
         return {"k": "paramset", "params": "oops"}
@@ -81,8 +89,13 @@ def test_parse_display_variants() -> None:
     }
     assert evidence_keys.parse_display("E:never/sink::p::q") is None
     assert evidence_keys.parse_display("E:never/sink::p::q::x")["k"] == "never_sink"
+    assert evidence_keys.parse_display("E:function_site::p::q") == {
+        "k": "function_site",
+        "site": {"path": "p", "qual": "q"},
+    }
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque
 def test_is_opaque() -> None:
     assert evidence_keys.is_opaque({"k": "opaque", "s": "X"}) is True
     assert evidence_keys.is_opaque({"k": "paramset", "params": ["a"]}) is False

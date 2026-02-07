@@ -66,6 +66,7 @@ def test_compute_structure_reuse_handles_edges(tmp_path: Path) -> None:
     assert any("name_candidates" in entry for entry in suggestions if isinstance(entry, dict))
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_reuse_replacement_map
 def test_build_reuse_replacement_map_skips_non_string_locations() -> None:
     da = _load()
     suggested = [
@@ -76,6 +77,7 @@ def test_build_reuse_replacement_map_skips_non_string_locations() -> None:
     assert 123 not in replacement
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_reuse_replacement_map
 def test_build_reuse_replacement_map_skips_non_list_locations() -> None:
     da = _load()
     suggested = [{"kind": "bundle", "hash": "h", "suggested_name": "X", "locations": "bad"}]
@@ -83,12 +85,14 @@ def test_build_reuse_replacement_map_skips_non_list_locations() -> None:
     assert replacement == {}
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs
 def test_render_reuse_lemma_stubs_no_suggestions() -> None:
     da = _load()
     stubs = da.render_reuse_lemma_stubs({"suggested_lemmas": []})
     assert "No lemma suggestions available" in stubs
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs
 def test_render_reuse_lemma_stubs_with_child_count() -> None:
     da = _load()
     reuse = {
@@ -106,6 +110,7 @@ def test_render_reuse_lemma_stubs_with_child_count() -> None:
     assert "child_count" in stubs
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs
 def test_render_reuse_lemma_stubs_skips_invalid_names() -> None:
     da = _load()
     reuse = {"suggested_lemmas": [{"suggested_name": None, "kind": "bundle"}]}

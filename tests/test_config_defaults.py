@@ -40,6 +40,7 @@ def test_dataflow_defaults_reads_toml(tmp_path: Path) -> None:
     assert defaults["fail_on_type_ambiguities"] is True
 
 
+# gabion:evidence E:function_site::config.py::gabion.config.merge_payload
 def test_merge_payload_prefers_explicit_values(tmp_path: Path) -> None:
     dataflow_defaults, merge_payload = _load_config_module()
     defaults = {

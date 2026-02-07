@@ -341,6 +341,7 @@ def _graph_suggestions(
         if info is None:
             continue
         resolved.add(entry.test_id)
+        direct_callees = _resolved_callees(info)
         reachable = _collect_reachable(
             info,
             max_depth=max_depth,
@@ -355,6 +356,18 @@ def _graph_suggestions(
                 continue
             for item in evidence_by_site.get(site_id, ()):
                 evidence_items[item.identity] = item
+        if not evidence_items:
+            fallback = [callee for callee in direct_callees if not _is_test_path(callee.path)]
+            if not fallback:
+                fallback = [callee for callee in reachable if not _is_test_path(callee.path)]
+            for callee in fallback:
+                site_id = site_index.get((callee.path.name, callee.qual))
+                if site_id is None:
+                    continue
+                suggestion = _function_site_suggestion(site_id, forest)
+                if suggestion is None:
+                    continue
+                evidence_items[suggestion.identity] = suggestion
         if evidence_items:
             ordered = tuple(evidence_items[key] for key in sorted(evidence_items))
             suggestions[entry.test_id] = ordered
@@ -485,6 +498,15 @@ def _evidence_for_alt(
         )
     else:
         return None
+    display = evidence_keys.render_display(key)
+    return EvidenceSuggestion(key=key, display=display)
+
+
+def _function_site_suggestion(site_id: NodeId, forest: Forest) -> EvidenceSuggestion | None:
+    path, qual = _site_parts(site_id, forest)
+    if not path or not qual:
+        return None
+    key = evidence_keys.make_function_site_key(path=path, qual=qual)
     display = evidence_keys.render_display(key)
     return EvidenceSuggestion(key=key, display=display)
 

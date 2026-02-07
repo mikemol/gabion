@@ -66,6 +66,17 @@ def make_never_sink_key(
     return key
 
 
+def make_function_site_key(*, path: str, qual: str) -> dict[str, object]:
+    # dataflow-bundle: path, qual
+    return {
+        "k": "function_site",
+        "site": {
+            "path": str(path).strip(),
+            "qual": str(qual).strip(),
+        },
+    }
+
+
 def make_opaque_key(display: str) -> dict[str, object]:
     return {"k": "opaque", "s": str(display).strip()}
 
@@ -100,6 +111,13 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
             param=param,
             reason=str(reason) if reason else None,
         )
+    if kind == "function_site":
+        site = key.get("site", {})
+        if not isinstance(site, Mapping):
+            site = {}
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        return make_function_site_key(path=path, qual=qual)
     if kind == "opaque":
         return make_opaque_key(str(key.get("s", "") or ""))
     if not kind:
@@ -144,6 +162,11 @@ def render_display(
         qual = str(site.get("qual", "") or "")
         param = str(normalized.get("param", "") or "")
         return f"E:never/sink::{path}::{qual}::{param}"
+    if kind == "function_site":
+        site = normalized.get("site", {})
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        return f"E:function_site::{path}::{qual}"
     return f"E:{kind}"
 
 
@@ -173,6 +196,11 @@ def parse_display(display: str) -> dict[str, object] | None:
             return None
         path, qual, param = rest
         return make_never_sink_key(path=path, qual=qual, param=param)
+    if prefix == "function_site":
+        if len(rest) != 2:
+            return None
+        path, qual = rest
+        return make_function_site_key(path=path, qual=qual)
     return None
 
 

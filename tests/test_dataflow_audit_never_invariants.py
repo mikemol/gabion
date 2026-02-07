@@ -5,6 +5,7 @@ from pathlib import Path
 from gabion.analysis import dataflow_audit
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_span_fields
 def test_format_span_fields_handles_invalid_values() -> None:
     assert dataflow_audit._format_span_fields("bad", 0, 0, 0) == ""
     assert dataflow_audit._format_span_fields(-1, 0, 0, 0) == ""
@@ -46,6 +47,7 @@ def test_summarize_never_invariants_filters_and_formats() -> None:
     assert "PROVEN_UNREACHABLE:" not in lines
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata
 def test_copy_forest_signature_metadata_marks_missing_signature() -> None:
     payload: dict[str, object] = {}
     snapshot: dict[str, object] = {}
@@ -54,6 +56,7 @@ def test_copy_forest_signature_metadata_marks_missing_signature() -> None:
     assert payload["forest_signature_basis"] == "missing"
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata
 def test_copy_forest_signature_metadata_copies_fields() -> None:
     payload: dict[str, object] = {}
     snapshot = {

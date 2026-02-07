@@ -206,6 +206,7 @@ def test_deadness_witnesses_from_constant_flow(tmp_path: Path) -> None:
     assert entry["result"] == "UNREACHABLE"
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_call_site
 def test_format_call_site_handles_missing_span(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))

@@ -4672,6 +4672,917 @@
       ]
     },
     {
+      "display": "E:function_site::cli.py::gabion.cli._emit_decision_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli._emit_decision_diff"
+        }
+      },
+      "tests": [
+        "tests/test_cli_helpers.py::test_emit_decision_diff_errors_exit",
+        "tests/test_cli_helpers.py::test_emit_decision_diff_success"
+      ]
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli._emit_structure_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli._emit_structure_diff"
+        }
+      },
+      "tests": [
+        "tests/test_cli_helpers.py::test_emit_structure_diff_errors_exit",
+        "tests/test_cli_helpers.py::test_emit_structure_diff_success"
+      ]
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli._emit_structure_reuse",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli._emit_structure_reuse"
+        }
+      },
+      "tests": [
+        "tests/test_cli_helpers.py::test_emit_structure_reuse_errors_exit",
+        "tests/test_cli_helpers.py::test_emit_structure_reuse_success"
+      ]
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli.run_decision_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.run_decision_diff"
+        }
+      },
+      "tests": [
+        "tests/test_cli_helpers.py::test_run_decision_diff_uses_runner"
+      ]
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli.run_structure_diff",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.run_structure_diff"
+        }
+      },
+      "tests": [
+        "tests/test_cli_helpers.py::test_run_structure_diff_uses_runner"
+      ]
+    },
+    {
+      "display": "E:function_site::config.py::gabion.config._load_toml",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "config.py",
+          "qual": "gabion.config._load_toml"
+        }
+      },
+      "tests": [
+        "tests/test_config_edges.py::test_load_toml_missing_and_invalid"
+      ]
+    },
+    {
+      "display": "E:function_site::config.py::gabion.config.merge_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "config.py",
+          "qual": "gabion.config.merge_payload"
+        }
+      },
+      "tests": [
+        "tests/test_config_defaults.py::test_merge_payload_prefers_explicit_values"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_reuse_replacement_map",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._build_reuse_replacement_map"
+        }
+      },
+      "tests": [
+        "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_list_locations",
+        "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_string_locations"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_synth_registry_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._build_synth_registry_payload"
+        }
+      },
+      "tests": [
+        "tests/test_fingerprint_warnings.py::test_build_synth_registry_payload_includes_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_counts_from_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._bundle_counts_from_snapshot"
+        }
+      },
+      "tests": [
+        "tests/test_structure_diff.py::test_bundle_counts_skips_invalid_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._call_context",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._call_context"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_helpers.py::test_symbol_table_resolution_and_call_context"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_config_bundles",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._collect_config_bundles"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_dataclass_bundles.py::test_config_bundles_and_documented_markers"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._copy_forest_signature_metadata"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_copies_fields",
+        "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_marks_missing_signature"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_lint_lines",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._exception_protocol_lint_lines"
+        }
+      },
+      "tests": [
+        "tests/test_lint_lines.py::test_lint_lines_from_type_and_exception_evidence"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_warnings",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._exception_protocol_warnings"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_exception_protocol_warning_filters"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._extract_smell_sample",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._extract_smell_sample"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_forbid_adhoc_bundle_discovery_guard"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_call_site",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._format_call_site"
+        }
+      },
+      "tests": [
+        "tests/test_constant_flow_audit.py::test_format_call_site_handles_missing_span"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_span_fields",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._format_span_fields"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_never_invariants.py::test_format_span_fields_handles_invalid_values"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._iter_config_fields"
+        }
+      },
+      "tests": [
+        "tests/test_config_fields.py::test_iter_config_fields_expands_config_dataclass",
+        "tests/test_dataflow_dataclass_bundles.py::test_config_and_documented_bundles_error_paths",
+        "tests/test_dataflow_dataclass_bundles.py::test_config_bundles_and_documented_markers"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_documented_bundles",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._iter_documented_bundles"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_dataclass_bundles.py::test_config_and_documented_bundles_error_paths",
+        "tests/test_dataflow_dataclass_bundles.py::test_config_bundles_and_documented_markers"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers",
+        "tests/test_lint_lines.py::test_lint_location_parser_and_bundle_lines"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_constant_smells"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers",
+        "tests/test_lint_lines.py::test_lint_lines_from_constant_and_unused_smells"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_type_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_type_evidence"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers",
+        "tests/test_lint_lines.py::test_lint_lines_from_type_and_exception_evidence"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers",
+        "tests/test_lint_lines.py::test_lint_lines_from_constant_and_unused_smells"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_exception_path_id",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._parse_exception_path_id"
+        }
+      },
+      "tests": [
+        "tests/test_lint_lines.py::test_lint_lines_from_type_and_exception_evidence"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._parse_lint_location"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers",
+        "tests/test_lint_lines.py::test_lint_location_parser_and_bundle_lines"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._render_type_mermaid"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.diff_structure_snapshot_files"
+        }
+      },
+      "tests": [
+        "tests/test_structure_diff.py::test_diff_structure_snapshot_files"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshots",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.diff_structure_snapshots"
+        }
+      },
+      "tests": [
+        "tests/test_structure_diff.py::test_diff_structure_snapshots_counts_and_summary"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_decision_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.load_decision_snapshot"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_helpers.py::test_load_decision_snapshot_errors"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.load_structure_snapshot"
+        }
+      },
+      "tests": [
+        "tests/test_structure_diff.py::test_load_structure_snapshot_invalid_json",
+        "tests/test_structure_diff.py::test_load_structure_snapshot_non_object"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.render_reuse_lemma_stubs"
+        }
+      },
+      "tests": [
+        "tests/test_structure_reuse.py::test_render_reuse_lemma_stubs_includes_names",
+        "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_no_suggestions",
+        "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_skips_invalid_names",
+        "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_with_child_count"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_synthesis_section",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.render_synthesis_section"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_evidence_summary"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.is_opaque"
+        }
+      },
+      "tests": [
+        "tests/test_evidence_keys.py::test_is_opaque",
+        "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.key_identity"
+        }
+      },
+      "tests": [
+        "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates",
+        "tests/test_test_obsolescence.py::test_basic_dominance",
+        "tests/test_test_obsolescence.py::test_equivalent_witness_classification",
+        "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence",
+        "tests/test_test_obsolescence.py::test_normalize_evidence_refs_variants",
+        "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip",
+        "tests/test_test_obsolescence_delta.py::test_build_evidence_index_merges_displays",
+        "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_merges_duplicates"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+        }
+      },
+      "tests": [
+        "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates",
+        "tests/test_test_obsolescence.py::test_basic_dominance",
+        "tests/test_test_obsolescence.py::test_equivalent_witness_classification",
+        "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence",
+        "tests/test_test_obsolescence.py::test_normalize_evidence_refs_variants",
+        "tests/test_test_obsolescence.py::test_unmapped_classification",
+        "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+        }
+      },
+      "tests": [
+        "tests/test_test_evidence_suggestions_edges.py::test_render_markdown_and_payload",
+        "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence",
+        "tests/test_test_obsolescence.py::test_normalize_evidence_refs_variants",
+        "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip",
+        "tests/test_test_obsolescence_delta.py::test_build_evidence_index_merges_displays",
+        "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes",
+        "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_merges_duplicates",
+        "tests/test_test_obsolescence_delta.py::test_render_markdown_with_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.normalize_key"
+        }
+      },
+      "tests": [
+        "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.parse_display"
+        }
+      },
+      "tests": [
+        "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys.render_display"
+        }
+      },
+      "tests": [
+        "tests/test_evidence_keys.py::test_render_display_handles_non_list_params",
+        "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates",
+        "tests/test_test_evidence_suggestions_edges.py::test_render_markdown_and_payload",
+        "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence",
+        "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip",
+        "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes",
+        "tests/test_test_obsolescence_delta.py::test_render_markdown_with_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature._normalize_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature._normalize_key"
+        }
+      },
+      "tests": [
+        "tests/test_forest_signature.py::test_normalize_key_handles_objects"
+      ]
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature._path_name",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature._path_name"
+        }
+      },
+      "tests": [
+        "tests/test_forest_signature.py::test_path_name_falls_back_to_str"
+      ]
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature.build_forest_signature"
+        }
+      },
+      "tests": [
+        "tests/test_forest_signature.py::test_forest_signature_deterministic"
+      ]
+    },
+    {
+      "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_from_groups",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "forest_signature.py",
+          "qual": "gabion.analysis.forest_signature.build_forest_signature_from_groups"
+        }
+      },
+      "tests": [
+        "tests/test_forest_signature.py::test_forest_signature_from_groups"
+      ]
+    },
+    {
+      "display": "E:function_site::invariants.py::gabion.invariants.never",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "invariants.py",
+          "qual": "gabion.invariants.never"
+        }
+      },
+      "tests": [
+        "tests/test_invariants.py::test_never_raises_never_thrown"
+      ]
+    },
+    {
+      "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "lsp_client.py",
+          "qual": "gabion.lsp_client._read_rpc"
+        }
+      },
+      "tests": [
+        "tests/test_lsp_client_rpc.py::test_read_rpc_accepts_prefetched_body",
+        "tests/test_lsp_client_rpc.py::test_read_rpc_invalid_length",
+        "tests/test_lsp_client_rpc.py::test_read_rpc_missing_content_length_header",
+        "tests/test_lsp_client_rpc.py::test_read_rpc_rejects_non_object_payload",
+        "tests/test_lsp_client_rpc.py::test_read_rpc_skips_non_content_length_headers",
+        "tests/test_lsp_client_rpc.py::test_read_rpc_stream_closed"
+      ]
+    },
+    {
+      "display": "E:function_site::naming.py::gabion.synthesis.naming._normalize_identifier",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "naming.py",
+          "qual": "gabion.synthesis.naming._normalize_identifier"
+        }
+      },
+      "tests": [
+        "tests/test_synthesis_naming.py::test_suggest_name_avoids_collisions",
+        "tests/test_synthesis_naming.py::test_suggest_name_uses_frequency"
+      ]
+    },
+    {
+      "display": "E:function_site::naming.py::gabion.synthesis.naming.suggest_name",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "naming.py",
+          "qual": "gabion.synthesis.naming.suggest_name"
+        }
+      },
+      "tests": [
+        "tests/test_synthesis_naming.py::test_suggest_name_avoids_collisions",
+        "tests/test_synthesis_naming.py::test_suggest_name_uses_frequency",
+        "tests/test_synthesis_naming.py::test_suggest_name_with_empty_fields"
+      ]
+    },
+    {
+      "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "projection_registry.py",
+          "qual": "gabion.analysis.projection_registry.spec_metadata_lines"
+        }
+      },
+      "tests": [
+        "tests/test_test_obsolescence.py::test_render_markdown_includes_spec_metadata",
+        "tests/test_test_obsolescence.py::test_render_markdown_includes_suffix_details",
+        "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_spec_metadata"
+      ]
+    },
+    {
+      "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "projection_registry.py",
+          "qual": "gabion.analysis.projection_registry.spec_metadata_payload"
+        }
+      },
+      "tests": [
+        "tests/test_test_obsolescence.py::test_render_json_payload_includes_spec_metadata",
+        "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip",
+        "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_spec_metadata"
+      ]
+    },
+    {
+      "display": "E:function_site::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "projection_spec.py",
+          "qual": "gabion.analysis.projection_spec.spec_from_dict"
+        }
+      },
+      "tests": [
+        "tests/test_projection_exec_edges.py::test_spec_from_dict_handles_invalid_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "schedule.py",
+          "qual": "gabion.synthesis.schedule.topological_schedule"
+        }
+      },
+      "tests": [
+        "tests/test_synthesis_schedule.py::test_topological_schedule_orders_dependencies",
+        "tests/test_synthesis_schedule.py::test_topological_schedule_reports_cycles"
+      ]
+    },
+    {
+      "display": "E:function_site::schema_audit.py::gabion.analysis.schema_audit._unparse",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "schema_audit.py",
+          "qual": "gabion.analysis.schema_audit._unparse"
+        }
+      },
+      "tests": [
+        "tests/test_schema_audit.py::test_unparse_fallback_for_invalid_ast"
+      ]
+    },
+    {
+      "display": "E:function_site::server.py::gabion.server._uri_to_path",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server._uri_to_path"
+        }
+      },
+      "tests": [
+        "tests/test_server_execute_command.py::test_uri_to_path_file_scheme",
+        "tests/test_server_execute_command.py::test_uri_to_path_plain_path",
+        "tests/test_server_helpers.py::test_uri_to_path"
+      ]
+    },
+    {
+      "display": "E:function_site::server.py::gabion.server.code_action",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server.code_action"
+        }
+      },
+      "tests": [
+        "tests/test_code_action_stub.py::test_code_action_refactor_stub"
+      ]
+    },
+    {
+      "display": "E:function_site::server.py::gabion.server.start",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server.start"
+        }
+      },
+      "tests": [
+        "tests/test_server_helpers.py::test_start_uses_injected_callable"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints._dimension_from_keys"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_apply_synth_dimension_noop_when_missing",
+        "tests/test_type_fingerprints.py::test_format_fingerprint_str_and_synth_dimension_none"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.apply_synth_dimension",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.apply_synth_dimension"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_apply_synth_dimension_noop_when_missing"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_multiplies_primes",
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_setlike_ignores_duplicates",
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_empty_and_constructor_bitmask",
+        "tests/test_type_fingerprints.py::test_fingerprint_hybrid_bitmask"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_setlike"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_setlike_ignores_duplicates",
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_empty_and_constructor_bitmask"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_constructors_skips_empty_keys",
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_empty_and_constructor_bitmask"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.fingerprint_bitmask"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_empty_and_constructor_bitmask",
+        "tests/test_type_fingerprints.py::test_fingerprint_bitmask_skips_empty_keys"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_hybrid",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.fingerprint_hybrid"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_fingerprint_hybrid_bitmask"
+      ]
+    },
+    {
+      "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.load_synth_registry_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "type_fingerprints.py",
+          "qual": "gabion.analysis.type_fingerprints.load_synth_registry_payload"
+        }
+      },
+      "tests": [
+        "tests/test_type_fingerprints.py::test_synth_registry_payload_handles_non_list_entries"
+      ]
+    },
+    {
       "display": "E:baseline/ratchet_monotonicity",
       "key": {
         "k": "opaque",
@@ -5493,7 +6404,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 579,
+      "line": 581,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_cli_diff_and_reuse_commands_use_default_runner"
     },
@@ -5806,17 +6717,39 @@
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_type_audit_empty_findings"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli._emit_decision_diff",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._emit_decision_diff"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 641,
-      "status": "unmapped",
+      "line": 647,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_errors_exit"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli._emit_decision_diff",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._emit_decision_diff"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 634,
-      "status": "unmapped",
+      "line": 639,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_success"
     },
     {
@@ -5864,31 +6797,75 @@
       "test_id": "tests/test_cli_helpers.py::test_emit_lint_outputs_writes_artifacts"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli._emit_structure_diff",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._emit_structure_diff"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 624,
-      "status": "unmapped",
+      "line": 628,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_errors_exit"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli._emit_structure_diff",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._emit_structure_diff"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 616,
-      "status": "unmapped",
+      "line": 619,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_success"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli._emit_structure_reuse",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._emit_structure_reuse"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 657,
-      "status": "unmapped",
+      "line": 665,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_errors_exit"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli._emit_structure_reuse",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._emit_structure_reuse"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 650,
-      "status": "unmapped",
+      "line": 657,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_success"
     },
     {
@@ -5964,10 +6941,21 @@
       "test_id": "tests/test_cli_helpers.py::test_refactor_protocol_rejects_non_object_payload"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli.run_decision_diff",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.run_decision_diff"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 530,
-      "status": "unmapped",
+      "line": 532,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_decision_diff_uses_runner"
     },
     {
@@ -6043,10 +7031,21 @@
       "test_id": "tests/test_cli_helpers.py::test_run_refactor_protocol_accepts_object_payload"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli.run_structure_diff",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.run_structure_diff"
+            }
+          }
+        }
+      ],
       "file": "tests/test_cli_helpers.py",
-      "line": 507,
-      "status": "unmapped",
+      "line": 508,
+      "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_structure_diff_uses_runner"
     },
     {
@@ -6065,7 +7064,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 553,
+      "line": 555,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_structure_reuse_uses_runner"
     },
@@ -6440,10 +7439,21 @@
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.code_action",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.code_action"
+            }
+          }
+        }
+      ],
       "file": "tests/test_code_action_stub.py",
-      "line": 8,
-      "status": "unmapped",
+      "line": 9,
+      "status": "mapped",
       "test_id": "tests/test_code_action_stub.py::test_code_action_refactor_stub"
     },
     {
@@ -6655,10 +7665,21 @@
       "test_id": "tests/test_config_defaults.py::test_dataflow_defaults_reads_toml"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::config.py::gabion.config.merge_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "config.py",
+              "qual": "gabion.config.merge_payload"
+            }
+          }
+        }
+      ],
       "file": "tests/test_config_defaults.py",
-      "line": 43,
-      "status": "unmapped",
+      "line": 44,
+      "status": "mapped",
       "test_id": "tests/test_config_defaults.py::test_merge_payload_prefers_explicit_values"
     },
     {
@@ -6725,7 +7746,7 @@
         }
       ],
       "file": "tests/test_config_edges.py",
-      "line": 42,
+      "line": 43,
       "status": "mapped",
       "test_id": "tests/test_config_edges.py::test_config_helpers_cover_bool_and_lists"
     },
@@ -6757,7 +7778,7 @@
         }
       ],
       "file": "tests/test_config_edges.py",
-      "line": 28,
+      "line": 29,
       "status": "mapped",
       "test_id": "tests/test_config_edges.py::test_decision_tier_map_normalizes_inputs"
     },
@@ -6777,22 +7798,44 @@
         }
       ],
       "file": "tests/test_config_edges.py",
-      "line": 20,
+      "line": 21,
       "status": "mapped",
       "test_id": "tests/test_config_edges.py::test_load_config_default_path"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::config.py::gabion.config._load_toml",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "config.py",
+              "qual": "gabion.config._load_toml"
+            }
+          }
+        }
+      ],
       "file": "tests/test_config_edges.py",
-      "line": 8,
-      "status": "unmapped",
+      "line": 9,
+      "status": "mapped",
       "test_id": "tests/test_config_edges.py::test_load_toml_missing_and_invalid"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._iter_config_fields"
+            }
+          }
+        }
+      ],
       "file": "tests/test_config_fields.py",
-      "line": 15,
-      "status": "unmapped",
+      "line": 16,
+      "status": "mapped",
       "test_id": "tests/test_config_fields.py::test_iter_config_fields_expands_config_dataclass"
     },
     {
@@ -7150,10 +8193,21 @@
       "test_id": "tests/test_constant_flow_audit.py::test_deadness_witnesses_from_constant_flow"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_call_site",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._format_call_site"
+            }
+          }
+        }
+      ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 209,
-      "status": "unmapped",
+      "line": 210,
+      "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_format_call_site_handles_missing_span"
     },
     {
@@ -7544,7 +8598,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 441,
+      "line": 442,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_bundle_projection_and_emitters"
     },
@@ -7718,7 +8772,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 416,
+      "line": 417,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_decision_param_lint_line_missing_span_and_transitive_callers"
     },
@@ -7750,7 +8804,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 517,
+      "line": 520,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_and_handledness_summary_edges"
     },
@@ -7971,10 +9025,21 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_obligation_summary_helper_covers_filters_and_status_normalization"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_warnings",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._exception_protocol_warnings"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 505,
-      "status": "unmapped",
+      "line": 508,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_protocol_warning_filters"
     },
     {
@@ -8054,10 +9119,21 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_coherence_and_rewrite_plans_cover_edges"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 491,
-      "status": "unmapped",
+      "line": 493,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_forbid_adhoc_bundle_discovery_guard"
     },
     {
@@ -8173,10 +9249,71 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_never_invariant_lint_and_summary_formats"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._extract_smell_sample",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._extract_smell_sample"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_constant_smells"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_type_evidence",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_type_evidence"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._parse_lint_location"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 398,
-      "status": "unmapped",
+      "line": 399,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers"
     },
     {
@@ -8207,15 +9344,26 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 561,
+      "line": 564,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_populate_bundle_forest_dedupes"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_synthesis_section",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.render_synthesis_section"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 608,
-      "status": "unmapped",
+      "line": 612,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_evidence_summary"
     },
     {
@@ -8306,7 +9454,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 592,
+      "line": 595,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_handles_empty_bundle_members"
     },
@@ -8398,7 +9546,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 577,
+      "line": 580,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_value_decision_counts"
     },
@@ -8442,7 +9590,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 544,
+      "line": 547,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_value_decision_surfaces_emit_forest"
     },
@@ -8482,7 +9630,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 711,
+      "line": 712,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_ambiguous"
     },
@@ -8502,7 +9650,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 749,
+      "line": 750,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_globals_only"
     },
@@ -8630,7 +9778,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 781,
+      "line": 782,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_nontransparent_dependency"
     },
@@ -8778,7 +9926,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 694,
+      "line": 695,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_synthesis_plan_skips_empty_members"
     },
@@ -9026,7 +10174,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 591,
+      "line": 592,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_knob_param_names_non_const_kw"
     },
@@ -9278,7 +10426,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 623,
+      "line": 624,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
     },
@@ -9298,10 +10446,21 @@
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._render_type_mermaid"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 581,
-      "status": "unmapped",
+      "line": 582,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
     },
     {
@@ -10900,7 +12059,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 437,
+      "line": 438,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_exception_obligations_enum_and_handledness"
     },
@@ -10989,10 +12148,21 @@
       "test_id": "tests/test_dataflow_audit_helpers.py::test_invariant_collector_skips_nested_defs_and_lambda"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_decision_snapshot",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.load_decision_snapshot"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 424,
-      "status": "unmapped",
+      "line": 425,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_load_decision_snapshot_errors"
     },
     {
@@ -11132,24 +12302,57 @@
       "test_id": "tests/test_dataflow_audit_helpers.py::test_value_encoded_decision_params_branches"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._copy_forest_signature_metadata"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 57,
-      "status": "unmapped",
+      "line": 60,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_copies_fields"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._copy_forest_signature_metadata"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 49,
-      "status": "unmapped",
+      "line": 51,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_marks_missing_signature"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_span_fields",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._format_span_fields"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 8,
-      "status": "unmapped",
+      "line": 9,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_format_span_fields_handles_invalid_values"
     },
     {
@@ -11168,7 +12371,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 69,
+      "line": 72,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_render_decision_snapshot_marks_partial_when_missing_forest"
     },
@@ -11212,7 +12415,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 15,
+      "line": 16,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_summarize_never_invariants_filters_and_formats"
     },
@@ -12478,22 +13681,74 @@
         }
       ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 130,
+      "line": 132,
       "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_collect_dataclass_registry_without_project_root"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._iter_config_fields"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_documented_bundles",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._iter_documented_bundles"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 119,
-      "status": "unmapped",
+      "line": 121,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_config_and_documented_bundles_error_paths"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_config_bundles",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._collect_config_bundles"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._iter_config_fields"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_documented_bundles",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._iter_documented_bundles"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 15,
-      "status": "unmapped",
+      "line": 16,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_config_bundles_and_documented_markers"
     },
     {
@@ -12560,7 +13815,7 @@
         }
       ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 60,
+      "line": 61,
       "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_dataclass_registry_and_call_bundles"
     },
@@ -12604,7 +13859,7 @@
         }
       ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 148,
+      "line": 150,
       "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_iter_dataclass_call_bundles_invalid_file"
     },
@@ -12691,7 +13946,7 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 303,
+      "line": 304,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_helpers.py::test_audit_config_ignored_paths"
     },
@@ -12815,7 +14070,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 201,
+      "line": 202,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_callee_normalization_and_decorators"
     },
@@ -12835,7 +14090,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 355,
+      "line": 356,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_collect_local_class_bases_skips_unknown"
     },
@@ -12855,7 +14110,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 438,
+      "line": 439,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_collect_return_aliases_conflict"
     },
@@ -12927,7 +14182,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 311,
+      "line": 312,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_local_class_helpers"
     },
@@ -13003,7 +14258,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 398,
+      "line": 399,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_param_defaults_and_return_aliases"
     },
@@ -13059,7 +14314,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 250,
+      "line": 251,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_param_helpers_and_scopes"
     },
@@ -13103,7 +14358,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 295,
+      "line": 296,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_param_spans_ignore_var_kw"
     },
@@ -13147,14 +14402,14 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 377,
+      "line": 378,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_param_spans_include_var_kw"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 387,
+      "line": 388,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_helpers.py::test_resolve_star_external_filtered"
     },
@@ -13186,7 +14441,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 460,
+      "line": 461,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_return_aliases_bare_return"
     },
@@ -13218,7 +14473,7 @@
         }
       ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 420,
+      "line": 421,
       "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_return_aliases_tuple_and_conflict"
     },
@@ -13255,10 +14510,21 @@
       "test_id": "tests/test_dataflow_helpers.py::test_split_and_combine_type_hints"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._call_context",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._call_context"
+            }
+          }
+        }
+      ],
       "file": "tests/test_dataflow_helpers.py",
-      "line": 147,
-      "status": "unmapped",
+      "line": 148,
+      "status": "mapped",
       "test_id": "tests/test_dataflow_helpers.py::test_symbol_table_resolution_and_call_context"
     },
     {
@@ -21234,10 +22500,21 @@
       "test_id": "tests/test_evidence_keys.py::test_evidence_keys_normalize_and_render"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.is_opaque"
+            }
+          }
+        }
+      ],
       "file": "tests/test_evidence_keys.py",
-      "line": 86,
-      "status": "unmapped",
+      "line": 99,
+      "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_is_opaque"
     },
     {
@@ -21256,15 +22533,26 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 66,
+      "line": 74,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_variants"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
       "file": "tests/test_evidence_keys.py",
-      "line": 53,
-      "status": "unmapped",
+      "line": 61,
+      "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_render_display_handles_non_list_params"
     },
     {
@@ -22020,10 +23308,21 @@
       "test_id": "tests/test_fingerprint_soundness.py::test_fingerprint_soundness_issues_skip_empty"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_synth_registry_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._build_synth_registry_payload"
+            }
+          }
+        }
+      ],
       "file": "tests/test_fingerprint_warnings.py",
-      "line": 349,
-      "status": "unmapped",
+      "line": 350,
+      "status": "mapped",
       "test_id": "tests/test_fingerprint_warnings.py::test_build_synth_registry_payload_includes_entries"
     },
     {
@@ -22975,31 +24274,75 @@
       "test_id": "tests/test_forest_only_invariant.py::test_report_uses_forest_only_invariant"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "forest_signature.py",
+              "qual": "gabion.analysis.forest_signature.build_forest_signature"
+            }
+          }
+        }
+      ],
       "file": "tests/test_forest_signature.py",
-      "line": 12,
-      "status": "unmapped",
+      "line": 13,
+      "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_forest_signature_deterministic"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_from_groups",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "forest_signature.py",
+              "qual": "gabion.analysis.forest_signature.build_forest_signature_from_groups"
+            }
+          }
+        }
+      ],
       "file": "tests/test_forest_signature.py",
-      "line": 22,
-      "status": "unmapped",
+      "line": 24,
+      "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_forest_signature_from_groups"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature._normalize_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "forest_signature.py",
+              "qual": "gabion.analysis.forest_signature._normalize_key"
+            }
+          }
+        }
+      ],
       "file": "tests/test_forest_signature.py",
-      "line": 32,
-      "status": "unmapped",
+      "line": 35,
+      "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_normalize_key_handles_objects"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature._path_name",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "forest_signature.py",
+              "qual": "gabion.analysis.forest_signature._path_name"
+            }
+          }
+        }
+      ],
       "file": "tests/test_forest_signature.py",
-      "line": 40,
-      "status": "unmapped",
+      "line": 44,
+      "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_path_name_falls_back_to_str"
     },
     {
@@ -23627,10 +24970,21 @@
       "test_id": "tests/test_invariant_propositions.py::test_invariant_ignores_non_param_asserts"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::invariants.py::gabion.invariants.never",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "invariants.py",
+              "qual": "gabion.invariants.never"
+            }
+          }
+        }
+      ],
       "file": "tests/test_invariants.py",
-      "line": 9,
-      "status": "unmapped",
+      "line": 10,
+      "status": "mapped",
       "test_id": "tests/test_invariants.py::test_never_raises_never_thrown"
     },
     {
@@ -23726,24 +25080,97 @@
       "test_id": "tests/test_knob_merge.py::test_knob_merge_by_constant_params"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_constant_smells"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lint_lines.py",
-      "line": 54,
-      "status": "unmapped",
+      "line": 57,
+      "status": "mapped",
       "test_id": "tests/test_lint_lines.py::test_lint_lines_from_constant_and_unused_smells"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_lint_lines",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._exception_protocol_lint_lines"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_type_evidence",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_type_evidence"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_exception_path_id",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._parse_exception_path_id"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lint_lines.py",
-      "line": 32,
-      "status": "unmapped",
+      "line": 34,
+      "status": "mapped",
       "test_id": "tests/test_lint_lines.py::test_lint_lines_from_type_and_exception_evidence"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._parse_lint_location"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lint_lines.py",
-      "line": 15,
-      "status": "unmapped",
+      "line": 16,
+      "status": "mapped",
       "test_id": "tests/test_lint_lines.py::test_lint_location_parser_and_bundle_lines"
     },
     {
@@ -23782,50 +25209,116 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 46,
+      "line": 49,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_response_skips_unmatched_ids"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._read_rpc"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 64,
-      "status": "unmapped",
+      "line": 69,
+      "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_accepts_prefetched_body"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._read_rpc"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 15,
-      "status": "unmapped",
+      "line": 16,
+      "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_invalid_length"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._read_rpc"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 25,
-      "status": "unmapped",
+      "line": 27,
+      "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_missing_content_length_header"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._read_rpc"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 85,
-      "status": "unmapped",
+      "line": 91,
+      "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_rejects_non_object_payload"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._read_rpc"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 55,
-      "status": "unmapped",
+      "line": 59,
+      "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_skips_non_content_length_headers"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._read_rpc",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._read_rpc"
+            }
+          }
+        }
+      ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 35,
-      "status": "unmapped",
+      "line": 38,
+      "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_stream_closed"
     },
     {
@@ -24544,7 +26037,7 @@
         }
       ],
       "file": "tests/test_projection_exec_edges.py",
-      "line": 133,
+      "line": 134,
       "status": "mapped",
       "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_count_by_and_sort_edges"
     },
@@ -24576,7 +26069,7 @@
         }
       ],
       "file": "tests/test_projection_exec_edges.py",
-      "line": 87,
+      "line": 88,
       "status": "mapped",
       "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_with_custom_normalizer_handles_invalid_ops"
     },
@@ -24632,7 +26125,7 @@
         }
       ],
       "file": "tests/test_projection_exec_edges.py",
-      "line": 53,
+      "line": 54,
       "status": "mapped",
       "test_id": "tests/test_projection_exec_edges.py::test_normalize_helpers_cover_branches"
     },
@@ -24688,7 +26181,7 @@
         }
       ],
       "file": "tests/test_projection_exec_edges.py",
-      "line": 37,
+      "line": 38,
       "status": "mapped",
       "test_id": "tests/test_projection_exec_edges.py::test_normalize_pipeline_skips_empty_and_unknown_ops"
     },
@@ -24708,15 +26201,26 @@
         }
       ],
       "file": "tests/test_projection_exec_edges.py",
-      "line": 124,
+      "line": 125,
       "status": "mapped",
       "test_id": "tests/test_projection_exec_edges.py::test_sort_value_and_hashable_helpers"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "projection_spec.py",
+              "qual": "gabion.analysis.projection_spec.spec_from_dict"
+            }
+          }
+        }
+      ],
       "file": "tests/test_projection_exec_edges.py",
-      "line": 16,
-      "status": "unmapped",
+      "line": 17,
+      "status": "mapped",
       "test_id": "tests/test_projection_exec_edges.py::test_spec_from_dict_handles_invalid_entries"
     },
     {
@@ -27014,10 +28518,21 @@
       "test_id": "tests/test_schema_audit.py::test_suggest_type_name_singularizes_and_handles_provenance"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::schema_audit.py::gabion.analysis.schema_audit._unparse",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "schema_audit.py",
+              "qual": "gabion.analysis.schema_audit._unparse"
+            }
+          }
+        }
+      ],
       "file": "tests/test_schema_audit.py",
-      "line": 123,
-      "status": "unmapped",
+      "line": 124,
+      "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_unparse_fallback_for_invalid_ast"
     },
     {
@@ -27031,7 +28546,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 71,
+      "line": 73,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_baseline_write"
     },
@@ -27183,7 +28698,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 51,
+      "line": 53,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_no_violations"
     },
@@ -27335,7 +28850,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 92,
+      "line": 94,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_report_and_dot"
     },
@@ -27487,7 +29002,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 189,
+      "line": 191,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_metrics"
     },
@@ -27639,7 +29154,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 207,
+      "line": 209,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_metrics_stdout"
     },
@@ -27791,7 +29306,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 113,
+      "line": 115,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_tree"
     },
@@ -27943,7 +29458,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 131,
+      "line": 133,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout"
     },
@@ -28095,7 +29610,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 223,
+      "line": 225,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs"
     },
@@ -28115,7 +29630,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 251,
+      "line": 253,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_refactor_invalid_payload"
     },
@@ -28135,7 +29650,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 148,
+      "line": 150,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff"
     },
@@ -28155,7 +29670,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 175,
+      "line": 177,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_invalid_snapshot"
     },
@@ -28175,7 +29690,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 168,
+      "line": 170,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_missing_paths"
     },
@@ -28195,7 +29710,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 162,
+      "line": 164,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_missing_payload"
     },
@@ -28215,7 +29730,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 244,
+      "line": 246,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_synthesis_minimal_payload"
     },
@@ -28240,17 +29755,39 @@
       "test_id": "tests/test_server_execute_command.py::test_normalize_transparent_decorators"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server._uri_to_path",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server._uri_to_path"
+            }
+          }
+        }
+      ],
       "file": "tests/test_server_execute_command.py",
-      "line": 33,
-      "status": "unmapped",
+      "line": 34,
+      "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_uri_to_path_file_scheme"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server._uri_to_path",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server._uri_to_path"
+            }
+          }
+        }
+      ],
       "file": "tests/test_server_execute_command.py",
-      "line": 38,
-      "status": "unmapped",
+      "line": 40,
+      "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_uri_to_path_plain_path"
     },
     {
@@ -30807,7 +32344,7 @@
         }
       ],
       "file": "tests/test_server_helpers.py",
-      "line": 33,
+      "line": 34,
       "status": "mapped",
       "test_id": "tests/test_server_helpers.py::test_diagnostics_for_path_reports_bundle"
     },
@@ -30832,17 +32369,39 @@
       "test_id": "tests/test_server_helpers.py::test_normalize_transparent_decorators"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.start",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.start"
+            }
+          }
+        }
+      ],
       "file": "tests/test_server_helpers.py",
-      "line": 49,
-      "status": "unmapped",
+      "line": 51,
+      "status": "mapped",
       "test_id": "tests/test_server_helpers.py::test_start_uses_injected_callable"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server._uri_to_path",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server._uri_to_path"
+            }
+          }
+        }
+      ],
       "file": "tests/test_server_helpers.py",
-      "line": 25,
-      "status": "unmapped",
+      "line": 26,
+      "status": "mapped",
       "test_id": "tests/test_server_helpers.py::test_uri_to_path"
     },
     {
@@ -30958,38 +32517,93 @@
       "test_id": "tests/test_star_import_resolution.py::test_star_import_resolves_reexport"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_counts_from_snapshot",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._bundle_counts_from_snapshot"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_diff.py",
-      "line": 38,
-      "status": "unmapped",
+      "line": 41,
+      "status": "mapped",
       "test_id": "tests/test_structure_diff.py::test_bundle_counts_skips_invalid_entries"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.diff_structure_snapshot_files"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_diff.py",
-      "line": 85,
-      "status": "unmapped",
+      "line": 90,
+      "status": "mapped",
       "test_id": "tests/test_structure_diff.py::test_diff_structure_snapshot_files"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshots",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.diff_structure_snapshots"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_diff.py",
-      "line": 58,
-      "status": "unmapped",
+      "line": 62,
+      "status": "mapped",
       "test_id": "tests/test_structure_diff.py::test_diff_structure_snapshots_counts_and_summary"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.load_structure_snapshot"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_diff.py",
-      "line": 22,
-      "status": "unmapped",
+      "line": 23,
+      "status": "mapped",
       "test_id": "tests/test_structure_diff.py::test_load_structure_snapshot_invalid_json"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.load_structure_snapshot"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_diff.py",
-      "line": 30,
-      "status": "unmapped",
+      "line": 32,
+      "status": "mapped",
       "test_id": "tests/test_structure_diff.py::test_load_structure_snapshot_non_object"
     },
     {
@@ -31045,10 +32659,21 @@
       "test_id": "tests/test_structure_reuse.py::test_compute_structure_reuse_detects_repeated_subtrees"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.render_reuse_lemma_stubs"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_reuse.py",
-      "line": 55,
-      "status": "unmapped",
+      "line": 56,
+      "status": "mapped",
       "test_id": "tests/test_structure_reuse.py::test_render_reuse_lemma_stubs_includes_names"
     },
     {
@@ -31079,22 +32704,44 @@
         }
       ],
       "file": "tests/test_structure_reuse.py",
-      "line": 76,
+      "line": 77,
       "status": "mapped",
       "test_id": "tests/test_structure_reuse.py::test_structure_reuse_prefers_declared_bundle_names"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_reuse_replacement_map",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._build_reuse_replacement_map"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_reuse_edges.py",
-      "line": 79,
-      "status": "unmapped",
+      "line": 81,
+      "status": "mapped",
       "test_id": "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_list_locations"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_reuse_replacement_map",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._build_reuse_replacement_map"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_reuse_edges.py",
-      "line": 69,
-      "status": "unmapped",
+      "line": 70,
+      "status": "mapped",
       "test_id": "tests/test_structure_reuse_edges.py::test_build_reuse_replacement_map_skips_non_string_locations"
     },
     {
@@ -31157,29 +32804,62 @@
         }
       ],
       "file": "tests/test_structure_reuse_edges.py",
-      "line": 117,
+      "line": 122,
       "status": "mapped",
       "test_id": "tests/test_structure_reuse_edges.py::test_compute_structure_reuse_skips_non_list_bundle"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.render_reuse_lemma_stubs"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_reuse_edges.py",
-      "line": 86,
-      "status": "unmapped",
+      "line": 89,
+      "status": "mapped",
       "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_no_suggestions"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.render_reuse_lemma_stubs"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_reuse_edges.py",
-      "line": 109,
-      "status": "unmapped",
+      "line": 114,
+      "status": "mapped",
       "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_skips_invalid_names"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.render_reuse_lemma_stubs"
+            }
+          }
+        }
+      ],
       "file": "tests/test_structure_reuse_edges.py",
-      "line": 92,
-      "status": "unmapped",
+      "line": 96,
+      "status": "mapped",
       "test_id": "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_with_child_count"
     },
     {
@@ -31767,24 +33447,77 @@
       "test_id": "tests/test_synthesis_merge_integration.py::test_build_synthesis_plan_merges_overlapping_bundles"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::naming.py::gabion.synthesis.naming._normalize_identifier",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "naming.py",
+              "qual": "gabion.synthesis.naming._normalize_identifier"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::naming.py::gabion.synthesis.naming.suggest_name",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "naming.py",
+              "qual": "gabion.synthesis.naming.suggest_name"
+            }
+          }
+        }
+      ],
       "file": "tests/test_synthesis_naming.py",
-      "line": 24,
-      "status": "unmapped",
+      "line": 26,
+      "status": "mapped",
       "test_id": "tests/test_synthesis_naming.py::test_suggest_name_avoids_collisions"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::naming.py::gabion.synthesis.naming._normalize_identifier",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "naming.py",
+              "qual": "gabion.synthesis.naming._normalize_identifier"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::naming.py::gabion.synthesis.naming.suggest_name",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "naming.py",
+              "qual": "gabion.synthesis.naming.suggest_name"
+            }
+          }
+        }
+      ],
       "file": "tests/test_synthesis_naming.py",
-      "line": 16,
-      "status": "unmapped",
+      "line": 17,
+      "status": "mapped",
       "test_id": "tests/test_synthesis_naming.py::test_suggest_name_uses_frequency"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::naming.py::gabion.synthesis.naming.suggest_name",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "naming.py",
+              "qual": "gabion.synthesis.naming.suggest_name"
+            }
+          }
+        }
+      ],
       "file": "tests/test_synthesis_naming.py",
-      "line": 32,
-      "status": "unmapped",
+      "line": 35,
+      "status": "mapped",
       "test_id": "tests/test_synthesis_naming.py::test_suggest_name_with_empty_fields"
     },
     {
@@ -31816,17 +33549,39 @@
       "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_warns_on_empty"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "schedule.py",
+              "qual": "gabion.synthesis.schedule.topological_schedule"
+            }
+          }
+        }
+      ],
       "file": "tests/test_synthesis_schedule.py",
-      "line": 15,
-      "status": "unmapped",
+      "line": 16,
+      "status": "mapped",
       "test_id": "tests/test_synthesis_schedule.py::test_topological_schedule_orders_dependencies"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "schedule.py",
+              "qual": "gabion.synthesis.schedule.topological_schedule"
+            }
+          }
+        }
+      ],
       "file": "tests/test_synthesis_schedule.py",
-      "line": 23,
-      "status": "unmapped",
+      "line": 25,
+      "status": "mapped",
       "test_id": "tests/test_synthesis_schedule.py::test_topological_schedule_reports_cycles"
     },
     {
@@ -32827,10 +34582,71 @@
       "test_id": "tests/test_test_evidence_errors.py::test_extract_file_evidence_handles_syntax_error"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.is_opaque",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.is_opaque"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.normalize_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.parse_display"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_evidence_errors.py",
-      "line": 19,
-      "status": "unmapped",
+      "line": 20,
+      "status": "mapped",
       "test_id": "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
     },
     {
@@ -32839,6 +34655,13 @@
       "line": 28,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_decision_surface_suggestion"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_evidence_suggestions.py",
+      "line": 113,
+      "status": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback"
     },
     {
       "evidence": [],
@@ -32857,14 +34680,14 @@
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 131,
+      "line": 163,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 113,
+      "line": 145,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_skips_mapped_entries"
     },
@@ -32896,14 +34719,14 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 180,
+      "line": 181,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_build_indices_and_helper_functions"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 158,
+      "line": 159,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_reachable_skips_visited"
     },
@@ -32935,7 +34758,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 251,
+      "line": 252,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_evidence_for_alt_variants"
     },
@@ -32991,7 +34814,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 120,
+      "line": 121,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_graph_suggestions_cache_and_unresolved"
     },
@@ -33047,7 +34870,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 103,
+      "line": 104,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_graph_suggestions_paths_filtered"
     },
@@ -33059,178 +34882,513 @@
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_load_test_evidence_errors_and_defaults"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 55,
-      "status": "unmapped",
+      "line": 56,
+      "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_render_markdown_and_payload"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 30,
-      "status": "unmapped",
+      "line": 31,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_basic_dominance"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 266,
+      "line": 272,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_compute_dominators_handles_empty_evidence"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 114,
-      "status": "unmapped",
+      "line": 117,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_equivalent_witness_classification"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 271,
-      "status": "unmapped",
+      "line": 278,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 235,
+      "line": 241,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_load_risk_registry_variants"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 207,
+      "line": 213,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_errors"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 219,
+      "line": 225,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_skips_invalid_entries"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 318,
-      "status": "unmapped",
+      "line": 326,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_normalize_evidence_refs_variants"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "projection_registry.py",
+              "qual": "gabion.analysis.projection_registry.spec_metadata_payload"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 158,
-      "status": "unmapped",
+      "line": 163,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_render_json_payload_includes_spec_metadata"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "projection_registry.py",
+              "qual": "gabion.analysis.projection_registry.spec_metadata_lines"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 143,
-      "status": "unmapped",
+      "line": 147,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_spec_metadata"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "projection_registry.py",
+              "qual": "gabion.analysis.projection_registry.spec_metadata_lines"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 172,
-      "status": "unmapped",
+      "line": 178,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_suffix_details"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 197,
+      "line": 203,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_risk_info_from_payload_variants"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence.py",
-      "line": 308,
+      "line": 315,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence.py::test_summarize_candidates_handles_bad_counts"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 83,
-      "status": "unmapped",
+      "line": 85,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_unmapped_classification"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_opaque_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "projection_registry.py",
+              "qual": "gabion.analysis.projection_registry.spec_metadata_payload"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 32,
-      "status": "unmapped",
+      "line": 33,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 178,
-      "status": "unmapped",
+      "line": 182,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_evidence_index_merges_displays"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 57,
-      "status": "unmapped",
+      "line": 59,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 165,
+      "line": 168,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_helpers_cover_edge_cases"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 158,
+      "line": 161,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_load_baseline_rejects_non_object"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 278,
+      "line": 284,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_filters_invalid_entries"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 153,
+      "line": 156,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_rejects_bad_version"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.key_identity"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 206,
-      "status": "unmapped",
+      "line": 211,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_merges_duplicates"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "projection_registry.py",
+              "qual": "gabion.analysis.projection_registry.spec_metadata_lines"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "projection_registry.py",
+              "qual": "gabion.analysis.projection_registry.spec_metadata_payload"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 135,
-      "status": "unmapped",
+      "line": 138,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_spec_metadata"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.make_paramset_key"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 218,
-      "status": "unmapped",
+      "line": 224,
+      "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_with_entries"
     },
     {
@@ -33249,15 +35407,36 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 187,
+      "line": 190,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_apply_synth_dimension_attaches_tail"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints._dimension_from_keys"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.apply_synth_dimension",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.apply_synth_dimension"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 566,
-      "status": "unmapped",
+      "line": 574,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_apply_synth_dimension_noop_when_missing"
     },
     {
@@ -33288,7 +35467,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 94,
+      "line": 96,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_deterministic_assignment"
     },
@@ -33320,7 +35499,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 427,
+      "line": 432,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries"
     },
@@ -33352,7 +35531,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 600,
+      "line": 609,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_fingerprint_registry_skips_empty_entries_with_valid"
     },
@@ -33396,7 +35575,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 215,
+      "line": 218,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_applies_registry_basis_to_empty_registry"
     },
@@ -33428,7 +35607,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 262,
+      "line": 265,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_assigns_bits_when_missing"
     },
@@ -33460,7 +35639,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 314,
+      "line": 317,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_ignores_non_string_registry_keys"
     },
@@ -33492,7 +35671,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 331,
+      "line": 334,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_bit_mismatch"
     },
@@ -33524,7 +35703,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 294,
+      "line": 297,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_duplicate_bit_positions"
     },
@@ -33556,7 +35735,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 277,
+      "line": 280,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_duplicate_primes"
     },
@@ -33600,7 +35779,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 238,
+      "line": 241,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_rejects_registry_mismatch"
     },
@@ -33632,36 +35811,120 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 418,
+      "line": 423,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_build_synth_registry_from_payload_skips_non_dict_entries"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 40,
-      "status": "unmapped",
+      "line": 41,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_multiplies_primes"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_setlike"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 113,
-      "status": "unmapped",
+      "line": 116,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_setlike_ignores_duplicates"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 400,
-      "status": "unmapped",
+      "line": 404,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_constructors_skips_empty_keys"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_setlike"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.fingerprint_bitmask"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 583,
-      "status": "unmapped",
+      "line": 592,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_bundle_fingerprint_with_empty_and_constructor_bitmask"
     },
     {
@@ -33720,7 +35983,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 365,
+      "line": 368,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_canonical_type_key_with_constructor_handles_union_and_optional"
     },
@@ -33740,7 +36003,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 533,
+      "line": 539,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_canonical_type_key_with_constructor_pipe_union_and_empty"
     },
@@ -33784,7 +36047,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 158,
+      "line": 161,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_carrier_soundness_mask_disjoint_implies_gcd_one"
     },
@@ -33816,7 +36079,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 576,
+      "line": 584,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_carrier_soundness_mask_overlap_true"
     },
@@ -33836,7 +36099,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 436,
+      "line": 441,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_collect_atoms_and_constructors"
     },
@@ -33856,7 +36119,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 543,
+      "line": 549,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_collect_atoms_union_and_optional_paths"
     },
@@ -33876,14 +36139,14 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 378,
+      "line": 381,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_collect_base_atoms_and_constructors_cover_empty_and_unions"
     },
     {
       "evidence": [],
       "file": "tests/test_type_fingerprints.py",
-      "line": 84,
+      "line": 86,
       "status": "unmapped",
       "test_id": "tests/test_type_fingerprints.py::test_constructor_registry_assigns_primes"
     },
@@ -33903,7 +36166,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 450,
+      "line": 455,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_dimension_helpers_and_formatting"
     },
@@ -33923,7 +36186,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 142,
+      "line": 145,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_dimensional_fingerprint_includes_constructors"
     },
@@ -33967,7 +36230,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 480,
+      "line": 485,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_arithmetic_edges"
     },
@@ -34011,22 +36274,54 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 48,
+      "line": 49,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_arithmetic_ops"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.fingerprint_bitmask"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 408,
-      "status": "unmapped",
+      "line": 413,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_bitmask_skips_empty_keys"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.bundle_fingerprint"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_hybrid",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.fingerprint_hybrid"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 72,
-      "status": "unmapped",
+      "line": 74,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_hybrid_bitmask"
     },
     {
@@ -34045,7 +36340,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 63,
+      "line": 64,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_to_type_keys_roundtrip"
     },
@@ -34065,15 +36360,26 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 123,
+      "line": 126,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_fingerprint_to_type_keys_with_remainder_and_strict"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints._dimension_from_keys"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 556,
-      "status": "unmapped",
+      "line": 563,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_format_fingerprint_str_and_synth_dimension_none"
     },
     {
@@ -34104,7 +36410,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 352,
+      "line": 355,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_normalization_helpers_cover_edges"
     },
@@ -34124,7 +36430,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 489,
+      "line": 494,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_normalize_type_list_variants"
     },
@@ -34144,7 +36450,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 522,
+      "line": 528,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_prime_checks_and_key_lookup"
     },
@@ -34158,7 +36464,7 @@
     {
       "evidence": [],
       "file": "tests/test_type_fingerprints.py",
-      "line": 466,
+      "line": 471,
       "status": "unmapped",
       "test_id": "tests/test_type_fingerprints.py::test_registry_helpers_cover_edges"
     },
@@ -34178,7 +36484,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 169,
+      "line": 172,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_synth_registry_assigns_primes_deterministically"
     },
@@ -34210,15 +36516,26 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 507,
+      "line": 513,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_synth_registry_from_payload_overrides_prime"
     },
     {
-      "evidence": [],
+      "evidence": [
+        {
+          "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.load_synth_registry_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "type_fingerprints.py",
+              "qual": "gabion.analysis.type_fingerprints.load_synth_registry_payload"
+            }
+          }
+        }
+      ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 496,
-      "status": "unmapped",
+      "line": 502,
+      "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_synth_registry_payload_handles_non_list_entries"
     },
     {
@@ -34261,7 +36578,7 @@
         }
       ],
       "file": "tests/test_type_fingerprints.py",
-      "line": 199,
+      "line": 202,
       "status": "mapped",
       "test_id": "tests/test_type_fingerprints.py::test_synth_registry_payload_roundtrip"
     },

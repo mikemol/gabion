@@ -12,6 +12,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_config_bundles E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_documented_bundles
 def test_config_bundles_and_documented_markers(tmp_path: Path) -> None:
     da = _load()
     config_path = tmp_path / "config.py"
@@ -116,6 +117,7 @@ def test_dataclass_registry_and_call_bundles(tmp_path: Path) -> None:
     assert ("alpha", "beta") in bundles
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_documented_bundles
 def test_config_and_documented_bundles_error_paths(tmp_path: Path) -> None:
     da = _load()
     missing = tmp_path / "missing.py"

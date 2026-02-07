@@ -5,6 +5,7 @@ from pathlib import Path
 from gabion import config
 
 
+# gabion:evidence E:function_site::config.py::gabion.config._load_toml
 def test_load_toml_missing_and_invalid(tmp_path: Path) -> None:
     missing = tmp_path / "missing.toml"
     assert config._load_toml(missing) == {}

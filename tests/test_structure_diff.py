@@ -19,6 +19,7 @@ def _write_snapshot(path: Path, snapshot: dict) -> None:
     path.write_text(json.dumps(snapshot))
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
 def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "bad.json"
@@ -27,6 +28,7 @@ def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
         da.load_structure_snapshot(target)
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
 def test_load_structure_snapshot_non_object(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "list.json"
@@ -35,6 +37,7 @@ def test_load_structure_snapshot_non_object(tmp_path: Path) -> None:
         da.load_structure_snapshot(target)
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_counts_from_snapshot
 def test_bundle_counts_skips_invalid_entries() -> None:
     da = _load()
     snapshot = {
@@ -55,6 +58,7 @@ def test_bundle_counts_skips_invalid_entries() -> None:
     assert counts == {("a", "b"): 1, ("c",): 1}
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshots
 def test_diff_structure_snapshots_counts_and_summary() -> None:
     da = _load()
     baseline = {
@@ -82,6 +86,7 @@ def test_diff_structure_snapshots_counts_and_summary() -> None:
     assert diff["changed"][0]["bundle"] == ["a", "b"]
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files
 def test_diff_structure_snapshot_files(tmp_path: Path) -> None:
     da = _load()
     baseline = tmp_path / "baseline.json"

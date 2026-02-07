@@ -52,6 +52,7 @@ def test_load_test_evidence_errors_and_defaults(tmp_path: Path) -> None:
     assert [entry.status for entry in entries] == ["unmapped", "mapped"]
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
 def test_render_markdown_and_payload() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     suggestion = test_evidence_suggestions.Suggestion(

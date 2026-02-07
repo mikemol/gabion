@@ -30,6 +30,7 @@ def build_forest_spec(
     include_decision_surfaces: bool,
     include_value_decision_surfaces: bool,
     include_never_invariants: bool,
+    include_all_sites: bool = True,
     ignore_params: Iterable[str] = (),
     decision_ignore_params: Iterable[str] = (),
     transparent_decorators: Iterable[str] = (),
@@ -59,6 +60,7 @@ def build_forest_spec(
                 name="bundle_forest",
                 outputs=outputs,
                 params={
+                    "include_all_sites": bool(include_all_sites),
                     "ignore_params": _sorted_strings(ignore_params),
                     "strictness": str(strictness),
                     "transparent_decorators": _sorted_strings(transparent_decorators),
@@ -136,6 +138,7 @@ def default_forest_spec(
         include_decision_surfaces=include_decision_surfaces,
         include_value_decision_surfaces=include_value_decision_surfaces,
         include_never_invariants=include_never_invariants,
+        include_all_sites=True,
         ignore_params=(),
         decision_ignore_params=(),
         transparent_decorators=(),

@@ -29,6 +29,7 @@ def _ref_paramset(value: str) -> test_obsolescence.EvidenceRef:
     )
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
 def test_build_baseline_payload_roundtrip(tmp_path: Path) -> None:
     evidence_by_test = {
         "tests/test_alpha.py::test_a": [_ref_paramset("x")],
@@ -54,6 +55,7 @@ def test_build_baseline_payload_roundtrip(tmp_path: Path) -> None:
     assert len(baseline.evidence_index) == 2
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
 def test_delta_payload_detects_changes() -> None:
     key_a = evidence_keys.make_paramset_key(["a"])
     key_b = evidence_keys.make_paramset_key(["b"])
@@ -132,6 +134,7 @@ def test_delta_payload_detects_changes() -> None:
     assert delta["summary"]["opaque_evidence"]["delta"] == -1
 
 
+# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
 def test_render_markdown_includes_spec_metadata() -> None:
     baseline = test_obsolescence_delta.parse_baseline_payload(
         {
@@ -175,6 +178,7 @@ def test_helpers_cover_edge_cases() -> None:
     assert test_obsolescence_delta._format_delta(1, 2, None) == "1 -> 2 (+1)"
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
 def test_build_evidence_index_merges_displays() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     identity = evidence_keys.key_identity(key)
@@ -203,6 +207,7 @@ def test_build_evidence_index_merges_displays() -> None:
     assert entries[0]["witness_count"] == 2
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
 def test_parse_evidence_index_merges_duplicates() -> None:
     key = evidence_keys.make_paramset_key(["y"])
     entry_a = {"key": key, "display": "Z", "witness_count": 1}
@@ -215,6 +220,7 @@ def test_parse_evidence_index_merges_duplicates() -> None:
     assert parsed[identity].display == "A"
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
 def test_render_markdown_with_entries() -> None:
     key_a = evidence_keys.make_paramset_key(["a"])
     key_b = evidence_keys.make_paramset_key(["b"])

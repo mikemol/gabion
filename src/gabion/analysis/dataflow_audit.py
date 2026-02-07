@@ -3031,9 +3031,26 @@ def _populate_bundle_forest(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     file_paths: list[Path],
     project_root: Path | None,
+    include_all_sites: bool = True,
+    ignore_params: set[str] | None = None,
+    strictness: str = "high",
+    transparent_decorators: set[str] | None = None,
 ) -> None:
     if not groups_by_path:
         return
+    if include_all_sites:
+        by_name, by_qual = _build_function_index(
+            file_paths,
+            project_root,
+            ignore_params or set(),
+            strictness,
+            transparent_decorators,
+        )
+        for qual in sorted(by_qual):
+            info = by_qual[qual]
+            if _is_test_path(info.path):
+                continue
+            forest.add_site(info.path.name, info.qual)
     seen: set[tuple[str, tuple[NodeId, ...], tuple[tuple[str, str], ...]]] = set()
 
     def _add_alt(
@@ -7315,12 +7332,17 @@ def analyze_paths(
             groups_by_path=groups_by_path,
             file_paths=file_paths,
             project_root=config.project_root,
+            include_all_sites=True,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            transparent_decorators=config.transparent_decorators,
         )
         forest_spec = build_forest_spec(
             include_bundle_forest=True,
             include_decision_surfaces=include_decision_surfaces,
             include_value_decision_surfaces=include_value_decision_surfaces,
             include_never_invariants=include_never_invariants,
+            include_all_sites=True,
             ignore_params=config.ignore_params,
             decision_ignore_params=config.decision_ignore_params
             or config.ignore_params,

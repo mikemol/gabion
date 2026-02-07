@@ -27,6 +27,7 @@ def _write_test_evidence(tmp_path: Path, tests: list[dict[str, object]]) -> Path
     return path
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key
 def test_basic_dominance() -> None:
     evidence_by_test = {
         "tests/test_alpha.py::test_a": [
@@ -80,6 +81,7 @@ def test_basic_dominance() -> None:
     }
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key
 def test_unmapped_classification(tmp_path: Path) -> None:
     evidence_path = _write_test_evidence(
         tmp_path,
@@ -111,6 +113,7 @@ def test_unmapped_classification(tmp_path: Path) -> None:
     assert summary["unmapped"] == 1
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key
 def test_equivalent_witness_classification() -> None:
     ref = test_obsolescence.EvidenceRef(
         key=evidence_keys.make_opaque_key("E:x"),
@@ -140,6 +143,7 @@ def test_equivalent_witness_classification() -> None:
     }
 
 
+# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines
 def test_render_markdown_includes_spec_metadata() -> None:
     candidates = [
         {
@@ -155,6 +159,7 @@ def test_render_markdown_includes_spec_metadata() -> None:
     assert "generated_by_spec:" in report
 
 
+# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
 def test_render_json_payload_includes_spec_metadata() -> None:
     candidates = []
     summary = {
@@ -169,6 +174,7 @@ def test_render_json_payload_includes_spec_metadata() -> None:
     assert "generated_by_spec" in payload
 
 
+# gabion:evidence E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines
 def test_render_markdown_includes_suffix_details() -> None:
     candidates = [
         {
@@ -268,6 +274,7 @@ def test_compute_dominators_handles_empty_evidence() -> None:
     assert dominators["t1"] == []
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
 def test_guardrail_and_opaque_evidence() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     identity = evidence_keys.key_identity(key)
@@ -315,6 +322,7 @@ def test_summarize_candidates_handles_bad_counts() -> None:
     assert summary["unmapped"] == 0
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
 def test_normalize_evidence_refs_variants() -> None:
     ref = test_obsolescence.EvidenceRef(
         key=evidence_keys.make_opaque_key("E:x"),

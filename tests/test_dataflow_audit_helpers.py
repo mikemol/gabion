@@ -421,6 +421,7 @@ def test_render_structure_snapshot_skips_invalid_invariant_scope(tmp_path: Path)
     assert "invariants" in functions[0]
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_decision_snapshot
 def test_load_decision_snapshot_errors(tmp_path: Path) -> None:
     da = _load()
     bad = tmp_path / "bad.json"

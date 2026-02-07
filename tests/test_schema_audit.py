@@ -120,6 +120,7 @@ def test_name_handles_attribute_and_unknown_nodes() -> None:
     assert sa._name(sa.ast.Constant(value=1)) is None
 
 
+# gabion:evidence E:function_site::schema_audit.py::gabion.analysis.schema_audit._unparse
 def test_unparse_fallback_for_invalid_ast() -> None:
     sa = _load()
     # ast.unparse expects well-formed nodes; this intentionally violates that.

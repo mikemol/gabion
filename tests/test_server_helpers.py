@@ -22,6 +22,7 @@ def test_normalize_transparent_decorators() -> None:
     assert server._normalize_transparent_decorators([]) is None
 
 
+# gabion:evidence E:function_site::server.py::gabion.server._uri_to_path
 def test_uri_to_path() -> None:
     server = _load()
     path = Path("/tmp/demo.txt")
@@ -46,6 +47,7 @@ def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
     assert any("Implicit bundle" in diag.message for diag in diagnostics)
 
 
+# gabion:evidence E:function_site::server.py::gabion.server.start
 def test_start_uses_injected_callable() -> None:
     server = _load()
     called = {"value": False}

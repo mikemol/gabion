@@ -144,6 +144,7 @@ def test_is_test_path() -> None:
     assert da._is_test_path(Path("src/test_module.py")) is True
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._call_context
 def test_symbol_table_resolution_and_call_context() -> None:
     da = _load()
     table = da.SymbolTable(external_filter=True)

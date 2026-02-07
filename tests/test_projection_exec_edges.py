@@ -13,6 +13,7 @@ from gabion.analysis.projection_normalize import (
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 
 
+# gabion:evidence E:function_site::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict
 def test_spec_from_dict_handles_invalid_entries() -> None:
     payload = {
         "spec_version": "bad",

@@ -9,6 +9,7 @@ from gabion.analysis.forest_signature import (
 )
 
 
+# gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature
 def test_forest_signature_deterministic() -> None:
     forest = Forest()
     site_id = forest.add_site("a.py", "f")
@@ -19,6 +20,7 @@ def test_forest_signature_deterministic() -> None:
     assert sig1 == sig2
 
 
+# gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_from_groups
 def test_forest_signature_from_groups() -> None:
     groups_by_path = {
         "a.py": {"f": [set(["a", "b"])]},
@@ -29,6 +31,7 @@ def test_forest_signature_from_groups() -> None:
     assert signature["alts"]["count"] > 0
 
 
+# gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature._normalize_key
 def test_normalize_key_handles_objects() -> None:
     class Dummy:
         def __str__(self) -> str:
@@ -37,6 +40,7 @@ def test_normalize_key_handles_objects() -> None:
     assert _normalize_key([Dummy()]) == ["dummy"]
 
 
+# gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature._path_name
 def test_path_name_falls_back_to_str() -> None:
     class Dummy:
         name = 123

@@ -578,6 +578,7 @@ def test_build_refactor_plan_skips_none_and_nontransparent(tmp_path: Path) -> No
     assert "bundles" in plan
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid
 def test_render_type_mermaid_edges() -> None:
     da = _load()
     graph = da._render_type_mermaid(

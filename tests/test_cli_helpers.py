@@ -504,6 +504,7 @@ def test_run_refactor_protocol_accepts_object_payload(tmp_path: Path) -> None:
     assert output_path.read_text().strip()
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.run_structure_diff
 def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -527,6 +528,7 @@ def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
     assert result == {"added_bundles": []}
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.run_decision_diff
 def test_run_decision_diff_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -613,6 +615,7 @@ def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
     assert cli.STRUCTURE_REUSE_COMMAND in calls
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff
 def test_emit_structure_diff_success(capsys) -> None:
     result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
     cli._emit_structure_diff(result)
@@ -621,6 +624,7 @@ def test_emit_structure_diff_success(capsys) -> None:
     assert captured.err == ""
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff
 def test_emit_structure_diff_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad snapshot"], "diff": {}}
     with pytest.raises(typer.Exit) as exc:
@@ -631,6 +635,7 @@ def test_emit_structure_diff_errors_exit(capsys) -> None:
     assert "bad snapshot" in captured.err
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff
 def test_emit_decision_diff_success(capsys) -> None:
     result = {"exit_code": 0, "diff": {"summary": {"added": 0}}}
     cli._emit_decision_diff(result)
@@ -638,6 +643,7 @@ def test_emit_decision_diff_success(capsys) -> None:
     assert "\"exit_code\": 0" in captured.out
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_decision_diff
 def test_emit_decision_diff_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad decision"], "diff": {}}
     with pytest.raises(typer.Exit) as exc:
@@ -647,6 +653,7 @@ def test_emit_decision_diff_errors_exit(capsys) -> None:
     assert "bad decision" in captured.err
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse
 def test_emit_structure_reuse_success(capsys) -> None:
     result = {"exit_code": 0, "reuse": {"summary": {}}}
     cli._emit_structure_reuse(result)
@@ -654,6 +661,7 @@ def test_emit_structure_reuse_success(capsys) -> None:
     assert "\"exit_code\": 0" in captured.out
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_reuse
 def test_emit_structure_reuse_errors_exit(capsys) -> None:
     result = {"exit_code": 2, "errors": ["bad reuse"], "reuse": {}}
     with pytest.raises(typer.Exit) as exc:

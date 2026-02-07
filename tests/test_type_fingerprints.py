@@ -37,6 +37,7 @@ def test_prime_registry_assigns_stable_primes() -> None:
     assert registry.get_or_assign("int") == first
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint
 def test_bundle_fingerprint_multiplies_primes() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -69,6 +70,7 @@ def test_fingerprint_to_type_keys_roundtrip() -> None:
     assert keys.count("str") == 1
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_hybrid
 def test_fingerprint_hybrid_bitmask() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -110,6 +112,7 @@ def test_build_fingerprint_registry_deterministic_assignment() -> None:
     assert reg_a.prime_for("int") == reg_b.prime_for("int")
     assert reg_a.prime_for("ctor:list") == reg_b.prime_for("ctor:list")
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike
 def test_bundle_fingerprint_setlike_ignores_duplicates() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -397,6 +400,7 @@ def test_collect_base_atoms_and_constructors_cover_empty_and_unions() -> None:
     assert "dict" in ctor_set
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors
 def test_bundle_fingerprint_with_constructors_skips_empty_keys() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -405,6 +409,7 @@ def test_bundle_fingerprint_with_constructors_skips_empty_keys() -> None:
     assert fingerprint == registry.get_or_assign("int")
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask
 def test_fingerprint_bitmask_skips_empty_keys() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -493,6 +498,7 @@ def test_normalize_type_list_variants() -> None:
     assert tf._normalize_type_list(["a, b", "c"]) == ["a", "b", "c"]
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.load_synth_registry_payload
 def test_synth_registry_payload_handles_non_list_entries() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -553,6 +559,7 @@ def test_collect_atoms_union_and_optional_paths() -> None:
     assert "list" in ctor_set
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys
 def test_format_fingerprint_str_and_synth_dimension_none() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -563,6 +570,7 @@ def test_format_fingerprint_str_and_synth_dimension_none() -> None:
     assert synth_registry.synth_dimension_for(fingerprint) is None
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.apply_synth_dimension
 def test_apply_synth_dimension_noop_when_missing() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -580,6 +588,7 @@ def test_carrier_soundness_mask_overlap_true() -> None:
     assert tf.fingerprint_carrier_soundness(dim, other)
 
 
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_setlike E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_with_constructors E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_bitmask
 def test_bundle_fingerprint_with_empty_and_constructor_bitmask() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
