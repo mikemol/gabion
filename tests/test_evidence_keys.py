@@ -204,6 +204,7 @@ def test_call_footprint_normalization_edges() -> None:
 def test_normalize_span_and_site_edges() -> None:
     assert evidence_keys._normalize_span("bad") is None
     assert evidence_keys._normalize_site(["only"]) == {"path": "", "qual": ""}
+    assert evidence_keys._normalize_site(["p", "q"]) == {"path": "p", "qual": "q"}
     assert evidence_keys._normalize_site("bad") == {"path": "", "qual": ""}
 
 
