@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 from collections import defaultdict
 from dataclasses import dataclass
@@ -10,19 +11,25 @@ from gabion.analysis import evidence_keys
 from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.analysis.dataflow_audit import (
     AuditConfig,
+    ClassInfo,
     FunctionInfo,
+    ParentAnnotator,
+    SymbolTable,
     _alt_input,
     _build_function_index,
     _build_symbol_table,
     _collect_class_index,
+    _enclosing_scopes,
     _is_test_path,
     _iter_paths,
+    _module_name,
     _paramset_key,
     _resolve_callee,
 )
 
 
 GRAPH_SOURCE = "graph"
+CALL_FOOTPRINT_FALLBACK_SOURCE = "graph.call_footprint_fallback"
 HEURISTIC_SOURCE = "heuristic"
 DEFAULT_MAX_DEPTH = 2
 
@@ -61,6 +68,7 @@ class Suggestion:
     suggested: tuple[EvidenceSuggestion, ...]
     matches: tuple[str, ...]
     source: str
+    derived_from: tuple[dict[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -74,6 +82,13 @@ class SuggestionSummary:
     graph_unresolved: int
     unmapped_modules: tuple[tuple[str, int], ...]
     unmapped_prefixes: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True)
+class _GraphSuggestion:
+    suggested: tuple[EvidenceSuggestion, ...]
+    source: str
+    derived_from: tuple[dict[str, str], ...]
 
 
 def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
@@ -153,9 +168,10 @@ def suggest_evidence(
                     test_id=entry.test_id,
                     file=entry.file,
                     line=entry.line,
-                    suggested=graph_suggested,
+                    suggested=graph_suggested.suggested,
                     matches=(),
-                    source=GRAPH_SOURCE,
+                    source=graph_suggested.source,
+                    derived_from=graph_suggested.derived_from,
                 )
             )
             suggested_graph += 1
@@ -273,6 +289,11 @@ def render_json_payload(
                 ],
                 "matched": list(entry.matches),
                 "source": entry.source,
+                **(
+                    {"derived_from": list(entry.derived_from)}
+                    if entry.derived_from
+                    else {}
+                ),
             }
             for entry in sorted(suggestions, key=lambda item: item.test_id)
         ],
@@ -287,7 +308,7 @@ def _graph_suggestions(
     forest: Forest | None,
     config: AuditConfig | None,
     max_depth: int,
-) -> tuple[dict[str, tuple[EvidenceSuggestion, ...]], set[str]]:
+) -> tuple[dict[str, _GraphSuggestion], set[str]]:
     # dataflow-bundle: entries, root, paths, forest, config
     if forest is None or not entries:
         return {}, set()
@@ -312,8 +333,10 @@ def _graph_suggestions(
     test_index = _build_test_index(by_qual, project_root)
     site_index, evidence_by_site = _build_forest_evidence_index(forest)
     resolved: set[str] = set()
-    suggestions: dict[str, tuple[EvidenceSuggestion, ...]] = {}
+    suggestions: dict[str, _GraphSuggestion] = {}
     cache: dict[str, tuple[FunctionInfo, ...]] = {}
+    node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]] = {}
+    module_cache: dict[str, Path | None] = {}
 
     def _resolved_callees(info: FunctionInfo) -> tuple[FunctionInfo, ...]:
         if info.qual in cache:
@@ -357,18 +380,42 @@ def _graph_suggestions(
             for item in evidence_by_site.get(site_id, ()):
                 evidence_items[item.identity] = item
         if not evidence_items:
-            fallback = [callee for callee in direct_callees if not _is_test_path(callee.path)]
-            if not fallback:
-                fallback = [callee for callee in reachable if not _is_test_path(callee.path)]
-            for callee in fallback:
-                site_id = site_index.get((callee.path.name, callee.qual))
-                if site_id is None:
-                    continue
-                suggestion = _function_site_suggestion(site_id, forest)
-                evidence_items[suggestion.identity] = suggestion
+            targets = _collect_call_footprint_targets(
+                info,
+                entry=entry,
+                direct_callees=direct_callees,
+                node_cache=node_cache,
+                module_cache=module_cache,
+                symbol_table=symbol_table,
+                by_name=by_name,
+                by_qual=by_qual,
+                class_index=class_index,
+                project_root=project_root,
+            )
+            if targets:
+                key = evidence_keys.make_call_footprint_key(
+                    path=entry.file,
+                    qual=_test_qual(entry.test_id),
+                    targets=targets,
+                )
+                suggestion = EvidenceSuggestion(
+                    key=key,
+                    display=evidence_keys.render_display(key),
+                )
+                ordered = (suggestion,)
+                suggestions[entry.test_id] = _GraphSuggestion(
+                    suggested=ordered,
+                    source=CALL_FOOTPRINT_FALLBACK_SOURCE,
+                    derived_from=tuple(targets),
+                )
+                continue
         if evidence_items:
             ordered = tuple(evidence_items[key] for key in sorted(evidence_items))
-            suggestions[entry.test_id] = ordered
+            suggestions[entry.test_id] = _GraphSuggestion(
+                suggested=ordered,
+                source=GRAPH_SOURCE,
+                derived_from=(),
+            )
     return suggestions, resolved
 
 
@@ -394,6 +441,262 @@ def _collect_reachable(
                 next_frontier.append(callee)
         frontier = next_frontier
     return reachable
+
+
+def _collect_call_footprint_targets(
+    info: FunctionInfo,
+    *,
+    entry: TestEvidenceEntry,
+    direct_callees: Sequence[FunctionInfo],
+    node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]],
+    module_cache: dict[str, Path | None],
+    symbol_table: SymbolTable,
+    by_name: Mapping[str, Sequence[FunctionInfo]],
+    by_qual: Mapping[str, FunctionInfo],
+    class_index: Mapping[str, ClassInfo] | None,
+    project_root: Path,
+) -> tuple[dict[str, str], ...]:
+    targets = [
+        {"path": str(callee.path.name), "qual": str(callee.qual)}
+        for callee in direct_callees
+    ]
+    if targets:
+        return tuple(targets)
+    outer = _find_module_level_calls(
+        info,
+        entry=entry,
+        node_cache=node_cache,
+        module_cache=module_cache,
+        symbol_table=symbol_table,
+        by_name=by_name,
+        by_qual=by_qual,
+        class_index=class_index,
+        project_root=project_root,
+    )
+    if not outer:
+        return ()
+    return tuple({"path": path, "qual": qual} for path, qual in outer)
+
+
+def _find_module_level_calls(
+    info: FunctionInfo,
+    *,
+    entry: TestEvidenceEntry,
+    node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]],
+    module_cache: dict[str, Path | None],
+    symbol_table: SymbolTable,
+    by_name: Mapping[str, Sequence[FunctionInfo]],
+    by_qual: Mapping[str, FunctionInfo],
+    class_index: Mapping[str, ClassInfo] | None,
+    project_root: Path,
+) -> tuple[tuple[str, str], ...]:
+    if not entry.file:
+        return ()
+    test_path = Path(entry.file)
+    if not test_path.is_absolute():
+        test_path = project_root / test_path
+    if test_path not in node_cache:
+        try:
+            tree = ast.parse(test_path.read_text(encoding="utf-8"))
+        except OSError:
+            return ()
+        parents = ParentAnnotator()
+        parents.visit(tree)
+        node_cache[test_path] = _index_nodes_by_scope(tree, parents.parents)
+    nodes = node_cache.get(test_path, {})
+    scopes = tuple(info.scope)
+    node = nodes.get((scopes, info.name))
+    if node is None:
+        return ()
+    module_name = _module_name(test_path, project_root)
+    resolved: dict[str, tuple[str, str]] = {}
+    for call in _iter_outer_calls(node):
+        for callee_name in _call_symbol_refs(call):
+            callee = _resolve_callee(
+                callee_name,
+                info,
+                dict(by_name),
+                by_qual,
+                symbol_table,
+                project_root,
+                class_index,
+            )
+            if callee is None:
+                resolved_module = _resolve_symbol_target(
+                    callee_name,
+                    module_name,
+                    symbol_table,
+                    module_cache,
+                    project_root,
+                )
+                if resolved_module:
+                    path, qual = resolved_module
+                    resolved[f"{path}:{qual}"] = (path, qual)
+                continue
+            resolved[callee.qual] = (str(callee.path.name), str(callee.qual))
+        for module_literal in _call_module_literals(call):
+            resolved_module = _resolve_module_literal(module_literal, project_root, module_cache)
+            if resolved_module:
+                path, qual = resolved_module
+                resolved[f"{path}:{qual}"] = (path, qual)
+    ordered = [resolved[key] for key in sorted(resolved)]
+    return tuple(ordered)
+
+
+def _index_nodes_by_scope(
+    tree: ast.AST, parents: dict[ast.AST, ast.AST]
+) -> dict[tuple[tuple[str, ...], str], ast.AST]:
+    index: dict[tuple[tuple[str, ...], str], ast.AST] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        scopes = tuple(_enclosing_scopes(node, parents))
+        index[(scopes, node.name)] = node
+    return index
+
+
+def _iter_outer_calls(node: ast.AST) -> list[ast.Call]:
+    calls: list[ast.Call] = []
+    stack = list(getattr(node, "body", ()))
+    while stack:
+        current = stack.pop()
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if isinstance(current, ast.Call):
+            calls.append(current)
+        stack.extend(ast.iter_child_nodes(current))
+    return calls
+
+
+def _call_symbol_refs(call: ast.Call) -> list[str]:
+    refs: list[str] = []
+    target = call.func
+    if isinstance(target, ast.Name):
+        refs.append(target.id)
+    elif isinstance(target, ast.Attribute):
+        name = _attribute_chain(target)
+        if name:
+            refs.append(name)
+    for arg in call.args:
+        name = _expr_symbol_ref(arg)
+        if name:
+            refs.append(name)
+    for kw in call.keywords:
+        if kw.value is None:
+            continue
+        name = _expr_symbol_ref(kw.value)
+        if name:
+            refs.append(name)
+    return refs
+
+
+def _call_module_literals(call: ast.Call) -> list[str]:
+    values: list[str] = []
+    for arg in call.args:
+        literal = _module_literal(arg)
+        if literal:
+            values.append(literal)
+    for kw in call.keywords:
+        if kw.value is None:
+            continue
+        literal = _module_literal(kw.value)
+        if literal:
+            values.append(literal)
+    return values
+
+
+def _expr_symbol_ref(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return _attribute_chain(node)
+    return None
+
+
+def _module_literal(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value.strip()
+    return None
+
+
+def _attribute_chain(node: ast.Attribute) -> str | None:
+    parts: list[str] = []
+    current: ast.AST | None = node
+    while isinstance(current, ast.Attribute):
+        parts.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        parts.append(current.id)
+    else:
+        return None
+    return ".".join(reversed(parts))
+
+
+def _resolve_symbol_target(
+    callee_name: str,
+    module_name: str,
+    symbol_table: SymbolTable,
+    module_cache: dict[str, Path | None],
+    project_root: Path,
+) -> tuple[str, str] | None:
+    if not callee_name:
+        return None
+    if "." in callee_name:
+        base, *rest = callee_name.split(".")
+    else:
+        base, rest = callee_name, []
+    if (module_name, base) not in symbol_table.imports:
+        return None
+    base_fqn = symbol_table.resolve(module_name, base)
+    if base_fqn is None:
+        return None
+    module_fqn = base_fqn
+    module_path = _resolve_module_file(module_fqn, project_root, module_cache)
+    if module_path is None and "." in base_fqn:
+        module_fqn = base_fqn.rsplit(".", 1)[0]
+        module_path = _resolve_module_file(module_fqn, project_root, module_cache)
+    if module_path is None:
+        return None
+    qual = base_fqn if not rest else base_fqn + "." + ".".join(rest)
+    return (module_path.name, qual)
+
+
+def _resolve_module_literal(
+    value: str,
+    project_root: Path,
+    module_cache: dict[str, Path | None],
+) -> tuple[str, str] | None:
+    if not value or value.startswith("."):
+        return None
+    if any(part.strip() == "" for part in value.split(".")):
+        return None
+    module_path = _resolve_module_file(value, project_root, module_cache)
+    if module_path is None:
+        return None
+    return (module_path.name, value)
+
+
+def _resolve_module_file(
+    module_name: str,
+    project_root: Path,
+    module_cache: dict[str, Path | None],
+) -> Path | None:
+    module_path = module_cache.get(module_name)
+    if module_name in module_cache:
+        return module_path
+    for base in (project_root, project_root / "src"):
+        candidate = base / Path(*module_name.split("."))
+        file_candidate = candidate.with_suffix(".py")
+        if file_candidate.exists():
+            module_cache[module_name] = file_candidate
+            return file_candidate
+        if candidate.is_dir():
+            init_candidate = candidate / "__init__.py"
+            if init_candidate.exists():
+                module_cache[module_name] = init_candidate
+                return init_candidate
+    module_cache[module_name] = None
+    return None
 
 
 def _build_test_index(
@@ -500,11 +803,10 @@ def _evidence_for_alt(
     return EvidenceSuggestion(key=key, display=display)
 
 
-def _function_site_suggestion(site_id: NodeId, forest: Forest) -> EvidenceSuggestion:
-    path, qual = _site_parts(site_id, forest)
-    key = evidence_keys.make_function_site_key(path=path, qual=qual)
-    display = evidence_keys.render_display(key)
-    return EvidenceSuggestion(key=key, display=display)
+def _test_qual(test_id: str) -> str:
+    if "::" in test_id:
+        return test_id.split("::", 1)[1]
+    return test_id
 
 
 def _site_parts(node_id: NodeId, forest: Forest) -> tuple[str, str]:

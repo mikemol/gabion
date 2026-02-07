@@ -153,11 +153,13 @@ def test_render_markdown_includes_spec_metadata() -> None:
     assert "generated_by_spec:" in report
 
 
+# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload
 def test_parse_baseline_payload_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         test_obsolescence_delta.parse_baseline_payload({"version": "bad"})
 
 
+# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.load_baseline
 def test_load_baseline_rejects_non_object(tmp_path: Path) -> None:
     path = tmp_path / "baseline.json"
     path.write_text("[1,2,3]")
@@ -165,6 +167,7 @@ def test_load_baseline_rejects_non_object(tmp_path: Path) -> None:
         test_obsolescence_delta.load_baseline(str(path))
 
 
+# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._format_delta E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._normalize_summary_counts E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._section_list
 def test_helpers_cover_edge_cases() -> None:
     assert test_obsolescence_delta._normalize_summary_counts("nope") == {
         "redundant_by_evidence": 0,
@@ -281,6 +284,7 @@ def test_render_markdown_with_entries() -> None:
     assert evidence_keys.render_display(key_b) in report
 
 
+# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload
 def test_parse_baseline_payload_filters_invalid_entries() -> None:
     payload = {
         "version": 1,

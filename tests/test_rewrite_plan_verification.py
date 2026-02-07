@@ -21,6 +21,7 @@ def test_glossary_match_strata_classification() -> None:
     assert da._glossary_match_strata(["x", "y"]) == "ambiguous"
 
 
+# gabion:evidence E:function_site::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load
 def test_normalize_bundle_key_covers_edges() -> None:
     da = _load()
     assert da.normalize_bundle_key("not-a-list") == ""

@@ -13,6 +13,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:function_site::test_dataflow_misc_edges.py::tests.test_dataflow_misc_edges._load
 def test_symbol_table_resolve_star_external_filtered() -> None:
     da = _load()
     table = da.SymbolTable(external_filter=True)

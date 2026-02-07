@@ -28,6 +28,7 @@ def test_canonical_type_key_normalizes_generics() -> None:
     assert tf.canonical_type_key("Dict[str, List[int]]") == "dict[str, list[int]]"
 
 
+# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_prime_registry_assigns_stable_primes() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -83,6 +84,7 @@ def test_fingerprint_hybrid_bitmask() -> None:
     assert mask & (1 << str_bit)
 
 
+# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_constructor_registry_assigns_primes() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -468,6 +470,7 @@ def test_dimension_helpers_and_formatting() -> None:
     assert tf._fingerprint_sort_key(fingerprint)
 
 
+# gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_registry_helpers_cover_edges() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()

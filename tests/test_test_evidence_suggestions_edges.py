@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import pytest
 
 from gabion.analysis import evidence_keys, test_evidence_suggestions
 from gabion.analysis.aspf import Alt, Forest, Node, NodeId
-from gabion.analysis.dataflow_audit import AuditConfig, FunctionInfo
+from gabion.analysis.dataflow_audit import AuditConfig, FunctionInfo, SymbolTable
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -24,6 +25,7 @@ def _minimal_entry(test_id: str, file_path: str) -> test_evidence_suggestions.Te
     )
 
 
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence E:function_site::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._write_json
 def test_load_test_evidence_errors_and_defaults(tmp_path: Path) -> None:
     bad_schema = tmp_path / "bad.json"
     _write_json(bad_schema, {"schema_version": 3})
@@ -151,11 +153,13 @@ def test_graph_suggestions_cache_and_unresolved(tmp_path: Path) -> None:
         config=None,
         max_depth=2,
     )
-    assert suggestions == {}
+    assert entry.test_id in suggestions
+    assert suggestions[entry.test_id].source == "graph.call_footprint_fallback"
     assert entry.test_id in resolved
     assert missing.test_id not in resolved
 
 
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._collect_reachable
 def test_collect_reachable_skips_visited() -> None:
     path = Path("sample.py")
     info = FunctionInfo(
@@ -175,6 +179,11 @@ def test_collect_reachable_skips_visited() -> None:
         info, max_depth=2, resolve_callees=resolve_callees
     )
     assert reachable == []
+
+
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_test_qual_passthrough::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._test_qual
+def test_test_qual_passthrough() -> None:
+    assert test_evidence_suggestions._test_qual("no_delimiter") == "no_delimiter"
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason
@@ -275,6 +284,302 @@ def test_evidence_for_alt_variants() -> None:
     assert (
         test_evidence_suggestions._evidence_for_alt(
             custom_alt, forest, prefix_map={"CustomAlt": "custom"}
+        )
+        is None
+    )
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._collect_call_footprint_targets
+def test_collect_call_footprint_targets_no_outer(tmp_path: Path) -> None:
+    test_dir = tmp_path / "tests"
+    test_dir.mkdir()
+    test_file = test_dir / "test_sample.py"
+    test_file.write_text("def test_alpha():\n    pass\n", encoding="utf-8")
+    entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
+    info = FunctionInfo(
+        name="test_alpha",
+        qual="tests.test_sample.test_alpha",
+        path=test_file,
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+    )
+    targets = test_evidence_suggestions._collect_call_footprint_targets(
+        info,
+        entry=entry,
+        direct_callees=(),
+        node_cache={},
+        module_cache={},
+        symbol_table=SymbolTable(),
+        by_name={},
+        by_qual={},
+        class_index=None,
+        project_root=tmp_path,
+    )
+    assert targets == ()
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls
+def test_find_module_level_calls_empty_and_missing(tmp_path: Path) -> None:
+    info = FunctionInfo(
+        name="test_alpha",
+        qual="tests.test_sample.test_alpha",
+        path=tmp_path / "tests" / "test_sample.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+    )
+    empty_entry = _minimal_entry("tests/test_sample.py::test_alpha", "")
+    assert (
+        test_evidence_suggestions._find_module_level_calls(
+            info,
+            entry=empty_entry,
+            node_cache={},
+            module_cache={},
+            symbol_table=SymbolTable(),
+            by_name={},
+            by_qual={},
+            class_index=None,
+            project_root=tmp_path,
+        )
+        == ()
+    )
+    missing_entry = _minimal_entry(
+        "tests/missing.py::test_alpha", "tests/missing.py"
+    )
+    assert (
+        test_evidence_suggestions._find_module_level_calls(
+            info,
+            entry=missing_entry,
+            node_cache={},
+            module_cache={},
+            symbol_table=SymbolTable(),
+            by_name={},
+            by_qual={},
+            class_index=None,
+            project_root=tmp_path,
+        )
+        == ()
+    )
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls
+def test_find_module_level_calls_node_missing(tmp_path: Path) -> None:
+    test_dir = tmp_path / "tests"
+    test_dir.mkdir()
+    test_file = test_dir / "test_sample.py"
+    test_file.write_text("def test_alpha():\n    pass\n", encoding="utf-8")
+    entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
+    info = FunctionInfo(
+        name="test_beta",
+        qual="tests.test_sample.test_beta",
+        path=test_file,
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+    )
+    assert (
+        test_evidence_suggestions._find_module_level_calls(
+            info,
+            entry=entry,
+            node_cache={},
+            module_cache={},
+            symbol_table=SymbolTable(),
+            by_name={},
+            by_qual={},
+            class_index=None,
+            project_root=tmp_path,
+        )
+        == ()
+    )
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls
+def test_find_module_level_calls_resolves_symbol_and_literal(tmp_path: Path) -> None:
+    src_pkg = tmp_path / "src" / "pkg"
+    src_pkg.mkdir(parents=True)
+    (src_pkg / "__init__.py").write_text("", encoding="utf-8")
+    (src_pkg / "mod.py").write_text(
+        "VALUE = 1\n"
+        "def helper():\n"
+        "    return 1\n",
+        encoding="utf-8",
+    )
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    test_file = tests_dir / "test_sample.py"
+    test_file.write_text(
+        "from pkg import mod\n"
+        "import runpy\n\n"
+        "def test_alpha():\n"
+        "    callable(mod.helper)\n"
+        "    callable(mod.VALUE)\n"
+        "    runpy.run_module('pkg.mod')\n",
+        encoding="utf-8",
+    )
+    by_name, by_qual = test_evidence_suggestions._build_function_index(
+        [test_file, src_pkg / "mod.py"],
+        tmp_path,
+        set(),
+        "high",
+        None,
+    )
+    symbol_table = test_evidence_suggestions._build_symbol_table(
+        [test_file, src_pkg / "mod.py"],
+        tmp_path,
+        external_filter=True,
+    )
+    info = by_qual["tests.test_sample.test_alpha"]
+    entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
+    resolved = test_evidence_suggestions._find_module_level_calls(
+        info,
+        entry=entry,
+        node_cache={},
+        module_cache={},
+        symbol_table=symbol_table,
+        by_name=by_name,
+        by_qual=by_qual,
+        class_index=None,
+        project_root=tmp_path,
+    )
+    assert ("mod.py", "pkg.mod.helper") in resolved
+    assert ("mod.py", "pkg.mod.VALUE") in resolved
+    assert ("mod.py", "pkg.mod") in resolved
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._iter_outer_calls
+def test_iter_outer_calls_skips_nested() -> None:
+    tree = ast.parse(
+        "def test_alpha():\n"
+        "    def inner():\n"
+        "        helper()\n"
+        "    helper()\n"
+    )
+    node = tree.body[0]
+    calls = test_evidence_suggestions._iter_outer_calls(node)
+    assert len(calls) == 1
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_symbol_refs
+def test_call_symbol_and_literal_helpers() -> None:
+    call = ast.Call(
+        func=ast.Name(id="f", ctx=ast.Load()),
+        args=[ast.Attribute(value=ast.Name(id="mod", ctx=ast.Load()), attr="x", ctx=ast.Load())],
+        keywords=[ast.keyword(arg="kw", value=None)],
+    )
+    refs = test_evidence_suggestions._call_symbol_refs(call)
+    assert refs == ["f", "mod.x"]
+    assert test_evidence_suggestions._call_module_literals(call) == []
+    call_kw = ast.Call(
+        func=ast.Name(id="g", ctx=ast.Load()),
+        args=[],
+        keywords=[ast.keyword(arg="item", value=ast.Name(id="name", ctx=ast.Load()))],
+    )
+    assert test_evidence_suggestions._call_symbol_refs(call_kw) == ["g", "name"]
+    literal_call = ast.Call(
+        func=ast.Name(id="run_module", ctx=ast.Load()),
+        args=[ast.Constant(value="pkg.mod")],
+        keywords=[ast.keyword(arg="name", value=ast.Constant(value="pkg.core"))],
+    )
+    literals = test_evidence_suggestions._call_module_literals(literal_call)
+    assert literals == ["pkg.mod", "pkg.core"]
+    assert test_evidence_suggestions._expr_symbol_ref(ast.Name(id="name", ctx=ast.Load())) == "name"
+    assert (
+        test_evidence_suggestions._expr_symbol_ref(
+            ast.Attribute(value=ast.Name(id="pkg", ctx=ast.Load()), attr="core", ctx=ast.Load())
+        )
+        == "pkg.core"
+    )
+    assert test_evidence_suggestions._expr_symbol_ref(ast.Constant(value=1)) is None
+    bad_attr = ast.Attribute(value=ast.Call(func=ast.Name(id="f", ctx=ast.Load()), args=[]), attr="x")
+    assert test_evidence_suggestions._attribute_chain(bad_attr) is None
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_symbol_target
+def test_resolve_symbol_and_module_helpers(tmp_path: Path) -> None:
+    src_pkg = tmp_path / "src" / "pkg"
+    src_pkg.mkdir(parents=True)
+    (src_pkg / "__init__.py").write_text("", encoding="utf-8")
+    module_path = src_pkg / "mod.py"
+    module_path.write_text("", encoding="utf-8")
+
+    table = SymbolTable()
+    table.imports[("tests.sample", "Thing")] = "pkg.mod.Thing"
+    table.internal_roots.add("pkg")
+    module_cache: dict[str, Path | None] = {}
+    assert (
+        test_evidence_suggestions._resolve_symbol_target(
+            "Thing", "tests.sample", table, module_cache, tmp_path
+        )
+        == ("mod.py", "pkg.mod.Thing")
+    )
+    assert (
+        test_evidence_suggestions._resolve_symbol_target(
+            "Thing.attr", "tests.sample", table, module_cache, tmp_path
+        )
+        == ("mod.py", "pkg.mod.Thing.attr")
+    )
+    assert (
+        test_evidence_suggestions._resolve_symbol_target(
+            "", "tests.sample", table, module_cache, tmp_path
+        )
+        is None
+    )
+    assert (
+        test_evidence_suggestions._resolve_symbol_target(
+            "Missing", "tests.sample", table, module_cache, tmp_path
+        )
+        is None
+    )
+    table.imports[("tests.sample", "Ghost")] = "ghost.mod.Ghost"
+    table.internal_roots.add("ghost")
+    assert (
+        test_evidence_suggestions._resolve_symbol_target(
+            "Ghost", "tests.sample", table, module_cache, tmp_path
+        )
+        is None
+    )
+    # cache hit + package init path
+    assert (
+        test_evidence_suggestions._resolve_module_file(
+            "pkg.mod", tmp_path, module_cache
+        )
+        == module_path
+    )
+    assert (
+        test_evidence_suggestions._resolve_module_file(
+            "pkg.mod", tmp_path, module_cache
+        )
+        == module_path
+    )
+    init_path = src_pkg / "__init__.py"
+    assert (
+        test_evidence_suggestions._resolve_module_file("pkg", tmp_path, module_cache)
+        == init_path
+    )
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_module_literal
+def test_resolve_module_literal_invalid(tmp_path: Path) -> None:
+    module_cache: dict[str, Path | None] = {}
+    assert (
+        test_evidence_suggestions._resolve_module_literal(
+            ".bad", tmp_path, module_cache
+        )
+        is None
+    )
+    assert (
+        test_evidence_suggestions._resolve_module_literal(
+            "pkg..mod", tmp_path, module_cache
+        )
+        is None
+    )
+    assert (
+        test_evidence_suggestions._resolve_module_literal(
+            "missing.mod", tmp_path, module_cache
         )
         is None
     )

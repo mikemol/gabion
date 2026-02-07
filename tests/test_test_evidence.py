@@ -7,6 +7,7 @@ import pytest
 from gabion.analysis import test_evidence
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
 def test_extracts_evidence_tags_and_unmapped(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -60,6 +61,7 @@ def test_extracts_evidence_tags_and_unmapped(tmp_path: Path) -> None:
     assert evidence_ids == ["E:async/one", "E:bundle/foo", "E:decision/x", "E:never/bar"]
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._find_evidence_tags E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
 def test_requires_adjacent_tag_and_skips_bad_files(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -92,6 +94,7 @@ def test_requires_adjacent_tag_and_skips_bad_files(tmp_path: Path) -> None:
     assert test_evidence._find_evidence_tags(lines, {}, start_line=2) == []
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
 def test_excludes_paths(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -110,6 +113,7 @@ def test_excludes_paths(tmp_path: Path) -> None:
     assert not any("test_skip" in test_id for test_id in test_ids)
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence.py::gabion.analysis.test_evidence.write_test_evidence
 def test_handles_missing_and_direct_file_paths(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -132,6 +136,7 @@ def test_handles_missing_and_direct_file_paths(tmp_path: Path) -> None:
     assert entries == []
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
 def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"

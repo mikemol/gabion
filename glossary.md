@@ -1,5 +1,5 @@
 ---
-doc_revision: 25
+doc_revision: 26
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -1860,8 +1860,8 @@ Suggestion ordering is erased; evidence IDs are not.
 
 **Definition:** The canonical, structured identity for evidence items, derived
 from the graph carrier. Display strings are renderings of the key.
-Examples of key kinds include `paramset`, `decision_surface`, `never_sink`, and
-`function_site`.
+Examples of key kinds include `paramset`, `decision_surface`, `never_sink`,
+`function_site`, and `call_footprint`.
 
 ### Axis
 

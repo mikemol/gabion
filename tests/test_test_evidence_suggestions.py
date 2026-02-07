@@ -25,6 +25,7 @@ def _entries_from_payload(payload: dict[str, object]) -> list[test_evidence_sugg
     return entries
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
 def test_graph_decision_surface_suggestion(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -64,6 +65,7 @@ def test_graph_decision_surface_suggestion(tmp_path: Path) -> None:
     )
 
 
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
 def test_heuristic_fallback_when_graph_unavailable() -> None:
     entry = test_evidence_suggestions.TestEvidenceEntry(
         test_id="tests/test_alias_attribute.py::test_alias_attribute_forwarding",
@@ -82,6 +84,7 @@ def test_heuristic_fallback_when_graph_unavailable() -> None:
     assert suggestions[0].matches == ("alias_invariance",)
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
 def test_graph_resolution_blocks_heuristics(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -104,12 +107,14 @@ def test_graph_resolution_blocks_heuristics(tmp_path: Path) -> None:
         config=AuditConfig(project_root=root),
     )
 
-    assert suggestions == []
+    assert len(suggestions) == 1
+    assert suggestions[0].source == "graph.call_footprint_fallback"
     assert summary.suggested_heuristic == 0
-    assert summary.skipped_no_match == 1
+    assert summary.skipped_no_match == 0
     assert summary.graph_unresolved == 0
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
 def test_graph_function_site_fallback(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -137,11 +142,16 @@ def test_graph_function_site_fallback(tmp_path: Path) -> None:
 
     assert summary.suggested_graph == 1
     assert summary.suggested_heuristic == 0
+    assert suggestions[0].source == "graph.call_footprint_fallback"
+    assert suggestions[0].derived_from == (
+        {"path": "core.py", "qual": "pkg.core.helper"},
+    )
     assert suggestions[0].suggested[0].display == (
-        "E:function_site::core.py::pkg.core.helper"
+        "E:call_footprint::tests/test_core.py::test_helper::core.py::pkg.core.helper"
     )
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
 def test_graph_function_site_fallback_uses_reachable(tmp_path: Path) -> None:
     root = tmp_path
     (root / "src" / "pkg").mkdir(parents=True)
@@ -171,11 +181,76 @@ def test_graph_function_site_fallback_uses_reachable(tmp_path: Path) -> None:
 
     assert summary.suggested_graph == 1
     assert summary.suggested_heuristic == 0
+    assert suggestions[0].source == "graph.call_footprint_fallback"
+    assert suggestions[0].derived_from == (
+        {"path": "test_core.py", "qual": "tests.test_core.helper_wrapper"},
+    )
     assert suggestions[0].suggested[0].display == (
-        "E:function_site::core.py::pkg.core.helper"
+        "E:call_footprint::tests/test_core.py::test_helper::test_core.py::tests.test_core.helper_wrapper"
     )
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+def test_graph_call_footprint_symbol_argument(tmp_path: Path) -> None:
+    root = tmp_path
+    (root / "src" / "pkg").mkdir(parents=True)
+    (root / "tests").mkdir(parents=True)
+    (root / "src" / "pkg" / "__init__.py").write_text("")
+    (root / "src" / "pkg" / "core.py").write_text("def helper():\n    return 1\n")
+    (root / "tests" / "test_core.py").write_text(
+        "from pkg import core\n\n"
+        "def test_helper():\n"
+        "    callable(core.helper)\n"
+    )
+    payload = test_evidence.build_test_evidence_payload([root / "tests"], root=root)
+    entries = _entries_from_payload(payload)
+
+    suggestions, summary = test_evidence_suggestions.suggest_evidence(
+        entries,
+        root=root,
+        paths=[root],
+        forest=Forest(),
+        config=AuditConfig(project_root=root),
+    )
+
+    assert summary.suggested_graph == 1
+    assert suggestions[0].source == "graph.call_footprint_fallback"
+    assert suggestions[0].derived_from == (
+        {"path": "core.py", "qual": "pkg.core.helper"},
+    )
+
+
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
+def test_graph_call_footprint_module_literal(tmp_path: Path) -> None:
+    root = tmp_path
+    (root / "src" / "pkg").mkdir(parents=True)
+    (root / "tests").mkdir(parents=True)
+    (root / "src" / "pkg" / "__init__.py").write_text("")
+    (root / "src" / "pkg" / "core.py").write_text("def helper():\n    return 1\n")
+    (root / "tests" / "test_runner.py").write_text(
+        "import runpy\n\n"
+        "def test_run_module():\n"
+        "    runpy.run_module('pkg.core')\n"
+    )
+    payload = test_evidence.build_test_evidence_payload([root / "tests"], root=root)
+    entries = _entries_from_payload(payload)
+
+    suggestions, summary = test_evidence_suggestions.suggest_evidence(
+        entries,
+        root=root,
+        paths=[root],
+        forest=Forest(),
+        config=AuditConfig(project_root=root),
+    )
+
+    assert summary.suggested_graph == 1
+    assert suggestions[0].source == "graph.call_footprint_fallback"
+    assert suggestions[0].derived_from == (
+        {"path": "core.py", "qual": "pkg.core"},
+    )
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
 def test_skips_mapped_entries() -> None:
     entry = test_evidence_suggestions.TestEvidenceEntry(
         test_id="tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
@@ -194,6 +269,7 @@ def test_skips_mapped_entries() -> None:
     assert summary.skipped_mapped == 1
 
 
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence
 def test_load_test_evidence_payload(tmp_path: Path) -> None:
     payload = {
         "schema_version": 2,

@@ -19,6 +19,7 @@ from lsprotocol.types import (
 )
 
 
+# gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_entrypoint_invokes_app::__main__.py::gabion.__main__
 def test_main_entrypoint_invokes_app() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -32,6 +33,7 @@ def test_main_entrypoint_invokes_app() -> None:
         sys.argv = old_argv
 
 
+# gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_module_import::__main__.py::gabion.__main__
 def test_main_module_import() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -39,6 +41,7 @@ def test_main_module_import() -> None:
     assert hasattr(module, "main")
 
 
+# gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults::engine.py::gabion.analysis.engine.GabionEngine::model.py::gabion.analysis.model.CallArgs::model.py::gabion.analysis.model.ClassInfo::model.py::gabion.analysis.model.DispatchTable::model.py::gabion.analysis.model.FunctionInfo::model.py::gabion.analysis.model.ParamUse::model.py::gabion.analysis.model.SymbolTable::schema.py::gabion.schema.AnalysisResponse
 def test_analysis_engine_and_model_defaults() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))

@@ -28,6 +28,7 @@ def _write_decision_snapshot(path: Path, *, include_forest: bool = False) -> Non
     path.write_text(json.dumps(payload))
 
 
+# gabion:evidence E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._write_decision_snapshot
 def test_consolidation_requires_forest_in_strict_mode(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     (tmp_path / "gabion.toml").write_text("[consolidation]\nrequire_forest = true\n")
@@ -53,6 +54,7 @@ def test_consolidation_requires_forest_in_strict_mode(tmp_path: Path) -> None:
     assert "forest-only mode enabled" in str(exc.value)
 
 
+# gabion:evidence E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._write_decision_snapshot
 def test_consolidation_allows_fallback_in_permissive_mode(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     (tmp_path / "gabion.toml").write_text("[consolidation]\nrequire_forest = false\n")

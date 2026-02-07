@@ -13,6 +13,7 @@ def _load():
     return NamingContext, SynthesisConfig, Synthesizer
 
 
+# gabion:evidence E:function_site::test_synthesis_protocols.py::tests.test_synthesis_protocols._load
 def test_synthesizer_filters_and_builds_specs() -> None:
     NamingContext, SynthesisConfig, Synthesizer = _load()
     synth = Synthesizer(config=SynthesisConfig(max_tier=2, min_bundle_size=2))
@@ -29,6 +30,7 @@ def test_synthesizer_filters_and_builds_specs() -> None:
     assert next(f for f in spec.fields if f.name == "a").type_hint == "int"
 
 
+# gabion:evidence E:function_site::test_synthesis_protocols.py::tests.test_synthesis_protocols._load
 def test_synthesizer_uses_existing_names() -> None:
     NamingContext, SynthesisConfig, Synthesizer = _load()
     synth = Synthesizer(
@@ -40,6 +42,7 @@ def test_synthesizer_uses_existing_names() -> None:
     assert plan.protocols[0].name == "CtxBundle2"
 
 
+# gabion:evidence E:function_site::test_synthesis_protocols.py::tests.test_synthesis_protocols._load
 def test_synthesizer_warns_on_empty() -> None:
     NamingContext, SynthesisConfig, Synthesizer = _load()
     synth = Synthesizer(config=SynthesisConfig(max_tier=1, min_bundle_size=2))
@@ -48,6 +51,7 @@ def test_synthesizer_warns_on_empty() -> None:
     assert plan.warnings
 
 
+# gabion:evidence E:function_site::test_synthesis_protocols.py::tests.test_synthesis_protocols._load
 def test_synthesizer_skips_empty_bundle() -> None:
     NamingContext, SynthesisConfig, Synthesizer = _load()
     synth = Synthesizer(config=SynthesisConfig(max_tier=1, min_bundle_size=1))

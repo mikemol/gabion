@@ -56,6 +56,7 @@ def _make_visitor(
     return visitor, use_map, alias_to_param, call_args
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_star_forwarding_low_strictness() -> None:
     tree = ast.parse(
         "def f(a, b, *args, **kwargs):\n"
@@ -68,6 +69,7 @@ def test_usevisitor_star_forwarding_low_strictness() -> None:
     assert ("kwargs[*]", "kw[*]") in use_map["kwargs"].direct_forward
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_span_adjusts_zero_width_call() -> None:
     tree = ast.parse("def f(a, b, *args, **kwargs):\n    g(a)\n")
     call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
@@ -157,6 +159,7 @@ def test_alias_from_call_rejects_starred() -> None:
     assert visitor._alias_from_call(call) is None
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_attribute_and_subscript_forwarding() -> None:
     tree = ast.parse(
         "def f(a):\n"
@@ -174,6 +177,7 @@ def test_attribute_and_subscript_forwarding() -> None:
     assert use_map["a"].non_forward is True
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_bind_sequence_mismatch_marks_non_forward() -> None:
     tree = ast.parse("def f(a, b):\n    pass\n")
     visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
@@ -187,6 +191,7 @@ def test_bind_sequence_mismatch_marks_non_forward() -> None:
     assert use_map["b"].non_forward is False
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_import_visitor_basic_and_relative::dataflow_audit.py::gabion.analysis.dataflow_audit.SymbolTable::visitors.py::gabion.analysis.visitors.ImportVisitor
 def test_import_visitor_basic_and_relative() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))

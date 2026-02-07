@@ -301,6 +301,7 @@ def test_param_spans_ignore_var_kw() -> None:
     assert spans == {}
 
 
+# gabion:evidence E:function_site::test_dataflow_helpers.py::tests.test_dataflow_helpers._load
 def test_audit_config_ignored_paths() -> None:
     da = _load()
     config = da.AuditConfig(exclude_dirs={"build", "dist"})
@@ -385,6 +386,7 @@ def test_param_spans_include_var_kw() -> None:
     assert "kw" in spans
 
 
+# gabion:evidence E:function_site::test_dataflow_helpers.py::tests.test_dataflow_helpers._load
 def test_resolve_star_external_filtered() -> None:
     da = _load()
     table = da.SymbolTable(external_filter=True)

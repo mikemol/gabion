@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Callable, Iterable, Mapping
+from typing import Callable, Iterable, Mapping, Sequence
 
 
 def normalize_params(values: Iterable[str]) -> list[str]:
@@ -15,6 +15,33 @@ def normalize_param_string(value: str) -> str:
 
 def normalize_reason(value: str) -> str:
     return " ".join(str(value).strip().split())
+
+
+def _normalize_target(target: object) -> tuple[str, str] | None:
+    if isinstance(target, Mapping):
+        path = str(target.get("path", "") or "").strip()
+        qual = str(target.get("qual", "") or "").strip()
+    elif isinstance(target, Sequence) and not isinstance(target, (str, bytes)):
+        if len(target) < 2:
+            return None
+        path = str(target[0]).strip()
+        qual = str(target[1]).strip()
+    else:
+        return None
+    if not path or not qual:
+        return None
+    return path, qual
+
+
+def normalize_targets(targets: Iterable[object]) -> list[dict[str, str]]:
+    cleaned: dict[tuple[str, str], dict[str, str]] = {}
+    for target in targets:
+        parts = _normalize_target(target)
+        if not parts:
+            continue
+        path, qual = parts
+        cleaned[(path, qual)] = {"path": path, "qual": qual}
+    return [cleaned[key] for key in sorted(cleaned)]
 
 
 def make_paramset_key(params: Iterable[str]) -> dict[str, object]:
@@ -77,6 +104,23 @@ def make_function_site_key(*, path: str, qual: str) -> dict[str, object]:
     }
 
 
+def make_call_footprint_key(
+    *,
+    path: str,
+    qual: str,
+    targets: Iterable[object],
+) -> dict[str, object]:
+    # dataflow-bundle: path, qual, targets
+    return {
+        "k": "call_footprint",
+        "site": {
+            "path": str(path).strip(),
+            "qual": str(qual).strip(),
+        },
+        "targets": normalize_targets(targets),
+    }
+
+
 def make_opaque_key(display: str) -> dict[str, object]:
     return {"k": "opaque", "s": str(display).strip()}
 
@@ -118,6 +162,20 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         return make_function_site_key(path=path, qual=qual)
+    if kind == "call_footprint":
+        site = key.get("site", {})
+        if not isinstance(site, Mapping):
+            site = {}
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        targets = key.get("targets", [])
+        if isinstance(targets, str):
+            targets = []
+        return make_call_footprint_key(
+            path=path,
+            qual=qual,
+            targets=targets if isinstance(targets, Iterable) else [],
+        )
     if kind == "opaque":
         return make_opaque_key(str(key.get("s", "") or ""))
     if not kind:
@@ -167,6 +225,22 @@ def render_display(
         path = str(site.get("path", "") or "")
         qual = str(site.get("qual", "") or "")
         return f"E:function_site::{path}::{qual}"
+    if kind == "call_footprint":
+        site = normalized.get("site", {})
+        path = str(site.get("path", "") or "")
+        qual = str(site.get("qual", "") or "")
+        parts = [path, qual]
+        targets = normalized.get("targets", [])
+        if isinstance(targets, list):
+            for target in targets:
+                if not isinstance(target, Mapping):
+                    continue
+                target_path = str(target.get("path", "") or "")
+                target_qual = str(target.get("qual", "") or "")
+                if not target_path or not target_qual:
+                    continue
+                parts.extend([target_path, target_qual])
+        return "E:call_footprint::" + "::".join(parts)
     return f"E:{kind}"
 
 
@@ -201,6 +275,16 @@ def parse_display(display: str) -> dict[str, object] | None:
             return None
         path, qual = rest
         return make_function_site_key(path=path, qual=qual)
+    if prefix == "call_footprint":
+        if len(rest) < 2:
+            return None
+        path, qual, *targets = rest
+        if targets and len(targets) % 2 != 0:
+            return None
+        target_pairs = []
+        for idx in range(0, len(targets), 2):
+            target_pairs.append((targets[idx], targets[idx + 1]))
+        return make_call_footprint_key(path=path, qual=qual, targets=target_pairs)
     return None
 
 

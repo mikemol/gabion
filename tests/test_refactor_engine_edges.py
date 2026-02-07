@@ -30,6 +30,7 @@ def _load():
     )
 
 
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_handles_missing_file(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     request = RefactorRequest(
@@ -41,6 +42,7 @@ def test_refactor_engine_handles_missing_file(tmp_path: Path) -> None:
     assert plan.errors
 
 
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_handles_parse_error(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     target = tmp_path / "bad.py"
@@ -54,6 +56,7 @@ def test_refactor_engine_handles_parse_error(tmp_path: Path) -> None:
     assert plan.errors
 
 
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_requires_protocol_name(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     target = tmp_path / "sample.py"
@@ -67,6 +70,7 @@ def test_refactor_engine_requires_protocol_name(tmp_path: Path) -> None:
     assert plan.errors
 
 
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_requires_bundle_or_fields(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     target = tmp_path / "sample.py"
@@ -80,6 +84,7 @@ def test_refactor_engine_requires_bundle_or_fields(tmp_path: Path) -> None:
     assert plan.errors
 
 
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_invalid_type_hint_warns(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest, *_ = _load()
     target = tmp_path / "sample.py"

@@ -21,6 +21,7 @@ from gabion.refactor.engine import (
 from gabion.refactor.model import FieldSpec, RefactorRequest
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.FieldSpec::model.py::gabion.refactor.model.RefactorRequest
 def test_plan_protocol_extraction_relative_path_and_fields(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text("def f(a, b):\n    return a\n")
@@ -35,6 +36,7 @@ def test_plan_protocol_extraction_relative_path_and_fields(tmp_path: Path) -> No
     assert plan.edits
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_typing_import_variants::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.RefactorRequest
 def test_plan_protocol_extraction_typing_import_variants(tmp_path: Path) -> None:
     engine = RefactorEngine(project_root=tmp_path)
 
@@ -228,6 +230,7 @@ def test_rewrite_call_sites_in_project_read_errors(tmp_path: Path) -> None:
     assert edits == []
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_transformer_helpers::engine.py::gabion.refactor.engine._RefactorTransformer
 def test_refactor_transformer_helpers() -> None:
     transformer = _RefactorTransformer(
         targets={"f"},
@@ -259,6 +262,7 @@ def test_refactor_transformer_helpers() -> None:
     assert passthrough is not None
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_transformer_async_and_no_params::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.RefactorRequest
 def test_refactor_transformer_async_and_no_params(tmp_path: Path) -> None:
     target = tmp_path / "mod.py"
     target.write_text(
@@ -285,6 +289,7 @@ def test_refactor_transformer_async_and_no_params(tmp_path: Path) -> None:
     assert plan.edits
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_call_site_transformer_helpers::engine.py::gabion.refactor.engine._CallSiteTransformer
 def test_call_site_transformer_helpers() -> None:
     transformer = _CallSiteTransformer(
         file_is_target=True,

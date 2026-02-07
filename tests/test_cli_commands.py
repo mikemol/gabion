@@ -14,6 +14,7 @@ def _has_pygls() -> bool:
     return importlib.util.find_spec("pygls") is not None
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -70,6 +71,7 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     assert "Type ambiguities" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app
 def test_cli_docflow_audit() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     runner = CliRunner()
@@ -85,12 +87,14 @@ def test_cli_docflow_audit() -> None:
     assert result.exit_code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_dataflow_audit_requires_paths::cli.py::gabion.cli.app
 def test_cli_dataflow_audit_requires_paths() -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["dataflow-audit"])
     assert result.exit_code != 0
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -156,6 +160,7 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     assert output_path.exists()
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_structure_diff(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
@@ -179,6 +184,7 @@ def test_cli_structure_diff(tmp_path: Path) -> None:
     assert "\"diff\"" in result.output
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -201,6 +207,7 @@ def test_cli_refactor_protocol(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json::cli.py::gabion.cli.app
 def test_cli_synthesis_plan_invalid_json(tmp_path: Path) -> None:
     payload_path = tmp_path / "bad.json"
     payload_path.write_text("{bad")
@@ -210,6 +217,7 @@ def test_cli_synthesis_plan_invalid_json(tmp_path: Path) -> None:
     assert "Invalid JSON payload" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_invalid_json::cli.py::gabion.cli.app
 def test_cli_refactor_protocol_invalid_json(tmp_path: Path) -> None:
     payload_path = tmp_path / "bad.json"
     payload_path.write_text("{bad")
@@ -226,6 +234,7 @@ def test_cli_refactor_protocol_invalid_json(tmp_path: Path) -> None:
     assert "Invalid JSON payload" in result.output
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
@@ -243,6 +252,7 @@ def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
     assert result.output.strip().startswith("{")
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol_output_file(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -269,6 +279,7 @@ def test_cli_refactor_protocol_output_file(tmp_path: Path) -> None:
     assert out_path.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_strictness::cli.py::gabion.cli.app
 def test_cli_synth_invalid_strictness(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a\n")
@@ -281,6 +292,7 @@ def test_cli_synth_invalid_strictness(tmp_path: Path) -> None:
     assert "strictness" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_protocols_kind::cli.py::gabion.cli.app
 def test_cli_synth_invalid_protocols_kind(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a\n")

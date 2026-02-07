@@ -200,6 +200,7 @@ def test_render_markdown_includes_suffix_details() -> None:
     assert "opaque: 1" in report
 
 
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.RiskInfo.from_payload
 def test_risk_info_from_payload_variants() -> None:
     assert test_obsolescence.RiskInfo.from_payload("nope") is None
     assert test_obsolescence.RiskInfo.from_payload({"risk": ""}) is None
@@ -210,6 +211,7 @@ def test_risk_info_from_payload_variants() -> None:
     assert info.risk == "high"
 
 
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence
 def test_load_test_evidence_errors(tmp_path: Path) -> None:
     bad_schema = tmp_path / "bad.json"
     bad_schema.write_text(json.dumps({"schema_version": 3, "tests": []}))
@@ -222,6 +224,7 @@ def test_load_test_evidence_errors(tmp_path: Path) -> None:
         test_obsolescence.load_test_evidence(str(bad_tests))
 
 
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence
 def test_load_test_evidence_skips_invalid_entries(tmp_path: Path) -> None:
     payload = {
         "schema_version": 2,
@@ -238,6 +241,7 @@ def test_load_test_evidence_skips_invalid_entries(tmp_path: Path) -> None:
     assert status_by_test["t1"] == "mapped"
 
 
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._parse_risk_registry_payload E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_risk_registry
 def test_load_risk_registry_variants(tmp_path: Path) -> None:
     missing = tmp_path / "missing.json"
     assert test_obsolescence.load_risk_registry(str(missing)) == {}
@@ -269,6 +273,7 @@ def test_load_risk_registry_variants(tmp_path: Path) -> None:
     assert list(registry.keys()) == ["E:ok"]
 
 
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.compute_dominators
 def test_compute_dominators_handles_empty_evidence() -> None:
     dominators = test_obsolescence.compute_dominators({"t1": []})
     assert dominators["t1"] == []
@@ -312,6 +317,7 @@ def test_guardrail_and_opaque_evidence() -> None:
     assert summary["redundant_by_evidence"] == 0
 
 
+# gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
 def test_summarize_candidates_handles_bad_counts() -> None:
     def apply(_spec, _relation):
         return [{"class": "unmapped", "count": "bad"}]
