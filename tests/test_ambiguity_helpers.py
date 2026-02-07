@@ -42,6 +42,35 @@ def test_collect_call_ambiguities_skips_test_calls(tmp_path: Path) -> None:
     assert ambiguities == []
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities
+def test_collect_call_ambiguities_skips_test_calls_in_tests_dir(
+    tmp_path: Path,
+) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    source = tests_dir / "test_mod.py"
+    source.write_text(
+        "\n".join(
+            [
+                "def helper(x):",
+                "    return x",
+                "",
+                "def test_call():",
+                "    helper(1)",
+            ]
+        )
+        + "\n"
+    )
+    ambiguities = da._collect_call_ambiguities(
+        [source],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=False,
+    )
+    assert ambiguities == []
+
+
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities
 def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
@@ -89,6 +118,22 @@ def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
     )
     assert any("Counts by witness kind" in line for line in summary)
     assert any("... " in line for line in summary)
+
+
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_call_ambiguities
+def test_summarize_call_ambiguities_handles_empty_and_invalid_entries() -> None:
+    assert da._summarize_call_ambiguities([]) == []
+    summary = da._summarize_call_ambiguities(
+        [
+            {
+                "kind": "local_resolution_ambiguous",
+                "site": {"path": "mod.py", "function": "f", "span": ["x", "y", 0, 0]},
+                "candidate_count": "bad",
+            }
+        ],
+        max_entries=1,
+    )
+    assert any("Counts by witness kind" in line for line in summary)
 
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_report

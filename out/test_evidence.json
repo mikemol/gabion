@@ -5072,6 +5072,45 @@
       ]
     },
     {
+      "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.load_baseline",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.load_baseline"
+        }
+      },
+      "tests": [
+        "tests/test_ambiguity_delta.py::test_ambiguity_baseline_load_rejects_non_object"
+      ]
+    },
+    {
+      "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.parse_baseline_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.parse_baseline_payload"
+        }
+      },
+      "tests": [
+        "tests/test_ambiguity_delta.py::test_ambiguity_baseline_rejects_invalid_version"
+      ]
+    },
+    {
+      "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.render_markdown"
+        }
+      },
+      "tests": [
+        "tests/test_ambiguity_delta.py::test_ambiguity_delta_render_handles_invalid_numbers"
+      ]
+    },
+    {
       "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
       "key": {
         "k": "function_site",
@@ -5242,7 +5281,8 @@
         }
       },
       "tests": [
-        "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls"
+        "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls",
+        "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls_in_tests_dir"
       ]
     },
     {
@@ -5503,6 +5543,19 @@
       ]
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_call_ambiguities",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._summarize_call_ambiguities"
+        }
+      },
+      "tests": [
+        "tests/test_ambiguity_helpers.py::test_summarize_call_ambiguities_handles_empty_and_invalid_entries"
+      ]
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files",
       "key": {
         "k": "function_site",
@@ -5595,6 +5648,19 @@
       },
       "tests": [
         "tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_evidence_summary"
+      ]
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys._normalize_span",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys._normalize_span"
+        }
+      },
+      "tests": [
+        "tests/test_evidence_keys.py::test_normalize_span_and_site_edges"
       ]
     },
     {
@@ -5694,6 +5760,7 @@
         }
       },
       "tests": [
+        "tests/test_evidence_keys.py::test_parse_display_ambiguity_edges",
         "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
       ]
     },
@@ -5707,6 +5774,7 @@
         }
       },
       "tests": [
+        "tests/test_evidence_keys.py::test_render_display_call_footprint_skips_invalid_targets",
         "tests/test_evidence_keys.py::test_render_display_handles_non_list_params",
         "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates",
         "tests/test_test_evidence_suggestions_edges.py::test_render_markdown_and_payload",
@@ -5937,9 +6005,12 @@
       },
       "tests": [
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta",
         "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags",
         "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags",
+        "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline",
+        "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
       ]
@@ -5958,6 +6029,19 @@
       ]
     },
     {
+      "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift._summarize",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift.py",
+          "qual": "gabion.analysis.test_annotation_drift._summarize"
+        }
+      },
+      "tests": [
+        "tests/test_test_annotation_drift.py::test_annotation_drift_summarize_unknown_status"
+      ]
+    },
+    {
       "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload",
       "key": {
         "k": "function_site",
@@ -5972,6 +6056,19 @@
       ]
     },
     {
+      "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift.py",
+          "qual": "gabion.analysis.test_annotation_drift.render_markdown"
+        }
+      },
+      "tests": [
+        "tests/test_test_annotation_drift.py::test_annotation_drift_render_sections_and_write"
+      ]
+    },
+    {
       "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.build_delta_payload",
       "key": {
         "k": "function_site",
@@ -5982,6 +6079,32 @@
       },
       "tests": [
         "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_payload_and_render"
+      ]
+    },
+    {
+      "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.parse_baseline_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift_delta.py",
+          "qual": "gabion.analysis.test_annotation_drift_delta.parse_baseline_payload"
+        }
+      },
+      "tests": [
+        "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_rejects_bad_baseline"
+      ]
+    },
+    {
+      "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift_delta.py",
+          "qual": "gabion.analysis.test_annotation_drift_delta.render_markdown"
+        }
+      },
+      "tests": [
+        "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_handles_invalid_numbers"
       ]
     },
     {
@@ -6883,6 +7006,42 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.load_baseline",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "ambiguity_delta.py",
+              "qual": "gabion.analysis.ambiguity_delta.load_baseline"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_delta.py",
+      "line": 41,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_baseline_load_rejects_non_object"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.parse_baseline_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "ambiguity_delta.py",
+              "qual": "gabion.analysis.ambiguity_delta.parse_baseline_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_delta.py",
+      "line": 35,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_baseline_rejects_invalid_version"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload",
           "key": {
             "k": "function_site",
@@ -6894,9 +7053,27 @@
         }
       ],
       "file": "tests/test_ambiguity_delta.py",
-      "line": 7,
+      "line": 9,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_delta_payload_and_render"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "ambiguity_delta.py",
+              "qual": "gabion.analysis.ambiguity_delta.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_delta.py",
+      "line": 49,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_delta_render_handles_invalid_numbers"
     },
     {
       "evidence": [
@@ -6919,6 +7096,24 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._collect_call_ambiguities"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_helpers.py",
+      "line": 46,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls_in_tests_dir"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities",
           "key": {
             "k": "function_site",
@@ -6930,7 +7125,7 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 46,
+      "line": 75,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_dedupe_emit_and_lint_call_ambiguities"
     },
@@ -6948,9 +7143,45 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 95,
+      "line": 140,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_render_report_includes_ambiguities"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_call_ambiguities",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._summarize_call_ambiguities"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_helpers.py",
+      "line": 124,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_helpers.py::test_summarize_call_ambiguities_handles_empty_and_invalid_entries"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_annotation_drift_delta.py",
+              "qual": "gabion.analysis.test_annotation_drift_delta.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_annotation_drift_delta.py",
+      "line": 40,
+      "status": "mapped",
+      "test_id": "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_handles_invalid_numbers"
     },
     {
       "evidence": [
@@ -6966,9 +7197,27 @@
         }
       ],
       "file": "tests/test_annotation_drift_delta.py",
-      "line": 7,
+      "line": 9,
       "status": "mapped",
       "test_id": "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_payload_and_render"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.parse_baseline_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_annotation_drift_delta.py",
+              "qual": "gabion.analysis.test_annotation_drift_delta.parse_baseline_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_annotation_drift_delta.py",
+      "line": 27,
+      "status": "mapped",
+      "test_id": "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_rejects_bad_baseline"
     },
     {
       "evidence": [
@@ -24056,7 +24305,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 204,
+      "line": 231,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_ambiguity_span_normalization_edges"
     },
@@ -24133,6 +24382,42 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys._normalize_span",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys._normalize_span"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_evidence_keys.py",
+      "line": 204,
+      "status": "mapped",
+      "test_id": "tests/test_evidence_keys.py::test_normalize_span_and_site_edges"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.parse_display"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_evidence_keys.py",
+      "line": 224,
+      "status": "mapped",
+      "test_id": "tests/test_evidence_keys.py::test_parse_display_ambiguity_edges"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason",
           "key": {
             "k": "decision_surface",
@@ -24149,6 +24434,24 @@
       "line": 99,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_variants"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_evidence_keys.py",
+      "line": 211,
+      "status": "mapped",
+      "test_id": "tests/test_evidence_keys.py::test_render_display_call_footprint_skips_invalid_targets"
     },
     {
       "evidence": [
@@ -32050,7 +32353,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 795,
+      "line": 912,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
     },
@@ -32068,9 +32371,27 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 678,
+      "line": 795,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 625,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift"
     },
     {
       "evidence": [
@@ -33016,7 +33337,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 723,
+      "line": 840,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags"
     },
@@ -33034,7 +33355,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 660,
+      "line": 760,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags"
     },
@@ -33186,7 +33507,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 739,
+      "line": 856,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
     },
@@ -33360,6 +33681,42 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 778,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 680,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
           "key": {
             "k": "decision_surface",
@@ -33505,7 +33862,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 758,
+      "line": 875,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
     },
@@ -33523,7 +33880,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 704,
+      "line": 821,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline"
     },
@@ -33541,7 +33898,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 625,
+      "line": 725,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
     },
@@ -34097,7 +34454,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 822,
+      "line": 939,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
     },
@@ -34117,7 +34474,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 829,
+      "line": 946,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
     },
@@ -34137,7 +34494,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 803,
+      "line": 920,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
     },
@@ -34317,7 +34674,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 836,
+      "line": 953,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
     },
@@ -34337,7 +34694,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 859,
+      "line": 976,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
     },
@@ -34357,7 +34714,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 843,
+      "line": 960,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
     },
@@ -34377,7 +34734,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 866,
+      "line": 983,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
     },
@@ -36664,6 +37021,42 @@
       "line": 10,
       "status": "mapped",
       "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_orphaned"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_annotation_drift.py",
+              "qual": "gabion.analysis.test_annotation_drift.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_annotation_drift.py",
+      "line": 137,
+      "status": "mapped",
+      "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_render_sections_and_write"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift._summarize",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_annotation_drift.py",
+              "qual": "gabion.analysis.test_annotation_drift._summarize"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_annotation_drift.py",
+      "line": 168,
+      "status": "mapped",
+      "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_summarize_unknown_status"
     },
     {
       "evidence": [

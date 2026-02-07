@@ -622,6 +622,106 @@ def test_execute_command_emits_annotation_drift_delta(tmp_path: Path) -> None:
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_annotation_drift(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_sample.py").write_text(
+        "# gabion:evidence E:function_site::sample.py::pkg.fn\n"
+        "def test_alpha():\n"
+        "    assert True\n"
+    )
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    key = {"k": "function_site", "site": {"path": "sample.py", "qual": "pkg.fn"}}
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": ["tests"], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [{"key": key, "display": "E:function_site::sample.py::pkg.fn"}],
+                "status": "mapped",
+            }
+        ],
+        "evidence_index": [
+            {
+                "key": key,
+                "display": "E:function_site::sample.py::pkg.fn",
+                "tests": ["tests/test_sample.py::test_alpha"],
+            }
+        ],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(tests_dir)],
+            "emit_test_annotation_drift": True,
+        },
+    )
+    assert (out_dir / "test_annotation_drift.json").exists()
+    assert (out_dir / "test_annotation_drift.md").exists()
+    assert "test_annotation_drift_summary" in result
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_requires_annotation_drift_baseline(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_sample.py").write_text(
+        "# gabion:evidence E:function_site::sample.py::pkg.fn\n"
+        "def test_alpha():\n"
+        "    assert True\n"
+    )
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    key = {"k": "function_site", "site": {"path": "sample.py", "qual": "pkg.fn"}}
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": ["tests"], "exclude": []},
+        "tests": [],
+        "evidence_index": [
+            {
+                "key": key,
+                "display": "E:function_site::sample.py::pkg.fn",
+                "tests": [],
+            }
+        ],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(tests_dir)],
+                "emit_test_annotation_drift_delta": True,
+            },
+        )
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
 def test_execute_command_writes_annotation_drift_baseline(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
@@ -669,6 +769,23 @@ def test_execute_command_rejects_annotation_drift_flags(tmp_path: Path) -> None:
                 "paths": [str(module_path)],
                 "emit_test_annotation_drift_delta": True,
                 "write_test_annotation_drift_baseline": True,
+            },
+        )
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_requires_ambiguity_baseline(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_ambiguity_delta": True,
             },
         )
 

@@ -131,3 +131,40 @@ def test_annotation_drift_legacy_ambiguous_and_missing(tmp_path: Path) -> None:
     summary = payload.get("summary", {})
     assert summary.get("legacy_ambiguous") == 1
     assert summary.get("orphaned") == 1
+
+
+# gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.render_markdown
+def test_annotation_drift_render_sections_and_write(tmp_path: Path) -> None:
+    payload = {
+        "summary": {"ok": 1},
+        "entries": [
+            "bad",
+            {"status": "orphaned", "test_id": "t1", "tag": "E:bad", "reason": "x"},
+            {
+                "status": "legacy_tag",
+                "test_id": "t2",
+                "tag": "E:legacy",
+                "reason": "legacy_display",
+            },
+            {
+                "status": "legacy_ambiguous",
+                "test_id": "t3",
+                "tag": "E:legacy",
+                "reason": "legacy_display_ambiguous",
+            },
+        ],
+    }
+    rendered = test_annotation_drift.render_markdown(payload)
+    assert "Orphaned tags:" in rendered
+    assert "Legacy tags:" in rendered
+    assert "Ambiguous legacy tags:" in rendered
+
+    output_path = tmp_path / "out" / "test_annotation_drift.json"
+    test_annotation_drift.write_annotation_drift(payload, output_path=output_path)
+    assert output_path.exists()
+
+
+# gabion:evidence E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift._summarize
+def test_annotation_drift_summarize_unknown_status() -> None:
+    summary = test_annotation_drift._summarize([{"status": "custom"}])
+    assert summary["custom"] == 1

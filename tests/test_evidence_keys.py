@@ -200,6 +200,33 @@ def test_call_footprint_normalization_edges() -> None:
         }
 
 
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys._normalize_span
+def test_normalize_span_and_site_edges() -> None:
+    assert evidence_keys._normalize_span("bad") is None
+    assert evidence_keys._normalize_site(["only"]) == {"path": "", "qual": ""}
+    assert evidence_keys._normalize_site("bad") == {"path": "", "qual": ""}
+
+
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+def test_render_display_call_footprint_skips_invalid_targets() -> None:
+    def fake_normalize(_key):
+        return {
+            "k": "call_footprint",
+            "site": {"path": "tests/test.py", "qual": "test"},
+            "targets": ["bad", {"path": "", "qual": ""}, {"path": "p", "qual": "q"}],
+        }
+
+    display = evidence_keys.render_display({"k": "call_footprint"}, normalize=fake_normalize)
+    assert display == "E:call_footprint::tests/test.py::test::p::q"
+
+
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display
+def test_parse_display_ambiguity_edges() -> None:
+    assert evidence_keys.parse_display("E:ambiguity_set") is None
+    assert evidence_keys.parse_display("E:ambiguity_set::123") is None
+    assert evidence_keys.parse_display("E:partition_witness") is None
+    assert evidence_keys.parse_display("E:partition_witness::123") is None
+
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key
 def test_ambiguity_span_normalization_edges() -> None:
     key = evidence_keys.normalize_key(

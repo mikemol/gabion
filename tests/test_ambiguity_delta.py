@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from gabion.analysis import ambiguity_delta
 
 
@@ -27,3 +29,33 @@ def test_ambiguity_delta_payload_and_render() -> None:
     md = ambiguity_delta.render_markdown(delta_payload)
     assert "generated_by_spec_id" in md
     assert "total:" in md
+
+
+# gabion:evidence E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.parse_baseline_payload
+def test_ambiguity_baseline_rejects_invalid_version() -> None:
+    with pytest.raises(ValueError):
+        ambiguity_delta.parse_baseline_payload({"version": "bad", "summary": {}})
+
+
+# gabion:evidence E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.load_baseline
+def test_ambiguity_baseline_load_rejects_non_object(tmp_path) -> None:
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text("[]\n")
+    with pytest.raises(ValueError):
+        ambiguity_delta.load_baseline(str(baseline_path))
+
+
+# gabion:evidence E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.render_markdown
+def test_ambiguity_delta_render_handles_invalid_numbers() -> None:
+    payload = {
+        "summary": {
+            "total": {"baseline": 1, "current": 1, "delta": "bad"},
+            "by_kind": {
+                "baseline": {"x": 1},
+                "current": {"x": 1},
+                "delta": {"x": "bad"},
+            },
+        }
+    }
+    rendered = ambiguity_delta.render_markdown(payload)
+    assert "total:" in rendered
