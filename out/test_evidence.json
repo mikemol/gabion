@@ -24305,7 +24305,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 231,
+      "line": 232,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_ambiguity_span_normalization_edges"
     },
@@ -24411,7 +24411,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 224,
+      "line": 225,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_ambiguity_edges"
     },
@@ -24449,7 +24449,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 211,
+      "line": 212,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_render_display_call_footprint_skips_invalid_targets"
     },
