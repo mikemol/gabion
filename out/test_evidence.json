@@ -5167,6 +5167,20 @@
       ]
     },
     {
+      "display": "E:function_site::cli.py::gabion.cli.build_check_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.build_check_payload"
+        }
+      },
+      "tests": [
+        "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write",
+        "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
+      ]
+    },
+    {
       "display": "E:function_site::cli.py::gabion.cli.run_decision_diff",
       "key": {
         "k": "function_site",
@@ -6823,8 +6837,6 @@
       "tests": [
         "tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
         "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline",
-        "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write",
-        "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write",
         "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent",
         "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline",
         "tests/test_dataflow_audit_run.py::test_run_baseline_write_requires_path",
@@ -8876,10 +8888,13 @@
     {
       "evidence": [
         {
-          "display": "E:baseline/ratchet_monotonicity",
+          "display": "E:function_site::cli.py::gabion.cli.build_check_payload",
           "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.build_check_payload"
+            }
           }
         }
       ],
@@ -8891,10 +8906,13 @@
     {
       "evidence": [
         {
-          "display": "E:baseline/ratchet_monotonicity",
+          "display": "E:function_site::cli.py::gabion.cli.build_check_payload",
           "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.build_check_payload"
+            }
           }
         }
       ],

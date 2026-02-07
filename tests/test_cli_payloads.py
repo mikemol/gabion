@@ -280,7 +280,7 @@ def test_check_payload_rejects_delta_and_baseline_write() -> None:
         )
 
 
-# gabion:evidence E:baseline/ratchet_monotonicity
+# gabion:evidence E:function_site::cli.py::gabion.cli.build_check_payload
 def test_check_payload_rejects_annotation_drift_delta_and_baseline_write() -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_check_payload(
@@ -311,7 +311,7 @@ def test_check_payload_rejects_annotation_drift_delta_and_baseline_write() -> No
         )
 
 
-# gabion:evidence E:baseline/ratchet_monotonicity
+# gabion:evidence E:function_site::cli.py::gabion.cli.build_check_payload
 def test_check_payload_rejects_ambiguity_delta_and_baseline_write() -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_check_payload(
