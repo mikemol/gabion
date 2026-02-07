@@ -25,6 +25,8 @@ def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
     assert "generated_by_forest_spec_id" in snapshot
     assert "generated_by_forest_spec" in snapshot
     assert "forest_signature" in snapshot
+    assert snapshot["forest_signature_partial"] is True
+    assert snapshot["forest_signature_basis"] == "bundles_only"
     files = snapshot["files"]
     assert [entry["path"] for entry in files] == ["a.py", "b.py"]
     fn_entry = files[0]["functions"][0]

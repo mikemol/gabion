@@ -5984,7 +5984,9 @@ def load_structure_snapshot(path: Path) -> JSONObject:
 
 
 def compute_structure_metrics(
-    groups_by_path: dict[Path, dict[str, list[set[str]]]]
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    forest: Forest | None = None,
 ) -> JSONObject:
     file_count = len(groups_by_path)
     function_count = sum(len(groups) for groups in groups_by_path.values())
@@ -5999,7 +6001,7 @@ def compute_structure_metrics(
     size_histogram: dict[int, int] = defaultdict(int)
     for size in bundle_sizes:
         size_histogram[size] += 1
-    return {
+    metrics: JSONObject = {
         "files": file_count,
         "functions": function_count,
         "bundles": bundle_count,
@@ -6010,6 +6012,44 @@ def compute_structure_metrics(
             str(size): count for size, count in sorted(size_histogram.items())
         },
     }
+    if forest is not None:
+        metrics["forest_signature"] = build_forest_signature(forest)
+    else:
+        metrics.update(_partial_forest_signature_metadata(groups_by_path))
+    return metrics
+
+
+def _partial_forest_signature_metadata(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    basis: str = "bundles_only",
+) -> JSONObject:
+    return {
+        "forest_signature": build_forest_signature_from_groups(groups_by_path),
+        "forest_signature_partial": True,
+        "forest_signature_basis": basis,
+    }
+
+
+def _copy_forest_signature_metadata(
+    payload: JSONObject,
+    snapshot: JSONObject,
+    *,
+    prefix: str = "",
+) -> None:
+    signature = snapshot.get("forest_signature")
+    if signature is not None:
+        payload[f"{prefix}forest_signature"] = signature
+    partial = snapshot.get("forest_signature_partial")
+    if partial is not None:
+        payload[f"{prefix}forest_signature_partial"] = partial
+    basis = snapshot.get("forest_signature_basis")
+    if basis is not None:
+        payload[f"{prefix}forest_signature_basis"] = basis
+    if signature is None:
+        payload[f"{prefix}forest_signature_partial"] = True
+        if basis is None:
+            payload[f"{prefix}forest_signature_basis"] = "missing"
 
 
 def render_structure_snapshot(
@@ -6064,10 +6104,10 @@ def render_structure_snapshot(
     spec = forest_spec or default_forest_spec(include_bundle_forest=True)
     snapshot.update(forest_spec_metadata(spec))
     if forest is None:
-        signature = build_forest_signature_from_groups(groups_by_path)
+        signature_meta = _partial_forest_signature_metadata(groups_by_path)
+        snapshot.update(signature_meta)
     else:
-        signature = build_forest_signature(forest)
-    snapshot["forest_signature"] = signature
+        snapshot["forest_signature"] = build_forest_signature(forest)
     return snapshot
 
 
@@ -6093,6 +6133,9 @@ def render_decision_snapshot(
     if forest is not None:
         snapshot["forest"] = forest.to_json()
         snapshot["forest_signature"] = build_forest_signature(forest)
+    else:
+        snapshot["forest_signature_partial"] = True
+        snapshot["forest_signature_basis"] = "missing"
     spec = forest_spec or default_forest_spec(
         include_bundle_forest=forest is not None,
         include_decision_surfaces=True,
@@ -6120,7 +6163,7 @@ def diff_decision_snapshots(
     curr_decisions = set(current_snapshot.get("decision_surfaces") or [])
     base_value = set(baseline_snapshot.get("value_decision_surfaces") or [])
     curr_value = set(current_snapshot.get("value_decision_surfaces") or [])
-    return {
+    diff: JSONObject = {
         "format_version": 1,
         "baseline_root": baseline_snapshot.get("root"),
         "current_root": current_snapshot.get("root"),
@@ -6133,6 +6176,9 @@ def diff_decision_snapshots(
             "removed": sorted(base_value - curr_value),
         },
     }
+    _copy_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
+    _copy_forest_signature_metadata(diff, current_snapshot, prefix="current_")
+    return diff
 
 
 def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], int]:
@@ -6183,7 +6229,7 @@ def diff_structure_snapshots(
             removed.append(entry)
         elif before != after:
             changed.append(entry)
-    return {
+    diff: JSONObject = {
         "format_version": 1,
         "baseline_root": baseline_snapshot.get("root"),
         "current_root": current_snapshot.get("root"),
@@ -6198,6 +6244,9 @@ def diff_structure_snapshots(
             "current_total": sum(current_counts.values()),
         },
     }
+    _copy_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
+    _copy_forest_signature_metadata(diff, current_snapshot, prefix="current_")
+    return diff
 
 
 def diff_structure_snapshot_files(
@@ -6364,7 +6413,7 @@ def compute_structure_reuse(
                     )
         suggested.append(suggestion)
     replacement_map = _build_reuse_replacement_map(suggested)
-    return {
+    reuse_payload: JSONObject = {
         "format_version": 1,
         "min_count": min_count,
         "reused": reused,
@@ -6372,6 +6421,8 @@ def compute_structure_reuse(
         "replacement_map": replacement_map,
         "warnings": warnings,
     }
+    _copy_forest_signature_metadata(reuse_payload, snapshot)
+    return reuse_payload
 
 
 def _build_reuse_replacement_map(
@@ -6488,6 +6539,7 @@ def build_synthesis_plan(
         project_root=project_root or _infer_root(groups_by_path)
     )
     root = project_root or audit_config.project_root or _infer_root(groups_by_path)
+    signature_meta = _partial_forest_signature_metadata(groups_by_path)
     path_list = list(groups_by_path.keys())
     by_name, by_qual = _build_function_index(
         path_list,
@@ -6558,7 +6610,9 @@ def build_synthesis_plan(
             warnings=["No bundles observed for synthesis."],
             errors=[],
         )
-        return response.model_dump()
+        payload = response.model_dump()
+        payload.update(signature_meta)
+        return payload
 
     declared = _collect_declared_bundles(root)
     bundle_tiers: dict[frozenset[str], int] = {}
@@ -6702,7 +6756,9 @@ def build_synthesis_plan(
         warnings=plan.warnings + type_warnings,
         errors=plan.errors,
     )
-    return response.model_dump()
+    payload = response.model_dump()
+    payload.update(signature_meta)
+    return payload
 
 
 def render_synthesis_section(plan: JSONObject) -> str:
@@ -6830,9 +6886,12 @@ def build_refactor_plan(
     *,
     config: AuditConfig,
 ) -> JSONObject:
+    signature_meta = _partial_forest_signature_metadata(groups_by_path)
     file_paths = _iter_paths([str(p) for p in paths], config)
     if not file_paths:
-        return {"bundles": [], "warnings": ["No files available for refactor plan."]}
+        payload = {"bundles": [], "warnings": ["No files available for refactor plan."]}
+        payload.update(signature_meta)
+        return payload
 
     by_name, by_qual = _build_function_index(
         file_paths,
@@ -6894,7 +6953,9 @@ def build_refactor_plan(
     warnings: list[str] = []
     if not plans:
         warnings.append("No bundle components available for refactor plan.")
-    return {"bundles": plans, "warnings": warnings}
+    payload = {"bundles": plans, "warnings": warnings}
+    payload.update(signature_meta)
+    return payload
 
 
 def render_refactor_plan(plan: JSONObject) -> str:
@@ -7936,7 +7997,9 @@ def run(argv: list[str] | None = None) -> int:
         ):
             return 0
     if structure_metrics_path:
-        metrics = compute_structure_metrics(analysis.groups_by_path)
+        metrics = compute_structure_metrics(
+            analysis.groups_by_path, forest=analysis.forest
+        )
         payload_json = json.dumps(metrics, indent=2, sort_keys=True)
         if structure_metrics_path.strip() == "-":
             print(payload_json)

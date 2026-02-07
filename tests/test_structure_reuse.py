@@ -33,6 +33,8 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
         ],
     }
     reuse = da.compute_structure_reuse(snapshot, min_count=2)
+    assert reuse["forest_signature_partial"] is True
+    assert reuse["forest_signature_basis"] == "missing"
     kinds = {entry.get("kind") for entry in reuse.get("reused", [])}
     assert "bundle" in kinds
     assert "function" in kinds

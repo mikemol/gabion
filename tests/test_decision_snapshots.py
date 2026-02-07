@@ -42,3 +42,5 @@ def test_render_and_diff_decision_snapshots() -> None:
     assert diff["value_decision_surfaces"]["added"] == [
         "c.py:h value-encoded decision params: z (min/max)"
     ]
+    assert "baseline_forest_signature" in diff
+    assert "current_forest_signature" in diff

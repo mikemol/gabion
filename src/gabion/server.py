@@ -398,7 +398,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         else:
             Path(structure_tree_path).write_text(payload_json)
     if structure_metrics_path:
-        metrics = compute_structure_metrics(analysis.groups_by_path)
+        metrics = compute_structure_metrics(
+            analysis.groups_by_path, forest=analysis.forest
+        )
         payload_json = json.dumps(metrics, indent=2, sort_keys=True)
         if structure_metrics_path == "-":
             response["structure_metrics"] = metrics

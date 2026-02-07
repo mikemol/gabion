@@ -73,6 +73,10 @@ def test_diff_structure_snapshots_counts_and_summary() -> None:
         "baseline_total": 2,
         "current_total": 3,
     }
+    assert diff["baseline_forest_signature_partial"] is True
+    assert diff["baseline_forest_signature_basis"] == "missing"
+    assert diff["current_forest_signature_partial"] is True
+    assert diff["current_forest_signature_basis"] == "missing"
     assert diff["added"][0]["bundle"] == ["d"]
     assert diff["removed"][0]["bundle"] == ["c"]
     assert diff["changed"][0]["bundle"] == ["a", "b"]
