@@ -31,6 +31,7 @@ def make_decision_surface_key(
     qual: str,
     param: str,
 ) -> dict[str, object]:
+    # dataflow-bundle: mode, param, path, qual
     return {
         "k": "decision_surface",
         "m": str(mode).strip() or "direct",
@@ -49,6 +50,7 @@ def make_never_sink_key(
     param: str,
     reason: str | None = None,
 ) -> dict[str, object]:
+    # dataflow-bundle: param, path, qual
     key = {
         "k": "never_sink",
         "site": {
