@@ -209,6 +209,8 @@ def test_never_invariant_report_order_and_evidence(tmp_path: Path) -> None:
     )
     assert "Never invariants:" in report
     never_section = report.split("Never invariants:")[1]
+    assert "generated_by_spec_id:" in never_section
+    assert "generated_by_spec:" in never_section
     order = [
         never_section.find("VIOLATION:"),
         never_section.find("OBLIGATION:"),

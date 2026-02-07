@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from gabion.analysis import evidence_keys
+from gabion.analysis.projection_exec import apply_spec
+from gabion.analysis.projection_registry import (
+    TEST_OBSOLESCENCE_SUMMARY_SPEC,
+    spec_metadata_lines,
+    spec_metadata_payload,
+)
+
 
 @dataclass(frozen=True)
 class RiskInfo:
@@ -24,32 +32,40 @@ class RiskInfo:
         return cls(risk=risk, owner=owner, rationale=rationale)
 
 
+@dataclass(frozen=True)
+class EvidenceRef:
+    key: dict[str, object]
+    identity: str
+    display: str
+    opaque: bool
+
+
 def load_test_evidence(
     path: str,
-) -> tuple[dict[str, list[str]], dict[str, str]]:
+) -> tuple[dict[str, list[EvidenceRef]], dict[str, str]]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     schema_version = payload.get("schema_version")
-    if schema_version != 1:
+    if schema_version not in {1, 2}:
         raise ValueError(
-            f"Unsupported test evidence schema_version={schema_version!r}; expected 1"
+            f"Unsupported test evidence schema_version={schema_version!r}; expected 1 or 2"
         )
     tests = payload.get("tests", [])
     if not isinstance(tests, list):
         raise ValueError("test evidence payload is missing tests list")
-    entries: list[tuple[str, list[str], str]] = []
+    entries: list[tuple[str, list[EvidenceRef], str]] = []
     for entry in tests:
         if not isinstance(entry, Mapping):
             continue
         test_id = str(entry.get("test_id", "") or "").strip()
         if not test_id:
             continue
-        evidence = _normalize_evidence_list(entry.get("evidence", []))
+        evidence = _normalize_evidence_refs(entry.get("evidence", []))
         raw_status = entry.get("status")
         status = str(raw_status).strip() if raw_status is not None else ""
         if not status:
             status = "mapped" if evidence else "unmapped"
         entries.append((test_id, evidence, status))
-    evidence_by_test: dict[str, list[str]] = {}
+    evidence_by_test: dict[str, list[EvidenceRef]] = {}
     status_by_test: dict[str, str] = {}
     for test_id, evidence, status in sorted(entries, key=lambda item: item[0]):
         evidence_by_test[test_id] = evidence
@@ -112,13 +128,13 @@ def compute_dominators(
 
 
 def classify_candidates(
-    evidence_by_test: dict[str, list[str]],
+    evidence_by_test: dict[str, list[EvidenceRef]],
     status_by_test: dict[str, str],
     risk_registry: dict[str, RiskInfo],
 ) -> tuple[list[dict[str, object]], dict[str, int]]:
     # dataflow-bundle: evidence_by_test, status_by_test, risk_registry
     normalized_evidence = {
-        test_id: _normalize_evidence_list(evidence)
+        test_id: _normalize_evidence_refs(evidence)
         for test_id, evidence in evidence_by_test.items()
     }
     mapped_evidence = {
@@ -126,7 +142,12 @@ def classify_candidates(
         for test_id, evidence in normalized_evidence.items()
         if status_by_test.get(test_id) == "mapped" and evidence
     }
-    dominators = compute_dominators(mapped_evidence)
+    dominators = compute_dominators(
+        {
+            test_id: [ref.identity for ref in evidence]
+            for test_id, evidence in mapped_evidence.items()
+        }
+    )
     high_risk = sorted(
         evidence_id
         for evidence_id, info in risk_registry.items()
@@ -134,8 +155,8 @@ def classify_candidates(
     )
     evidence_to_tests: dict[str, set[str]] = {}
     for test_id, evidence in mapped_evidence.items():
-        for evidence_id in evidence:
-            evidence_to_tests.setdefault(evidence_id, set()).add(test_id)
+        for ref in evidence:
+            evidence_to_tests.setdefault(ref.display, set()).add(test_id)
     last_witness_by_test: dict[str, list[str]] = {}
     for evidence_id in high_risk:
         tests = evidence_to_tests.get(evidence_id, set())
@@ -147,30 +168,33 @@ def classify_candidates(
 
     equivalence: dict[tuple[str, ...], list[str]] = {}
     for test_id, evidence in mapped_evidence.items():
-        key = tuple(evidence)
+        key = tuple(ref.identity for ref in evidence)
         equivalence.setdefault(key, []).append(test_id)
     for peers in equivalence.values():
         peers.sort()
 
-    summary = {
-        "redundant_by_evidence": 0,
-        "equivalent_witness": 0,
-        "obsolete_candidate": 0,
-        "unmapped": 0,
-    }
+    class_order = [
+        "redundant_by_evidence",
+        "equivalent_witness",
+        "obsolete_candidate",
+        "unmapped",
+    ]
+    class_rank = {name: idx for idx, name in enumerate(class_order)}
     candidates: list[dict[str, object]] = []
     for test_id in sorted(normalized_evidence):
         evidence = normalized_evidence.get(test_id, [])
+        evidence_display = [ref.display for ref in evidence]
+        opaque_evidence = [ref.display for ref in evidence if ref.opaque]
         status = status_by_test.get(test_id, "unmapped")
         doms = dominators.get(test_id, [])
         guardrail_evidence = last_witness_by_test.get(test_id, [])
-        reason: dict[str, object] = {"evidence": evidence}
+        reason: dict[str, object] = {"evidence": evidence_display}
         if status != "mapped" or not evidence:
             class_name = "unmapped"
             reason["status"] = status
             doms = []
         else:
-            peers = equivalence.get(tuple(evidence), [])
+            peers = equivalence.get(tuple(ref.identity for ref in evidence), [])
             has_equivalent = len(peers) > 1
             if doms:
                 class_name = "redundant_by_evidence"
@@ -183,7 +207,8 @@ def classify_candidates(
                 class_name = "obsolete_candidate"
                 reason["guardrail"] = "high-risk-last-witness"
                 reason["guardrail_evidence"] = guardrail_evidence
-        summary[class_name] += 1
+        if opaque_evidence:
+            reason["opaque_evidence"] = opaque_evidence
         candidates.append(
             {
                 "test_id": test_id,
@@ -192,18 +217,13 @@ def classify_candidates(
                 "reason": reason,
             }
         )
-    class_order = {
-        "redundant_by_evidence": 0,
-        "equivalent_witness": 1,
-        "obsolete_candidate": 2,
-        "unmapped": 3,
-    }
     candidates.sort(
         key=lambda entry: (
-            class_order.get(str(entry.get("class", "")), 99),
+            class_rank.get(str(entry.get("class", "")), 99),
             str(entry.get("test_id", "")),
         )
     )
+    summary = _summarize_candidates(candidates, class_rank)
     return candidates, summary
 
 
@@ -216,6 +236,7 @@ def render_markdown(
     lines.append("# Test Obsolescence Report")
     lines.append("")
     lines.append("Summary:")
+    lines.extend(spec_metadata_lines(TEST_OBSOLESCENCE_SUMMARY_SPEC))
     for key in [
         "redundant_by_evidence",
         "equivalent_witness",
@@ -258,6 +279,9 @@ def render_markdown(
                 suffix_parts.append(f"guardrail: {guardrail}")
                 if evidence:
                     suffix_parts.append(f"evidence: {evidence}")
+            opaque_evidence = reason.get("opaque_evidence", []) or []
+            if opaque_evidence:
+                suffix_parts.append(f"opaque: {len(opaque_evidence)}")
             suffix = ""
             if suffix_parts:
                 suffix = " (" + "; ".join(suffix_parts) + ")"
@@ -266,15 +290,109 @@ def render_markdown(
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _normalize_evidence_list(value: object) -> list[str]:
+def render_json_payload(
+    candidates: list[dict[str, object]],
+    summary_counts: dict[str, int],
+) -> dict[str, object]:
+    payload = {
+        "version": 3,
+        "summary": summary_counts,
+        "candidates": candidates,
+    }
+    payload.update(spec_metadata_payload(TEST_OBSOLESCENCE_SUMMARY_SPEC))
+    return payload
+
+
+def _summarize_candidates(
+    candidates: list[dict[str, object]],
+    class_rank: dict[str, int],
+) -> dict[str, int]:
+    relation: list[dict[str, object]] = []
+    for entry in candidates:
+        class_name = str(entry.get("class", "") or "")
+        relation.append(
+            {
+                "class": class_name,
+                "class_rank": class_rank.get(class_name, 99),
+            }
+        )
+    summary_rows = apply_spec(
+        TEST_OBSOLESCENCE_SUMMARY_SPEC,
+        relation,
+    )
+    summary = {
+        "redundant_by_evidence": 0,
+        "equivalent_witness": 0,
+        "obsolete_candidate": 0,
+        "unmapped": 0,
+    }
+    for row in summary_rows:
+        class_name = str(row.get("class", "") or "")
+        try:
+            count = int(row.get("count", 0))
+        except (TypeError, ValueError):
+            count = 0
+        if class_name in summary:
+            summary[class_name] = count
+    return summary
+
+
+def _normalize_evidence_refs(value: object) -> list[EvidenceRef]:
     if value is None:
         return []
-    items: list[str] = []
+    if isinstance(value, EvidenceRef):
+        return [value]
+    refs: dict[str, EvidenceRef] = {}
     if isinstance(value, str):
-        items = [value]
-    elif isinstance(value, (list, tuple, set)):
-        items = [item for item in value if isinstance(item, str)]
-    else:
-        return []
-    cleaned = [item.strip() for item in items if item.strip()]
-    return sorted(set(cleaned))
+        value = [value]
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, EvidenceRef):
+                refs[item.identity] = item
+                continue
+            if isinstance(item, Mapping):
+                raw_key = item.get("key")
+                display = item.get("display")
+                key: dict[str, object] | None = None
+                if isinstance(raw_key, Mapping):
+                    key = evidence_keys.normalize_key(raw_key)
+                if key is None and isinstance(display, str):
+                    parsed = evidence_keys.parse_display(display)
+                    if parsed is not None:
+                        key = parsed
+                if key is None:
+                    if isinstance(display, str):
+                        key = evidence_keys.make_opaque_key(display)
+                    else:
+                        continue
+                key = evidence_keys.normalize_key(key)
+                identity = evidence_keys.key_identity(key)
+                rendered = evidence_keys.render_display(key)
+                if evidence_keys.is_opaque(key) and isinstance(display, str):
+                    rendered = display
+                refs[identity] = EvidenceRef(
+                    key=key,
+                    identity=identity,
+                    display=rendered,
+                    opaque=evidence_keys.is_opaque(key),
+                )
+            elif isinstance(item, str):
+                display = item.strip()
+                if not display:
+                    continue
+                key = evidence_keys.parse_display(display)
+                if key is None:
+                    key = evidence_keys.make_opaque_key(display)
+                key = evidence_keys.normalize_key(key)
+                identity = evidence_keys.key_identity(key)
+                rendered = evidence_keys.render_display(key)
+                if evidence_keys.is_opaque(key):
+                    rendered = display
+                refs[identity] = EvidenceRef(
+                    key=key,
+                    identity=identity,
+                    display=rendered,
+                    opaque=evidence_keys.is_opaque(key),
+                )
+    ordered = [refs[key] for key in sorted(refs)]
+    return ordered

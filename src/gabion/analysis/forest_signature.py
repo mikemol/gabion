@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Iterable
+
+from gabion.analysis.aspf import Alt, Forest, NodeId
+from gabion.json_types import JSONValue
+
+
+@dataclass(frozen=True)
+class ForestSignature:
+    version: int
+    nodes: dict[str, JSONValue]
+    alts: dict[str, JSONValue]
+
+    def as_dict(self) -> dict[str, JSONValue]:
+        return {
+            "version": self.version,
+            "nodes": self.nodes,
+            "alts": self.alts,
+        }
+
+
+def build_forest_signature(forest: Forest) -> dict[str, JSONValue]:
+    nodes = sorted(forest.nodes.keys(), key=lambda node_id: node_id.sort_key())
+    node_intern: list[list[JSONValue]] = []
+    node_index: dict[NodeId, int] = {}
+    for idx, node_id in enumerate(nodes):
+        node_index[node_id] = idx
+        node_intern.append([node_id.kind, _normalize_key(node_id.key)])
+
+    alt_kinds = sorted({alt.kind for alt in forest.alts})
+    alt_kind_index = {kind: idx for idx, kind in enumerate(alt_kinds)}
+    alt_edges: list[list[JSONValue]] = []
+    alts_sorted = sorted(forest.alts, key=lambda alt: _alt_sort_key(alt, node_index))
+    for alt in alts_sorted:
+        kind_idx = alt_kind_index[alt.kind]
+        inputs = [node_index[node_id] for node_id in alt.inputs]
+        alt_edges.append([kind_idx, inputs])
+
+    signature = ForestSignature(
+        version=1,
+        nodes={
+            "intern": node_intern,
+            "count": len(node_intern),
+        },
+        alts={
+            "kinds": alt_kinds,
+            "edges": alt_edges,
+            "count": len(alt_edges),
+        },
+    )
+    return signature.as_dict()
+
+
+def build_forest_signature_from_groups(
+    groups_by_path: dict[object, dict[str, list[set[str]]]]
+) -> dict[str, JSONValue]:
+    forest = Forest()
+    for path in sorted(groups_by_path, key=lambda item: str(item)):
+        groups = groups_by_path[path]
+        path_name = _path_name(path)
+        for fn_name in sorted(groups):
+            site_id = forest.add_site(path_name, fn_name)
+            for bundle in groups[fn_name]:
+                paramset_id = forest.add_paramset(bundle)
+                forest.add_alt("SignatureBundle", (site_id, paramset_id))
+    return build_forest_signature(forest)
+
+
+def _alt_sort_key(alt: Alt, node_index: dict[NodeId, int]) -> tuple:
+    return (
+        alt.kind,
+        tuple(node_index[node_id] for node_id in alt.inputs),
+    )
+
+
+def _normalize_key(parts: Iterable[object]) -> list[JSONValue]:
+    normalized: list[JSONValue] = []
+    for part in parts:
+        if isinstance(part, (str, int, float, bool)) or part is None:
+            normalized.append(part)
+        else:
+            normalized.append(str(part))
+    return normalized
+
+
+def _path_name(path: object) -> str:
+    name = getattr(path, "name", None)
+    if isinstance(name, str):
+        return name
+    return str(path)

@@ -388,6 +388,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         snapshot = render_structure_snapshot(
             analysis.groups_by_path,
             project_root=config.project_root,
+            forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
             invariant_propositions=analysis.invariant_propositions,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
@@ -408,6 +410,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             value_decision_surfaces=analysis.value_decision_surfaces,
             project_root=config.project_root,
             forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path == "-":
@@ -418,7 +421,13 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"
         entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
-        suggestions, summary = test_evidence_suggestions.suggest_evidence(entries)
+        suggestions, summary = test_evidence_suggestions.suggest_evidence(
+            entries,
+            root=report_root,
+            paths=paths,
+            forest=analysis.forest,
+            config=config,
+        )
         suggestions_payload = test_evidence_suggestions.render_json_payload(
             suggestions, summary
         )
@@ -442,11 +451,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         candidates, summary_counts = test_obsolescence.classify_candidates(
             evidence_by_test, status_by_test, risk_registry
         )
-        report_payload = {
-            "version": 2,
-            "summary": summary_counts,
-            "candidates": candidates,
-        }
+        report_payload = test_obsolescence.render_json_payload(
+            candidates, summary_counts
+        )
         output_dir = report_root / "out"
         output_dir.mkdir(parents=True, exist_ok=True)
         report_json = json.dumps(report_payload, indent=2, sort_keys=True) + "\n"

@@ -1,0 +1,283 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass, field
+from typing import Iterable, Mapping
+
+from gabion.json_types import JSONValue
+
+
+@dataclass(frozen=True)
+class ForestCollectorSpec:
+    name: str
+    outputs: tuple[str, ...] = ()
+    params: dict[str, JSONValue] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ForestSpec:
+    spec_version: int
+    name: str
+    collectors: tuple[ForestCollectorSpec, ...] = ()
+    params: dict[str, JSONValue] = field(default_factory=dict)
+    declared_outputs: tuple[str, ...] = ()
+
+
+def build_forest_spec(
+    *,
+    include_bundle_forest: bool,
+    include_decision_surfaces: bool,
+    include_value_decision_surfaces: bool,
+    include_never_invariants: bool,
+    ignore_params: Iterable[str] = (),
+    decision_ignore_params: Iterable[str] = (),
+    transparent_decorators: Iterable[str] = (),
+    strictness: str = "high",
+    decision_tiers: Mapping[str, int] | None = None,
+    require_tiers: bool = False,
+    external_filter: bool = True,
+) -> ForestSpec:
+    collectors: list[ForestCollectorSpec] = []
+    declared_outputs: set[str] = set()
+
+    if include_bundle_forest:
+        outputs = (
+            "FunctionSite",
+            "ParamSet",
+            "SignatureBundle",
+            "ConfigBundle",
+            "DataclassBundle",
+            "MarkerBundle",
+            "DataclassCallBundle",
+        )
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="bundle_forest",
+                outputs=outputs,
+                params={
+                    "ignore_params": _sorted_strings(ignore_params),
+                    "strictness": str(strictness),
+                    "transparent_decorators": _sorted_strings(transparent_decorators),
+                },
+            )
+        )
+
+    if include_decision_surfaces:
+        outputs = ("DecisionSurface",)
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="decision_surface",
+                outputs=outputs,
+                params={
+                    "ignore_params": _sorted_strings(decision_ignore_params),
+                    "strictness": str(strictness),
+                    "transparent_decorators": _sorted_strings(transparent_decorators),
+                    "decision_tiers": _normalize_decision_tiers(decision_tiers),
+                    "require_tiers": bool(require_tiers),
+                    "external_filter": bool(external_filter),
+                },
+            )
+        )
+
+    if include_value_decision_surfaces:
+        outputs = ("ValueDecisionSurface",)
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="value_decision_surface",
+                outputs=outputs,
+                params={
+                    "ignore_params": _sorted_strings(decision_ignore_params),
+                    "strictness": str(strictness),
+                    "transparent_decorators": _sorted_strings(transparent_decorators),
+                    "decision_tiers": _normalize_decision_tiers(decision_tiers),
+                    "require_tiers": bool(require_tiers),
+                    "external_filter": bool(external_filter),
+                },
+            )
+        )
+
+    if include_never_invariants:
+        outputs = ("NeverInvariantSink",)
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="never_invariants",
+                outputs=outputs,
+                params={
+                    "ignore_params": _sorted_strings(ignore_params),
+                },
+            )
+        )
+
+    return ForestSpec(
+        spec_version=1,
+        name="forest_v1",
+        collectors=tuple(collectors),
+        params={},
+        declared_outputs=tuple(sorted(declared_outputs)),
+    )
+
+
+def default_forest_spec(
+    *,
+    include_bundle_forest: bool = True,
+    include_decision_surfaces: bool = False,
+    include_value_decision_surfaces: bool = False,
+    include_never_invariants: bool = False,
+) -> ForestSpec:
+    return build_forest_spec(
+        include_bundle_forest=include_bundle_forest,
+        include_decision_surfaces=include_decision_surfaces,
+        include_value_decision_surfaces=include_value_decision_surfaces,
+        include_never_invariants=include_never_invariants,
+        ignore_params=(),
+        decision_ignore_params=(),
+        transparent_decorators=(),
+        strictness="high",
+        decision_tiers=None,
+        require_tiers=False,
+        external_filter=True,
+    )
+
+
+def forest_spec_to_dict(spec: ForestSpec) -> dict[str, JSONValue]:
+    return {
+        "spec_version": spec.spec_version,
+        "name": spec.name,
+        "params": dict(spec.params),
+        "declared_outputs": list(spec.declared_outputs),
+        "collectors": [
+            {
+                "name": collector.name,
+                "outputs": list(collector.outputs),
+                "params": dict(collector.params),
+            }
+            for collector in spec.collectors
+        ],
+    }
+
+
+def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
+    spec_version = payload.get("spec_version", 1)
+    try:
+        version = int(spec_version) if spec_version is not None else 1
+    except (TypeError, ValueError):
+        version = 1
+    spec_name = str(payload.get("name", "") or "")
+    params = payload.get("params")
+    spec_params: dict[str, JSONValue] = {}
+    if isinstance(params, Mapping):
+        spec_params = {str(k): v for k, v in params.items()}
+    declared_outputs: tuple[str, ...] = ()
+    outputs_payload = payload.get("declared_outputs", [])
+    if isinstance(outputs_payload, list):
+        declared_outputs = tuple(
+            str(entry) for entry in outputs_payload if str(entry).strip()
+        )
+    collectors_payload = payload.get("collectors", [])
+    collectors: list[ForestCollectorSpec] = []
+    if isinstance(collectors_payload, list):
+        for entry in collectors_payload:
+            if not isinstance(entry, Mapping):
+                continue
+            collector_name = str(entry.get("name", "") or "").strip()
+            if not collector_name:
+                continue
+            outputs = entry.get("outputs", [])
+            outputs_list: tuple[str, ...] = ()
+            if isinstance(outputs, list):
+                outputs_list = tuple(
+                    str(item) for item in outputs if str(item).strip()
+                )
+            params = entry.get("params")
+            collector_params: dict[str, JSONValue] = {}
+            if isinstance(params, Mapping):
+                collector_params = {str(k): v for k, v in params.items()}
+            collectors.append(
+                ForestCollectorSpec(
+                    name=collector_name,
+                    outputs=outputs_list,
+                    params=collector_params,
+                )
+            )
+    return ForestSpec(
+        spec_version=version,
+        name=spec_name,
+        collectors=tuple(collectors),
+        params=spec_params,
+        declared_outputs=declared_outputs,
+    )
+
+
+def normalize_forest_spec(spec: ForestSpec) -> dict[str, JSONValue]:
+    collectors = sorted(spec.collectors, key=lambda entry: entry.name)
+    return {
+        "spec_version": int(spec.spec_version) if spec.spec_version else 1,
+        "name": str(spec.name),
+        "params": _normalize_value(dict(spec.params)),
+        "declared_outputs": _sorted_strings(spec.declared_outputs),
+        "collectors": [
+            {
+                "name": collector.name,
+                "outputs": _sorted_strings(collector.outputs),
+                "params": _normalize_value(dict(collector.params)),
+            }
+            for collector in collectors
+        ],
+    }
+
+
+def forest_spec_canonical_json(spec: ForestSpec) -> str:
+    payload = normalize_forest_spec(spec)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def forest_spec_hash(spec: ForestSpec) -> str:
+    encoded = forest_spec_canonical_json(spec)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def forest_spec_metadata(spec: ForestSpec) -> dict[str, JSONValue]:
+    return {
+        "generated_by_forest_spec_id": forest_spec_hash(spec),
+        "generated_by_forest_spec": normalize_forest_spec(spec),
+    }
+
+
+def _normalize_decision_tiers(
+    tiers: Mapping[str, int] | None,
+) -> dict[str, int]:
+    if not tiers:
+        return {}
+    normalized: dict[str, int] = {}
+    for key, value in tiers.items():
+        name = str(key).strip()
+        if not name:
+            continue
+        try:
+            tier = int(value)
+        except (TypeError, ValueError):
+            continue
+        normalized[name] = tier
+    return {key: normalized[key] for key in sorted(normalized)}
+
+
+def _sorted_strings(values: Iterable[str] | None) -> list[str]:
+    if values is None:
+        return []
+    cleaned = {str(value).strip() for value in values if str(value).strip()}
+    return sorted(cleaned)
+
+
+def _normalize_value(value: JSONValue) -> JSONValue:
+    if isinstance(value, dict):
+        return {str(k): _normalize_value(value[k]) for k in sorted(value)}
+    if isinstance(value, list):
+        if value and all(isinstance(entry, str) for entry in value):
+            return _sorted_strings([str(entry) for entry in value])
+        return [_normalize_value(entry) for entry in value]
+    return value

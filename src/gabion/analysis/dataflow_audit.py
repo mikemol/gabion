@@ -24,7 +24,7 @@ import sys
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Callable, Iterable, Iterator
+from typing import Callable, Iterable, Iterator, Mapping
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -63,6 +63,18 @@ from gabion.analysis.type_fingerprints import (
     fingerprint_to_type_keys_with_remainder,
     synth_registry_payload,
 )
+from .forest_signature import (
+    build_forest_signature,
+    build_forest_signature_from_groups,
+)
+from .forest_spec import (
+    ForestSpec,
+    build_forest_spec,
+    default_forest_spec,
+    forest_spec_metadata,
+)
+from .projection_exec import apply_spec
+from .projection_registry import NEVER_INVARIANTS_SPEC, spec_metadata_lines
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
@@ -229,6 +241,7 @@ class AnalysisResult:
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
     forest: Forest | None = None
+    forest_spec: ForestSpec | None = None
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -2537,29 +2550,30 @@ def _summarize_never_invariants(
 ) -> list[str]:
     if not entries:
         return []
-    def _format_span(entry: JSONObject) -> str:
-        span = entry.get("span")
-        if not isinstance(span, list) or len(span) != 4:
-            return ""
+    def _format_span(row: Mapping[str, JSONValue]) -> str:
         try:
-            line, col, end_line, end_col = (int(part) for part in span)
+            line = int(row.get("span_line", -1))
+            col = int(row.get("span_col", -1))
+            end_line = int(row.get("span_end_line", -1))
+            end_col = int(row.get("span_end_col", -1))
         except (TypeError, ValueError):
+            return ""
+        if line < 0 or col < 0 or end_line < 0 or end_col < 0:
             return ""
         return f"{line + 1}:{col + 1}-{end_line + 1}:{end_col + 1}"
 
-    def _format_site(entry: JSONObject) -> str:
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
-        path = site.get("path", "?")
-        function = site.get("function", "?")
-        span = _format_span(entry)
+    def _format_site(row: Mapping[str, JSONValue]) -> str:
+        path = row.get("site_path") or "?"
+        function = row.get("site_function") or "?"
+        span = _format_span(row)
         if span:
             return f"{path}:{function}@{span}"
         return f"{path}:{function}"
 
-    def _format_evidence(entry: JSONObject, status: str) -> str:
-        witness_ref = entry.get("witness_ref")
-        env = entry.get("environment_ref")
-        undecidable = entry.get("undecidable_reason") or ""
+    def _format_evidence(row: Mapping[str, JSONValue], status: str) -> str:
+        witness_ref = row.get("witness_ref")
+        env = row.get("environment_ref")
+        undecidable = row.get("undecidable_reason") or ""
         parts: list[str] = []
         if status == "VIOLATION":
             if witness_ref:
@@ -2578,19 +2592,74 @@ def _summarize_never_invariants(
                 parts.append("why=no witness env available")
         return "; ".join(parts)
 
-    lines: list[str] = []
-    grouped: dict[str, list[JSONObject]] = {"VIOLATION": [], "OBLIGATION": [], "PROVEN_UNREACHABLE": []}
-    for entry in sorted(entries, key=_never_sort_key):
-        status = str(entry.get("status", "UNKNOWN"))
-        if status not in grouped:
-            grouped.setdefault(status, []).append(entry)
-        else:
-            grouped[status].append(entry)
+    def _never_status_allowed(
+        row: Mapping[str, JSONValue], params: Mapping[str, JSONValue]
+    ) -> bool:
+        status = str(row.get("status", "UNKNOWN") or "UNKNOWN")
+        if status == "PROVEN_UNREACHABLE":
+            include = params.get("include_proven_unreachable", True)
+            return bool(include)
+        return True
 
-    ordered_statuses = ["VIOLATION", "OBLIGATION", "PROVEN_UNREACHABLE"]
+    relation: list[dict[str, JSONValue]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        path = str(site.get("path", "") or "")
+        function = str(site.get("function", "") or "")
+        span = entry.get("span")
+        line = col = end_line = end_col = -1
+        if isinstance(span, list) and len(span) == 4:
+            try:
+                line = int(span[0])
+                col = int(span[1])
+                end_line = int(span[2])
+                end_col = int(span[3])
+            except (TypeError, ValueError):
+                line = col = end_line = end_col = -1
+        relation.append(
+            {
+                "status": status,
+                "status_rank": _NEVER_STATUS_ORDER.get(status, 3),
+                "site_path": path,
+                "site_function": function,
+                "span_line": line,
+                "span_col": col,
+                "span_end_line": end_line,
+                "span_end_col": end_col,
+                "never_id": str(entry.get("never_id", "") or ""),
+                "reason": str(entry.get("reason", "") or ""),
+                "witness_ref": entry.get("witness_ref"),
+                "environment_ref": entry.get("environment_ref"),
+                "undecidable_reason": str(entry.get("undecidable_reason", "") or ""),
+            }
+        )
+
+    params = dict(NEVER_INVARIANTS_SPEC.params)
+    params.update(
+        {
+            "max_entries": max_entries,
+            "include_proven_unreachable": include_proven_unreachable,
+        }
+    )
+    projected = apply_spec(
+        NEVER_INVARIANTS_SPEC,
+        relation,
+        op_registry={"never_status_allowed": _never_status_allowed},
+        params_override=params,
+    )
+    ordered_statuses = list(params.get("ordered_statuses") or [])
+    grouped: dict[str, list[dict[str, JSONValue]]] = {}
+    for row in projected:
+        status = str(row.get("status", "UNKNOWN") or "UNKNOWN")
+        grouped.setdefault(status, []).append(row)
     extra_statuses = sorted(
         status for status in grouped.keys() if status not in ordered_statuses
     )
+    lines: list[str] = []
+    lines.extend(spec_metadata_lines(NEVER_INVARIANTS_SPEC))
     for status in ordered_statuses + extra_statuses:
         if status == "PROVEN_UNREACHABLE" and not include_proven_unreachable:
             continue
@@ -5947,6 +6016,8 @@ def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
     project_root: Path | None = None,
+    forest: Forest | None = None,
+    forest_spec: ForestSpec | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
 ) -> JSONObject:
     root = project_root or _infer_root(groups_by_path)
@@ -5985,11 +6056,19 @@ def render_structure_snapshot(
                 ]
             functions.append(entry)
         files.append({"path": _normalize_snapshot_path(path, root), "functions": functions})
-    return {
+    snapshot: JSONObject = {
         "format_version": 1,
         "root": str(root) if root is not None else None,
         "files": files,
     }
+    spec = forest_spec or default_forest_spec(include_bundle_forest=True)
+    snapshot.update(forest_spec_metadata(spec))
+    if forest is None:
+        signature = build_forest_signature_from_groups(groups_by_path)
+    else:
+        signature = build_forest_signature(forest)
+    snapshot["forest_signature"] = signature
+    return snapshot
 
 
 # dataflow-bundle: decision_surfaces, value_decision_surfaces
@@ -5999,6 +6078,7 @@ def render_decision_snapshot(
     value_decision_surfaces: list[str],
     project_root: Path | None = None,
     forest: Forest | None = None,
+    forest_spec: ForestSpec | None = None,
 ) -> JSONObject:
     snapshot: JSONObject = {
         "format_version": 1,
@@ -6012,6 +6092,13 @@ def render_decision_snapshot(
     }
     if forest is not None:
         snapshot["forest"] = forest.to_json()
+        snapshot["forest_signature"] = build_forest_signature(forest)
+    spec = forest_spec or default_forest_spec(
+        include_bundle_forest=forest is not None,
+        include_decision_surfaces=True,
+        include_value_decision_surfaces=True,
+    )
+    snapshot.update(forest_spec_metadata(spec))
     return snapshot
 
 
@@ -7130,6 +7217,7 @@ def analyze_paths(
             )
 
     forest: Forest | None = None
+    forest_spec: ForestSpec | None = None
     if (
         include_bundle_forest
         or include_decision_surfaces
@@ -7143,6 +7231,20 @@ def analyze_paths(
             groups_by_path=groups_by_path,
             file_paths=file_paths,
             project_root=config.project_root,
+        )
+        forest_spec = build_forest_spec(
+            include_bundle_forest=True,
+            include_decision_surfaces=include_decision_surfaces,
+            include_value_decision_surfaces=include_value_decision_surfaces,
+            include_never_invariants=include_never_invariants,
+            ignore_params=config.ignore_params,
+            decision_ignore_params=config.decision_ignore_params
+            or config.ignore_params,
+            transparent_decorators=config.transparent_decorators,
+            strictness=config.strictness,
+            decision_tiers=config.decision_tiers,
+            require_tiers=config.decision_require_tiers,
+            external_filter=config.external_filter,
         )
 
     type_suggestions: list[str] = []
@@ -7366,6 +7468,7 @@ def analyze_paths(
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
         forest=forest,
+        forest_spec=forest_spec,
     )
 
 
@@ -7809,6 +7912,8 @@ def run(argv: list[str] | None = None) -> int:
         snapshot = render_structure_snapshot(
             analysis.groups_by_path,
             project_root=config.project_root,
+            forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
             invariant_propositions=analysis.invariant_propositions,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
@@ -7853,6 +7958,7 @@ def run(argv: list[str] | None = None) -> int:
             value_decision_surfaces=analysis.value_decision_surfaces,
             project_root=config.project_root,
             forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path.strip() == "-":
