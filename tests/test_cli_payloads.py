@@ -82,7 +82,6 @@ def test_check_payload_strictness_validation() -> None:
         )
 
 
-# gabion:evidence E:baseline/ratchet_monotonicity
 def test_check_payload_baseline_write_requires_baseline() -> None:
     payload = cli.build_check_payload(
         paths=[Path(".")],
@@ -146,7 +145,6 @@ def test_dataflow_audit_payload_parsing() -> None:
     assert payload["decision_snapshot"] == "decisions.json"
 
 
-# gabion:evidence E:baseline/ratchet_monotonicity
 def test_dataflow_payload_baseline_and_transparent() -> None:
     opts = cli.parse_dataflow_args(
         [

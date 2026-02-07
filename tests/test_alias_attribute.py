@@ -13,7 +13,6 @@ def _load():
     return analyze_paths, AuditConfig
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_alias_attribute_forwarding(tmp_path: Path) -> None:
     analyze_paths, AuditConfig = _load()
     source = textwrap.dedent(
@@ -44,7 +43,6 @@ def test_alias_attribute_forwarding(tmp_path: Path) -> None:
     assert groups.get("wrapper") == []
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_alias_attribute_object_attr(tmp_path: Path) -> None:
     analyze_paths, AuditConfig = _load()
     source = textwrap.dedent(

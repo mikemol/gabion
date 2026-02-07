@@ -429,7 +429,6 @@ def test_resolve_method_in_hierarchy_edges() -> None:
     )
 
 
-# gabion:evidence E:baseline/ratchet_monotonicity
 def test_render_helpers_and_baseline(tmp_path: Path) -> None:
     da = _load()
     assert da._infer_root({}) == Path(".")

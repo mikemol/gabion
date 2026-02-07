@@ -102,7 +102,6 @@ def test_import_visitor_relative_and_star() -> None:
     assert table.imports[("pkg.mod", "tool")] == "pkg.helpers.tool"
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_alias_from_call_branches() -> None:
     code = "def f(a, b):\n    return a\n"
     tree, visitor, _, _ = _make_use_visitor(
@@ -126,7 +125,6 @@ def test_alias_from_call_branches() -> None:
     visitor.visit(tree)
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_bind_sequence_and_return_alias_assignment() -> None:
     code = (
         "def f(a, b):\n"
@@ -254,7 +252,6 @@ def test_record_forward_skips_call_without_span() -> None:
     assert visitor._bind_sequence(mismatch_target, mismatch_rhs) is True
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_alias_from_call_keyword_branches() -> None:
     tree, visitor, _, _ = _make_use_visitor(
         "def f(a):\n    return a\n",
@@ -270,7 +267,6 @@ def test_alias_from_call_keyword_branches() -> None:
     visitor.visit(tree)
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_alias_from_call_positional_and_kw_aliases() -> None:
     tree, visitor, _, _ = _make_use_visitor(
         "def f(a):\n    return a\n",
@@ -284,7 +280,6 @@ def test_alias_from_call_positional_and_kw_aliases() -> None:
     visitor.visit(tree)
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_bind_return_alias_rejects_invalid_targets() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    return a\n", ["a"])
     targets = [
@@ -402,7 +397,6 @@ def test_visit_name_attribute_subscript_edges() -> None:
     )
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_collect_alias_sources_default() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     assert visitor._collect_alias_sources(ast.Constant(value=1)) == set()

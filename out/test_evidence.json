@@ -6827,93 +6827,6 @@
       "tests": [
         "tests/test_type_fingerprints.py::test_synth_registry_payload_handles_non_list_entries"
       ]
-    },
-    {
-      "display": "E:baseline/ratchet_monotonicity",
-      "key": {
-        "k": "opaque",
-        "s": "E:baseline/ratchet_monotonicity"
-      },
-      "tests": [
-        "tests/test_baseline_ratchet.py::test_baseline_write_and_apply",
-        "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline",
-        "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent",
-        "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline",
-        "tests/test_dataflow_audit_run.py::test_run_baseline_write_requires_path",
-        "tests/test_dataflow_audit_run.py::test_run_report_baseline_write_and_apply",
-        "tests/test_dataflow_run.py::test_run_baseline_write_and_apply",
-        "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
-        "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
-        "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
-        "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
-        "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
-        "tests/test_server_execute_command.py::test_execute_command_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
-      ]
-    },
-    {
-      "display": "E:bundle/alias_invariance",
-      "key": {
-        "k": "opaque",
-        "s": "E:bundle/alias_invariance"
-      },
-      "tests": [
-        "tests/test_alias_attribute.py::test_alias_attribute_forwarding",
-        "tests/test_alias_attribute.py::test_alias_attribute_object_attr",
-        "tests/test_alias_rename_invariance.py::test_chained_alias_preserves_bundle_identity",
-        "tests/test_alias_rename_invariance.py::test_direct_rename_preserves_bundle_identity",
-        "tests/test_alias_return_propagation.py::test_alias_propagation_via_return",
-        "tests/test_alias_unpacking.py::test_tuple_unpacking_preserves_bundle",
-        "tests/test_refactor_engine_more.py::test_rewrite_call_sites_module_alias_and_method_target",
-        "tests/test_visitors_edges.py::test_alias_from_call_branches",
-        "tests/test_visitors_edges.py::test_alias_from_call_keyword_branches",
-        "tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases",
-        "tests/test_visitors_edges.py::test_bind_return_alias_rejects_invalid_targets",
-        "tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment",
-        "tests/test_visitors_edges.py::test_collect_alias_sources_default",
-        "tests/test_visitors_unit.py::test_alias_from_call_rejects_starred",
-        "tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch",
-        "tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward"
-      ]
-    },
-    {
-      "display": "E:forest/canonical_paramset",
-      "key": {
-        "k": "opaque",
-        "s": "E:forest/canonical_paramset"
-      },
-      "tests": [
-        "tests/test_aspf.py::test_add_site_records_span",
-        "tests/test_aspf.py::test_paramset_packed_reuse"
-      ]
-    },
-    {
-      "display": "E:forest/packed_reuse",
-      "key": {
-        "k": "opaque",
-        "s": "E:forest/packed_reuse"
-      },
-      "tests": [
-        "tests/test_aspf.py::test_add_site_records_span",
-        "tests/test_aspf.py::test_paramset_packed_reuse"
-      ]
-    },
-    {
-      "display": "E:never/sink_classification",
-      "key": {
-        "k": "opaque",
-        "s": "E:never/sink_classification"
-      },
-      "tests": [
-        "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_classifies",
-        "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_skips_bad_syntax",
-        "tests/test_never_invariants.py::test_never_invariant_obligation",
-        "tests/test_never_invariants.py::test_never_invariant_proven_unreachable",
-        "tests/test_never_invariants.py::test_never_invariant_report_order_and_evidence",
-        "tests/test_never_invariants.py::test_never_invariant_violation",
-        "tests/test_never_invariants.py::test_never_invariants_emit_forest_and_report"
-      ]
     }
   ],
   "schema_version": 2,
@@ -6926,93 +6839,45 @@
   },
   "tests": [
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_alias_attribute.py",
-      "line": 17,
-      "status": "mapped",
+      "line": 16,
+      "status": "unmapped",
       "test_id": "tests/test_alias_attribute.py::test_alias_attribute_forwarding"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_alias_attribute.py",
-      "line": 48,
-      "status": "mapped",
+      "line": 46,
+      "status": "unmapped",
       "test_id": "tests/test_alias_attribute.py::test_alias_attribute_object_attr"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_alias_rename_invariance.py",
-      "line": 49,
-      "status": "mapped",
+      "line": 47,
+      "status": "unmapped",
       "test_id": "tests/test_alias_rename_invariance.py::test_chained_alias_preserves_bundle_identity"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_alias_rename_invariance.py",
-      "line": 17,
-      "status": "mapped",
+      "line": 16,
+      "status": "unmapped",
       "test_id": "tests/test_alias_rename_invariance.py::test_direct_rename_preserves_bundle_identity"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_alias_return_propagation.py",
-      "line": 19,
-      "status": "mapped",
+      "line": 18,
+      "status": "unmapped",
       "test_id": "tests/test_alias_return_propagation.py::test_alias_propagation_via_return"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_alias_unpacking.py",
-      "line": 17,
-      "status": "mapped",
+      "line": 16,
+      "status": "unmapped",
       "test_id": "tests/test_alias_unpacking.py::test_tuple_unpacking_preserves_bundle"
     },
     {
@@ -7268,62 +7133,24 @@
       "test_id": "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_enabled"
     },
     {
-      "evidence": [
-        {
-          "display": "E:forest/canonical_paramset",
-          "key": {
-            "k": "opaque",
-            "s": "E:forest/canonical_paramset"
-          }
-        },
-        {
-          "display": "E:forest/packed_reuse",
-          "key": {
-            "k": "opaque",
-            "s": "E:forest/packed_reuse"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_aspf.py",
-      "line": 23,
-      "status": "mapped",
+      "line": 21,
+      "status": "unmapped",
       "test_id": "tests/test_aspf.py::test_add_site_records_span"
     },
     {
-      "evidence": [
-        {
-          "display": "E:forest/canonical_paramset",
-          "key": {
-            "k": "opaque",
-            "s": "E:forest/canonical_paramset"
-          }
-        },
-        {
-          "display": "E:forest/packed_reuse",
-          "key": {
-            "k": "opaque",
-            "s": "E:forest/packed_reuse"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_aspf.py",
-      "line": 7,
-      "status": "mapped",
+      "line": 6,
+      "status": "unmapped",
       "test_id": "tests/test_aspf.py::test_paramset_packed_reuse"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_baseline_ratchet.py",
-      "line": 16,
-      "status": "mapped",
+      "line": 15,
+      "status": "unmapped",
       "test_id": "tests/test_baseline_ratchet.py::test_baseline_write_and_apply"
     },
     {
@@ -8871,18 +8698,10 @@
       "test_id": "tests/test_cli_payloads.py::test_check_builds_payload"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 86,
-      "status": "mapped",
+      "line": 85,
+      "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
     },
     {
@@ -8899,7 +8718,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 315,
+      "line": 313,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write"
     },
@@ -8917,7 +8736,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 284,
+      "line": 282,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
     },
@@ -8961,7 +8780,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 253,
+      "line": 251,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
     },
@@ -9049,23 +8868,15 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 117,
+      "line": 116,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 150,
-      "status": "mapped",
+      "line": 148,
+      "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
     },
     {
@@ -9084,7 +8895,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 187,
+      "line": 185,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
     },
@@ -9104,7 +8915,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 170,
+      "line": 168,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
     },
@@ -9136,7 +8947,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 201,
+      "line": 199,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
@@ -10342,7 +10153,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 442,
+      "line": 440,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_bundle_projection_and_emitters"
     },
@@ -10439,33 +10250,17 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_handledness_system_exit"
     },
     {
-      "evidence": [
-        {
-          "display": "E:never/sink_classification",
-          "key": {
-            "k": "opaque",
-            "s": "E:never/sink_classification"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 263,
-      "status": "mapped",
+      "line": 262,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_classifies"
     },
     {
-      "evidence": [
-        {
-          "display": "E:never/sink_classification",
-          "key": {
-            "k": "opaque",
-            "s": "E:never/sink_classification"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 339,
-      "status": "mapped",
+      "line": 337,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_never_invariants_skips_bad_syntax"
     },
     {
@@ -10516,7 +10311,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 417,
+      "line": 415,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_decision_param_lint_line_missing_span_and_transitive_callers"
     },
@@ -10548,7 +10343,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 520,
+      "line": 518,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_and_handledness_summary_edges"
     },
@@ -10782,7 +10577,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 508,
+      "line": 506,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_protocol_warning_filters"
     },
@@ -10876,7 +10671,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 493,
+      "line": 491,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_forbid_adhoc_bundle_discovery_guard"
     },
@@ -10988,7 +10783,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 350,
+      "line": 348,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_never_invariant_lint_and_summary_formats"
     },
@@ -11056,7 +10851,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 399,
+      "line": 397,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_parse_lint_location_and_smell_helpers"
     },
@@ -11088,7 +10883,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 564,
+      "line": 562,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_populate_bundle_forest_dedupes"
     },
@@ -11106,7 +10901,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 612,
+      "line": 610,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_evidence_summary"
     },
@@ -11198,7 +10993,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 595,
+      "line": 593,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_handles_empty_bundle_members"
     },
@@ -11290,7 +11085,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 580,
+      "line": 578,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_value_decision_counts"
     },
@@ -11334,7 +11129,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 547,
+      "line": 545,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_value_decision_surfaces_emit_forest"
     },
@@ -11392,7 +11187,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 768,
+      "line": 767,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_ambiguous"
     },
@@ -11412,7 +11207,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 806,
+      "line": 805,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_globals_only"
     },
@@ -11496,7 +11291,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 604,
+      "line": 603,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_none_and_nontransparent"
     },
@@ -11540,7 +11335,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 838,
+      "line": 837,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_nontransparent_dependency"
     },
@@ -11596,7 +11391,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 564,
+      "line": 563,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_unresolved_and_opaque"
     },
@@ -11688,7 +11483,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 751,
+      "line": 750,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_synthesis_plan_skips_empty_members"
     },
@@ -11936,7 +11731,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 648,
+      "line": 647,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_knob_param_names_non_const_kw"
     },
@@ -12100,7 +11895,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 525,
+      "line": 524,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_emit_report_tier2_violation"
     },
@@ -12120,7 +11915,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 556,
+      "line": 555,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_infer_root_with_groups"
     },
@@ -12188,7 +11983,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 680,
+      "line": 679,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
     },
@@ -12206,23 +12001,15 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 871,
+      "line": 870,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 433,
-      "status": "mapped",
+      "line": 432,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
     {
@@ -12239,7 +12026,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 638,
+      "line": 637,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
     },
@@ -14200,18 +13987,10 @@
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_summarize_never_invariants_filters_and_formats"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_audit_run.py",
-      "line": 44,
-      "status": "mapped",
+      "line": 43,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_run.py::test_run_baseline_write_requires_path"
     },
     {
@@ -14434,7 +14213,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_run.py",
-      "line": 55,
+      "line": 54,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_run.py::test_run_dot_stdout_short_circuit"
     },
@@ -14658,23 +14437,15 @@
         }
       ],
       "file": "tests/test_dataflow_audit_run.py",
-      "line": 123,
+      "line": 121,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_run.py::test_run_fail_on_violations_no_report"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_audit_run.py",
-      "line": 88,
-      "status": "mapped",
+      "line": 86,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_run.py::test_run_report_baseline_write_and_apply"
     },
     {
@@ -14897,7 +14668,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_run.py",
-      "line": 77,
+      "line": 76,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_run.py::test_run_structure_metrics_stdout_short_circuit"
     },
@@ -15121,7 +14892,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_run.py",
-      "line": 66,
+      "line": 65,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_run.py::test_run_structure_tree_stdout_short_circuit"
     },
@@ -15345,7 +15116,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_run.py",
-      "line": 132,
+      "line": 130,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_run.py::test_run_type_audit_early_return"
     },
@@ -19120,18 +18891,10 @@
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_self_class_candidates"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_run.py",
-      "line": 80,
-      "status": "mapped",
+      "line": 79,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_run.py::test_run_baseline_write_and_apply"
     },
     {
@@ -19578,23 +19341,15 @@
         }
       ],
       "file": "tests/test_dataflow_run.py",
-      "line": 118,
+      "line": 117,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run.py::test_run_invalid_strictness_from_config"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 56,
-      "status": "mapped",
+      "line": 55,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path"
     },
     {
@@ -19817,7 +19572,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 374,
+      "line": 371,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file"
     },
@@ -20041,7 +19796,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 70,
+      "line": 69,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early"
     },
@@ -20265,7 +20020,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 510,
+      "line": 507,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early"
     },
@@ -20489,38 +20244,22 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 89,
+      "line": 88,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 551,
-      "status": "mapped",
+      "line": 546,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 529,
-      "status": "mapped",
+      "line": 525,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline"
     },
     {
@@ -20743,7 +20482,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 246,
+      "line": 243,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot"
     },
@@ -20967,7 +20706,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 291,
+      "line": 288,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files"
     },
@@ -21191,7 +20930,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 347,
+      "line": 344,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_lint_outputs"
     },
@@ -21415,7 +21154,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 469,
+      "line": 466,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout"
     },
@@ -21639,38 +21378,22 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 488,
+      "line": 485,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 134,
-      "status": "mapped",
+      "line": 131,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 109,
-      "status": "mapped",
+      "line": 107,
+      "status": "unmapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write"
     },
     {
@@ -21893,7 +21616,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 393,
+      "line": 390,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json"
     },
@@ -22117,7 +21840,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 419,
+      "line": 416,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest"
     },
@@ -22341,7 +22064,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 442,
+      "line": 439,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json"
     },
@@ -22565,7 +22288,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 202,
+      "line": 199,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout"
     },
@@ -22789,7 +22512,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 181,
+      "line": 178,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only"
     },
@@ -23013,7 +22736,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 223,
+      "line": 220,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap"
     },
@@ -23237,7 +22960,7 @@
         }
       ],
       "file": "tests/test_dataflow_run_edges.py",
-      "line": 158,
+      "line": 155,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
     },
@@ -27760,78 +27483,38 @@
       "test_id": "tests/test_nested_resolution.py::test_nested_function_resolution"
     },
     {
-      "evidence": [
-        {
-          "display": "E:never/sink_classification",
-          "key": {
-            "k": "opaque",
-            "s": "E:never/sink_classification"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_never_invariants.py",
-      "line": 125,
-      "status": "mapped",
+      "line": 121,
+      "status": "unmapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_obligation"
     },
     {
-      "evidence": [
-        {
-          "display": "E:never/sink_classification",
-          "key": {
-            "k": "opaque",
-            "s": "E:never/sink_classification"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_never_invariants.py",
-      "line": 90,
-      "status": "mapped",
+      "line": 87,
+      "status": "unmapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_proven_unreachable"
     },
     {
-      "evidence": [
-        {
-          "display": "E:never/sink_classification",
-          "key": {
-            "k": "opaque",
-            "s": "E:never/sink_classification"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_never_invariants.py",
-      "line": 163,
-      "status": "mapped",
+      "line": 158,
+      "status": "unmapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_report_order_and_evidence"
     },
     {
-      "evidence": [
-        {
-          "display": "E:never/sink_classification",
-          "key": {
-            "k": "opaque",
-            "s": "E:never/sink_classification"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_never_invariants.py",
-      "line": 54,
-      "status": "mapped",
+      "line": 52,
+      "status": "unmapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_violation"
     },
     {
-      "evidence": [
-        {
-          "display": "E:never/sink_classification",
-          "key": {
-            "k": "opaque",
-            "s": "E:never/sink_classification"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_never_invariants.py",
-      "line": 16,
-      "status": "mapped",
+      "line": 15,
+      "status": "unmapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariants_emit_forest_and_report"
     },
     {
@@ -29018,7 +28701,7 @@
         }
       ],
       "file": "tests/test_refactor_engine_more.py",
-      "line": 293,
+      "line": 292,
       "status": "mapped",
       "test_id": "tests/test_refactor_engine_more.py::test_call_site_transformer_helpers"
     },
@@ -29190,7 +28873,7 @@
         }
       ],
       "file": "tests/test_refactor_engine_more.py",
-      "line": 266,
+      "line": 265,
       "status": "mapped",
       "test_id": "tests/test_refactor_engine_more.py::test_refactor_transformer_async_and_no_params"
     },
@@ -29214,7 +28897,7 @@
         }
       ],
       "file": "tests/test_refactor_engine_more.py",
-      "line": 234,
+      "line": 233,
       "status": "mapped",
       "test_id": "tests/test_refactor_engine_more.py::test_refactor_transformer_helpers"
     },
@@ -29290,23 +28973,15 @@
         }
       ],
       "file": "tests/test_refactor_engine_more.py",
-      "line": 210,
+      "line": 209,
       "status": "mapped",
       "test_id": "tests/test_refactor_engine_more.py::test_rewrite_call_sites_in_project_read_errors"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_refactor_engine_more.py",
-      "line": 182,
-      "status": "mapped",
+      "line": 181,
+      "status": "unmapped",
       "test_id": "tests/test_refactor_engine_more.py::test_rewrite_call_sites_module_alias_and_method_target"
     },
     {
@@ -30802,18 +30477,10 @@
       "test_id": "tests/test_schema_audit.py::test_unparse_fallback_for_invalid_ast"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_server_execute_command.py",
-      "line": 73,
-      "status": "mapped",
+      "line": 72,
+      "status": "unmapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_baseline_write"
     },
     {
@@ -31116,7 +30783,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 94,
+      "line": 93,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_report_and_dot"
     },
@@ -31268,7 +30935,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 191,
+      "line": 190,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_metrics"
     },
@@ -31420,7 +31087,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 209,
+      "line": 208,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_metrics_stdout"
     },
@@ -31572,7 +31239,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 115,
+      "line": 114,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_tree"
     },
@@ -31724,7 +31391,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 133,
+      "line": 132,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout"
     },
@@ -31876,7 +31543,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 225,
+      "line": 224,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs"
     },
@@ -31896,7 +31563,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 253,
+      "line": 252,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_refactor_invalid_payload"
     },
@@ -31916,7 +31583,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 150,
+      "line": 149,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff"
     },
@@ -31936,7 +31603,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 177,
+      "line": 176,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_invalid_snapshot"
     },
@@ -31956,7 +31623,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 170,
+      "line": 169,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_missing_paths"
     },
@@ -31976,7 +31643,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 164,
+      "line": 163,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_structure_diff_missing_payload"
     },
@@ -31996,7 +31663,7 @@
         }
       ],
       "file": "tests/test_server_execute_command.py",
-      "line": 246,
+      "line": 245,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command.py::test_execute_synthesis_minimal_payload"
     },
@@ -32057,18 +31724,10 @@
       "test_id": "tests/test_server_execute_command.py::test_uri_to_path_plain_path"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 227,
-      "status": "mapped",
+      "line": 226,
+      "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply"
     },
     {
@@ -32371,7 +32030,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 912,
+      "line": 910,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
     },
@@ -32389,7 +32048,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 795,
+      "line": 793,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta"
     },
@@ -32407,7 +32066,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 625,
+      "line": 623,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift"
     },
@@ -32425,7 +32084,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 557,
+      "line": 555,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta"
     },
@@ -32577,7 +32236,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 468,
+      "line": 466,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta"
     },
@@ -32729,7 +32388,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 427,
+      "line": 425,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports"
     },
@@ -32881,7 +32540,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 250,
+      "line": 249,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities"
     },
@@ -33185,7 +32844,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 267,
+      "line": 266,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines"
     },
@@ -33355,7 +33014,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 840,
+      "line": 838,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags"
     },
@@ -33373,7 +33032,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 760,
+      "line": 758,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags"
     },
@@ -33525,7 +33184,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 856,
+      "line": 854,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
     },
@@ -33677,23 +33336,15 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 398,
+      "line": 396,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections"
     },
     {
-      "evidence": [
-        {
-          "display": "E:baseline/ratchet_monotonicity",
-          "key": {
-            "k": "opaque",
-            "s": "E:baseline/ratchet_monotonicity"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 283,
-      "status": "mapped",
+      "line": 281,
+      "status": "unmapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
     },
     {
@@ -33710,7 +33361,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 778,
+      "line": 776,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline"
     },
@@ -33728,7 +33379,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 680,
+      "line": 678,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline"
     },
@@ -33880,7 +33531,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 875,
+      "line": 873,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
     },
@@ -33898,7 +33549,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 821,
+      "line": 819,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline"
     },
@@ -33916,7 +33567,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 725,
+      "line": 723,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
     },
@@ -34372,7 +34023,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 517,
+      "line": 515,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
     },
@@ -34392,7 +34043,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 368,
+      "line": 366,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_invalid_snapshot"
     },
@@ -34412,7 +34063,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 356,
+      "line": 354,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_missing_paths"
     },
@@ -34432,7 +34083,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 362,
+      "line": 360,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_none"
     },
@@ -34452,7 +34103,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 379,
+      "line": 377,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_valid_snapshot"
     },
@@ -34472,7 +34123,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 939,
+      "line": 937,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
     },
@@ -34492,7 +34143,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 946,
+      "line": 944,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
     },
@@ -34512,7 +34163,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 920,
+      "line": 918,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
     },
@@ -34544,7 +34195,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 319,
+      "line": 317,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_invalid_snapshot"
     },
@@ -34576,7 +34227,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 307,
+      "line": 305,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_missing_snapshot"
     },
@@ -34608,7 +34259,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 313,
+      "line": 311,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_none"
     },
@@ -34640,7 +34291,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 327,
+      "line": 325,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs"
     },
@@ -34672,7 +34323,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 341,
+      "line": 339,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs_file"
     },
@@ -34692,7 +34343,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 953,
+      "line": 951,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
     },
@@ -34712,7 +34363,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 976,
+      "line": 974,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
     },
@@ -34732,7 +34383,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 960,
+      "line": 958,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
     },
@@ -34752,7 +34403,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 983,
+      "line": 981,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
     },
@@ -40489,48 +40140,24 @@
       "test_id": "tests/test_unused_arg_audit.py::test_unused_arg_star_kw_low_strictness"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_edges.py",
-      "line": 106,
-      "status": "mapped",
+      "line": 105,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_edges.py::test_alias_from_call_branches"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_edges.py",
-      "line": 258,
-      "status": "mapped",
+      "line": 255,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_edges.py::test_alias_from_call_keyword_branches"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_edges.py",
-      "line": 274,
-      "status": "mapped",
+      "line": 270,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases"
     },
     {
@@ -40547,7 +40174,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 306,
+      "line": 301,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_annassign_edges"
     },
@@ -40565,7 +40192,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 413,
+      "line": 407,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_attr_and_subscript_slot_fallbacks_with_aliases"
     },
@@ -40583,38 +40210,22 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 164,
+      "line": 162,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_attribute_and_subscript_aliases"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_edges.py",
-      "line": 288,
-      "status": "mapped",
+      "line": 283,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_edges.py::test_bind_return_alias_rejects_invalid_targets"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_edges.py",
-      "line": 130,
-      "status": "mapped",
+      "line": 128,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment"
     },
     {
@@ -40631,7 +40242,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 198,
+      "line": 196,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_bind_sequence_edge_cases"
     },
@@ -40649,23 +40260,15 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 186,
+      "line": 184,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_check_write_clears_attr_and_key_aliases"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_edges.py",
-      "line": 406,
-      "status": "mapped",
+      "line": 400,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_edges.py::test_collect_alias_sources_default"
     },
     {
@@ -40700,7 +40303,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 240,
+      "line": 238,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_record_forward_skips_call_without_span"
     },
@@ -40718,7 +40321,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 151,
+      "line": 149,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_star_args_strictness"
     },
@@ -40736,7 +40339,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 231,
+      "line": 229,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_starred_list_literal_records_forward_without_site"
     },
@@ -40754,7 +40357,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 436,
+      "line": 430,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_subscript_and_attribute_slot_fallbacks"
     },
@@ -40772,7 +40375,7 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 428,
+      "line": 422,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_subscript_non_name_root_sets_non_forward"
     },
@@ -40790,23 +40393,15 @@
         }
       ],
       "file": "tests/test_visitors_edges.py",
-      "line": 338,
+      "line": 333,
       "status": "mapped",
       "test_id": "tests/test_visitors_edges.py::test_visit_name_attribute_subscript_edges"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_unit.py",
-      "line": 146,
-      "status": "mapped",
+      "line": 143,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_unit.py::test_alias_from_call_rejects_starred"
     },
     {
@@ -40823,7 +40418,7 @@
         }
       ],
       "file": "tests/test_visitors_unit.py",
-      "line": 163,
+      "line": 160,
       "status": "mapped",
       "test_id": "tests/test_visitors_unit.py::test_attribute_and_subscript_forwarding"
     },
@@ -40841,7 +40436,7 @@
         }
       ],
       "file": "tests/test_visitors_unit.py",
-      "line": 181,
+      "line": 178,
       "status": "mapped",
       "test_id": "tests/test_visitors_unit.py::test_bind_sequence_mismatch_marks_non_forward"
     },
@@ -40869,38 +40464,22 @@
         }
       ],
       "file": "tests/test_visitors_unit.py",
-      "line": 195,
+      "line": 192,
       "status": "mapped",
       "test_id": "tests/test_visitors_unit.py::test_import_visitor_basic_and_relative"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_unit.py",
-      "line": 135,
-      "status": "mapped",
+      "line": 133,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch"
     },
     {
-      "evidence": [
-        {
-          "display": "E:bundle/alias_invariance",
-          "key": {
-            "k": "opaque",
-            "s": "E:bundle/alias_invariance"
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_visitors_unit.py",
-      "line": 98,
-      "status": "mapped",
+      "line": 97,
+      "status": "unmapped",
       "test_id": "tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward"
     },
     {

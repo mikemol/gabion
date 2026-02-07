@@ -13,7 +13,6 @@ def _load():
     return analyze_paths, AuditConfig
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_direct_rename_preserves_bundle_identity(tmp_path: Path) -> None:
     analyze_paths, AuditConfig = _load()
     source = textwrap.dedent(
@@ -45,7 +44,6 @@ def test_direct_rename_preserves_bundle_identity(tmp_path: Path) -> None:
     assert {"a", "b"} in bundles
 
 
-# gabion:evidence E:bundle/alias_invariance
 def test_chained_alias_preserves_bundle_identity(tmp_path: Path) -> None:
     analyze_paths, AuditConfig = _load()
     source = textwrap.dedent(

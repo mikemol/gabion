@@ -259,7 +259,6 @@ def test_collect_handledness_system_exit(tmp_path: Path) -> None:
     assert any(entry.get("handler_kind") == "convert" for entry in witnesses)
 
 
-# gabion:evidence E:never/sink_classification
 def test_collect_never_invariants_classifies(tmp_path: Path) -> None:
     da = _load()
 
@@ -335,7 +334,6 @@ def test_collect_never_invariants_classifies(tmp_path: Path) -> None:
     assert any("depends on params" in entry.get("undecidable_reason", "") for entry in invariants)
 
 
-# gabion:evidence E:never/sink_classification
 def test_collect_never_invariants_skips_bad_syntax(tmp_path: Path) -> None:
     da = _load()
     bad = tmp_path / "bad.py"
