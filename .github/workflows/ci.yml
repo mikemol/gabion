@@ -76,6 +76,8 @@ jobs:
         run: .venv/bin/python scripts/obsolescence_delta_gate.py
       - name: Test obsolescence delta gate (unmapped)
         run: .venv/bin/python scripts/obsolescence_delta_unmapped_gate.py
+        env:
+          GABION_GATE_UNMAPPED_DELTA: "1"
       - name: Annotation drift delta (advisory)
         run: .venv/bin/python scripts/annotation_drift_delta_advisory.py
       - name: Annotation drift delta gate (orphaned)
