@@ -72,6 +72,8 @@ jobs:
             --log-file-level=INFO
       - name: Test obsolescence delta (advisory)
         run: .venv/bin/python scripts/obsolescence_delta_advisory.py
+      - name: Test obsolescence delta gate
+        run: .venv/bin/python scripts/obsolescence_delta_gate.py
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
