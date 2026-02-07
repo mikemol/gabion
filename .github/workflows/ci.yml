@@ -70,6 +70,8 @@ jobs:
             --junitxml artifacts/test_runs/junit.xml \
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO
+      - name: Test obsolescence delta (advisory)
+        run: .venv/bin/python scripts/obsolescence_delta_advisory.py
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
