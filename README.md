@@ -15,12 +15,12 @@ doc_requires:
   - CONTRIBUTING.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 24
+  glossary.md: 25
   AGENTS.md: 13
   CONTRIBUTING.md: 72
 doc_review_notes:
   POLICY_SEED.md: "Reviewed for review-discipline invariant; aligns with README scope."
-  glossary.md: "Reviewed glossary update (Evidence Key / dominance); overview remains accurate."
+  glossary.md: "Reviewed glossary update (function_site evidence key); overview remains accurate."
   AGENTS.md: "Agent obligations updated; README references remain valid."
   CONTRIBUTING.md: "Contributor workflow updates reflected; no README changes needed."
 doc_change_protocol: "POLICY_SEED.md §6"

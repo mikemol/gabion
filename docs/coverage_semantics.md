@@ -18,13 +18,13 @@ doc_requires:
   - AGENTS.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 24
+  glossary.md: 25
   README.md: 58
   CONTRIBUTING.md: 72
   AGENTS.md: 13
 doc_review_notes:
   POLICY_SEED.md: "Review-discipline invariant does not alter coverage semantics."
-  glossary.md: "Reviewed glossary update (Evidence Key / dominance); coverage semantics aligned."
+  glossary.md: "Reviewed glossary update (function_site evidence key); coverage semantics aligned."
   README.md: "Scope references remain accurate."
   CONTRIBUTING.md: "Review discipline aligns with coverage enforcement workflow."
   AGENTS.md: "Agent review discipline consistent with coverage obligations."
