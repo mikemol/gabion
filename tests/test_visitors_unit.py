@@ -94,6 +94,7 @@ def test_usevisitor_node_span_none_without_locations() -> None:
     assert UseVisitor._node_span(ast.AST()) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_alias_binding_and_non_forward() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
@@ -130,6 +131,7 @@ def test_usevisitor_alias_binding_and_non_forward() -> None:
     assert use_map["kwargs"].non_forward is True
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     tree = ast.parse("def f(a, b):\n    return a, b\n")
     visitor, _, alias_to_param, _ = _make_visitor(tree, strictness="high")
@@ -140,6 +142,7 @@ def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     assert visitor._bind_return_alias(targets, ["a"]) is False
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_alias_from_call_rejects_starred::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_alias_from_call_rejects_starred() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"

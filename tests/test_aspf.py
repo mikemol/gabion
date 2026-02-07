@@ -3,6 +3,7 @@ from __future__ import annotations
 from gabion.analysis.aspf import Forest
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_paramset_packed_reuse::aspf.py::gabion.analysis.aspf.Forest
 def test_paramset_packed_reuse() -> None:
     forest = Forest()
     site_a = forest.add_site("a.py", "mod.fn_a")
@@ -18,6 +19,7 @@ def test_paramset_packed_reuse() -> None:
     assert len(alts) == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_site_records_span::aspf.py::gabion.analysis.aspf.Forest
 def test_add_site_records_span() -> None:
     forest = Forest()
     site = forest.add_site("mod.py", "mod.fn", span=(1, 2, 3, 4))

@@ -82,6 +82,7 @@ def test_check_payload_strictness_validation() -> None:
         )
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_ambiguity_delta,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline
 def test_check_payload_baseline_write_requires_baseline() -> None:
     payload = cli.build_check_payload(
         paths=[Path(".")],
@@ -145,6 +146,7 @@ def test_dataflow_audit_payload_parsing() -> None:
     assert payload["decision_snapshot"] == "decisions.json"
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_payload_baseline_and_transparent() -> None:
     opts = cli.parse_dataflow_args(
         [

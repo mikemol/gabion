@@ -259,6 +259,7 @@ def test_collect_handledness_system_exit(tmp_path: Path) -> None:
     assert any(entry.get("handler_kind") == "convert" for entry in witnesses)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._never_reason::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node
 def test_collect_never_invariants_classifies(tmp_path: Path) -> None:
     da = _load()
 
@@ -334,6 +335,7 @@ def test_collect_never_invariants_classifies(tmp_path: Path) -> None:
     assert any("depends on params" in entry.get("undecidable_reason", "") for entry in invariants)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._never_reason::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._node_span::node
 def test_collect_never_invariants_skips_bad_syntax(tmp_path: Path) -> None:
     da = _load()
     bad = tmp_path / "bad.py"

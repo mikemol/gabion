@@ -178,6 +178,7 @@ def test_rewrite_call_sites_empty_targets(tmp_path: Path) -> None:
     assert updated is None
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets
 def test_rewrite_call_sites_module_alias_and_method_target(tmp_path: Path) -> None:
     source = (
         "import pkg.mod as pm\n"
