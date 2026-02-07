@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -400,6 +401,46 @@ def test_execute_command_report_appends_sections(tmp_path: Path) -> None:
     assert "Synthesis plan" in report_text
     assert "Refactoring plan" in report_text
     assert refactor_json.exists()
+
+
+def test_execute_command_emits_test_reports(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": [], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [],
+                "status": "unmapped",
+            }
+        ],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_evidence_suggestions": True,
+            "emit_test_obsolescence": True,
+        },
+    )
+    assert (out_dir / "test_evidence_suggestions.json").exists()
+    assert (out_dir / "test_obsolescence_report.json").exists()
+    assert "test_evidence_suggestions_summary" in result
+    assert "test_obsolescence_summary" in result
 
 
 def test_execute_command_defaults_payload(tmp_path: Path) -> None:

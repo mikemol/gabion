@@ -437,8 +437,14 @@ def _build_forest_evidence_index(
     return site_index, ordered
 
 
-def _evidence_for_alt(alt: Alt, forest: Forest) -> EvidenceSuggestion | None:
-    prefix = _ALT_EVIDENCE_PREFIX.get(alt.kind)
+def _evidence_for_alt(
+    alt: Alt,
+    forest: Forest,
+    *,
+    prefix_map: Mapping[str, str] | None = None,
+) -> EvidenceSuggestion | None:
+    prefix_map = prefix_map or _ALT_EVIDENCE_PREFIX
+    prefix = prefix_map.get(alt.kind)
     if prefix is None:
         return None
     paramset_id = _alt_input(alt, "ParamSet")
@@ -714,6 +720,6 @@ def _test_prefix(test_id: str) -> str:
     if not name.startswith("test_"):
         return ""
     parts = name.split("_")
-    if len(parts) < 2:
+    if len(parts) < 2 or not parts[1]:
         return "test"
     return f"test_{parts[1]}"

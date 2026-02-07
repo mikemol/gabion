@@ -17,8 +17,10 @@ def apply_spec(
     op_registry: Mapping[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]]
     | None = None,
     params_override: Mapping[str, JSONValue] | None = None,
+    normalize: Callable[[ProjectionSpec], Mapping[str, JSONValue]] | None = None,
 ) -> Relation:
-    normalized = normalize_spec(spec)
+    normalize_fn = normalize or normalize_spec
+    normalized = normalize_fn(spec)
     params: dict[str, JSONValue] = {}
     spec_params = normalized.get("params")
     if isinstance(spec_params, Mapping):

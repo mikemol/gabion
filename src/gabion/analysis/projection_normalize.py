@@ -101,8 +101,9 @@ def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
         predicates.append(explicit.strip())
     elif isinstance(explicit, list):
         for entry in explicit:
-            if isinstance(entry, str) and entry.strip():
-                predicates.append(entry.strip())
+            if isinstance(entry, str):
+                cleaned = entry.strip()
+                predicates.append(cleaned)
     return predicates
 
 

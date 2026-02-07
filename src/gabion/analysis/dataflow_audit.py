@@ -2542,6 +2542,32 @@ def _summarize_exception_obligations(
     return lines
 
 
+def _format_span_fields(
+    line: object,
+    col: object,
+    end_line: object,
+    end_col: object,
+) -> str:
+    try:
+        line_value = int(line)
+        col_value = int(col)
+        end_line_value = int(end_line)
+        end_col_value = int(end_col)
+    except (TypeError, ValueError):
+        return ""
+    if (
+        line_value < 0
+        or col_value < 0
+        or end_line_value < 0
+        or end_col_value < 0
+    ):
+        return ""
+    return (
+        f"{line_value + 1}:{col_value + 1}-"
+        f"{end_line_value + 1}:{end_col_value + 1}"
+    )
+
+
 def _summarize_never_invariants(
     entries: list[JSONObject],
     *,
@@ -2551,16 +2577,12 @@ def _summarize_never_invariants(
     if not entries:
         return []
     def _format_span(row: Mapping[str, JSONValue]) -> str:
-        try:
-            line = int(row.get("span_line", -1))
-            col = int(row.get("span_col", -1))
-            end_line = int(row.get("span_end_line", -1))
-            end_col = int(row.get("span_end_col", -1))
-        except (TypeError, ValueError):
-            return ""
-        if line < 0 or col < 0 or end_line < 0 or end_col < 0:
-            return ""
-        return f"{line + 1}:{col + 1}-{end_line + 1}:{end_col + 1}"
+        return _format_span_fields(
+            row.get("span_line", -1),
+            row.get("span_col", -1),
+            row.get("span_end_line", -1),
+            row.get("span_end_col", -1),
+        )
 
     def _format_site(row: Mapping[str, JSONValue]) -> str:
         path = row.get("site_path") or "?"

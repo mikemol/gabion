@@ -4,6 +4,8 @@ from gabion.analysis.aspf import Forest
 from gabion.analysis.forest_signature import (
     build_forest_signature,
     build_forest_signature_from_groups,
+    _path_name,
+    _normalize_key,
 )
 
 
@@ -25,3 +27,21 @@ def test_forest_signature_from_groups() -> None:
     signature = build_forest_signature_from_groups(groups_by_path)
     assert signature["nodes"]["count"] > 0
     assert signature["alts"]["count"] > 0
+
+
+def test_normalize_key_handles_objects() -> None:
+    class Dummy:
+        def __str__(self) -> str:
+            return "dummy"
+
+    assert _normalize_key([Dummy()]) == ["dummy"]
+
+
+def test_path_name_falls_back_to_str() -> None:
+    class Dummy:
+        name = 123
+
+        def __str__(self) -> str:
+            return "fallback"
+
+    assert _path_name(Dummy()) == "fallback"

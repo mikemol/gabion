@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from gabion.analysis import evidence_keys
+
+
+def test_evidence_keys_normalize_and_render() -> None:
+    assert evidence_keys.normalize_params([" b", "a", "a", ""]) == ["a", "b"]
+    assert evidence_keys.normalize_param_string("b, a ,") == "a,b"
+    assert evidence_keys.normalize_reason("  a   b ") == "a b"
+
+    paramset = evidence_keys.make_paramset_key(["z", "y", "z"])
+    assert paramset["k"] == "paramset"
+
+    decision = evidence_keys.make_decision_surface_key(
+        mode=" direct ",
+        path="p",
+        qual="q",
+        param="x, y",
+    )
+    assert decision["m"] == "direct"
+
+    never = evidence_keys.make_never_sink_key(
+        path="p",
+        qual="q",
+        param="x",
+        reason="  why  ",
+    )
+    assert never["reason"] == "why"
+
+    assert evidence_keys.normalize_key({"k": "paramset", "params": "b,a"})["params"] == [
+        "a",
+        "b",
+    ]
+    assert evidence_keys.normalize_key(
+        {"k": "decision_surface", "site": "bad", "param": "x"}
+    )["site"]["path"] == ""
+    assert evidence_keys.normalize_key(
+        {"k": "never_sink", "site": "bad", "param": "x"}
+    )["site"]["path"] == ""
+    assert evidence_keys.normalize_key({"k": "opaque", "s": "X"})["s"] == "X"
+    assert evidence_keys.normalize_key({"k": ""})["k"] == "opaque"
+    assert evidence_keys.normalize_key({"k": "custom", "value": 1})["k"] == "custom"
+
+    assert evidence_keys.key_identity({"k": "opaque", "s": "X"}).startswith("{")
+
+    assert evidence_keys.render_display(paramset).startswith("E:paramset")
+    assert evidence_keys.render_display(decision).startswith("E:decision_surface/")
+    assert evidence_keys.render_display(never).startswith("E:never/sink")
+    assert evidence_keys.render_display({"k": "custom"}) == "E:custom"
+
+
+def test_render_display_handles_non_list_params() -> None:
+    def fake_normalize_key(_key):
+        return {"k": "paramset", "params": "oops"}
+
+    assert (
+        evidence_keys.render_display(
+            {"k": "paramset"}, normalize=fake_normalize_key
+        )
+        == "E:paramset"
+    )
+
+
+def test_parse_display_variants() -> None:
+    assert evidence_keys.parse_display("nope") is None
+    assert evidence_keys.parse_display("E:") is None
+    assert evidence_keys.parse_display("E:paramset") is None
+    assert evidence_keys.parse_display("E:unknown::x") is None
+    assert evidence_keys.parse_display("E:paramset::a,b") == {
+        "k": "paramset",
+        "params": ["a", "b"],
+    }
+    assert evidence_keys.parse_display("E:decision_surface/direct::p::q") is None
+    assert evidence_keys.parse_display("E:decision_surface/direct::p::q::x") == {
+        "k": "decision_surface",
+        "m": "direct",
+        "site": {"path": "p", "qual": "q"},
+        "param": "x",
+    }
+    assert evidence_keys.parse_display("E:never/sink::p::q") is None
+    assert evidence_keys.parse_display("E:never/sink::p::q::x")["k"] == "never_sink"
+
+
+def test_is_opaque() -> None:
+    assert evidence_keys.is_opaque({"k": "opaque", "s": "X"}) is True
+    assert evidence_keys.is_opaque({"k": "paramset", "params": ["a"]}) is False

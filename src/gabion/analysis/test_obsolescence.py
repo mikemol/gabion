@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping
 
 from gabion.analysis import evidence_keys
 from gabion.analysis.projection_exec import apply_spec
@@ -78,6 +78,14 @@ def load_risk_registry(path: str) -> dict[str, RiskInfo]:
     if not registry_path.exists():
         return {}
     payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError(
+            f"Evidence risk registry must be a JSON object: {path}"
+        )
+    return _parse_risk_registry_payload(payload)
+
+
+def _parse_risk_registry_payload(payload: Mapping[str, object]) -> dict[str, RiskInfo]:
     version = payload.get("version", 1)
     if version != 1:
         raise ValueError(
@@ -306,6 +314,8 @@ def render_json_payload(
 def _summarize_candidates(
     candidates: list[dict[str, object]],
     class_rank: dict[str, int],
+    *,
+    apply: Callable[[ProjectionSpec, list[dict[str, object]]], list[dict[str, object]]] | None = None,
 ) -> dict[str, int]:
     relation: list[dict[str, object]] = []
     for entry in candidates:
@@ -316,10 +326,8 @@ def _summarize_candidates(
                 "class_rank": class_rank.get(class_name, 99),
             }
         )
-    summary_rows = apply_spec(
-        TEST_OBSOLESCENCE_SUMMARY_SPEC,
-        relation,
-    )
+    apply_fn = apply or apply_spec
+    summary_rows = apply_fn(TEST_OBSOLESCENCE_SUMMARY_SPEC, relation)
     summary = {
         "redundant_by_evidence": 0,
         "equivalent_witness": 0,

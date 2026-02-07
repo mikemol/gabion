@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 
 def normalize_params(values: Iterable[str]) -> list[str]:
@@ -115,8 +115,12 @@ def key_identity(key: Mapping[str, object]) -> str:
     return json.dumps(normalized, sort_keys=True, separators=(",", ":"))
 
 
-def render_display(key: Mapping[str, object]) -> str:
-    normalized = normalize_key(key)
+def render_display(
+    key: Mapping[str, object],
+    *,
+    normalize: Callable[[Mapping[str, object]], Mapping[str, object]] = normalize_key,
+) -> str:
+    normalized = normalize(key)
     kind = normalized.get("k")
     if kind == "opaque":
         return str(normalized.get("s", "") or "")
@@ -148,9 +152,9 @@ def parse_display(display: str) -> dict[str, object] | None:
     if not value.startswith("E:"):
         return None
     body = value[2:]
-    parts = body.split("::")
-    if not parts:
+    if not body:
         return None
+    parts = body.split("::")
     prefix = parts[0]
     rest = parts[1:]
     if prefix == "paramset":

@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from gabion.analysis import dataflow_audit
+
+
+def test_format_span_fields_handles_invalid_values() -> None:
+    assert dataflow_audit._format_span_fields("bad", 0, 0, 0) == ""
+    assert dataflow_audit._format_span_fields(-1, 0, 0, 0) == ""
+    assert dataflow_audit._format_span_fields(0, 0, 1, 2) == "1:1-2:3"
+
+
+def test_summarize_never_invariants_filters_and_formats() -> None:
+    entries = [
+        "not-a-mapping",
+        {
+            "status": "VIOLATION",
+            "site": {"path": "a.py", "function": "f"},
+            "never_id": "n1",
+            "span": [0, 0, 0, 1],
+            "witness_ref": "w",
+            "environment_ref": {"env": 1},
+        },
+        {
+            "status": "OBLIGATION",
+            "site": {"path": "a.py", "function": "g"},
+            "never_id": "n2",
+            "span": [0, 0, 0, 1],
+        },
+        {
+            "status": "PROVEN_UNREACHABLE",
+            "site": {"path": "a.py", "function": "h"},
+            "never_id": "n3",
+            "span": [0, 0, 0, 1],
+            "witness_ref": "dead",
+        },
+    ]
+    lines = dataflow_audit._summarize_never_invariants(
+        entries,
+        max_entries=10,
+        include_proven_unreachable=False,
+    )
+    assert any("VIOLATION" in line for line in lines)
+    assert "PROVEN_UNREACHABLE:" not in lines
+
+
+def test_copy_forest_signature_metadata_marks_missing_signature() -> None:
+    payload: dict[str, object] = {}
+    snapshot: dict[str, object] = {}
+    dataflow_audit._copy_forest_signature_metadata(payload, snapshot)
+    assert payload["forest_signature_partial"] is True
+    assert payload["forest_signature_basis"] == "missing"
+
+
+def test_copy_forest_signature_metadata_copies_fields() -> None:
+    payload: dict[str, object] = {}
+    snapshot = {
+        "forest_signature_partial": False,
+        "forest_signature_basis": "bundles_only",
+    }
+    dataflow_audit._copy_forest_signature_metadata(payload, snapshot, prefix="x_")
+    assert payload["x_forest_signature_partial"] is True
+    assert payload["x_forest_signature_basis"] == "bundles_only"
+
+
+def test_render_decision_snapshot_marks_partial_when_missing_forest(tmp_path: Path) -> None:
+    snapshot = dataflow_audit.render_decision_snapshot(
+        decision_surfaces=[],
+        value_decision_surfaces=[],
+        project_root=tmp_path,
+        forest=None,
+        forest_spec=None,
+    )
+    assert snapshot["forest_signature_partial"] is True
+    assert snapshot["forest_signature_basis"] == "missing"
