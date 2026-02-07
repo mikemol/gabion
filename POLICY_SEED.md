@@ -22,16 +22,16 @@ doc_reviewed_as_of:
   README.md: 58
   CONTRIBUTING.md: 72
   AGENTS.md: 13
-  glossary.md: 22
+  glossary.md: 24
   docs/publishing_practices.md: 23
-  docs/coverage_semantics.md: 6
+  docs/coverage_semantics.md: 8
 doc_review_notes:
   README.md: "Reviewed for attribute-carrier/transport policy alignment; no conflicts with scope/status."
   CONTRIBUTING.md: "Review discipline now documented; contributor workflow matches new policy."
   AGENTS.md: "Agent obligations updated to forbid mechanical review stamping."
-  glossary.md: "Higher-order bundle definition aligns with policy defaults."
+  glossary.md: "Reviewed glossary update (Evidence Key / dominance); policy invariants unchanged."
   docs/publishing_practices.md: "Publishing guidance unaffected by review discipline/attribute transport."
-  docs/coverage_semantics.md: "Coverage policy unaffected; no conflicts with attribute-carrier rules."
+  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact gating note); policy references remain accurate."
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"

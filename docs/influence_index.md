@@ -1,5 +1,5 @@
 ---
-doc_revision: 39
+doc_revision: 40
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -16,12 +16,12 @@ doc_requires:
   - README.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 22
+  glossary.md: 24
   CONTRIBUTING.md: 72
   README.md: 58
 doc_review_notes:
   POLICY_SEED.md: "Review discipline does not alter inbox→outbox mapping."
-  glossary.md: "Higher-order bundle definition does not change influence tracking semantics."
+  glossary.md: "Reviewed glossary update; influence tracking semantics unchanged."
   CONTRIBUTING.md: "Review discipline aligns with tracking workflow."
   README.md: "Scope references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -75,3 +75,5 @@ Status legend:
 - in/in-25.md — **adopted** (coherence evidence artifacts emitted from glossary ambiguity + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-75.)
 - in/in-26.md — **partial** (proof-carrying rewrite plans emitted + verified incl. exception-obligation non-regression; remaining rewrite kinds tracked; SPPF/GH-76, GH-78, GH-79.)
 - in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; exception-aware rewrite acceptance predicates implemented; remaining handledness refinement tracked; SPPF/GH-77, GH-80.)
+- in/in-28.md — **adopted** (in_step template discipline enforced; docflow structure and review requirements codified.)
+- in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)

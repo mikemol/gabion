@@ -19,14 +19,14 @@ doc_reviewed_as_of:
   README.md: 58
   AGENTS.md: 13
   POLICY_SEED.md: 29
-  glossary.md: 22
-  docs/coverage_semantics.md: 6
+  glossary.md: 24
+  docs/coverage_semantics.md: 8
 doc_review_notes:
   README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md: "Review discipline invariant incorporated here."
-  glossary.md: "Higher-order bundle definition is consistent with workflow guidance."
-  docs/coverage_semantics.md: "Coverage semantics unchanged by review discipline."
+  glossary.md: "Reviewed glossary update (Evidence Key / dominance); contributor workflow unchanged."
+  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact gating note); contributor guidance unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake
