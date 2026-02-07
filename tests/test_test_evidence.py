@@ -136,6 +136,42 @@ def test_handles_missing_and_direct_file_paths(tmp_path: Path) -> None:
     assert entries == []
 
 
+# gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.collect_test_tags
+def test_collect_test_tags_handles_async_and_class(tmp_path: Path) -> None:
+    root = tmp_path
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    source = tests_dir / "test_tags.py"
+    source.write_text(
+        "\n".join(
+            [
+                "# gabion:evidence E:function_site::x.py::pkg.fn",
+                "async def test_async():",
+                "    assert True",
+                "",
+                "class TestWidget:",
+                "    # gabion:evidence E:function_site::x.py::pkg.fn",
+                "    @decorator",
+                "    def test_method(self):",
+                "        assert True",
+            ]
+        )
+        + "\n"
+    )
+    bad = tests_dir / "test_bad.py"
+    bad.write_text("def bad(:\n    pass\n")
+
+    tags = test_evidence.collect_test_tags(
+        [tests_dir], root=root, include=["tests"], exclude=[]
+    )
+    ids = {entry.test_id: entry.tags for entry in tags}
+    assert any("test_tags.py::test_async" in test_id for test_id in ids)
+    assert any("test_tags.py::TestWidget::test_method" in test_id for test_id in ids)
+
+    missing = tests_dir / "missing.py"
+    assert test_evidence._extract_file_tags(missing, root) == []
+
+
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
 def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
     root = tmp_path

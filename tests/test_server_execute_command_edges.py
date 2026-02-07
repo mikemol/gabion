@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from gabion import server
-from gabion.analysis import test_obsolescence_delta
+from gabion.analysis import ambiguity_delta, test_annotation_drift, test_annotation_drift_delta, test_obsolescence_delta
 
 
 class _DummyWorkspace:
@@ -551,6 +551,189 @@ def test_execute_command_writes_obsolescence_baseline(tmp_path: Path) -> None:
     assert baseline_path.exists()
     assert result.get("test_obsolescence_baseline_written") is True
 
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_annotation_drift_delta(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    test_file = tests_dir / "test_sample.py"
+    test_file.write_text(
+        "# gabion:evidence E:function_site::sample.py::pkg.fn\n"
+        "def test_alpha():\n"
+        "    assert True\n"
+    )
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    key = {"k": "function_site", "site": {"path": "sample.py", "qual": "pkg.fn"}}
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": ["tests"], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [{"key": key, "display": "E:function_site::sample.py::pkg.fn"}],
+                "status": "mapped",
+            }
+        ],
+        "evidence_index": [
+            {
+                "key": key,
+                "display": "E:function_site::sample.py::pkg.fn",
+                "tests": ["tests/test_sample.py::test_alpha"],
+            }
+        ],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    drift_payload = test_annotation_drift.build_annotation_drift_payload(
+        [tests_dir],
+        root=tmp_path,
+        evidence_path=out_dir / "test_evidence.json",
+    )
+    baseline_payload = test_annotation_drift_delta.build_baseline_payload(
+        drift_payload.get("summary", {})
+    )
+    baseline_path = test_annotation_drift_delta.resolve_baseline_path(tmp_path)
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    test_annotation_drift_delta.write_baseline(str(baseline_path), baseline_payload)
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(tests_dir)],
+            "emit_test_annotation_drift_delta": True,
+        },
+    )
+    assert (out_dir / "test_annotation_drift_delta.json").exists()
+    assert (out_dir / "test_annotation_drift_delta.md").exists()
+    assert "test_annotation_drift_delta_summary" in result
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_writes_annotation_drift_baseline(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_sample.py").write_text("def test_alpha():\n    assert True\n")
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": ["tests"], "exclude": []},
+        "tests": [],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "write_test_annotation_drift_baseline": True,
+        },
+    )
+    baseline_path = test_annotation_drift_delta.resolve_baseline_path(tmp_path)
+    assert baseline_path.exists()
+    assert result.get("test_annotation_drift_baseline_written") is True
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_annotation_drift_flags(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(ValueError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_annotation_drift_delta": True,
+                "write_test_annotation_drift_baseline": True,
+            },
+        )
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_ambiguity_delta(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    baseline_payload = ambiguity_delta.build_baseline_payload([])
+    baseline_path = ambiguity_delta.resolve_baseline_path(tmp_path)
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    ambiguity_delta.write_baseline(str(baseline_path), baseline_payload)
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_ambiguity_delta": True,
+        },
+    )
+    out_dir = tmp_path / "out"
+    assert (out_dir / "ambiguity_delta.json").exists()
+    assert (out_dir / "ambiguity_delta.md").exists()
+    assert "ambiguity_delta_summary" in result
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_writes_ambiguity_baseline(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "write_ambiguity_baseline": True,
+        },
+    )
+    baseline_path = ambiguity_delta.resolve_baseline_path(tmp_path)
+    assert baseline_path.exists()
+    assert result.get("ambiguity_baseline_written") is True
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_ambiguity_flags(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(ValueError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_ambiguity_delta": True,
+                "write_ambiguity_baseline": True,
+            },
+        )
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
 def test_execute_command_rejects_conflicting_obsolescence_flags(

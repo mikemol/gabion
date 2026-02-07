@@ -199,7 +199,42 @@ def test_call_footprint_normalization_edges() -> None:
             "targets": ["bad", {"path": "", "qual": "q"}, {"path": "p", "qual": "q"}],
         }
 
-    assert (
-        evidence_keys.render_display({"k": "call_footprint"}, normalize=fake_normalize)
-        == "E:call_footprint::tests/test.py::test::p::q"
+
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.normalize_key
+def test_ambiguity_span_normalization_edges() -> None:
+    key = evidence_keys.normalize_key(
+        {
+            "k": "ambiguity_set",
+            "site": {"path": "p", "qual": "q", "span": {"line": "x"}},
+            "candidates": "bad",
+        }
     )
+    assert "span" not in key["site"]
+    assert key["candidates"] == []
+
+    bad_span_key = evidence_keys.make_ambiguity_set_key(
+        path="p",
+        qual="q",
+        span=[1, 2, 3],
+        candidates=[],
+    )
+    assert "span" not in bad_span_key["site"]
+
+    negative_span = evidence_keys.normalize_key(
+        {
+            "k": "ambiguity_set",
+            "site": {"path": "p", "qual": "q", "span": [1, -1, 2, 3]},
+            "candidates": [],
+        }
+    )
+    assert "span" not in negative_span["site"]
+
+    short_site = evidence_keys.normalize_key(
+        {"k": "ambiguity_set", "site": ["only"], "candidates": []}
+    )
+    assert short_site["site"]["path"] == ""
+
+    assert evidence_keys.parse_display("E:ambiguity_set::") is None
+    assert evidence_keys.parse_display("E:ambiguity_set::{") is None
+    assert evidence_keys.parse_display("E:partition_witness::") is None
+    assert evidence_keys.parse_display("E:partition_witness::{") is None
