@@ -74,6 +74,8 @@ jobs:
         run: .venv/bin/python scripts/obsolescence_delta_advisory.py
       - name: Test obsolescence delta gate
         run: .venv/bin/python scripts/obsolescence_delta_gate.py
+      - name: Test obsolescence delta gate (unmapped)
+        run: .venv/bin/python scripts/obsolescence_delta_unmapped_gate.py
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
