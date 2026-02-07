@@ -142,6 +142,40 @@ def test_graph_function_site_fallback(tmp_path: Path) -> None:
     )
 
 
+def test_graph_function_site_fallback_uses_reachable(tmp_path: Path) -> None:
+    root = tmp_path
+    (root / "src" / "pkg").mkdir(parents=True)
+    (root / "tests").mkdir(parents=True)
+    (root / "src" / "pkg" / "__init__.py").write_text("")
+    (root / "src" / "pkg" / "core.py").write_text("def helper():\n    return 1\n")
+    (root / "tests" / "test_core.py").write_text(
+        "from pkg.core import helper\n\n"
+        "def helper_wrapper():\n"
+        "    return helper()\n\n"
+        "def test_helper():\n"
+        "    helper_wrapper()\n"
+    )
+    payload = test_evidence.build_test_evidence_payload([root / "tests"], root=root)
+    entries = _entries_from_payload(payload)
+
+    forest = Forest()
+    forest.add_site("core.py", "pkg.core.helper")
+
+    suggestions, summary = test_evidence_suggestions.suggest_evidence(
+        entries,
+        root=root,
+        paths=[root],
+        forest=forest,
+        config=AuditConfig(project_root=root),
+    )
+
+    assert summary.suggested_graph == 1
+    assert summary.suggested_heuristic == 0
+    assert suggestions[0].suggested[0].display == (
+        "E:function_site::core.py::pkg.core.helper"
+    )
+
+
 def test_skips_mapped_entries() -> None:
     entry = test_evidence_suggestions.TestEvidenceEntry(
         test_id="tests/test_baseline_ratchet.py::test_baseline_write_and_apply",

@@ -2677,6 +2677,17 @@
       "witness_count": 2
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._populate_bundle_forest"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid",
       "key": {
         "k": "function_site",
@@ -3146,9 +3157,9 @@
   "opaque_evidence_count": 40,
   "summary": {
     "equivalent_witness": 263,
-    "obsolete_candidate": 78,
+    "obsolete_candidate": 79,
     "redundant_by_evidence": 205,
-    "unmapped": 87
+    "unmapped": 88
   },
   "tests": [
     {
@@ -3654,6 +3665,10 @@
     {
       "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
     {
       "class": "equivalent_witness",
@@ -5210,6 +5225,10 @@
     {
       "class": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback"
+    },
+    {
+      "class": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback_uses_reachable"
     },
     {
       "class": "unmapped",

@@ -5036,6 +5036,19 @@
       ]
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._populate_bundle_forest"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
+      ]
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid",
       "key": {
         "k": "function_site",
@@ -10429,6 +10442,24 @@
       "line": 624,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._populate_bundle_forest"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 815,
+      "status": "mapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
     {
       "evidence": [
@@ -22513,7 +22544,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 99,
+      "line": 100,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_is_opaque"
     },
@@ -34666,6 +34697,13 @@
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions.py",
+      "line": 145,
+      "status": "unmapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback_uses_reachable"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_test_evidence_suggestions.py",
       "line": 85,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_resolution_blocks_heuristics"
@@ -34680,14 +34718,14 @@
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 163,
+      "line": 197,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 145,
+      "line": 179,
       "status": "unmapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_skips_mapped_entries"
     },

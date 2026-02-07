@@ -89,6 +89,7 @@ def test_parse_display_variants() -> None:
     }
     assert evidence_keys.parse_display("E:never/sink::p::q") is None
     assert evidence_keys.parse_display("E:never/sink::p::q::x")["k"] == "never_sink"
+    assert evidence_keys.parse_display("E:function_site::p") is None
     assert evidence_keys.parse_display("E:function_site::p::q") == {
         "k": "function_site",
         "site": {"path": "p", "qual": "q"},

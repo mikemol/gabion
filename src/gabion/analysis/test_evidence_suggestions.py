@@ -365,8 +365,6 @@ def _graph_suggestions(
                 if site_id is None:
                     continue
                 suggestion = _function_site_suggestion(site_id, forest)
-                if suggestion is None:
-                    continue
                 evidence_items[suggestion.identity] = suggestion
         if evidence_items:
             ordered = tuple(evidence_items[key] for key in sorted(evidence_items))
@@ -502,10 +500,8 @@ def _evidence_for_alt(
     return EvidenceSuggestion(key=key, display=display)
 
 
-def _function_site_suggestion(site_id: NodeId, forest: Forest) -> EvidenceSuggestion | None:
+def _function_site_suggestion(site_id: NodeId, forest: Forest) -> EvidenceSuggestion:
     path, qual = _site_parts(site_id, forest)
-    if not path or not qual:
-        return None
     key = evidence_keys.make_function_site_key(path=path, qual=qual)
     display = evidence_keys.render_display(key)
     return EvidenceSuggestion(key=key, display=display)

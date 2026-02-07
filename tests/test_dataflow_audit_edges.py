@@ -809,3 +809,24 @@ def test_build_refactor_plan_skips_nontransparent_dependency(tmp_path: Path) -> 
     )
     plan = da.build_refactor_plan(groups_by_path, [target], config=config)
     assert "bundles" in plan
+
+
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest
+def test_populate_bundle_forest_skips_test_sites(tmp_path: Path) -> None:
+    da = _load()
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    test_file = tests_dir / "test_sample.py"
+    test_file.write_text("def helper(x):\n    return x\n", encoding="utf-8")
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path={test_file: {}},
+        file_paths=[test_file],
+        project_root=tmp_path,
+        include_all_sites=True,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=set(),
+    )
+    assert all(node.kind != "FunctionSite" for node in forest.nodes.values())
