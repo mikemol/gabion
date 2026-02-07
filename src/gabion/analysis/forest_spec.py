@@ -40,7 +40,7 @@ def build_forest_spec(
     external_filter: bool = True,
 ) -> ForestSpec:
     # dataflow-bundle: decision_ignore_params, ignore_params, transparent_decorators
-    # dataflow-bundle: external_filter, require_tiers
+    # dataflow-bundle: external_filter, include_all_sites, require_tiers
     collectors: list[ForestCollectorSpec] = []
     declared_outputs: set[str] = set()
 
