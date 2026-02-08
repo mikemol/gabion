@@ -111,6 +111,10 @@ class Forest:
         self.alts.append(alt)
         return alt
 
+    def add_node(self, kind: str, key: NodeKey, meta: dict[str, object] | None = None) -> NodeId:
+        node_id = NodeId(kind=kind, key=key)
+        return self._intern_node(node_id, meta)
+
     def to_json(self) -> dict[str, object]:
         nodes = sorted(self.nodes.values(), key=lambda node: node.node_id.sort_key())
         alts = sorted(self.alts, key=lambda alt: alt.sort_key())

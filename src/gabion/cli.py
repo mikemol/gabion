@@ -169,6 +169,17 @@ def build_check_payload(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
+    emit_test_obsolescence: bool,
+    emit_test_obsolescence_delta: bool,
+    emit_test_evidence_suggestions: bool,
+    emit_call_clusters: bool,
+    emit_call_cluster_consolidation: bool,
+    emit_test_annotation_drift: bool,
+    emit_test_annotation_drift_delta: bool,
+    write_test_annotation_drift_baseline: bool,
+    write_test_obsolescence_baseline: bool,
+    emit_ambiguity_delta: bool,
+    write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -182,6 +193,18 @@ def build_check_payload(
         paths = [Path(".")]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
+    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
+        raise typer.BadParameter(
+            "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+        )
+    if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
+        raise typer.BadParameter(
+            "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
+        )
+    if emit_ambiguity_delta and write_ambiguity_baseline:
+        raise typer.BadParameter(
+            "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
+        )
     exclude_dirs = _split_csv_entries(exclude)
     ignore_list = _split_csv(ignore_params_csv)
     transparent_list = _split_csv(transparent_decorators_csv)
@@ -197,6 +220,17 @@ def build_check_payload(
         "baseline": str(baseline) if baseline is not None else None,
         "baseline_write": baseline_write_value,
         "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
+        "emit_test_obsolescence": emit_test_obsolescence,
+        "emit_test_obsolescence_delta": emit_test_obsolescence_delta,
+        "emit_test_evidence_suggestions": emit_test_evidence_suggestions,
+        "emit_call_clusters": emit_call_clusters,
+        "emit_call_cluster_consolidation": emit_call_cluster_consolidation,
+        "emit_test_annotation_drift": emit_test_annotation_drift,
+        "emit_test_annotation_drift_delta": emit_test_annotation_drift_delta,
+        "write_test_annotation_drift_baseline": write_test_annotation_drift_baseline,
+        "write_test_obsolescence_baseline": write_test_obsolescence_baseline,
+        "emit_ambiguity_delta": emit_ambiguity_delta,
+        "write_ambiguity_baseline": write_ambiguity_baseline,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -347,6 +381,17 @@ def run_check(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
+    emit_test_obsolescence: bool,
+    emit_test_obsolescence_delta: bool,
+    emit_test_evidence_suggestions: bool,
+    emit_call_clusters: bool,
+    emit_call_cluster_consolidation: bool,
+    emit_test_annotation_drift: bool,
+    emit_test_annotation_drift_delta: bool,
+    write_test_annotation_drift_baseline: bool,
+    write_test_obsolescence_baseline: bool,
+    emit_ambiguity_delta: bool,
+    write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -366,6 +411,17 @@ def run_check(
         baseline=baseline,
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
+        emit_test_obsolescence=emit_test_obsolescence,
+        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+        emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+        emit_call_clusters=emit_call_clusters,
+        emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+        emit_test_annotation_drift=emit_test_annotation_drift,
+        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+        write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+        emit_ambiguity_delta=emit_ambiguity_delta,
+        write_ambiguity_baseline=write_ambiguity_baseline,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,
@@ -386,6 +442,61 @@ def check(
     config: Optional[Path] = typer.Option(None, "--config"),
     decision_snapshot: Optional[Path] = typer.Option(
         None, "--decision-snapshot", help="Write decision surface snapshot JSON."
+    ),
+    emit_test_obsolescence: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence/--no-emit-test-obsolescence",
+        help="Write test obsolescence report to out/.",
+    ),
+    emit_test_obsolescence_delta: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence-delta/--no-emit-test-obsolescence-delta",
+        help="Write test obsolescence delta report to out/.",
+    ),
+    emit_test_evidence_suggestions: bool = typer.Option(
+        False,
+        "--emit-test-evidence-suggestions/--no-emit-test-evidence-suggestions",
+        help="Write test evidence suggestions to out/.",
+    ),
+    emit_call_clusters: bool = typer.Option(
+        False,
+        "--emit-call-clusters/--no-emit-call-clusters",
+        help="Write call cluster report to out/.",
+    ),
+    emit_call_cluster_consolidation: bool = typer.Option(
+        False,
+        "--emit-call-cluster-consolidation/--no-emit-call-cluster-consolidation",
+        help="Write call cluster consolidation plan to out/.",
+    ),
+    emit_test_annotation_drift: bool = typer.Option(
+        False,
+        "--emit-test-annotation-drift/--no-emit-test-annotation-drift",
+        help="Write test annotation drift report to out/.",
+    ),
+    emit_test_annotation_drift_delta: bool = typer.Option(
+        False,
+        "--emit-test-annotation-drift-delta/--no-emit-test-annotation-drift-delta",
+        help="Write test annotation drift delta report to out/.",
+    ),
+    write_test_annotation_drift_baseline: bool = typer.Option(
+        False,
+        "--write-test-annotation-drift-baseline/--no-write-test-annotation-drift-baseline",
+        help="Write the current test annotation drift baseline to baselines/.",
+    ),
+    write_test_obsolescence_baseline: bool = typer.Option(
+        False,
+        "--write-test-obsolescence-baseline/--no-write-test-obsolescence-baseline",
+        help="Write the current test obsolescence baseline to baselines/.",
+    ),
+    emit_ambiguity_delta: bool = typer.Option(
+        False,
+        "--emit-ambiguity-delta/--no-emit-ambiguity-delta",
+        help="Write ambiguity delta report to out/.",
+    ),
+    write_ambiguity_baseline: bool = typer.Option(
+        False,
+        "--write-ambiguity-baseline/--no-write-ambiguity-baseline",
+        help="Write the current ambiguity baseline to baselines/.",
     ),
     baseline: Optional[Path] = typer.Option(
         None, "--baseline", help="Baseline file of allowed violations."
@@ -425,6 +536,17 @@ def check(
         baseline=baseline,
         baseline_write=baseline_write,
         decision_snapshot=decision_snapshot,
+        emit_test_obsolescence=emit_test_obsolescence,
+        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+        emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+        emit_call_clusters=emit_call_clusters,
+        emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+        emit_test_annotation_drift=emit_test_annotation_drift,
+        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+        write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+        emit_ambiguity_delta=emit_ambiguity_delta,
+        write_ambiguity_baseline=write_ambiguity_baseline,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,

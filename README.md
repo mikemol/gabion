@@ -15,14 +15,14 @@ doc_requires:
   - CONTRIBUTING.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  glossary.md: 22
+  glossary.md: 28
   AGENTS.md: 13
-  CONTRIBUTING.md: 72
+  CONTRIBUTING.md: 75
 doc_review_notes:
   POLICY_SEED.md: "Reviewed for review-discipline invariant; aligns with README scope."
-  glossary.md: "Higher-order bundle definition adds consolidation semantics; README claims unchanged."
+  glossary.md: "Reviewed glossary update (call_cluster evidence key); overview remains accurate."
   AGENTS.md: "Agent obligations updated; README references remain valid."
-  CONTRIBUTING.md: "Contributor workflow updates reflected; no README changes needed."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; README references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

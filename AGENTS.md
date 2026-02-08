@@ -15,14 +15,14 @@ doc_requires:
   - glossary.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 72
+  CONTRIBUTING.md: 75
   POLICY_SEED.md: 29
-  glossary.md: 22
+  glossary.md: 28
 doc_review_notes:
   README.md: "Reviewed for attribute-carrier/transport policy impact; no conflicts."
-  CONTRIBUTING.md: "Review discipline requirements align with agent workflow."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; agent workflow unchanged."
   POLICY_SEED.md: "Adopts review discipline invariant; agent enforcement updated."
-  glossary.md: "Higher-order bundle definition aligns with LSP-first workflow."
+  glossary.md: "Reviewed glossary update (call_cluster evidence key); agent obligations unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - read_policy_glossary_first

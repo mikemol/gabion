@@ -1,5 +1,5 @@
 ---
-doc_revision: 22
+doc_revision: 28
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -15,12 +15,12 @@ doc_requires:
   - POLICY_SEED.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 72
+  CONTRIBUTING.md: 75
   AGENTS.md: 13
   POLICY_SEED.md: 29
 doc_review_notes:
   README.md: "Reviewed for subsystem-interface terminology; no conflicts."
-  CONTRIBUTING.md: "No workflow conflicts with subsystem-interface definition."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; glossary semantics unchanged."
   AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
   POLICY_SEED.md: "No policy conflicts with subsystem-interface definition."
 doc_commutes_with:
@@ -1596,3 +1596,413 @@ ContextVar identity is erased; carrier content is **not**.
 ### Test Obligations (to be mapped)
 
 - Access is centralized (single module); no direct reads/writes elsewhere.
+
+---
+
+## 37. Evidence ID
+
+### Meaning
+
+**Definition:** A canonical identifier naming a specific obligation, invariant,
+or graph-anchored entity that a test discharges (e.g., `E:bundle/alias_invariance`).
+Evidence IDs have a structured **Evidence Key** as their canonical identity;
+string forms are renderings for humans.
+
+### Axis
+
+**Axis:** Semantic (evidence labeling).
+
+### Desired Commutation (Rename/Refactor Stability)
+
+Evidence IDs must commute with unrelated renames or file moves:
+
+```
+rename(test) ⟹ same Evidence ID
+```
+
+### Failure Modes
+
+- IDs are ad-hoc strings without stable structure.
+- Evidence IDs change when tests are renamed.
+- Multiple string forms refer to the same obligation.
+
+### Normative Rule
+
+> Evidence IDs must be stable, deterministic, and machine-readable. The
+> **Evidence Key** is canonical; string IDs are presentation only. Evidence
+> tags use the `# gabion:evidence ...` marker in tests.
+
+### Erasure
+
+Tag placement and formatting are erased; only the ID values persist.
+
+### Test Obligations (to be mapped)
+
+- Evidence extraction is deterministic and stable across re-runs.
+
+---
+
+## 38. Witness
+
+### Meaning
+
+**Definition:** A test instance that discharges one or more Evidence IDs.
+
+### Axis
+
+**Axis:** Evidence (test obligation).
+
+### Desired Commutation (Order Independence)
+
+Witness sets are invariant to test ordering.
+
+### Failure Modes
+
+- Tests execute without evidence linkage (silent witnesses).
+- Multiple tests collapse into a single witness due to ID collisions.
+
+### Normative Rule
+
+> Each test must be a witness to at least one Evidence ID or be explicitly
+> recorded as unmapped.
+
+### Erasure
+
+Test ordering is erased; witness identity is not.
+
+### Test Obligations (to be mapped)
+
+- Unmapped tests are explicitly surfaced in evidence artifacts.
+
+---
+
+## 39. Evidence Surface
+
+### Meaning
+
+**Definition:** The set of all Evidence IDs discharged by the test suite.
+
+### Axis
+
+**Axis:** Evidence (coverage surface).
+
+### Desired Commutation (Idempotence)
+
+Duplicate witnesses do not change the surface:
+
+```
+E ∪ E = E
+```
+
+### Failure Modes
+
+- Surface depends on duplicate counts rather than set membership.
+- Evidence surface is inferred from execution alone.
+
+### Normative Rule
+
+> The evidence surface is defined by explicit Evidence IDs, not coverage
+> percentages.
+
+### Erasure
+
+Multiplicity of witnesses is erased; set membership remains.
+
+### Test Obligations (to be mapped)
+
+- Evidence surface remains stable under deterministic re-extraction.
+
+---
+
+## 40. Evidence Dominance (Strict)
+
+### Meaning
+
+**Definition:** A strict partial order over tests where `A` dominates `B` iff
+`E(B) ⊂ E(A)` (proper subset).
+
+### Axis
+
+**Axis:** Evidence (ordering).
+
+### Desired Commutation (Equivalence Preservation)
+
+If `E(A) = E(B)`, neither dominates the other.
+
+### Failure Modes
+
+- Treating equal evidence sets as redundant.
+- Allowing dominance to depend on non-evidence signals by default.
+
+### Normative Rule
+
+> Redundancy requires strict dominance. Equal evidence sets are classified as
+> equivalent witnesses, not redundant.
+
+### Erasure
+
+Ordering of Evidence IDs is erased; set inclusion is not.
+
+### Test Obligations (to be mapped)
+
+- Dominance results are stable under deterministic ordering.
+
+---
+
+## 41. Equivalent Witness
+
+### Meaning
+
+**Definition:** A group of tests that share identical evidence sets.
+
+### Axis
+
+**Axis:** Evidence (equivalence class).
+
+### Desired Commutation (Permutation Invariance)
+
+Permutation of equivalent witnesses does not change classification.
+
+### Failure Modes
+
+- Equivalent witnesses are treated as redundant by default.
+- Equivalence classes are hidden or unstable.
+
+### Normative Rule
+
+> Equivalent witnesses are a distinct class and require secondary signals
+> before removal.
+
+### Erasure
+
+Within-class ordering is erased.
+
+### Test Obligations (to be mapped)
+
+- Equivalent witness classes are reported deterministically.
+
+---
+
+## 42. Test Obsolescence Projection
+
+### Meaning
+
+**Definition:** A deterministic projection that classifies tests using the
+evidence carrier and guardrails (e.g., `out/test_obsolescence_report.json`).
+
+### Axis
+
+**Axis:** Evidence (projection).
+
+### Desired Commutation (Determinism)
+
+Projection output must be invariant to ordering and run time.
+
+### Failure Modes
+
+- Non-deterministic report ordering.
+- Obsolescence classification bypasses guardrails.
+
+### Normative Rule
+
+> Obsolescence is computed from the evidence carrier with strict dominance and
+> risk guardrails. The projection is advisory unless explicitly gated.
+
+### Erasure
+
+Formatting is erased; class assignments are not.
+
+### Test Obligations (to be mapped)
+
+- Obsolescence reports are stable across re-runs.
+
+---
+
+## 43. Test Evidence Suggestions Projection
+
+### Meaning
+
+**Definition:** A deterministic projection that proposes evidence tags for
+tests based on graph resolution (with heuristic fallback as needed).
+
+### Axis
+
+**Axis:** Evidence (projection).
+
+### Desired Commutation (Resolution Stability)
+
+Graph-resolved suggestions must be stable under reordering and equivalent
+call-graph construction.
+
+### Failure Modes
+
+- Suggestions derived only from filename heuristics.
+- Heuristics override graph-resolved mappings.
+
+### Normative Rule
+
+> Suggestions must prefer graph-derived evidence and only fall back to
+> heuristics when graph resolution fails.
+
+### Erasure
+
+Suggestion ordering is erased; evidence IDs are not.
+
+### Test Obligations (to be mapped)
+
+- Suggestions include provenance (graph vs heuristic).
+
+---
+
+## 44. Evidence Key
+
+### Meaning
+
+**Definition:** The canonical, structured identity for evidence items, derived
+from the graph carrier. Display strings are renderings of the key.
+Examples of key kinds include `paramset`, `decision_surface`, `never_sink`,
+`function_site`, `call_footprint`, and `call_cluster`.
+
+### Axis
+
+**Axis:** Evidence (identity).
+
+### Desired Commutation (Graph Derivation)
+
+Evidence keys must commute with presentation changes:
+
+```
+render(key) ⇒ key
+```
+
+### Failure Modes
+
+- Keys authored manually without graph derivation.
+- Display strings treated as canonical identity.
+
+### Normative Rule
+
+> Evidence keys are graph-derived and stable; display strings are presentation
+> only and must round-trip to the same key when possible.
+
+### Erasure
+
+Display formatting is erased; key identity is not.
+
+### Test Obligations (to be mapped)
+
+- Key rendering/parsing is deterministic and stable.
+
+---
+
+## 45. Ambiguity Set
+
+### Meaning
+
+**Definition:** A canonical, order-independent set of candidate carriers when
+resolution is not unique. Ambiguity sets are derived from the graph carrier
+and recorded as first-class nodes.
+
+### Axis
+
+**Axis:** Resolution (ambiguity carrier).
+
+### Desired Commutation (Candidate Order)
+
+Let `A` be an ambiguity set with candidate list `C`.
+
+```
+permute(C) ⇒ same Ambiguity Set
+```
+
+### Failure Modes
+
+- Ambiguity erased or silently resolved without recording candidates.
+- Candidate ordering treated as identity.
+
+### Normative Rule
+
+> Ambiguity Sets must be derived from the graph carrier and recorded with
+> canonical candidate ordering. Resolution must not drop candidates.
+
+### Erasure
+
+Candidate ordering is erased; candidate identity is not.
+
+### Test Obligations (to be mapped)
+
+- Ambiguity sets are deterministic and order-independent.
+
+---
+
+## 46. Partition Witness
+
+### Meaning
+
+**Definition:** A structured certificate explaining why an ambiguity exists
+and what would collapse it, anchored to a specific Ambiguity Set.
+
+### Axis
+
+**Axis:** Resolution (witness).
+
+### Desired Commutation (Witness Stability)
+
+```
+permute(candidates) ⇒ same Partition Witness
+```
+
+### Failure Modes
+
+- Ambiguity recorded without a witness.
+- Witness depends on non-semantic presentation details.
+
+### Normative Rule
+
+> Each Ambiguity Set must have at least one Partition Witness that records
+> the resolution phase and a minimal collapse hint.
+
+### Erasure
+
+Formatting of witness details is erased; witness identity is not.
+
+### Test Obligations (to be mapped)
+
+- Witness emission is deterministic and stable.
+
+---
+
+## 47. Annotation Drift
+
+### Meaning
+
+**Definition:** Evidence tags that no longer resolve to the current evidence
+universe (or fail to parse), indicating stale or orphaned annotations.
+
+### Axis
+
+**Axis:** Evidence (hygiene).
+
+### Desired Commutation (Presentation)
+
+```
+render(key) changes ⇒ no drift
+```
+
+### Failure Modes
+
+- Orphaned tags remain undetected.
+- Drift is computed from display strings rather than keys.
+
+### Normative Rule
+
+> Annotation drift is defined by Evidence Key identity, not display. Orphaned
+> tags must be reported via an advisory projection before any ratchet.
+
+### Erasure
+
+Display formatting is erased; key identity is not.
+
+### Test Obligations (to be mapped)
+
+- Drift audit detects orphaned tags deterministically.

@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 75
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,16 +17,18 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
+  CONTRIBUTING.md: 75
   AGENTS.md: 13
   POLICY_SEED.md: 29
-  glossary.md: 22
-  docs/coverage_semantics.md: 6
+  glossary.md: 28
+  docs/coverage_semantics.md: 8
 doc_review_notes:
   README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
+  CONTRIBUTING.md: "Reviewed baseline refresh guardrail + ci_cycle helper; no policy conflicts."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md: "Review discipline invariant incorporated here."
-  glossary.md: "Higher-order bundle definition is consistent with workflow guidance."
-  docs/coverage_semantics.md: "Coverage semantics unchanged by review discipline."
+  glossary.md: "Reviewed glossary update (call_cluster evidence key); contributor workflow unchanged."
+  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact gating note); contributor guidance unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake
@@ -285,6 +287,40 @@ scripts/checks.sh --tests-only
 Preview what will run:
 ```
 scripts/checks.sh --list
+```
+
+Baseline refresh helpers:
+
+```
+mise exec -- python scripts/refresh_baselines.py --obsolescence
+mise exec -- python scripts/refresh_baselines.py --annotation-drift
+mise exec -- python scripts/refresh_baselines.py --ambiguity
+mise exec -- python scripts/refresh_baselines.py --all
+```
+
+Baseline refresh guardrail (normative):
+- **Never** refresh a baseline to bypass a ratchet. `refresh_baselines.py` will
+  refuse to refresh when the corresponding gate is enabled and the delta is
+  positive. Clear the delta via real fixes first, then refresh at a checkpoint.
+- Use `--timeout <seconds>` if a baseline refresh risks hanging.
+
+No-op CI cycle helper:
+
+```
+mise exec -- python scripts/ci_cycle.py --push --watch
+```
+
+CI watch helper:
+
+```
+mise exec -- python scripts/ci_watch.py --branch stage
+```
+
+By default this prefers active runs (in-progress/queued). If you want the most
+recent run regardless of status, pass:
+
+```
+mise exec -- python scripts/ci_watch.py --branch stage --no-prefer-active
 ```
 
 ## Make targets (optional)

@@ -19,6 +19,7 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", "", text)
 
 
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -45,6 +46,7 @@ def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     assert "beta: object" in replacement
 
 
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -74,6 +76,7 @@ def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     assert "beta: str" in replacement
 
 
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -105,6 +108,7 @@ def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None
     assert "b = bundle.b" in replacement
 
 
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize
 def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"
@@ -136,6 +140,7 @@ def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     assert "returnfoo(BundleProtocol(a=x,b=y))" in replacement
 
 
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize
 def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     src_root = tmp_path / "src" / "pkg"
@@ -181,6 +186,7 @@ def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     assert "returnfoo(BundleProtocol(a=x,b=y))" in caller_replacement
 
 
+# gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "sample.py"

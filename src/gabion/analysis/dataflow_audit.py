@@ -24,7 +24,7 @@ import sys
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Callable, Iterable, Iterator
+from typing import Callable, Iterable, Iterator, Mapping
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -36,6 +36,7 @@ from gabion.analysis.evidence import (
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.analysis.aspf import Alt, Forest, NodeId
+from gabion.analysis import evidence_keys
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -62,6 +63,22 @@ from gabion.analysis.type_fingerprints import (
     fingerprint_carrier_soundness,
     fingerprint_to_type_keys_with_remainder,
     synth_registry_payload,
+)
+from .forest_signature import (
+    build_forest_signature,
+    build_forest_signature_from_groups,
+)
+from .forest_spec import (
+    ForestSpec,
+    build_forest_spec,
+    default_forest_spec,
+    forest_spec_metadata,
+)
+from .projection_exec import apply_spec
+from .projection_registry import (
+    AMBIGUITY_SUMMARY_SPEC,
+    NEVER_INVARIANTS_SPEC,
+    spec_metadata_lines,
 )
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -228,7 +245,19 @@ class AnalysisResult:
     context_suggestions: list[str] = field(default_factory=list)
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
+    ambiguity_witnesses: list[JSONObject] = field(default_factory=list)
     forest: Forest | None = None
+    forest_spec: ForestSpec | None = None
+
+
+@dataclass(frozen=True)
+class CallAmbiguity:
+    kind: str
+    caller: FunctionInfo
+    call: CallArgs | None
+    callee_key: str
+    candidates: tuple[FunctionInfo, ...]
+    phase: str
 
 
 def _callee_name(call: ast.Call) -> str:
@@ -2529,6 +2558,105 @@ def _summarize_exception_obligations(
     return lines
 
 
+def _summarize_call_ambiguities(
+    entries: list[JSONObject],
+    *,
+    max_entries: int = 20,
+) -> list[str]:
+    if not entries:
+        return []
+    relation: list[dict[str, JSONValue]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        kind = str(entry.get("kind", "") or "unknown")
+        site = entry.get("site", {})
+        if not isinstance(site, Mapping):
+            site = {}
+        path = str(site.get("path", "") or "")
+        function = str(site.get("function", "") or "")
+        span = site.get("span")
+        line = col = end_line = end_col = -1
+        if isinstance(span, list) and len(span) == 4:
+            try:
+                line = int(span[0])
+                col = int(span[1])
+                end_line = int(span[2])
+                end_col = int(span[3])
+            except (TypeError, ValueError):
+                line = col = end_line = end_col = -1
+        candidate_count = entry.get("candidate_count")
+        try:
+            candidate_count = int(candidate_count) if candidate_count is not None else 0
+        except (TypeError, ValueError):
+            candidate_count = 0
+        relation.append(
+            {
+                "kind": kind,
+                "site_path": path,
+                "site_function": function,
+                "span_line": line,
+                "span_col": col,
+                "span_end_line": end_line,
+                "span_end_col": end_col,
+                "candidate_count": candidate_count,
+            }
+        )
+    projected = apply_spec(AMBIGUITY_SUMMARY_SPEC, relation)
+    counts: dict[str, int] = {}
+    for row in relation:
+        kind = str(row.get("kind", "") or "unknown")
+        counts[kind] = counts.get(kind, 0) + 1
+    lines: list[str] = []
+    lines.extend(spec_metadata_lines(AMBIGUITY_SUMMARY_SPEC))
+    lines.append("Counts by witness kind:")
+    for kind in sorted(counts):
+        lines.append(f"- {kind}: {counts[kind]}")
+    lines.append("Top ambiguous sites:")
+    for row in projected[:max_entries]:
+        path = row.get("site_path") or "?"
+        function = row.get("site_function") or "?"
+        span = _format_span_fields(
+            row.get("span_line", -1),
+            row.get("span_col", -1),
+            row.get("span_end_line", -1),
+            row.get("span_end_col", -1),
+        )
+        count = row.get("candidate_count", 0)
+        suffix = f"@{span}" if span else ""
+        lines.append(f"- {path}:{function}{suffix} candidates={count}")
+    if len(projected) > max_entries:
+        lines.append(f"... {len(projected) - max_entries} more")
+    return lines
+
+
+def _format_span_fields(
+    line: object,
+    col: object,
+    end_line: object,
+    end_col: object,
+) -> str:
+    # dataflow-bundle: col, end_col, end_line, line
+    try:
+        line_value = int(line)
+        col_value = int(col)
+        end_line_value = int(end_line)
+        end_col_value = int(end_col)
+    except (TypeError, ValueError):
+        return ""
+    if (
+        line_value < 0
+        or col_value < 0
+        or end_line_value < 0
+        or end_col_value < 0
+    ):
+        return ""
+    return (
+        f"{line_value + 1}:{col_value + 1}-"
+        f"{end_line_value + 1}:{end_col_value + 1}"
+    )
+
+
 def _summarize_never_invariants(
     entries: list[JSONObject],
     *,
@@ -2537,29 +2665,26 @@ def _summarize_never_invariants(
 ) -> list[str]:
     if not entries:
         return []
-    def _format_span(entry: JSONObject) -> str:
-        span = entry.get("span")
-        if not isinstance(span, list) or len(span) != 4:
-            return ""
-        try:
-            line, col, end_line, end_col = (int(part) for part in span)
-        except (TypeError, ValueError):
-            return ""
-        return f"{line + 1}:{col + 1}-{end_line + 1}:{end_col + 1}"
+    def _format_span(row: Mapping[str, JSONValue]) -> str:
+        return _format_span_fields(
+            row.get("span_line", -1),
+            row.get("span_col", -1),
+            row.get("span_end_line", -1),
+            row.get("span_end_col", -1),
+        )
 
-    def _format_site(entry: JSONObject) -> str:
-        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
-        path = site.get("path", "?")
-        function = site.get("function", "?")
-        span = _format_span(entry)
+    def _format_site(row: Mapping[str, JSONValue]) -> str:
+        path = row.get("site_path") or "?"
+        function = row.get("site_function") or "?"
+        span = _format_span(row)
         if span:
             return f"{path}:{function}@{span}"
         return f"{path}:{function}"
 
-    def _format_evidence(entry: JSONObject, status: str) -> str:
-        witness_ref = entry.get("witness_ref")
-        env = entry.get("environment_ref")
-        undecidable = entry.get("undecidable_reason") or ""
+    def _format_evidence(row: Mapping[str, JSONValue], status: str) -> str:
+        witness_ref = row.get("witness_ref")
+        env = row.get("environment_ref")
+        undecidable = row.get("undecidable_reason") or ""
         parts: list[str] = []
         if status == "VIOLATION":
             if witness_ref:
@@ -2578,19 +2703,74 @@ def _summarize_never_invariants(
                 parts.append("why=no witness env available")
         return "; ".join(parts)
 
-    lines: list[str] = []
-    grouped: dict[str, list[JSONObject]] = {"VIOLATION": [], "OBLIGATION": [], "PROVEN_UNREACHABLE": []}
-    for entry in sorted(entries, key=_never_sort_key):
-        status = str(entry.get("status", "UNKNOWN"))
-        if status not in grouped:
-            grouped.setdefault(status, []).append(entry)
-        else:
-            grouped[status].append(entry)
+    def _never_status_allowed(
+        row: Mapping[str, JSONValue], params: Mapping[str, JSONValue]
+    ) -> bool:
+        status = str(row.get("status", "UNKNOWN") or "UNKNOWN")
+        if status == "PROVEN_UNREACHABLE":
+            include = params.get("include_proven_unreachable", True)
+            return bool(include)
+        return True
 
-    ordered_statuses = ["VIOLATION", "OBLIGATION", "PROVEN_UNREACHABLE"]
+    relation: list[dict[str, JSONValue]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        path = str(site.get("path", "") or "")
+        function = str(site.get("function", "") or "")
+        span = entry.get("span")
+        line = col = end_line = end_col = -1
+        if isinstance(span, list) and len(span) == 4:
+            try:
+                line = int(span[0])
+                col = int(span[1])
+                end_line = int(span[2])
+                end_col = int(span[3])
+            except (TypeError, ValueError):
+                line = col = end_line = end_col = -1
+        relation.append(
+            {
+                "status": status,
+                "status_rank": _NEVER_STATUS_ORDER.get(status, 3),
+                "site_path": path,
+                "site_function": function,
+                "span_line": line,
+                "span_col": col,
+                "span_end_line": end_line,
+                "span_end_col": end_col,
+                "never_id": str(entry.get("never_id", "") or ""),
+                "reason": str(entry.get("reason", "") or ""),
+                "witness_ref": entry.get("witness_ref"),
+                "environment_ref": entry.get("environment_ref"),
+                "undecidable_reason": str(entry.get("undecidable_reason", "") or ""),
+            }
+        )
+
+    params = dict(NEVER_INVARIANTS_SPEC.params)
+    params.update(
+        {
+            "max_entries": max_entries,
+            "include_proven_unreachable": include_proven_unreachable,
+        }
+    )
+    projected = apply_spec(
+        NEVER_INVARIANTS_SPEC,
+        relation,
+        op_registry={"never_status_allowed": _never_status_allowed},
+        params_override=params,
+    )
+    ordered_statuses = list(params.get("ordered_statuses") or [])
+    grouped: dict[str, list[dict[str, JSONValue]]] = {}
+    for row in projected:
+        status = str(row.get("status", "UNKNOWN") or "UNKNOWN")
+        grouped.setdefault(status, []).append(row)
     extra_statuses = sorted(
         status for status in grouped.keys() if status not in ordered_statuses
     )
+    lines: list[str] = []
+    lines.extend(spec_metadata_lines(NEVER_INVARIANTS_SPEC))
     for status in ordered_statuses + extra_statuses:
         if status == "PROVEN_UNREACHABLE" and not include_proven_unreachable:
             continue
@@ -2764,6 +2944,186 @@ def _build_call_graph(
     return by_name, by_qual, transitive_callers
 
 
+def _collect_call_ambiguities(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> list[CallAmbiguity]:
+    by_name, by_qual = _build_function_index(
+        paths,
+        project_root,
+        ignore_params,
+        strictness,
+        transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        paths, project_root, external_filter=external_filter
+    )
+    class_index = _collect_class_index(paths, project_root)
+    ambiguities: list[CallAmbiguity] = []
+
+    def _sink(
+        caller: FunctionInfo,
+        call: CallArgs | None,
+        candidates: list[FunctionInfo],
+        phase: str,
+        callee_key: str,
+    ) -> None:
+        ordered = tuple(sorted(candidates, key=lambda info: info.qual))
+        ambiguities.append(
+            CallAmbiguity(
+                kind="local_resolution_ambiguous",
+                caller=caller,
+                call=call,
+                callee_key=callee_key,
+                candidates=ordered,
+                phase=phase,
+            )
+        )
+
+    for infos in by_name.values():
+        for info in infos:
+            for call in info.calls:
+                if call.is_test:
+                    continue
+                _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                    call=call,
+                    ambiguity_sink=_sink,
+                )
+    return _dedupe_call_ambiguities(ambiguities)
+
+
+def _dedupe_call_ambiguities(
+    ambiguities: Iterable[CallAmbiguity],
+) -> list[CallAmbiguity]:
+    seen: set[tuple[object, ...]] = set()
+    ordered: list[CallAmbiguity] = []
+    for entry in ambiguities:
+        span = entry.call.span if entry.call is not None else None
+        candidate_keys = tuple(
+            (candidate.path, candidate.qual) for candidate in entry.candidates
+        )
+        key = (
+            entry.kind,
+            entry.caller.path,
+            entry.caller.qual,
+            span,
+            entry.callee_key,
+            candidate_keys,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(entry)
+    return ordered
+
+
+def _emit_call_ambiguities(
+    ambiguities: Iterable[CallAmbiguity],
+    *,
+    project_root: Path | None,
+    forest: Forest | None,
+) -> list[JSONObject]:
+    entries: list[JSONObject] = []
+    for entry in ambiguities:
+        call_span = entry.call.span if entry.call is not None else None
+        site_path = _normalize_snapshot_path(entry.caller.path, project_root)
+        site_payload: JSONObject = {
+            "path": site_path,
+            "function": entry.caller.qual,
+        }
+        if call_span is not None:
+            site_payload["span"] = list(call_span)
+        candidate_targets: list[dict[str, str]] = []
+        for candidate in entry.candidates:
+            candidate_targets.append(
+                {
+                    "path": _normalize_snapshot_path(candidate.path, project_root),
+                    "qual": candidate.qual,
+                }
+            )
+        candidate_targets = evidence_keys.normalize_targets(candidate_targets)
+        payload: JSONObject = {
+            "kind": entry.kind,
+            "site": site_payload,
+            "candidates": candidate_targets,
+            "candidate_count": len(candidate_targets),
+            "phase": entry.phase,
+        }
+        entries.append(payload)
+        if forest is None:
+            continue
+        call_site_id = forest.add_site(
+            entry.caller.path.name,
+            entry.caller.qual,
+            call_span,
+        )
+        candidate_nodes = [
+            forest.add_site(candidate.path.name, candidate.qual)
+            for candidate in entry.candidates
+        ]
+        ambiguity_key = evidence_keys.make_ambiguity_set_key(
+            path=site_path,
+            qual=entry.caller.qual,
+            span=call_span,
+            candidates=candidate_targets,
+        )
+        ambiguity_key = evidence_keys.normalize_key(ambiguity_key)
+        ambiguity_identity = evidence_keys.key_identity(ambiguity_key)
+        ambiguity_node = forest.add_node(
+            "AmbiguitySet",
+            (ambiguity_identity,),
+            meta={"evidence_key": ambiguity_key},
+        )
+        witness_key = evidence_keys.make_partition_witness_key(
+            kind=entry.kind,
+            site=ambiguity_key.get("site", {}),
+            ambiguity=ambiguity_key,
+            support={
+                "phase": entry.phase,
+                "reason": "multiple local candidates",
+            },
+            collapse={
+                "hint": "add explicit qualifier or disambiguating annotation",
+            },
+        )
+        witness_key = evidence_keys.normalize_key(witness_key)
+        witness_identity = evidence_keys.key_identity(witness_key)
+        witness_node = forest.add_node(
+            "PartitionWitness",
+            (witness_identity,),
+            meta={"evidence_key": witness_key},
+        )
+        forest.add_alt(
+            "AmbiguitySet",
+            (call_site_id, ambiguity_node, *sorted(candidate_nodes, key=lambda node: node.sort_key())),
+            evidence={
+                "kind": entry.kind,
+                "candidate_count": len(candidate_nodes),
+            },
+        )
+        forest.add_alt(
+            "PartitionWitness",
+            (call_site_id, ambiguity_node, witness_node),
+            evidence={
+                "kind": entry.kind,
+                "phase": entry.phase,
+            },
+        )
+    return entries
+
+
 def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
     lines: list[str] = []
     for entry in evidence:
@@ -2785,6 +3145,36 @@ def _lint_lines_from_type_evidence(evidence: Iterable[str]) -> list[str]:
         path, lineno, col, remainder = parsed
         message = remainder or "type-flow evidence"
         lines.append(_lint_line(path, lineno, col, "GABION_TYPE_FLOW", message))
+    return lines
+
+
+def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str]:
+    lines: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        site = entry.get("site", {})
+        if not isinstance(site, Mapping):
+            continue
+        path = str(site.get("path", "") or "")
+        span = site.get("span")
+        if not path:
+            continue
+        lineno = col = None
+        if isinstance(span, list) and len(span) == 4:
+            try:
+                lineno = int(span[0]) + 1
+                col = int(span[1]) + 1
+            except (TypeError, ValueError):
+                lineno = col = None
+        candidate_count = entry.get("candidate_count")
+        try:
+            count_value = int(candidate_count) if candidate_count is not None else 0
+        except (TypeError, ValueError):
+            count_value = 0
+        kind = str(entry.get("kind", "") or "ambiguity")
+        message = f"{kind} candidates={count_value}"
+        lines.append(_lint_line(path, lineno or 1, col or 1, "GABION_AMBIGUITY", message))
     return lines
 
 
@@ -2939,9 +3329,26 @@ def _populate_bundle_forest(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     file_paths: list[Path],
     project_root: Path | None,
+    include_all_sites: bool = True,
+    ignore_params: set[str] | None = None,
+    strictness: str = "high",
+    transparent_decorators: set[str] | None = None,
 ) -> None:
     if not groups_by_path:
         return
+    if include_all_sites:
+        by_name, by_qual = _build_function_index(
+            file_paths,
+            project_root,
+            ignore_params or set(),
+            strictness,
+            transparent_decorators,
+        )
+        for qual in sorted(by_qual):
+            info = by_qual[qual]
+            if _is_test_path(info.path):
+                continue
+            forest.add_site(info.path.name, info.qual)
     seen: set[tuple[str, tuple[NodeId, ...], tuple[tuple[str, str], ...]]] = set()
 
     def _add_alt(
@@ -3022,6 +3429,7 @@ def _compute_lint_lines(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
     type_callsite_evidence: list[str],
+    ambiguity_witnesses: list[JSONObject],
     exception_obligations: list[JSONObject],
     never_invariants: list[JSONObject],
     decision_lint_lines: list[str],
@@ -3036,6 +3444,7 @@ def _compute_lint_lines(
     )
     lint_lines.extend(_lint_lines_from_bundle_evidence(bundle_evidence))
     lint_lines.extend(_lint_lines_from_type_evidence(type_callsite_evidence))
+    lint_lines.extend(_lint_lines_from_call_ambiguities(ambiguity_witnesses))
     lint_lines.extend(_exception_protocol_lint_lines(exception_obligations))
     lint_lines.extend(_never_invariant_lint_lines(never_invariants))
     lint_lines.extend(decision_lint_lines)
@@ -4153,6 +4562,9 @@ def _resolve_callee(
     symbol_table: SymbolTable | None = None,
     project_root: Path | None = None,
     class_index: dict[str, ClassInfo] | None = None,
+    call: CallArgs | None = None,
+    ambiguity_sink: Callable[[FunctionInfo, CallArgs | None, list[FunctionInfo], str, str], None]
+    | None = None,
 ) -> FunctionInfo | None:
     # dataflow-bundle: by_name, caller
     if not callee_key:
@@ -4173,6 +4585,8 @@ def _resolve_callee(
                 return scoped[0]
             if len(scoped) > 1:
                 ambiguous = True
+                if ambiguity_sink is not None:
+                    ambiguity_sink(caller, call, scoped, "local_resolution", callee_key)
                 break
             if not effective_scope:
                 break
@@ -5632,6 +6046,7 @@ def _emit_report(
     rewrite_plans: list[JSONObject] | None = None,
     exception_obligations: list[JSONObject] | None = None,
     never_invariants: list[JSONObject] | None = None,
+    ambiguity_witnesses: list[JSONObject] | None = None,
     handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
@@ -5796,6 +6211,13 @@ def _emit_report(
             lines.append("```")
             lines.extend(summary)
             lines.append("```")
+    if ambiguity_witnesses:
+        summary = _summarize_call_ambiguities(ambiguity_witnesses)
+        if summary:
+            lines.append("Ambiguities:")
+            lines.append("```")
+            lines.extend(summary)
+            lines.append("```")
     if exception_obligations:
         summary = _summarize_exception_obligations(exception_obligations)
         if summary:
@@ -5915,7 +6337,9 @@ def load_structure_snapshot(path: Path) -> JSONObject:
 
 
 def compute_structure_metrics(
-    groups_by_path: dict[Path, dict[str, list[set[str]]]]
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    forest: Forest | None = None,
 ) -> JSONObject:
     file_count = len(groups_by_path)
     function_count = sum(len(groups) for groups in groups_by_path.values())
@@ -5930,7 +6354,7 @@ def compute_structure_metrics(
     size_histogram: dict[int, int] = defaultdict(int)
     for size in bundle_sizes:
         size_histogram[size] += 1
-    return {
+    metrics: JSONObject = {
         "files": file_count,
         "functions": function_count,
         "bundles": bundle_count,
@@ -5941,12 +6365,52 @@ def compute_structure_metrics(
             str(size): count for size, count in sorted(size_histogram.items())
         },
     }
+    if forest is not None:
+        metrics["forest_signature"] = build_forest_signature(forest)
+    else:
+        metrics.update(_partial_forest_signature_metadata(groups_by_path))
+    return metrics
+
+
+def _partial_forest_signature_metadata(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    basis: str = "bundles_only",
+) -> JSONObject:
+    return {
+        "forest_signature": build_forest_signature_from_groups(groups_by_path),
+        "forest_signature_partial": True,
+        "forest_signature_basis": basis,
+    }
+
+
+def _copy_forest_signature_metadata(
+    payload: JSONObject,
+    snapshot: JSONObject,
+    *,
+    prefix: str = "",
+) -> None:
+    signature = snapshot.get("forest_signature")
+    if signature is not None:
+        payload[f"{prefix}forest_signature"] = signature
+    partial = snapshot.get("forest_signature_partial")
+    if partial is not None:
+        payload[f"{prefix}forest_signature_partial"] = partial
+    basis = snapshot.get("forest_signature_basis")
+    if basis is not None:
+        payload[f"{prefix}forest_signature_basis"] = basis
+    if signature is None:
+        payload[f"{prefix}forest_signature_partial"] = True
+        if basis is None:
+            payload[f"{prefix}forest_signature_basis"] = "missing"
 
 
 def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
     project_root: Path | None = None,
+    forest: Forest | None = None,
+    forest_spec: ForestSpec | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
 ) -> JSONObject:
     root = project_root or _infer_root(groups_by_path)
@@ -5985,11 +6449,19 @@ def render_structure_snapshot(
                 ]
             functions.append(entry)
         files.append({"path": _normalize_snapshot_path(path, root), "functions": functions})
-    return {
+    snapshot: JSONObject = {
         "format_version": 1,
         "root": str(root) if root is not None else None,
         "files": files,
     }
+    spec = forest_spec or default_forest_spec(include_bundle_forest=True)
+    snapshot.update(forest_spec_metadata(spec))
+    if forest is None:
+        signature_meta = _partial_forest_signature_metadata(groups_by_path)
+        snapshot.update(signature_meta)
+    else:
+        snapshot["forest_signature"] = build_forest_signature(forest)
+    return snapshot
 
 
 # dataflow-bundle: decision_surfaces, value_decision_surfaces
@@ -5999,6 +6471,7 @@ def render_decision_snapshot(
     value_decision_surfaces: list[str],
     project_root: Path | None = None,
     forest: Forest | None = None,
+    forest_spec: ForestSpec | None = None,
 ) -> JSONObject:
     snapshot: JSONObject = {
         "format_version": 1,
@@ -6012,6 +6485,16 @@ def render_decision_snapshot(
     }
     if forest is not None:
         snapshot["forest"] = forest.to_json()
+        snapshot["forest_signature"] = build_forest_signature(forest)
+    else:
+        snapshot["forest_signature_partial"] = True
+        snapshot["forest_signature_basis"] = "missing"
+    spec = forest_spec or default_forest_spec(
+        include_bundle_forest=forest is not None,
+        include_decision_surfaces=True,
+        include_value_decision_surfaces=True,
+    )
+    snapshot.update(forest_spec_metadata(spec))
     return snapshot
 
 
@@ -6033,7 +6516,7 @@ def diff_decision_snapshots(
     curr_decisions = set(current_snapshot.get("decision_surfaces") or [])
     base_value = set(baseline_snapshot.get("value_decision_surfaces") or [])
     curr_value = set(current_snapshot.get("value_decision_surfaces") or [])
-    return {
+    diff: JSONObject = {
         "format_version": 1,
         "baseline_root": baseline_snapshot.get("root"),
         "current_root": current_snapshot.get("root"),
@@ -6046,6 +6529,9 @@ def diff_decision_snapshots(
             "removed": sorted(base_value - curr_value),
         },
     }
+    _copy_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
+    _copy_forest_signature_metadata(diff, current_snapshot, prefix="current_")
+    return diff
 
 
 def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], int]:
@@ -6096,7 +6582,7 @@ def diff_structure_snapshots(
             removed.append(entry)
         elif before != after:
             changed.append(entry)
-    return {
+    diff: JSONObject = {
         "format_version": 1,
         "baseline_root": baseline_snapshot.get("root"),
         "current_root": current_snapshot.get("root"),
@@ -6111,6 +6597,9 @@ def diff_structure_snapshots(
             "current_total": sum(current_counts.values()),
         },
     }
+    _copy_forest_signature_metadata(diff, baseline_snapshot, prefix="baseline_")
+    _copy_forest_signature_metadata(diff, current_snapshot, prefix="current_")
+    return diff
 
 
 def diff_structure_snapshot_files(
@@ -6277,7 +6766,7 @@ def compute_structure_reuse(
                     )
         suggested.append(suggestion)
     replacement_map = _build_reuse_replacement_map(suggested)
-    return {
+    reuse_payload: JSONObject = {
         "format_version": 1,
         "min_count": min_count,
         "reused": reused,
@@ -6285,6 +6774,8 @@ def compute_structure_reuse(
         "replacement_map": replacement_map,
         "warnings": warnings,
     }
+    _copy_forest_signature_metadata(reuse_payload, snapshot)
+    return reuse_payload
 
 
 def _build_reuse_replacement_map(
@@ -6401,6 +6892,7 @@ def build_synthesis_plan(
         project_root=project_root or _infer_root(groups_by_path)
     )
     root = project_root or audit_config.project_root or _infer_root(groups_by_path)
+    signature_meta = _partial_forest_signature_metadata(groups_by_path)
     path_list = list(groups_by_path.keys())
     by_name, by_qual = _build_function_index(
         path_list,
@@ -6471,7 +6963,9 @@ def build_synthesis_plan(
             warnings=["No bundles observed for synthesis."],
             errors=[],
         )
-        return response.model_dump()
+        payload = response.model_dump()
+        payload.update(signature_meta)
+        return payload
 
     declared = _collect_declared_bundles(root)
     bundle_tiers: dict[frozenset[str], int] = {}
@@ -6615,7 +7109,9 @@ def build_synthesis_plan(
         warnings=plan.warnings + type_warnings,
         errors=plan.errors,
     )
-    return response.model_dump()
+    payload = response.model_dump()
+    payload.update(signature_meta)
+    return payload
 
 
 def render_synthesis_section(plan: JSONObject) -> str:
@@ -6743,9 +7239,12 @@ def build_refactor_plan(
     *,
     config: AuditConfig,
 ) -> JSONObject:
+    signature_meta = _partial_forest_signature_metadata(groups_by_path)
     file_paths = _iter_paths([str(p) for p in paths], config)
     if not file_paths:
-        return {"bundles": [], "warnings": ["No files available for refactor plan."]}
+        payload = {"bundles": [], "warnings": ["No files available for refactor plan."]}
+        payload.update(signature_meta)
+        return payload
 
     by_name, by_qual = _build_function_index(
         file_paths,
@@ -6807,7 +7306,9 @@ def build_refactor_plan(
     warnings: list[str] = []
     if not plans:
         warnings.append("No bundle components available for refactor plan.")
-    return {"bundles": plans, "warnings": warnings}
+    payload = {"bundles": plans, "warnings": warnings}
+    payload.update(signature_meta)
+    return payload
 
 
 def render_refactor_plan(plan: JSONObject) -> str:
@@ -6912,6 +7413,7 @@ def _compute_violations(
         decision_warnings=decision_warnings,
         fingerprint_warnings=fingerprint_warnings,
         context_suggestions=[],
+        ambiguity_witnesses=[],
     )
     return violations
 
@@ -7021,6 +7523,7 @@ def render_report(
     rewrite_plans: list[JSONObject] | None = None,
     exception_obligations: list[JSONObject] | None = None,
     never_invariants: list[JSONObject] | None = None,
+    ambiguity_witnesses: list[JSONObject] | None = None,
     handledness_witnesses: list[JSONObject] | None = None,
     decision_surfaces: list[str] | None = None,
     value_decision_surfaces: list[str] | None = None,
@@ -7048,6 +7551,7 @@ def render_report(
         rewrite_plans=rewrite_plans,
         exception_obligations=exception_obligations,
         never_invariants=never_invariants,
+        ambiguity_witnesses=ambiguity_witnesses,
         handledness_witnesses=handledness_witnesses,
         decision_surfaces=decision_surfaces,
         value_decision_surfaces=value_decision_surfaces,
@@ -7102,6 +7606,7 @@ def analyze_paths(
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
     include_lint_lines: bool = False,
+    include_ambiguities: bool = False,
     include_bundle_forest: bool = False,
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
@@ -7130,6 +7635,8 @@ def analyze_paths(
             )
 
     forest: Forest | None = None
+    forest_spec: ForestSpec | None = None
+    ambiguity_witnesses: list[JSONObject] = []
     if (
         include_bundle_forest
         or include_decision_surfaces
@@ -7143,6 +7650,40 @@ def analyze_paths(
             groups_by_path=groups_by_path,
             file_paths=file_paths,
             project_root=config.project_root,
+            include_all_sites=True,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            transparent_decorators=config.transparent_decorators,
+        )
+        forest_spec = build_forest_spec(
+            include_bundle_forest=True,
+            include_decision_surfaces=include_decision_surfaces,
+            include_value_decision_surfaces=include_value_decision_surfaces,
+            include_never_invariants=include_never_invariants,
+            include_ambiguities=include_ambiguities,
+            include_all_sites=True,
+            ignore_params=config.ignore_params,
+            decision_ignore_params=config.decision_ignore_params
+            or config.ignore_params,
+            transparent_decorators=config.transparent_decorators,
+            strictness=config.strictness,
+            decision_tiers=config.decision_tiers,
+            require_tiers=config.decision_require_tiers,
+            external_filter=config.external_filter,
+        )
+    if include_ambiguities:
+        call_ambiguities = _collect_call_ambiguities(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
+        )
+        ambiguity_witnesses = _emit_call_ambiguities(
+            call_ambiguities,
+            project_root=config.project_root,
+            forest=forest,
         )
 
     type_suggestions: list[str] = []
@@ -7331,6 +7872,7 @@ def analyze_paths(
             groups_by_path=groups_by_path,
             bundle_sites_by_path=bundle_sites_by_path,
             type_callsite_evidence=type_callsite_evidence,
+            ambiguity_witnesses=ambiguity_witnesses,
             exception_obligations=exception_obligations,
             never_invariants=never_invariants,
             decision_lint_lines=decision_lint_lines,
@@ -7365,7 +7907,9 @@ def analyze_paths(
         context_suggestions=context_suggestions,
         invariant_propositions=invariant_propositions,
         value_decision_rewrites=value_decision_rewrites,
+        ambiguity_witnesses=ambiguity_witnesses,
         forest=forest,
+        forest_spec=forest_spec,
     )
 
 
@@ -7714,6 +8258,7 @@ def run(argv: list[str] | None = None) -> int:
         fingerprint_handledness_json
     )
     include_never_invariants = bool(args.report)
+    include_ambiguities = bool(args.report) or bool(args.lint)
     include_coherence = (
         bool(args.report)
         or bool(fingerprint_coherence_json)
@@ -7737,6 +8282,7 @@ def run(argv: list[str] | None = None) -> int:
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(args.report),
         include_lint_lines=bool(args.lint),
+        include_ambiguities=include_ambiguities,
         include_bundle_forest=bool(args.report)
         or bool(args.dot)
         or bool(args.fail_on_violations),
@@ -7809,6 +8355,8 @@ def run(argv: list[str] | None = None) -> int:
         snapshot = render_structure_snapshot(
             analysis.groups_by_path,
             project_root=config.project_root,
+            forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
             invariant_propositions=analysis.invariant_propositions,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
@@ -7831,7 +8379,9 @@ def run(argv: list[str] | None = None) -> int:
         ):
             return 0
     if structure_metrics_path:
-        metrics = compute_structure_metrics(analysis.groups_by_path)
+        metrics = compute_structure_metrics(
+            analysis.groups_by_path, forest=analysis.forest
+        )
         payload_json = json.dumps(metrics, indent=2, sort_keys=True)
         if structure_metrics_path.strip() == "-":
             print(payload_json)
@@ -7853,6 +8403,7 @@ def run(argv: list[str] | None = None) -> int:
             value_decision_surfaces=analysis.value_decision_surfaces,
             project_root=config.project_root,
             forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path.strip() == "-":
@@ -7964,6 +8515,7 @@ def run(argv: list[str] | None = None) -> int:
             rewrite_plans=analysis.rewrite_plans,
             exception_obligations=analysis.exception_obligations,
             never_invariants=analysis.never_invariants,
+            ambiguity_witnesses=analysis.ambiguity_witnesses,
             handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,

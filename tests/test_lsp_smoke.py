@@ -11,6 +11,7 @@ def _has_pygls() -> bool:
     return importlib.util.find_spec("pygls") is not None
 
 
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_lsp_execute_command(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
@@ -60,6 +61,7 @@ def test_lsp_execute_command(tmp_path: Path) -> None:
     assert "protocols" in synth_result
 
 
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_lsp_execute_command_writes_structure_snapshot(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]

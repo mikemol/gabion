@@ -9,7 +9,7 @@ import tomllib
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple, TypeAlias
+from typing import Callable, Iterable, List, Tuple, TypeAlias
 
 
 # --- Docflow audit constants ---
@@ -1040,6 +1040,14 @@ def _add_lint_summary_args(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(func=_lint_summary_command)
 
 
+def _parse_single_command_args(
+    add_args: Callable[[argparse.ArgumentParser], None], argv: list[str] | None
+) -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    add_args(parser)
+    return parser.parse_args(_coerce_argv(argv))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Audit tooling bundle (docflow, consolidation, lint summary)."
@@ -1066,19 +1074,23 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run_docflow_cli(argv: list[str] | None = None) -> int:
-    return main(["docflow", *_coerce_argv(argv)])
+    args = _parse_single_command_args(_add_docflow_args, argv)
+    return _docflow_command(args)
 
 
 def run_decision_tiers_cli(argv: list[str] | None = None) -> int:
-    return main(["decision-tiers", *_coerce_argv(argv)])
+    args = _parse_single_command_args(_add_decision_tier_args, argv)
+    return _decision_tiers_command(args)
 
 
 def run_consolidation_cli(argv: list[str] | None = None) -> int:
-    return main(["consolidation", *_coerce_argv(argv)])
+    args = _parse_single_command_args(_add_consolidation_args, argv)
+    return _consolidation_command(args)
 
 
 def run_lint_summary_cli(argv: list[str] | None = None) -> int:
-    return main(["lint-summary", *_coerce_argv(argv)])
+    args = _parse_single_command_args(_add_lint_summary_args, argv)
+    return _lint_summary_command(args)
 
 
 if __name__ == "__main__":

@@ -48,6 +48,14 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
+from gabion.analysis import ambiguity_delta
+from gabion.analysis import call_cluster_consolidation
+from gabion.analysis import call_clusters
+from gabion.analysis import test_annotation_drift
+from gabion.analysis import test_annotation_drift_delta
+from gabion.analysis import test_obsolescence
+from gabion.analysis import test_obsolescence_delta
+from gabion.analysis import test_evidence_suggestions
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -231,6 +239,31 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     structure_tree_path = payload.get("structure_tree")
     structure_metrics_path = payload.get("structure_metrics")
     decision_snapshot_path = payload.get("decision_snapshot")
+    emit_test_obsolescence = bool(payload.get("emit_test_obsolescence", False))
+    emit_test_obsolescence_delta = bool(
+        payload.get("emit_test_obsolescence_delta", False)
+    )
+    write_test_obsolescence_baseline = bool(
+        payload.get("write_test_obsolescence_baseline", False)
+    )
+    emit_test_evidence_suggestions = bool(
+        payload.get("emit_test_evidence_suggestions", False)
+    )
+    emit_call_clusters = bool(payload.get("emit_call_clusters", False))
+    emit_call_cluster_consolidation = bool(
+        payload.get("emit_call_cluster_consolidation", False)
+    )
+    emit_test_annotation_drift = bool(
+        payload.get("emit_test_annotation_drift", False)
+    )
+    emit_test_annotation_drift_delta = bool(
+        payload.get("emit_test_annotation_drift_delta", False)
+    )
+    write_test_annotation_drift_baseline = bool(
+        payload.get("write_test_annotation_drift_baseline", False)
+    )
+    emit_ambiguity_delta = bool(payload.get("emit_ambiguity_delta", False))
+    write_ambiguity_baseline = bool(payload.get("write_ambiguity_baseline", False))
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
     synthesis_allow_singletons = payload.get("synthesis_allow_singletons", False)
@@ -280,6 +313,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         fingerprint_handledness_json
     )
     include_never_invariants = bool(report_path)
+    include_ambiguities = (
+        bool(report_path) or lint or emit_ambiguity_delta or write_ambiguity_baseline
+    )
     include_coherence = (
         bool(report_path) or bool(fingerprint_coherence_json) or include_rewrite_plans
     )
@@ -301,6 +337,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         include_value_decision_surfaces=include_decisions,
         include_invariant_propositions=bool(report_path),
         include_lint_lines=lint,
+        include_ambiguities=include_ambiguities,
         include_bundle_forest=True,
         config=config,
     )
@@ -325,6 +362,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_exception_obligations": analysis.exception_obligations,
         "fingerprint_handledness": analysis.handledness_witnesses,
         "never_invariants": analysis.never_invariants,
+        "ambiguity_witnesses": analysis.ambiguity_witnesses,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
         ],
@@ -382,6 +420,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         snapshot = render_structure_snapshot(
             analysis.groups_by_path,
             project_root=config.project_root,
+            forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
             invariant_propositions=analysis.invariant_propositions,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
@@ -390,7 +430,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         else:
             Path(structure_tree_path).write_text(payload_json)
     if structure_metrics_path:
-        metrics = compute_structure_metrics(analysis.groups_by_path)
+        metrics = compute_structure_metrics(
+            analysis.groups_by_path, forest=analysis.forest
+        )
         payload_json = json.dumps(metrics, indent=2, sort_keys=True)
         if structure_metrics_path == "-":
             response["structure_metrics"] = metrics
@@ -402,12 +444,238 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             value_decision_surfaces=analysis.value_decision_surfaces,
             project_root=config.project_root,
             forest=analysis.forest,
+            forest_spec=analysis.forest_spec,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path == "-":
             response["decision_snapshot"] = snapshot
         else:
             Path(decision_snapshot_path).write_text(payload_json)
+    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
+        raise ValueError(
+            "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+        )
+    if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
+        raise ValueError(
+            "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
+        )
+    if emit_ambiguity_delta and write_ambiguity_baseline:
+        raise ValueError(
+            "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
+        )
+
+    if emit_test_evidence_suggestions:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
+        suggestions, summary = test_evidence_suggestions.suggest_evidence(
+            entries,
+            root=report_root,
+            paths=paths,
+            forest=analysis.forest,
+            config=config,
+        )
+        suggestions_payload = test_evidence_suggestions.render_json_payload(
+            suggestions, summary
+        )
+        report_md = test_evidence_suggestions.render_markdown(suggestions, summary)
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = json.dumps(suggestions_payload, indent=2, sort_keys=True) + "\n"
+        (output_dir / "test_evidence_suggestions.json").write_text(report_json)
+        (output_dir / "test_evidence_suggestions.md").write_text(report_md)
+        response["test_evidence_suggestions_summary"] = (
+            suggestions_payload.get("summary", {})
+        )
+    if emit_call_clusters:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        clusters_payload = call_clusters.build_call_clusters_payload(
+            paths,
+            root=report_root,
+            evidence_path=evidence_path,
+            config=config,
+        )
+        report_md = call_clusters.render_markdown(clusters_payload)
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = json.dumps(clusters_payload, indent=2, sort_keys=True) + "\n"
+        (output_dir / "call_clusters.json").write_text(report_json)
+        (output_dir / "call_clusters.md").write_text(report_md)
+        response["call_clusters_summary"] = clusters_payload.get("summary", {})
+    if emit_call_cluster_consolidation:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        consolidation_payload = (
+            call_cluster_consolidation.build_call_cluster_consolidation_payload(
+                evidence_path=evidence_path
+            )
+        )
+        report_md = call_cluster_consolidation.render_markdown(consolidation_payload)
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = (
+            json.dumps(consolidation_payload, indent=2, sort_keys=True) + "\n"
+        )
+        (output_dir / "call_cluster_consolidation.json").write_text(report_json)
+        (output_dir / "call_cluster_consolidation.md").write_text(report_md)
+        response["call_cluster_consolidation_summary"] = consolidation_payload.get(
+            "summary", {}
+        )
+    drift_payload = None
+    if (
+        emit_test_annotation_drift
+        or emit_test_annotation_drift_delta
+        or write_test_annotation_drift_baseline
+    ):
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        drift_payload = test_annotation_drift.build_annotation_drift_payload(
+            paths,
+            root=report_root,
+            evidence_path=evidence_path,
+        )
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        if emit_test_annotation_drift:
+            report_json = json.dumps(drift_payload, indent=2, sort_keys=True) + "\n"
+            report_md = test_annotation_drift.render_markdown(drift_payload)
+            (output_dir / "test_annotation_drift.json").write_text(report_json)
+            (output_dir / "test_annotation_drift.md").write_text(report_md)
+            response["test_annotation_drift_summary"] = drift_payload.get(
+                "summary", {}
+            )
+        if emit_test_annotation_drift_delta or write_test_annotation_drift_baseline:
+            baseline_payload = test_annotation_drift_delta.build_baseline_payload(
+                drift_payload.get("summary", {})
+            )
+            baseline_path = test_annotation_drift_delta.resolve_baseline_path(
+                report_root
+            )
+            response["test_annotation_drift_baseline_path"] = str(baseline_path)
+            if write_test_annotation_drift_baseline:
+                baseline_path.parent.mkdir(parents=True, exist_ok=True)
+                test_annotation_drift_delta.write_baseline(
+                    str(baseline_path), baseline_payload
+                )
+                response["test_annotation_drift_baseline_written"] = True
+            else:
+                response["test_annotation_drift_baseline_written"] = False
+            if emit_test_annotation_drift_delta:
+                if not baseline_path.exists():
+                    raise FileNotFoundError(
+                        f"Annotation drift baseline not found: {baseline_path}"
+                    )
+                baseline = test_annotation_drift_delta.load_baseline(
+                    str(baseline_path)
+                )
+                current = test_annotation_drift_delta.parse_baseline_payload(
+                    baseline_payload
+                )
+                delta_payload = test_annotation_drift_delta.build_delta_payload(
+                    baseline, current, baseline_path=str(baseline_path)
+                )
+                report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
+                report_md = test_annotation_drift_delta.render_markdown(
+                    delta_payload
+                )
+                (output_dir / "test_annotation_drift_delta.json").write_text(
+                    report_json
+                )
+                (output_dir / "test_annotation_drift_delta.md").write_text(report_md)
+                response["test_annotation_drift_delta_summary"] = delta_payload.get(
+                    "summary", {}
+                )
+    if emit_test_obsolescence or emit_test_obsolescence_delta or write_test_obsolescence_baseline:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        risk_registry_path = report_root / "out" / "evidence_risk_registry.json"
+        evidence_by_test, status_by_test = test_obsolescence.load_test_evidence(
+            str(evidence_path)
+        )
+        risk_registry = test_obsolescence.load_risk_registry(str(risk_registry_path))
+        candidates, summary_counts = test_obsolescence.classify_candidates(
+            evidence_by_test, status_by_test, risk_registry
+        )
+
+    if emit_test_obsolescence:
+        report_payload = test_obsolescence.render_json_payload(
+            candidates, summary_counts
+        )
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = json.dumps(report_payload, indent=2, sort_keys=True) + "\n"
+        report_md = test_obsolescence.render_markdown(candidates, summary_counts)
+        (output_dir / "test_obsolescence_report.json").write_text(report_json)
+        (output_dir / "test_obsolescence_report.md").write_text(report_md)
+        response["test_obsolescence_summary"] = summary_counts
+
+    if emit_test_obsolescence_delta or write_test_obsolescence_baseline:
+        baseline_payload = test_obsolescence_delta.build_baseline_payload(
+            evidence_by_test, status_by_test, candidates, summary_counts
+        )
+        baseline_path = test_obsolescence_delta.resolve_baseline_path(report_root)
+        response["test_obsolescence_baseline_path"] = str(baseline_path)
+        if write_test_obsolescence_baseline:
+            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            test_obsolescence_delta.write_baseline(
+                str(baseline_path), baseline_payload
+            )
+            response["test_obsolescence_baseline_written"] = True
+        else:
+            response["test_obsolescence_baseline_written"] = False
+        if emit_test_obsolescence_delta:
+            if not baseline_path.exists():
+                raise FileNotFoundError(
+                    f"Test obsolescence baseline not found: {baseline_path}"
+                )
+            baseline = test_obsolescence_delta.load_baseline(str(baseline_path))
+            current = test_obsolescence_delta.parse_baseline_payload(
+                baseline_payload
+            )
+            delta_payload = test_obsolescence_delta.build_delta_payload(
+                baseline, current, baseline_path=str(baseline_path)
+            )
+            output_dir = report_root / "out"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
+            report_md = test_obsolescence_delta.render_markdown(delta_payload)
+            (output_dir / "test_obsolescence_delta.json").write_text(report_json)
+            (output_dir / "test_obsolescence_delta.md").write_text(report_md)
+            response["test_obsolescence_delta_summary"] = delta_payload.get(
+                "summary", {}
+            )
+
+    if emit_ambiguity_delta or write_ambiguity_baseline:
+        report_root = Path(root)
+        baseline_payload = ambiguity_delta.build_baseline_payload(
+            analysis.ambiguity_witnesses
+        )
+        baseline_path = ambiguity_delta.resolve_baseline_path(report_root)
+        response["ambiguity_baseline_path"] = str(baseline_path)
+        if write_ambiguity_baseline:
+            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            ambiguity_delta.write_baseline(str(baseline_path), baseline_payload)
+            response["ambiguity_baseline_written"] = True
+        else:
+            response["ambiguity_baseline_written"] = False
+        if emit_ambiguity_delta:
+            if not baseline_path.exists():
+                raise FileNotFoundError(
+                    f"Ambiguity baseline not found: {baseline_path}"
+                )
+            baseline = ambiguity_delta.load_baseline(str(baseline_path))
+            current = ambiguity_delta.parse_baseline_payload(baseline_payload)
+            delta_payload = ambiguity_delta.build_delta_payload(
+                baseline, current, baseline_path=str(baseline_path)
+            )
+            output_dir = report_root / "out"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
+            report_md = ambiguity_delta.render_markdown(delta_payload)
+            (output_dir / "ambiguity_delta.json").write_text(report_json)
+            (output_dir / "ambiguity_delta.md").write_text(report_md)
+            response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
 
     violations: list[str] = []
     effective_violations: list[str] | None = None
@@ -428,6 +696,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             rewrite_plans=analysis.rewrite_plans,
             exception_obligations=analysis.exception_obligations,
             never_invariants=analysis.never_invariants,
+            ambiguity_witnesses=analysis.ambiguity_witnesses,
             handledness_witnesses=analysis.handledness_witnesses,
             decision_surfaces=analysis.decision_surfaces,
             value_decision_surfaces=analysis.value_decision_surfaces,

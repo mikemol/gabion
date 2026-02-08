@@ -12,6 +12,7 @@ def _load():
     return topological_schedule
 
 
+# gabion:evidence E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule
 def test_topological_schedule_orders_dependencies() -> None:
     topological_schedule = _load()
     graph = {"a": {"b"}, "b": set()}
@@ -20,6 +21,7 @@ def test_topological_schedule_orders_dependencies() -> None:
     assert result.cycles == []
 
 
+# gabion:evidence E:function_site::schedule.py::gabion.synthesis.schedule.topological_schedule
 def test_topological_schedule_reports_cycles() -> None:
     topological_schedule = _load()
     graph = {"a": {"b"}, "b": {"a"}}

@@ -7,6 +7,7 @@ import sys
 import pytest
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_main.py::test_dataflow_audit_main_executes::dataflow_audit.py::gabion.analysis.dataflow_audit
 def test_dataflow_audit_main_executes(tmp_path: Path) -> None:
     sample = tmp_path / "sample.py"
     sample.write_text("def f(a, b):\n    return a + b\n")
