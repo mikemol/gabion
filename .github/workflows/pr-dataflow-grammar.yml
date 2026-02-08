@@ -87,6 +87,8 @@ jobs:
       - name: Install package
         run: mise exec -- python -m pip install -e .
       - name: Render dataflow grammar report
+        env:
+          GABION_LSP_TIMEOUT_SECONDS: "30"
         run: |
           mkdir -p artifacts/dataflow_grammar
           mise exec -- python -m gabion dataflow-audit . \

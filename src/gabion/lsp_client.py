@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import math
+import os
 import select
 import subprocess
 import sys
@@ -22,6 +24,19 @@ class LspClientError(RuntimeError):
 class CommandRequest:
     command: str
     arguments: list[JSONObject] | None = None
+
+
+def _env_timeout_seconds() -> float | None:
+    raw = os.getenv("GABION_LSP_TIMEOUT_SECONDS", "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    if not math.isfinite(value) or value <= 0:
+        return None
+    return value
 
 
 def _wait_readable(stream, deadline: float | None) -> None:
@@ -89,6 +104,9 @@ def run_command(
     timeout: float = 5.0,
     process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
 ) -> JSONObject:
+    env_timeout = _env_timeout_seconds()
+    if env_timeout is not None:
+        timeout = env_timeout
     proc = process_factory(
         [sys.executable, "-m", "gabion.server"],
         stdin=subprocess.PIPE,

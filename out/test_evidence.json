@@ -6463,6 +6463,21 @@
       ]
     },
     {
+      "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "lsp_client.py",
+          "qual": "gabion.lsp_client.run_command"
+        }
+      },
+      "tests": [
+        "tests/test_lsp_client_run_command_di.py::test_run_command_env_timeout_zero_ignored",
+        "tests/test_lsp_client_run_command_di.py::test_run_command_ignores_invalid_env_timeout",
+        "tests/test_lsp_client_run_command_di.py::test_run_command_uses_env_timeout"
+      ]
+    },
+    {
       "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct",
       "key": {
         "k": "function_site",
@@ -29342,9 +29357,45 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 65,
+      "line": 68,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_allows_blank_stderr"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client.run_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 128,
+      "status": "mapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_env_timeout_zero_ignored"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client.run_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 108,
+      "status": "mapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_ignores_invalid_env_timeout"
     },
     {
       "evidence": [
@@ -29362,7 +29413,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 45,
+      "line": 48,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_nonzero_returncode"
     },
@@ -29382,7 +29433,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 55,
+      "line": 58,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_stderr_output"
     },
@@ -29402,9 +29453,27 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 74,
+      "line": 77,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_non_object_result"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client.run_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 87,
+      "status": "mapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_uses_env_timeout"
     },
     {
       "evidence": [

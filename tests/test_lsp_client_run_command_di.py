@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -22,8 +23,10 @@ class _FakeProc:
         self.stdout = io.BytesIO(stdout_bytes)
         self.stderr = io.BytesIO(stderr_bytes)
         self.returncode = returncode
+        self.last_timeout: float | None = None
 
     def communicate(self, timeout: float | None = None):
+        self.last_timeout = timeout
         return (b"", self.stderr.read())
 
 
@@ -78,3 +81,64 @@ def test_run_command_rejects_non_object_result() -> None:
     with pytest.raises(LspClientError) as exc:
         run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
     assert "unexpected lsp result" in str(exc.value).lower()
+
+
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_uses_env_timeout() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
+    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "1.0"
+    try:
+        result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+    assert result == {}
+    assert proc.last_timeout is not None
+    assert 0 < proc.last_timeout <= 1.0
+
+
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_ignores_invalid_env_timeout() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
+    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "nope"
+    try:
+        result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+    assert result == {}
+    assert proc.last_timeout is not None
+
+
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_env_timeout_zero_ignored() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
+    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "0"
+    try:
+        result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+    assert result == {}
+    assert proc.last_timeout is not None
