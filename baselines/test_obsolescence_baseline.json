@@ -57,7 +57,7 @@
           }
         ]
       },
-      "witness_count": 16
+      "witness_count": 17
     },
     {
       "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
@@ -3059,6 +3059,50 @@
       "witness_count": 2
     },
     {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation._targets_signature",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation._targets_signature"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation.render_markdown"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload",
       "key": {
         "k": "function_site",
@@ -4422,8 +4466,8 @@
   "generated_by_spec_id": "d3454cce58ad58f08551264a1079d2b5b894b013a045c5aeda2f3eff302c98b6",
   "opaque_evidence_count": 0,
   "summary": {
-    "equivalent_witness": 332,
-    "obsolete_candidate": 137,
+    "equivalent_witness": 338,
+    "obsolete_candidate": 139,
     "redundant_by_evidence": 224,
     "unmapped": 0
   },
@@ -4519,6 +4563,34 @@
     {
       "class": "redundant_by_evidence",
       "test_id": "tests/test_baseline_ratchet.py::test_baseline_write_and_apply"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_payload_and_render"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_empty"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_handles_invalid_entries"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_skips_multiple_target_sets"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_skips_unparseable_and_empty_targets"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_targets_signature_filters_invalid"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_write_creates_file"
     },
     {
       "class": "equivalent_witness",
@@ -6287,6 +6359,10 @@
     {
       "class": "equivalent_witness",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_cluster_consolidation"
     },
     {
       "class": "equivalent_witness",
