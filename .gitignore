@@ -26,6 +26,8 @@ out/ambiguity_delta.json
 out/ambiguity_delta.md
 out/call_clusters.json
 out/call_clusters.md
+out/call_cluster_consolidation.json
+out/call_cluster_consolidation.md
 
 node_modules/
 package-lock.json

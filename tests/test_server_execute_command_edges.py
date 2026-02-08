@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 
 from gabion import server
-from gabion.analysis import ambiguity_delta, test_annotation_drift, test_annotation_drift_delta, test_obsolescence_delta
+from gabion.analysis import (
+    ambiguity_delta,
+    evidence_keys,
+    test_annotation_drift,
+    test_annotation_drift_delta,
+    test_obsolescence_delta,
+)
 
 
 class _DummyWorkspace:
@@ -722,6 +728,65 @@ def test_execute_command_emits_call_clusters(tmp_path: Path) -> None:
     assert (out_dir / "call_clusters.json").exists()
     assert (out_dir / "call_clusters.md").exists()
     assert "call_clusters_summary" in result
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_emits_call_cluster_consolidation(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_sample.py").write_text(
+        "from sample import caller\n"
+        "\n"
+        "def test_alpha():\n"
+        "    caller(1, 2)\n"
+    )
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    call_footprint = evidence_keys.make_call_footprint_key(
+        path="tests/test_sample.py",
+        qual="test_alpha",
+        targets=[{"path": "sample.py", "qual": "caller"}],
+    )
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": ["tests"], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [
+                    {
+                        "key": call_footprint,
+                        "display": evidence_keys.render_display(call_footprint),
+                    }
+                ],
+                "status": "mapped",
+            }
+        ],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(tests_dir), str(module_path)],
+            "emit_call_cluster_consolidation": True,
+        },
+    )
+    assert (out_dir / "call_cluster_consolidation.json").exists()
+    assert (out_dir / "call_cluster_consolidation.md").exists()
+    assert "call_cluster_consolidation_summary" in result
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload

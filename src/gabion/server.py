@@ -49,6 +49,7 @@ from gabion.analysis import (
     write_baseline,
 )
 from gabion.analysis import ambiguity_delta
+from gabion.analysis import call_cluster_consolidation
 from gabion.analysis import call_clusters
 from gabion.analysis import test_annotation_drift
 from gabion.analysis import test_annotation_drift_delta
@@ -249,6 +250,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         payload.get("emit_test_evidence_suggestions", False)
     )
     emit_call_clusters = bool(payload.get("emit_call_clusters", False))
+    emit_call_cluster_consolidation = bool(
+        payload.get("emit_call_cluster_consolidation", False)
+    )
     emit_test_annotation_drift = bool(
         payload.get("emit_test_annotation_drift", False)
     )
@@ -499,6 +503,25 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         (output_dir / "call_clusters.json").write_text(report_json)
         (output_dir / "call_clusters.md").write_text(report_md)
         response["call_clusters_summary"] = clusters_payload.get("summary", {})
+    if emit_call_cluster_consolidation:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        consolidation_payload = (
+            call_cluster_consolidation.build_call_cluster_consolidation_payload(
+                evidence_path=evidence_path
+            )
+        )
+        report_md = call_cluster_consolidation.render_markdown(consolidation_payload)
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = (
+            json.dumps(consolidation_payload, indent=2, sort_keys=True) + "\n"
+        )
+        (output_dir / "call_cluster_consolidation.json").write_text(report_json)
+        (output_dir / "call_cluster_consolidation.md").write_text(report_md)
+        response["call_cluster_consolidation_summary"] = consolidation_payload.get(
+            "summary", {}
+        )
     drift_payload = None
     if (
         emit_test_annotation_drift

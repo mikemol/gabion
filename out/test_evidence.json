@@ -77,6 +77,7 @@
         "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
         "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_cluster_consolidation",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
@@ -5536,6 +5537,33 @@
       ]
     },
     {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation.render_markdown"
+        }
+      },
+      "tests": [
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_payload_and_render",
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_empty"
+      ]
+    },
+    {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation"
+        }
+      },
+      "tests": [
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_write_creates_file"
+      ]
+    },
+    {
       "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload",
       "key": {
         "k": "function_site",
@@ -8634,6 +8662,60 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_cluster_consolidation.py",
+              "qual": "gabion.analysis.call_cluster_consolidation.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_cluster_consolidation.py",
+      "line": 34,
+      "status": "mapped",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_payload_and_render"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_cluster_consolidation.py",
+              "qual": "gabion.analysis.call_cluster_consolidation.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_cluster_consolidation.py",
+      "line": 103,
+      "status": "mapped",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_empty"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_cluster_consolidation.py",
+              "qual": "gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_cluster_consolidation.py",
+      "line": 110,
+      "status": "mapped",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_write_creates_file"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
           "key": {
             "k": "function_site",
@@ -10323,7 +10405,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 89,
+      "line": 92,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
     },
@@ -10341,7 +10423,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 323,
+      "line": 331,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write"
     },
@@ -10359,7 +10441,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 291,
+      "line": 298,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
     },
@@ -10403,7 +10485,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 259,
+      "line": 265,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
     },
@@ -10447,7 +10529,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 57,
+      "line": 59,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_strictness_validation"
     },
@@ -10491,7 +10573,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 121,
+      "line": 125,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
     },
@@ -10535,7 +10617,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 154,
+      "line": 158,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
     },
@@ -10555,7 +10637,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 191,
+      "line": 195,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
     },
@@ -10575,7 +10657,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 174,
+      "line": 178,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
     },
@@ -10607,7 +10689,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 205,
+      "line": 209,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
@@ -34607,7 +34689,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 227,
+      "line": 233,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply"
     },
@@ -34631,7 +34713,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 55,
+      "line": 61,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs"
     },
@@ -34783,7 +34865,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 961,
+      "line": 1026,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
     },
@@ -34801,7 +34883,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 844,
+      "line": 909,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta"
     },
@@ -34825,7 +34907,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 625,
+      "line": 631,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift"
     },
@@ -34843,7 +34925,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 557,
+      "line": 563,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta"
     },
@@ -34867,7 +34949,31 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 680,
+      "line": 735,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_cluster_consolidation"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
+          "key": {
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 686,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters"
     },
@@ -35019,7 +35125,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 468,
+      "line": 474,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta"
     },
@@ -35043,7 +35149,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 427,
+      "line": 433,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports"
     },
@@ -35195,7 +35301,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 250,
+      "line": 256,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities"
     },
@@ -35347,7 +35453,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 99,
+      "line": 105,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot"
     },
@@ -35371,7 +35477,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 267,
+      "line": 273,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines"
     },
@@ -35395,7 +35501,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 77,
+      "line": 83,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences"
     },
@@ -35419,7 +35525,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 889,
+      "line": 954,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags"
     },
@@ -35443,7 +35549,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 809,
+      "line": 874,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags"
     },
@@ -35467,7 +35573,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 905,
+      "line": 970,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
     },
@@ -35491,7 +35597,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 398,
+      "line": 404,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections"
     },
@@ -35515,7 +35621,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 283,
+      "line": 289,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
     },
@@ -35539,7 +35645,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 827,
+      "line": 892,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline"
     },
@@ -35563,7 +35669,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 729,
+      "line": 794,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline"
     },
@@ -35587,7 +35693,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 924,
+      "line": 989,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
     },
@@ -35605,7 +35711,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 870,
+      "line": 935,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline"
     },
@@ -35623,7 +35729,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 774,
+      "line": 839,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
     },
@@ -35647,7 +35753,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 209,
+      "line": 215,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot"
     },
@@ -35799,7 +35905,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 150,
+      "line": 156,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs"
     },
@@ -35951,7 +36057,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 517,
+      "line": 523,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
     },
@@ -35971,7 +36077,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 368,
+      "line": 374,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_invalid_snapshot"
     },
@@ -35991,7 +36097,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 356,
+      "line": 362,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_missing_paths"
     },
@@ -36011,7 +36117,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 362,
+      "line": 368,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_none"
     },
@@ -36031,7 +36137,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 379,
+      "line": 385,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_valid_snapshot"
     },
@@ -36051,7 +36157,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 988,
+      "line": 1053,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
     },
@@ -36071,7 +36177,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 995,
+      "line": 1060,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
     },
@@ -36091,7 +36197,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 969,
+      "line": 1034,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
     },
@@ -36123,7 +36229,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 319,
+      "line": 325,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_invalid_snapshot"
     },
@@ -36155,7 +36261,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 307,
+      "line": 313,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_missing_snapshot"
     },
@@ -36187,7 +36293,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 313,
+      "line": 319,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_none"
     },
@@ -36219,7 +36325,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 327,
+      "line": 333,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs"
     },
@@ -36251,7 +36357,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 341,
+      "line": 347,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs_file"
     },
@@ -36271,7 +36377,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1002,
+      "line": 1067,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
     },
@@ -36291,7 +36397,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1025,
+      "line": 1090,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
     },
@@ -36311,7 +36417,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1009,
+      "line": 1074,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
     },
@@ -36331,7 +36437,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1032,
+      "line": 1097,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
     },

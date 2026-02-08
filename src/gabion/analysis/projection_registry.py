@@ -145,6 +145,40 @@ CALL_CLUSTER_SUMMARY_SPEC = ProjectionSpec(
 )
 
 
+CALL_CLUSTER_CONSOLIDATION_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="call_cluster_consolidation",
+    domain="call_cluster_consolidation",
+    pipeline=(
+        ProjectionOp(
+            "project",
+            {
+                "fields": [
+                    "cluster_identity",
+                    "cluster_display",
+                    "cluster_count",
+                    "test_id",
+                    "file",
+                    "line",
+                    "replace",
+                    "with",
+                ]
+            },
+        ),
+        ProjectionOp(
+            "sort",
+            {
+                "by": [
+                    {"field": "cluster_count", "order": "desc"},
+                    {"field": "cluster_display", "order": "asc"},
+                    {"field": "test_id", "order": "asc"},
+                ]
+            },
+        ),
+    ),
+)
+
+
 TEST_ANNOTATION_DRIFT_SPEC = ProjectionSpec(
     spec_version=1,
     name="test_annotation_drift",
