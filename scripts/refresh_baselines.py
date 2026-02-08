@@ -21,7 +21,15 @@ ENV_GATE_AMBIGUITY = "GABION_GATE_AMBIGUITY_DELTA"
 
 
 def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -> None:
-    cmd = [sys.executable, "-m", "gabion", "check", flag]
+    cmd = [
+        sys.executable,
+        "-m",
+        "gabion",
+        "check",
+        "--no-fail-on-violations",
+        "--no-fail-on-type-ambiguities",
+        flag,
+    ]
     if extra:
         cmd.extend(extra)
     env = dict(os.environ)
