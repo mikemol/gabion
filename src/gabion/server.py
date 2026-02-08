@@ -48,8 +48,9 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
-from gabion.analysis import test_annotation_drift
 from gabion.analysis import ambiguity_delta
+from gabion.analysis import call_clusters
+from gabion.analysis import test_annotation_drift
 from gabion.analysis import test_annotation_drift_delta
 from gabion.analysis import test_obsolescence
 from gabion.analysis import test_obsolescence_delta
@@ -247,6 +248,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     emit_test_evidence_suggestions = bool(
         payload.get("emit_test_evidence_suggestions", False)
     )
+    emit_call_clusters = bool(payload.get("emit_call_clusters", False))
     emit_test_annotation_drift = bool(
         payload.get("emit_test_annotation_drift", False)
     )
@@ -481,6 +483,22 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         response["test_evidence_suggestions_summary"] = (
             suggestions_payload.get("summary", {})
         )
+    if emit_call_clusters:
+        report_root = Path(root)
+        evidence_path = report_root / "out" / "test_evidence.json"
+        clusters_payload = call_clusters.build_call_clusters_payload(
+            paths,
+            root=report_root,
+            evidence_path=evidence_path,
+            config=config,
+        )
+        report_md = call_clusters.render_markdown(clusters_payload)
+        output_dir = report_root / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_json = json.dumps(clusters_payload, indent=2, sort_keys=True) + "\n"
+        (output_dir / "call_clusters.json").write_text(report_json)
+        (output_dir / "call_clusters.md").write_text(report_md)
+        response["call_clusters_summary"] = clusters_payload.get("summary", {})
     drift_payload = None
     if (
         emit_test_annotation_drift

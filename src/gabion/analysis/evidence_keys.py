@@ -168,6 +168,17 @@ def make_call_footprint_key(
     }
 
 
+def make_call_cluster_key(
+    *,
+    targets: Iterable[object],
+) -> dict[str, object]:
+    # dataflow-bundle: targets
+    return {
+        "k": "call_cluster",
+        "targets": normalize_targets(targets),
+    }
+
+
 def make_ambiguity_set_key(
     *,
     path: str,
@@ -273,6 +284,13 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
             qual=qual,
             targets=targets if isinstance(targets, Iterable) else [],
         )
+    if kind == "call_cluster":
+        targets = key.get("targets", [])
+        if isinstance(targets, str):
+            targets = []
+        return make_call_cluster_key(
+            targets=targets if isinstance(targets, Iterable) else [],
+        )
     if kind == "ambiguity_set":
         site = key.get("site", {})
         normalized_site = _normalize_site(site)
@@ -368,6 +386,21 @@ def render_display(
                     continue
                 parts.extend([target_path, target_qual])
         return "E:call_footprint::" + "::".join(parts)
+    if kind == "call_cluster":
+        targets = normalized.get("targets", [])
+        parts: list[str] = []
+        if isinstance(targets, list):
+            for target in targets:
+                if not isinstance(target, Mapping):
+                    continue
+                target_path = str(target.get("path", "") or "")
+                target_qual = str(target.get("qual", "") or "")
+                if not target_path or not target_qual:
+                    continue
+                parts.extend([target_path, target_qual])
+        if not parts:
+            return "E:call_cluster"
+        return "E:call_cluster::" + "::".join(parts)
     if kind == "ambiguity_set":
         payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
         return f"E:ambiguity_set::{payload}"
@@ -418,6 +451,15 @@ def parse_display(display: str) -> dict[str, object] | None:
         for idx in range(0, len(targets), 2):
             target_pairs.append((targets[idx], targets[idx + 1]))
         return make_call_footprint_key(path=path, qual=qual, targets=target_pairs)
+    if prefix == "call_cluster":
+        if len(rest) < 2:
+            return None
+        if len(rest) % 2 != 0:
+            return None
+        target_pairs = []
+        for idx in range(0, len(rest), 2):
+            target_pairs.append((rest[idx], rest[idx + 1]))
+        return make_call_cluster_key(targets=target_pairs)
     if prefix == "ambiguity_set":
         if not rest:
             return None

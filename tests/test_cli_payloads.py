@@ -22,6 +22,7 @@ def test_check_builds_payload() -> None:
         emit_test_obsolescence=False,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
         emit_test_annotation_drift=False,
         emit_test_annotation_drift_delta=False,
         write_test_annotation_drift_baseline=False,
@@ -43,6 +44,7 @@ def test_check_builds_payload() -> None:
     assert payload["emit_test_obsolescence"] is False
     assert payload["emit_test_obsolescence_delta"] is False
     assert payload["emit_test_evidence_suggestions"] is False
+    assert payload["emit_call_clusters"] is False
     assert payload["emit_test_annotation_drift"] is False
     assert payload["emit_test_annotation_drift_delta"] is False
     assert payload["write_test_annotation_drift_baseline"] is False
@@ -66,6 +68,7 @@ def test_check_payload_strictness_validation() -> None:
             emit_test_obsolescence=False,
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
+            emit_call_clusters=False,
             emit_test_annotation_drift=False,
             emit_test_annotation_drift_delta=False,
             write_test_annotation_drift_baseline=False,
@@ -96,6 +99,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         emit_test_obsolescence=False,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
         emit_test_annotation_drift=False,
         emit_test_annotation_drift_delta=False,
         write_test_annotation_drift_baseline=False,
@@ -219,6 +223,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         emit_test_obsolescence=False,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
         emit_test_annotation_drift=False,
         emit_test_annotation_drift_delta=False,
         write_test_annotation_drift_baseline=False,
@@ -240,6 +245,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["payload"]["emit_test_obsolescence"] is False
     assert captured["payload"]["emit_test_obsolescence_delta"] is False
     assert captured["payload"]["emit_test_evidence_suggestions"] is False
+    assert captured["payload"]["emit_call_clusters"] is False
     assert captured["payload"]["emit_test_annotation_drift"] is False
     assert captured["payload"]["emit_test_annotation_drift_delta"] is False
     assert captured["payload"]["write_test_annotation_drift_baseline"] is False
@@ -264,6 +270,7 @@ def test_check_payload_rejects_delta_and_baseline_write() -> None:
             emit_test_obsolescence=False,
             emit_test_obsolescence_delta=True,
             emit_test_evidence_suggestions=False,
+            emit_call_clusters=False,
             emit_test_annotation_drift=False,
             emit_test_annotation_drift_delta=False,
             write_test_annotation_drift_baseline=False,
@@ -295,6 +302,7 @@ def test_check_payload_rejects_annotation_drift_delta_and_baseline_write() -> No
             emit_test_obsolescence=False,
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
+            emit_call_clusters=False,
             emit_test_annotation_drift=False,
             emit_test_annotation_drift_delta=True,
             write_test_annotation_drift_baseline=True,
@@ -326,6 +334,7 @@ def test_check_payload_rejects_ambiguity_delta_and_baseline_write() -> None:
             emit_test_obsolescence=False,
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
+            emit_call_clusters=False,
             emit_test_annotation_drift=False,
             emit_test_annotation_drift_delta=False,
             write_test_annotation_drift_baseline=False,

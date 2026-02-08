@@ -37,6 +37,10 @@ def test_evidence_keys_normalize_and_render() -> None:
         targets=[("a.py", "mod.fn"), {"path": "b.py", "qual": "mod.fn2"}],
     )
     assert footprint["k"] == "call_footprint"
+    cluster = evidence_keys.make_call_cluster_key(
+        targets=[("a.py", "mod.fn"), {"path": "b.py", "qual": "mod.fn2"}],
+    )
+    assert cluster["k"] == "call_cluster"
     ambiguity = evidence_keys.make_ambiguity_set_key(
         path="p",
         qual="q",
@@ -77,6 +81,7 @@ def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.render_display(never).startswith("E:never/sink")
     assert evidence_keys.render_display(site).startswith("E:function_site")
     assert evidence_keys.render_display(footprint).startswith("E:call_footprint")
+    assert evidence_keys.render_display(cluster).startswith("E:call_cluster")
     assert evidence_keys.render_display(ambiguity).startswith("E:ambiguity_set::")
     assert evidence_keys.render_display(witness).startswith("E:partition_witness::")
     assert evidence_keys.render_display({"k": "custom"}) == "E:custom"
@@ -136,6 +141,23 @@ def test_parse_display_variants() -> None:
             {"path": "b.py", "qual": "mod.fn2"},
         ],
     }
+    assert evidence_keys.parse_display("E:call_cluster") is None
+    assert evidence_keys.parse_display("E:call_cluster::p") is None
+    assert evidence_keys.parse_display("E:call_cluster::p::q") == {
+        "k": "call_cluster",
+        "targets": [
+            {"path": "p", "qual": "q"},
+        ],
+    }
+    assert evidence_keys.parse_display(
+        "E:call_cluster::p::q::r.py::mod.fn"
+    ) == {
+        "k": "call_cluster",
+        "targets": [
+            {"path": "p", "qual": "q"},
+            {"path": "r.py", "qual": "mod.fn"},
+        ],
+    }
     ambiguity = evidence_keys.make_ambiguity_set_key(
         path="p",
         qual="q",
@@ -182,6 +204,10 @@ def test_call_footprint_normalization_edges() -> None:
     )
     assert normalized_key["site"]["path"] == ""
     assert normalized_key["targets"] == []
+    normalized_cluster = evidence_keys.normalize_key(
+        {"k": "call_cluster", "targets": "bad"}
+    )
+    assert normalized_cluster["targets"] == []
 
     display = evidence_keys.render_display(
         {
@@ -191,6 +217,13 @@ def test_call_footprint_normalization_edges() -> None:
         }
     )
     assert display == "E:call_footprint::tests/test.py::test::p::q"
+    cluster_display = evidence_keys.render_display(
+        {
+            "k": "call_cluster",
+            "targets": ["bad", {"path": "", "qual": "q"}, {"path": "p", "qual": "q"}],
+        }
+    )
+    assert cluster_display == "E:call_cluster::p::q"
 
     def fake_normalize(_key):
         return {

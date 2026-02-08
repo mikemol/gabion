@@ -1,6 +1,34 @@
 {
   "evidence_index": [
     {
+      "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
+      "key": {
+        "k": "call_cluster",
+        "targets": [
+          {
+            "path": "dataflow_audit.py",
+            "qual": "gabion.analysis.dataflow_audit.run"
+          },
+          {
+            "path": "test_dataflow_run_edges.py",
+            "qual": "tests.test_dataflow_run_edges._load"
+          },
+          {
+            "path": "test_dataflow_run_edges.py",
+            "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
+        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
+        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
+        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
+        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
+        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_aspf.py::test_add_site_records_span::aspf.py::gabion.analysis.aspf.Forest",
       "key": {
         "k": "call_footprint",
@@ -808,23 +836,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
       ]
     },
@@ -983,19 +1005,13 @@
         "tests/test_dataflow_run.py::test_run_invalid_strictness_from_config",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_decision_surfaces.py::test_emit_report_includes_decision_surfaces",
         "tests/test_decision_surfaces.py::test_emit_report_includes_value_rewrites",
@@ -1309,23 +1325,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_decision_surfaces.py::test_analyze_decision_surfaces_repo",
         "tests/test_decision_surfaces.py::test_decision_surface_internal_caller",
@@ -1433,19 +1443,13 @@
         "tests/test_dataflow_run.py::test_run_invalid_strictness_from_config",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_decision_surfaces.py::test_analyze_decision_surfaces_repo",
         "tests/test_decision_surfaces.py::test_decision_surface_internal_caller",
@@ -2469,23 +2473,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
       ]
     },
@@ -2514,23 +2512,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
         "tests/test_server_execute_command.py::test_execute_command_no_violations",
@@ -2600,23 +2592,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
         "tests/test_server_execute_command.py::test_execute_command_no_violations",
@@ -2673,23 +2659,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_decision_snapshots.py::test_render_and_diff_decision_snapshots",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
@@ -3425,23 +3405,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
         "tests/test_server_execute_command.py::test_execute_command_no_violations",
@@ -3657,23 +3631,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_knob_merge.py::test_knob_merge_by_constant_params",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
@@ -4117,23 +4085,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
       ]
     },
@@ -4162,23 +4124,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
       ]
     },
@@ -4208,23 +4164,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
       ]
     },
@@ -4649,23 +4599,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
         "tests/test_server_execute_command.py::test_execute_command_no_violations",
@@ -4719,23 +4663,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
         "tests/test_server_execute_command.py::test_execute_command_no_violations",
@@ -4789,23 +4727,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
         "tests/test_server_execute_command.py::test_execute_command_no_violations",
@@ -4859,23 +4791,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings",
         "tests/test_server_execute_command.py::test_execute_command_baseline_write",
         "tests/test_server_execute_command.py::test_execute_command_no_violations",
@@ -5396,23 +5322,17 @@
         "tests/test_dataflow_run_edges.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_run_edges.py::test_run_decision_snapshot_writes_file",
         "tests/test_dataflow_run_edges.py::test_run_dot_only_returns_early",
-        "tests/test_dataflow_run_edges.py::test_run_dot_stdout_returns_early",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_type_ambiguities_with_synthesis_plan",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_fail_on_violations_with_baseline",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_and_decision_snapshot",
         "tests/test_dataflow_run_edges.py::test_run_fingerprint_outputs_write_files",
         "tests/test_dataflow_run_edges.py::test_run_lint_outputs",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_json_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_refactor_plan_without_json",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_apply",
         "tests/test_dataflow_run_edges.py::test_run_report_with_baseline_write",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest",
         "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_valid_json",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_outputs_to_stdout",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_protocols_only",
-        "tests/test_dataflow_run_edges.py::test_run_synthesis_uses_config_overlap",
         "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
       ]
     },
@@ -5844,6 +5764,19 @@
       "tests": [
         "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_disabled",
         "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_enabled"
+      ]
+    },
+    {
+      "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_clusters.py",
+          "qual": "gabion.analysis.call_clusters.render_markdown"
+        }
+      },
+      "tests": [
+        "tests/test_call_clusters.py::test_call_clusters_payload_and_render"
       ]
     },
     {
@@ -6743,6 +6676,7 @@
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters",
         "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags",
         "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags",
         "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline",
@@ -8915,6 +8849,24 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_clusters.py",
+              "qual": "gabion.analysis.call_clusters.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_clusters.py",
+      "line": 11,
+      "status": "mapped",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_and_render"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle",
           "key": {
             "k": "decision_surface",
@@ -10496,7 +10448,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 86,
+      "line": 89,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
     },
@@ -10514,7 +10466,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 315,
+      "line": 323,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write"
     },
@@ -10532,7 +10484,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 284,
+      "line": 291,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
     },
@@ -10576,7 +10528,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 253,
+      "line": 259,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
     },
@@ -10620,7 +10572,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 55,
+      "line": 57,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_strictness_validation"
     },
@@ -10664,7 +10616,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 117,
+      "line": 121,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
     },
@@ -10708,7 +10660,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 150,
+      "line": 154,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
     },
@@ -10728,7 +10680,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 187,
+      "line": 191,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
     },
@@ -10748,7 +10700,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 170,
+      "line": 174,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
     },
@@ -10780,7 +10732,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 201,
+      "line": 205,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
@@ -22831,219 +22783,23 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist",
+          "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_allowlist",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._apply_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_report"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._iter_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_dot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._load_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_baseline_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_synth_registry_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "dataflow_audit.py",
+                "qual": "gabion.analysis.dataflow_audit.run"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._load"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+              }
+            ]
           }
         }
       ],
@@ -24399,219 +24155,23 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist",
+          "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_allowlist",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._apply_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_report"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._iter_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_dot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._load_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_baseline_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_synth_registry_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "dataflow_audit.py",
+                "qual": "gabion.analysis.dataflow_audit.run"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._load"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+              }
+            ]
           }
         }
       ],
@@ -24623,219 +24183,23 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist",
+          "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_allowlist",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._apply_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_report"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._iter_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_dot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._load_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_baseline_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_synth_registry_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "dataflow_audit.py",
+                "qual": "gabion.analysis.dataflow_audit.run"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._load"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+              }
+            ]
           }
         }
       ],
@@ -25967,219 +25331,23 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist",
+          "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_allowlist",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._apply_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_report"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._iter_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_dot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._load_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_baseline_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_synth_registry_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "dataflow_audit.py",
+                "qual": "gabion.analysis.dataflow_audit.run"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._load"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+              }
+            ]
           }
         }
       ],
@@ -26191,219 +25359,23 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist",
+          "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_allowlist",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._apply_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_report"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._iter_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_dot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._load_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_baseline_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_synth_registry_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "dataflow_audit.py",
+                "qual": "gabion.analysis.dataflow_audit.run"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._load"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+              }
+            ]
           }
         }
       ],
@@ -26415,219 +25387,23 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist",
+          "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_allowlist",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._apply_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_report"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._iter_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._emit_dot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._load_baseline"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_baseline_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "path",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._resolve_synth_registry_path"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "dataflow_audit.py",
+                "qual": "gabion.analysis.dataflow_audit.run"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._load"
+              },
+              {
+                "path": "test_dataflow_run_edges.py",
+                "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+              }
+            ]
           }
         }
       ],
@@ -27942,7 +26718,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 232,
+      "line": 265,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_ambiguity_span_normalization_edges"
     },
@@ -27974,7 +26750,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 169,
+      "line": 191,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_call_footprint_normalization_edges"
     },
@@ -28012,7 +26788,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 163,
+      "line": 185,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_is_opaque"
     },
@@ -28030,7 +26806,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 204,
+      "line": 237,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_normalize_span_and_site_edges"
     },
@@ -28048,7 +26824,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 225,
+      "line": 258,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_ambiguity_edges"
     },
@@ -28068,7 +26844,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 99,
+      "line": 104,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_variants"
     },
@@ -28086,7 +26862,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 212,
+      "line": 245,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_render_display_call_footprint_skips_invalid_targets"
     },
@@ -28104,7 +26880,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 86,
+      "line": 91,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_render_display_handles_non_list_params"
     },
@@ -37290,7 +36066,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 912,
+      "line": 961,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
     },
@@ -37308,7 +36084,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 795,
+      "line": 844,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta"
     },
@@ -37347,6 +36123,24 @@
       "line": 557,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 680,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters"
     },
     {
       "evidence": [
@@ -38274,7 +37068,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 840,
+      "line": 889,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags"
     },
@@ -38292,7 +37086,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 760,
+      "line": 809,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags"
     },
@@ -38444,7 +37238,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 856,
+      "line": 905,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
     },
@@ -38790,7 +37584,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 778,
+      "line": 827,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline"
     },
@@ -38808,7 +37602,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 680,
+      "line": 729,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline"
     },
@@ -38960,7 +37754,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 875,
+      "line": 924,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
     },
@@ -38978,7 +37772,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 821,
+      "line": 870,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline"
     },
@@ -38996,7 +37790,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 725,
+      "line": 774,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
     },
@@ -39552,7 +38346,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 939,
+      "line": 988,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
     },
@@ -39572,7 +38366,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 946,
+      "line": 995,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
     },
@@ -39592,7 +38386,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 920,
+      "line": 969,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
     },
@@ -39772,7 +38566,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 953,
+      "line": 1002,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
     },
@@ -39792,7 +38586,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 976,
+      "line": 1025,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
     },
@@ -39812,7 +38606,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 960,
+      "line": 1009,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
     },
@@ -39832,7 +38626,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 983,
+      "line": 1032,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
     },

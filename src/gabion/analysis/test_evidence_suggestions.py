@@ -300,6 +300,85 @@ def render_json_payload(
     }
 
 
+def collect_call_footprints(
+    entries: Iterable[TestEvidenceEntry],
+    *,
+    root: Path | str = ".",
+    paths: Iterable[Path] | None = None,
+    config: AuditConfig | None = None,
+) -> dict[str, tuple[dict[str, str], ...]]:
+    # dataflow-bundle: entries, root, paths, config
+    entry_list = sorted(entries, key=lambda item: item.test_id)
+    if not entry_list:
+        return {}
+    root_path = Path(root)
+    config = config or AuditConfig(project_root=root_path)
+    project_root = config.project_root or root_path
+    path_list = _iter_paths([str(p) for p in (paths or [root_path])], config)
+    if not path_list:
+        return {}
+    by_name, by_qual = _build_function_index(
+        path_list,
+        project_root,
+        config.ignore_params,
+        config.strictness,
+        config.transparent_decorators,
+    )
+    symbol_table = _build_symbol_table(
+        path_list,
+        project_root,
+        external_filter=config.external_filter,
+    )
+    class_index = _collect_class_index(path_list, project_root)
+    test_index = _build_test_index(by_qual, project_root)
+    cache: dict[str, tuple[FunctionInfo, ...]] = {}
+    node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]] = {}
+    module_cache: dict[str, Path | None] = {}
+
+    def _resolved_callees(info: FunctionInfo) -> tuple[FunctionInfo, ...]:
+        if info.qual in cache:
+            return cache[info.qual]
+        resolved_callees: dict[str, FunctionInfo] = {}
+        for call in info.calls:
+            callee = _resolve_callee(
+                call.callee,
+                info,
+                by_name,
+                by_qual,
+                symbol_table,
+                project_root,
+                class_index,
+            )
+            if callee is None:
+                continue
+            resolved_callees[callee.qual] = callee
+        ordered = tuple(resolved_callees[key] for key in sorted(resolved_callees))
+        cache[info.qual] = ordered
+        return ordered
+
+    footprints: dict[str, tuple[dict[str, str], ...]] = {}
+    for entry in entry_list:
+        info = test_index.get(entry.test_id)
+        if info is None:
+            continue
+        direct_callees = _resolved_callees(info)
+        targets = _collect_call_footprint_targets(
+            info,
+            entry=entry,
+            direct_callees=direct_callees,
+            node_cache=node_cache,
+            module_cache=module_cache,
+            symbol_table=symbol_table,
+            by_name=by_name,
+            by_qual=by_qual,
+            class_index=class_index,
+            project_root=project_root,
+        )
+        if targets:
+            footprints[entry.test_id] = tuple(targets)
+    return footprints
+
+
 def _graph_suggestions(
     entries: Sequence[TestEvidenceEntry],
     *,

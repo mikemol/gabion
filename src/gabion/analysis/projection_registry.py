@@ -126,6 +126,25 @@ AMBIGUITY_SUMMARY_SPEC = ProjectionSpec(
 )
 
 
+CALL_CLUSTER_SUMMARY_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="call_cluster_summary",
+    domain="call_clusters",
+    pipeline=(
+        ProjectionOp("project", {"fields": ["identity", "display", "count"]}),
+        ProjectionOp(
+            "sort",
+            {
+                "by": [
+                    {"field": "count", "order": "desc"},
+                    {"field": "display", "order": "asc"},
+                ]
+            },
+        ),
+    ),
+)
+
+
 TEST_ANNOTATION_DRIFT_SPEC = ProjectionSpec(
     spec_version=1,
     name="test_annotation_drift",
@@ -197,6 +216,7 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         TEST_OBSOLESCENCE_BASELINE_SPEC,
         TEST_OBSOLESCENCE_DELTA_SPEC,
         AMBIGUITY_SUMMARY_SPEC,
+        CALL_CLUSTER_SUMMARY_SPEC,
         TEST_ANNOTATION_DRIFT_SPEC,
         TEST_ANNOTATION_DRIFT_BASELINE_SPEC,
         TEST_ANNOTATION_DRIFT_DELTA_SPEC,

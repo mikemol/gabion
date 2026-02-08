@@ -677,6 +677,55 @@ def test_execute_command_emits_annotation_drift(tmp_path: Path) -> None:
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_call_clusters(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_sample.py").write_text(
+        "from sample import caller\n"
+        "\n"
+        "def test_alpha():\n"
+        "    caller(1, 2)\n"
+    )
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": ["tests"], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [],
+                "status": "unmapped",
+            }
+        ],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(tests_dir), str(module_path)],
+            "emit_call_clusters": True,
+        },
+    )
+    assert (out_dir / "call_clusters.json").exists()
+    assert (out_dir / "call_clusters.md").exists()
+    assert "call_clusters_summary" in result
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
 def test_execute_command_requires_annotation_drift_baseline(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)

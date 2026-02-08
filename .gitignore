@@ -24,6 +24,8 @@ out/test_annotation_drift_delta.json
 out/test_annotation_drift_delta.md
 out/ambiguity_delta.json
 out/ambiguity_delta.md
+out/call_clusters.json
+out/call_clusters.md
 
 node_modules/
 package-lock.json
