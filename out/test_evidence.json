@@ -7403,7 +7403,8 @@
         }
       },
       "tests": [
-        "tests/test_timeout_context.py::test_frame_site_key_outside_root_returns_none"
+        "tests/test_timeout_context.py::test_frame_site_key_outside_root_returns_none",
+        "tests/test_timeout_context.py::test_frame_site_key_without_module_name"
       ]
     },
     {
@@ -41321,7 +41322,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 119,
+      "line": 140,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_build_timeout_context_frame_fallback"
     },
@@ -41357,7 +41358,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 132,
+      "line": 153,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_build_timeout_context_skips_unmatched_frames"
     },
@@ -41396,6 +41397,24 @@
       "line": 111,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_frame_site_key_outside_root_returns_none"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context._frame_site_key"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 119,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_frame_site_key_without_module_name"
     },
     {
       "evidence": [

@@ -115,6 +115,27 @@ def test_frame_site_key_outside_root_returns_none() -> None:
     assert _frame_site_key(frame, project_root=project_root) is None
 
 
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key
+def test_frame_site_key_without_module_name() -> None:
+    frame = type(
+        "DummyFrame",
+        (),
+        {
+            "f_globals": {"__name__": ""},
+            "f_code": type(
+                "DummyCode",
+                (),
+                {
+                    "co_qualname": "inner",
+                    "co_name": "inner",
+                    "co_filename": "mod.py",
+                },
+            )(),
+        },
+    )()
+    assert _frame_site_key(frame, project_root=None) == ("mod.py", "inner")
+
+
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
 def test_build_timeout_context_frame_fallback() -> None:
     frame = inspect.currentframe()
