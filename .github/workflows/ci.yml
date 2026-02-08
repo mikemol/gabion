@@ -46,6 +46,8 @@ jobs:
           fi
           .venv/bin/python scripts/policy_check.py --posture
       - name: Dataflow audit
+        env:
+          GABION_DIRECT_RUN: "1"
         run: |
           mkdir -p artifacts/audit_reports
           .venv/bin/python -m gabion check \
