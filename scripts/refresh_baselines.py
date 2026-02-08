@@ -47,8 +47,7 @@ def _get_nested(payload: object, keys: list[str], default: int = 0) -> int:
 
 
 def _ensure_delta(flag: str, path: Path, timeout: int | None) -> dict[str, object]:
-    if not path.exists():
-        _run_check(flag, timeout)
+    _run_check(flag, timeout)
     if not path.exists():
         raise FileNotFoundError(f"Missing delta output at {path}")
     return _load_json(path)
