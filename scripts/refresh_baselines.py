@@ -25,7 +25,7 @@ def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -
     if extra:
         cmd.extend(extra)
     env = dict(os.environ)
-    env.setdefault("GABION_DIRECT_RUN", "1")
+    env["GABION_DIRECT_RUN"] = "1"
     subprocess.run(cmd, check=True, timeout=timeout, env=env)
 
 
