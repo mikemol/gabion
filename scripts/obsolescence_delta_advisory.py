@@ -1,7 +1,16 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+
+
+ENV_FLAG = "GABION_GATE_UNMAPPED_DELTA"
+
+
+def _enabled() -> bool:
+    value = os.getenv(ENV_FLAG, "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def _print_summary(delta_path: Path) -> None:
@@ -34,6 +43,12 @@ def _print_summary(delta_path: Path) -> None:
 
 def main() -> int:
     try:
+        if _enabled():
+            print(
+                "Test obsolescence delta advisory skipped; "
+                f"{ENV_FLAG}=1 enables the gate."
+            )
+            return 0
         _print_summary(Path("out/test_obsolescence_delta.json"))
     except Exception as exc:  # advisory only; keep CI green
         print(f"Test obsolescence delta advisory error: {exc}")
