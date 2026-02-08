@@ -1,19 +1,7 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from pathlib import Path
-
-
-def _run_delta() -> None:
-    try:
-        subprocess.run(
-            [sys.executable, "-m", "gabion", "check", "--emit-ambiguity-delta"],
-            check=True,
-        )
-    except subprocess.CalledProcessError:
-        print("Ambiguity delta failed (advisory).")
 
 
 def _print_summary(delta_path: Path) -> None:
@@ -40,7 +28,6 @@ def _print_summary(delta_path: Path) -> None:
 
 def main() -> int:
     try:
-        _run_delta()
         _print_summary(Path("out/ambiguity_delta.json"))
     except Exception as exc:  # advisory only; keep CI green
         print(f"Ambiguity delta advisory error: {exc}")

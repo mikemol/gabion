@@ -1,19 +1,7 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
 from pathlib import Path
-
-
-def _run_delta() -> None:
-    try:
-        subprocess.run(
-            [sys.executable, "-m", "gabion", "check", "--emit-test-obsolescence-delta"],
-            check=True,
-        )
-    except subprocess.CalledProcessError:
-        print("Test obsolescence delta failed (advisory).")
 
 
 def _print_summary(delta_path: Path) -> None:
@@ -46,7 +34,6 @@ def _print_summary(delta_path: Path) -> None:
 
 def main() -> int:
     try:
-        _run_delta()
         _print_summary(Path("out/test_obsolescence_delta.json"))
     except Exception as exc:  # advisory only; keep CI green
         print(f"Test obsolescence delta advisory error: {exc}")
