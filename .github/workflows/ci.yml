@@ -82,6 +82,8 @@ jobs:
         run: .venv/bin/python scripts/annotation_drift_delta_advisory.py
       - name: Annotation drift delta gate (orphaned)
         run: .venv/bin/python scripts/annotation_drift_orphaned_gate.py
+        env:
+          GABION_GATE_ORPHANED_DELTA: "1"
       - name: Ambiguity delta (advisory)
         run: .venv/bin/python scripts/ambiguity_delta_advisory.py
       - name: Ambiguity delta gate
