@@ -29,6 +29,40 @@
       ]
     },
     {
+      "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
+      "key": {
+        "k": "call_cluster",
+        "targets": [
+          {
+            "path": "server.py",
+            "qual": "gabion.server.execute_command"
+          },
+          {
+            "path": "test_server_execute_command_edges.py",
+            "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
+        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
+        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
+        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
+        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags",
+        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags",
+        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
+        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
+        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
+        "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline",
+        "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline",
+        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
+        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot"
+      ]
+    },
+    {
       "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
       "key": {
         "k": "call_cluster",
@@ -779,9 +813,7 @@
         }
       },
       "tests": [
-        "tests/test_server_execute_command.py::test_execute_command_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
+        "tests/test_server_execute_command.py::test_execute_command_baseline_write"
       ]
     },
     {
@@ -1326,9 +1358,7 @@
         "tests/test_never_invariants.py::test_never_invariant_report_order_and_evidence",
         "tests/test_never_invariants.py::test_never_invariant_violation",
         "tests/test_never_invariants.py::test_never_invariants_emit_forest_and_report",
-        "tests/test_server_execute_command.py::test_execute_command_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
+        "tests/test_server_execute_command.py::test_execute_command_baseline_write"
       ]
     },
     {
@@ -1393,18 +1423,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline",
         "tests/test_server_helpers.py::test_diagnostics_for_path_reports_bundle",
@@ -2449,20 +2471,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline",
         "tests/test_structure_metrics.py::test_compute_structure_metrics_counts"
@@ -2529,20 +2541,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline",
         "tests/test_structure_snapshot.py::test_render_structure_snapshot_handles_outside_root",
@@ -2597,20 +2599,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
       ]
@@ -3342,20 +3334,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline",
         "tests/test_synthesis_stubs.py::test_render_protocol_stubs_emits_dataclass",
@@ -3569,20 +3551,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline",
         "tests/test_synthesis_control_context.py::test_synthesis_plan_includes_control_context_evidence",
@@ -4157,20 +4129,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
       ]
@@ -4536,20 +4498,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
       ]
@@ -4600,20 +4552,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
       ]
@@ -4664,20 +4606,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
       ]
@@ -4728,20 +4660,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree",
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
       ]
@@ -5395,20 +5317,10 @@
         "tests/test_server_execute_command.py::test_execute_command_structure_tree_stdout",
         "tests/test_server_execute_command.py::test_execute_command_synthesis_outputs",
         "tests/test_server_execute_command.py::test_normalize_transparent_decorators",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports",
         "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities",
         "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot",
-        "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines",
-        "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline",
         "tests/test_server_helpers.py::test_normalize_transparent_decorators"
@@ -5494,9 +5406,7 @@
         }
       },
       "tests": [
-        "tests/test_server_execute_command.py::test_execute_command_baseline_write",
-        "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply",
-        "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
+        "tests/test_server_execute_command.py::test_execute_command_baseline_write"
       ]
     },
     {
@@ -6621,13 +6531,7 @@
       },
       "tests": [
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta",
-        "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline",
-        "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
       ]
@@ -35640,171 +35544,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline_path",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_path",
-            "site": {
-              "path": "ambiguity_delta.py",
-              "qual": "gabion.analysis.ambiguity_delta.build_delta_payload"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/value_encoded::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline,current",
-          "key": {
-            "k": "decision_surface",
-            "m": "value_encoded",
-            "param": "baseline,current",
-            "site": {
-              "path": "ambiguity_delta.py",
-              "qual": "gabion.analysis.ambiguity_delta.build_delta_payload"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -35816,147 +35568,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -36138,13 +35762,19 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -36174,13 +35804,19 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -36344,147 +35980,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -36800,147 +36308,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -36952,147 +36332,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37104,13 +36356,19 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37122,13 +36380,19 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37140,147 +36404,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37292,147 +36428,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37444,171 +36452,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline_path",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "baseline_path",
-            "site": {
-              "path": "ambiguity_delta.py",
-              "qual": "gabion.analysis.ambiguity_delta.build_delta_payload"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/value_encoded::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline,current",
-          "key": {
-            "k": "decision_surface",
-            "m": "value_encoded",
-            "param": "baseline,current",
-            "site": {
-              "path": "ambiguity_delta.py",
-              "qual": "gabion.analysis.ambiguity_delta.build_delta_payload"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37620,13 +36476,19 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37638,13 +36500,19 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37656,147 +36524,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
@@ -37844,147 +36584,19 @@
     {
       "evidence": [
         {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+          "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
           "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,invariant_propositions",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "forest,project_root",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "kind",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "merge_overlap_threshold",
-            "site": {
-              "path": "dataflow_audit.py",
-              "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server.execute_command::payload",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "payload",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server.execute_command"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_ignore_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_require_tiers"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.decision_tier_map"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "section",
-            "site": {
-              "path": "config.py",
-              "qual": "gabion.config.exception_never_list"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "value",
-            "site": {
-              "path": "server.py",
-              "qual": "gabion.server._normalize_transparent_decorators"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_command"
+              },
+              {
+                "path": "test_server_execute_command_edges.py",
+                "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+              }
+            ]
           }
         }
       ],
