@@ -12,7 +12,9 @@ def _run(*cmd: str) -> str:
     return proc.stdout.strip()
 
 
-def _find_run_id(branch: str, status: str | None) -> str | None:
+def _find_run_id(
+    branch: str, status: str | None, workflow: str | None
+) -> str | None:
     cmd = [
         "gh",
         "run",
@@ -24,6 +26,8 @@ def _find_run_id(branch: str, status: str | None) -> str | None:
         "--json",
         "databaseId,status,conclusion,headSha,displayTitle",
     ]
+    if workflow:
+        cmd.extend(["--workflow", workflow])
     if status:
         cmd.extend(["--status", status])
     payload = _run(*cmd)
@@ -51,6 +55,10 @@ def main() -> int:
         help="Optional status filter for the fallback run lookup.",
     )
     parser.add_argument(
+        "--workflow",
+        help="Optional workflow name or file to filter runs.",
+    )
+    parser.add_argument(
         "--prefer-active",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -62,11 +70,11 @@ def main() -> int:
     if not run_id:
         if args.prefer_active:
             for status in ("in_progress", "queued", "requested", "waiting", "pending"):
-                run_id = _find_run_id(args.branch, status)
+                run_id = _find_run_id(args.branch, status, args.workflow)
                 if run_id:
                     break
         if not run_id:
-            run_id = _find_run_id(args.branch, args.status)
+            run_id = _find_run_id(args.branch, args.status, args.workflow)
     if not run_id:
         raise SystemExit(f"No runs found for branch {args.branch}")
     subprocess.run(
