@@ -143,6 +143,7 @@ def test_parse_display_variants() -> None:
     }
     assert evidence_keys.parse_display("E:call_cluster") is None
     assert evidence_keys.parse_display("E:call_cluster::p") is None
+    assert evidence_keys.parse_display("E:call_cluster::p::q::r") is None
     assert evidence_keys.parse_display("E:call_cluster::p::q") == {
         "k": "call_cluster",
         "targets": [
@@ -252,6 +253,21 @@ def test_render_display_call_footprint_skips_invalid_targets() -> None:
 
     display = evidence_keys.render_display({"k": "call_footprint"}, normalize=fake_normalize)
     assert display == "E:call_footprint::tests/test.py::test::p::q"
+
+
+# gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
+def test_render_display_call_cluster_skips_invalid_targets() -> None:
+    def fake_normalize(_key):
+        return {
+            "k": "call_cluster",
+            "targets": ["bad", {"path": "", "qual": ""}],
+        }
+
+    display = evidence_keys.render_display(
+        {"k": "call_cluster"},
+        normalize=fake_normalize,
+    )
+    assert display == "E:call_cluster"
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display

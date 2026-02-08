@@ -13,6 +13,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
 
 CALL_CLUSTER_VERSION = 1
@@ -33,6 +34,7 @@ def build_call_clusters_payload(
     root: Path,
     evidence_path: Path,
     config: AuditConfig | None = None,
+    summary_spec: ProjectionSpec | None = None,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: evidence_path, paths, root, config
     entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
@@ -76,7 +78,8 @@ def build_call_clusters_payload(
             }
         )
 
-    projected = apply_spec(CALL_CLUSTER_SUMMARY_SPEC, cluster_rows)
+    spec = summary_spec or CALL_CLUSTER_SUMMARY_SPEC
+    projected = apply_spec(spec, cluster_rows)
     ordered: list[CallClusterEntry] = []
     for row in projected:
         identity = str(row.get("identity", "") or "")
@@ -110,7 +113,7 @@ def build_call_clusters_payload(
             for entry in ordered
         ],
     }
-    payload.update(spec_metadata_payload(CALL_CLUSTER_SUMMARY_SPEC))
+    payload.update(spec_metadata_payload(spec))
     return payload
 
 

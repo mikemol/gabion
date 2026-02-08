@@ -5767,6 +5767,20 @@
       ]
     },
     {
+      "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_clusters.py",
+          "qual": "gabion.analysis.call_clusters.build_call_clusters_payload"
+        }
+      },
+      "tests": [
+        "tests/test_call_clusters.py::test_call_clusters_payload_handles_empty_targets",
+        "tests/test_call_clusters.py::test_call_clusters_payload_projection_skips_unknown_identity"
+      ]
+    },
+    {
       "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
       "key": {
         "k": "function_site",
@@ -5776,7 +5790,22 @@
         }
       },
       "tests": [
-        "tests/test_call_clusters.py::test_call_clusters_payload_and_render"
+        "tests/test_call_clusters.py::test_call_clusters_payload_and_render",
+        "tests/test_call_clusters.py::test_call_clusters_render_empty",
+        "tests/test_call_clusters.py::test_call_clusters_render_skips_non_mapping"
+      ]
+    },
+    {
+      "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.write_call_clusters",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_clusters.py",
+          "qual": "gabion.analysis.call_clusters.write_call_clusters"
+        }
+      },
+      "tests": [
+        "tests/test_call_clusters.py::test_call_clusters_write_creates_file"
       ]
     },
     {
@@ -6443,6 +6472,7 @@
         }
       },
       "tests": [
+        "tests/test_evidence_keys.py::test_render_display_call_cluster_skips_invalid_targets",
         "tests/test_evidence_keys.py::test_render_display_call_footprint_skips_invalid_targets",
         "tests/test_evidence_keys.py::test_render_display_handles_non_list_params",
         "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates",
@@ -7018,6 +7048,21 @@
       },
       "tests": [
         "tests/test_test_evidence_suggestions_edges.py::test_resolve_symbol_and_module_helpers"
+      ]
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions.collect_call_footprints"
+        }
+      },
+      "tests": [
+        "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_cache_and_missing",
+        "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_entries",
+        "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_paths"
       ]
     },
     {
@@ -8860,9 +8905,99 @@
         }
       ],
       "file": "tests/test_call_clusters.py",
-      "line": 11,
+      "line": 12,
       "status": "mapped",
       "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_and_render"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_clusters.py",
+              "qual": "gabion.analysis.call_clusters.build_call_clusters_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_clusters.py",
+      "line": 66,
+      "status": "mapped",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_handles_empty_targets"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_clusters.py",
+              "qual": "gabion.analysis.call_clusters.build_call_clusters_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_clusters.py",
+      "line": 104,
+      "status": "mapped",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_projection_skips_unknown_identity"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_clusters.py",
+              "qual": "gabion.analysis.call_clusters.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_clusters.py",
+      "line": 158,
+      "status": "mapped",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_render_empty"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_clusters.py",
+              "qual": "gabion.analysis.call_clusters.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_clusters.py",
+      "line": 165,
+      "status": "mapped",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_render_skips_non_mapping"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.write_call_clusters",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_clusters.py",
+              "qual": "gabion.analysis.call_clusters.write_call_clusters"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_clusters.py",
+      "line": 175,
+      "status": "mapped",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_write_creates_file"
     },
     {
       "evidence": [
@@ -26718,7 +26853,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 265,
+      "line": 281,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_ambiguity_span_normalization_edges"
     },
@@ -26750,7 +26885,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 191,
+      "line": 192,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_call_footprint_normalization_edges"
     },
@@ -26788,7 +26923,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 185,
+      "line": 186,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_is_opaque"
     },
@@ -26806,7 +26941,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 237,
+      "line": 238,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_normalize_span_and_site_edges"
     },
@@ -26824,7 +26959,7 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 258,
+      "line": 274,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_ambiguity_edges"
     },
@@ -26862,7 +26997,25 @@
         }
       ],
       "file": "tests/test_evidence_keys.py",
-      "line": 245,
+      "line": 259,
+      "status": "mapped",
+      "test_id": "tests/test_evidence_keys.py::test_render_display_call_cluster_skips_invalid_targets"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "evidence_keys.py",
+              "qual": "gabion.analysis.evidence_keys.render_display"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_evidence_keys.py",
+      "line": 246,
       "status": "mapped",
       "test_id": "tests/test_evidence_keys.py::test_render_display_call_footprint_skips_invalid_targets"
     },
@@ -41521,6 +41674,60 @@
       "line": 293,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprint_targets_no_outer"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_evidence_suggestions.py",
+              "qual": "gabion.analysis.test_evidence_suggestions.collect_call_footprints"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_evidence_suggestions_edges.py",
+      "line": 607,
+      "status": "mapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_cache_and_missing"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_evidence_suggestions.py",
+              "qual": "gabion.analysis.test_evidence_suggestions.collect_call_footprints"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_evidence_suggestions_edges.py",
+      "line": 589,
+      "status": "mapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_entries"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_evidence_suggestions.py",
+              "qual": "gabion.analysis.test_evidence_suggestions.collect_call_footprints"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_evidence_suggestions_edges.py",
+      "line": 594,
+      "status": "mapped",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_paths"
     },
     {
       "evidence": [

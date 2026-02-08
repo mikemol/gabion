@@ -583,3 +583,54 @@ def test_resolve_module_literal_invalid(tmp_path: Path) -> None:
         )
         is None
     )
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints
+def test_collect_call_footprints_empty_entries() -> None:
+    assert test_evidence_suggestions.collect_call_footprints([]) == {}
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints
+def test_collect_call_footprints_empty_paths(tmp_path: Path) -> None:
+    entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
+    config = AuditConfig(project_root=tmp_path)
+    footprints = test_evidence_suggestions.collect_call_footprints(
+        [entry],
+        root=tmp_path,
+        paths=[tmp_path],
+        config=config,
+    )
+    assert footprints == {}
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints
+def test_collect_call_footprints_cache_and_missing(tmp_path: Path) -> None:
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "app.py").write_text(
+        "def helper(x):\n"
+        "    return x\n",
+        encoding="utf-8",
+    )
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_sample.py").write_text(
+        "from app import helper\n"
+        "\n"
+        "def test_alpha():\n"
+        "    helper(1)\n"
+        "    missing()\n",
+        encoding="utf-8",
+    )
+
+    entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")
+    missing = _minimal_entry("tests/test_missing.py::test_missing", "tests/test_missing.py")
+    config = AuditConfig(project_root=tmp_path)
+    footprints = test_evidence_suggestions.collect_call_footprints(
+        [entry, entry, missing],
+        root=tmp_path,
+        paths=[tmp_path],
+        config=config,
+    )
+    assert entry.test_id in footprints
