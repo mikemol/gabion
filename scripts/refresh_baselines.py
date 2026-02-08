@@ -5,10 +5,11 @@ import subprocess
 import sys
 
 
-def _run_check(flag: str) -> None:
+def _run_check(flag: str, timeout: int | None) -> None:
     subprocess.run(
         [sys.executable, "-m", "gabion", "check", flag],
         check=True,
+        timeout=timeout,
     )
 
 
@@ -36,17 +37,23 @@ def main() -> int:
         action="store_true",
         help="Refresh all baselines (default when no flags provided).",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        help="Seconds to wait for each gabion check (default: no timeout).",
+    )
     args = parser.parse_args()
 
     if not (args.obsolescence or args.annotation_drift or args.ambiguity or args.all):
         args.all = True
 
     if args.all or args.obsolescence:
-        _run_check("--write-test-obsolescence-baseline")
+        _run_check("--write-test-obsolescence-baseline", args.timeout)
     if args.all or args.annotation_drift:
-        _run_check("--write-test-annotation-drift-baseline")
+        _run_check("--write-test-annotation-drift-baseline", args.timeout)
     if args.all or args.ambiguity:
-        _run_check("--write-ambiguity-baseline")
+        _run_check("--write-ambiguity-baseline", args.timeout)
 
     return 0
 
