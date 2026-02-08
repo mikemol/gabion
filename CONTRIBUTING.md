@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 73
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,12 +17,14 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
+  CONTRIBUTING.md: 73
   AGENTS.md: 13
   POLICY_SEED.md: 29
   glossary.md: 28
   docs/coverage_semantics.md: 8
 doc_review_notes:
   README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
+  CONTRIBUTING.md: "Reviewed additions for baseline refresh + CI watch helpers; no conflicts."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md: "Review discipline invariant incorporated here."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); contributor workflow unchanged."
@@ -285,6 +287,21 @@ scripts/checks.sh --tests-only
 Preview what will run:
 ```
 scripts/checks.sh --list
+```
+
+Baseline refresh helpers:
+
+```
+mise exec -- python scripts/refresh_baselines.py --obsolescence
+mise exec -- python scripts/refresh_baselines.py --annotation-drift
+mise exec -- python scripts/refresh_baselines.py --ambiguity
+mise exec -- python scripts/refresh_baselines.py --all
+```
+
+CI watch helper:
+
+```
+mise exec -- python scripts/ci_watch.py --branch stage
 ```
 
 ## Make targets (optional)
