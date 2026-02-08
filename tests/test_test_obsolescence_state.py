@@ -49,3 +49,38 @@ def test_state_payload_roundtrip(tmp_path: Path) -> None:
 def test_state_payload_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         test_obsolescence_state.parse_state_payload({"version": "nope"})
+
+
+# gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload
+def test_state_payload_rejects_bad_baseline() -> None:
+    with pytest.raises(ValueError):
+        test_obsolescence_state.parse_state_payload(
+            {"version": test_obsolescence_state.STATE_VERSION, "baseline": []}
+        )
+
+
+# gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload
+def test_state_payload_skips_invalid_candidates() -> None:
+    evidence_by_test = {
+        "tests/test_alpha.py::test_a": [_ref_paramset("x")],
+    }
+    status_by_test = {
+        "tests/test_alpha.py::test_a": "mapped",
+    }
+    candidates, summary = test_obsolescence.classify_candidates(
+        evidence_by_test, status_by_test, {}
+    )
+    payload = test_obsolescence_state.build_state_payload(
+        evidence_by_test, status_by_test, candidates, summary
+    )
+    payload["candidates"] = ["not-a-mapping"]
+    state = test_obsolescence_state.parse_state_payload(payload)
+    assert state.candidates == []
+
+
+# gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.load_state
+def test_state_payload_rejects_non_object(tmp_path: Path) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text(json.dumps(["nope"]), encoding="utf-8")
+    with pytest.raises(ValueError):
+        test_obsolescence_state.load_state(str(state_path))

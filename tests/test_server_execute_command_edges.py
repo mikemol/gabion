@@ -104,6 +104,41 @@ def test_execute_command_invalid_synth_min_occurrences(tmp_path: Path) -> None:
     assert result.get("exit_code") == 0
 
 
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_ignores_invalid_timeout(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "analysis_timeout_seconds": "nope",
+        },
+    )
+    assert result.get("exit_code") == 0
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_reports_timeout(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "report": str(tmp_path / "report.md"),
+            "analysis_timeout_seconds": "1e-9",
+        },
+    )
+    assert result.get("exit_code") == 2
+    assert result.get("timeout") is True
+    assert "timeout_context" in result
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
 def test_execute_command_fingerprint_outputs_and_decision_snapshot(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -567,6 +602,58 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
     assert "test_obsolescence_delta_summary" in result
 
 
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_obsolescence_delta": True,
+                "test_obsolescence_state": str(tmp_path / "out" / "missing.json"),
+            },
+        )
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    evidence_payload = {
+        "schema_version": 2,
+        "scope": {"root": ".", "include": [], "exclude": []},
+        "tests": [
+            {
+                "test_id": "tests/test_sample.py::test_alpha",
+                "file": "tests/test_sample.py",
+                "line": 1,
+                "evidence": [],
+                "status": "unmapped",
+            }
+        ],
+        "evidence_index": [],
+    }
+    (out_dir / "test_evidence.json").write_text(
+        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
+    )
+    ls = _DummyServer(str(tmp_path))
+    server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_obsolescence_state": True,
+        },
+    )
+    assert (out_dir / "test_obsolescence_state.json").exists()
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
 def test_execute_command_writes_obsolescence_baseline(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -672,6 +759,48 @@ def test_execute_command_emits_annotation_drift_delta(tmp_path: Path) -> None:
     assert (out_dir / "test_annotation_drift_delta.json").exists()
     assert (out_dir / "test_annotation_drift_delta.md").exists()
     assert "test_annotation_drift_delta_summary" in result
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_missing_annotation_drift_state(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_annotation_drift_delta": True,
+                "test_annotation_drift_state": str(tmp_path / "out" / "missing.json"),
+            },
+        )
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_invalid_annotation_drift_state(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    state_path = out_dir / "test_annotation_drift.json"
+    state_path.write_text(json.dumps(["bad"]), encoding="utf-8")
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(ValueError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_annotation_drift_delta": True,
+                "test_annotation_drift_state": str(state_path),
+            },
+        )
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -1064,6 +1193,40 @@ def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> Non
     assert (out_dir / "ambiguity_delta.json").exists()
     assert (out_dir / "ambiguity_delta.md").exists()
     assert "ambiguity_delta_summary" in result
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_ambiguity_delta": True,
+                "ambiguity_state": str(tmp_path / "out" / "missing.json"),
+            },
+        )
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_ambiguity_state(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_ambiguity_state": True,
+        },
+    )
+    out_dir = tmp_path / "out"
+    assert (out_dir / "ambiguity_state.json").exists()
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload

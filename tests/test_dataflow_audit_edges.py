@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 import textwrap
 
+from gabion.analysis.timeout_context import Deadline
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -886,3 +888,62 @@ def test_populate_bundle_forest_skips_test_sites(tmp_path: Path) -> None:
         transparent_decorators=set(),
     )
     assert all(node.kind != "FunctionSite" for node in forest.nodes.values())
+
+
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest
+def test_populate_bundle_forest_empty_groups(tmp_path: Path) -> None:
+    da = _load()
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path={},
+        file_paths=[],
+        project_root=tmp_path,
+        include_all_sites=True,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=set(),
+    )
+    assert forest.nodes == {}
+
+
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings
+def test_compute_fingerprint_warnings_missing_annotations(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    groups_by_path = {target: {"caller": [set(["a", "b"])]}}
+    annotations_by_path = {target: {"caller": {"a": "int"}}}
+    warnings = da._compute_fingerprint_warnings(
+        groups_by_path,
+        annotations_by_path,
+        registry=da.PrimeRegistry(),
+        index={object(): set()},
+    )
+    assert warnings
+    assert "missing type annotations" in warnings[0]
+
+
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths
+def test_analyze_paths_deadline_includes_forest_spec(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text("def callee(x):\n    return x\n", encoding="utf-8")
+    result = da.analyze_paths(
+        [target],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_bundle_forest=True,
+        config=da.AuditConfig(
+            project_root=tmp_path,
+            exclude_dirs=set(),
+            ignore_params=set(),
+            external_filter=True,
+            strictness="high",
+        ),
+        deadline=Deadline.from_timeout(10.0),
+    )
+    assert result.forest is not None

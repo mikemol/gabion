@@ -44,3 +44,43 @@ def test_state_payload_roundtrip(tmp_path: Path) -> None:
 def test_state_payload_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         ambiguity_state.parse_state_payload({"version": "nope"})
+
+
+# gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload
+def test_state_payload_filters_invalid_witness_entries() -> None:
+    payload = {
+        "version": ambiguity_state.STATE_VERSION,
+        "ambiguity_witnesses": [
+            "not-a-mapping",
+            {"kind": "kind-a", "site": "nope", "candidate_count": 1},
+            {
+                "kind": "kind-b",
+                "site": {"path": "a.py", "function": "alpha", "span": [1, 2, 3]},
+                "candidate_count": 2,
+            },
+        ],
+        "generated_by_spec_id": "spec",
+        "generated_by_spec": {},
+    }
+    state = ambiguity_state.parse_state_payload(payload)
+    assert len(state.witnesses) == 2
+
+
+# gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload
+def test_state_payload_handles_non_iterable_witnesses() -> None:
+    payload = {
+        "version": ambiguity_state.STATE_VERSION,
+        "ambiguity_witnesses": "nope",
+        "generated_by_spec_id": "spec",
+        "generated_by_spec": {},
+    }
+    state = ambiguity_state.parse_state_payload(payload)
+    assert state.witnesses == []
+
+
+# gabion:evidence E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.load_state
+def test_state_payload_rejects_non_object(tmp_path: Path) -> None:
+    state_path = tmp_path / "ambiguity_state.json"
+    state_path.write_text(json.dumps(["not", "object"]), encoding="utf-8")
+    with pytest.raises(ValueError):
+        ambiguity_state.load_state(str(state_path))

@@ -5531,6 +5531,7 @@
         }
       },
       "tests": [
+        "tests/test_ambiguity_state.py::test_state_payload_rejects_non_object",
         "tests/test_ambiguity_state.py::test_state_payload_roundtrip"
       ]
     },
@@ -5544,6 +5545,8 @@
         }
       },
       "tests": [
+        "tests/test_ambiguity_state.py::test_state_payload_filters_invalid_witness_entries",
+        "tests/test_ambiguity_state.py::test_state_payload_handles_non_iterable_witnesses",
         "tests/test_ambiguity_state.py::test_state_payload_rejects_bad_version"
       ]
     },
@@ -5849,6 +5852,19 @@
       ]
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._compute_fingerprint_warnings"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_edges.py::test_compute_fingerprint_warnings_missing_annotations"
+      ]
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._copy_forest_signature_metadata",
       "key": {
         "k": "function_site",
@@ -6076,6 +6092,7 @@
         }
       },
       "tests": [
+        "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_empty_groups",
         "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
       ]
     },
@@ -6103,6 +6120,19 @@
       },
       "tests": [
         "tests/test_ambiguity_helpers.py::test_summarize_call_ambiguities_handles_empty_and_invalid_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.analyze_paths"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_edges.py::test_analyze_paths_deadline_includes_forest_spec"
       ]
     },
     {
@@ -6419,6 +6449,34 @@
       ]
     },
     {
+      "display": "E:function_site::lsp_client.py::gabion.lsp_client._wait_readable",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "lsp_client.py",
+          "qual": "gabion.lsp_client._wait_readable"
+        }
+      },
+      "tests": [
+        "tests/test_lsp_client_direct.py::test_wait_readable_skips_missing_fileno",
+        "tests/test_lsp_client_direct.py::test_wait_readable_times_out"
+      ]
+    },
+    {
+      "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "lsp_client.py",
+          "qual": "gabion.lsp_client.run_command_direct"
+        }
+      },
+      "tests": [
+        "tests/test_lsp_client_direct.py::test_run_command_direct_rejects_unknown_command",
+        "tests/test_lsp_client_direct.py::test_run_command_direct_structure_reuse_and_decision_diff"
+      ]
+    },
+    {
       "display": "E:function_site::naming.py::gabion.synthesis.naming._normalize_identifier",
       "key": {
         "k": "function_site",
@@ -6557,11 +6615,19 @@
       "tests": [
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta_from_state",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_state",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta_from_state",
         "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta_from_state",
+        "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_state",
+        "tests/test_server_execute_command_edges.py::test_execute_command_ignores_invalid_timeout",
         "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_state_conflict",
+        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_annotation_drift_state",
+        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_ambiguity_state",
+        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_annotation_drift_state",
+        "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_obsolescence_state",
         "tests/test_server_execute_command_edges.py::test_execute_command_rejects_obsolescence_state_conflict",
+        "tests/test_server_execute_command_edges.py::test_execute_command_reports_timeout",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline",
         "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
       ]
@@ -7118,6 +7184,7 @@
         }
       },
       "tests": [
+        "tests/test_test_obsolescence_state.py::test_state_payload_rejects_non_object",
         "tests/test_test_obsolescence_state.py::test_state_payload_roundtrip"
       ]
     },
@@ -7131,7 +7198,9 @@
         }
       },
       "tests": [
-        "tests/test_test_obsolescence_state.py::test_state_payload_rejects_bad_version"
+        "tests/test_test_obsolescence_state.py::test_state_payload_rejects_bad_baseline",
+        "tests/test_test_obsolescence_state.py::test_state_payload_rejects_bad_version",
+        "tests/test_test_obsolescence_state.py::test_state_payload_skips_invalid_candidates"
       ]
     },
     {
@@ -7286,6 +7355,71 @@
       ]
     },
     {
+      "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.check",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "timeout_context.py",
+          "qual": "gabion.analysis.timeout_context.Deadline.check"
+        }
+      },
+      "tests": [
+        "tests/test_timeout_context.py::test_deadline_expired_raises"
+      ]
+    },
+    {
+      "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutContext.as_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "timeout_context.py",
+          "qual": "gabion.analysis.timeout_context.TimeoutContext.as_payload"
+        }
+      },
+      "tests": [
+        "tests/test_timeout_context.py::test_timeout_context_payload_includes_metadata"
+      ]
+    },
+    {
+      "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutExceeded.__init__",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "timeout_context.py",
+          "qual": "gabion.analysis.timeout_context.TimeoutExceeded.__init__"
+        }
+      },
+      "tests": [
+        "tests/test_timeout_context.py::test_timeout_exceeded_carries_context"
+      ]
+    },
+    {
+      "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "timeout_context.py",
+          "qual": "gabion.analysis.timeout_context._frame_site_key"
+        }
+      },
+      "tests": [
+        "tests/test_timeout_context.py::test_frame_site_key_outside_root_returns_none"
+      ]
+    },
+    {
+      "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_site_index",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "timeout_context.py",
+          "qual": "gabion.analysis.timeout_context.build_site_index"
+        }
+      },
+      "tests": [
+        "tests/test_timeout_context.py::test_build_site_index_filters_nodes"
+      ]
+    },
+    {
       "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack",
       "key": {
         "k": "function_site",
@@ -7295,7 +7429,9 @@
         }
       },
       "tests": [
-        "tests/test_timeout_context.py::test_build_timeout_context_from_stack_uses_forest"
+        "tests/test_timeout_context.py::test_build_timeout_context_frame_fallback",
+        "tests/test_timeout_context.py::test_build_timeout_context_from_stack_uses_forest",
+        "tests/test_timeout_context.py::test_build_timeout_context_skips_unmatched_frames"
       ]
     },
     {
@@ -7308,7 +7444,8 @@
         }
       },
       "tests": [
-        "tests/test_timeout_context.py::test_pack_call_stack_orders_and_indexes"
+        "tests/test_timeout_context.py::test_pack_call_stack_orders_and_indexes",
+        "tests/test_timeout_context.py::test_pack_call_stack_skips_invalid_entries_and_keeps_span"
       ]
     },
     {
@@ -8640,9 +8777,63 @@
         }
       ],
       "file": "tests/test_ambiguity_state.py",
+      "line": 50,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_state.py::test_state_payload_filters_invalid_witness_entries"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "ambiguity_state.py",
+              "qual": "gabion.analysis.ambiguity_state.parse_state_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_state.py",
+      "line": 70,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_state.py::test_state_payload_handles_non_iterable_witnesses"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.parse_state_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "ambiguity_state.py",
+              "qual": "gabion.analysis.ambiguity_state.parse_state_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_state.py",
       "line": 44,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_state.py::test_state_payload_rejects_bad_version"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::ambiguity_state.py::gabion.analysis.ambiguity_state.load_state",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "ambiguity_state.py",
+              "qual": "gabion.analysis.ambiguity_state.load_state"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_ambiguity_state.py",
+      "line": 82,
+      "status": "mapped",
+      "test_id": "tests/test_ambiguity_state.py::test_state_payload_rejects_non_object"
     },
     {
       "evidence": [
@@ -13362,7 +13553,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 129,
+      "line": 131,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_ambiguity_witnesses_emit"
     },
@@ -13382,7 +13573,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 185,
+      "line": 187,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_callee_globals"
     },
@@ -13402,7 +13593,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 768,
+      "line": 770,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_ambiguous"
     },
@@ -13422,7 +13613,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 806,
+      "line": 808,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_globals_only"
     },
@@ -13442,9 +13633,27 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 74,
+      "line": 76,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_recursive_false"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 927,
+      "status": "mapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_paths_deadline_includes_forest_spec"
     },
     {
       "evidence": [
@@ -13462,7 +13671,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 31,
+      "line": 33,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_base_identifier_invalid_attribute"
     },
@@ -13506,7 +13715,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 604,
+      "line": 606,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_none_and_nontransparent"
     },
@@ -13550,7 +13759,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 838,
+      "line": 840,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_nontransparent_dependency"
     },
@@ -13606,7 +13815,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 564,
+      "line": 566,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_unresolved_and_opaque"
     },
@@ -13698,7 +13907,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 751,
+      "line": 753,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_synthesis_plan_skips_empty_members"
     },
@@ -13742,7 +13951,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 18,
+      "line": 20,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_module_exports_augassign_only"
     },
@@ -13762,7 +13971,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 58,
+      "line": 60,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_all_params_ignored"
     },
@@ -13782,9 +13991,27 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 42,
+      "line": 44,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_empty_params"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._compute_fingerprint_warnings"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 911,
+      "status": "mapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_compute_fingerprint_warnings_missing_annotations"
     },
     {
       "evidence": [
@@ -13946,7 +14173,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 648,
+      "line": 650,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_knob_param_names_non_const_kw"
     },
@@ -14110,7 +14337,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 525,
+      "line": 527,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_emit_report_tier2_violation"
     },
@@ -14130,7 +14357,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 556,
+      "line": 558,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_infer_root_with_groups"
     },
@@ -14198,7 +14425,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 680,
+      "line": 682,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
     },
@@ -14216,7 +14443,25 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 871,
+      "line": 894,
+      "status": "mapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_empty_groups"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._populate_bundle_forest"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 873,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
@@ -14356,7 +14601,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 433,
+      "line": 435,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
@@ -14374,7 +14619,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 638,
+      "line": 640,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
     },
@@ -14562,7 +14807,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 273,
+      "line": 275,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_external_filtered"
     },
@@ -14630,7 +14875,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 305,
+      "line": 307,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_global_and_imported"
     },
@@ -14818,7 +15063,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 210,
+      "line": 212,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_imports_and_self"
     },
@@ -14838,7 +15083,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 91,
+      "line": 93,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_local_callee_ambiguity_and_scope"
     },
@@ -14870,7 +15115,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 389,
+      "line": 391,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_method_in_hierarchy_edges"
     },
@@ -28863,6 +29108,78 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client.run_command_direct"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_lsp_client_direct.py",
+      "line": 50,
+      "status": "mapped",
+      "test_id": "tests/test_lsp_client_direct.py::test_run_command_direct_rejects_unknown_command"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client.run_command_direct"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_lsp_client_direct.py",
+      "line": 39,
+      "status": "mapped",
+      "test_id": "tests/test_lsp_client_direct.py::test_run_command_direct_structure_reuse_and_decision_diff"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._wait_readable",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._wait_readable"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_lsp_client_direct.py",
+      "line": 18,
+      "status": "mapped",
+      "test_id": "tests/test_lsp_client_direct.py::test_wait_readable_skips_missing_fileno"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::lsp_client.py::gabion.lsp_client._wait_readable",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "lsp_client.py",
+              "qual": "gabion.lsp_client._wait_readable"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_lsp_client_direct.py",
+      "line": 23,
+      "status": "mapped",
+      "test_id": "tests/test_lsp_client_direct.py::test_wait_readable_times_out"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id",
           "key": {
             "k": "decision_surface",
@@ -34968,7 +35285,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 236,
+      "line": 271,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply"
     },
@@ -35144,7 +35461,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1198,
+      "line": 1361,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
     },
@@ -35162,7 +35479,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1003,
+      "line": 1132,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta"
     },
@@ -35180,9 +35497,27 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1028,
+      "line": 1157,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta_from_state"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 1216,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_state"
     },
     {
       "evidence": [
@@ -35204,7 +35539,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 725,
+      "line": 854,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift"
     },
@@ -35222,7 +35557,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 611,
+      "line": 698,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta"
     },
@@ -35240,7 +35575,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 678,
+      "line": 807,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta_from_state"
     },
@@ -35264,7 +35599,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 829,
+      "line": 958,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_cluster_consolidation"
     },
@@ -35288,7 +35623,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 780,
+      "line": 909,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters"
     },
@@ -35440,7 +35775,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 477,
+      "line": 512,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta"
     },
@@ -35458,9 +35793,27 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 526,
+      "line": 561,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta_from_state"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 623,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_state"
     },
     {
       "evidence": [
@@ -35482,7 +35835,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 436,
+      "line": 471,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports"
     },
@@ -35634,7 +35987,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 259,
+      "line": 294,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities"
     },
@@ -35786,9 +36139,27 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 108,
+      "line": 143,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 108,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_ignores_invalid_timeout"
     },
     {
       "evidence": [
@@ -35810,7 +36181,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 276,
+      "line": 311,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines"
     },
@@ -35858,7 +36229,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1090,
+      "line": 1253,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags"
     },
@@ -35876,7 +36247,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1107,
+      "line": 1270,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_state_conflict"
     },
@@ -35900,7 +36271,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 968,
+      "line": 1097,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags"
     },
@@ -35924,7 +36295,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1123,
+      "line": 1286,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
     },
@@ -35942,7 +36313,79 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1142,
+      "line": 784,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_annotation_drift_state"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 1199,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_ambiguity_state"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 765,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_annotation_drift_state"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 606,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_obsolescence_state"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 1305,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_obsolescence_state_conflict"
     },
@@ -35966,7 +36409,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 407,
+      "line": 442,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections"
     },
@@ -35990,9 +36433,27 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 292,
+      "line": 327,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::server.py::gabion.server.execute_command",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server.execute_command"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 124,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_reports_timeout"
     },
     {
       "evidence": [
@@ -36014,7 +36475,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 986,
+      "line": 1115,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline"
     },
@@ -36038,7 +36499,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 888,
+      "line": 1017,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline"
     },
@@ -36062,7 +36523,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1161,
+      "line": 1324,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
     },
@@ -36080,7 +36541,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1071,
+      "line": 1234,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline"
     },
@@ -36098,7 +36559,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 933,
+      "line": 1062,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
     },
@@ -36122,7 +36583,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 218,
+      "line": 253,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot"
     },
@@ -36274,7 +36735,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 159,
+      "line": 194,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs"
     },
@@ -36426,7 +36887,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 571,
+      "line": 658,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
     },
@@ -36446,7 +36907,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 377,
+      "line": 412,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_invalid_snapshot"
     },
@@ -36466,7 +36927,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 365,
+      "line": 400,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_missing_paths"
     },
@@ -36486,7 +36947,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 371,
+      "line": 406,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_none"
     },
@@ -36506,7 +36967,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 388,
+      "line": 423,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_valid_snapshot"
     },
@@ -36526,7 +36987,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1225,
+      "line": 1388,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
     },
@@ -36546,7 +37007,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1232,
+      "line": 1395,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
     },
@@ -36566,7 +37027,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1206,
+      "line": 1369,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
     },
@@ -36598,7 +37059,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 328,
+      "line": 363,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_invalid_snapshot"
     },
@@ -36630,7 +37091,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 316,
+      "line": 351,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_missing_snapshot"
     },
@@ -36662,7 +37123,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 322,
+      "line": 357,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_none"
     },
@@ -36694,7 +37155,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 336,
+      "line": 371,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs"
     },
@@ -36726,7 +37187,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 350,
+      "line": 385,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs_file"
     },
@@ -36746,7 +37207,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1239,
+      "line": 1402,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
     },
@@ -36766,7 +37227,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1262,
+      "line": 1425,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
     },
@@ -36786,7 +37247,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1246,
+      "line": 1409,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
     },
@@ -36806,7 +37267,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1269,
+      "line": 1432,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
     },
@@ -40742,9 +41203,45 @@
         }
       ],
       "file": "tests/test_test_obsolescence_state.py",
+      "line": 55,
+      "status": "mapped",
+      "test_id": "tests/test_test_obsolescence_state.py::test_state_payload_rejects_bad_baseline"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_obsolescence_state.py",
+              "qual": "gabion.analysis.test_obsolescence_state.parse_state_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_obsolescence_state.py",
       "line": 49,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_state.py::test_state_payload_rejects_bad_version"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.load_state",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_obsolescence_state.py",
+              "qual": "gabion.analysis.test_obsolescence_state.load_state"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_obsolescence_state.py",
+      "line": 82,
+      "status": "mapped",
+      "test_id": "tests/test_test_obsolescence_state.py::test_state_payload_rejects_non_object"
     },
     {
       "evidence": [
@@ -40777,6 +41274,42 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_obsolescence_state.py",
+              "qual": "gabion.analysis.test_obsolescence_state.parse_state_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_obsolescence_state.py",
+      "line": 63,
+      "status": "mapped",
+      "test_id": "tests/test_test_obsolescence_state.py::test_state_payload_skips_invalid_candidates"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_site_index",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context.build_site_index"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 88,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_build_site_index_filters_nodes"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack",
           "key": {
             "k": "function_site",
@@ -40788,9 +41321,81 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 28,
+      "line": 119,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_build_timeout_context_frame_fallback"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context.build_timeout_context_from_stack"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 36,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_build_timeout_context_from_stack_uses_forest"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context.build_timeout_context_from_stack"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 132,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_build_timeout_context_skips_unmatched_frames"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.check",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context.Deadline.check"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 80,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_deadline_expired_raises"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context._frame_site_key"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 111,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_frame_site_key_outside_root_returns_none"
     },
     {
       "evidence": [
@@ -40806,9 +41411,63 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 13,
+      "line": 21,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_pack_call_stack_orders_and_indexes"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context.pack_call_stack"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 98,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_pack_call_stack_skips_invalid_entries_and_keeps_span"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutContext.as_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context.TimeoutContext.as_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 57,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_timeout_context_payload_includes_metadata"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutExceeded.__init__",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "timeout_context.py",
+              "qual": "gabion.analysis.timeout_context.TimeoutExceeded.__init__"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_timeout_context.py",
+      "line": 70,
+      "status": "mapped",
+      "test_id": "tests/test_timeout_context.py::test_timeout_exceeded_carries_context"
     },
     {
       "evidence": [
