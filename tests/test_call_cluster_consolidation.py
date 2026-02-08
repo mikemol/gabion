@@ -106,6 +106,117 @@ def test_call_cluster_consolidation_render_empty() -> None:
     assert "No consolidation candidates" in markdown
 
 
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
+def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
+    tmp_path: Path,
+) -> None:
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    evidence_path = out_dir / "test_evidence.json"
+    display_empty = _call_footprint_display(
+        test_id="tests/test_sample.py::test_empty",
+        file="tests/test_sample.py",
+        targets=[],
+    )
+    entries = [
+        {
+            "test_id": "tests/test_sample.py::test_invalid",
+            "file": "tests/test_sample.py",
+            "line": 10,
+            "evidence": ["not-a-key"],
+            "status": "mapped",
+        },
+        {
+            "test_id": "tests/test_sample.py::test_empty",
+            "file": "tests/test_sample.py",
+            "line": 20,
+            "evidence": [display_empty],
+            "status": "mapped",
+        },
+    ]
+    _write_evidence_payload(evidence_path, entries=entries)
+
+    payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
+        evidence_path=evidence_path,
+        min_cluster_size=2,
+    )
+    assert payload["summary"]["clusters"] == 0
+    assert payload["summary"]["tests"] == 0
+    assert payload["plan"] == []
+
+
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
+def test_call_cluster_consolidation_skips_multiple_target_sets(
+    tmp_path: Path,
+) -> None:
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    evidence_path = out_dir / "test_evidence.json"
+    display_one = _call_footprint_display(
+        test_id="tests/test_sample.py::test_multi",
+        file="tests/test_sample.py",
+        targets=[("sample.py", "pkg.fn")],
+    )
+    display_two = _call_footprint_display(
+        test_id="tests/test_sample.py::test_multi",
+        file="tests/test_sample.py",
+        targets=[("other.py", "pkg.other")],
+    )
+    entries = [
+        {
+            "test_id": "tests/test_sample.py::test_multi",
+            "file": "tests/test_sample.py",
+            "line": 10,
+            "evidence": [display_one, display_two],
+            "status": "mapped",
+        }
+    ]
+    _write_evidence_payload(evidence_path, entries=entries)
+
+    payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
+        evidence_path=evidence_path,
+        min_cluster_size=2,
+    )
+    assert payload["summary"]["clusters"] == 0
+    assert payload["summary"]["tests"] == 0
+
+
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
+def test_call_cluster_consolidation_render_handles_invalid_entries() -> None:
+    payload = {
+        "summary": {"clusters": 1},
+        "clusters": ["bad", {"identity": "cluster-1", "display": "Cluster", "count": 1}],
+        "plan": [
+            "bad",
+            {
+                "cluster_identity": "cluster-1",
+                "cluster_display": "Cluster",
+                "cluster_count": 1,
+                "test_id": "tests/test_sample.py::test_one",
+                "file": "tests/test_sample.py",
+                "line": 12,
+                "replace": "E:call_footprint::sample.py::pkg.fn",
+                "with": "not-a-mapping",
+            },
+        ],
+    }
+    markdown = call_cluster_consolidation.render_markdown(payload)
+    assert "Cluster: Cluster" in markdown
+    assert "replace [E:call_footprint::sample.py::pkg.fn]" in markdown
+
+
+# gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation._targets_signature
+def test_call_cluster_consolidation_targets_signature_filters_invalid() -> None:
+    assert call_cluster_consolidation._targets_signature(None) == ()
+    targets = [
+        "skip",
+        {"path": "", "qual": "q"},
+        {"path": "p", "qual": ""},
+        {"path": "p", "qual": "q"},
+    ]
+    assert call_cluster_consolidation._targets_signature(targets) == (("p", "q"),)
+
+
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation
 def test_call_cluster_consolidation_write_creates_file(tmp_path: Path) -> None:
     payload = {"summary": {}, "clusters": [], "plan": []}

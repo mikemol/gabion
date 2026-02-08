@@ -5537,6 +5537,33 @@
       ]
     },
     {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation._targets_signature",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation._targets_signature"
+        }
+      },
+      "tests": [
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_targets_signature_filters_invalid"
+      ]
+    },
+    {
+      "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_cluster_consolidation.py",
+          "qual": "gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload"
+        }
+      },
+      "tests": [
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_skips_multiple_target_sets",
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_skips_unparseable_and_empty_targets"
+      ]
+    },
+    {
       "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown",
       "key": {
         "k": "function_site",
@@ -5547,7 +5574,8 @@
       },
       "tests": [
         "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_payload_and_render",
-        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_empty"
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_empty",
+        "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_handles_invalid_entries"
       ]
     },
     {
@@ -8698,6 +8726,78 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_cluster_consolidation.py",
+              "qual": "gabion.analysis.call_cluster_consolidation.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_cluster_consolidation.py",
+      "line": 185,
+      "status": "mapped",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_render_handles_invalid_entries"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_cluster_consolidation.py",
+              "qual": "gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_cluster_consolidation.py",
+      "line": 149,
+      "status": "mapped",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_skips_multiple_target_sets"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_cluster_consolidation.py",
+              "qual": "gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_cluster_consolidation.py",
+      "line": 110,
+      "status": "mapped",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_skips_unparseable_and_empty_targets"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation._targets_signature",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_cluster_consolidation.py",
+              "qual": "gabion.analysis.call_cluster_consolidation._targets_signature"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_cluster_consolidation.py",
+      "line": 209,
+      "status": "mapped",
+      "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_targets_signature_filters_invalid"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.write_call_cluster_consolidation",
           "key": {
             "k": "function_site",
@@ -8709,7 +8809,7 @@
         }
       ],
       "file": "tests/test_call_cluster_consolidation.py",
-      "line": 110,
+      "line": 221,
       "status": "mapped",
       "test_id": "tests/test_call_cluster_consolidation.py::test_call_cluster_consolidation_write_creates_file"
     },
