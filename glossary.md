@@ -15,12 +15,12 @@ doc_requires:
   - POLICY_SEED.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 72
+  CONTRIBUTING.md: 73
   AGENTS.md: 13
   POLICY_SEED.md: 29
 doc_review_notes:
   README.md: "Reviewed for subsystem-interface terminology; no conflicts."
-  CONTRIBUTING.md: "No workflow conflicts with subsystem-interface definition."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md helper additions; glossary semantics unchanged."
   AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
   POLICY_SEED.md: "No policy conflicts with subsystem-interface definition."
 doc_commutes_with:
