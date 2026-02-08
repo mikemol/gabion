@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+import select
 import subprocess
 import sys
-from pathlib import Path
+import time
 from dataclasses import dataclass
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Callable
 
 from gabion.json_types import JSONObject
+from gabion import server
 
 
 class LspClientError(RuntimeError):
@@ -20,9 +24,26 @@ class CommandRequest:
     arguments: list[JSONObject] | None = None
 
 
-def _read_rpc(stream) -> JSONObject:
+def _wait_readable(stream, deadline: float | None) -> None:
+    if deadline is None:
+        return
+    fileno = getattr(stream, "fileno", None)
+    if fileno is None:
+        return
+    try:
+        fd = fileno()
+    except Exception:
+        return
+    timeout = max(0.0, deadline - time.monotonic())
+    ready, _, _ = select.select([fd], [], [], timeout)
+    if not ready:
+        raise LspClientError("LSP response timed out")
+
+
+def _read_rpc(stream, deadline: float | None = None) -> JSONObject:
     header = b""
     while b"\r\n\r\n" not in header:
+        _wait_readable(stream, deadline)
         chunk = stream.read(1)
         if not chunk:
             raise LspClientError("LSP stream closed")
@@ -37,6 +58,7 @@ def _read_rpc(stream) -> JSONObject:
         raise LspClientError("Invalid LSP Content-Length")
     body = rest
     if len(body) < length:
+        _wait_readable(stream, deadline)
         body += stream.read(length - len(body))
     message = json.loads(body.decode("utf-8"))
     if not isinstance(message, dict):
@@ -51,9 +73,11 @@ def _write_rpc(stream, message: JSONObject) -> None:
     stream.flush()
 
 
-def _read_response(stream, request_id: int) -> JSONObject:
+def _read_response(
+    stream, request_id: int, deadline: float | None = None
+) -> JSONObject:
     while True:
-        message = _read_rpc(stream)
+        message = _read_rpc(stream, deadline)
         if message.get("id") == request_id:
             return message
 
@@ -75,6 +99,9 @@ def run_command(
     assert proc.stdout is not None
 
     root_uri = (root or Path.cwd()).resolve().as_uri()
+    deadline = None
+    if timeout is not None:
+        deadline = time.monotonic() + max(timeout, 0.0)
     initialize_id = 1
     _write_rpc(
         proc.stdin,
@@ -85,7 +112,7 @@ def run_command(
             "params": {"rootUri": root_uri, "capabilities": {}},
         },
     )
-    _read_response(proc.stdout, initialize_id)
+    _read_response(proc.stdout, initialize_id, deadline)
     _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
     cmd_id = 2
@@ -98,13 +125,16 @@ def run_command(
             "params": {"command": request.command, "arguments": request.arguments or []},
         },
     )
-    response = _read_response(proc.stdout, cmd_id)
+    response = _read_response(proc.stdout, cmd_id, deadline)
 
     shutdown_id = 3
     _write_rpc(proc.stdin, {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"})
-    _read_response(proc.stdout, shutdown_id)
+    _read_response(proc.stdout, shutdown_id, deadline)
     _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
-    out, err = proc.communicate(timeout=timeout)
+    remaining = None
+    if deadline is not None:
+        remaining = max(0.0, deadline - time.monotonic())
+    out, err = proc.communicate(timeout=remaining)
     if response.get("error"):
         raise LspClientError(f"LSP error: {response['error']}")
     if proc.returncode not in (0, None):
@@ -118,3 +148,28 @@ def run_command(
     if not isinstance(result, dict):
         raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
     return result
+
+
+def run_command_direct(
+    request: CommandRequest,
+    *,
+    root: Path | None = None,
+) -> JSONObject:
+    payload = {}
+    if request.arguments:
+        payload = request.arguments[0]
+    workspace = SimpleNamespace(root_path=str((root or Path.cwd()).resolve()))
+    ls = SimpleNamespace(workspace=workspace)
+    if request.command == server.DATAFLOW_COMMAND:
+        return server.execute_command(ls, payload)
+    if request.command == server.STRUCTURE_DIFF_COMMAND:
+        return server.execute_structure_diff(ls, payload)
+    if request.command == server.STRUCTURE_REUSE_COMMAND:
+        return server.execute_structure_reuse(ls, payload)
+    if request.command == server.DECISION_DIFF_COMMAND:
+        return server.execute_decision_diff(ls, payload)
+    if request.command == server.SYNTHESIS_COMMAND:
+        return server.execute_synthesis(ls, payload)
+    if request.command == server.REFACTOR_COMMAND:
+        return server.execute_refactor(ls, payload)
+    raise LspClientError(f"Unsupported direct command: {request.command}")

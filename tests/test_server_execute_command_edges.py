@@ -9,10 +9,13 @@ import pytest
 from gabion import server
 from gabion.analysis import (
     ambiguity_delta,
+    ambiguity_state,
     evidence_keys,
     test_annotation_drift,
     test_annotation_drift_delta,
+    test_obsolescence,
     test_obsolescence_delta,
+    test_obsolescence_state,
 )
 
 
@@ -519,6 +522,51 @@ def test_execute_command_emits_obsolescence_delta(tmp_path: Path) -> None:
     assert "test_obsolescence_delta_summary" in result
 
 
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    key = evidence_keys.make_paramset_key(["x"])
+    ref = test_obsolescence.EvidenceRef(
+        key=key,
+        identity=evidence_keys.key_identity(key),
+        display=evidence_keys.render_display(key),
+        opaque=False,
+    )
+    evidence_by_test = {"tests/test_sample.py::test_alpha": [ref]}
+    status_by_test = {"tests/test_sample.py::test_alpha": "mapped"}
+    candidates, summary = test_obsolescence.classify_candidates(
+        evidence_by_test, status_by_test, {}
+    )
+    state_payload = test_obsolescence_state.build_state_payload(
+        evidence_by_test, status_by_test, candidates, summary
+    )
+    state_path = out_dir / "test_obsolescence_state.json"
+    state_path.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n")
+
+    baseline_payload = state_payload["baseline"]
+    baseline_path = test_obsolescence_delta.resolve_baseline_path(tmp_path)
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    test_obsolescence_delta.write_baseline(str(baseline_path), baseline_payload)
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_obsolescence_delta": True,
+            "test_obsolescence_state": str(state_path),
+        },
+    )
+    assert (out_dir / "test_obsolescence_delta.json").exists()
+    assert (out_dir / "test_obsolescence_delta.md").exists()
+    assert "test_obsolescence_delta_summary" in result
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
 def test_execute_command_writes_obsolescence_baseline(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -619,6 +667,52 @@ def test_execute_command_emits_annotation_drift_delta(tmp_path: Path) -> None:
             "root": str(tmp_path),
             "paths": [str(tests_dir)],
             "emit_test_annotation_drift_delta": True,
+        },
+    )
+    assert (out_dir / "test_annotation_drift_delta.json").exists()
+    assert (out_dir / "test_annotation_drift_delta.md").exists()
+    assert "test_annotation_drift_delta_summary" in result
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_annotation_drift_delta_from_state(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    drift_payload = {
+        "version": 1,
+        "summary": {
+            "legacy_ambiguous": 0,
+            "legacy_tag": 0,
+            "ok": 1,
+            "orphaned": 0,
+        },
+        "entries": [],
+        "generated_by_spec_id": "spec",
+        "generated_by_spec": {},
+    }
+    state_path = out_dir / "test_annotation_drift.json"
+    state_path.write_text(json.dumps(drift_payload, indent=2, sort_keys=True) + "\n")
+
+    baseline_payload = test_annotation_drift_delta.build_baseline_payload(
+        drift_payload["summary"]
+    )
+    baseline_path = test_annotation_drift_delta.resolve_baseline_path(tmp_path)
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    test_annotation_drift_delta.write_baseline(str(baseline_path), baseline_payload)
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_test_annotation_drift_delta": True,
+            "test_annotation_drift_state": str(state_path),
         },
     )
     assert (out_dir / "test_annotation_drift_delta.json").exists()
@@ -930,6 +1024,48 @@ def test_execute_command_emits_ambiguity_delta(tmp_path: Path) -> None:
     assert "ambiguity_delta_summary" in result
 
 
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    witnesses = [
+        {
+            "kind": "local_resolution_ambiguous",
+            "site": {
+                "path": "sample.py",
+                "function": "caller",
+                "span": [1, 0, 1, 5],
+            },
+            "candidate_count": 2,
+        }
+    ]
+    state_payload = ambiguity_state.build_state_payload(witnesses)
+    state_path = out_dir / "ambiguity_state.json"
+    state_path.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n")
+
+    baseline_payload = ambiguity_delta.build_baseline_payload(witnesses)
+    baseline_path = ambiguity_delta.resolve_baseline_path(tmp_path)
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    ambiguity_delta.write_baseline(str(baseline_path), baseline_payload)
+
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "emit_ambiguity_delta": True,
+            "ambiguity_state": str(state_path),
+        },
+    )
+    assert (out_dir / "ambiguity_delta.json").exists()
+    assert (out_dir / "ambiguity_delta.md").exists()
+    assert "ambiguity_delta_summary" in result
+
+
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
 def test_execute_command_writes_ambiguity_baseline(tmp_path: Path) -> None:
@@ -966,6 +1102,23 @@ def test_execute_command_rejects_ambiguity_flags(tmp_path: Path) -> None:
             },
         )
 
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(ValueError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_ambiguity_state": True,
+                "ambiguity_state": "out/ambiguity_state.json",
+            },
+        )
+
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
 def test_execute_command_rejects_conflicting_obsolescence_flags(
     tmp_path: Path,
@@ -981,6 +1134,25 @@ def test_execute_command_rejects_conflicting_obsolescence_flags(
                 "paths": [str(module_path)],
                 "emit_test_obsolescence_delta": True,
                 "write_test_obsolescence_baseline": True,
+            },
+        )
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_rejects_obsolescence_state_conflict(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(ValueError):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "emit_test_obsolescence_state": True,
+                "test_obsolescence_state": "out/test_obsolescence_state.json",
             },
         )
 

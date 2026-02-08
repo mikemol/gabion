@@ -74,6 +74,7 @@ from .forest_spec import (
     default_forest_spec,
     forest_spec_metadata,
 )
+from .timeout_context import Deadline, build_timeout_context_from_stack
 from .projection_exec import apply_spec
 from .projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
@@ -7609,6 +7610,7 @@ def analyze_paths(
     include_ambiguities: bool = False,
     include_bundle_forest: bool = False,
     config: AuditConfig | None = None,
+    deadline: Deadline | None = None,
 ) -> AnalysisResult:
     if config is None:
         config = AuditConfig()
@@ -7617,7 +7619,29 @@ def analyze_paths(
     param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = {}
     invariant_propositions: list[InvariantProposition] = []
+    forest: Forest | None = None
+    forest_spec: ForestSpec | None = None
+    ambiguity_witnesses: list[JSONObject] = []
+
+    def _deadline_check(*, allow_frame_fallback: bool) -> None:
+        if deadline is None:
+            return
+        forest_spec_id = None
+        if forest_spec is not None:
+            forest_spec_id = forest_spec_metadata(forest_spec).get(
+                "generated_by_forest_spec_id"
+            )
+        deadline.check(
+            lambda: build_timeout_context_from_stack(
+                forest=forest,
+                project_root=config.project_root,
+                forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
+                allow_frame_fallback=allow_frame_fallback,
+            )
+        )
+
     for path in file_paths:
+        _deadline_check(allow_frame_fallback=True)
         groups, spans, sites = _analyze_file_internal(
             path, recursive=recursive, config=config
         )
@@ -7634,9 +7658,6 @@ def analyze_paths(
                 )
             )
 
-    forest: Forest | None = None
-    forest_spec: ForestSpec | None = None
-    ambiguity_witnesses: list[JSONObject] = []
     if (
         include_bundle_forest
         or include_decision_surfaces
@@ -7671,7 +7692,9 @@ def analyze_paths(
             require_tiers=config.decision_require_tiers,
             external_filter=config.external_filter,
         )
+        _deadline_check(allow_frame_fallback=False)
     if include_ambiguities:
+        _deadline_check(allow_frame_fallback=False)
         call_ambiguities = _collect_call_ambiguities(
             file_paths,
             project_root=config.project_root,
@@ -7690,6 +7713,7 @@ def analyze_paths(
     type_ambiguities: list[str] = []
     type_callsite_evidence: list[str] = []
     if type_audit or type_audit_report:
+        _deadline_check(allow_frame_fallback=False)
         type_suggestions, type_ambiguities, type_callsite_evidence = analyze_type_flow_repo_with_evidence(
             file_paths,
             project_root=config.project_root,

@@ -79,6 +79,13 @@ TEST_OBSOLESCENCE_BASELINE_SPEC = ProjectionSpec(
 )
 
 
+TEST_OBSOLESCENCE_STATE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="test_obsolescence_state",
+    domain="test_obsolescence_state",
+)
+
+
 TEST_OBSOLESCENCE_DELTA_SPEC = ProjectionSpec(
     spec_version=1,
     name="test_obsolescence_delta",
@@ -227,6 +234,13 @@ AMBIGUITY_DELTA_SPEC = ProjectionSpec(
 )
 
 
+AMBIGUITY_STATE_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="ambiguity_state",
+    domain="ambiguity_state",
+)
+
+
 def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
     spec_id = spec_hash(spec)
     spec_json = spec_canonical_json(spec)
@@ -248,6 +262,7 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         NEVER_INVARIANTS_SPEC,
         TEST_OBSOLESCENCE_SUMMARY_SPEC,
         TEST_OBSOLESCENCE_BASELINE_SPEC,
+        TEST_OBSOLESCENCE_STATE_SPEC,
         TEST_OBSOLESCENCE_DELTA_SPEC,
         AMBIGUITY_SUMMARY_SPEC,
         CALL_CLUSTER_SUMMARY_SPEC,
@@ -256,6 +271,7 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         TEST_ANNOTATION_DRIFT_DELTA_SPEC,
         AMBIGUITY_BASELINE_SPEC,
         AMBIGUITY_DELTA_SPEC,
+        AMBIGUITY_STATE_SPEC,
     )
 
 

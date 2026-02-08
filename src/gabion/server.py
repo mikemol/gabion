@@ -24,6 +24,7 @@ from lsprotocol.types import (
 from gabion.json_types import JSONObject, JSONValue
 
 from gabion.analysis import (
+    AnalysisResult,
     AuditConfig,
     analyze_paths,
     apply_baseline,
@@ -49,13 +50,16 @@ from gabion.analysis import (
     write_baseline,
 )
 from gabion.analysis import ambiguity_delta
+from gabion.analysis import ambiguity_state
 from gabion.analysis import call_cluster_consolidation
 from gabion.analysis import call_clusters
 from gabion.analysis import test_annotation_drift
 from gabion.analysis import test_annotation_drift_delta
 from gabion.analysis import test_obsolescence
 from gabion.analysis import test_obsolescence_delta
+from gabion.analysis import test_obsolescence_state
 from gabion.analysis import test_evidence_suggestions
+from gabion.analysis.timeout_context import Deadline, TimeoutExceeded
 from gabion.config import (
     dataflow_defaults,
     decision_defaults,
@@ -240,6 +244,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     structure_metrics_path = payload.get("structure_metrics")
     decision_snapshot_path = payload.get("decision_snapshot")
     emit_test_obsolescence = bool(payload.get("emit_test_obsolescence", False))
+    emit_test_obsolescence_state = bool(
+        payload.get("emit_test_obsolescence_state", False)
+    )
+    test_obsolescence_state_path = payload.get("test_obsolescence_state")
     emit_test_obsolescence_delta = bool(
         payload.get("emit_test_obsolescence_delta", False)
     )
@@ -256,6 +264,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     emit_test_annotation_drift = bool(
         payload.get("emit_test_annotation_drift", False)
     )
+    test_annotation_drift_state_path = payload.get("test_annotation_drift_state")
     emit_test_annotation_drift_delta = bool(
         payload.get("emit_test_annotation_drift_delta", False)
     )
@@ -263,6 +272,8 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         payload.get("write_test_annotation_drift_baseline", False)
     )
     emit_ambiguity_delta = bool(payload.get("emit_ambiguity_delta", False))
+    emit_ambiguity_state = bool(payload.get("emit_ambiguity_state", False))
+    ambiguity_state_path = payload.get("ambiguity_state")
     write_ambiguity_baseline = bool(payload.get("write_ambiguity_baseline", False))
     synthesis_max_tier = payload.get("synthesis_max_tier", 2)
     synthesis_min_bundle_size = payload.get("synthesis_min_bundle_size", 2)
@@ -313,34 +324,92 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         fingerprint_handledness_json
     )
     include_never_invariants = bool(report_path)
-    include_ambiguities = (
-        bool(report_path) or lint or emit_ambiguity_delta or write_ambiguity_baseline
-    )
+    include_ambiguities = bool(report_path) or lint or emit_ambiguity_state
+    if (emit_ambiguity_delta or write_ambiguity_baseline) and not ambiguity_state_path:
+        include_ambiguities = True
     include_coherence = (
         bool(report_path) or bool(fingerprint_coherence_json) or include_rewrite_plans
     )
-    analysis = analyze_paths(
-        paths,
-        recursive=not no_recursive,
-        type_audit=type_audit or type_audit_report,
-        type_audit_report=type_audit_report,
-        type_audit_max=type_audit_max,
-        include_constant_smells=bool(report_path),
-        include_unused_arg_smells=bool(report_path),
-        include_deadness_witnesses=bool(report_path) or bool(fingerprint_deadness_json),
-        include_coherence_witnesses=include_coherence,
-        include_rewrite_plans=include_rewrite_plans,
-        include_exception_obligations=include_exception_obligations,
-        include_handledness_witnesses=include_handledness_witnesses,
-        include_never_invariants=include_never_invariants,
-        include_decision_surfaces=include_decisions,
-        include_value_decision_surfaces=include_decisions,
-        include_invariant_propositions=bool(report_path),
-        include_lint_lines=lint,
-        include_ambiguities=include_ambiguities,
-        include_bundle_forest=True,
-        config=config,
+    needs_analysis = (
+        bool(report_path)
+        or bool(dot_path)
+        or bool(structure_tree_path)
+        or bool(structure_metrics_path)
+        or bool(decision_snapshot_path)
+        or bool(synthesis_plan_path)
+        or bool(synthesis_report)
+        or bool(synthesis_protocols_path)
+        or bool(refactor_plan)
+        or bool(refactor_plan_json)
+        or bool(fingerprint_synth_json)
+        or bool(fingerprint_provenance_json)
+        or bool(fingerprint_deadness_json)
+        or bool(fingerprint_coherence_json)
+        or bool(fingerprint_rewrite_plans_json)
+        or bool(fingerprint_exception_obligations_json)
+        or bool(fingerprint_handledness_json)
+        or bool(type_audit)
+        or bool(type_audit_report)
+        or bool(fail_on_type_ambiguities)
+        or bool(fail_on_violations)
+        or baseline_path is not None
+        or bool(lint)
+        or bool(emit_test_evidence_suggestions)
+        or bool(include_ambiguities)
     )
+    analysis_timeout = payload.get("analysis_timeout_seconds")
+    deadline = None
+    if analysis_timeout not in (None, ""):
+        try:
+            timeout_value = float(analysis_timeout)
+        except (TypeError, ValueError):
+            timeout_value = None
+        if timeout_value is not None and timeout_value > 0:
+            deadline = Deadline.from_timeout(timeout_value)
+
+    if needs_analysis:
+        try:
+            analysis = analyze_paths(
+                paths,
+                recursive=not no_recursive,
+                type_audit=type_audit or type_audit_report,
+                type_audit_report=type_audit_report,
+                type_audit_max=type_audit_max,
+                include_constant_smells=bool(report_path),
+                include_unused_arg_smells=bool(report_path),
+                include_deadness_witnesses=bool(report_path)
+                or bool(fingerprint_deadness_json),
+                include_coherence_witnesses=include_coherence,
+                include_rewrite_plans=include_rewrite_plans,
+                include_exception_obligations=include_exception_obligations,
+                include_handledness_witnesses=include_handledness_witnesses,
+                include_never_invariants=include_never_invariants,
+                include_decision_surfaces=include_decisions,
+                include_value_decision_surfaces=include_decisions,
+                include_invariant_propositions=bool(report_path),
+                include_lint_lines=lint,
+                include_ambiguities=include_ambiguities,
+                include_bundle_forest=True,
+                config=config,
+                deadline=deadline,
+            )
+        except TimeoutExceeded as exc:
+            return {
+                "exit_code": 2,
+                "timeout": True,
+                "timeout_context": exc.context.as_payload(),
+            }
+    else:
+        analysis = AnalysisResult(
+            groups_by_path={},
+            param_spans_by_path={},
+            bundle_sites_by_path={},
+            type_suggestions=[],
+            type_ambiguities=[],
+            type_callsite_evidence=[],
+            constant_smells=[],
+            unused_arg_smells=[],
+        )
 
     response: dict = {
         "type_suggestions": analysis.type_suggestions,
@@ -463,6 +532,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         raise ValueError(
             "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
         )
+    if emit_test_obsolescence_state and test_obsolescence_state_path:
+        raise ValueError(
+            "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
+        )
+    if emit_ambiguity_state and ambiguity_state_path:
+        raise ValueError(
+            "Use --emit-ambiguity-state or --ambiguity-state, not both."
+        )
 
     if emit_test_evidence_suggestions:
         report_root = Path(root)
@@ -523,7 +600,17 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             "summary", {}
         )
     drift_payload = None
-    if (
+    if test_annotation_drift_state_path:
+        state_path = Path(test_annotation_drift_state_path)
+        if not state_path.exists():
+            raise FileNotFoundError(
+                f"Annotation drift state not found: {state_path}"
+            )
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Annotation drift state must be a JSON object.")
+        drift_payload = payload
+    elif (
         emit_test_annotation_drift
         or emit_test_annotation_drift_delta
         or write_test_annotation_drift_baseline
@@ -535,6 +622,12 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             root=report_root,
             evidence_path=evidence_path,
         )
+    if drift_payload is not None and (
+        emit_test_annotation_drift
+        or emit_test_annotation_drift_delta
+        or write_test_annotation_drift_baseline
+    ):
+        report_root = Path(root)
         output_dir = report_root / "out"
         output_dir.mkdir(parents=True, exist_ok=True)
         if emit_test_annotation_drift:
@@ -546,8 +639,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 "summary", {}
             )
         if emit_test_annotation_drift_delta or write_test_annotation_drift_baseline:
+            summary = drift_payload.get("summary", {})
             baseline_payload = test_annotation_drift_delta.build_baseline_payload(
-                drift_payload.get("summary", {})
+                summary if isinstance(summary, dict) else {}
             )
             baseline_path = test_annotation_drift_delta.resolve_baseline_path(
                 report_root
@@ -576,9 +670,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                     baseline, current, baseline_path=str(baseline_path)
                 )
                 report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
-                report_md = test_annotation_drift_delta.render_markdown(
-                    delta_payload
-                )
+                report_md = test_annotation_drift_delta.render_markdown(delta_payload)
                 (output_dir / "test_annotation_drift_delta.json").write_text(
                     report_json
                 )
@@ -586,7 +678,31 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 response["test_annotation_drift_delta_summary"] = delta_payload.get(
                     "summary", {}
                 )
-    if emit_test_obsolescence or emit_test_obsolescence_delta or write_test_obsolescence_baseline:
+    obsolescence_candidates: list[dict[str, object]] | None = None
+    obsolescence_summary: dict[str, int] | None = None
+    obsolescence_baseline_payload: dict[str, object] | None = None
+    obsolescence_baseline: test_obsolescence_delta.ObsolescenceBaseline | None = None
+    if test_obsolescence_state_path:
+        state_path = Path(test_obsolescence_state_path)
+        if not state_path.exists():
+            raise FileNotFoundError(
+                f"Test obsolescence state not found: {state_path}"
+            )
+        state = test_obsolescence_state.load_state(str(state_path))
+        obsolescence_candidates = [
+            {str(k): entry[k] for k in entry} for entry in state.candidates
+        ]
+        obsolescence_summary = state.baseline.summary
+        obsolescence_baseline_payload = {
+            str(k): state.baseline_payload[k] for k in state.baseline_payload
+        }
+        obsolescence_baseline = state.baseline
+    elif (
+        emit_test_obsolescence
+        or emit_test_obsolescence_delta
+        or write_test_obsolescence_baseline
+        or emit_test_obsolescence_state
+    ):
         report_root = Path(root)
         evidence_path = report_root / "out" / "test_evidence.json"
         risk_registry_path = report_root / "out" / "evidence_risk_registry.json"
@@ -597,29 +713,52 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         candidates, summary_counts = test_obsolescence.classify_candidates(
             evidence_by_test, status_by_test, risk_registry
         )
+        obsolescence_candidates = candidates
+        obsolescence_summary = summary_counts
+        obsolescence_baseline_payload = test_obsolescence_delta.build_baseline_payload(
+            evidence_by_test, status_by_test, candidates, summary_counts
+        )
+        obsolescence_baseline = test_obsolescence_delta.parse_baseline_payload(
+            obsolescence_baseline_payload
+        )
+        if emit_test_obsolescence_state:
+            output_dir = report_root / "out"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            state_payload = test_obsolescence_state.build_state_payload(
+                evidence_by_test,
+                status_by_test,
+                candidates,
+                summary_counts,
+            )
+            (output_dir / "test_obsolescence_state.json").write_text(
+                json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
+            )
 
-    if emit_test_obsolescence:
+    if emit_test_obsolescence and obsolescence_candidates is not None:
+        report_root = Path(root)
         report_payload = test_obsolescence.render_json_payload(
-            candidates, summary_counts
+            obsolescence_candidates, obsolescence_summary or {}
         )
         output_dir = report_root / "out"
         output_dir.mkdir(parents=True, exist_ok=True)
         report_json = json.dumps(report_payload, indent=2, sort_keys=True) + "\n"
-        report_md = test_obsolescence.render_markdown(candidates, summary_counts)
+        report_md = test_obsolescence.render_markdown(
+            obsolescence_candidates, obsolescence_summary or {}
+        )
         (output_dir / "test_obsolescence_report.json").write_text(report_json)
         (output_dir / "test_obsolescence_report.md").write_text(report_md)
-        response["test_obsolescence_summary"] = summary_counts
+        response["test_obsolescence_summary"] = obsolescence_summary or {}
 
-    if emit_test_obsolescence_delta or write_test_obsolescence_baseline:
-        baseline_payload = test_obsolescence_delta.build_baseline_payload(
-            evidence_by_test, status_by_test, candidates, summary_counts
-        )
+    if (
+        emit_test_obsolescence_delta or write_test_obsolescence_baseline
+    ) and obsolescence_baseline_payload is not None:
+        report_root = Path(root)
         baseline_path = test_obsolescence_delta.resolve_baseline_path(report_root)
         response["test_obsolescence_baseline_path"] = str(baseline_path)
         if write_test_obsolescence_baseline:
             baseline_path.parent.mkdir(parents=True, exist_ok=True)
             test_obsolescence_delta.write_baseline(
-                str(baseline_path), baseline_payload
+                str(baseline_path), obsolescence_baseline_payload
             )
             response["test_obsolescence_baseline_written"] = True
         else:
@@ -630,8 +769,12 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                     f"Test obsolescence baseline not found: {baseline_path}"
                 )
             baseline = test_obsolescence_delta.load_baseline(str(baseline_path))
-            current = test_obsolescence_delta.parse_baseline_payload(
-                baseline_payload
+            current = (
+                obsolescence_baseline
+                if obsolescence_baseline is not None
+                else test_obsolescence_delta.parse_baseline_payload(
+                    obsolescence_baseline_payload
+                )
             )
             delta_payload = test_obsolescence_delta.build_delta_payload(
                 baseline, current, baseline_path=str(baseline_path)
@@ -646,16 +789,48 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 "summary", {}
             )
 
-    if emit_ambiguity_delta or write_ambiguity_baseline:
-        report_root = Path(root)
-        baseline_payload = ambiguity_delta.build_baseline_payload(
-            analysis.ambiguity_witnesses
+    ambiguity_witnesses: list[dict[str, object]] | None = None
+    ambiguity_baseline_payload: dict[str, object] | None = None
+    ambiguity_baseline: ambiguity_delta.AmbiguityBaseline | None = None
+    if ambiguity_state_path:
+        state_path = Path(ambiguity_state_path)
+        if not state_path.exists():
+            raise FileNotFoundError(f"Ambiguity state not found: {state_path}")
+        state = ambiguity_state.load_state(str(state_path))
+        ambiguity_witnesses = [
+            {str(k): entry[k] for k in entry} for entry in state.witnesses
+        ]
+        ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
+            ambiguity_witnesses
         )
+        ambiguity_baseline = state.baseline
+    elif emit_ambiguity_delta or write_ambiguity_baseline or emit_ambiguity_state:
+        ambiguity_witnesses = [
+            {str(k): entry[k] for k in entry} for entry in analysis.ambiguity_witnesses
+        ]
+        if emit_ambiguity_state:
+            report_root = Path(root)
+            output_dir = report_root / "out"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            state_payload = ambiguity_state.build_state_payload(ambiguity_witnesses)
+            (output_dir / "ambiguity_state.json").write_text(
+                json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
+            )
+        ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
+            ambiguity_witnesses
+        )
+        ambiguity_baseline = ambiguity_delta.parse_baseline_payload(
+            ambiguity_baseline_payload
+        )
+    if (
+        emit_ambiguity_delta or write_ambiguity_baseline
+    ) and ambiguity_baseline_payload is not None:
+        report_root = Path(root)
         baseline_path = ambiguity_delta.resolve_baseline_path(report_root)
         response["ambiguity_baseline_path"] = str(baseline_path)
         if write_ambiguity_baseline:
             baseline_path.parent.mkdir(parents=True, exist_ok=True)
-            ambiguity_delta.write_baseline(str(baseline_path), baseline_payload)
+            ambiguity_delta.write_baseline(str(baseline_path), ambiguity_baseline_payload)
             response["ambiguity_baseline_written"] = True
         else:
             response["ambiguity_baseline_written"] = False
@@ -665,7 +840,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                     f"Ambiguity baseline not found: {baseline_path}"
                 )
             baseline = ambiguity_delta.load_baseline(str(baseline_path))
-            current = ambiguity_delta.parse_baseline_payload(baseline_payload)
+            current = (
+                ambiguity_baseline
+                if ambiguity_baseline is not None
+                else ambiguity_delta.parse_baseline_payload(ambiguity_baseline_payload)
+            )
             delta_payload = ambiguity_delta.build_delta_payload(
                 baseline, current, baseline_path=str(baseline_path)
             )

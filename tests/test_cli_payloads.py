@@ -8,7 +8,7 @@ import typer
 from gabion import cli
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_check_builds_payload() -> None:
     payload = cli.build_check_payload(
         paths=None,
@@ -20,15 +20,20 @@ def test_check_builds_payload() -> None:
         baseline_write=False,
         decision_snapshot=None,
         emit_test_obsolescence=False,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
         emit_call_clusters=False,
         emit_call_cluster_consolidation=False,
         emit_test_annotation_drift=False,
+        test_annotation_drift_state=None,
         emit_test_annotation_drift_delta=False,
         write_test_annotation_drift_baseline=False,
         write_test_obsolescence_baseline=False,
         emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
         write_ambiguity_baseline=False,
         exclude=None,
         ignore_params_csv=None,
@@ -43,19 +48,24 @@ def test_check_builds_payload() -> None:
     assert payload["fail_on_type_ambiguities"] is True
     assert payload["type_audit"] is True
     assert payload["emit_test_obsolescence"] is False
+    assert payload["emit_test_obsolescence_state"] is False
+    assert payload["test_obsolescence_state"] is None
     assert payload["emit_test_obsolescence_delta"] is False
     assert payload["emit_test_evidence_suggestions"] is False
     assert payload["emit_call_clusters"] is False
     assert payload["emit_call_cluster_consolidation"] is False
     assert payload["emit_test_annotation_drift"] is False
+    assert payload["test_annotation_drift_state"] is None
     assert payload["emit_test_annotation_drift_delta"] is False
     assert payload["write_test_annotation_drift_baseline"] is False
     assert payload["write_test_obsolescence_baseline"] is False
     assert payload["emit_ambiguity_delta"] is False
+    assert payload["emit_ambiguity_state"] is False
+    assert payload["ambiguity_state"] is None
     assert payload["write_ambiguity_baseline"] is False
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_check_payload_strictness_validation() -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_check_payload(
@@ -68,15 +78,20 @@ def test_check_payload_strictness_validation() -> None:
             baseline_write=False,
             decision_snapshot=None,
             emit_test_obsolescence=False,
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
             emit_call_clusters=False,
             emit_call_cluster_consolidation=False,
             emit_test_annotation_drift=False,
+            test_annotation_drift_state=None,
             emit_test_annotation_drift_delta=False,
             write_test_annotation_drift_baseline=False,
             write_test_obsolescence_baseline=False,
             emit_ambiguity_delta=False,
+            emit_ambiguity_state=False,
+            ambiguity_state=None,
             write_ambiguity_baseline=False,
             exclude=None,
             ignore_params_csv=None,
@@ -88,7 +103,7 @@ def test_check_payload_strictness_validation() -> None:
         )
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_ambiguity_delta,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline
 def test_check_payload_baseline_write_requires_baseline() -> None:
     payload = cli.build_check_payload(
         paths=[Path(".")],
@@ -100,15 +115,20 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         baseline_write=True,
         decision_snapshot=None,
         emit_test_obsolescence=False,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
         emit_call_clusters=False,
         emit_call_cluster_consolidation=False,
         emit_test_annotation_drift=False,
+        test_annotation_drift_state=None,
         emit_test_annotation_drift_delta=False,
         write_test_annotation_drift_baseline=False,
         write_test_obsolescence_baseline=False,
         emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
         write_ambiguity_baseline=False,
         exclude=None,
         ignore_params_csv=None,
@@ -205,7 +225,7 @@ def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
     assert payload["bundle"] == ["a", "b"]
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_check::baseline E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_check::baseline E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline
 def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -225,15 +245,20 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         emit_test_obsolescence=False,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
         emit_test_obsolescence_delta=False,
         emit_test_evidence_suggestions=False,
         emit_call_clusters=False,
         emit_call_cluster_consolidation=False,
         emit_test_annotation_drift=False,
+        test_annotation_drift_state=None,
         emit_test_annotation_drift_delta=False,
         write_test_annotation_drift_baseline=False,
         write_test_obsolescence_baseline=False,
         emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
         write_ambiguity_baseline=False,
         exclude=None,
         ignore_params_csv=None,
@@ -248,20 +273,25 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["command"] == cli.DATAFLOW_COMMAND
     assert captured["payload"]["paths"] == [str(tmp_path)]
     assert captured["payload"]["emit_test_obsolescence"] is False
+    assert captured["payload"]["emit_test_obsolescence_state"] is False
+    assert captured["payload"]["test_obsolescence_state"] is None
     assert captured["payload"]["emit_test_obsolescence_delta"] is False
     assert captured["payload"]["emit_test_evidence_suggestions"] is False
     assert captured["payload"]["emit_call_clusters"] is False
     assert captured["payload"]["emit_call_cluster_consolidation"] is False
     assert captured["payload"]["emit_test_annotation_drift"] is False
+    assert captured["payload"]["test_annotation_drift_state"] is None
     assert captured["payload"]["emit_test_annotation_drift_delta"] is False
     assert captured["payload"]["write_test_annotation_drift_baseline"] is False
     assert captured["payload"]["write_test_obsolescence_baseline"] is False
     assert captured["payload"]["emit_ambiguity_delta"] is False
+    assert captured["payload"]["emit_ambiguity_state"] is False
+    assert captured["payload"]["ambiguity_state"] is None
     assert captured["payload"]["write_ambiguity_baseline"] is False
     assert captured["root"] == tmp_path
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_check_payload_rejects_delta_and_baseline_write() -> None:
     with pytest.raises(typer.BadParameter):
         cli.build_check_payload(
@@ -274,15 +304,20 @@ def test_check_payload_rejects_delta_and_baseline_write() -> None:
             baseline_write=False,
             decision_snapshot=None,
             emit_test_obsolescence=False,
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state=None,
             emit_test_obsolescence_delta=True,
             emit_test_evidence_suggestions=False,
             emit_call_clusters=False,
             emit_call_cluster_consolidation=False,
             emit_test_annotation_drift=False,
+            test_annotation_drift_state=None,
             emit_test_annotation_drift_delta=False,
             write_test_annotation_drift_baseline=False,
             write_test_obsolescence_baseline=True,
             emit_ambiguity_delta=False,
+            emit_ambiguity_state=False,
+            ambiguity_state=None,
             write_ambiguity_baseline=False,
             exclude=None,
             ignore_params_csv=None,
@@ -307,15 +342,20 @@ def test_check_payload_rejects_annotation_drift_delta_and_baseline_write() -> No
             baseline_write=False,
             decision_snapshot=None,
             emit_test_obsolescence=False,
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
             emit_call_clusters=False,
             emit_call_cluster_consolidation=False,
             emit_test_annotation_drift=False,
+            test_annotation_drift_state=None,
             emit_test_annotation_drift_delta=True,
             write_test_annotation_drift_baseline=True,
             write_test_obsolescence_baseline=False,
             emit_ambiguity_delta=False,
+            emit_ambiguity_state=False,
+            ambiguity_state=None,
             write_ambiguity_baseline=False,
             exclude=None,
             ignore_params_csv=None,
@@ -340,16 +380,97 @@ def test_check_payload_rejects_ambiguity_delta_and_baseline_write() -> None:
             baseline_write=False,
             decision_snapshot=None,
             emit_test_obsolescence=False,
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state=None,
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
             emit_call_clusters=False,
             emit_call_cluster_consolidation=False,
             emit_test_annotation_drift=False,
+            test_annotation_drift_state=None,
             emit_test_annotation_drift_delta=False,
             write_test_annotation_drift_baseline=False,
             write_test_obsolescence_baseline=False,
             emit_ambiguity_delta=True,
+            emit_ambiguity_state=False,
+            ambiguity_state=None,
             write_ambiguity_baseline=True,
+            exclude=None,
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+            allow_external=None,
+            strictness=None,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        )
+
+
+# gabion:evidence E:function_site::cli.py::gabion.cli.build_check_payload
+def test_check_payload_rejects_obsolescence_state_and_path() -> None:
+    with pytest.raises(typer.BadParameter):
+        cli.build_check_payload(
+            paths=[Path(".")],
+            report=None,
+            fail_on_violations=True,
+            root=Path("."),
+            config=None,
+            baseline=None,
+            baseline_write=False,
+            decision_snapshot=None,
+            emit_test_obsolescence=False,
+            emit_test_obsolescence_state=True,
+            test_obsolescence_state=Path("out/test_obsolescence_state.json"),
+            emit_test_obsolescence_delta=False,
+            emit_test_evidence_suggestions=False,
+            emit_call_clusters=False,
+            emit_call_cluster_consolidation=False,
+            emit_test_annotation_drift=False,
+            test_annotation_drift_state=None,
+            emit_test_annotation_drift_delta=False,
+            write_test_annotation_drift_baseline=False,
+            write_test_obsolescence_baseline=False,
+            emit_ambiguity_delta=False,
+            emit_ambiguity_state=False,
+            ambiguity_state=None,
+            write_ambiguity_baseline=False,
+            exclude=None,
+            ignore_params_csv=None,
+            transparent_decorators_csv=None,
+            allow_external=None,
+            strictness=None,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        )
+
+
+# gabion:evidence E:function_site::cli.py::gabion.cli.build_check_payload
+def test_check_payload_rejects_ambiguity_state_and_path() -> None:
+    with pytest.raises(typer.BadParameter):
+        cli.build_check_payload(
+            paths=[Path(".")],
+            report=None,
+            fail_on_violations=True,
+            root=Path("."),
+            config=None,
+            baseline=None,
+            baseline_write=False,
+            decision_snapshot=None,
+            emit_test_obsolescence=False,
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state=None,
+            emit_test_obsolescence_delta=False,
+            emit_test_evidence_suggestions=False,
+            emit_call_clusters=False,
+            emit_call_cluster_consolidation=False,
+            emit_test_annotation_drift=False,
+            test_annotation_drift_state=None,
+            emit_test_annotation_drift_delta=False,
+            write_test_annotation_drift_baseline=False,
+            write_test_obsolescence_baseline=False,
+            emit_ambiguity_delta=False,
+            emit_ambiguity_state=True,
+            ambiguity_state=Path("out/ambiguity_state.json"),
+            write_ambiguity_baseline=False,
             exclude=None,
             ignore_params_csv=None,
             transparent_decorators_csv=None,

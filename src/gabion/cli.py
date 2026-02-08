@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Callable, List, Optional, TypeAlias
 import argparse
 import json
+import os
+import re
 import subprocess
 import sys
-import re
 
 import typer
 
@@ -18,7 +19,7 @@ REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
-from gabion.lsp_client import CommandRequest, run_command
+from gabion.lsp_client import CommandRequest, run_command, run_command_direct
 from gabion.json_types import JSONObject
 app = typer.Typer(add_completion=False)
 Runner: TypeAlias = Callable[..., JSONObject]
@@ -170,15 +171,20 @@ def build_check_payload(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     emit_test_obsolescence: bool,
+    emit_test_obsolescence_state: bool,
+    test_obsolescence_state: Optional[Path],
     emit_test_obsolescence_delta: bool,
     emit_test_evidence_suggestions: bool,
     emit_call_clusters: bool,
     emit_call_cluster_consolidation: bool,
     emit_test_annotation_drift: bool,
+    test_annotation_drift_state: Optional[Path],
     emit_test_annotation_drift_delta: bool,
     write_test_annotation_drift_baseline: bool,
     write_test_obsolescence_baseline: bool,
     emit_ambiguity_delta: bool,
+    emit_ambiguity_state: bool,
+    ambiguity_state: Optional[Path],
     write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
@@ -197,6 +203,10 @@ def build_check_payload(
         raise typer.BadParameter(
             "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
         )
+    if emit_test_obsolescence_state and test_obsolescence_state is not None:
+        raise typer.BadParameter(
+            "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
+        )
     if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
         raise typer.BadParameter(
             "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
@@ -204,6 +214,10 @@ def build_check_payload(
     if emit_ambiguity_delta and write_ambiguity_baseline:
         raise typer.BadParameter(
             "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
+        )
+    if emit_ambiguity_state and ambiguity_state is not None:
+        raise typer.BadParameter(
+            "Use --emit-ambiguity-state or --ambiguity-state, not both."
         )
     exclude_dirs = _split_csv_entries(exclude)
     ignore_list = _split_csv(ignore_params_csv)
@@ -221,15 +235,24 @@ def build_check_payload(
         "baseline_write": baseline_write_value,
         "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
         "emit_test_obsolescence": emit_test_obsolescence,
+        "emit_test_obsolescence_state": emit_test_obsolescence_state,
+        "test_obsolescence_state": str(test_obsolescence_state)
+        if test_obsolescence_state is not None
+        else None,
         "emit_test_obsolescence_delta": emit_test_obsolescence_delta,
         "emit_test_evidence_suggestions": emit_test_evidence_suggestions,
         "emit_call_clusters": emit_call_clusters,
         "emit_call_cluster_consolidation": emit_call_cluster_consolidation,
         "emit_test_annotation_drift": emit_test_annotation_drift,
+        "test_annotation_drift_state": str(test_annotation_drift_state)
+        if test_annotation_drift_state is not None
+        else None,
         "emit_test_annotation_drift_delta": emit_test_annotation_drift_delta,
         "write_test_annotation_drift_baseline": write_test_annotation_drift_baseline,
         "write_test_obsolescence_baseline": write_test_obsolescence_baseline,
         "emit_ambiguity_delta": emit_ambiguity_delta,
+        "emit_ambiguity_state": emit_ambiguity_state,
+        "ambiguity_state": str(ambiguity_state) if ambiguity_state is not None else None,
         "write_ambiguity_baseline": write_ambiguity_baseline,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
@@ -368,7 +391,12 @@ def dispatch_command(
     runner: Runner = run_command,
 ) -> JSONObject:
     request = CommandRequest(command, [payload])
-    return runner(request, root=root)
+    resolved = runner
+    if runner is run_command:
+        flag = os.getenv("GABION_DIRECT_RUN", "").strip().lower()
+        if flag in {"1", "true", "yes", "on"}:
+            resolved = run_command_direct
+    return resolved(request, root=root)
 
 
 def run_check(
@@ -382,15 +410,20 @@ def run_check(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     emit_test_obsolescence: bool,
+    emit_test_obsolescence_state: bool,
+    test_obsolescence_state: Optional[Path],
     emit_test_obsolescence_delta: bool,
     emit_test_evidence_suggestions: bool,
     emit_call_clusters: bool,
     emit_call_cluster_consolidation: bool,
     emit_test_annotation_drift: bool,
+    test_annotation_drift_state: Optional[Path],
     emit_test_annotation_drift_delta: bool,
     write_test_annotation_drift_baseline: bool,
     write_test_obsolescence_baseline: bool,
     emit_ambiguity_delta: bool,
+    emit_ambiguity_state: bool,
+    ambiguity_state: Optional[Path],
     write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
@@ -412,15 +445,20 @@ def run_check(
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
         emit_test_obsolescence=emit_test_obsolescence,
+        emit_test_obsolescence_state=emit_test_obsolescence_state,
+        test_obsolescence_state=test_obsolescence_state,
         emit_test_obsolescence_delta=emit_test_obsolescence_delta,
         emit_test_evidence_suggestions=emit_test_evidence_suggestions,
         emit_call_clusters=emit_call_clusters,
         emit_call_cluster_consolidation=emit_call_cluster_consolidation,
         emit_test_annotation_drift=emit_test_annotation_drift,
+        test_annotation_drift_state=test_annotation_drift_state,
         emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
         write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
         write_test_obsolescence_baseline=write_test_obsolescence_baseline,
         emit_ambiguity_delta=emit_ambiguity_delta,
+        emit_ambiguity_state=emit_ambiguity_state,
+        ambiguity_state=ambiguity_state,
         write_ambiguity_baseline=write_ambiguity_baseline,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
@@ -448,6 +486,16 @@ def check(
         "--emit-test-obsolescence/--no-emit-test-obsolescence",
         help="Write test obsolescence report to out/.",
     ),
+    emit_test_obsolescence_state: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence-state/--no-emit-test-obsolescence-state",
+        help="Write test obsolescence state to out/.",
+    ),
+    test_obsolescence_state: Optional[Path] = typer.Option(
+        None,
+        "--test-obsolescence-state",
+        help="Use precomputed test obsolescence state for delta/report.",
+    ),
     emit_test_obsolescence_delta: bool = typer.Option(
         False,
         "--emit-test-obsolescence-delta/--no-emit-test-obsolescence-delta",
@@ -473,6 +521,11 @@ def check(
         "--emit-test-annotation-drift/--no-emit-test-annotation-drift",
         help="Write test annotation drift report to out/.",
     ),
+    test_annotation_drift_state: Optional[Path] = typer.Option(
+        None,
+        "--test-annotation-drift-state",
+        help="Use precomputed annotation drift state for delta.",
+    ),
     emit_test_annotation_drift_delta: bool = typer.Option(
         False,
         "--emit-test-annotation-drift-delta/--no-emit-test-annotation-drift-delta",
@@ -492,6 +545,16 @@ def check(
         False,
         "--emit-ambiguity-delta/--no-emit-ambiguity-delta",
         help="Write ambiguity delta report to out/.",
+    ),
+    emit_ambiguity_state: bool = typer.Option(
+        False,
+        "--emit-ambiguity-state/--no-emit-ambiguity-state",
+        help="Write ambiguity state to out/.",
+    ),
+    ambiguity_state: Optional[Path] = typer.Option(
+        None,
+        "--ambiguity-state",
+        help="Use precomputed ambiguity state for delta.",
     ),
     write_ambiguity_baseline: bool = typer.Option(
         False,
@@ -537,15 +600,20 @@ def check(
         baseline_write=baseline_write,
         decision_snapshot=decision_snapshot,
         emit_test_obsolescence=emit_test_obsolescence,
+        emit_test_obsolescence_state=emit_test_obsolescence_state,
+        test_obsolescence_state=test_obsolescence_state,
         emit_test_obsolescence_delta=emit_test_obsolescence_delta,
         emit_test_evidence_suggestions=emit_test_evidence_suggestions,
         emit_call_clusters=emit_call_clusters,
         emit_call_cluster_consolidation=emit_call_cluster_consolidation,
         emit_test_annotation_drift=emit_test_annotation_drift,
+        test_annotation_drift_state=test_annotation_drift_state,
         emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
         write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
         write_test_obsolescence_baseline=write_test_obsolescence_baseline,
         emit_ambiguity_delta=emit_ambiguity_delta,
+        emit_ambiguity_state=emit_ambiguity_state,
+        ambiguity_state=ambiguity_state,
         write_ambiguity_baseline=write_ambiguity_baseline,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,

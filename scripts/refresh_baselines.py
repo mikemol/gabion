@@ -11,18 +11,28 @@ from pathlib import Path
 OBSOLESCENCE_DELTA_PATH = Path("out/test_obsolescence_delta.json")
 ANNOTATION_DRIFT_DELTA_PATH = Path("out/test_annotation_drift_delta.json")
 AMBIGUITY_DELTA_PATH = Path("out/ambiguity_delta.json")
+OBSOLESCENCE_STATE_PATH = Path("out/test_obsolescence_state.json")
+ANNOTATION_DRIFT_STATE_PATH = Path("out/test_annotation_drift.json")
+AMBIGUITY_STATE_PATH = Path("out/ambiguity_state.json")
 
 ENV_GATE_UNMAPPED = "GABION_GATE_UNMAPPED_DELTA"
 ENV_GATE_ORPHANED = "GABION_GATE_ORPHANED_DELTA"
 ENV_GATE_AMBIGUITY = "GABION_GATE_AMBIGUITY_DELTA"
 
 
-def _run_check(flag: str, timeout: int | None) -> None:
-    subprocess.run(
-        [sys.executable, "-m", "gabion", "check", flag],
-        check=True,
-        timeout=timeout,
-    )
+def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -> None:
+    cmd = [sys.executable, "-m", "gabion", "check", flag]
+    if extra:
+        cmd.extend(extra)
+    env = dict(os.environ)
+    env.setdefault("GABION_DIRECT_RUN", "1")
+    subprocess.run(cmd, check=True, timeout=timeout, env=env)
+
+
+def _state_args(path: Path, flag: str) -> list[str]:
+    if path.exists():
+        return [flag, str(path)]
+    return []
 
 
 def _gate_enabled(env_flag: str) -> bool:
@@ -46,8 +56,14 @@ def _get_nested(payload: object, keys: list[str], default: int = 0) -> int:
         return default
 
 
-def _ensure_delta(flag: str, path: Path, timeout: int | None) -> dict[str, object]:
-    _run_check(flag, timeout)
+def _ensure_delta(
+    flag: str,
+    path: Path,
+    timeout: int | None,
+    *,
+    extra: list[str] | None = None,
+) -> dict[str, object]:
+    _run_check(flag, timeout, extra)
     if not path.exists():
         raise FileNotFoundError(f"Missing delta output at {path}")
     return _load_json(path)
@@ -55,7 +71,10 @@ def _ensure_delta(flag: str, path: Path, timeout: int | None) -> dict[str, objec
 
 def _guard_obsolescence_delta(timeout: int | None) -> None:
     payload = _ensure_delta(
-        "--emit-test-obsolescence-delta", OBSOLESCENCE_DELTA_PATH, timeout
+        "--emit-test-obsolescence-delta",
+        OBSOLESCENCE_DELTA_PATH,
+        timeout,
+        extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
     )
     opaque_delta = _get_nested(payload, ["summary", "opaque_evidence", "delta"])
     if opaque_delta > 0:
@@ -77,6 +96,7 @@ def _guard_annotation_drift_delta(timeout: int | None) -> None:
         "--emit-test-annotation-drift-delta",
         ANNOTATION_DRIFT_DELTA_PATH,
         timeout,
+        extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"),
     )
     orphaned_delta = _get_nested(payload, ["summary", "delta", "orphaned"])
     if orphaned_delta > 0:
@@ -88,7 +108,12 @@ def _guard_annotation_drift_delta(timeout: int | None) -> None:
 def _guard_ambiguity_delta(timeout: int | None) -> None:
     if not _gate_enabled(ENV_GATE_AMBIGUITY):
         return
-    payload = _ensure_delta("--emit-ambiguity-delta", AMBIGUITY_DELTA_PATH, timeout)
+    payload = _ensure_delta(
+        "--emit-ambiguity-delta",
+        AMBIGUITY_DELTA_PATH,
+        timeout,
+        extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
+    )
     total_delta = _get_nested(payload, ["summary", "total", "delta"])
     if total_delta > 0:
         raise SystemExit(
@@ -133,13 +158,27 @@ def main() -> int:
 
     if args.all or args.obsolescence:
         _guard_obsolescence_delta(args.timeout)
-        _run_check("--write-test-obsolescence-baseline", args.timeout)
+        _run_check(
+            "--write-test-obsolescence-baseline",
+            args.timeout,
+            _state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
+        )
     if args.all or args.annotation_drift:
         _guard_annotation_drift_delta(args.timeout)
-        _run_check("--write-test-annotation-drift-baseline", args.timeout)
+        _run_check(
+            "--write-test-annotation-drift-baseline",
+            args.timeout,
+            _state_args(
+                ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"
+            ),
+        )
     if args.all or args.ambiguity:
         _guard_ambiguity_delta(args.timeout)
-        _run_check("--write-ambiguity-baseline", args.timeout)
+        _run_check(
+            "--write-ambiguity-baseline",
+            args.timeout,
+            _state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
+        )
 
     return 0
 
