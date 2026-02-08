@@ -29,6 +29,37 @@
       ]
     },
     {
+      "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+      "key": {
+        "k": "call_cluster",
+        "targets": [
+          {
+            "path": "test_visitors_edges.py",
+            "qual": "tests.test_visitors_edges._make_use_visitor"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_visitors_edges.py::test_alias_from_call_branches",
+        "tests/test_visitors_edges.py::test_alias_from_call_keyword_branches",
+        "tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases",
+        "tests/test_visitors_edges.py::test_annassign_edges",
+        "tests/test_visitors_edges.py::test_attr_and_subscript_slot_fallbacks_with_aliases",
+        "tests/test_visitors_edges.py::test_attribute_and_subscript_aliases",
+        "tests/test_visitors_edges.py::test_bind_return_alias_rejects_invalid_targets",
+        "tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment",
+        "tests/test_visitors_edges.py::test_bind_sequence_edge_cases",
+        "tests/test_visitors_edges.py::test_check_write_clears_attr_and_key_aliases",
+        "tests/test_visitors_edges.py::test_collect_alias_sources_default",
+        "tests/test_visitors_edges.py::test_record_forward_skips_call_without_span",
+        "tests/test_visitors_edges.py::test_star_args_strictness",
+        "tests/test_visitors_edges.py::test_starred_list_literal_records_forward_without_site",
+        "tests/test_visitors_edges.py::test_subscript_and_attribute_slot_fallbacks",
+        "tests/test_visitors_edges.py::test_subscript_non_name_root_sets_non_forward",
+        "tests/test_visitors_edges.py::test_visit_name_attribute_subscript_edges"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_aspf.py::test_add_site_records_span::aspf.py::gabion.analysis.aspf.Forest",
       "key": {
         "k": "call_footprint",
@@ -412,120 +443,6 @@
       },
       "tests": [
         "tests/test_test_evidence_suggestions_edges.py::test_test_qual_passthrough"
-      ]
-    },
-    {
-      "display": "E:call_footprint::tests/test_visitors_edges.py::test_alias_from_call_branches::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_visitors_edges.py",
-          "qual": "test_alias_from_call_branches"
-        },
-        "targets": [
-          {
-            "path": "test_visitors_edges.py",
-            "qual": "tests.test_visitors_edges._make_use_visitor"
-          }
-        ]
-      },
-      "tests": [
-        "tests/test_visitors_edges.py::test_alias_from_call_branches"
-      ]
-    },
-    {
-      "display": "E:call_footprint::tests/test_visitors_edges.py::test_alias_from_call_keyword_branches::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_visitors_edges.py",
-          "qual": "test_alias_from_call_keyword_branches"
-        },
-        "targets": [
-          {
-            "path": "test_visitors_edges.py",
-            "qual": "tests.test_visitors_edges._make_use_visitor"
-          }
-        ]
-      },
-      "tests": [
-        "tests/test_visitors_edges.py::test_alias_from_call_keyword_branches"
-      ]
-    },
-    {
-      "display": "E:call_footprint::tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_visitors_edges.py",
-          "qual": "test_alias_from_call_positional_and_kw_aliases"
-        },
-        "targets": [
-          {
-            "path": "test_visitors_edges.py",
-            "qual": "tests.test_visitors_edges._make_use_visitor"
-          }
-        ]
-      },
-      "tests": [
-        "tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases"
-      ]
-    },
-    {
-      "display": "E:call_footprint::tests/test_visitors_edges.py::test_bind_return_alias_rejects_invalid_targets::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_visitors_edges.py",
-          "qual": "test_bind_return_alias_rejects_invalid_targets"
-        },
-        "targets": [
-          {
-            "path": "test_visitors_edges.py",
-            "qual": "tests.test_visitors_edges._make_use_visitor"
-          }
-        ]
-      },
-      "tests": [
-        "tests/test_visitors_edges.py::test_bind_return_alias_rejects_invalid_targets"
-      ]
-    },
-    {
-      "display": "E:call_footprint::tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_visitors_edges.py",
-          "qual": "test_bind_sequence_and_return_alias_assignment"
-        },
-        "targets": [
-          {
-            "path": "test_visitors_edges.py",
-            "qual": "tests.test_visitors_edges._make_use_visitor"
-          }
-        ]
-      },
-      "tests": [
-        "tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment"
-      ]
-    },
-    {
-      "display": "E:call_footprint::tests/test_visitors_edges.py::test_collect_alias_sources_default::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_visitors_edges.py",
-          "qual": "test_collect_alias_sources_default"
-        },
-        "targets": [
-          {
-            "path": "test_visitors_edges.py",
-            "qual": "tests.test_visitors_edges._make_use_visitor"
-          }
-        ]
-      },
-      "tests": [
-        "tests/test_visitors_edges.py::test_collect_alias_sources_default"
       ]
     },
     {
@@ -7377,29 +7294,6 @@
       },
       "tests": [
         "tests/test_visitors_edges.py::test_import_visitor_relative_and_star"
-      ]
-    },
-    {
-      "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
-      "key": {
-        "k": "function_site",
-        "site": {
-          "path": "test_visitors_edges.py",
-          "qual": "tests.test_visitors_edges._make_use_visitor"
-        }
-      },
-      "tests": [
-        "tests/test_visitors_edges.py::test_annassign_edges",
-        "tests/test_visitors_edges.py::test_attr_and_subscript_slot_fallbacks_with_aliases",
-        "tests/test_visitors_edges.py::test_attribute_and_subscript_aliases",
-        "tests/test_visitors_edges.py::test_bind_sequence_edge_cases",
-        "tests/test_visitors_edges.py::test_check_write_clears_attr_and_key_aliases",
-        "tests/test_visitors_edges.py::test_record_forward_skips_call_without_span",
-        "tests/test_visitors_edges.py::test_star_args_strictness",
-        "tests/test_visitors_edges.py::test_starred_list_literal_records_forward_without_site",
-        "tests/test_visitors_edges.py::test_subscript_and_attribute_slot_fallbacks",
-        "tests/test_visitors_edges.py::test_subscript_non_name_root_sets_non_forward",
-        "tests/test_visitors_edges.py::test_visit_name_attribute_subscript_edges"
       ]
     },
     {
@@ -44572,13 +44466,9 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_visitors_edges.py::test_alias_from_call_branches::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "call_footprint",
-            "site": {
-              "path": "tests/test_visitors_edges.py",
-              "qual": "test_alias_from_call_branches"
-            },
+            "k": "call_cluster",
             "targets": [
               {
                 "path": "test_visitors_edges.py",
@@ -44596,13 +44486,9 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_visitors_edges.py::test_alias_from_call_keyword_branches::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "call_footprint",
-            "site": {
-              "path": "tests/test_visitors_edges.py",
-              "qual": "test_alias_from_call_keyword_branches"
-            },
+            "k": "call_cluster",
             "targets": [
               {
                 "path": "test_visitors_edges.py",
@@ -44620,13 +44506,9 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "call_footprint",
-            "site": {
-              "path": "tests/test_visitors_edges.py",
-              "qual": "test_alias_from_call_positional_and_kw_aliases"
-            },
+            "k": "call_cluster",
             "targets": [
               {
                 "path": "test_visitors_edges.py",
@@ -44644,13 +44526,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44662,13 +44546,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44680,13 +44566,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44698,13 +44586,9 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_visitors_edges.py::test_bind_return_alias_rejects_invalid_targets::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "call_footprint",
-            "site": {
-              "path": "tests/test_visitors_edges.py",
-              "qual": "test_bind_return_alias_rejects_invalid_targets"
-            },
+            "k": "call_cluster",
             "targets": [
               {
                 "path": "test_visitors_edges.py",
@@ -44722,13 +44606,9 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "call_footprint",
-            "site": {
-              "path": "tests/test_visitors_edges.py",
-              "qual": "test_bind_sequence_and_return_alias_assignment"
-            },
+            "k": "call_cluster",
             "targets": [
               {
                 "path": "test_visitors_edges.py",
@@ -44746,13 +44626,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44764,13 +44646,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44782,13 +44666,9 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_visitors_edges.py::test_collect_alias_sources_default::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "call_footprint",
-            "site": {
-              "path": "tests/test_visitors_edges.py",
-              "qual": "test_collect_alias_sources_default"
-            },
+            "k": "call_cluster",
             "targets": [
               {
                 "path": "test_visitors_edges.py",
@@ -44824,13 +44704,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44842,13 +44724,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44860,13 +44744,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44878,13 +44764,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44896,13 +44784,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
@@ -44914,13 +44804,15 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+          "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
           "key": {
-            "k": "function_site",
-            "site": {
-              "path": "test_visitors_edges.py",
-              "qual": "tests.test_visitors_edges._make_use_visitor"
-            }
+            "k": "call_cluster",
+            "targets": [
+              {
+                "path": "test_visitors_edges.py",
+                "qual": "tests.test_visitors_edges._make_use_visitor"
+              }
+            ]
           }
         }
       ],
