@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 
-def _run(*cmd: str) -> None:
+def _run_ci_cycle(*cmd: str) -> None:
     subprocess.run(cmd, check=True)
 
 
@@ -19,7 +19,7 @@ def _working_tree_clean() -> bool:
     return result.stdout.strip() == ""
 
 
-def main() -> int:
+def _ci_cycle_main() -> int:
     parser = argparse.ArgumentParser(
         description="Create a no-op commit and optionally push/watch CI.",
     )
@@ -64,13 +64,13 @@ def main() -> int:
         print("Working tree is not clean; aborting no-op commit.")
         return 1
 
-    _run("git", "commit", "--allow-empty", "-m", args.message)
+    _run_ci_cycle("git", "commit", "--allow-empty", "-m", args.message)
 
     if args.push:
-        _run("git", "push", "origin", args.refspec)
+        _run_ci_cycle("git", "push", "origin", args.refspec)
 
     if args.watch:
-        _run(
+        _run_ci_cycle(
             sys.executable,
             "scripts/ci_watch.py",
             "--branch",
@@ -83,4 +83,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_ci_cycle_main())

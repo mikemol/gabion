@@ -25,7 +25,7 @@ def _run_check(flag: str, timeout: int | None) -> None:
     )
 
 
-def _enabled(env_flag: str) -> bool:
+def _gate_enabled(env_flag: str) -> bool:
     value = os.getenv(env_flag, "").strip().lower()
     return value in {"1", "true", "yes", "on"}
 
@@ -63,7 +63,7 @@ def _guard_obsolescence_delta(timeout: int | None) -> None:
         raise SystemExit(
             "Refusing to refresh obsolescence baseline: opaque evidence delta > 0."
         )
-    if _enabled(ENV_GATE_UNMAPPED):
+    if _gate_enabled(ENV_GATE_UNMAPPED):
         unmapped_delta = _get_nested(payload, ["summary", "counts", "delta", "unmapped"])
         if unmapped_delta > 0:
             raise SystemExit(
@@ -72,7 +72,7 @@ def _guard_obsolescence_delta(timeout: int | None) -> None:
 
 
 def _guard_annotation_drift_delta(timeout: int | None) -> None:
-    if not _enabled(ENV_GATE_ORPHANED):
+    if not _gate_enabled(ENV_GATE_ORPHANED):
         return
     payload = _ensure_delta(
         "--emit-test-annotation-drift-delta",
@@ -87,7 +87,7 @@ def _guard_annotation_drift_delta(timeout: int | None) -> None:
 
 
 def _guard_ambiguity_delta(timeout: int | None) -> None:
-    if not _enabled(ENV_GATE_AMBIGUITY):
+    if not _gate_enabled(ENV_GATE_AMBIGUITY):
         return
     payload = _ensure_delta("--emit-ambiguity-delta", AMBIGUITY_DELTA_PATH, timeout)
     total_delta = _get_nested(payload, ["summary", "total", "delta"])
