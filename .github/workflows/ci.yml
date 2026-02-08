@@ -88,6 +88,8 @@ jobs:
         run: .venv/bin/python scripts/ambiguity_delta_advisory.py
       - name: Ambiguity delta gate
         run: .venv/bin/python scripts/ambiguity_delta_gate.py
+        env:
+          GABION_GATE_AMBIGUITY_DELTA: "1"
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
