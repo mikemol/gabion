@@ -1,6 +1,500 @@
 {
   "evidence_index": [
     {
+      "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write",
+      "key": {
+        "k": "call_cluster",
+        "targets": [
+          {
+            "path": "dataflow_audit.py",
+            "qual": "gabion.analysis.dataflow_audit._emit_report"
+          },
+          {
+            "path": "test_dataflow_report_helpers.py",
+            "qual": "tests.test_dataflow_report_helpers._load"
+          },
+          {
+            "path": "test_dataflow_report_helpers.py",
+            "qual": "tests.test_dataflow_report_helpers._write"
+          }
+        ]
+      },
+      "witness_count": 8
+    },
+    {
+      "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit.run::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._load::test_dataflow_run_edges.py::tests.test_dataflow_run_edges._write_bundle_code",
+      "key": {
+        "k": "call_cluster",
+        "targets": [
+          {
+            "path": "dataflow_audit.py",
+            "qual": "gabion.analysis.dataflow_audit.run"
+          },
+          {
+            "path": "test_dataflow_run_edges.py",
+            "qual": "tests.test_dataflow_run_edges._load"
+          },
+          {
+            "path": "test_dataflow_run_edges.py",
+            "qual": "tests.test_dataflow_run_edges._write_bundle_code"
+          }
+        ]
+      },
+      "witness_count": 6
+    },
+    {
+      "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
+      "key": {
+        "k": "call_cluster",
+        "targets": [
+          {
+            "path": "server.py",
+            "qual": "gabion.server.execute_command"
+          },
+          {
+            "path": "test_server_execute_command_edges.py",
+            "qual": "tests.test_server_execute_command_edges._write_bundle_module"
+          }
+        ]
+      },
+      "witness_count": 16
+    },
+    {
+      "display": "E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor",
+      "key": {
+        "k": "call_cluster",
+        "targets": [
+          {
+            "path": "test_visitors_edges.py",
+            "qual": "tests.test_visitors_edges._make_use_visitor"
+          }
+        ]
+      },
+      "witness_count": 17
+    },
+    {
+      "display": "E:call_footprint::tests/test_aspf.py::test_add_site_records_span::aspf.py::gabion.analysis.aspf.Forest",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_aspf.py",
+          "qual": "test_add_site_records_span"
+        },
+        "targets": [
+          {
+            "path": "aspf.py",
+            "qual": "gabion.analysis.aspf.Forest"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_aspf.py::test_paramset_packed_reuse::aspf.py::gabion.analysis.aspf.Forest",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_aspf.py",
+          "qual": "test_paramset_packed_reuse"
+        },
+        "targets": [
+          {
+            "path": "aspf.py",
+            "qual": "gabion.analysis.aspf.Forest"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_dataflow_audit_requires_paths::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_dataflow_audit_requires_paths"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_docflow_audit"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_invalid_json::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_refactor_protocol_invalid_json"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_protocols_kind::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_synth_invalid_protocols_kind"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_strictness::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_synth_invalid_strictness"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_synthesis_plan_invalid_json"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_dataflow_main.py::test_dataflow_audit_main_executes::dataflow_audit.py::gabion.analysis.dataflow_audit",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_dataflow_main.py",
+          "qual": "test_dataflow_audit_main_executes"
+        },
+        "targets": [
+          {
+            "path": "dataflow_audit.py",
+            "qual": "gabion.analysis.dataflow_audit"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults::engine.py::gabion.analysis.engine.GabionEngine::model.py::gabion.analysis.model.CallArgs::model.py::gabion.analysis.model.ClassInfo::model.py::gabion.analysis.model.DispatchTable::model.py::gabion.analysis.model.FunctionInfo::model.py::gabion.analysis.model.ParamUse::model.py::gabion.analysis.model.SymbolTable::schema.py::gabion.schema.AnalysisResponse",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_misc_coverage.py",
+          "qual": "test_analysis_engine_and_model_defaults"
+        },
+        "targets": [
+          {
+            "path": "engine.py",
+            "qual": "gabion.analysis.engine.GabionEngine"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.analysis.model.CallArgs"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.analysis.model.ClassInfo"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.analysis.model.DispatchTable"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.analysis.model.FunctionInfo"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.analysis.model.ParamUse"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.analysis.model.SymbolTable"
+          },
+          {
+            "path": "schema.py",
+            "qual": "gabion.schema.AnalysisResponse"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_misc_coverage.py::test_main_entrypoint_invokes_app::__main__.py::gabion.__main__",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_misc_coverage.py",
+          "qual": "test_main_entrypoint_invokes_app"
+        },
+        "targets": [
+          {
+            "path": "__main__.py",
+            "qual": "gabion.__main__"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_misc_coverage.py::test_main_module_import::__main__.py::gabion.__main__",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_misc_coverage.py",
+          "qual": "test_main_module_import"
+        },
+        "targets": [
+          {
+            "path": "__main__.py",
+            "qual": "gabion.__main__"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_refactor_engine_more.py::test_call_site_transformer_helpers::engine.py::gabion.refactor.engine._CallSiteTransformer",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_refactor_engine_more.py",
+          "qual": "test_call_site_transformer_helpers"
+        },
+        "targets": [
+          {
+            "path": "engine.py",
+            "qual": "gabion.refactor.engine._CallSiteTransformer"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.FieldSpec::model.py::gabion.refactor.model.RefactorRequest",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_refactor_engine_more.py",
+          "qual": "test_plan_protocol_extraction_relative_path_and_fields"
+        },
+        "targets": [
+          {
+            "path": "engine.py",
+            "qual": "gabion.refactor.engine.RefactorEngine"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.refactor.model.FieldSpec"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.refactor.model.RefactorRequest"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_typing_import_variants::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.RefactorRequest",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_refactor_engine_more.py",
+          "qual": "test_plan_protocol_extraction_typing_import_variants"
+        },
+        "targets": [
+          {
+            "path": "engine.py",
+            "qual": "gabion.refactor.engine.RefactorEngine"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.refactor.model.RefactorRequest"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_transformer_async_and_no_params::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.RefactorRequest",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_refactor_engine_more.py",
+          "qual": "test_refactor_transformer_async_and_no_params"
+        },
+        "targets": [
+          {
+            "path": "engine.py",
+            "qual": "gabion.refactor.engine.RefactorEngine"
+          },
+          {
+            "path": "model.py",
+            "qual": "gabion.refactor.model.RefactorRequest"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_transformer_helpers::engine.py::gabion.refactor.engine._RefactorTransformer",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_refactor_engine_more.py",
+          "qual": "test_refactor_transformer_helpers"
+        },
+        "targets": [
+          {
+            "path": "engine.py",
+            "qual": "gabion.refactor.engine._RefactorTransformer"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_test_qual_passthrough::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._test_qual",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_test_evidence_suggestions_edges.py",
+          "qual": "test_test_qual_passthrough"
+        },
+        "targets": [
+          {
+            "path": "test_evidence_suggestions.py",
+            "qual": "gabion.analysis.test_evidence_suggestions._test_qual"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_visitors_unit.py::test_alias_from_call_rejects_starred::test_visitors_unit.py::tests.test_visitors_unit._make_visitor",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_visitors_unit.py",
+          "qual": "test_alias_from_call_rejects_starred"
+        },
+        "targets": [
+          {
+            "path": "test_visitors_unit.py",
+            "qual": "tests.test_visitors_unit._make_visitor"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_visitors_unit.py::test_import_visitor_basic_and_relative::dataflow_audit.py::gabion.analysis.dataflow_audit.SymbolTable::visitors.py::gabion.analysis.visitors.ImportVisitor",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_visitors_unit.py",
+          "qual": "test_import_visitor_basic_and_relative"
+        },
+        "targets": [
+          {
+            "path": "dataflow_audit.py",
+            "qual": "gabion.analysis.dataflow_audit.SymbolTable"
+          },
+          {
+            "path": "visitors.py",
+            "qual": "gabion.analysis.visitors.ImportVisitor"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch::test_visitors_unit.py::tests.test_visitors_unit._make_visitor",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_visitors_unit.py",
+          "qual": "test_return_alias_binding_tuple_and_rejects_mismatch"
+        },
+        "targets": [
+          {
+            "path": "test_visitors_unit.py",
+            "qual": "tests.test_visitors_unit._make_visitor"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:call_footprint::tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward::test_visitors_unit.py::tests.test_visitors_unit._make_visitor",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_visitors_unit.py",
+          "qual": "test_usevisitor_alias_binding_and_non_forward"
+        },
+        "targets": [
+          {
+            "path": "test_visitors_unit.py",
+            "qual": "tests.test_visitors_unit._make_visitor"
+          }
+        ]
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_carrier_soundness::a,b",
       "key": {
         "k": "decision_surface",
@@ -53,6 +547,32 @@
       "witness_count": 6
     },
     {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::ambiguity_sink,by_qual,callee_key,caller,class_index,symbol_table",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "ambiguity_sink,by_qual,callee_key,caller,class_index,symbol_table",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._resolve_callee"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "ambiguity_witnesses,bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._emit_report"
+        }
+      },
+      "witness_count": 10
+    },
+    {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._local_class_name::base,class_bases",
       "key": {
         "k": "decision_surface",
@@ -76,7 +596,7 @@
           "qual": "gabion.analysis.dataflow_audit._resolve_class_candidates"
         }
       },
-      "witness_count": 13
+      "witness_count": 14
     },
     {
       "display": "E:decision_surface/direct::cli.py::gabion.cli.run_check::baseline",
@@ -87,6 +607,19 @@
         "site": {
           "path": "cli.py",
           "qual": "gabion.cli.run_check"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::baseline,config,decision_snapshot,emit_ambiguity_delta,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "baseline,config,decision_snapshot,emit_ambiguity_delta,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,fail_on_type_ambiguities,paths,report,strictness,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.build_check_payload"
         }
       },
       "witness_count": 1
@@ -115,7 +648,20 @@
           "qual": "gabion.analysis.dataflow_audit._apply_baseline"
         }
       },
-      "witness_count": 23
+      "witness_count": 27
+    },
+    {
+      "display": "E:decision_surface/direct::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline_path",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "baseline_path",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.build_delta_payload"
+        }
+      },
+      "witness_count": 1
     },
     {
       "display": "E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body",
@@ -128,7 +674,7 @@
           "qual": "gabion.refactor.engine._find_import_insert_index"
         }
       },
-      "witness_count": 5
+      "witness_count": 6
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle",
@@ -180,7 +726,7 @@
           "qual": "gabion.analysis.dataflow_audit._render_component_callsite_evidence"
         }
       },
-      "witness_count": 17
+      "witness_count": 9
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces",
@@ -193,7 +739,7 @@
           "qual": "gabion.analysis.dataflow_audit._emit_report"
         }
       },
-      "witness_count": 45
+      "witness_count": 31
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table",
@@ -219,7 +765,7 @@
           "qual": "gabion.analysis.dataflow_audit._resolve_method_in_hierarchy"
         }
       },
-      "witness_count": 12
+      "witness_count": 13
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._format_type_flow_site::call",
@@ -258,7 +804,7 @@
           "qual": "gabion.analysis.dataflow_audit._never_reason"
         }
       },
-      "witness_count": 1
+      "witness_count": 3
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call",
@@ -323,7 +869,7 @@
           "qual": "gabion.analysis.dataflow_audit._normalize_callee"
         }
       },
-      "witness_count": 2
+      "witness_count": 3
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes",
@@ -336,7 +882,7 @@
           "qual": "gabion.analysis.dataflow_audit._render_mermaid_component"
         }
       },
-      "witness_count": 18
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
@@ -349,7 +895,7 @@
           "qual": "gabion.analysis.dataflow_audit._iter_paths"
         }
       },
-      "witness_count": 57
+      "witness_count": 70
     },
     {
       "display": "E:decision_surface/direct::cli.py::gabion.cli._run_synth::config,exclude,ignore_params_csv,no_timestamp,paths,refactor_plan,strictness,synthesis_protocols_kind,transparent_decorators_csv",
@@ -365,6 +911,19 @@
       "witness_count": 1
     },
     {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "config,include_ambiguities,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.analyze_paths"
+        }
+      },
+      "witness_count": 19
+    },
+    {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report",
       "key": {
         "k": "decision_surface",
@@ -375,7 +934,7 @@
           "qual": "gabion.analysis.dataflow_audit.analyze_paths"
         }
       },
-      "witness_count": 76
+      "witness_count": 62
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive",
@@ -388,7 +947,7 @@
           "qual": "gabion.analysis.dataflow_audit._analyze_file_internal"
         }
       },
-      "witness_count": 33
+      "witness_count": 43
     },
     {
       "display": "E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root",
@@ -440,7 +999,7 @@
           "qual": "gabion.analysis.dataflow_audit._dead_env_map"
         }
       },
-      "witness_count": 4
+      "witness_count": 6
     },
     {
       "display": "E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries",
@@ -453,7 +1012,7 @@
           "qual": "gabion.cli._split_csv_entries"
         }
       },
-      "witness_count": 5
+      "witness_count": 7
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries",
@@ -466,7 +1025,7 @@
           "qual": "gabion.analysis.dataflow_audit._summarize_never_invariants"
         }
       },
-      "witness_count": 19
+      "witness_count": 11
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries",
@@ -479,7 +1038,7 @@
           "qual": "gabion.analysis.dataflow_audit._summarize_coherence_witnesses"
         }
       },
-      "witness_count": 18
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries",
@@ -492,7 +1051,7 @@
           "qual": "gabion.analysis.dataflow_audit._summarize_deadness_witnesses"
         }
       },
-      "witness_count": 18
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries",
@@ -505,7 +1064,7 @@
           "qual": "gabion.analysis.dataflow_audit._summarize_exception_obligations"
         }
       },
-      "witness_count": 18
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries",
@@ -518,7 +1077,7 @@
           "qual": "gabion.analysis.dataflow_audit._summarize_handledness_witnesses"
         }
       },
-      "witness_count": 18
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries",
@@ -531,7 +1090,7 @@
           "qual": "gabion.analysis.dataflow_audit._summarize_rewrite_plans"
         }
       },
-      "witness_count": 18
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples",
@@ -544,7 +1103,7 @@
           "qual": "gabion.analysis.dataflow_audit._summarize_fingerprint_provenance"
         }
       },
-      "witness_count": 19
+      "witness_count": 11
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._never_sort_key::entry",
@@ -609,7 +1168,7 @@
           "qual": "gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans"
         }
       },
-      "witness_count": 27
+      "witness_count": 37
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences",
@@ -622,7 +1181,7 @@
           "qual": "gabion.analysis.dataflow_audit._compute_fingerprint_synth"
         }
       },
-      "witness_count": 33
+      "witness_count": 43
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr",
@@ -687,7 +1246,7 @@
           "qual": "gabion.analysis.dataflow_audit._exception_param_names"
         }
       },
-      "witness_count": 6
+      "witness_count": 8
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._invariant_term::expr,params",
@@ -726,7 +1285,7 @@
           "qual": "gabion.analysis.dataflow_audit._bundle_projection_from_forest"
         }
       },
-      "witness_count": 17
+      "witness_count": 9
     },
     {
       "display": "E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint",
@@ -778,7 +1337,7 @@
           "qual": "gabion.analysis.dataflow_audit._param_names"
         }
       },
-      "witness_count": 21
+      "witness_count": 24
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::fn,ignore_params",
@@ -817,7 +1376,20 @@
           "qual": "gabion.analysis.dataflow_audit._collect_never_invariants"
         }
       },
-      "witness_count": 26
+      "witness_count": 38
+    },
+    {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities::forest",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "forest",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._emit_call_ambiguities"
+        }
+      },
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest",
@@ -830,7 +1402,7 @@
           "qual": "gabion.analysis.dataflow_audit._emit_dot"
         }
       },
-      "witness_count": 25
+      "witness_count": 27
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest",
@@ -843,7 +1415,7 @@
           "qual": "gabion.analysis.dataflow_audit.compute_structure_metrics"
         }
       },
-      "witness_count": 45
+      "witness_count": 40
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_bundle_evidence_lines::forest,groups_by_path",
@@ -869,7 +1441,7 @@
           "qual": "gabion.analysis.dataflow_audit.render_structure_snapshot"
         }
       },
-      "witness_count": 48
+      "witness_count": 43
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root",
@@ -882,7 +1454,7 @@
           "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
         }
       },
-      "witness_count": 46
+      "witness_count": 41
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_decision_surfaces_repo::forest,require_tiers",
@@ -895,7 +1467,7 @@
           "qual": "gabion.analysis.dataflow_audit.analyze_decision_surfaces_repo"
         }
       },
-      "witness_count": 29
+      "witness_count": 39
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_value_encoded_decisions_repo::forest,require_tiers",
@@ -908,7 +1480,7 @@
           "qual": "gabion.analysis.dataflow_audit.analyze_value_encoded_decisions_repo"
         }
       },
-      "witness_count": 29
+      "witness_count": 39
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._union_groups::groups",
@@ -934,7 +1506,7 @@
           "qual": "gabion.analysis.dataflow_audit._infer_root"
         }
       },
-      "witness_count": 18
+      "witness_count": 19
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path",
@@ -950,6 +1522,19 @@
       "witness_count": 33
     },
     {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path,include_all_sites",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "groups_by_path,include_all_sites",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._populate_bundle_forest"
+        }
+      },
+      "witness_count": 10
+    },
+    {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::handledness_witnesses",
       "key": {
         "k": "decision_surface",
@@ -960,7 +1545,7 @@
           "qual": "gabion.analysis.dataflow_audit._collect_exception_obligations"
         }
       },
-      "witness_count": 30
+      "witness_count": 40
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_is_broad::handler",
@@ -1012,7 +1597,7 @@
           "qual": "gabion.analysis.dataflow_audit._build_function_index"
         }
       },
-      "witness_count": 33
+      "witness_count": 34
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name",
@@ -1026,6 +1611,19 @@
         }
       },
       "witness_count": 9
+    },
+    {
+      "display": "E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_ambiguities,include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "include_ambiguities,include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces",
+        "site": {
+          "path": "forest_spec.py",
+          "qual": "gabion.analysis.forest_spec.build_forest_spec"
+        }
+      },
+      "witness_count": 10
     },
     {
       "display": "E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces",
@@ -1051,7 +1649,7 @@
           "qual": "gabion.analysis.dataflow_audit._compute_fingerprint_matches"
         }
       },
-      "witness_count": 31
+      "witness_count": 41
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::index",
@@ -1064,7 +1662,7 @@
           "qual": "gabion.analysis.dataflow_audit._compute_fingerprint_provenance"
         }
       },
-      "witness_count": 30
+      "witness_count": 40
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index",
@@ -1077,7 +1675,7 @@
           "qual": "gabion.analysis.dataflow_audit._compute_fingerprint_warnings"
         }
       },
-      "witness_count": 32
+      "witness_count": 42
     },
     {
       "display": "E:decision_surface/direct::cli.py::gabion.cli._run_refactor_protocol::input_path,output_path",
@@ -1129,7 +1727,7 @@
           "qual": "gabion.analysis.dataflow_audit.render_protocol_stubs"
         }
       },
-      "witness_count": 47
+      "witness_count": 43
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::knob_names",
@@ -1246,7 +1844,7 @@
           "qual": "gabion.analysis.dataflow_audit.build_synthesis_plan"
         }
       },
-      "witness_count": 57
+      "witness_count": 52
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count",
@@ -1285,7 +1883,7 @@
           "qual": "gabion.analysis.dataflow_audit._callee_key"
         }
       },
-      "witness_count": 10
+      "witness_count": 11
     },
     {
       "display": "E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._suggest_type_name::name",
@@ -1402,7 +2000,7 @@
           "qual": "gabion.analysis.dataflow_audit._node_span"
         }
       },
-      "witness_count": 3
+      "witness_count": 5
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._string_list::node",
@@ -1454,7 +2052,7 @@
           "qual": "gabion.cli.build_dataflow_payload"
         }
       },
-      "witness_count": 8
+      "witness_count": 9
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._mark_param_roots::params",
@@ -1519,7 +2117,7 @@
           "qual": "gabion.analysis.dataflow_audit._load_baseline"
         }
       },
-      "witness_count": 23
+      "witness_count": 26
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path",
@@ -1532,7 +2130,7 @@
           "qual": "gabion.analysis.dataflow_audit._resolve_baseline_path"
         }
       },
-      "witness_count": 23
+      "witness_count": 25
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path",
@@ -1545,7 +2143,7 @@
           "qual": "gabion.analysis.dataflow_audit._resolve_synth_registry_path"
         }
       },
-      "witness_count": 24
+      "witness_count": 26
     },
     {
       "display": "E:decision_surface/direct::cli.py::gabion.cli._emit_synth_outputs::paths_out,refactor_plan,timestamp",
@@ -1584,7 +2182,7 @@
           "qual": "gabion.server.execute_command"
         }
       },
-      "witness_count": 21
+      "witness_count": 14
     },
     {
       "display": "E:decision_surface/direct::server.py::gabion.server.execute_decision_diff::payload",
@@ -1675,7 +2273,7 @@
           "qual": "gabion.analysis.dataflow_audit._module_name"
         }
       },
-      "witness_count": 19
+      "witness_count": 20
     },
     {
       "display": "E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::project_root",
@@ -1714,7 +2312,7 @@
           "qual": "gabion.refactor.engine._collect_import_context"
         }
       },
-      "witness_count": 6
+      "witness_count": 7
     },
     {
       "display": "E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key::reason",
@@ -1727,7 +2325,7 @@
           "qual": "gabion.analysis.evidence_keys.make_never_sink_key"
         }
       },
-      "witness_count": 4
+      "witness_count": 5
     },
     {
       "display": "E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id",
@@ -1753,7 +2351,7 @@
           "qual": "gabion.analysis.dataflow_audit._normalize_snapshot_path"
         }
       },
-      "witness_count": 16
+      "witness_count": 18
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._scope_path::root",
@@ -1792,7 +2390,7 @@
           "qual": "gabion.config.decision_ignore_list"
         }
       },
-      "witness_count": 45
+      "witness_count": 40
     },
     {
       "display": "E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section",
@@ -1805,7 +2403,7 @@
           "qual": "gabion.config.decision_require_tiers"
         }
       },
-      "witness_count": 45
+      "witness_count": 40
     },
     {
       "display": "E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section",
@@ -1818,7 +2416,7 @@
           "qual": "gabion.config.decision_tier_map"
         }
       },
-      "witness_count": 45
+      "witness_count": 40
     },
     {
       "display": "E:decision_surface/direct::config.py::gabion.config.exception_never_list::section",
@@ -1831,7 +2429,7 @@
           "qual": "gabion.config.exception_never_list"
         }
       },
-      "witness_count": 45
+      "witness_count": 40
     },
     {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._split_top_level::sep",
@@ -2000,7 +2598,7 @@
           "qual": "gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo"
         }
       },
-      "witness_count": 36
+      "witness_count": 46
     },
     {
       "display": "E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target",
@@ -2029,6 +2627,19 @@
       "witness_count": 2
     },
     {
+      "display": "E:decision_surface/direct::evidence_keys.py::gabion.analysis.evidence_keys._normalize_target::target",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "target",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys._normalize_target"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets",
       "key": {
         "k": "decision_surface",
@@ -2039,7 +2650,7 @@
           "qual": "gabion.refactor.engine._rewrite_call_sites"
         }
       },
-      "witness_count": 5
+      "witness_count": 6
     },
     {
       "display": "E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites_in_project::target_path",
@@ -2104,7 +2715,7 @@
           "qual": "gabion.cli._split_csv"
         }
       },
-      "witness_count": 5
+      "witness_count": 7
     },
     {
       "display": "E:decision_surface/direct::config.py::gabion.config._as_bool::value",
@@ -2143,7 +2754,7 @@
           "qual": "gabion.analysis.dataflow_audit._normalize_transparent_decorators"
         }
       },
-      "witness_count": 24
+      "witness_count": 26
     },
     {
       "display": "E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value",
@@ -2247,7 +2858,7 @@
           "qual": "gabion.server._normalize_transparent_decorators"
         }
       },
-      "witness_count": 23
+      "witness_count": 16
     },
     {
       "display": "E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints._is_prime::value",
@@ -2302,6 +2913,19 @@
       "witness_count": 4
     },
     {
+      "display": "E:decision_surface/value_encoded::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload::baseline,current",
+      "key": {
+        "k": "decision_surface",
+        "m": "value_encoded",
+        "param": "baseline,current",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.build_delta_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map",
       "key": {
         "k": "decision_surface",
@@ -2338,7 +2962,7 @@
           "qual": "gabion.analysis.dataflow_audit._node_span"
         }
       },
-      "witness_count": 3
+      "witness_count": 5
     },
     {
       "display": "E:decision_surface/value_encoded::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node",
@@ -2380,6 +3004,94 @@
       "witness_count": 7
     },
     {
+      "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.build_delta_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.build_delta_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.load_baseline",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.load_baseline"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.parse_baseline_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.parse_baseline_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::ambiguity_delta.py::gabion.analysis.ambiguity_delta.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "ambiguity_delta.py",
+          "qual": "gabion.analysis.ambiguity_delta.render_markdown"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "annotation_drift_orphaned_gate.py",
+          "qual": "scripts.annotation_drift_orphaned_gate.check_gate"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_clusters.py",
+          "qual": "gabion.analysis.call_clusters.build_call_clusters_payload"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_clusters.py",
+          "qual": "gabion.analysis.call_clusters.render_markdown"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.write_call_clusters",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "call_clusters.py",
+          "qual": "gabion.analysis.call_clusters.write_call_clusters"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:function_site::cli.py::gabion.cli._emit_decision_diff",
       "key": {
         "k": "function_site",
@@ -2408,6 +3120,17 @@
         "site": {
           "path": "cli.py",
           "qual": "gabion.cli._emit_structure_reuse"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli.build_check_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.build_check_payload"
         }
       },
       "witness_count": 2
@@ -2501,6 +3224,17 @@
       "witness_count": 1
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._collect_call_ambiguities"
+        }
+      },
+      "witness_count": 2
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_config_bundles",
       "key": {
         "k": "function_site",
@@ -2518,6 +3252,17 @@
         "site": {
           "path": "dataflow_audit.py",
           "qual": "gabion.analysis.dataflow_audit._copy_forest_signature_metadata"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_call_ambiguities",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._emit_call_ambiguities"
         }
       },
       "witness_count": 2
@@ -2699,6 +3444,17 @@
       "witness_count": 1
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_call_ambiguities",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._summarize_call_ambiguities"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files",
       "key": {
         "k": "function_site",
@@ -2743,6 +3499,17 @@
       "witness_count": 2
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_report",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.render_report"
+        }
+      },
+      "witness_count": 1
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs",
       "key": {
         "k": "function_site",
@@ -2760,6 +3527,17 @@
         "site": {
           "path": "dataflow_audit.py",
           "qual": "gabion.analysis.dataflow_audit.render_synthesis_section"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys._normalize_span",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "evidence_keys.py",
+          "qual": "gabion.analysis.evidence_keys._normalize_span"
         }
       },
       "witness_count": 1
@@ -2817,7 +3595,7 @@
           "qual": "gabion.analysis.evidence_keys.normalize_key"
         }
       },
-      "witness_count": 1
+      "witness_count": 2
     },
     {
       "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display",
@@ -2828,7 +3606,7 @@
           "qual": "gabion.analysis.evidence_keys.parse_display"
         }
       },
-      "witness_count": 1
+      "witness_count": 2
     },
     {
       "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display",
@@ -2839,7 +3617,7 @@
           "qual": "gabion.analysis.evidence_keys.render_display"
         }
       },
-      "witness_count": 7
+      "witness_count": 9
     },
     {
       "display": "E:function_site::forest_signature.py::gabion.analysis.forest_signature._normalize_key",
@@ -3007,6 +3785,17 @@
       "witness_count": 1
     },
     {
+      "display": "E:function_site::server.py::gabion.server.execute_command",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server.execute_command"
+        }
+      },
+      "witness_count": 4
+    },
+    {
       "display": "E:function_site::server.py::gabion.server.start",
       "key": {
         "k": "function_site",
@@ -3016,6 +3805,523 @@
         }
       },
       "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift._summarize",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift.py",
+          "qual": "gabion.analysis.test_annotation_drift._summarize"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.build_annotation_drift_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift.py",
+          "qual": "gabion.analysis.test_annotation_drift.build_annotation_drift_payload"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_annotation_drift.py::gabion.analysis.test_annotation_drift.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift.py",
+          "qual": "gabion.analysis.test_annotation_drift.render_markdown"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.build_delta_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift_delta.py",
+          "qual": "gabion.analysis.test_annotation_drift_delta.build_delta_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.parse_baseline_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift_delta.py",
+          "qual": "gabion.analysis.test_annotation_drift_delta.parse_baseline_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_annotation_drift_delta.py::gabion.analysis.test_annotation_drift_delta.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_annotation_drift_delta.py",
+          "qual": "gabion.analysis.test_annotation_drift_delta.render_markdown"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_cli_commands.py",
+          "qual": "tests.test_cli_commands._has_pygls"
+        }
+      },
+      "witness_count": 6
+    },
+    {
+      "display": "E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_consolidation_forest_guardrail.py",
+          "qual": "tests.test_consolidation_forest_guardrail._load_audit_tools"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._write_decision_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_consolidation_forest_guardrail.py",
+          "qual": "tests.test_consolidation_forest_guardrail._write_decision_snapshot"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_dataflow_helpers.py::tests.test_dataflow_helpers._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_dataflow_helpers.py",
+          "qual": "tests.test_dataflow_helpers._load"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_dataflow_misc_edges.py::tests.test_dataflow_misc_edges._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_dataflow_misc_edges.py",
+          "qual": "tests.test_dataflow_misc_edges._load"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence.py::gabion.analysis.test_evidence._extract_file_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence.py",
+          "qual": "gabion.analysis.test_evidence._extract_file_evidence"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::test_evidence.py::gabion.analysis.test_evidence._find_evidence_tags",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence.py",
+          "qual": "gabion.analysis.test_evidence._find_evidence_tags"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence.py",
+          "qual": "gabion.analysis.test_evidence.build_test_evidence_payload"
+        }
+      },
+      "witness_count": 11
+    },
+    {
+      "display": "E:function_site::test_evidence.py::gabion.analysis.test_evidence.collect_test_tags",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence.py",
+          "qual": "gabion.analysis.test_evidence.collect_test_tags"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence.py::gabion.analysis.test_evidence.write_test_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence.py",
+          "qual": "gabion.analysis.test_evidence.write_test_evidence"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_symbol_refs",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions._call_symbol_refs"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._collect_call_footprint_targets",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions._collect_call_footprint_targets"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._collect_reachable",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions._collect_reachable"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions._find_module_level_calls"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._iter_outer_calls",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions._iter_outer_calls"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_module_literal",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions._resolve_module_literal"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_symbol_target",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions._resolve_symbol_target"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions.collect_call_footprints"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions.load_test_evidence"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_evidence_suggestions.py",
+          "qual": "gabion.analysis.test_evidence_suggestions.suggest_evidence"
+        }
+      },
+      "witness_count": 8
+    },
+    {
+      "display": "E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.RiskInfo.from_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence.py",
+          "qual": "gabion.analysis.test_obsolescence.RiskInfo.from_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._parse_risk_registry_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence.py",
+          "qual": "gabion.analysis.test_obsolescence._parse_risk_registry_payload"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence.py",
+          "qual": "gabion.analysis.test_obsolescence._summarize_candidates"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.compute_dominators",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence.py",
+          "qual": "gabion.analysis.test_obsolescence.compute_dominators"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_risk_registry",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence.py",
+          "qual": "gabion.analysis.test_obsolescence.load_risk_registry"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence.py",
+          "qual": "gabion.analysis.test_obsolescence.load_test_evidence"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._format_delta",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence_delta.py",
+          "qual": "gabion.analysis.test_obsolescence_delta._format_delta"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._normalize_summary_counts",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence_delta.py",
+          "qual": "gabion.analysis.test_obsolescence_delta._normalize_summary_counts"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._section_list",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence_delta.py",
+          "qual": "gabion.analysis.test_obsolescence_delta._section_list"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.load_baseline",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence_delta.py",
+          "qual": "gabion.analysis.test_obsolescence_delta.load_baseline"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_obsolescence_delta.py",
+          "qual": "gabion.analysis.test_obsolescence_delta.parse_baseline_payload"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_refactor_engine.py",
+          "qual": "tests.test_refactor_engine._load"
+        }
+      },
+      "witness_count": 6
+    },
+    {
+      "display": "E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_refactor_engine.py",
+          "qual": "tests.test_refactor_engine._normalize"
+        }
+      },
+      "witness_count": 2
+    },
+    {
+      "display": "E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_refactor_engine_edges.py",
+          "qual": "tests.test_refactor_engine_edges._load"
+        }
+      },
+      "witness_count": 5
+    },
+    {
+      "display": "E:function_site::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_rewrite_plan_verification.py",
+          "qual": "tests.test_rewrite_plan_verification._load"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_synthesis_protocols.py::tests.test_synthesis_protocols._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_synthesis_protocols.py",
+          "qual": "tests.test_synthesis_protocols._load"
+        }
+      },
+      "witness_count": 4
+    },
+    {
+      "display": "E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_test_evidence_suggestions.py",
+          "qual": "tests.test_test_evidence_suggestions._entries_from_payload"
+        }
+      },
+      "witness_count": 4
+    },
+    {
+      "display": "E:function_site::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._write_json",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_test_evidence_suggestions_edges.py",
+          "qual": "tests.test_test_evidence_suggestions_edges._write_json"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_type_fingerprints.py",
+          "qual": "tests.test_type_fingerprints._load"
+        }
+      },
+      "witness_count": 3
+    },
+    {
+      "display": "E:function_site::test_visitors_edges.py::tests.test_visitors_edges._load",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_visitors_edges.py",
+          "qual": "tests.test_visitors_edges._load"
+        }
+      },
+      "witness_count": 1
+    },
+    {
+      "display": "E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "test_visitors_unit.py",
+          "qual": "tests.test_visitors_unit._make_visitor"
+        }
+      },
+      "witness_count": 4
     },
     {
       "display": "E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys",
@@ -3104,46 +4410,6 @@
         }
       },
       "witness_count": 1
-    },
-    {
-      "display": "E:baseline/ratchet_monotonicity",
-      "key": {
-        "k": "opaque",
-        "s": "E:baseline/ratchet_monotonicity"
-      },
-      "witness_count": 15
-    },
-    {
-      "display": "E:bundle/alias_invariance",
-      "key": {
-        "k": "opaque",
-        "s": "E:bundle/alias_invariance"
-      },
-      "witness_count": 16
-    },
-    {
-      "display": "E:forest/canonical_paramset",
-      "key": {
-        "k": "opaque",
-        "s": "E:forest/canonical_paramset"
-      },
-      "witness_count": 2
-    },
-    {
-      "display": "E:forest/packed_reuse",
-      "key": {
-        "k": "opaque",
-        "s": "E:forest/packed_reuse"
-      },
-      "witness_count": 2
-    },
-    {
-      "display": "E:never/sink_classification",
-      "key": {
-        "k": "opaque",
-        "s": "E:never/sink_classification"
-      },
-      "witness_count": 7
     }
   ],
   "generated_by_spec": {
@@ -3154,49 +4420,129 @@
     "spec_version": 1
   },
   "generated_by_spec_id": "d3454cce58ad58f08551264a1079d2b5b894b013a045c5aeda2f3eff302c98b6",
-  "opaque_evidence_count": 40,
+  "opaque_evidence_count": 0,
   "summary": {
-    "equivalent_witness": 263,
-    "obsolete_candidate": 79,
-    "redundant_by_evidence": 205,
-    "unmapped": 88
+    "equivalent_witness": 332,
+    "obsolete_candidate": 137,
+    "redundant_by_evidence": 224,
+    "unmapped": 0
   },
   "tests": [
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_alias_attribute.py::test_alias_attribute_forwarding"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_alias_attribute.py::test_alias_attribute_object_attr"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_alias_rename_invariance.py::test_chained_alias_preserves_bundle_identity"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_alias_rename_invariance.py::test_direct_rename_preserves_bundle_identity"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_alias_return_propagation.py::test_alias_propagation_via_return"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_alias_unpacking.py::test_tuple_unpacking_preserves_bundle"
     },
     {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_baseline_load_rejects_non_object"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_baseline_rejects_invalid_version"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_delta_payload_and_render"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_ambiguity_delta.py::test_ambiguity_delta_render_handles_invalid_numbers"
+    },
+    {
       "class": "equivalent_witness",
+      "test_id": "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls_in_tests_dir"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_ambiguity_helpers.py::test_dedupe_emit_and_lint_call_ambiguities"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_ambiguity_helpers.py::test_render_report_includes_ambiguities"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_ambiguity_helpers.py::test_summarize_call_ambiguities_handles_empty_and_invalid_entries"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_handles_invalid_numbers"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_payload_and_render"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_annotation_drift_delta.py::test_annotation_drift_delta_rejects_bad_baseline"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_disabled"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_annotation_drift_gate.py::test_annotation_drift_gate_enabled"
+    },
+    {
+      "class": "obsolete_candidate",
       "test_id": "tests/test_aspf.py::test_add_site_records_span"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_aspf.py::test_paramset_packed_reuse"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_baseline_ratchet.py::test_baseline_write_and_apply"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_and_render"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_handles_empty_targets"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_projection_skips_unknown_identity"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_render_empty"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_render_skips_non_mapping"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_write_creates_file"
     },
     {
       "class": "equivalent_witness",
@@ -3219,51 +4565,51 @@
       "test_id": "tests/test_class_method_propagation.py::test_method_call_propagates_bundle"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_commands.py::test_cli_check_and_dataflow_audit"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_commands.py::test_cli_dataflow_audit_requires_paths"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_commands.py::test_cli_docflow_audit"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol_invalid_json"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol_output_file"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_commands.py::test_cli_structure_diff"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_commands.py::test_cli_synth_and_synthesis_plan"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_commands.py::test_cli_synth_invalid_protocols_kind"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_commands.py::test_cli_synth_invalid_strictness"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_commands.py::test_cli_synthesis_plan_stdout"
     },
     {
@@ -3391,8 +4737,16 @@
       "test_id": "tests/test_cli_payloads.py::test_check_builds_payload"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
     },
     {
       "class": "equivalent_witness",
@@ -3403,7 +4757,7 @@
       "test_id": "tests/test_cli_payloads.py::test_check_payload_strictness_validation"
     },
     {
-      "class": "obsolete_candidate",
+      "class": "equivalent_witness",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
     },
     {
@@ -3459,11 +4813,11 @@
       "test_id": "tests/test_config_fields.py::test_iter_config_fields_expands_config_dataclass"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_consolidation_forest_guardrail.py::test_consolidation_allows_fallback_in_permissive_mode"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_consolidation_forest_guardrail.py::test_consolidation_requires_forest_in_strict_mode"
     },
     {
@@ -3603,6 +4957,10 @@
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_value_decision_surfaces_emit_forest"
     },
     {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_ambiguity_witnesses_emit"
+    },
+    {
       "class": "redundant_by_evidence",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_callee_globals"
     },
@@ -3671,7 +5029,7 @@
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
     {
@@ -3891,7 +5249,7 @@
       "test_id": "tests/test_dataflow_grouping.py::test_propagate_groups_skips_opaque"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_helpers.py::test_audit_config_ignored_paths"
     },
     {
@@ -3943,7 +5301,7 @@
       "test_id": "tests/test_dataflow_helpers.py::test_param_spans_include_var_kw"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_helpers.py::test_resolve_star_external_filtered"
     },
     {
@@ -3967,7 +5325,7 @@
       "test_id": "tests/test_dataflow_kitchen_sink.py::test_kitchen_sink_analysis_outputs"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_main.py::test_dataflow_audit_main_executes"
     },
     {
@@ -4003,19 +5361,19 @@
       "test_id": "tests/test_dataflow_misc_edges.py::test_string_list_non_list_returns_none"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_dataflow_misc_edges.py::test_symbol_table_resolve_star_external_filtered"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_anonymous_schema_surfaces"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_anonymous_schema_surfaces_truncates_long_list"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_coherence_summary"
     },
     {
@@ -4023,7 +5381,7 @@
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_component_summary"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_deadness_summary"
     },
     {
@@ -4031,7 +5389,7 @@
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_empty_groups"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_exception_obligation_summary"
     },
     {
@@ -4039,11 +5397,11 @@
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_fingerprint_matches_and_synth"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_fingerprint_provenance_summary"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_handledness_summary"
     },
     {
@@ -4051,7 +5409,7 @@
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_max_components_cutoff"
     },
     {
-      "class": "redundant_by_evidence",
+      "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_rewrite_plan_summary"
     },
     {
@@ -4248,6 +5606,14 @@
     },
     {
       "class": "redundant_by_evidence",
+      "test_id": "tests/test_evidence_keys.py::test_ambiguity_span_normalization_edges"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_evidence_keys.py::test_call_footprint_normalization_edges"
+    },
+    {
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_evidence_keys.py::test_evidence_keys_normalize_and_render"
     },
     {
@@ -4255,8 +5621,24 @@
       "test_id": "tests/test_evidence_keys.py::test_is_opaque"
     },
     {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_evidence_keys.py::test_normalize_span_and_site_edges"
+    },
+    {
+      "class": "redundant_by_evidence",
+      "test_id": "tests/test_evidence_keys.py::test_parse_display_ambiguity_edges"
+    },
+    {
       "class": "redundant_by_evidence",
       "test_id": "tests/test_evidence_keys.py::test_parse_display_variants"
+    },
+    {
+      "class": "redundant_by_evidence",
+      "test_id": "tests/test_evidence_keys.py::test_render_display_call_cluster_skips_invalid_targets"
+    },
+    {
+      "class": "redundant_by_evidence",
+      "test_id": "tests/test_evidence_keys.py::test_render_display_call_footprint_skips_invalid_targets"
     },
     {
       "class": "redundant_by_evidence",
@@ -4499,7 +5881,7 @@
       "test_id": "tests/test_matrix_acceptance_artifacts.py::test_matrix_artifacts_are_deterministic_and_have_required_fields"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults"
     },
     {
@@ -4507,11 +5889,11 @@
       "test_id": "tests/test_misc_coverage.py::test_lsp_client_rpc_roundtrip"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_misc_coverage.py::test_main_entrypoint_invokes_app"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_misc_coverage.py::test_main_module_import"
     },
     {
@@ -4523,11 +5905,11 @@
       "test_id": "tests/test_nested_resolution.py::test_nested_function_resolution"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_obligation"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_proven_unreachable"
     },
     {
@@ -4535,7 +5917,7 @@
       "test_id": "tests/test_never_invariants.py::test_never_invariant_report_order_and_evidence"
     },
     {
-      "class": "equivalent_witness",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_violation"
     },
     {
@@ -4595,27 +5977,27 @@
       "test_id": "tests/test_projection_spec.py::test_sort_canonicalization_equivalence"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_refactor_engine.py::test_refactor_engine_emits_compat_shim"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_refactor_engine.py::test_refactor_engine_emits_protocol_stub"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_refactor_engine.py::test_refactor_engine_preserves_type_hints"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_refactor_engine.py::test_refactor_engine_rewrites_call_sites"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_refactor_engine.py::test_refactor_engine_rewrites_imported_call_sites"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_refactor_engine.py::test_refactor_engine_rewrites_signature_and_preamble"
     },
     {
@@ -4631,23 +6013,23 @@
       "test_id": "tests/test_refactor_engine_edges.py::test_module_name_strips_src_prefix"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_handles_missing_file"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_handles_parse_error"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_invalid_type_hint_warns"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_requires_bundle_or_fields"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_refactor_engine_edges.py::test_refactor_engine_requires_protocol_name"
     },
     {
@@ -4671,7 +6053,7 @@
       "test_id": "tests/test_refactor_engine_helpers.py::test_rewrite_call_sites_target_and_imports"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_refactor_engine_more.py::test_call_site_transformer_helpers"
     },
     {
@@ -4687,19 +6069,19 @@
       "test_id": "tests/test_refactor_engine_more.py::test_module_name_handles_value_error"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_refactor_engine_more.py::test_plan_protocol_extraction_typing_import_variants"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_refactor_engine_more.py::test_refactor_transformer_async_and_no_params"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_refactor_engine_more.py::test_refactor_transformer_helpers"
     },
     {
@@ -4747,7 +6129,7 @@
       "test_id": "tests/test_rewrite_plan_verification.py::test_glossary_match_strata_classification"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_rewrite_plan_verification.py::test_normalize_bundle_key_covers_edges"
     },
     {
@@ -4815,7 +6197,7 @@
       "test_id": "tests/test_schema_audit.py::test_unparse_fallback_for_invalid_ast"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_server_execute_command.py::test_execute_command_baseline_write"
     },
     {
@@ -4896,6 +6278,22 @@
     },
     {
       "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters"
+    },
+    {
+      "class": "equivalent_witness",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta"
     },
     {
@@ -4920,6 +6318,14 @@
     },
     {
       "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags"
+    },
+    {
+      "class": "equivalent_witness",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
     },
     {
@@ -4932,7 +6338,23 @@
     },
     {
       "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline"
+    },
+    {
+      "class": "equivalent_witness",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
     },
     {
       "class": "equivalent_witness",
@@ -5139,19 +6561,19 @@
       "test_id": "tests/test_synthesis_naming.py::test_suggest_name_with_empty_fields"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_filters_and_builds_specs"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_skips_empty_bundle"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_uses_existing_names"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_synthesis_protocols.py::test_synthesizer_warns_on_empty"
     },
     {
@@ -5187,31 +6609,51 @@
       "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_resolves_conflicts_to_union"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_legacy_ambiguous_and_missing"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_orphaned"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_render_sections_and_write"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_annotation_drift.py::test_annotation_drift_summarize_unknown_status"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_evidence.py::test_collect_test_tags_handles_async_and_class"
+    },
+    {
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence.py::test_excludes_paths"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence.py::test_extracts_evidence_tags_and_unmapped"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_evidence.py::test_handles_missing_and_direct_file_paths"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence.py::test_rejects_duplicate_test_ids"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_evidence.py::test_requires_adjacent_tag_and_skips_bad_files"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence_errors.py::test_extract_file_evidence_handles_missing_file"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence_errors.py::test_extract_file_evidence_handles_syntax_error"
     },
     {
@@ -5219,31 +6661,39 @@
       "test_id": "tests/test_test_evidence_errors.py::test_normalize_evidence_items_skips_empty_and_duplicates"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_call_footprint_module_literal"
+    },
+    {
+      "class": "redundant_by_evidence",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_graph_call_footprint_symbol_argument"
+    },
+    {
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_decision_surface_suggestion"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback_uses_reachable"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_resolution_blocks_heuristics"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence_suggestions.py::test_heuristic_fallback_when_graph_unavailable"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload"
     },
     {
-      "class": "unmapped",
+      "class": "redundant_by_evidence",
       "test_id": "tests/test_test_evidence_suggestions.py::test_skips_mapped_entries"
     },
     {
@@ -5251,12 +6701,44 @@
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_build_indices_and_helper_functions"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_call_symbol_and_literal_helpers"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprint_targets_no_outer"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_cache_and_missing"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_entries"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_paths"
+    },
+    {
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_reachable_skips_visited"
     },
     {
       "class": "equivalent_witness",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_evidence_for_alt_variants"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_empty_and_missing"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_node_missing"
+    },
+    {
+      "class": "equivalent_witness",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_resolves_symbol_and_literal"
     },
     {
       "class": "equivalent_witness",
@@ -5267,7 +6749,11 @@
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_graph_suggestions_paths_filtered"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_iter_outer_calls_skips_nested"
+    },
+    {
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_load_test_evidence_errors_and_defaults"
     },
     {
@@ -5275,11 +6761,23 @@
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_render_markdown_and_payload"
     },
     {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_resolve_module_literal_invalid"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_resolve_symbol_and_module_helpers"
+    },
+    {
+      "class": "obsolete_candidate",
+      "test_id": "tests/test_test_evidence_suggestions_edges.py::test_test_qual_passthrough"
+    },
+    {
       "class": "redundant_by_evidence",
       "test_id": "tests/test_test_obsolescence.py::test_basic_dominance"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence.py::test_compute_dominators_handles_empty_evidence"
     },
     {
@@ -5291,15 +6789,15 @@
       "test_id": "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence.py::test_load_risk_registry_variants"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_errors"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_skips_invalid_entries"
     },
     {
@@ -5319,11 +6817,11 @@
       "test_id": "tests/test_test_obsolescence.py::test_render_markdown_includes_suffix_details"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence.py::test_risk_info_from_payload_variants"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence.py::test_summarize_candidates_handles_bad_counts"
     },
     {
@@ -5343,19 +6841,19 @@
       "test_id": "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence_delta.py::test_helpers_cover_edge_cases"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_test_obsolescence_delta.py::test_load_baseline_rejects_non_object"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_filters_invalid_entries"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_rejects_bad_version"
     },
     {
@@ -5475,7 +6973,7 @@
       "test_id": "tests/test_type_fingerprints.py::test_collect_base_atoms_and_constructors_cover_empty_and_unions"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_type_fingerprints.py::test_constructor_registry_assigns_primes"
     },
     {
@@ -5527,11 +7025,11 @@
       "test_id": "tests/test_type_fingerprints.py::test_prime_checks_and_key_lookup"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_type_fingerprints.py::test_prime_registry_assigns_stable_primes"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_type_fingerprints.py::test_registry_helpers_cover_edges"
     },
     {
@@ -5603,15 +7101,15 @@
       "test_id": "tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_annassign_edges"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_attr_and_subscript_slot_fallbacks_with_aliases"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_attribute_and_subscript_aliases"
     },
     {
@@ -5623,11 +7121,11 @@
       "test_id": "tests/test_visitors_edges.py::test_bind_sequence_and_return_alias_assignment"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_bind_sequence_edge_cases"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_check_write_clears_attr_and_key_aliases"
     },
     {
@@ -5635,55 +7133,55 @@
       "test_id": "tests/test_visitors_edges.py::test_collect_alias_sources_default"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_visitors_edges.py::test_import_visitor_relative_and_star"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_record_forward_skips_call_without_span"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_star_args_strictness"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_starred_list_literal_records_forward_without_site"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_subscript_and_attribute_slot_fallbacks"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_subscript_non_name_root_sets_non_forward"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_visit_name_attribute_subscript_edges"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_visitors_unit.py::test_alias_from_call_rejects_starred"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_unit.py::test_attribute_and_subscript_forwarding"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_unit.py::test_bind_sequence_mismatch_marks_non_forward"
     },
     {
-      "class": "unmapped",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_visitors_unit.py::test_import_visitor_basic_and_relative"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch"
     },
     {
-      "class": "equivalent_witness",
+      "class": "obsolete_candidate",
       "test_id": "tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward"
     },
     {
@@ -5691,11 +7189,11 @@
       "test_id": "tests/test_visitors_unit.py::test_usevisitor_node_span_none_without_locations"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_unit.py::test_usevisitor_span_adjusts_zero_width_call"
     },
     {
-      "class": "unmapped",
+      "class": "equivalent_witness",
       "test_id": "tests/test_visitors_unit.py::test_usevisitor_star_forwarding_low_strictness"
     },
     {
