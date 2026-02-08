@@ -1,5 +1,5 @@
 ---
-doc_revision: 74
+doc_revision: 75
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,14 +17,14 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 74
+  CONTRIBUTING.md: 75
   AGENTS.md: 13
   POLICY_SEED.md: 29
   glossary.md: 28
   docs/coverage_semantics.md: 8
 doc_review_notes:
   README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
-  CONTRIBUTING.md: "Reviewed ci_watch prefer-active guidance; no conflicts."
+  CONTRIBUTING.md: "Reviewed baseline refresh guardrail + ci_cycle helper; no policy conflicts."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md: "Review discipline invariant incorporated here."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); contributor workflow unchanged."
@@ -296,6 +296,18 @@ mise exec -- python scripts/refresh_baselines.py --obsolescence
 mise exec -- python scripts/refresh_baselines.py --annotation-drift
 mise exec -- python scripts/refresh_baselines.py --ambiguity
 mise exec -- python scripts/refresh_baselines.py --all
+```
+
+Baseline refresh guardrail (normative):
+- **Never** refresh a baseline to bypass a ratchet. `refresh_baselines.py` will
+  refuse to refresh when the corresponding gate is enabled and the delta is
+  positive. Clear the delta via real fixes first, then refresh at a checkpoint.
+- Use `--timeout <seconds>` if a baseline refresh risks hanging.
+
+No-op CI cycle helper:
+
+```
+mise exec -- python scripts/ci_cycle.py --push --watch
 ```
 
 CI watch helper:

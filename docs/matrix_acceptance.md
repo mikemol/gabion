@@ -17,12 +17,12 @@ doc_requires:
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
   glossary.md: 28
-  CONTRIBUTING.md: 74
+  CONTRIBUTING.md: 75
   README.md: 58
 doc_review_notes:
   POLICY_SEED.md: "Review discipline invariant does not change matrix acceptance requirements."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); matrix acceptance framing unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md ci_watch update; acceptance mapping unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; acceptance mapping unchanged."
   README.md: "Scope references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:

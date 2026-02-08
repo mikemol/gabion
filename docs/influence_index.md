@@ -17,12 +17,12 @@ doc_requires:
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
   glossary.md: 28
-  CONTRIBUTING.md: 74
+  CONTRIBUTING.md: 75
   README.md: 58
 doc_review_notes:
   POLICY_SEED.md: "Review discipline does not alter inbox→outbox mapping."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); influence tracking semantics unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md ci_watch update; tracking workflow unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; tracking workflow unchanged."
   README.md: "Scope references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:

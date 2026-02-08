@@ -20,13 +20,13 @@ doc_reviewed_as_of:
   POLICY_SEED.md: 29
   glossary.md: 28
   README.md: 58
-  CONTRIBUTING.md: 74
+  CONTRIBUTING.md: 75
   AGENTS.md: 13
 doc_review_notes:
   POLICY_SEED.md: "Review-discipline invariant does not alter coverage semantics."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); coverage semantics aligned."
   README.md: "Scope references remain accurate."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md ci_watch update; coverage workflow unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; coverage workflow unchanged."
   AGENTS.md: "Agent review discipline consistent with coverage obligations."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
