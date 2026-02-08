@@ -1,5 +1,5 @@
 ---
-doc_revision: 73
+doc_revision: 74
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,14 +17,14 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 73
+  CONTRIBUTING.md: 74
   AGENTS.md: 13
   POLICY_SEED.md: 29
   glossary.md: 28
   docs/coverage_semantics.md: 8
 doc_review_notes:
   README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
-  CONTRIBUTING.md: "Reviewed additions for baseline refresh + CI watch helpers; no conflicts."
+  CONTRIBUTING.md: "Reviewed ci_watch prefer-active guidance; no conflicts."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md: "Review discipline invariant incorporated here."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); contributor workflow unchanged."
@@ -302,6 +302,13 @@ CI watch helper:
 
 ```
 mise exec -- python scripts/ci_watch.py --branch stage
+```
+
+By default this prefers active runs (in-progress/queued). If you want the most
+recent run regardless of status, pass:
+
+```
+mise exec -- python scripts/ci_watch.py --branch stage --no-prefer-active
 ```
 
 ## Make targets (optional)

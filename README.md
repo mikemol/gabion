@@ -17,12 +17,12 @@ doc_reviewed_as_of:
   POLICY_SEED.md: 29
   glossary.md: 28
   AGENTS.md: 13
-  CONTRIBUTING.md: 73
+  CONTRIBUTING.md: 74
 doc_review_notes:
   POLICY_SEED.md: "Reviewed for review-discipline invariant; aligns with README scope."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); overview remains accurate."
   AGENTS.md: "Agent obligations updated; README references remain valid."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md helper additions; README references remain correct."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md ci_watch update; README references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

@@ -20,14 +20,14 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 73
+  CONTRIBUTING.md: 74
   AGENTS.md: 13
   glossary.md: 28
   docs/publishing_practices.md: 23
   docs/coverage_semantics.md: 8
 doc_review_notes:
   README.md: "Reviewed for attribute-carrier/transport policy alignment; no conflicts with scope/status."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline/CI helper additions; no policy conflicts."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md ci_watch update (prefer active runs); no policy conflicts."
   AGENTS.md: "Agent obligations updated to forbid mechanical review stamping."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); policy invariants unchanged."
   docs/publishing_practices.md: "Publishing guidance unaffected by review discipline/attribute transport."

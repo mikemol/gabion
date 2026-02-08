@@ -15,12 +15,12 @@ doc_requires:
   - glossary.md
 doc_reviewed_as_of:
   README.md: 58
-  CONTRIBUTING.md: 73
+  CONTRIBUTING.md: 74
   POLICY_SEED.md: 29
   glossary.md: 28
 doc_review_notes:
   README.md: "Reviewed for attribute-carrier/transport policy impact; no conflicts."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md helper additions; agent workflow unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md ci_watch update; agent workflow unchanged."
   POLICY_SEED.md: "Adopts review discipline invariant; agent enforcement updated."
   glossary.md: "Reviewed glossary update (call_cluster evidence key); agent obligations unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"

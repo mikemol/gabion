@@ -14,10 +14,10 @@ doc_requires:
   - CONTRIBUTING.md
 doc_reviewed_as_of:
   POLICY_SEED.md: 29
-  CONTRIBUTING.md: 73
+  CONTRIBUTING.md: 74
 doc_review_notes:
   POLICY_SEED.md: "Review discipline invariant does not alter publishing practices."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md helper additions; publishing workflow unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md ci_watch update; publishing workflow unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
