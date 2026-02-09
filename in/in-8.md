@@ -1,3 +1,21 @@
+---
+doc_revision: 1
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_id: in_8
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires:
+doc_reviewed_as_of:
+doc_review_notes:
+doc_change_protocol: "POLICY_SEED.md §6"
+doc_erasure:
+  - formatting
+  - typos
+---
 The path of greatest leverage now is **Protocol Synthesis**.
 
 We have successfully built the "Witness" (the analysis engine that sees through aliasing and imports). The data it produces—the identified bundles—is the raw material. The next logical step is to turn that raw material into a "Crystal": **automatically generated Python code**.

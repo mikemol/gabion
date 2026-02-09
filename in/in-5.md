@@ -1,3 +1,21 @@
+---
+doc_revision: 1
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_id: in_5
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires:
+doc_reviewed_as_of:
+doc_review_notes:
+doc_change_protocol: "POLICY_SEED.md §6"
+doc_erasure:
+  - formatting
+  - typos
+---
 This aligns with the mandate to consider what is **valuable**, **novel**, and **complete**. We have tightened the knot on local aliasing (Identity), but the lattice still has gaps at the boundaries of modules and in the presence of higher-order flows.
 
 Here are the high-value extensions that transform this from a "heuristic scanner" to a "structural compiler."

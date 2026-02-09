@@ -1,3 +1,21 @@
+---
+doc_revision: 1
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_id: in_7
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires:
+doc_reviewed_as_of:
+doc_review_notes:
+doc_change_protocol: "POLICY_SEED.md §6"
+doc_erasure:
+  - formatting
+  - typos
+---
 This is the **Architectural Archeology Tool (v2)**.
 
 I have integrated the **Symbol Table (for Import Resolution)** and the **Identity-Aware Visitor (for Aliasing)**. This transforms the tool from a local heuristic scanner into a repository-wide structural compiler. It now understands that `db.query` in one file is the same as `database.query` in another, and that `y = x; func(y)` is a valid forwarding of `x`.

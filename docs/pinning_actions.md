@@ -10,6 +10,10 @@ doc_scope:
 doc_authority: informative
 doc_requires:
   - POLICY_SEED.md
+doc_reviewed_as_of:
+  POLICY_SEED.md: 32
+doc_review_notes:
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

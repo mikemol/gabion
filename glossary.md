@@ -15,12 +15,12 @@ doc_requires:
   - POLICY_SEED.md
 doc_reviewed_as_of:
   README.md: 59
-  CONTRIBUTING.md: 76
+  CONTRIBUTING.md: 78
   AGENTS.md: 13
   POLICY_SEED.md: 32
 doc_review_notes:
   README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
   AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
   POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
 doc_commutes_with:

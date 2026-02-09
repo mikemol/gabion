@@ -21,7 +21,7 @@ doc_requires:
 doc_reviewed_as_of:
   POLICY_SEED.md: 32
   glossary.md: 29
-  CONTRIBUTING.md: 76
+  CONTRIBUTING.md: 78
   README.md: 59
   in/in-24.md: 3
   in/in-25.md: 3
@@ -30,7 +30,7 @@ doc_reviewed_as_of:
 doc_review_notes:
   POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
   glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); matrix acceptance framing unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
   README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
   in/in-24.md: "Deadness matrix acceptance checks align with artifact schema requirements."
   in/in-25.md: "Coherence matrix acceptance mapping remains consistent with evidence artifacts."

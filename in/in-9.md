@@ -1,3 +1,21 @@
+---
+doc_revision: 1
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_id: in_9
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires:
+doc_reviewed_as_of:
+doc_review_notes:
+doc_change_protocol: "POLICY_SEED.md §6"
+doc_erasure:
+  - formatting
+  - typos
+---
 The previous steps gave you the **Map** (the graph of dependencies) and the **Destination** (the synthesized Protocols).
 **What is next?** The **Itinerary** (the Time dimension).
 

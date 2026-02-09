@@ -1,3 +1,21 @@
+---
+doc_revision: 1
+reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_id: in_1
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires:
+doc_reviewed_as_of:
+doc_review_notes:
+doc_change_protocol: "POLICY_SEED.md §6"
+doc_erasure:
+  - formatting
+  - typos
+---
 This is a sophisticated static analysis tool designed to identify **implicit data bundles** (often called "data clumps" in refactoring literature) within a Python codebase. It aims to facilitate the refactoring of loose parameter lists into structured configuration objects (likely `dataclasses`) by tracing how groups of arguments flow through the system together.
 
 Here is an analysis of the script's architecture, logic, and capabilities.

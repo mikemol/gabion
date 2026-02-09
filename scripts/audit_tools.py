@@ -6,6 +6,7 @@ import json
 import re
 import sys
 import tomllib
+import subprocess
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +30,7 @@ GOVERNANCE_DOCS = CORE_GOVERNANCE_DOCS + [
     "docs/influence_index.md",
     "docs/coverage_semantics.md",
     "docs/matrix_acceptance.md",
+    "docs/sppf_checklist.md",
 ]
 
 REQUIRED_FIELDS = [
@@ -201,6 +203,193 @@ def _parse_lint_entry(line: str) -> LintEntry | None:
 
 
 # --- Docflow audit helpers ---
+
+SPPF_TAG_RE = re.compile(r"sppf\{([^}]*)\}")
+SPPF_LINE_RE = re.compile(r"^- \[(?P<state>[x~ ])\]\s+(?P<body>.*)$")
+SPPF_IN_REF_RE = re.compile(r"\((?:in/)?in-\d+")
+SPPF_DOC_REF_SPLIT_RE = re.compile(r"\s*,\s*")
+SPPF_ALLOWED_STATUSES = {"done", "partial", "planned", "blocked", "deprecated"}
+INFLUENCE_STATUS_MAP = {
+    "adopted": "done",
+    "partial": "partial",
+    "untriaged": "planned",
+    "rejected": "blocked",
+}
+
+
+def _parse_sppf_tag(payload: str) -> dict[str, str]:
+    items: dict[str, str] = {}
+    for chunk in payload.split(";"):
+        part = chunk.strip()
+        if not part or "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        items[key.strip()] = value.strip()
+    return items
+
+
+def _parse_doc_ref(value: str) -> list[tuple[str, int | None]]:
+    refs: list[tuple[str, int | None]] = []
+    for part in SPPF_DOC_REF_SPLIT_RE.split(value):
+        chunk = part.strip()
+        if not chunk:
+            continue
+        if chunk.startswith("in/"):
+            chunk = chunk[3:]
+        name, _, rev = chunk.partition("@")
+        name = name.strip()
+        if not name:
+            continue
+        if name.endswith(".md"):
+            name = name[:-3]
+        if name.startswith("in-") and name[3:].isdigit():
+            doc_id = name
+        elif name.startswith("in-") and name[3:].split("/")[0].isdigit():
+            doc_id = name.split("/", 1)[0]
+        elif name.startswith("docs/") or "/" in name or name.endswith(".md"):
+            doc_id = name if name.endswith(".md") else f"{name}.md"
+        else:
+            doc_id = name
+        rev_value: int | None = None
+        if rev:
+            try:
+                rev_value = int(rev)
+            except ValueError:
+                rev_value = None
+        refs.append((doc_id, rev_value))
+    return refs
+
+
+def _influence_statuses(root: Path) -> dict[str, str]:
+    index_path = root / "docs" / "influence_index.md"
+    if not index_path.exists():
+        return {}
+    text = index_path.read_text(encoding="utf-8")
+    entries: dict[str, str] = {}
+    for line in text.splitlines():
+        match = re.match(r"^- in/in-(\d+)\.md — \*\*(\w+)\*\*", line.strip())
+        if not match:
+            continue
+        doc_id = f"in-{match.group(1)}"
+        status = match.group(2).lower()
+        entries[doc_id] = status
+    return entries
+
+
+def _in_doc_revisions(root: Path) -> dict[str, int]:
+    revisions: dict[str, int] = {}
+    inbox = root / "in"
+    if not inbox.exists():
+        return revisions
+    for path in inbox.glob("in-*.md"):
+        text = path.read_text(encoding="utf-8")
+        fm, _ = _parse_frontmatter(text)
+        doc_rev = fm.get("doc_revision")
+        if isinstance(doc_rev, int):
+            revisions[path.stem] = doc_rev
+    return revisions
+
+
+def _doc_revision_for_ref(root: Path, doc_id: str) -> int | None:
+    if doc_id.startswith("in-") and doc_id[3:].isdigit():
+        path = root / "in" / f"{doc_id}.md"
+    else:
+        path = root / doc_id
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8")
+    fm, _ = _parse_frontmatter(text)
+    doc_rev = fm.get("doc_revision")
+    return doc_rev if isinstance(doc_rev, int) else None
+
+
+def _sppf_axis_audit(root: Path, docs: dict[str, Doc]) -> tuple[list[str], list[str]]:
+    violations: list[str] = []
+    warnings: list[str] = []
+    sppf_doc = docs.get("docs/sppf_checklist.md")
+    if sppf_doc is None:
+        return violations, warnings
+    statuses = _influence_statuses(root)
+    revisions = _in_doc_revisions(root)
+    for raw in sppf_doc.body.splitlines():
+        check_deadline()
+        line = raw.strip()
+        match = SPPF_LINE_RE.match(line)
+        if not match:
+            continue
+        has_in_ref = bool(SPPF_IN_REF_RE.search(line))
+        tag_match = SPPF_TAG_RE.search(line)
+        if has_in_ref and not tag_match:
+            violations.append(f"docs/sppf_checklist.md: missing sppf{{...}} tag: {line}")
+            continue
+        if not tag_match:
+            continue
+        tags = _parse_sppf_tag(tag_match.group(1))
+        doc_status = tags.get("doc")
+        impl_status = tags.get("impl")
+        doc_ref = tags.get("doc_ref")
+        if not doc_status or doc_status not in SPPF_ALLOWED_STATUSES:
+            violations.append(f"docs/sppf_checklist.md: invalid doc status in sppf tag: {line}")
+        if not impl_status or impl_status not in SPPF_ALLOWED_STATUSES:
+            violations.append(f"docs/sppf_checklist.md: invalid impl status in sppf tag: {line}")
+        if not doc_ref:
+            violations.append(f"docs/sppf_checklist.md: missing doc_ref in sppf tag: {line}")
+            continue
+        refs = _parse_doc_ref(doc_ref)
+        if not refs:
+            violations.append(f"docs/sppf_checklist.md: invalid doc_ref in sppf tag: {line}")
+            continue
+        expected_doc_statuses: set[str] = set()
+        checked_doc_status = False
+        for doc_id, rev in refs:
+            if doc_id.startswith("in-") and doc_id[3:].isdigit():
+                expected = statuses.get(doc_id)
+                if expected is None:
+                    violations.append(
+                        f"docs/sppf_checklist.md: doc_ref {doc_id} missing in docs/influence_index.md: {line}"
+                    )
+                    continue
+                mapped = INFLUENCE_STATUS_MAP.get(expected)
+                if mapped is None:
+                    violations.append(
+                        f"docs/sppf_checklist.md: doc_ref {doc_id} has unknown status {expected}: {line}"
+                    )
+                    continue
+                expected_doc_statuses.add(mapped)
+                checked_doc_status = True
+                actual_rev = revisions.get(doc_id)
+                if actual_rev is None:
+                    violations.append(
+                        f"docs/sppf_checklist.md: doc_ref {doc_id} missing in/ doc revision: {line}"
+                    )
+                elif rev is None or rev != actual_rev:
+                    violations.append(
+                        f"docs/sppf_checklist.md: doc_ref {doc_id}@{rev} does not match in/{doc_id}.md rev {actual_rev}: {line}"
+                    )
+            else:
+                actual_rev = _doc_revision_for_ref(root, doc_id)
+                if actual_rev is None:
+                    violations.append(
+                        f"docs/sppf_checklist.md: doc_ref {doc_id} missing doc revision: {line}"
+                    )
+                elif rev is None or rev != actual_rev:
+                    violations.append(
+                        f"docs/sppf_checklist.md: doc_ref {doc_id}@{rev} does not match {doc_id} rev {actual_rev}: {line}"
+                    )
+        if checked_doc_status and doc_status and expected_doc_statuses and doc_status not in expected_doc_statuses:
+            violations.append(
+                f"docs/sppf_checklist.md: doc status {doc_status} does not match influence index {sorted(expected_doc_statuses)}: {line}"
+            )
+        state = match.group("state")
+        if state == "x" and (doc_status != "done" or impl_status != "done"):
+            violations.append(
+                f"docs/sppf_checklist.md: [x] requires doc=done and impl=done: {line}"
+            )
+        if state != "x" and doc_status == "done" and impl_status == "done":
+            warnings.append(
+                f"docs/sppf_checklist.md: doc+impl done but not marked [x]: {line}"
+            )
+    return violations, warnings
 
 
 def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
@@ -478,6 +667,10 @@ def _docflow_audit(
 
     warnings.extend(_tooling_warnings(root, docs))
     warnings.extend(_influence_warnings(root))
+    violations.extend(_sppf_sync_warnings(root))
+    sppf_violations, sppf_warnings = _sppf_axis_audit(root, docs)
+    violations.extend(sppf_violations)
+    warnings.extend(sppf_warnings)
 
     _ = governance_set
     return violations, warnings
@@ -521,6 +714,62 @@ def _influence_warnings(root: Path) -> List[str]:
         rel = path.as_posix()
         if rel not in index_text:
             warnings.append(f"docs/influence_index.md: missing {rel}")
+    return warnings
+
+
+def _git_diff_paths(rev_range: str) -> list[str]:
+    try:
+        output = subprocess.check_output(
+            ["git", "diff", "--name-only", rev_range],
+            text=True,
+        )
+    except Exception:
+        return []
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def _sppf_sync_warnings(root: Path) -> List[str]:
+    warnings: List[str] = []
+    try:
+        import sppf_sync
+    except Exception:
+        return warnings
+
+    try:
+        rev_range = sppf_sync._default_range()
+    except Exception:
+        return warnings
+
+    changed = _git_diff_paths(rev_range)
+    if not changed:
+        return warnings
+
+    relevant_prefixes = ("src/", "in/")
+    relevant_paths = {"docs/sppf_checklist.md"}
+    relevant = [
+        path
+        for path in changed
+        if path in relevant_paths or any(path.startswith(prefix) for prefix in relevant_prefixes)
+    ]
+    if not relevant:
+        return warnings
+
+    try:
+        commits = sppf_sync._collect_commits(rev_range)
+    except Exception:
+        return warnings
+    if not commits:
+        return warnings
+
+    issue_ids = sppf_sync._issue_ids_from_commits(commits)
+    if issue_ids:
+        return warnings
+
+    sample = ", ".join(sorted(relevant)[:5])
+    suffix = f" (e.g. {sample})" if sample else ""
+    warnings.append(
+        f"sppf_sync: no GH references found in commit range {rev_range} touching SPPF-relevant paths{suffix}"
+    )
     return warnings
 
 

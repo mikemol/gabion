@@ -1,5 +1,5 @@
 ---
-doc_revision: 76
+doc_revision: 78
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -17,14 +17,14 @@ doc_requires:
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
   README.md: 59
-  CONTRIBUTING.md: 76
+  CONTRIBUTING.md: 78
   AGENTS.md: 13
   POLICY_SEED.md: 32
   glossary.md: 29
   docs/coverage_semantics.md: 10
 doc_review_notes:
   README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with contributor scope."
-  CONTRIBUTING.md: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow audit now scans in/ by default; baseline guardrail + ci_cycle helper affirmed."
+  CONTRIBUTING.md: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
   POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
   glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); contributor workflow unchanged."
@@ -189,6 +189,10 @@ Run the docflow audit (governance docs; `in/` is included for dependency resolut
 ```
 mise exec -- python -m gabion docflow-audit
 ```
+
+Docflow now fails when commits touching SPPF-relevant paths (`src/`, `in/`, or
+`docs/sppf_checklist.md`) lack GH references in commit messages. Use `GH-####`
+trailers or run `scripts/sppf_sync.py --comment` after adding references.
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.

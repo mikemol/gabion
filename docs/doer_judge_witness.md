@@ -18,13 +18,13 @@ doc_reviewed_as_of:
   POLICY_SEED.md: 32
   glossary.md: 29
   AGENTS.md: 13
-  CONTRIBUTING.md: 76
+  CONTRIBUTING.md: 78
   README.md: 59
 doc_review_notes:
   POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
   glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); role terminology unchanged."
   AGENTS.md: "Agent obligations align with doer/judge/witness separation."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
   README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
