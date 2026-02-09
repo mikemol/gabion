@@ -2,7 +2,7 @@
 doc_revision: 4
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: out_1
-"doc_role": "hypothesis"
+doc_role: hypothesis
 doc_scope:
   - repo
   - governance
@@ -15,10 +15,15 @@ doc_requires:
   - CONTRIBUTING.md
   - README.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 28
-  glossary.md: 14
-  CONTRIBUTING.md: 71
-  README.md: 58
+  POLICY_SEED.md: 32
+  glossary.md: 29
+  CONTRIBUTING.md: 76
+  README.md: 59
+doc_review_notes:
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); terminology unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -36,6 +41,8 @@ legible, testable, and publishable.
 
 This is not just a dump folder for “notes.” It is a deliberate layer in the
 repo’s governance loop: a place where meaning is stabilized and exported.
+
+Normative pointers (explicit): `POLICY_SEED.md`, `glossary.md`, `CONTRIBUTING.md`, `README.md`.
 
 ## 1. Roles of `out/`
 

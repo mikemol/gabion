@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
+from gabion.analysis.timeout_context import check_deadline
+
 
 # --- Docflow audit constants ---
 
@@ -210,6 +212,7 @@ def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
     fm_lines: List[str] = []
     idx = 1
     while idx < len(lines):
+        check_deadline()
         line = lines[idx]
         if line.strip() == "---":
             idx += 1
@@ -225,6 +228,7 @@ def _parse_yaml_like(lines: List[str]) -> Frontmatter:
     current_list_key: str | None = None
     current_map_key: str | None = None
     for raw in lines:
+        check_deadline()
         line = raw.rstrip()
         if not line.strip():
             continue
@@ -279,20 +283,34 @@ def _lower_name(path: Path) -> str:
     return path.stem.lower()
 
 
-def _docflow_audit(root: Path) -> Tuple[List[str], List[str]]:
+def _docflow_audit(
+    root: Path,
+    extra_paths: list[str] | None = None,
+    *,
+    extra_strict: bool = False,
+) -> Tuple[List[str], List[str]]:
     violations: List[str] = []
     warnings: List[str] = []
 
     docs: dict[str, Doc] = {}
     doc_ids: dict[str, str] = {}
+    extra_revisions: dict[str, int] = {}
+    skipped_no_frontmatter: set[str] = set()
 
-    for rel in GOVERNANCE_DOCS:
-        path = root / rel
+    def _load_doc(path: Path, rel: str, *, strict: bool = False) -> None:
+        if rel in docs:
+            return
         if not path.exists():
-            violations.append(f"missing governance doc: {rel}")
-            continue
+            return
         text = path.read_text(encoding="utf-8")
         fm, body = _parse_frontmatter(text)
+        if not fm:
+            if strict:
+                violations.append(f"{rel}: missing frontmatter")
+            else:
+                warnings.append(f"{rel}: missing frontmatter; skipping")
+            skipped_no_frontmatter.add(rel)
+            return
         docs[rel] = Doc(frontmatter=fm, body=body)
         doc_id = fm.get("doc_id")
         if isinstance(doc_id, str):
@@ -303,27 +321,83 @@ def _docflow_audit(root: Path) -> Tuple[List[str], List[str]]:
             else:
                 doc_ids[doc_id] = rel
 
+    def _iter_extra_docs(paths: list[str]) -> list[Path]:
+        extra: list[Path] = []
+        for entry in paths:
+            if not entry:
+                continue
+            raw_path = Path(entry)
+            path = raw_path if raw_path.is_absolute() else root / raw_path
+            if path.is_dir():
+                extra.extend(sorted(path.rglob("*.md")))
+            elif path.is_file():
+                extra.append(path)
+        return extra
+
+    def _load_extra_revision(path: Path, rel: str) -> None:
+        if rel in docs or rel in extra_revisions or rel in skipped_no_frontmatter:
+            return
+        if not path.exists():
+            return
+        text = path.read_text(encoding="utf-8")
+        fm, _ = _parse_frontmatter(text)
+        if not fm:
+            skipped_no_frontmatter.add(rel)
+            return
+        doc_id = fm.get("doc_id")
+        revision = fm.get("doc_revision")
+        if not isinstance(doc_id, str) or not isinstance(revision, int):
+            skipped_no_frontmatter.add(rel)
+            return
+        extra_revisions[rel] = revision
+
+    for rel in GOVERNANCE_DOCS:
+        check_deadline()
+        path = root / rel
+        if not path.exists():
+            violations.append(f"missing governance doc: {rel}")
+            continue
+        _load_doc(path, rel)
+
+    if extra_paths:
+        for path in _iter_extra_docs(extra_paths):
+            check_deadline()
+            try:
+                rel = path.relative_to(root).as_posix()
+            except ValueError:
+                rel = path.as_posix()
+            if extra_strict:
+                _load_doc(path, rel, strict=True)
+            else:
+                _load_extra_revision(path, rel)
+
     governance_set = set(GOVERNANCE_DOCS)
     core_set = set(CORE_GOVERNANCE_DOCS)
 
     revisions: dict[str, int] = {}
     for rel, payload in docs.items():
+        check_deadline()
         fm = payload.frontmatter
         if isinstance(fm.get("doc_revision"), int):
             revisions[rel] = fm["doc_revision"]
+    revisions.update(extra_revisions)
 
     for rel, payload in docs.items():
+        check_deadline()
         fm = payload.frontmatter
         body = payload.body
         # Required fields
         for field in REQUIRED_FIELDS:
+            check_deadline()
             if field not in fm:
                 violations.append(f"{rel}: missing frontmatter field '{field}'")
         # Required list for doc_scope/doc_requires
         for field in ("doc_scope", "doc_requires"):
+            check_deadline()
             if field in fm and not isinstance(fm[field], list):
                 violations.append(f"{rel}: frontmatter field '{field}' must be a list")
         for field in ("doc_reviewed_as_of", "doc_review_notes"):
+            check_deadline()
             if field in fm and not isinstance(fm[field], dict):
                 violations.append(
                     f"{rel}: frontmatter field '{field}' must be a map"
@@ -341,6 +415,7 @@ def _docflow_audit(root: Path) -> Tuple[List[str], List[str]]:
         commutes = fm.get("doc_commutes_with")
         if isinstance(commutes, list):
             for other in commutes:
+                check_deadline()
                 other_doc = docs.get(other)
                 if other_doc is None:
                     violations.append(f"{rel}: doc_commutes_with target missing: {other}")
@@ -356,6 +431,7 @@ def _docflow_audit(root: Path) -> Tuple[List[str], List[str]]:
         if isinstance(requires, list):
             body_lower = body.lower()
             for req in requires:
+                check_deadline()
                 if req in body:
                     continue
                 req_name = _lower_name(Path(req))
@@ -373,6 +449,7 @@ def _docflow_audit(root: Path) -> Tuple[List[str], List[str]]:
                 violations.append(f"{rel}: doc_reviewed_as_of missing or invalid")
             else:
                 for req in requires:
+                    check_deadline()
                     expected = revisions.get(req)
                     if expected is None:
                         violations.append(
@@ -392,6 +469,7 @@ def _docflow_audit(root: Path) -> Tuple[List[str], List[str]]:
                 violations.append(f"{rel}: doc_review_notes missing or invalid")
             else:
                 for req in requires:
+                    check_deadline()
                     note = review_notes.get(req)
                     if not isinstance(note, str) or not note.strip():
                         violations.append(
@@ -410,6 +488,7 @@ def _tooling_warnings(root: Path, docs: dict[str, Doc]) -> List[str]:
     makefile = root / "Makefile"
     if makefile.exists():
         for rel in ("README.md", "CONTRIBUTING.md"):
+            check_deadline()
             doc = docs.get(rel)
             body = doc.body if doc is not None else ""
             if "make " not in body and "Make targets" not in body:
@@ -438,6 +517,7 @@ def _influence_warnings(root: Path) -> List[str]:
         return warnings
     index_text = index_path.read_text(encoding="utf-8")
     for path in sorted(inbox.glob("in-*.md")):
+        check_deadline()
         rel = path.as_posix()
         if rel not in index_text:
             warnings.append(f"docs/influence_index.md: missing {rel}")
@@ -451,6 +531,7 @@ def _decision_tier_candidates(lint_path: Path, *, tier: int, output_format: str)
     codes = {"GABION_DECISION_SURFACE", "GABION_VALUE_DECISION_SURFACE"}
     keys: list[str] = []
     for line in lint_path.read_text().splitlines():
+        check_deadline()
         parsed = _parse_lint_entry(line)
         if parsed is None:
             continue
@@ -461,6 +542,7 @@ def _decision_tier_candidates(lint_path: Path, *, tier: int, output_format: str)
     keys = sorted(set(keys))
     if output_format == "lines":
         for key in keys:
+            check_deadline()
             print(key)
         return 0
 
@@ -468,6 +550,7 @@ def _decision_tier_candidates(lint_path: Path, *, tier: int, output_format: str)
     print("[decision]")
     print(f"{tier_key} = [")
     for key in keys:
+        check_deadline()
         print(f"  \"{key}\",")
     print("]")
     return 0
@@ -480,6 +563,7 @@ def _parse_surfaces(lines: Iterable[str], *, value_encoded: bool) -> list[Decisi
     surfaces: list[DecisionSurface] = []
     pattern = VALUE_DECISION_RE if value_encoded else DECISION_RE
     for line in lines:
+        check_deadline()
         match = pattern.match(line.strip())
         if not match:
             continue
@@ -503,6 +587,7 @@ def _surfaces_from_forest(forest: dict[str, object]) -> tuple[list[DecisionSurfa
 
     node_meta: dict[tuple[str, tuple[object, ...]], dict[str, object]] = {}
     for node in nodes:
+        check_deadline()
         if not isinstance(node, dict):
             continue
         kind = node.get("kind")
@@ -515,6 +600,7 @@ def _surfaces_from_forest(forest: dict[str, object]) -> tuple[list[DecisionSurfa
     decision_surfaces: list[DecisionSurface] = []
     value_surfaces: list[DecisionSurface] = []
     for alt in alts:
+        check_deadline()
         if not isinstance(alt, dict):
             continue
         kind = alt.get("kind")
@@ -527,6 +613,7 @@ def _surfaces_from_forest(forest: dict[str, object]) -> tuple[list[DecisionSurfa
         site_qual = None
         params: tuple[str, ...] = ()
         for entry in inputs:
+            check_deadline()
             if not isinstance(entry, dict):
                 continue
             entry_kind = entry.get("kind")
@@ -570,6 +657,7 @@ def _surfaces_from_forest(forest: dict[str, object]) -> tuple[list[DecisionSurfa
 def _parse_lint_entries(lines: Iterable[str]) -> list[LintEntry]:
     entries: list[LintEntry] = []
     for line in lines:
+        check_deadline()
         parsed = _parse_lint_entry(line)
         if parsed is None:
             continue
@@ -586,11 +674,13 @@ def _render_bundle_candidates(
     for params, surfaces in sorted(
         bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
     ):
+        check_deadline()
         if len(surfaces) < 2:
             continue
         bundle = ", ".join(params)
         lines.append(f"- Bundle candidate `{bundle}` appears in {len(surfaces)} functions:")
         for surface in surfaces[:max_examples]:
+            check_deadline()
             lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
     return lines
 
@@ -604,10 +694,12 @@ def _render_param_clusters(
     for param, surfaces in sorted(
         param_to_surfaces.items(), key=lambda kv: (-len(kv[1]), kv[0])
     ):
+        check_deadline()
         if len(surfaces) < 2:
             continue
         lines.append(f"- Param `{param}` appears in {len(surfaces)} functions:")
         for surface in surfaces[:max_examples]:
+            check_deadline()
             lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
     return lines
 
@@ -623,6 +715,7 @@ def _render_higher_order_candidates(
     for params, surfaces in sorted(
         bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
     ):
+        check_deadline()
         if len(surfaces) < min_functions:
             continue
         file_count = len({s.path for s in surfaces})
@@ -634,6 +727,7 @@ def _render_higher_order_candidates(
             f"across {file_count} files:"
         )
         for surface in surfaces[:max_examples]:
+            check_deadline()
             lines.append(f"  - {surface.path}:{surface.qual} ({surface.meta})")
     return lines
 
@@ -646,13 +740,16 @@ def _build_suggestions(
     bundle_counts: dict[tuple[str, ...], list[DecisionSurface]] = defaultdict(list)
     param_counts: dict[str, list[DecisionSurface]] = defaultdict(list)
     for surface in decision_surfaces:
+        check_deadline()
         if surface.params:
             bundle_counts[tuple(sorted(surface.params))].append(surface)
         for param in surface.params:
+            check_deadline()
             param_counts[param].append(surface)
 
     bundle_suggestions: list[dict[str, object]] = []
     for params, surfaces in bundle_counts.items():
+        check_deadline()
         if len(surfaces) < 2:
             continue
         boundary_count = sum(1 for s in surfaces if s.is_boundary)
@@ -675,6 +772,7 @@ def _build_suggestions(
 
     param_suggestions: list[dict[str, object]] = []
     for param, surfaces in param_counts.items():
+        check_deadline()
         if len(surfaces) < 2:
             continue
         boundary_count = sum(1 for s in surfaces if s.is_boundary)
@@ -697,6 +795,7 @@ def _build_suggestions(
 
     higher_order: list[dict[str, object]] = []
     for params, surfaces in bundle_counts.items():
+        check_deadline()
         if len(surfaces) < config.min_functions:
             continue
         file_count = len({s.path for s in surfaces})
@@ -753,9 +852,11 @@ def _write_consolidation_report(
     param_to_surfaces: dict[str, list[DecisionSurface]] = defaultdict(list)
     bundle_counts: dict[tuple[str, ...], list[DecisionSurface]] = defaultdict(list)
     for surface in decision_surfaces:
+        check_deadline()
         if surface.params:
             bundle_counts[tuple(sorted(surface.params))].append(surface)
         for param in surface.params:
+            check_deadline()
             param_to_surfaces[param].append(surface)
 
     lint_by_code = Counter(entry.code for entry in lint_entries)
@@ -820,6 +921,7 @@ def _write_consolidation_report(
     boundary_lint_sorted = sorted(boundary_lint, key=lambda e: (e.path, e.line, e.col))
     if boundary_lint_sorted:
         for entry in boundary_lint_sorted[:20]:
+            check_deadline()
             lines.append(
                 f"- {entry.path}:{entry.line}:{entry.col} {entry.code} {entry.message}"
             )
@@ -830,6 +932,7 @@ def _write_consolidation_report(
     lines.append("## Value-encoded decision surfaces")
     if value_surfaces:
         for surface in value_surfaces[:20]:
+            check_deadline()
             params = ", ".join(surface.params)
             lines.append(f"- {surface.path}:{surface.qual} ({params}; {surface.meta})")
     else:
@@ -839,6 +942,7 @@ def _write_consolidation_report(
     if lint_by_file:
         lines.append("## Top lint files")
         for path, count in lint_by_file.most_common(10):
+            check_deadline()
             lines.append(f"- {path}: {count}")
         lines.append("")
 
@@ -860,6 +964,7 @@ def _summarize_lint(lines: Iterable[str]) -> dict[str, object]:
     total = 0
     by_code_file: dict[str, Counter[str]] = defaultdict(Counter)
     for line in lines:
+        check_deadline()
         parsed = _parse_lint_entry(line)
         if parsed is None:
             continue
@@ -882,16 +987,22 @@ def _summarize_lint(lines: Iterable[str]) -> dict[str, object]:
 
 def _docflow_command(args: argparse.Namespace) -> int:
     root = Path(args.root)
-    violations, warnings = _docflow_audit(root)
+    violations, warnings = _docflow_audit(
+        root,
+        extra_paths=args.extra_path,
+        extra_strict=args.extra_strict,
+    )
 
     print("Docflow audit summary")
     if warnings:
         print("Warnings:")
         for w in warnings:
+            check_deadline()
             print(f"- {w}")
     if violations:
         print("Violations:")
         for v in violations:
+            check_deadline()
             print(f"- {v}")
     if not warnings and not violations:
         print("No issues detected.")
@@ -978,9 +1089,11 @@ def _lint_summary_command(args: argparse.Namespace) -> int:
     print(f"Lint summary for {lint_path} ({total} findings)")
     print("\nTop codes:")
     for code, count in list(summary["codes"].items())[: args.top]:
+        check_deadline()
         print(f"- {code}: {count}")
     print("\nTop files:")
     for path, count in list(summary["files"].items())[: args.top]:
+        check_deadline()
         print(f"- {path}: {count}")
     return 0
 
@@ -990,6 +1103,17 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
         "--root",
         default=".",
         help="Repository root (default: current directory)",
+    )
+    parser.add_argument(
+        "--extra-path",
+        action="append",
+        default=["in"],
+        help="Additional doc path(s) or directories to include (repeatable).",
+    )
+    parser.add_argument(
+        "--extra-strict",
+        action="store_true",
+        help="Audit extra paths as full docs (require frontmatter + full checks).",
     )
     parser.add_argument(
         "--fail-on-violations",

@@ -14,16 +14,28 @@ doc_requires:
   - glossary.md
   - CONTRIBUTING.md
   - README.md
+  - in/in-24.md
+  - in/in-25.md
+  - in/in-26.md
+  - in/in-27.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 29
-  glossary.md: 28
-  CONTRIBUTING.md: 75
-  README.md: 58
+  POLICY_SEED.md: 32
+  glossary.md: 29
+  CONTRIBUTING.md: 76
+  README.md: 59
+  in/in-24.md: 3
+  in/in-25.md: 3
+  in/in-26.md: 3
+  in/in-27.md: 1
 doc_review_notes:
-  POLICY_SEED.md: "Review discipline invariant does not change matrix acceptance requirements."
-  glossary.md: "Reviewed glossary update (call_cluster evidence key); matrix acceptance framing unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; acceptance mapping unchanged."
-  README.md: "Scope references remain correct."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); matrix acceptance framing unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  in/in-24.md: "Deadness matrix acceptance checks align with artifact schema requirements."
+  in/in-25.md: "Coherence matrix acceptance mapping remains consistent with evidence artifacts."
+  in/in-26.md: "Rewrite-plan verification predicates match matrix obligations."
+  in/in-27.md: "Exception obligation mapping aligns with handledness/deadness requirements."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

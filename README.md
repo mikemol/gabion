@@ -1,5 +1,5 @@
 ---
-doc_revision: 58
+doc_revision: 59
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -14,15 +14,15 @@ doc_requires:
   - AGENTS.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 29
-  glossary.md: 28
+  POLICY_SEED.md: 32
+  glossary.md: 29
   AGENTS.md: 13
-  CONTRIBUTING.md: 75
+  CONTRIBUTING.md: 76
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed for review-discipline invariant; aligns with README scope."
-  glossary.md: "Reviewed glossary update (call_cluster evidence key); overview remains accurate."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); overview remains accurate."
   AGENTS.md: "Agent obligations updated; README references remain valid."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; README references remain correct."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); README references remain correct."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -137,7 +137,7 @@ Run audit + synthesis in one step (timestamped output under `artifacts/synthesis
 mise exec -- python -m gabion synth path/to/project
 ```
 
-Run the docflow audit (governance docs only):
+Run the docflow audit (governance docs; `in/` is included for dependency resolution):
 ```
 mise exec -- python -m gabion docflow-audit
 ```

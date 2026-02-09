@@ -14,15 +14,15 @@ doc_requires:
   - POLICY_SEED.md
   - glossary.md
 doc_reviewed_as_of:
-  README.md: 58
-  CONTRIBUTING.md: 75
-  POLICY_SEED.md: 29
-  glossary.md: 28
+  README.md: 59
+  CONTRIBUTING.md: 76
+  POLICY_SEED.md: 32
+  glossary.md: 29
 doc_review_notes:
-  README.md: "Reviewed for attribute-carrier/transport policy impact; no conflicts."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; agent workflow unchanged."
-  POLICY_SEED.md: "Adopts review discipline invariant; agent enforcement updated."
-  glossary.md: "Reviewed glossary update (call_cluster evidence key); agent obligations unchanged."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); agent obligations unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - read_policy_glossary_first

@@ -15,10 +15,15 @@ doc_requires:
   - CONTRIBUTING.md
   - README.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 28
-  glossary.md: 19
-  CONTRIBUTING.md: 71
-  README.md: 58
+  POLICY_SEED.md: 32
+  glossary.md: 29
+  CONTRIBUTING.md: 76
+  README.md: 59
+doc_review_notes:
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); ASPF/SPPF terminology unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -45,6 +50,8 @@ The value proposition is twofold:
 
 This is not metaphorical: ASPF establishes a correspondence between
 **derivation structure** (SPPF) and a **conserved algebraic carrier**.
+
+Normative pointers (explicit): `POLICY_SEED.md`, `glossary.md`, `CONTRIBUTING.md`, `README.md`.
 
 ---
 

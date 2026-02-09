@@ -14,6 +14,18 @@ doc_requires:
   - glossary.md
   - POLICY_SEED.md
   - AGENTS.md
+doc_reviewed_as_of:
+  README.md: 59
+  CONTRIBUTING.md: 76
+  glossary.md: 29
+  POLICY_SEED.md: 32
+  AGENTS.md: 13
+doc_review_notes:
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); bundle tiers/naming remain aligned."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  AGENTS.md: "Agent obligations unchanged; payload remains tool-facing."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

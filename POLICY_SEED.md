@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 32
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -19,19 +19,19 @@ doc_requires:
   - docs/publishing_practices.md
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
-  README.md: 58
-  CONTRIBUTING.md: 75
+  README.md: 59
+  CONTRIBUTING.md: 76
   AGENTS.md: 13
-  glossary.md: 28
+  glossary.md: 29
   docs/publishing_practices.md: 23
-  docs/coverage_semantics.md: 8
+  docs/coverage_semantics.md: 10
 doc_review_notes:
-  README.md: "Reviewed for attribute-carrier/transport policy alignment; no conflicts with scope/status."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; no policy conflicts."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
   AGENTS.md: "Agent obligations updated to forbid mechanical review stamping."
-  glossary.md: "Reviewed glossary update (call_cluster evidence key); policy invariants unchanged."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); policy invariants unchanged."
   docs/publishing_practices.md: "Publishing guidance unaffected by review discipline/attribute transport."
-  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact gating note); policy references remain accurate."
+  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact polysemy + artifacts/out paths); policy references remain accurate."
 doc_commutes_with:
   - glossary.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -123,6 +123,15 @@ accompanied by an explicit review note in `doc_review_notes` describing the
 dependency interaction. Missing or empty notes are a violation. Mechanistic
 version bumps without content review are treated as a governance breach.
 
+**Self-review rule (normative):** A document may list itself in
+`doc_reviewed_as_of` only if the reviewer performs a **Grothendieck analysis**
+of that document and records the result in `doc_review_notes`. The analysis
+must:
+
+- co‑fibrate the file against itself (normalize and align internal structure),
+- deduplicate the resulting observations, and
+- contrast the deduplicated result against the file’s semantics and completeness.
+
 ---
 
 ## 1. Prime Invariant (Unbreakable)
@@ -167,7 +176,9 @@ tracked and reviewed like code.
 * Commits authored by the maintainer or explicitly trusted collaborators.
 * Allow-listed dependency registries when used by trusted workflows (§4.6).
 * Tags created by the release tagging workflow on `next`/`release` (§4.4),
-  where `next` mirrors `main` and `release` mirrors `next` (no unique commits).
+  where `next` mirrors `main` and `release` mirrors `next` (no unique commits;
+  `next` and `main` point to the same commit, and `release` matches `next` at
+  tag time).
 
 ### 2.2 Untrusted Sources
 
@@ -282,6 +293,17 @@ branches, provided that:
 * The workflow force-updates `next` or `release` based on the validated source:
   * `mirror-next`: fast-forward `next` only after `main` merges (post-PR checks).
   * `promote-release`: fast-forward `release` only after `test-v*` succeeds.
+* The workflow verifies fast-forward safety before updating:
+  * `mirror-next`: `origin/next` must be an ancestor of `origin/main`
+    (e.g. `git merge-base --is-ancestor origin/next origin/main`).
+  * `promote-release`: the tested tag commit must be an ancestor of `origin/main`
+    and must match `origin/next`.
+* Branch updates must use `--force-with-lease` (or equivalent compare-and-swap)
+  so the verified ref cannot move between check and update.
+* Branch updates must push an explicitly resolved commit SHA (not a symbolic
+  ref), and the lease must pin the expected old SHA (e.g.
+  `--force-with-lease=refs/heads/next:<expected_sha>`) to avoid check-before-use
+  races.
 * No other write scopes are requested.
 
 **Personal-repo limitation:** GitHub does not allow actor-restricted rulesets or
@@ -301,7 +323,13 @@ tags, provided that:
   `github.ref == 'refs/heads/next'`.
 * The job explicitly guards on `github.actor == github.repository_owner`.
 * The workflow verifies `next` matches `main` and `release` matches `next`
-  before tagging.
+  before tagging (equality by commit SHA at tag time).
+* Tag creation must be idempotent and non-overwriting. The workflow must fail
+  if the tag already exists (or use `--force-with-lease=refs/tags/<tag>:` to
+  guarantee the tag did not exist at verification time).
+* The workflow must tag an explicitly resolved commit SHA that passed the
+  verification step (do not tag by branch name). If the branch head changes
+  between check and tag, the job must fail and re-run.
 * The workflow uses allow-listed actions pinned to full SHAs.
 * The workflow creates `test-v*` tags only from `next`, and `v*` tags only from
   `release`.
@@ -316,10 +344,13 @@ GitHub-hosted workflows may request `contents: write` to create `test-v*` tags
 * The job explicitly guards on `github.event.workflow_run.head_branch == 'main'`.
 * The job explicitly guards on the workflow-run actor being the repository
   owner or `github-actions[bot]`.
-* The workflow verifies `next` mirrors `main` before tagging.
+* The workflow verifies `next` mirrors `main` before tagging (commit SHA
+  equality) and tags the verified SHA (not a branch name).
 * The workflow derives the tag from `pyproject.toml` (`project.version`) and
   appends `+YYYYMMDDTHHMMSSZ` (UTC ISO8601 basic). It skips if the tag exists.
 * The workflow creates only `test-v*` tags (no `v*` tags).
+* Tag creation must be idempotent and non-overwriting (push must fail if the
+  tag already exists).
 * The workflow uses allow-listed actions pinned to full SHAs.
 * No other write scopes are requested.
 
@@ -335,6 +366,8 @@ GitHub-hosted release workflows triggered **only** by tag pushes MAY request
 * The publishing job is the only job requiring `id-token: write`.
 * All actions are allow-listed and pinned to full SHAs.
 * The workflow runs on GitHub-hosted runners only.
+* If a workflow also uses `workflow_run`, it must satisfy the dedicated
+  workflow-run exception below.
 
 **Narrow exception (TestPyPI workflow-run trigger):**
 
@@ -343,7 +376,22 @@ auto-test-tag workflow, provided that:
 
 * The workflow-run conclusion is `success`.
 * The workflow-run actor is the repository owner or `github-actions[bot]`.
-* The workflow verifies the `test-v*` tag is reachable from `main` and `next`.
+* The workflow verifies the `test-v*` tag is reachable from `main` and `next`,
+  and binds the tag SHA to the current branch heads in the same run (no
+  check-before-use gap).
+* The workflow uses allow-listed actions pinned to full SHAs.
+* The workflow requests only `contents: read`, `actions: read`, and `id-token: write`.
+
+**Narrow exception (PyPI workflow-run trigger):**
+
+The PyPI release workflow may also trigger on `workflow_run` from the
+release-tag workflow, provided that:
+
+* The workflow-run conclusion is `success`.
+* The workflow-run actor is the repository owner or `github-actions[bot]`.
+* The workflow verifies the `v*` tag is reachable from `main`, `next`, and `release`,
+  and binds the tag SHA to the current branch heads in the same run (no
+  check-before-use gap).
 * The workflow uses allow-listed actions pinned to full SHAs.
 * The workflow requests only `contents: read`, `actions: read`, and `id-token: write`.
 

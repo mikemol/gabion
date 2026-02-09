@@ -1,5 +1,5 @@
 ---
-doc_revision: 40
+doc_revision: 41
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -15,15 +15,15 @@ doc_requires:
   - CONTRIBUTING.md
   - README.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 29
-  glossary.md: 28
-  CONTRIBUTING.md: 75
-  README.md: 58
+  POLICY_SEED.md: 32
+  glossary.md: 29
+  CONTRIBUTING.md: 76
+  README.md: 59
 doc_review_notes:
-  POLICY_SEED.md: "Review discipline does not alter inbox→outbox mapping."
-  glossary.md: "Reviewed glossary update (call_cluster evidence key); influence tracking semantics unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; tracking workflow unchanged."
-  README.md: "Scope references remain correct."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); influence tracking semantics unchanged."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting
@@ -77,3 +77,4 @@ Status legend:
 - in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; exception-aware rewrite acceptance predicates implemented; remaining handledness refinement tracked; SPPF/GH-77, GH-80.)
 - in/in-28.md — **adopted** (in_step template discipline enforced; docflow structure and review requirements codified.)
 - in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)
+- in/in-30.md — **untriaged** (SuiteSite carrier + loop-scoped deadlines design; not yet adopted.)

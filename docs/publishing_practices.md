@@ -13,11 +13,11 @@ doc_requires:
   - POLICY_SEED.md
   - CONTRIBUTING.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 29
-  CONTRIBUTING.md: 75
+  POLICY_SEED.md: 32
+  CONTRIBUTING.md: 76
 doc_review_notes:
-  POLICY_SEED.md: "Review discipline invariant does not alter publishing practices."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; publishing workflow unchanged."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

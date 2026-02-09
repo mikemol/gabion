@@ -8,7 +8,15 @@ doc_scope:
   - planning
   - tooling
 doc_authority: informative
-doc_requires: []
+doc_requires:
+  - README.md
+  - CONTRIBUTING.md
+doc_reviewed_as_of:
+  README.md: 59
+  CONTRIBUTING.md: 76
+doc_review_notes:
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_erasure:
   - formatting

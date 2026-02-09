@@ -1,5 +1,5 @@
 ---
-doc_revision: 75
+doc_revision: 76
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -16,19 +16,19 @@ doc_requires:
   - glossary.md
   - docs/coverage_semantics.md
 doc_reviewed_as_of:
-  README.md: 58
-  CONTRIBUTING.md: 75
+  README.md: 59
+  CONTRIBUTING.md: 76
   AGENTS.md: 13
-  POLICY_SEED.md: 29
-  glossary.md: 28
-  docs/coverage_semantics.md: 8
+  POLICY_SEED.md: 32
+  glossary.md: 29
+  docs/coverage_semantics.md: 10
 doc_review_notes:
-  README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
-  CONTRIBUTING.md: "Reviewed baseline refresh guardrail + ci_cycle helper; no policy conflicts."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with contributor scope."
+  CONTRIBUTING.md: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow audit now scans in/ by default; baseline guardrail + ci_cycle helper affirmed."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
-  POLICY_SEED.md: "Review discipline invariant incorporated here."
-  glossary.md: "Reviewed glossary update (call_cluster evidence key); contributor workflow unchanged."
-  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact gating note); contributor guidance unchanged."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); contributor workflow unchanged."
+  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact polysemy + artifacts/out paths); contributor guidance unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
   - policy_glossary_handshake
@@ -185,7 +185,7 @@ Run audit + synthesis in one step (timestamped output under `artifacts/synthesis
 mise exec -- python -m gabion synth path/to/project
 ```
 
-Run the docflow audit (governance docs only):
+Run the docflow audit (governance docs; `in/` is included for dependency resolution):
 ```
 mise exec -- python -m gabion docflow-audit
 ```

@@ -1,5 +1,5 @@
 ---
-doc_revision: 28
+doc_revision: 29
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -14,15 +14,15 @@ doc_requires:
   - AGENTS.md
   - POLICY_SEED.md
 doc_reviewed_as_of:
-  README.md: 58
-  CONTRIBUTING.md: 75
+  README.md: 59
+  CONTRIBUTING.md: 76
   AGENTS.md: 13
-  POLICY_SEED.md: 29
+  POLICY_SEED.md: 32
 doc_review_notes:
-  README.md: "Reviewed for subsystem-interface terminology; no conflicts."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; glossary semantics unchanged."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
   AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
-  POLICY_SEED.md: "No policy conflicts with subsystem-interface definition."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
 doc_commutes_with:
   - POLICY_SEED.md
 doc_change_protocol: "POLICY_SEED.md §6"
@@ -1788,7 +1788,8 @@ Within-class ordering is erased.
 ### Meaning
 
 **Definition:** A deterministic projection that classifies tests using the
-evidence carrier and guardrails (e.g., `out/test_obsolescence_report.json`).
+evidence carrier and guardrails (e.g., `artifacts/out/test_obsolescence_report.json`,
+with Markdown projections under `out/test_obsolescence_report.md`).
 
 ### Axis
 
@@ -2006,3 +2007,114 @@ Display formatting is erased; key identity is not.
 ### Test Obligations (to be mapped)
 
 - Drift audit detects orphaned tags deterministically.
+
+---
+
+## 48. Grothendieck Analysis (Doc Review Cofibration)
+
+### Meaning
+
+**Definition:** A structured self-audit that co‑fibrates a document against
+itself (normalize and align internal structure), deduplicates observations, and
+contrasts the result against the document’s semantics and completeness.
+
+### Axis
+
+**Axis:** Documentation (review discipline).
+
+### Desired Commutation (Idempotence)
+
+```
+analyze(doc) = analyze(normalize(doc))
+```
+
+### Failure Modes
+
+- Mechanical review stamps without structural alignment.
+- Deduplication removed without validating semantic completeness.
+
+### Normative Rule
+
+> Self‑review is valid only when a Grothendieck analysis is performed and the
+> result is recorded in `doc_review_notes`.
+
+### Erasure
+
+Formatting and ordering of notes are erased; semantic contrasts are not.
+
+### Test Obligations (to be mapped)
+
+- Docflow audit rejects self‑review entries without explicit analysis notes.
+
+---
+
+## 49. Self‑Review (Docflow Exception)
+
+### Meaning
+
+**Definition:** A document review performed by the author of the document,
+permitted only with a Grothendieck analysis.
+
+### Axis
+
+**Axis:** Documentation (review discipline).
+
+### Desired Commutation (Reviewer Identity)
+
+Self‑review does not commute with normal review; it requires explicit evidence.
+
+### Failure Modes
+
+- Self‑review used to bypass review discipline.
+- `doc_reviewed_as_of` bumped without substantive notes.
+
+### Normative Rule
+
+> Self‑review must cite a Grothendieck analysis in `doc_review_notes`. Absent
+> that evidence, the review is invalid.
+
+### Erasure
+
+Formatting of notes is erased; evidence of analysis is not.
+
+### Test Obligations (to be mapped)
+
+- Self‑review without analysis evidence is rejected.
+
+---
+
+## 50. Mirror Branch (Fast‑Forward Equivalence)
+
+### Meaning
+
+**Definition:** Branch `A` mirrors branch `B` iff `A` has no unique commits
+relative to `B` (i.e., `A` is an ancestor of `B`), and mirror updates are
+fast‑forward only. After a mirror update, `A` and `B` are equal by commit SHA.
+
+### Axis
+
+**Axis:** Governance (branch integrity).
+
+### Desired Commutation (Fast‑Forward Stability)
+
+```
+mirror(A, B) and fast_forward(A ← B) ⇒ mirror(A, B)
+```
+
+### Failure Modes
+
+- Mirror branch diverges (unique commits).
+- Check‑before‑use race between verification and update.
+
+### Normative Rule
+
+> Mirror updates must verify ancestry, use explicit commit SHAs, and employ
+> compare‑and‑swap (`--force-with-lease`) to prevent TOCTOU races.
+
+### Erasure
+
+Remote alias names are erased; commit‑graph relations are not.
+
+### Test Obligations (to be mapped)
+
+- Policy checker enforces ancestor checks and explicit SHA updates.

@@ -1,5 +1,5 @@
 ---
-doc_revision: 8
+doc_revision: 10
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -17,16 +17,16 @@ doc_requires:
   - CONTRIBUTING.md
   - AGENTS.md
 doc_reviewed_as_of:
-  POLICY_SEED.md: 29
-  glossary.md: 28
-  README.md: 58
-  CONTRIBUTING.md: 75
+  POLICY_SEED.md: 32
+  glossary.md: 29
+  README.md: 59
+  CONTRIBUTING.md: 76
   AGENTS.md: 13
 doc_review_notes:
-  POLICY_SEED.md: "Review-discipline invariant does not alter coverage semantics."
-  glossary.md: "Reviewed glossary update (call_cluster evidence key); coverage semantics aligned."
-  README.md: "Scope references remain accurate."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md baseline guardrail + ci_cycle helper; coverage workflow unchanged."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); coverage semantics aligned."
+  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev76 (docflow audit now scans in/ by default); no conflicts with this document's scope."
   AGENTS.md: "Agent review discipline consistent with coverage obligations."
 doc_change_protocol: "POLICY_SEED.md §6"
 doc_invariants:
@@ -87,15 +87,24 @@ See `glossary.md` §§12–14 for decision-flow tier definitions.
 The canonical semantic coverage carrier is `out/test_evidence.json`. It records
 the evidence surface discharged by tests and explicitly lists unmapped tests.
 
-Projections derived from this carrier (e.g., `out/test_obsolescence_report.*`,
-`out/test_evidence_suggestions.*`) are advisory and must be deterministic.
+Projections derived from this carrier are advisory and must be deterministic.
+JSON projections are written under `artifacts/out/*.json`, with Markdown
+companions under `out/*.md` (documentation artifacts).
 CI enforces drift control for `out/test_evidence.json` by regenerating it and
 failing if the output changes without being committed.
 
-By default, only `out/test_evidence.json` is committed and gated. The
-projection outputs (`out/test_obsolescence_report.*`,
-`out/test_evidence_suggestions.*`) are local advisory artifacts and should not
-be committed unless explicitly promoted to a gated artifact.
+By default, only `out/test_evidence.json` is the **gated evidence carrier**.
+Other `out/*.md` files may be committed as **documentation artifacts** or
+advisory projections (with docflow frontmatter), provided they do **not**
+participate in gating. Non-gated JSON projections belong in `artifacts/out/`.
+This is a controlled polysemy of “artifact”:
+
+- **Evidence artifact (gated):** canonical carrier used by CI (JSON).
+- **Documentation artifact (ungated):** narrative or projection surface (Markdown).
+
+These meanings live on orthogonal axes (evidence gating vs documentation) and
+commute by erasure: documentation artifacts must not alter the gated evidence
+surface or its checks.
 
 ## 2. Ratchet Policy (No Regression)
 
