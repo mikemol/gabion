@@ -60,3 +60,13 @@ def test_merge_payload_prefers_explicit_values(tmp_path: Path) -> None:
     assert merged["ignore_params"] == ["cls"]
     assert merged["strictness"] == "high"
     assert merged["allow_external"] is True
+
+
+def test_dataflow_deadline_roots_validation() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root / "src"))
+    import gabion.analysis  # pre-load to avoid config/analysis import cycle
+    from gabion.config import dataflow_deadline_roots
+
+    assert dataflow_deadline_roots(None) == []
+    assert dataflow_deadline_roots(["not-a-dict"]) == []

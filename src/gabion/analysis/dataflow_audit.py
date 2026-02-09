@@ -2824,14 +2824,19 @@ def _collect_deadline_function_facts(
 
 def _collect_call_nodes_by_path(
     paths: list[Path],
+    *,
+    trees: Mapping[Path, ast.AST] | None = None,
 ) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:
     check_deadline()
     call_nodes: dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]] = {}
     for path in paths:
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception:
-            continue
+        if trees is not None and path in trees:
+            tree = trees[path]
+        else:
+            try:
+                tree = ast.parse(path.read_text())
+            except Exception:
+                continue
         span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -3084,6 +3089,9 @@ def _collect_deadline_obligations(
     *,
     project_root: Path | None,
     config: AuditConfig,
+    extra_facts_by_qual: dict[str, "_DeadlineFunctionFacts"] | None = None,
+    extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
+    extra_deadline_params: dict[str, set[str]] | None = None,
 ) -> list[JSONObject]:
     check_deadline()
     if not config.deadline_roots:
@@ -3105,6 +3113,9 @@ def _collect_deadline_obligations(
         project_root=project_root,
         ignore_params=config.ignore_params,
     )
+    if extra_facts_by_qual:
+        facts_by_qual = dict(facts_by_qual)
+        facts_by_qual.update(extra_facts_by_qual)
 
     deadline_params: dict[str, set[str]] = defaultdict(set)
     for info in by_qual.values():
@@ -3113,6 +3124,10 @@ def _collect_deadline_obligations(
         for name in info.params:
             if _is_deadline_param(name, info.annots.get(name)):
                 deadline_params[info.qual].add(name)
+    if extra_deadline_params:
+        for qual, params in extra_deadline_params.items():
+            if params:
+                deadline_params[qual].update(params)
     for helper in _DEADLINE_HELPER_QUALS:
         deadline_params.pop(helper, None)
 
@@ -3198,8 +3213,6 @@ def _collect_deadline_obligations(
             origin_vars = facts.local_info.origin_vars if facts else set()
             span_index = call_nodes_by_path.get(info.path, {})
             for call in info.calls:
-                if call.is_test:
-                    continue
                 callee = _resolve_callee(
                     call.callee,
                     info,
@@ -3225,6 +3238,9 @@ def _collect_deadline_obligations(
                     strictness=config.strictness,
                 )
                 call_infos[info.qual].append((call, callee, arg_info))
+    if extra_call_infos:
+        for qual, entries in extra_call_infos.items():
+            call_infos[qual].extend(entries)
 
     trusted_params: dict[str, set[str]] = defaultdict(set)
     roots = set(config.deadline_roots)

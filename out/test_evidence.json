@@ -11386,6 +11386,13 @@
       "test_id": "tests/test_config_declarations_anywhere.py::test_config_dataclass_declares_bundle_outside_config_py"
     },
     {
+      "evidence": [],
+      "file": "tests/test_config_defaults.py",
+      "line": 65,
+      "status": "unmapped",
+      "test_id": "tests/test_config_defaults.py::test_dataflow_deadline_roots_validation"
+    },
+    {
       "evidence": [
         {
           "display": "E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root",
@@ -13569,7 +13576,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 131,
+      "line": 169,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_ambiguity_witnesses_emit"
     },
@@ -13589,7 +13596,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 187,
+      "line": 225,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_callee_globals"
     },
@@ -13609,7 +13616,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 770,
+      "line": 808,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_ambiguous"
     },
@@ -13629,7 +13636,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 808,
+      "line": 846,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_globals_only"
     },
@@ -13649,7 +13656,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 76,
+      "line": 114,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_recursive_false"
     },
@@ -13667,7 +13674,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 927,
+      "line": 965,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_paths_deadline_includes_forest_spec"
     },
@@ -13687,7 +13694,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 33,
+      "line": 71,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_base_identifier_invalid_attribute"
     },
@@ -13731,7 +13738,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 606,
+      "line": 644,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_none_and_nontransparent"
     },
@@ -13775,7 +13782,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 840,
+      "line": 878,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_nontransparent_dependency"
     },
@@ -13831,7 +13838,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 566,
+      "line": 604,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_unresolved_and_opaque"
     },
@@ -13923,7 +13930,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 753,
+      "line": 791,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_synthesis_plan_skips_empty_members"
     },
@@ -13967,7 +13974,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 20,
+      "line": 58,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_module_exports_augassign_only"
     },
@@ -13987,7 +13994,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 60,
+      "line": 98,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_all_params_ignored"
     },
@@ -14007,7 +14014,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 44,
+      "line": 82,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_empty_params"
     },
@@ -14025,7 +14032,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 911,
+      "line": 949,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_fingerprint_warnings_missing_annotations"
     },
@@ -14189,9 +14196,30 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 650,
+      "line": 688,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_knob_param_names_non_const_kw"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 990,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_deadline_missing_carrier_for_loop"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 1003,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_deadline_none_arg_violation"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_edges.py",
+      "line": 1018,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_edges.py::test_deadline_origin_not_allowlisted"
     },
     {
       "evidence": [
@@ -14353,7 +14381,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 527,
+      "line": 565,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_emit_report_tier2_violation"
     },
@@ -14373,7 +14401,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 558,
+      "line": 596,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_infer_root_with_groups"
     },
@@ -14441,7 +14469,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 682,
+      "line": 720,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
     },
@@ -14459,7 +14487,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 894,
+      "line": 932,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_empty_groups"
     },
@@ -14477,7 +14505,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 873,
+      "line": 911,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
@@ -14617,7 +14645,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 435,
+      "line": 473,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
@@ -14635,7 +14663,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 640,
+      "line": 678,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
     },
@@ -14823,7 +14851,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 275,
+      "line": 313,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_external_filtered"
     },
@@ -14891,7 +14919,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 307,
+      "line": 345,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_global_and_imported"
     },
@@ -15079,7 +15107,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 212,
+      "line": 250,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_imports_and_self"
     },
@@ -15099,7 +15127,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 93,
+      "line": 131,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_local_callee_ambiguity_and_scope"
     },
@@ -15131,7 +15159,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 391,
+      "line": 429,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_method_in_hierarchy_edges"
     },
@@ -25236,6 +25264,62 @@
       "line": 158,
       "status": "mapped",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_type_audit_prints_findings"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 164,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_call_edges_and_recursive_helpers"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 155,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_call_nodes_handles_missing_span"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 293,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_deadline_obligations_full_matrix"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 562,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_deadline_obligations_strictness_low_star"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 209,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_arg_info_binding_and_fallback"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 129,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_function_facts_parse_error_and_scopes"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 64,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_helper_classification_and_unparse_error"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 89,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_local_info_aliasing"
     },
     {
       "evidence": [
