@@ -4,6 +4,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 from typing import TypeAlias
 import tomllib
+from gabion.analysis.timeout_context import check_deadline
 
 DEFAULT_CONFIG_NAME = "gabion.toml"
 
@@ -74,6 +75,7 @@ def fingerprint_defaults(
 
 
 def _normalize_name_list(value: TomlValue) -> list[str]:
+    check_deadline()
     items: list[str] = []
     if value is None:
         return items
@@ -97,6 +99,7 @@ def _as_bool(value: TomlValue) -> bool:
 
 
 def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
+    check_deadline()
     if section is None:
         return {}
     if not isinstance(section, dict):
@@ -132,7 +135,16 @@ def exception_never_list(section: TomlTable | None) -> list[str]:
     return _normalize_name_list(section.get("never"))
 
 
+def dataflow_deadline_roots(section: TomlTable | None) -> list[str]:
+    if section is None:
+        return []
+    if not isinstance(section, dict):
+        return []
+    return _normalize_name_list(section.get("deadline_roots"))
+
+
 def merge_payload(payload: TomlTable, defaults: TomlTable) -> TomlTable:
+    check_deadline()
     merged = dict(defaults)
     for key, value in payload.items():
         if value is None:

@@ -14,6 +14,7 @@ from typing import Callable
 
 from gabion.json_types import JSONObject
 from gabion import server
+from gabion.analysis.timeout_context import check_deadline
 
 
 class LspClientError(RuntimeError):
@@ -56,6 +57,7 @@ def _wait_readable(stream, deadline: float | None) -> None:
 
 
 def _read_rpc(stream, deadline: float | None = None) -> JSONObject:
+    check_deadline()
     header = b""
     while b"\r\n\r\n" not in header:
         _wait_readable(stream, deadline)
@@ -91,6 +93,7 @@ def _write_rpc(stream, message: JSONObject) -> None:
 def _read_response(
     stream, request_id: int, deadline: float | None = None
 ) -> JSONObject:
+    check_deadline()
     while True:
         message = _read_rpc(stream, deadline)
         if message.get("id") == request_id:

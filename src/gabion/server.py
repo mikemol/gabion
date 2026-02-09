@@ -59,9 +59,16 @@ from gabion.analysis import test_obsolescence
 from gabion.analysis import test_obsolescence_delta
 from gabion.analysis import test_obsolescence_state
 from gabion.analysis import test_evidence_suggestions
-from gabion.analysis.timeout_context import Deadline, TimeoutExceeded
+from gabion.analysis.timeout_context import (
+    Deadline,
+    TimeoutExceeded,
+    check_deadline,
+    reset_deadline,
+    set_deadline,
+)
 from gabion.config import (
     dataflow_defaults,
+    dataflow_deadline_roots,
     decision_defaults,
     decision_ignore_list,
     decision_require_tiers,
@@ -108,6 +115,7 @@ def _uri_to_path(uri: str) -> Path:
 
 
 def _normalize_transparent_decorators(value: object) -> set[str] | None:
+    check_deadline()
     if value is None:
         return None
     items: list[str] = []
@@ -123,6 +131,7 @@ def _normalize_transparent_decorators(value: object) -> set[str] | None:
 
 
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
+    check_deadline()
     result = analyze_paths(
         [Path(path_str)],
         recursive=True,
@@ -169,6 +178,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     defaults = dataflow_defaults(
         Path(root), Path(config_path) if config_path else None
     )
+    deadline_roots = set(dataflow_deadline_roots(defaults))
     decision_section = decision_defaults(
         Path(root), Path(config_path) if config_path else None
     )
@@ -210,6 +220,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             fingerprint_index = index
             constructor_registry = TypeConstructorRegistry(registry)
     payload = merge_payload(payload, defaults)
+    deadline_roots = set(payload.get("deadline_roots", deadline_roots))
 
     raw_paths = payload.get("paths") or []
     if raw_paths:
@@ -303,6 +314,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         decision_tiers=decision_tiers,
         decision_require_tiers=decision_require,
         never_exceptions=never_exceptions,
+        deadline_roots=deadline_roots,
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
         constructor_registry=constructor_registry,
@@ -366,6 +378,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             timeout_value = None
         if timeout_value is not None and timeout_value > 0:
             deadline = Deadline.from_timeout(timeout_value)
+    deadline_token = set_deadline(deadline)
 
     if needs_analysis:
         try:
@@ -384,6 +397,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 include_exception_obligations=include_exception_obligations,
                 include_handledness_witnesses=include_handledness_witnesses,
                 include_never_invariants=include_never_invariants,
+                include_deadline_obligations=bool(report_path) or lint,
                 include_decision_surfaces=include_decisions,
                 include_value_decision_surfaces=include_decisions,
                 include_invariant_propositions=bool(report_path),
@@ -391,9 +405,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 include_ambiguities=include_ambiguities,
                 include_bundle_forest=True,
                 config=config,
-                deadline=deadline,
             )
         except TimeoutExceeded as exc:
+            reset_deadline(deadline_token)
             return {
                 "exit_code": 2,
                 "timeout": True,
@@ -431,6 +445,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         "fingerprint_exception_obligations": analysis.exception_obligations,
         "fingerprint_handledness": analysis.handledness_witnesses,
         "never_invariants": analysis.never_invariants,
+        "deadline_obligations": analysis.deadline_obligations,
         "ambiguity_witnesses": analysis.ambiguity_witnesses,
         "invariant_propositions": [
             prop.as_dict() for prop in analysis.invariant_propositions
@@ -585,7 +600,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         evidence_path = report_root / "out" / "test_evidence.json"
         consolidation_payload = (
             call_cluster_consolidation.build_call_cluster_consolidation_payload(
-                evidence_path=evidence_path
+                evidence_path=evidence_path,
             )
         )
         report_md = call_cluster_consolidation.render_markdown(consolidation_payload)
@@ -796,12 +811,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         state_path = Path(ambiguity_state_path)
         if not state_path.exists():
             raise FileNotFoundError(f"Ambiguity state not found: {state_path}")
-        state = ambiguity_state.load_state(str(state_path))
+        state = ambiguity_state.load_state(
+            str(state_path),
+        )
         ambiguity_witnesses = [
             {str(k): entry[k] for k in entry} for entry in state.witnesses
         ]
         ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
-            ambiguity_witnesses
+            ambiguity_witnesses,
         )
         ambiguity_baseline = state.baseline
     elif emit_ambiguity_delta or write_ambiguity_baseline or emit_ambiguity_state:
@@ -812,15 +829,17 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             report_root = Path(root)
             output_dir = report_root / "out"
             output_dir.mkdir(parents=True, exist_ok=True)
-            state_payload = ambiguity_state.build_state_payload(ambiguity_witnesses)
+            state_payload = ambiguity_state.build_state_payload(
+                ambiguity_witnesses,
+            )
             (output_dir / "ambiguity_state.json").write_text(
                 json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
             )
         ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
-            ambiguity_witnesses
+            ambiguity_witnesses,
         )
         ambiguity_baseline = ambiguity_delta.parse_baseline_payload(
-            ambiguity_baseline_payload
+            ambiguity_baseline_payload,
         )
     if (
         emit_ambiguity_delta or write_ambiguity_baseline
@@ -839,11 +858,15 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 raise FileNotFoundError(
                     f"Ambiguity baseline not found: {baseline_path}"
                 )
-            baseline = ambiguity_delta.load_baseline(str(baseline_path))
+            baseline = ambiguity_delta.load_baseline(
+                str(baseline_path),
+            )
             current = (
                 ambiguity_baseline
                 if ambiguity_baseline is not None
-                else ambiguity_delta.parse_baseline_payload(ambiguity_baseline_payload)
+                else ambiguity_delta.parse_baseline_payload(
+                    ambiguity_baseline_payload,
+                )
             )
             delta_payload = ambiguity_delta.build_delta_payload(
                 baseline, current, baseline_path=str(baseline_path)
@@ -851,7 +874,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             output_dir = report_root / "out"
             output_dir.mkdir(parents=True, exist_ok=True)
             report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
-            report_md = ambiguity_delta.render_markdown(delta_payload)
+            report_md = ambiguity_delta.render_markdown(
+                delta_payload,
+            )
             (output_dir / "ambiguity_delta.json").write_text(report_json)
             (output_dir / "ambiguity_delta.md").write_text(report_md)
             response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
@@ -887,6 +912,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             fingerprint_provenance=analysis.fingerprint_provenance,
             context_suggestions=analysis.context_suggestions,
             invariant_propositions=analysis.invariant_propositions,
+            deadline_obligations=analysis.deadline_obligations,
         )
         if baseline_path is not None:
             baseline_entries = load_baseline(baseline_path)
@@ -998,11 +1024,13 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             response["exit_code"] = 0
         else:
             response["exit_code"] = 1 if (fail_on_violations and effective_violations) else 0
+    reset_deadline(deadline_token)
     return response
 
 
 @server.command(SYNTHESIS_COMMAND)
 def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
+    check_deadline()
     if payload is None:
         payload = {}
     try:

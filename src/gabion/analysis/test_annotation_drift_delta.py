@@ -12,6 +12,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -106,6 +107,7 @@ def build_delta_payload(
 
 
 def render_markdown(payload: Mapping[str, JSONValue]) -> str:
+    check_deadline()
     summary = payload.get("summary", {})
     baseline = summary.get("baseline", {}) if isinstance(summary, Mapping) else {}
     current = summary.get("current", {}) if isinstance(summary, Mapping) else {}
@@ -134,6 +136,7 @@ def _format_delta_value(delta: object) -> str:
 
 
 def _normalize_summary(summary: Mapping[str, object]) -> dict[str, int]:
+    check_deadline()
     normalized: dict[str, int] = {}
     for key, raw in summary.items():
         name = str(key)

@@ -13,6 +13,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -63,6 +64,7 @@ def build_baseline_payload(
 
 
 def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBaseline:
+    check_deadline()
     version = payload.get("version", BASELINE_VERSION)
     try:
         version_value = int(version) if version is not None else BASELINE_VERSION
@@ -227,6 +229,7 @@ def build_delta_payload(
 
 
 def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
+    check_deadline()
     # dataflow-bundle: delta_payload
     summary = delta_payload.get("summary", {})
     counts = {}
@@ -311,6 +314,7 @@ def build_baseline_payload_from_paths(
 
 
 def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[str, int]:
+    check_deadline()
     result = {key: 0 for key in _class_keys()}
     if not isinstance(summary, Mapping):
         return result
@@ -322,6 +326,7 @@ def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[st
 def _tests_from_candidates(
     candidates: Iterable[Mapping[str, object]],
 ) -> list[dict[str, JSONValue]]:
+    check_deadline()
     tests: dict[str, str] = {}
     for entry in candidates:
         if not isinstance(entry, Mapping):
@@ -341,6 +346,7 @@ def _build_evidence_index(
     evidence_by_test: Mapping[str, Iterable[object]],
     status_by_test: Mapping[str, str],
 ) -> list[dict[str, JSONValue]]:
+    check_deadline()
     entries: dict[str, EvidenceIndexEntry] = {}
     for test_id, evidence in evidence_by_test.items():
         if status_by_test.get(test_id) != "mapped":
@@ -376,6 +382,7 @@ def _build_evidence_index(
 
 
 def _parse_evidence_index(value: object) -> dict[str, EvidenceIndexEntry]:
+    check_deadline()
     entries: dict[str, EvidenceIndexEntry] = {}
     if not isinstance(value, list):
         return entries
@@ -415,6 +422,7 @@ def _parse_evidence_index(value: object) -> dict[str, EvidenceIndexEntry]:
 
 
 def _count_opaque_evidence(evidence_by_test: Mapping[str, Iterable[object]]) -> int:
+    check_deadline()
     total = 0
     for evidence in evidence_by_test.values():
         refs = test_obsolescence._normalize_evidence_refs(evidence)
@@ -477,6 +485,7 @@ def _section_list(container: Mapping[str, JSONValue] | object, key: str) -> list
 def _render_test_section(
     lines: list[str], title: str, entries: list[Mapping[str, object]]
 ) -> None:
+    check_deadline()
     lines.append(f"### {title}")
     if not entries:
         lines.append("- None")
@@ -491,6 +500,7 @@ def _render_test_section(
 def _render_test_changes(
     lines: list[str], entries: list[Mapping[str, object]]
 ) -> None:
+    check_deadline()
     lines.append("### Class Changes")
     if not entries:
         lines.append("- None")
@@ -505,6 +515,7 @@ def _render_test_changes(
 def _render_evidence_section(
     lines: list[str], title: str, entries: list[Mapping[str, object]]
 ) -> None:
+    check_deadline()
     lines.append(f"### {title}")
     if not entries:
         lines.append("- None")
@@ -518,6 +529,7 @@ def _render_evidence_section(
 def _render_evidence_changes(
     lines: list[str], entries: list[Mapping[str, object]]
 ) -> None:
+    check_deadline()
     lines.append("### Witness Count Changes")
     if not entries:
         lines.append("- None")

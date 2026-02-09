@@ -6,6 +6,7 @@ from typing import Iterable, Mapping
 
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 
 def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -29,6 +30,7 @@ def spec_hash(spec: ProjectionSpec) -> str:
 
 
 def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSONValue]]:
+    check_deadline()
     normalized: list[dict[str, JSONValue]] = []
     pending_selects: list[str] = []
 
@@ -92,6 +94,7 @@ def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSON
 
 
 def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
+    check_deadline()
     predicates: list[str] = []
     legacy = params.get("predicate")
     if isinstance(legacy, str) and legacy.strip():
@@ -113,6 +116,7 @@ def _normalize_predicates(values: Iterable[str]) -> list[str]:
 
 
 def _normalize_fields(value: JSONValue) -> list[str]:
+    check_deadline()
     fields: list[str] = []
     if isinstance(value, str):
         if value.strip():
@@ -137,6 +141,7 @@ def _normalize_group_fields(value: JSONValue) -> list[str]:
 
 
 def _normalize_sort_by(value: JSONValue) -> list[dict[str, JSONValue]]:
+    check_deadline()
     if value is None:
         return []
     items: list[dict[str, JSONValue]] = []
@@ -181,6 +186,7 @@ def _normalize_limit(value: JSONValue) -> int | None:
 
 
 def _normalize_value(value: JSONValue) -> JSONValue:
+    check_deadline()
     if isinstance(value, dict):
         return {str(k): _normalize_value(value[k]) for k in sorted(value)}
     if isinstance(value, list):

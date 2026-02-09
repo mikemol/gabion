@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Callable, Iterable, Mapping, Sequence
+from gabion.analysis.timeout_context import check_deadline
 
 
 def normalize_params(values: Iterable[str]) -> list[str]:
@@ -34,6 +35,7 @@ def _normalize_target(target: object) -> tuple[str, str] | None:
 
 
 def _normalize_span(value: object) -> list[int] | None:
+    check_deadline()
     if value is None:
         return None
     if isinstance(value, Mapping):
@@ -81,6 +83,7 @@ def _normalize_site(site: object) -> dict[str, object]:
 
 
 def normalize_targets(targets: Iterable[object]) -> list[dict[str, str]]:
+    check_deadline()
     cleaned: dict[tuple[str, str], dict[str, str]] = {}
     for target in targets:
         parts = _normalize_target(target)
@@ -209,6 +212,7 @@ def make_partition_witness_key(
     support: Mapping[str, object] | None = None,
     collapse: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
+    check_deadline()
     # dataflow-bundle: ambiguity, kind, site
     payload: dict[str, object] = {
         "k": "partition_witness",
@@ -236,6 +240,7 @@ def make_opaque_key(display: str) -> dict[str, object]:
 
 
 def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
+    check_deadline()
     kind = str(key.get("k", "") or "").strip()
     if kind == "paramset":
         params = key.get("params", [])
@@ -341,6 +346,7 @@ def render_display(
     *,
     normalize: Callable[[Mapping[str, object]], Mapping[str, object]] = normalize_key,
 ) -> str:
+    check_deadline()
     normalized = normalize(key)
     kind = normalized.get("k")
     if kind == "opaque":
@@ -411,6 +417,7 @@ def render_display(
 
 
 def parse_display(display: str) -> dict[str, object] | None:
+    check_deadline()
     value = str(display).strip()
     if not value.startswith("E:"):
         return None

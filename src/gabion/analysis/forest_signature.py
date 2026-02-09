@@ -5,6 +5,7 @@ from typing import Iterable
 
 from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class ForestSignature:
 
 
 def build_forest_signature(forest: Forest) -> dict[str, JSONValue]:
+    check_deadline()
     nodes = sorted(forest.nodes.keys(), key=lambda node_id: node_id.sort_key())
     node_intern: list[list[JSONValue]] = []
     node_index: dict[NodeId, int] = {}
@@ -56,6 +58,7 @@ def build_forest_signature(forest: Forest) -> dict[str, JSONValue]:
 def build_forest_signature_from_groups(
     groups_by_path: dict[object, dict[str, list[set[str]]]]
 ) -> dict[str, JSONValue]:
+    check_deadline()
     forest = Forest()
     for path in sorted(groups_by_path, key=lambda item: str(item)):
         groups = groups_by_path[path]
@@ -76,6 +79,7 @@ def _alt_sort_key(alt: Alt, node_index: dict[NodeId, int]) -> tuple:
 
 
 def _normalize_key(parts: Iterable[object]) -> list[JSONValue]:
+    check_deadline()
     normalized: list[JSONValue] = []
     for part in parts:
         if isinstance(part, (str, int, float, bool)) or part is None:

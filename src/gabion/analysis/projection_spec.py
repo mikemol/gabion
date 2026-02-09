@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Mapping
 
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ def spec_to_dict(spec: ProjectionSpec) -> dict[str, JSONValue]:
 
 
 def spec_from_dict(payload: Mapping[str, JSONValue]) -> ProjectionSpec:
+    check_deadline()
     spec_version = payload.get("spec_version", 1)
     try:
         version = int(spec_version) if spec_version is not None else 1

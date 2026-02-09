@@ -12,6 +12,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.timeout_context import check_deadline
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class EvidenceRef:
 def load_test_evidence(
     path: str,
 ) -> tuple[dict[str, list[EvidenceRef]], dict[str, str]]:
+    check_deadline()
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     schema_version = payload.get("schema_version")
     if schema_version not in {1, 2}:
@@ -86,6 +88,7 @@ def load_risk_registry(path: str) -> dict[str, RiskInfo]:
 
 
 def _parse_risk_registry_payload(payload: Mapping[str, object]) -> dict[str, RiskInfo]:
+    check_deadline()
     version = payload.get("version", 1)
     if version != 1:
         raise ValueError(
@@ -108,6 +111,7 @@ def _parse_risk_registry_payload(payload: Mapping[str, object]) -> dict[str, Ris
 def compute_dominators(
     evidence_by_test: dict[str, list[str]],
 ) -> dict[str, list[str]]:
+    check_deadline()
     test_ids = sorted(evidence_by_test)
     evidence_sets = {test_id: set(evidence_by_test[test_id]) for test_id in test_ids}
     evidence_sizes = {test_id: len(evidence_sets[test_id]) for test_id in test_ids}
@@ -140,6 +144,7 @@ def classify_candidates(
     status_by_test: dict[str, str],
     risk_registry: dict[str, RiskInfo],
 ) -> tuple[list[dict[str, object]], dict[str, int]]:
+    check_deadline()
     # dataflow-bundle: evidence_by_test, status_by_test, risk_registry
     normalized_evidence = {
         test_id: _normalize_evidence_refs(evidence)
@@ -239,6 +244,7 @@ def render_markdown(
     candidates: list[dict[str, object]],
     summary_counts: dict[str, int],
 ) -> str:
+    check_deadline()
     # dataflow-bundle: candidates, summary_counts
     lines: list[str] = []
     lines.append("# Test Obsolescence Report")
@@ -317,6 +323,7 @@ def _summarize_candidates(
     *,
     apply: Callable[[ProjectionSpec, list[dict[str, object]]], list[dict[str, object]]] | None = None,
 ) -> dict[str, int]:
+    check_deadline()
     relation: list[dict[str, object]] = []
     for entry in candidates:
         class_name = str(entry.get("class", "") or "")
@@ -346,6 +353,7 @@ def _summarize_candidates(
 
 
 def _normalize_evidence_refs(value: object) -> list[EvidenceRef]:
+    check_deadline()
     if value is None:
         return []
     if isinstance(value, EvidenceRef):

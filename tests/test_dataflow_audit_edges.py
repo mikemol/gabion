@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import textwrap
 
-from gabion.analysis.timeout_context import Deadline
+from gabion.analysis.timeout_context import Deadline, deadline_scope
 
 
 def _load():
@@ -14,6 +14,44 @@ def _load():
     from gabion.analysis import dataflow_audit as da
 
     return da
+
+
+def _deadline_obligations(tmp_path: Path, source: str, roots: set[str]) -> list[dict]:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(textwrap.dedent(source), encoding="utf-8")
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots=set(roots),
+    )
+    result = da.analyze_paths(
+        [target],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_deadness_witnesses=False,
+        include_coherence_witnesses=False,
+        include_rewrite_plans=False,
+        include_exception_obligations=False,
+        include_handledness_witnesses=False,
+        include_never_invariants=False,
+        include_decision_surfaces=False,
+        include_value_decision_surfaces=False,
+        include_invariant_propositions=False,
+        include_lint_lines=False,
+        include_ambiguities=False,
+        include_bundle_forest=False,
+        include_deadline_obligations=True,
+        config=config,
+    )
+    return result.deadline_obligations
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._string_list::node E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
@@ -928,22 +966,66 @@ def test_analyze_paths_deadline_includes_forest_spec(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
     target.write_text("def callee(x):\n    return x\n", encoding="utf-8")
-    result = da.analyze_paths(
-        [target],
-        recursive=True,
-        type_audit=False,
-        type_audit_report=False,
-        type_audit_max=0,
-        include_constant_smells=False,
-        include_unused_arg_smells=False,
-        include_bundle_forest=True,
-        config=da.AuditConfig(
-            project_root=tmp_path,
-            exclude_dirs=set(),
-            ignore_params=set(),
-            external_filter=True,
-            strictness="high",
-        ),
-        deadline=Deadline.from_timeout(10.0),
-    )
+    with deadline_scope(Deadline.from_timeout(10.0)):
+        result = da.analyze_paths(
+            [target],
+            recursive=True,
+            type_audit=False,
+            type_audit_report=False,
+            type_audit_max=0,
+            include_constant_smells=False,
+            include_unused_arg_smells=False,
+            include_bundle_forest=True,
+            config=da.AuditConfig(
+                project_root=tmp_path,
+                exclude_dirs=set(),
+                ignore_params=set(),
+                external_filter=True,
+                strictness="high",
+            ),
+        )
     assert result.forest is not None
+
+
+def test_deadline_missing_carrier_for_loop(tmp_path: Path) -> None:
+    obligations = _deadline_obligations(
+        tmp_path,
+        """
+        def loop():
+            for _ in range(1):
+                pass
+        """,
+        roots={"mod.root"},
+    )
+    assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
+
+
+def test_deadline_none_arg_violation(tmp_path: Path) -> None:
+    obligations = _deadline_obligations(
+        tmp_path,
+        """
+        def callee(deadline: Deadline):
+            return 1
+
+        def root():
+            callee(None)
+        """,
+        roots={"mod.root"},
+    )
+    assert any(entry.get("kind") == "none_arg" for entry in obligations)
+
+
+def test_deadline_origin_not_allowlisted(tmp_path: Path) -> None:
+    obligations = _deadline_obligations(
+        tmp_path,
+        """
+        def callee(deadline: Deadline):
+            return 1
+
+        def helper():
+            deadline = Deadline.from_timeout(1.0)
+            callee(deadline)
+        """,
+        roots={"mod.root"},
+    )
+    assert any(entry.get("kind") == "origin_not_allowlisted" for entry in obligations)

@@ -11,6 +11,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 STATE_VERSION = 1
 
@@ -47,6 +48,7 @@ def build_state_payload(
 
 
 def parse_state_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceState:
+    check_deadline()
     version = payload.get("version", STATE_VERSION)
     try:
         version_value = int(version) if version is not None else STATE_VERSION

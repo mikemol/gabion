@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from typing import Callable, TYPE_CHECKING
+from gabion.analysis.timeout_context import check_deadline
 
 if TYPE_CHECKING:
     from gabion.analysis.dataflow_audit import CallArgs, ParamUse
@@ -16,6 +17,7 @@ class ParentAnnotator(ast.NodeVisitor):
         self.parents: dict[ast.AST, ast.AST] = {}
 
     def generic_visit(self, node: ast.AST) -> None:
+        check_deadline()
         for child in ast.iter_child_nodes(node):
             self.parents[child] = node
             self.visit(child)
@@ -28,11 +30,13 @@ class ImportVisitor(ast.NodeVisitor):
         self.table = table
 
     def visit_Import(self, node: ast.Import) -> None:
+        check_deadline()
         for alias in node.names:
             local = alias.asname or alias.name
             self.table.imports[(self.module, local)] = alias.name
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        check_deadline()
         if not node.module and node.level == 0:
             return
         if node.level > 0:
@@ -110,6 +114,7 @@ class UseVisitor(ast.NodeVisitor):
         sites.add(span)
 
     def visit_Call(self, node: ast.Call) -> None:
+        check_deadline()
         callee = self.callee_name(node)
         span = self._node_span(node)
         pos_map: dict[str, str] = {}
@@ -168,6 +173,7 @@ class UseVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_write(self, target: ast.AST) -> None:
+        check_deadline()
         for node in ast.walk(target):
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
                 name = node.id
@@ -192,6 +198,7 @@ class UseVisitor(ast.NodeVisitor):
                         self.use_map[param].non_forward = True
 
     def _bind_sequence(self, target: ast.AST, rhs: ast.AST) -> bool:
+        check_deadline()
         # dataflow-bundle: target, rhs
         if not isinstance(target, (ast.Tuple, ast.List)):
             return False
@@ -214,6 +221,7 @@ class UseVisitor(ast.NodeVisitor):
         return True
 
     def _collect_alias_sources(self, rhs: ast.AST) -> set[str]:
+        check_deadline()
         if isinstance(rhs, ast.Name) and rhs.id in self.alias_to_param:
             return {self.alias_to_param[rhs.id]}
         if isinstance(rhs, (ast.Tuple, ast.List)):
@@ -224,6 +232,7 @@ class UseVisitor(ast.NodeVisitor):
         return set()
 
     def _alias_from_call(self, call: ast.Call) -> list[str] | None:
+        check_deadline()
         if not self.return_aliases:
             return None
         callee = self.callee_name(call)
@@ -263,6 +272,7 @@ class UseVisitor(ast.NodeVisitor):
     def _bind_return_alias(
         self, targets: list[ast.AST], aliases: list[str]
     ) -> bool:
+        check_deadline()
         if len(targets) != 1:
             return False
         target = targets[0]
@@ -288,6 +298,7 @@ class UseVisitor(ast.NodeVisitor):
         return False
 
     def visit_Assign(self, node: ast.Assign) -> None:
+        check_deadline()
         if isinstance(node.value, ast.Call):
             aliases = self._alias_from_call(node.value)
             if aliases and self._bind_return_alias(node.targets, aliases):
@@ -366,6 +377,7 @@ class UseVisitor(ast.NodeVisitor):
         self.visit(node.value)
 
     def visit_Name(self, node: ast.Name) -> None:
+        check_deadline()
         if not isinstance(node.ctx, ast.Load):
             return
         if node.id not in self.alias_to_param:
@@ -410,6 +422,7 @@ class UseVisitor(ast.NodeVisitor):
         self._record_forward(param_name, callee, slot, call)
 
     def _root_name(self, node: ast.AST) -> str | None:
+        check_deadline()
         current = node
         while isinstance(current, (ast.Attribute, ast.Subscript)):
             current = current.value
@@ -418,6 +431,7 @@ class UseVisitor(ast.NodeVisitor):
         return None
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
+        check_deadline()
         if not isinstance(node.ctx, ast.Load):
             return
         if not isinstance(node.value, ast.Name):
@@ -458,6 +472,7 @@ class UseVisitor(ast.NodeVisitor):
         self._record_forward(param_name, callee, slot, call)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
+        check_deadline()
         if not isinstance(node.ctx, ast.Load):
             return
         if not isinstance(node.value, ast.Name):

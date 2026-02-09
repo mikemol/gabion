@@ -6,6 +6,7 @@ from typing import Callable, Iterable, Mapping
 from gabion.analysis.projection_normalize import normalize_spec
 from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 Relation = list[dict[str, JSONValue]]
 
@@ -19,6 +20,7 @@ def apply_spec(
     params_override: Mapping[str, JSONValue] | None = None,
     normalize: Callable[[ProjectionSpec], Mapping[str, JSONValue]] | None = None,
 ) -> Relation:
+    check_deadline()
     normalize_fn = normalize or normalize_spec
     normalized = normalize_fn(spec)
     params: dict[str, JSONValue] = {}

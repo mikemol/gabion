@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable
 
 from gabion.analysis import evidence_keys
+from gabion.analysis.timeout_context import check_deadline
 
 EVIDENCE_TAG = "gabion:evidence"
 _TAG_RE = re.compile(r"#\s*gabion:evidence\s+(?P<ids>.+)")
@@ -51,6 +52,7 @@ def build_test_evidence_payload(
     exclude: Iterable[str] | None = None,
     root_display: str | None = None,
 ) -> dict[str, object]:
+    check_deadline()
     root = root.resolve()
     display_root = "."
     exclude_set = {str(item) for item in (exclude or [])}
@@ -132,6 +134,7 @@ def collect_test_tags(
     include: Iterable[str] | None = None,
     exclude: Iterable[str] | None = None,
 ) -> list[TestEvidenceTag]:
+    check_deadline()
     root = root.resolve()
     exclude_set = {str(item) for item in (exclude or [])}
     files = _collect_test_files(paths, root=root, exclude=exclude_set)
@@ -158,6 +161,7 @@ def _collect_test_files(
     root: Path,
     exclude: set[str],
 ) -> list[Path]:
+    check_deadline()
     files: list[Path] = []
     for path in paths:
         if path.is_dir():
@@ -213,6 +217,7 @@ def _extract_file_tags(path: Path, root: Path) -> list[TestEvidenceTag]:
 
 
 def _evidence_comments(text: str) -> dict[int, list[str]]:
+    check_deadline()
     comments: dict[int, list[str]] = {}
     for token in tokenize.generate_tokens(StringIO(text).readline):
         if token.type != tokenize.COMMENT:
@@ -231,6 +236,7 @@ def _find_evidence_tags(
     comment_map: dict[int, list[str]],
     start_line: int,
 ) -> list[str]:
+    check_deadline()
     idx = start_line - 1
     while idx > 0:
         line = lines[idx - 1]
@@ -248,6 +254,7 @@ def _find_evidence_tags(
 
 
 def _normalize_evidence_items(values: Iterable[str]) -> tuple[EvidenceItem, ...]:
+    check_deadline()
     items: list[EvidenceItem] = []
     seen: set[str] = set()
     for token in values:
@@ -292,6 +299,7 @@ class _TestCollector(ast.NodeVisitor):
         self.entries: list[TestEvidence] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+        check_deadline()
         self._class_stack.append(node.name)
         for child in node.body:
             self.visit(child)
@@ -342,6 +350,7 @@ class _TagCollector(ast.NodeVisitor):
         self.entries: list[TestEvidenceTag] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+        check_deadline()
         self._class_stack.append(node.name)
         for child in node.body:
             self.visit(child)

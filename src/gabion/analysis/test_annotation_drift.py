@@ -13,6 +13,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 DRIFT_VERSION = 1
 
@@ -33,6 +34,7 @@ def build_annotation_drift_payload(
     include: Iterable[str] | None = None,
     exclude: Iterable[str] | None = None,
 ) -> dict[str, JSONValue]:
+    check_deadline()
     # dataflow-bundle: evidence_path, exclude, include, root
     evidence_by_test, _ = test_obsolescence.load_test_evidence(str(evidence_path))
     universe = {ref.identity for refs in evidence_by_test.values() for ref in refs}
@@ -72,6 +74,7 @@ def build_annotation_drift_payload(
 
 
 def render_markdown(payload: Mapping[str, JSONValue]) -> str:
+    check_deadline()
     summary = payload.get("summary", {})
     entries = payload.get("entries", [])
     lines: list[str] = []
@@ -140,6 +143,7 @@ def write_annotation_drift(
 
 
 def _summarize(entries: Iterable[Mapping[str, JSONValue]]) -> dict[str, int]:
+    check_deadline()
     summary = {
         "legacy_ambiguous": 0,
         "legacy_tag": 0,

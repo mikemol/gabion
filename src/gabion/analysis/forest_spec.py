@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Mapping
 
 from gabion.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 
 @dataclass(frozen=True)
@@ -186,6 +187,7 @@ def forest_spec_to_dict(spec: ForestSpec) -> dict[str, JSONValue]:
 
 
 def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
+    check_deadline()
     spec_version = payload.get("spec_version", 1)
     try:
         version = int(spec_version) if spec_version is not None else 1
@@ -275,6 +277,7 @@ def forest_spec_metadata(spec: ForestSpec) -> dict[str, JSONValue]:
 def _normalize_decision_tiers(
     tiers: Mapping[str, int] | None,
 ) -> dict[str, int]:
+    check_deadline()
     if not tiers:
         return {}
     normalized: dict[str, int] = {}
@@ -298,6 +301,7 @@ def _sorted_strings(values: Iterable[str] | None) -> list[str]:
 
 
 def _normalize_value(value: JSONValue) -> JSONValue:
+    check_deadline()
     if isinstance(value, dict):
         return {str(k): _normalize_value(value[k]) for k in sorted(value)}
     if isinstance(value, list):

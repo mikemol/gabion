@@ -1,4 +1,5 @@
 from __future__ import annotations
+from gabion.analysis.timeout_context import check_deadline
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Set
@@ -11,6 +12,7 @@ class ScheduleResult:
 
 
 def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
+    check_deadline()
     nodes: Set[str] = set(graph.keys())
     for deps in graph.values():
         nodes.update(deps)
@@ -50,6 +52,7 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
 
 
 def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]:
+    check_deadline()
     index = 0
     indices: Dict[str, int] = {}
     lowlinks: Dict[str, int] = {}
@@ -58,6 +61,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
     components: List[Set[str]] = []
 
     def visit(node: str) -> None:
+        check_deadline()
         nonlocal index
         indices[node] = index
         lowlinks[node] = index

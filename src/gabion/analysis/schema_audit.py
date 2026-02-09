@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 from typing import Iterable
+from gabion.analysis.timeout_context import check_deadline
 
 
 _DOC_ROLE_RE = re.compile(r"^test_")
@@ -60,6 +61,7 @@ def _is_anonymous_dict_subscript(node: ast.Subscript) -> bool:
 
 
 def _contains_anonymous_dict(annotation: ast.AST) -> bool:
+    check_deadline()
     for node in ast.walk(annotation):
         if isinstance(node, ast.Subscript) and _is_anonymous_dict_subscript(node):
             return True
@@ -198,6 +200,7 @@ def find_anonymous_schema_surfaces(
     These annotations typically indicate anonymous record/payload types whose
     schema is communicated by convention rather than by a first-class type.
     """
+    check_deadline()
     surfaces: list[AnonymousSchemaSurface] = []
     for path in sorted(set(paths)):
         if "tests" in path.parts:

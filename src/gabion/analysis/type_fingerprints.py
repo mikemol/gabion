@@ -5,8 +5,10 @@ from typing import Iterable
 import math
 
 from gabion.analysis.json_types import JSONObject, JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 def _split_top_level(value: str, sep: str) -> list[str]:
+    check_deadline()
     parts: list[str] = []
     buf: list[str] = []
     depth = 0
@@ -29,6 +31,7 @@ def _split_top_level(value: str, sep: str) -> list[str]:
 
 
 def _strip_known_prefix(name: str) -> str:
+    check_deadline()
     for prefix in ("typing.", "builtins."):
         if name.startswith(prefix):
             return name[len(prefix) :]
@@ -50,6 +53,7 @@ def _normalize_base(name: str) -> str:
 
 
 def canonical_type_key(hint: str) -> str:
+    check_deadline()
     raw = hint.strip()
     if not raw:
         return ""
@@ -84,6 +88,7 @@ def canonical_type_key(hint: str) -> str:
 
 
 def _is_prime(value: int) -> bool:
+    check_deadline()
     if value < 2:
         return False
     if value in (2, 3):
@@ -99,6 +104,7 @@ def _is_prime(value: int) -> bool:
 
 
 def _next_prime(start: int) -> int:
+    check_deadline()
     candidate = max(start, 2)
     while not _is_prime(candidate):
         candidate += 1
@@ -130,6 +136,7 @@ class PrimeRegistry:
         return self.primes.get(key)
 
     def key_for_prime(self, prime: int) -> str | None:
+        check_deadline()
         for key, value in self.primes.items():
             if value == prime:
                 return key
@@ -191,6 +198,7 @@ def canonical_type_key_with_constructor(
     hint: str,
     ctor_registry: TypeConstructorRegistry,
 ) -> str:
+    check_deadline()
     raw = hint.strip()
     if not raw:
         return ""
@@ -236,6 +244,7 @@ def canonical_type_key_with_constructor(
 
 
 def _collect_base_atoms(hint: str, out: list[str]) -> None:
+    check_deadline()
     raw = hint.strip()
     if not raw:
         return
@@ -265,6 +274,7 @@ def _collect_base_atoms(hint: str, out: list[str]) -> None:
 
 
 def _collect_constructors_multiset(hint: str, out: list[str]) -> None:
+    check_deadline()
     raw = hint.strip()
     if not raw:
         return
@@ -292,6 +302,7 @@ def _collect_constructors_multiset(hint: str, out: list[str]) -> None:
             _collect_constructors_multiset(part, out)
 
 def _normalize_type_list(value: object) -> list[str]:
+    check_deadline()
     items: list[str] = []
     if value is None:
         return items
@@ -305,6 +316,7 @@ def _normalize_type_list(value: object) -> list[str]:
 
 
 def _collect_constructors(hint: str, out: set[str]) -> None:
+    check_deadline()
     raw = hint.strip()
     if not raw:
         return
@@ -333,6 +345,7 @@ def _collect_constructors(hint: str, out: set[str]) -> None:
 
 
 def _dimension_from_keys(keys: Iterable[str], registry: PrimeRegistry) -> FingerprintDimension:
+    check_deadline()
     product = 1
     mask = 0
     for key in keys:
@@ -350,6 +363,7 @@ def _ctor_dimension_from_names(
     names: Iterable[str],
     registry: PrimeRegistry,
 ) -> FingerprintDimension:
+    check_deadline()
     product = 1
     mask = 0
     for name in names:
@@ -417,6 +431,7 @@ def build_synth_registry(
     min_occurrences: int = 2,
     version: str = "synth@1",
 ) -> SynthRegistry:
+    check_deadline()
     counts: dict[Fingerprint, int] = {}
     for fingerprint in fingerprints:
         counts[fingerprint] = counts.get(fingerprint, 0) + 1
@@ -448,6 +463,7 @@ def synth_registry_payload(
     *,
     min_occurrences: int,
 ) -> JSONObject:
+    check_deadline()
     entries: list[JSONObject] = []
     for prime, tail in sorted(synth_registry.tails.items()):
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
@@ -523,6 +539,7 @@ def build_synth_registry_from_payload(
     payload: JSONObject,
     registry: PrimeRegistry,
 ) -> SynthRegistry:
+    check_deadline()
     _apply_registry_payload(payload.get("registry"), registry)
     entries, version, _ = load_synth_registry_payload(payload)
     synth_registry = SynthRegistry(registry=registry, version=version)
@@ -570,6 +587,7 @@ def _apply_registry_payload(
     that any already-assigned primes/bits are consistent. Conflicts indicate a
     stale or non-deterministic basis and must be handled explicitly.
     """
+    check_deadline()
     if not isinstance(payload, dict):
         return
     primes = payload.get("primes")
@@ -643,6 +661,7 @@ def bundle_fingerprint_dimensional(
     registry: PrimeRegistry,
     ctor_registry: TypeConstructorRegistry | None = None,
 ) -> Fingerprint:
+    check_deadline()
     base_keys: list[str] = []
     ctor_names: list[str] = []
     for hint in types:
@@ -658,6 +677,7 @@ def bundle_fingerprint_dimensional(
 
 
 def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
+    check_deadline()
     product = 1
     for hint in types:
         key = canonical_type_key(hint)
@@ -668,6 +688,7 @@ def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
 
 
 def bundle_fingerprint_setlike(types: Iterable[str], registry: PrimeRegistry) -> int:
+    check_deadline()
     keys: set[str] = set()
     for hint in types:
         key = canonical_type_key(hint)
@@ -685,6 +706,7 @@ def bundle_fingerprint_with_constructors(
     registry: PrimeRegistry,
     ctor_registry: TypeConstructorRegistry,
 ) -> int:
+    check_deadline()
     product = 1
     for hint in types:
         key = canonical_type_key_with_constructor(hint, ctor_registry)
@@ -695,6 +717,7 @@ def bundle_fingerprint_with_constructors(
 
 
 def fingerprint_bitmask(types: Iterable[str], registry: PrimeRegistry) -> int:
+    check_deadline()
     mask = 0
     for hint in types:
         key = canonical_type_key(hint)
@@ -715,6 +738,7 @@ def fingerprint_hybrid(types: Iterable[str], registry: PrimeRegistry) -> tuple[i
 def build_fingerprint_registry(
     spec: dict[str, JSONValue],
 ) -> tuple[PrimeRegistry, dict[Fingerprint, set[str]]]:
+    check_deadline()
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
     base_keys: set[str] = set()
@@ -752,6 +776,7 @@ def fingerprint_to_type_keys_with_remainder(
     fingerprint: int,
     registry: PrimeRegistry,
 ) -> tuple[list[str], int]:
+    check_deadline()
     remaining = fingerprint
     keys: list[str] = []
     if remaining <= 1:

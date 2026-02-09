@@ -4,6 +4,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from gabion.analysis.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
 
 def normalize_bundle_key(bundle: object) -> str:
     """Canonicalize a bundle payload into a stable join key.
@@ -23,6 +24,7 @@ def normalize_string_list(value: object) -> list[str]:
     The intent is to accept schema-level payloads coming from JSON where these
     fields can be absent, malformed, or represented as comma-separated strings.
     """
+    check_deadline()
     raw: list[str] = []
     if value is None:
         return raw
@@ -66,6 +68,7 @@ def exception_obligation_summary_for_site(
     *,
     site: Site,
 ) -> dict[str, int]:
+    check_deadline()
     summary = {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0}
     bundle_key = site.bundle_key()
     for entry in obligations:

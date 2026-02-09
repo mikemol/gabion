@@ -10,6 +10,7 @@ from gabion.analysis.projection_registry import (
     AMBIGUITY_STATE_SPEC,
     spec_metadata_payload,
 )
+from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
 STATE_VERSION = 1
@@ -38,7 +39,9 @@ def build_state_payload(
     return payload
 
 
-def parse_state_payload(payload: Mapping[str, JSONValue]) -> AmbiguityState:
+def parse_state_payload(
+    payload: Mapping[str, JSONValue],
+) -> AmbiguityState:
     version = payload.get("version", STATE_VERSION)
     try:
         version_value = int(version) if version is not None else STATE_VERSION
@@ -78,6 +81,7 @@ def _normalize_witnesses(
 ) -> list[dict[str, JSONValue]]:
     if not isinstance(payload, Iterable) or isinstance(payload, (str, bytes, dict)):
         return []
+    check_deadline(allow_frame_fallback=True)
     witnesses: list[dict[str, JSONValue]] = []
     for entry in payload:
         if not isinstance(entry, Mapping):

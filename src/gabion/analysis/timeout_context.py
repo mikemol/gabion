@@ -3,9 +3,12 @@ from __future__ import annotations
 import inspect
 import time
 from dataclasses import dataclass
+from contextlib import contextmanager
 from pathlib import Path
 from types import FrameType
 from typing import Callable, Iterable, Mapping
+
+from contextvars import ContextVar, Token
 
 from gabion.analysis.aspf import Forest
 from gabion.json_types import JSONValue
@@ -55,6 +58,54 @@ class Deadline:
     def check(self, builder: Callable[[], TimeoutContext]) -> None:
         if self.expired():
             raise TimeoutExceeded(builder())
+
+
+_deadline_var: ContextVar[Deadline | None] = ContextVar("gabion_deadline", default=None)
+
+
+def set_deadline(deadline: Deadline | None) -> Token[Deadline | None]:
+    return _deadline_var.set(deadline)
+
+
+def reset_deadline(token: Token[Deadline | None]) -> None:
+    _deadline_var.reset(token)
+
+
+def get_deadline() -> Deadline | None:
+    return _deadline_var.get()
+
+
+@contextmanager
+def deadline_scope(deadline: Deadline | None):
+    token = set_deadline(deadline)
+    try:
+        yield
+    finally:
+        reset_deadline(token)
+
+
+def check_deadline(
+    deadline: Deadline | None = None,
+    *,
+    forest: Forest | None = None,
+    project_root: Path | None = None,
+    forest_spec_id: str | None = None,
+    forest_signature: dict[str, JSONValue] | None = None,
+    allow_frame_fallback: bool = False,
+) -> None:
+    if deadline is None:
+        deadline = get_deadline()
+    if deadline is None:
+        return
+    deadline.check(
+        lambda: build_timeout_context_from_stack(
+            forest=forest,
+            project_root=project_root,
+            forest_spec_id=forest_spec_id,
+            forest_signature=forest_signature,
+            allow_frame_fallback=allow_frame_fallback,
+        )
+    )
 
 
 def _normalize_qualname(qualname: str) -> str:

@@ -14,6 +14,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.analysis.projection_spec import ProjectionSpec
+from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
 CALL_CLUSTER_VERSION = 1
@@ -37,6 +38,7 @@ def build_call_clusters_payload(
     summary_spec: ProjectionSpec | None = None,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: evidence_path, paths, root, config
+    check_deadline(allow_frame_fallback=True)
     entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
     footprints = test_evidence_suggestions.collect_call_footprints(
         entries,
@@ -117,7 +119,10 @@ def build_call_clusters_payload(
     return payload
 
 
-def render_markdown(payload: Mapping[str, JSONValue]) -> str:
+def render_markdown(
+    payload: Mapping[str, JSONValue],
+) -> str:
+    check_deadline(allow_frame_fallback=True)
     summary = payload.get("summary", {})
     clusters = payload.get("clusters", [])
     lines: list[str] = []

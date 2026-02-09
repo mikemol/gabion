@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Iterable, List, Set
+from gabion.analysis.timeout_context import check_deadline
 
 
 def _jaccard(left: Set[str], right: Set[str]) -> float:
@@ -14,6 +15,7 @@ def merge_bundles(
     bundles: Iterable[Set[str]],
     min_overlap: float = 0.75,
 ) -> List[Set[str]]:
+    check_deadline()
     merged: List[Set[str]] = [set(b) for b in bundles]
     changed = True
     while changed:

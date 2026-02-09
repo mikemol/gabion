@@ -5,6 +5,7 @@ from pathlib import Path
 import libcst as cst
 
 from gabion.refactor.model import FieldSpec, RefactorPlan, RefactorRequest, TextEdit
+from gabion.analysis.timeout_context import check_deadline
 
 
 class RefactorEngine:
@@ -12,6 +13,7 @@ class RefactorEngine:
         self.project_root = project_root
 
     def plan_protocol_extraction(self, request: RefactorRequest) -> RefactorPlan:
+        check_deadline()
         path = Path(request.target_path)
         if self.project_root and not path.is_absolute():
             path = self.project_root / path
@@ -199,6 +201,7 @@ def _is_import(stmt: cst.CSTNode) -> bool:
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
+    check_deadline()
     insert_idx = 0
     if body and _is_docstring(body[0]):
         insert_idx = 1
@@ -208,6 +211,7 @@ def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
 
 
 def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
+    check_deadline()
     if expr is None:
         return None
     if isinstance(expr, cst.Name):
@@ -227,6 +231,7 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
 
 
 def _has_typing_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
@@ -245,6 +250,7 @@ def _has_typing_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
@@ -262,6 +268,7 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
@@ -279,6 +286,7 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
@@ -324,6 +332,7 @@ def _collect_import_context(
     target_module: str,
     protocol_name: str,
 ) -> tuple[dict[str, str], dict[str, str], str | None]:
+    check_deadline()
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
     protocol_alias: str | None = None
@@ -368,6 +377,7 @@ def _rewrite_call_sites(
     bundle_fields: list[str],
     targets: set[str],
 ) -> tuple[list[str], cst.Module | None]:
+    check_deadline()
     warnings: list[str] = []
     file_is_target = file_path == target_path
     if not targets:
@@ -450,6 +460,7 @@ def _rewrite_call_sites_in_project(
     bundle_fields: list[str],
     targets: set[str],
 ) -> tuple[list[TextEdit], list[str]]:
+    check_deadline()
     edits: list[TextEdit] = []
     warnings: list[str] = []
     scan_root = project_root / "src"
@@ -709,6 +720,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         )
 
     def _ordered_param_names(self, params: cst.Parameters) -> list[str]:
+        check_deadline()
         names: list[str] = []
         for param in params.posonly_params:
             names.append(param.name.value)
@@ -721,6 +733,7 @@ class _RefactorTransformer(cst.CSTTransformer):
     def _find_self_param(
         self, params: cst.Parameters, name: str
     ) -> cst.Param | None:
+        check_deadline()
         for param in params.posonly_params:
             if param.name.value == name:
                 return param
@@ -730,6 +743,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         return None
 
     def _choose_bundle_name(self, existing: list[str]) -> str:
+        check_deadline()
         candidate = "bundle"
         if candidate not in existing:
             return candidate
@@ -885,6 +899,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
         return False
 
     def _build_bundle_args(self, call: cst.Call) -> list[cst.Arg] | None:
+        check_deadline()
         if any(arg.star in {"*", "**"} for arg in call.args):
             self.warnings.append("Skipped call with star args/kwargs during refactor.")
             return None

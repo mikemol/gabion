@@ -12,6 +12,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
 CONSOLIDATION_VERSION = 1
@@ -46,6 +47,7 @@ def build_call_cluster_consolidation_payload(
     min_cluster_size: int = 2,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: evidence_path, min_cluster_size
+    check_deadline(allow_frame_fallback=True)
     entries = test_evidence_suggestions.load_test_evidence(str(evidence_path))
     clusters: dict[str, dict[str, object]] = {}
     plan: list[ConsolidationEntry] = []
@@ -170,7 +172,10 @@ def build_call_cluster_consolidation_payload(
     return payload
 
 
-def render_markdown(payload: Mapping[str, JSONValue]) -> str:
+def render_markdown(
+    payload: Mapping[str, JSONValue],
+) -> str:
+    check_deadline(allow_frame_fallback=True)
     summary = payload.get("summary", {})
     clusters = payload.get("clusters", [])
     plan = payload.get("plan", [])
@@ -239,6 +244,7 @@ def write_call_cluster_consolidation(
 
 
 def _targets_signature(value: object) -> tuple[tuple[str, str], ...]:
+    check_deadline()
     if not isinstance(value, Iterable):
         return ()
     pairs: list[tuple[str, str]] = []

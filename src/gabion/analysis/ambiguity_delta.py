@@ -11,6 +11,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
 BASELINE_VERSION = 1
@@ -45,7 +46,10 @@ def build_baseline_payload(
     return payload
 
 
-def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> AmbiguityBaseline:
+def parse_baseline_payload(
+    payload: Mapping[str, JSONValue],
+) -> AmbiguityBaseline:
+    check_deadline(allow_frame_fallback=True)
     version = payload.get("version", BASELINE_VERSION)
     try:
         version_value = int(version) if version is not None else BASELINE_VERSION
@@ -125,7 +129,10 @@ def build_delta_payload(
     return payload
 
 
-def render_markdown(payload: Mapping[str, JSONValue]) -> str:
+def render_markdown(
+    payload: Mapping[str, JSONValue],
+) -> str:
+    check_deadline(allow_frame_fallback=True)
     summary = payload.get("summary", {})
     total = summary.get("total", {}) if isinstance(summary, Mapping) else {}
     by_kind = summary.get("by_kind", {}) if isinstance(summary, Mapping) else {}
@@ -165,6 +172,7 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
 def _count_by_kind(
     entries: Iterable[Mapping[str, object]],
 ) -> dict[str, int]:
+    check_deadline(allow_frame_fallback=True)
     counts: dict[str, int] = {}
     for entry in entries:
         kind = str(entry.get("kind", "") or "unknown")

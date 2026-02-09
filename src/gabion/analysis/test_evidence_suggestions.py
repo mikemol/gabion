@@ -1,4 +1,5 @@
 from __future__ import annotations
+from gabion.analysis.timeout_context import check_deadline
 
 import ast
 import json
@@ -92,6 +93,7 @@ class _GraphSuggestion:
 
 
 def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
+    check_deadline()
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     schema_version = payload.get("schema_version")
     if schema_version not in {1, 2}:
@@ -137,6 +139,7 @@ def suggest_evidence(
     max_depth: int = DEFAULT_MAX_DEPTH,
     include_heuristics: bool = True,
 ) -> tuple[list[Suggestion], SuggestionSummary]:
+    check_deadline()
     # dataflow-bundle: entries, root, paths, forest, config
     suggestions: list[Suggestion] = []
     skipped_mapped = 0
@@ -211,6 +214,7 @@ def render_markdown(
     suggestions: list[Suggestion],
     summary: SuggestionSummary,
 ) -> str:
+    check_deadline()
     # dataflow-bundle: suggestions, summary
     lines: list[str] = []
     lines.append("# Test Evidence Suggestions")
@@ -307,6 +311,7 @@ def collect_call_footprints(
     paths: Iterable[Path] | None = None,
     config: AuditConfig | None = None,
 ) -> dict[str, tuple[dict[str, str], ...]]:
+    check_deadline()
     # dataflow-bundle: entries, root, paths, config
     entry_list = sorted(entries, key=lambda item: item.test_id)
     if not entry_list:
@@ -336,6 +341,7 @@ def collect_call_footprints(
     module_cache: dict[str, Path | None] = {}
 
     def _resolved_callees(info: FunctionInfo) -> tuple[FunctionInfo, ...]:
+        check_deadline()
         if info.qual in cache:
             return cache[info.qual]
         resolved_callees: dict[str, FunctionInfo] = {}
@@ -388,6 +394,7 @@ def _graph_suggestions(
     config: AuditConfig | None,
     max_depth: int,
 ) -> tuple[dict[str, _GraphSuggestion], set[str]]:
+    check_deadline()
     # dataflow-bundle: entries, root, paths, forest, config
     if forest is None or not entries:
         return {}, set()
@@ -418,6 +425,7 @@ def _graph_suggestions(
     module_cache: dict[str, Path | None] = {}
 
     def _resolved_callees(info: FunctionInfo) -> tuple[FunctionInfo, ...]:
+        check_deadline()
         if info.qual in cache:
             return cache[info.qual]
         resolved_callees: dict[str, FunctionInfo] = {}
@@ -504,6 +512,7 @@ def _collect_reachable(
     max_depth: int,
     resolve_callees: Callable[[FunctionInfo], Sequence[FunctionInfo]],
 ) -> list[FunctionInfo]:
+    check_deadline()
     visited = {start.qual}
     frontier = [start]
     reachable: list[FunctionInfo] = []
@@ -569,6 +578,7 @@ def _find_module_level_calls(
     class_index: Mapping[str, ClassInfo] | None,
     project_root: Path,
 ) -> tuple[tuple[str, str], ...]:
+    check_deadline()
     if not entry.file:
         return ()
     test_path = Path(entry.file)
@@ -625,6 +635,7 @@ def _find_module_level_calls(
 def _index_nodes_by_scope(
     tree: ast.AST, parents: dict[ast.AST, ast.AST]
 ) -> dict[tuple[tuple[str, ...], str], ast.AST]:
+    check_deadline()
     index: dict[tuple[tuple[str, ...], str], ast.AST] = {}
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -635,6 +646,7 @@ def _index_nodes_by_scope(
 
 
 def _iter_outer_calls(node: ast.AST) -> list[ast.Call]:
+    check_deadline()
     calls: list[ast.Call] = []
     stack = list(getattr(node, "body", ()))
     while stack:
@@ -648,6 +660,7 @@ def _iter_outer_calls(node: ast.AST) -> list[ast.Call]:
 
 
 def _call_symbol_refs(call: ast.Call) -> list[str]:
+    check_deadline()
     refs: list[str] = []
     target = call.func
     if isinstance(target, ast.Name):
@@ -670,6 +683,7 @@ def _call_symbol_refs(call: ast.Call) -> list[str]:
 
 
 def _call_module_literals(call: ast.Call) -> list[str]:
+    check_deadline()
     values: list[str] = []
     for arg in call.args:
         literal = _module_literal(arg)
@@ -699,6 +713,7 @@ def _module_literal(node: ast.AST) -> str | None:
 
 
 def _attribute_chain(node: ast.Attribute) -> str | None:
+    check_deadline()
     parts: list[str] = []
     current: ast.AST | None = node
     while isinstance(current, ast.Attribute):
@@ -760,6 +775,7 @@ def _resolve_module_file(
     project_root: Path,
     module_cache: dict[str, Path | None],
 ) -> Path | None:
+    check_deadline()
     module_path = module_cache.get(module_name)
     if module_name in module_cache:
         return module_path
@@ -782,6 +798,7 @@ def _build_test_index(
     by_qual: Mapping[str, FunctionInfo],
     project_root: Path | None,
 ) -> dict[str, FunctionInfo]:
+    check_deadline()
     index: dict[str, FunctionInfo] = {}
     for info in by_qual.values():
         rel_path = _rel_path(info.path, project_root)
@@ -804,6 +821,7 @@ def _rel_path(path: Path, project_root: Path | None) -> str:
 def _build_forest_evidence_index(
     forest: Forest,
 ) -> tuple[dict[tuple[str, str], NodeId], dict[NodeId, tuple[EvidenceSuggestion, ...]]]:
+    check_deadline()
     site_index: dict[tuple[str, str], NodeId] = {}
     for node_id, node in forest.nodes.items():
         if node_id.kind != "FunctionSite":
@@ -907,6 +925,7 @@ def _format_paramset(items: Sequence[str]) -> str:
 
 
 def _suggest_for_entry(entry: TestEvidenceEntry) -> tuple[list[EvidenceSuggestion], list[str]]:
+    check_deadline()
     file_haystack, name_haystack = _suggestion_haystack(entry)
     rules = _suggestion_rules()
     suggested: list[EvidenceSuggestion] = []
@@ -927,6 +946,7 @@ def _suggest_for_entry(entry: TestEvidenceEntry) -> tuple[list[EvidenceSuggestio
 
 
 def _dedupe_suggestions(items: list[EvidenceSuggestion]) -> list[EvidenceSuggestion]:
+    check_deadline()
     seen: dict[str, EvidenceSuggestion] = {}
     for item in items:
         seen[item.identity] = item
@@ -1072,6 +1092,7 @@ def _suggestion_rules() -> list[_SuggestionRule]:
 
 
 def _normalize_evidence_list(value: object) -> list[str]:
+    check_deadline()
     if value is None:
         return []
     items: list[str] = []
@@ -1094,6 +1115,7 @@ def _normalize_evidence_list(value: object) -> list[str]:
 def _summarize_unmapped(
     entries: Iterable[TestEvidenceEntry],
 ) -> tuple[tuple[tuple[str, int], ...], tuple[tuple[str, int], ...]]:
+    check_deadline()
     # dataflow-bundle: entries
     module_counts: dict[str, int] = {}
     prefix_counts: dict[str, int] = {}

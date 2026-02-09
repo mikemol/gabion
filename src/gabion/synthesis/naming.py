@@ -4,6 +4,7 @@ import re
 from typing import Iterable
 
 from gabion.synthesis.model import NamingContext
+from gabion.analysis.timeout_context import check_deadline
 
 
 def _camelize(value: str) -> str:
@@ -21,6 +22,7 @@ def _normalize_identifier(value: str, fallback: str) -> str:
 
 
 def suggest_name(fields: Iterable[str], context: NamingContext | None = None) -> str:
+    check_deadline()
     context = context or NamingContext()
     field_list = [f for f in fields if f]
     if not field_list:

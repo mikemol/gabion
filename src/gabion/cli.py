@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 import typer
+from gabion.analysis.timeout_context import check_deadline
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
@@ -40,6 +41,7 @@ def _find_repo_root() -> Path:
 
 
 def _split_csv_entries(entries: Optional[List[str]]) -> list[str] | None:
+    check_deadline()
     if entries is None:
         return None
     merged: list[str] = []
@@ -76,6 +78,7 @@ def _parse_lint_line(line: str) -> dict[str, object] | None:
 
 
 def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
+    check_deadline()
     entries: list[dict[str, object]] = []
     for line in lines:
         parsed = _parse_lint_line(line)
@@ -93,6 +96,7 @@ def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
 
 
 def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
+    check_deadline()
     rules: dict[str, dict[str, object]] = {}
     results: list[dict[str, object]] = []
     for entry in entries:
@@ -149,6 +153,7 @@ def _emit_lint_outputs(
     lint_jsonl: Optional[Path],
     lint_sarif: Optional[Path],
 ) -> None:
+    check_deadline()
     if lint:
         for line in lint_lines:
             typer.echo(line)
@@ -356,6 +361,7 @@ def build_refactor_payload(
     compatibility_shim: bool,
     rationale: Optional[str],
 ) -> JSONObject:
+    check_deadline()
     if input_payload is not None:
         return input_payload
     if protocol_name is None or target_path is None:
@@ -637,6 +643,7 @@ def _dataflow_audit(
     request: "DataflowAuditRequest",
 ) -> None:
     """Run the dataflow grammar audit with explicit options."""
+    check_deadline()
     argv = list(request.args or []) + list(request.ctx.args)
     if not argv:
         argv = []
@@ -986,6 +993,7 @@ def _run_synth(
     fail_on_violations: bool,
     runner: Runner = run_command,
 ) -> tuple[JSONObject, dict[str, Path], Path | None]:
+    check_deadline()
     if not paths:
         paths = [Path(".")]
     exclude_dirs: list[str] | None = None
@@ -1280,6 +1288,7 @@ def run_structure_reuse(
 
 
 def _emit_structure_diff(result: JSONObject) -> None:
+    check_deadline()
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -1291,6 +1300,7 @@ def _emit_structure_diff(result: JSONObject) -> None:
 
 
 def _emit_decision_diff(result: JSONObject) -> None:
+    check_deadline()
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
@@ -1302,6 +1312,7 @@ def _emit_decision_diff(result: JSONObject) -> None:
 
 
 def _emit_structure_reuse(result: JSONObject) -> None:
+    check_deadline()
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
