@@ -1,5 +1,5 @@
 ---
-doc_revision: 32
+doc_revision: 33
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -39,6 +39,7 @@ doc_invariants:
   - prime_invariant
   - gabion_protocol_invariant
   - review_discipline_invariant
+  - mechanized_governance_invariant
 doc_erasure:
   - formatting
   - typos
@@ -132,6 +133,20 @@ must:
 - deduplicate the resulting observations, and
 - contrast the deduplicated result against the file’s semantics and completeness.
 
+## 0.3 Mechanized Governance Default (Normative)
+
+Governance is a **program** executed by an enforcing agent. Therefore:
+
+* **Default:** every governance rule MUST be expressible as a deterministic predicate
+  and enforced by repo-native tooling (CI, scripts, or agents).
+* **Exception:** any required human judgment MUST be encoded as an explicit predicate,
+  and the exception must be documented as a risk acceptance.
+* **Manual triggers are not a loophole:** any `workflow_dispatch` path MUST be
+  explicitly actor‑guarded and ref‑guarded at the job level; if not, it is a policy
+  violation.
+
+This makes auditing about auditing: the policy governs how the policy is enforced.
+
 ---
 
 ## 1. Prime Invariant (Unbreakable)
@@ -224,7 +239,7 @@ Self-hosted workflows:
 
   * `pull_request`
   * `pull_request_target`
-  * `workflow_dispatch` (unless additionally actor-gated).
+  * `workflow_dispatch` (unless additionally actor‑gated and ref‑gated).
 
 ### 4.2 Runner Targeting
 

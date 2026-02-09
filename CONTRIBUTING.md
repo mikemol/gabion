@@ -19,14 +19,14 @@ doc_reviewed_as_of:
   README.md: 59
   CONTRIBUTING.md: 78
   AGENTS.md: 13
-  POLICY_SEED.md: 32
+  POLICY_SEED.md: 33
   glossary.md: 29
   docs/coverage_semantics.md: 10
 doc_review_notes:
   README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with contributor scope."
   CONTRIBUTING.md: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
   AGENTS.md: "Agent review discipline aligns with contributor workflow."
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev32 (branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
   glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); contributor workflow unchanged."
   docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact polysemy + artifacts/out paths); contributor guidance unchanged."
 doc_change_protocol: "POLICY_SEED.md §6"

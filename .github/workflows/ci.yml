@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   audit:
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/stage'
+    if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
     runs-on: ubuntu-latest
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
