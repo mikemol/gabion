@@ -7,6 +7,7 @@ import re
 import sys
 import tomllib
 import subprocess
+from datetime import datetime, timezone
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -258,6 +259,139 @@ def _parse_doc_ref(value: str) -> list[tuple[str, int | None]]:
                 rev_value = None
         refs.append((doc_id, rev_value))
     return refs
+
+
+def _format_doc_ref(doc_id: str, rev: int | None) -> str:
+    return f"{doc_id}@{rev}" if rev is not None else doc_id
+
+
+def _load_issues_json(path: Path | None) -> dict[str, dict[str, object]]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(payload, list):
+        return {}
+    issues: dict[str, dict[str, object]] = {}
+    for entry in payload:
+        check_deadline()
+        if not isinstance(entry, dict):
+            continue
+        number = entry.get("number")
+        if not isinstance(number, int):
+            continue
+        key = f"GH-{number}"
+        issues[key] = entry
+    return issues
+
+
+def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) -> dict[str, object]:
+    checklist_path = root / "docs" / "sppf_checklist.md"
+    if not checklist_path.exists():
+        raise FileNotFoundError(checklist_path)
+    text = checklist_path.read_text(encoding="utf-8")
+    _, body = _parse_frontmatter(text)
+    issue_re = re.compile(r"\bGH-(\d+)\b")
+    issues_meta = _load_issues_json(issues_json)
+    issue_nodes: dict[str, dict[str, object]] = {}
+    doc_nodes: dict[str, dict[str, object]] = {}
+    edges: list[dict[str, object]] = []
+    issues_without_doc_ref: set[str] = set()
+    docs_without_issue: set[str] = set()
+
+    for lineno, raw in enumerate(body.splitlines(), start=1):
+        check_deadline()
+        line = raw.strip()
+        match = SPPF_LINE_RE.match(line)
+        if not match:
+            continue
+        issue_ids = issue_re.findall(line)
+        if not issue_ids:
+            continue
+        tag_match = SPPF_TAG_RE.search(line)
+        tags = _parse_sppf_tag(tag_match.group(1)) if tag_match else {}
+        doc_refs: list[tuple[str, int | None]] = []
+        doc_ref_raw = tags.get("doc_ref")
+        if doc_ref_raw:
+            doc_refs = _parse_doc_ref(doc_ref_raw)
+        formatted_refs = [_format_doc_ref(doc_id, rev) for doc_id, rev in doc_refs]
+        for issue_id in issue_ids:
+            issue_key = f"GH-{issue_id}"
+            node = issue_nodes.setdefault(issue_key, {
+                "id": issue_key,
+                "checklist_state": match.group("state"),
+                "doc_status": tags.get("doc"),
+                "impl_status": tags.get("impl"),
+                "line": raw,
+                "line_no": lineno,
+                "doc_refs": [],
+            })
+            # merge metadata if provided
+            meta = issues_meta.get(issue_key)
+            if meta:
+                node.setdefault("title", meta.get("title"))
+                node.setdefault("state", meta.get("state"))
+                labels = meta.get("labels")
+                if isinstance(labels, list):
+                    node.setdefault("labels", [lab.get("name") for lab in labels if isinstance(lab, dict)])
+            if formatted_refs:
+                node["doc_refs"] = sorted(set(node.get("doc_refs", [])) | set(formatted_refs))
+            else:
+                issues_without_doc_ref.add(issue_key)
+
+            for doc_id, rev in doc_refs:
+                doc_key = _format_doc_ref(doc_id, rev)
+                doc_node = doc_nodes.setdefault(doc_key, {
+                    "id": doc_key,
+                    "doc_id": doc_id,
+                    "revision": rev,
+                    "issues": [],
+                })
+                doc_node["issues"] = sorted(set(doc_node.get("issues", [])) | {issue_key})
+                edges.append({"from": doc_key, "to": issue_key, "kind": "doc_ref"})
+
+        if formatted_refs and not issue_ids:
+            for doc_id, rev in doc_refs:
+                docs_without_issue.add(_format_doc_ref(doc_id, rev))
+
+    graph = {
+        "format_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "source": "docs/sppf_checklist.md",
+        "issues": issue_nodes,
+        "docs": doc_nodes,
+        "edges": edges,
+        "issues_without_doc_ref": sorted(issues_without_doc_ref),
+        "docs_without_issue": sorted(docs_without_issue),
+    }
+    return graph
+
+
+def _write_sppf_graph_outputs(graph: dict[str, object], *, json_output: Path | None, dot_output: Path | None) -> None:
+    if json_output is not None:
+        json_output.parent.mkdir(parents=True, exist_ok=True)
+        json_output.write_text(json.dumps(graph, indent=2, sort_keys=True), encoding="utf-8")
+    if dot_output is not None:
+        dot_output.parent.mkdir(parents=True, exist_ok=True)
+        lines = ["digraph sppf_deps {"]
+        for doc_key, node in sorted(graph.get("docs", {}).items()):
+            label = doc_key
+            lines.append(f"  \"{doc_key}\" [shape=box,label=\"{label}\"];")
+        for issue_key, node in sorted(graph.get("issues", {}).items()):
+            label = issue_key
+            title = node.get("title")
+            if isinstance(title, str):
+                label = f"{issue_key}\\n{title}"
+            lines.append(f"  \"{issue_key}\" [shape=ellipse,label=\"{label}\"];")
+        for edge in graph.get("edges", []):
+            src = edge.get("from")
+            dst = edge.get("to")
+            if src and dst:
+                lines.append(f"  \"{src}\" -> \"{dst}\";")
+        lines.append("}")
+        dot_output.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _influence_statuses(root: Path) -> dict[str, str]:
@@ -1261,6 +1395,20 @@ def _docflow_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sppf_graph_command(args: argparse.Namespace) -> int:
+    root = Path(args.root)
+    graph = _build_sppf_dependency_graph(root, issues_json=args.issues_json)
+    _write_sppf_graph_outputs(
+        graph,
+        json_output=args.json_output,
+        dot_output=args.dot_output,
+    )
+    print(f"SPPF dependency graph written to {args.json_output}")
+    if args.dot_output is not None:
+        print(f"SPPF dependency graph DOT written to {args.dot_output}")
+    return 0
+
+
 def _decision_tiers_command(args: argparse.Namespace) -> int:
     lint_path = args.lint or _latest_lint_path(args.root)
     return _decision_tier_candidates(lint_path, tier=args.tier, output_format=args.format)
@@ -1413,6 +1561,29 @@ def _add_lint_summary_args(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(func=_lint_summary_command)
 
 
+def _add_sppf_graph_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--root", type=Path, default=Path("."), help="Repo root")
+    parser.add_argument(
+        "--json-output",
+        type=Path,
+        default=Path("artifacts/sppf_dependency_graph.json"),
+        help="JSON output path",
+    )
+    parser.add_argument(
+        "--dot-output",
+        type=Path,
+        default=None,
+        help="Optional Graphviz DOT output path",
+    )
+    parser.add_argument(
+        "--issues-json",
+        type=Path,
+        default=None,
+        help="Optional GH issues JSON payload (gh issue list --json ...) for titles/labels.",
+    )
+    parser.set_defaults(func=_sppf_graph_command)
+
+
 def _parse_single_command_args(
     add_args: Callable[[argparse.ArgumentParser], None], argv: list[str] | None
 ) -> argparse.Namespace:
@@ -1441,6 +1612,9 @@ def main(argv: list[str] | None = None) -> int:
     _add_lint_summary_args(
         subparsers.add_parser("lint-summary", help="Summarize lint output.")
     )
+    _add_sppf_graph_args(
+        subparsers.add_parser("sppf-graph", help="Emit SPPF dependency graph.")
+    )
 
     args = parser.parse_args(argv)
     return int(args.func(args))
@@ -1464,6 +1638,11 @@ def run_consolidation_cli(argv: list[str] | None = None) -> int:
 def run_lint_summary_cli(argv: list[str] | None = None) -> int:
     args = _parse_single_command_args(_add_lint_summary_args, argv)
     return _lint_summary_command(args)
+
+
+def run_sppf_graph_cli(argv: list[str] | None = None) -> int:
+    args = _parse_single_command_args(_add_sppf_graph_args, argv)
+    return _sppf_graph_command(args)
 
 
 if __name__ == "__main__":
