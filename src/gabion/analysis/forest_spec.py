@@ -283,17 +283,21 @@ def forest_spec_canonical_json(spec: ForestSpec) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
+def forest_spec_hash_spec(spec: ForestSpec) -> str:
+    return forest_spec_canonical_json(spec)
+
+
 def forest_spec_hash(spec: ForestSpec | Mapping[str, JSONValue] | str) -> str:
     if isinstance(spec, str):
         return spec
     if not isinstance(spec, ForestSpec):
         spec = forest_spec_from_dict(spec)
-    return forest_spec_canonical_json(spec)
+    return forest_spec_hash_spec(spec)
 
 
 def forest_spec_metadata(spec: ForestSpec) -> dict[str, JSONValue]:
     return {
-        "generated_by_forest_spec_id": forest_spec_hash(spec),
+        "generated_by_forest_spec_id": forest_spec_hash_spec(spec),
         "generated_by_forest_spec": normalize_forest_spec(spec),
     }
 

@@ -4871,6 +4871,7 @@ def _emit_call_ambiguities(
         )
         ambiguity_key = evidence_keys.normalize_key(ambiguity_key)
         for candidate in entry.candidates:
+            check_deadline()
             candidate_id = forest.add_site(candidate.path.name, candidate.qual)
             forest.add_alt(
                 "CallCandidate",
