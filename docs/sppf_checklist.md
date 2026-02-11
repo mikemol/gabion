@@ -1,5 +1,5 @@
 ---
-doc_revision: 132
+doc_revision: 142
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -9,15 +9,96 @@ doc_scope:
   - tooling
 doc_authority: informative
 doc_requires:
-  - README.md
-  - CONTRIBUTING.md
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+  - glossary.md#decision_table
+  - glossary.md#decision_bundle
+  - glossary.md#decision_protocol
+  - glossary.md#decision_surface
+  - glossary.md#value_encoded_decision
+  - glossary.md#deadness_witness
+  - glossary.md#exception_obligation
 doc_reviewed_as_of:
-  README.md: 59
-  CONTRIBUTING.md: 78
+  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  glossary.md#decision_table: 1
+  glossary.md#decision_bundle: 1
+  glossary.md#decision_protocol: 1
+  glossary.md#decision_surface: 1
+  glossary.md#value_encoded_decision: 1
+  glossary.md#deadness_witness: 1
+  glossary.md#exception_obligation: 1
 doc_review_notes:
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-doc_change_protocol: "POLICY_SEED.md §6"
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  glossary.md#decision_table: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
+  glossary.md#decision_bundle: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
+  glossary.md#decision_protocol: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
+  glossary.md#decision_surface: "Reviewed glossary.md#decision_surface rev1 (decision surface tier boundary semantics)."
+  glossary.md#value_encoded_decision: "Reviewed glossary.md#value_encoded_decision rev1 (value-encoded decision surface semantics)."
+  glossary.md#deadness_witness: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
+  glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
+doc_sections:
+  sppf_checklist: 1
+doc_section_requires:
+  sppf_checklist:
+    - README.md#repo_contract
+    - CONTRIBUTING.md#contributing_contract
+    - glossary.md#decision_table
+    - glossary.md#decision_bundle
+    - glossary.md#decision_protocol
+    - glossary.md#decision_surface
+    - glossary.md#value_encoded_decision
+    - glossary.md#deadness_witness
+    - glossary.md#exception_obligation
+doc_section_reviews:
+  sppf_checklist:
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+    glossary.md#decision_table:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
+    glossary.md#decision_bundle:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
+    glossary.md#decision_protocol:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
+    glossary.md#decision_surface:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#decision_surface rev1 (decision surface tier boundary semantics)."
+    glossary.md#value_encoded_decision:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#value_encoded_decision rev1 (value-encoded decision surface semantics)."
+    glossary.md#deadness_witness:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
+    glossary.md#exception_obligation:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
   - typos
@@ -30,6 +111,8 @@ sppf_dimensions:
 sppf_status_rule: "Checklist items are marked done only when doc=done and impl=done and doc_ref matches the in/ influence index."
 ---
 
+<a id="sppf_checklist"></a>
+
 # SPPF Convergence Checklist (Bottom-Up)
 
 This checklist is the bottom-up complement to the governance layer. It captures
@@ -38,7 +121,7 @@ or explicitly out of scope. It is advisory only.
 
 Tooling axis note: entries that touch scripts, Make targets, or execution
 wrappers live on the `tooling` axis and should stay consistent with
-`CONTRIBUTING.md` and `README.md`.
+`CONTRIBUTING.md#contributing_contract` and `README.md#repo_contract`.
 
 Legend: [x] done · [ ] planned · [~] partial/heuristic
 
@@ -46,6 +129,12 @@ SPPF axis tags (doc-ref only for now): append `sppf{doc=...; impl=...; doc_ref=.
 lines that cite `in/in-XX.md` or other doc references. `[x]` is allowed only
 when `doc=done` and `impl=done` and `doc_ref` matches the referenced doc
 revision (and, for `in-XX`, the status in `docs/influence_index.md`).
+
+Normative pointers (explicit): [README.md#repo_contract](README.md#repo_contract), [CONTRIBUTING.md#contributing_contract](CONTRIBUTING.md#contributing_contract),
+[glossary.md#decision_table](glossary.md#decision_table), [glossary.md#decision_bundle](glossary.md#decision_bundle),
+[glossary.md#decision_protocol](glossary.md#decision_protocol), [glossary.md#decision_surface](glossary.md#decision_surface),
+[glossary.md#value_encoded_decision](glossary.md#value_encoded_decision), [glossary.md#deadness_witness](glossary.md#deadness_witness),
+[glossary.md#exception_obligation](glossary.md#exception_obligation).
 
 ## GitHub tracking linkage
 - Each `[ ]` or `[~]` node should have a corresponding GitHub issue created from the
@@ -108,7 +197,8 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
 - [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70) sppf{doc=partial; impl=done; doc_ref=in-22@1}
 - [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71) sppf{doc=partial; impl=done; doc_ref=in-22@1}
-- [x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73) sppf{doc=done; impl=done; doc_ref=in-23@1}
+- [x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73) sppf{doc=done; impl=done; doc_ref=in-23@8}
+- [~] SuiteSite carriers + loop-scoped deadline obligations. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@21}
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
@@ -125,10 +215,10 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] FactorizationTree snapshot emission (canonical JSON). (in-16, GH-62) sppf{doc=done; impl=done; doc_ref=in-16@1}
 - [x] Structural diff command + baseline comparison. (in-16, GH-63) sppf{doc=done; impl=done; doc_ref=in-16@1}
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64) sppf{doc=done; impl=done; doc_ref=in-16@1}
-- [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74) sppf{doc=done; impl=done; doc_ref=in-24@3}
-- [x] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-25, GH-75) sppf{doc=done; impl=done; doc_ref=in-25@3}
-- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77) sppf{doc=partial; impl=done; doc_ref=in-27@1}
-- [ ] Exception obligations: handledness refinement (typed except + conservative UNKNOWN). (in-27, GH-80) sppf{doc=partial; impl=planned; doc_ref=in-27@1}
+- [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74) sppf{doc=done; impl=done; doc_ref=in-24@9}
+- [x] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-25, GH-75) sppf{doc=done; impl=done; doc_ref=in-25@9}
+- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77) sppf{doc=partial; impl=done; doc_ref=in-27@7}
+- [ ] Exception obligations: handledness refinement (typed except + conservative UNKNOWN). (in-27, GH-80) sppf{doc=partial; impl=planned; doc_ref=in-27@7}
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)
@@ -166,9 +256,9 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@1}
-- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@3}
-- [ ] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE). (in-26, GH-78) sppf{doc=partial; impl=planned; doc_ref=in-26@3}
-- [~] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79) sppf{doc=partial; impl=done; doc_ref=in-27@1}
+- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@9}
+- [ ] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE). (in-26, GH-78) sppf{doc=partial; impl=planned; doc_ref=in-26@9}
+- [~] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79) sppf{doc=partial; impl=done; doc_ref=in-27@7}
 
 ## LSP operational semantics
 - [x] CLI as pure LSP client (no engine import; server-only logic).
@@ -201,7 +291,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 
 ## Phase 2: Integration (post-scaffold)
 - [x] Synthesis plan available via LSP/CLI (`gabion.synthesisPlan`, `synthesis-plan`).
-- [x] Synthesis payload schema doc (`docs/synthesis_payload.md`). sppf{doc=done; impl=done; doc_ref=docs/synthesis_payload.md@2}
+- [x] Synthesis payload schema doc (`docs/synthesis_payload.md`). sppf{doc=done; impl=done; doc_ref=docs/synthesis_payload.md@4}
 - [x] Dataflow audit can emit synthesis plan outputs (report + JSON).
 - [x] Protocol/dataclass stub emitter (writes to `artifacts/`).
 - [x] Refactoring plan output (per-bundle schedule).

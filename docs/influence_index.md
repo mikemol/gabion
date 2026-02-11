@@ -1,5 +1,5 @@
 ---
-doc_revision: 41
+doc_revision: 46
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -10,26 +10,76 @@ doc_scope:
   - documentation
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - CONTRIBUTING.md
-  - README.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - glossary.md#exception_obligation
+  - glossary.md#handledness_witness
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md: 33
-  glossary.md: 29
-  CONTRIBUTING.md: 78
-  README.md: 59
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  glossary.md#exception_obligation: 1
+  glossary.md#handledness_witness: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 1
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); influence tracking semantics unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
+  glossary.md#handledness_witness: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+doc_sections:
+  influence_index: 1
+doc_section_requires:
+  influence_index:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - glossary.md#exception_obligation
+    - glossary.md#handledness_witness
+    - CONTRIBUTING.md#contributing_contract
+    - README.md#repo_contract
+doc_section_reviews:
+  influence_index:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+    glossary.md#exception_obligation:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
+    glossary.md#handledness_witness:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
 ---
+
+<a id="influence_index"></a>
 
 # Influence Index (`in/` → `out/`)
 
@@ -37,7 +87,7 @@ This index records which inbound documents (`in/`) have been reviewed, and how
 (or whether) they have been reflected in `out/`, `docs/`, or the checklist. It
 is a lightweight bridge between the inbox and the rest of the repo.
 
-Normative anchors: `POLICY_SEED.md`, `glossary.md`, `CONTRIBUTING.md`, `README.md`.
+Normative anchors: [POLICY_SEED.md#policy_seed](POLICY_SEED.md#policy_seed), [glossary.md#contract](glossary.md#contract), [glossary.md#exception_obligation](glossary.md#exception_obligation), [glossary.md#handledness_witness](glossary.md#handledness_witness), [CONTRIBUTING.md#contributing_contract](CONTRIBUTING.md#contributing_contract), [README.md#repo_contract](README.md#repo_contract).
 
 Status legend:
 - **untriaged**: not yet reviewed.
@@ -77,4 +127,4 @@ Status legend:
 - in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; exception-aware rewrite acceptance predicates implemented; remaining handledness refinement tracked; SPPF/GH-77, GH-80.)
 - in/in-28.md — **adopted** (in_step template discipline enforced; docflow structure and review requirements codified.)
 - in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)
-- in/in-30.md — **untriaged** (SuiteSite carrier + loop-scoped deadlines design; not yet adopted.)
+- in/in-30.md — **partial** (SuiteSite carrier + loop-scoped deadlines design; implementation in progress; SPPF/GH-85.)
