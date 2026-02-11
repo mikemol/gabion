@@ -79,6 +79,7 @@ from .timeout_context import build_timeout_context_from_stack, check_deadline
 from .projection_exec import apply_spec
 from .projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
+    DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
     NEVER_INVARIANTS_SPEC,
     spec_metadata_lines,
 )
@@ -3259,11 +3260,37 @@ def _deadline_arg_info_map(
     return info_map
 
 
+def _deadline_loop_forwarded_params(
+    *,
+    qual: str,
+    loop_fact: _DeadlineLoopFacts,
+    deadline_params: Mapping[str, set[str]],
+    call_infos: Mapping[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]],
+) -> set[str]:
+    forwarded: set[str] = set()
+    caller_params = deadline_params.get(qual, set())
+    if not caller_params:
+        return forwarded
+    for call, callee, arg_info in call_infos.get(qual, []):
+        check_deadline()
+        if call.span is None or call.span not in loop_fact.call_spans:
+            continue
+        for callee_param in deadline_params.get(callee.qual, set()):
+            check_deadline()
+            info = arg_info.get(callee_param)
+            if info is None:
+                continue
+            if info.kind == "param" and info.param in caller_params:
+                forwarded.add(info.param)
+    return forwarded
+
+
 def _collect_deadline_obligations(
     paths: list[Path],
     *,
     project_root: Path | None,
     config: AuditConfig,
+    forest: Forest | None = None,
     extra_facts_by_qual: dict[str, "_DeadlineFunctionFacts"] | None = None,
     extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
     extra_deadline_params: dict[str, set[str]] | None = None,
@@ -3493,6 +3520,7 @@ def _collect_deadline_obligations(
         span: tuple[int, int, int, int] | None = None,
         caller: str | None = None,
         callee: str | None = None,
+        suite_kind: str = "function",
     ) -> None:
         bundle = [param] if param else []
         key_parts = [path, function, kind]
@@ -3519,9 +3547,27 @@ def _collect_deadline_obligations(
         if callee:
             entry["callee"] = callee
         obligations.append(entry)
+        if forest is None:
+            return
+        suite_path = Path(path).name
+        suite_id = forest.add_suite_site(suite_path, function, suite_kind, span=span)
+        paramset_id = forest.add_paramset(bundle)
+        evidence: dict[str, object] = {
+            "deadline_id": deadline_id,
+            "status": status,
+            "kind": kind,
+            "detail": detail,
+        }
+        if caller:
+            evidence["caller"] = caller
+        if callee:
+            evidence["callee"] = callee
+        forest.add_alt("DeadlineObligation", (suite_id, paramset_id), evidence=evidence)
 
     for qual, facts in facts_by_qual.items():
         check_deadline()
+        if facts is None:
+            continue
         if qual not in by_qual:
             continue
         if _is_test_path(facts.path):
@@ -3540,6 +3586,7 @@ def _collect_deadline_obligations(
                 kind="origin_not_allowlisted",
                 detail=f"local Deadline origin '{name}' outside allowlist",
                 span=span,
+                suite_kind="function",
             )
 
     for qual, params in deadline_params.items():
@@ -3559,6 +3606,7 @@ def _collect_deadline_obligations(
                     kind="default_param",
                     detail=f"deadline param '{param}' has default",
                     span=span,
+                    suite_kind="function",
                 )
 
     edges = _collect_call_edges(
@@ -3573,27 +3621,6 @@ def _collect_deadline_obligations(
         return any(qual.startswith(prefix) for prefix in _DEADLINE_EXEMPT_PREFIXES)
 
     recursive_required = {qual for qual in recursive if not _deadline_exempt(qual)}
-
-    def _loop_forwarded_params(
-        qual: str,
-        loop_fact: _DeadlineLoopFacts,
-    ) -> set[str]:
-        forwarded: set[str] = set()
-        caller_params = deadline_params.get(qual, set())
-        if not caller_params:
-            return forwarded
-        for call, callee, arg_info in call_infos.get(qual, []):
-            check_deadline()
-            if call.span is None or call.span not in loop_fact.call_spans:
-                continue
-            for callee_param in deadline_params.get(callee.qual, set()):
-                check_deadline()
-                info = arg_info.get(callee_param)
-                if info is None:
-                    continue
-                if info.kind == "param" and info.param in caller_params:
-                    forwarded.add(info.param)
-        return forwarded
 
     for qual in sorted(recursive_required):
         check_deadline()
@@ -3619,6 +3646,7 @@ def _collect_deadline_obligations(
                 kind="missing_carrier",
                 detail="recursion requires Deadline carrier",
                 span=facts.span,
+                suite_kind="function",
             )
             continue
         checked = (facts.check_params | loop_checked) & carriers
@@ -3634,11 +3662,14 @@ def _collect_deadline_obligations(
                 kind="unchecked_deadline",
                 detail="deadline carrier not checked or forwarded (recursion)",
                 span=facts.span,
+                suite_kind="function",
             )
 
     for qual, facts in facts_by_qual.items():
         check_deadline()
         if _deadline_exempt(qual):
+            continue
+        if facts is None:
             continue
         info = by_qual.get(qual)
         if facts is None or info is None or _is_test_path(info.path):
@@ -3659,12 +3690,18 @@ def _collect_deadline_obligations(
                     kind="missing_carrier",
                     detail="loop requires Deadline carrier",
                     span=loop_fact.span,
+                    suite_kind="loop",
                 )
                 continue
             checked = loop_fact.check_params & carriers
             if loop_fact.ambient_check:
                 checked = set(carriers)
-            forwarded = _loop_forwarded_params(qual, loop_fact) & carriers
+            forwarded = _deadline_loop_forwarded_params(
+                qual=qual,
+                loop_fact=loop_fact,
+                deadline_params=deadline_params,
+                call_infos=call_infos,
+            ) & carriers
             if not checked and not forwarded:
                 _add_obligation(
                     path=_normalize_snapshot_path(info.path, project_root),
@@ -3674,6 +3711,7 @@ def _collect_deadline_obligations(
                     kind="unchecked_deadline",
                     detail="deadline carrier not checked or forwarded in loop",
                     span=loop_fact.span,
+                    suite_kind="loop",
                 )
 
     for caller_qual, entries in call_infos.items():
@@ -3709,6 +3747,7 @@ def _collect_deadline_obligations(
                         span=span,
                         caller=caller_qual,
                         callee=callee.qual,
+                        suite_kind="call",
                     )
                     continue
                 if info.kind == "none":
@@ -3722,6 +3761,7 @@ def _collect_deadline_obligations(
                         span=span,
                         caller=caller_qual,
                         callee=callee.qual,
+                        suite_kind="call",
                     )
                     continue
                 if info.kind == "const":
@@ -3735,6 +3775,7 @@ def _collect_deadline_obligations(
                         span=span,
                         caller=caller_qual,
                         callee=callee.qual,
+                        suite_kind="call",
                     )
                     continue
                 if info.kind == "origin":
@@ -3749,6 +3790,7 @@ def _collect_deadline_obligations(
                             span=span,
                             caller=caller_qual,
                             callee=callee.qual,
+                            suite_kind="call",
                         )
                     continue
                 if info.kind == "param":
@@ -3764,6 +3806,7 @@ def _collect_deadline_obligations(
                         span=span,
                         caller=caller_qual,
                         callee=callee.qual,
+                        suite_kind="call",
                     )
                     continue
                 if info.kind == "unknown":
@@ -3777,6 +3820,7 @@ def _collect_deadline_obligations(
                         span=span,
                         caller=caller_qual,
                         callee=callee.qual,
+                        suite_kind="call",
                     )
 
     return sorted(
@@ -3799,21 +3843,58 @@ def _summarize_deadline_obligations(
     check_deadline()
     if not entries:
         return []
-    lines: list[str] = []
-    for entry in entries[:max_entries]:
+    relation: list[dict[str, JSONValue]] = []
+    for entry in entries:
         check_deadline()
-        site = entry.get("site", {}) or {}
-        path = site.get("path", "?")
-        function = site.get("function", "?")
-        bundle = site.get("bundle", [])
+        site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
+        path = str(site.get("path", "") or "")
+        function = str(site.get("function", "") or "")
+        span = entry.get("span")
+        line = col = end_line = end_col = -1
+        if isinstance(span, list) and len(span) == 4:
+            try:
+                line = int(span[0])
+                col = int(span[1])
+                end_line = int(span[2])
+                end_col = int(span[3])
+            except (TypeError, ValueError):
+                line = col = end_line = end_col = -1
+        relation.append(
+            {
+                "status": str(entry.get("status", "UNKNOWN") or "UNKNOWN"),
+                "kind": str(entry.get("kind", "") or ""),
+                "detail": str(entry.get("detail", "") or ""),
+                "site_path": path,
+                "site_function": function,
+                "span_line": line,
+                "span_col": col,
+                "span_end_line": end_line,
+                "span_end_col": end_col,
+                "deadline_id": str(entry.get("deadline_id", "") or ""),
+            }
+        )
+
+    projected = apply_spec(DEADLINE_OBLIGATIONS_SUMMARY_SPEC, relation)
+    lines: list[str] = []
+    lines.extend(spec_metadata_lines(DEADLINE_OBLIGATIONS_SUMMARY_SPEC))
+    for entry in projected[:max_entries]:
+        path = entry.get("site_path") or "?"
+        function = entry.get("site_function") or "?"
+        span = _format_span_fields(
+            entry.get("span_line", -1),
+            entry.get("span_col", -1),
+            entry.get("span_end_line", -1),
+            entry.get("span_end_col", -1),
+        )
         status = entry.get("status", "UNKNOWN")
         kind = entry.get("kind", "?")
         detail = entry.get("detail", "")
+        suffix = f"@{span}" if span else ""
         lines.append(
-            f"{path}:{function} bundle={bundle} status={status} kind={kind} {detail}".strip()
+            f"{path}:{function}{suffix} status={status} kind={kind} {detail}".strip()
         )
-    if len(entries) > max_entries:
-        lines.append(f"... {len(entries) - max_entries} more")
+    if len(projected) > max_entries:
+        lines.append(f"... {len(projected) - max_entries} more")
     return lines
 
 
@@ -9368,6 +9449,7 @@ def analyze_paths(
         or include_value_decision_surfaces
         or include_lint_lines
         or include_never_invariants
+        or include_deadline_obligations
     ):
         forest = Forest()
         _populate_bundle_forest(
@@ -9386,6 +9468,7 @@ def analyze_paths(
             include_value_decision_surfaces=include_value_decision_surfaces,
             include_never_invariants=include_never_invariants,
             include_ambiguities=include_ambiguities,
+            include_deadline_obligations=include_deadline_obligations,
             include_all_sites=True,
             ignore_params=config.ignore_params,
             decision_ignore_params=config.decision_ignore_params
@@ -9460,6 +9543,7 @@ def analyze_paths(
             file_paths,
             project_root=config.project_root,
             config=config,
+            forest=forest,
         )
     deadness_witnesses: list[JSONObject] = []
     if include_deadness_witnesses:

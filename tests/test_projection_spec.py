@@ -30,6 +30,18 @@ def test_normalize_idempotent_and_hash_stable() -> None:
     assert spec_hash(spec) == spec_hash(roundtrip)
 
 
+def test_spec_hash_accepts_string_and_mapping() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="demo",
+        domain="tests",
+        pipeline=(),
+    )
+    payload = spec_to_dict(spec)
+    assert spec_hash("explicit-id") == "explicit-id"
+    assert spec_hash(payload) == spec_hash(spec)
+
+
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 def test_select_fusion_equivalence() -> None:
     rows = [{"value": 1}, {"value": 2}, {"value": 3}, {"value": 4}]

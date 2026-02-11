@@ -101,6 +101,35 @@ class Forest:
             meta["span"] = list(span)
         return self._intern_node(node_id, meta)
 
+    def add_suite_site(
+        self,
+        path: str,
+        qual: str,
+        suite_kind: str,
+        span: tuple[int, int, int, int] | None = None,
+    ) -> NodeId:
+        key: NodeKey = (path, qual, suite_kind)
+        if span is not None:
+            key = (*key, *span)
+        node_id = NodeId(kind="SuiteSite", key=key)
+        meta: dict[str, object] = {
+            "path": path,
+            "qual": qual,
+            "suite_kind": suite_kind,
+        }
+        if span is not None:
+            meta["span"] = list(span)
+        existed = node_id in self.nodes
+        suite_id = self._intern_node(node_id, meta)
+        if not existed:
+            func_id = self.add_site(path, qual)
+            self.add_alt(
+                "SuiteSiteInFunction",
+                (suite_id, func_id),
+                evidence={"suite_kind": suite_kind},
+            )
+        return suite_id
+
     def add_alt(
         self,
         kind: str,

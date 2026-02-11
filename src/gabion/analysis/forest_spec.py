@@ -31,6 +31,7 @@ def build_forest_spec(
     include_value_decision_surfaces: bool,
     include_never_invariants: bool,
     include_ambiguities: bool = False,
+    include_deadline_obligations: bool = False,
     include_all_sites: bool = True,
     ignore_params: Iterable[str] = (),
     decision_ignore_params: Iterable[str] = (),
@@ -134,6 +135,19 @@ def build_forest_spec(
             )
         )
 
+    if include_deadline_obligations:
+        outputs = ("SuiteSite", "SuiteSiteInFunction", "DeadlineObligation")
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="deadline_obligations",
+                outputs=outputs,
+                params={
+                    "ignore_params": _sorted_strings(ignore_params),
+                },
+            )
+        )
+
     return ForestSpec(
         spec_version=1,
         name="forest_v1",
@@ -150,6 +164,7 @@ def default_forest_spec(
     include_value_decision_surfaces: bool = False,
     include_never_invariants: bool = False,
     include_ambiguities: bool = False,
+    include_deadline_obligations: bool = False,
 ) -> ForestSpec:
     return build_forest_spec(
         include_bundle_forest=include_bundle_forest,
@@ -157,6 +172,7 @@ def default_forest_spec(
         include_value_decision_surfaces=include_value_decision_surfaces,
         include_never_invariants=include_never_invariants,
         include_ambiguities=include_ambiguities,
+        include_deadline_obligations=include_deadline_obligations,
         include_all_sites=True,
         ignore_params=(),
         decision_ignore_params=(),

@@ -66,6 +66,32 @@ def test_forest_spec_to_dict_roundtrip_handles_invalid_payload() -> None:
     assert roundtrip.collectors[0].name == "collector"
 
 
+def test_forest_spec_includes_deadline_obligations() -> None:
+    spec = build_forest_spec(
+        include_bundle_forest=False,
+        include_decision_surfaces=False,
+        include_value_decision_surfaces=False,
+        include_never_invariants=False,
+        include_ambiguities=False,
+        include_deadline_obligations=True,
+    )
+    collector_names = {collector.name for collector in spec.collectors}
+    assert "deadline_obligations" in collector_names
+    assert "DeadlineObligation" in spec.declared_outputs
+
+
+def test_forest_spec_hash_accepts_string_and_mapping() -> None:
+    spec = build_forest_spec(
+        include_bundle_forest=True,
+        include_decision_surfaces=False,
+        include_value_decision_surfaces=False,
+        include_never_invariants=False,
+    )
+    payload = forest_spec_to_dict(spec)
+    assert forest_spec_hash("explicit-id") == "explicit-id"
+    assert forest_spec_hash(payload) == forest_spec_hash(spec)
+
+
 # gabion:evidence E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec._normalize_decision_tiers::tiers
 def test_normalize_decision_tiers_ignores_invalid() -> None:
     tiers = {"": 1, "ok": "bad", "fine": 2}

@@ -86,6 +86,28 @@ def test_deadline_helper_classification_and_unparse_error() -> None:
     assert info_origin.kind == "origin"
 
 
+def test_deadline_collector_handles_missing_span_and_orelse() -> None:
+    da = _load()
+    source = """
+    def f():
+        for _ in range(1):
+            pass
+        else:
+            check_deadline()
+    """
+    tree = ast.parse(textwrap.dedent(source))
+    fn = tree.body[0]
+    collector = da._DeadlineFunctionCollector(fn, set())
+    collector.visit(fn)
+    assert collector.ambient_check is True
+    loop_fact = da._DeadlineLoopFacts(span=None, kind="for")
+    collector._loop_stack.append(loop_fact)
+    call = ast.Call(func=ast.Name(id="noop", ctx=ast.Load()), args=[], keywords=[])
+    collector._record_call_span(call)
+    collector._loop_stack.pop()
+    assert not loop_fact.call_spans
+
+
 def test_deadline_local_info_aliasing() -> None:
     da = _load()
     source = """
@@ -204,6 +226,69 @@ def test_collect_call_edges_and_recursive_helpers() -> None:
         {"a": {"a"}, "b": {"c"}, "c": {"b"}}
     )
     assert recursive == {"a", "b", "c"}
+
+
+def test_deadline_loop_forwarded_params_branches() -> None:
+    da = _load()
+    loop_fact = da._DeadlineLoopFacts(span=None, kind="for")
+    call = da.CallArgs(
+        callee="mod.callee",
+        pos_map={"0": "deadline"},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
+    callee = _make_fn_info(da, name="callee", qual="mod.callee", params=["deadline"])
+
+    forwarded = da._deadline_loop_forwarded_params(
+        qual="mod.caller",
+        loop_fact=loop_fact,
+        deadline_params={},
+        call_infos={},
+    )
+    assert forwarded == set()
+
+    deadline_params = {"mod.caller": {"deadline"}, "mod.callee": {"deadline"}}
+    call_infos = {
+        "mod.caller": [
+            (
+                call,
+                callee,
+                {"deadline": da._DeadlineArgInfo(kind="param", param="deadline")},
+            )
+        ]
+    }
+    forwarded = da._deadline_loop_forwarded_params(
+        qual="mod.caller",
+        loop_fact=loop_fact,
+        deadline_params=deadline_params,
+        call_infos=call_infos,
+    )
+    assert forwarded == set()
+
+    loop_fact.call_spans.add(call.span)
+    call_infos = {
+        "mod.caller": [
+            (
+                call,
+                callee,
+                {},
+            )
+        ]
+    }
+    forwarded = da._deadline_loop_forwarded_params(
+        qual="mod.caller",
+        loop_fact=loop_fact,
+        deadline_params=deadline_params,
+        call_infos=call_infos,
+    )
+    assert forwarded == set()
 
 
 def test_deadline_arg_info_binding_and_fallback() -> None:
@@ -564,6 +649,22 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     assert violations
 
 
+def test_deadline_summary_handles_bad_span() -> None:
+    da = _load()
+    entries = [
+        {
+            "deadline_id": "deadline:mod.py:f:missing",
+            "site": {"path": "mod.py", "function": "f", "bundle": []},
+            "status": "VIOLATION",
+            "kind": "missing",
+            "detail": "oops",
+            "span": ["x", "y", "z", "w"],
+        }
+    ]
+    summary = da._summarize_deadline_obligations(entries, max_entries=1)
+    assert summary
+
+
 def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -592,6 +693,228 @@ def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> Non
         [target],
         project_root=tmp_path,
         config=config,
+    )
+    assert obligations is not None
+
+
+def test_deadline_obligations_emit_suite_sites(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def loop_missing_check(deadline: Deadline):
+                for _ in range(1):
+                    pass
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.loop_missing_check"},
+    )
+    forest = da.Forest()
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=forest,
+    )
+    assert obligations
+    assert any(node.kind == "SuiteSite" for node in forest.nodes.values())
+    assert any(alt.kind == "DeadlineObligation" for alt in forest.alts)
+    assert any(alt.kind == "SuiteSiteInFunction" for alt in forest.alts)
+
+
+def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def recur():
+                return recur()
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+    )
+    assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
+
+
+def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def recur(deadline: Deadline):
+                return recur(None)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+    )
+    assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
+
+
+def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def recur():
+                for _ in range(1):
+                    check_deadline()
+                return recur()
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+    )
+    assert not any(entry.get("kind") == "missing_carrier" for entry in obligations)
+
+
+def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def recur(deadline: Deadline):
+                for _ in range(1):
+                    check_deadline()
+                return recur(deadline)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+    )
+    assert not any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
+
+
+def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def recur(deadline: Deadline):
+                return recur(deadline)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        extra_facts_by_qual={"mod.recur": None},
+    )
+    assert obligations is not None
+
+
+def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
+    da = _load()
+    dummy = tmp_path / "mod.py"
+    dummy.write_text("def f():\n    return 1\n", encoding="utf-8")
+    facts = {
+        "gabion.analysis.timeout_context.fake": da._DeadlineFunctionFacts(
+            path=Path("timeout_context.py"),
+            qual="gabion.analysis.timeout_context.fake",
+            span=None,
+            loop=False,
+            check_params=set(),
+            ambient_check=False,
+            loop_sites=[],
+            local_info=da._DeadlineLocalInfo(
+                origin_vars=set(),
+                origin_spans={},
+                alias_to_param={},
+            ),
+        )
+    }
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [dummy],
+        project_root=tmp_path,
+        config=config,
+        extra_facts_by_qual=facts,
     )
     assert obligations is not None
 
