@@ -63,6 +63,7 @@ def _is_anonymous_dict_subscript(node: ast.Subscript) -> bool:
 def _contains_anonymous_dict(annotation: ast.AST) -> bool:
     check_deadline()
     for node in ast.walk(annotation):
+        check_deadline()
         if isinstance(node, ast.Subscript) and _is_anonymous_dict_subscript(node):
             return True
     return False
@@ -203,6 +204,7 @@ def find_anonymous_schema_surfaces(
     check_deadline()
     surfaces: list[AnonymousSchemaSurface] = []
     for path in sorted(set(paths)):
+        check_deadline()
         if "tests" in path.parts:
             continue
         if path.name.startswith("."):

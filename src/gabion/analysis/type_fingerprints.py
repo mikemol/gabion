@@ -13,6 +13,7 @@ def _split_top_level(value: str, sep: str) -> list[str]:
     buf: list[str] = []
     depth = 0
     for ch in value:
+        check_deadline()
         if ch in "[({":
             depth += 1
         elif ch in "])}":
@@ -33,6 +34,7 @@ def _split_top_level(value: str, sep: str) -> list[str]:
 def _strip_known_prefix(name: str) -> str:
     check_deadline()
     for prefix in ("typing.", "builtins."):
+        check_deadline()
         if name.startswith(prefix):
             return name[len(prefix) :]
     return name
@@ -97,6 +99,7 @@ def _is_prime(value: int) -> bool:
         return False
     step = 5
     while step * step <= value:
+        check_deadline()
         if value % step == 0 or value % (step + 2) == 0:
             return False
         step += 6
@@ -107,6 +110,7 @@ def _next_prime(start: int) -> int:
     check_deadline()
     candidate = max(start, 2)
     while not _is_prime(candidate):
+        check_deadline()
         candidate += 1
     return candidate
 
@@ -138,6 +142,7 @@ class PrimeRegistry:
     def key_for_prime(self, prime: int) -> str | None:
         check_deadline()
         for key, value in self.primes.items():
+            check_deadline()
             if value == prime:
                 return key
         return None
@@ -251,23 +256,27 @@ def _collect_base_atoms(hint: str, out: list[str]) -> None:
     union_parts = _split_top_level(raw, "|")
     if len(union_parts) > 1:
         for part in union_parts:
+            check_deadline()
             _collect_base_atoms(part, out)
         return
     if raw.startswith("Optional[") and raw.endswith("]"):
         inner = raw[len("Optional[") : -1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_base_atoms(part, out)
         out.append("None")
         return
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_base_atoms(part, out)
         return
     if "[" in raw and raw.endswith("]"):
         _, inner = raw.split("[", 1)
         inner = inner[:-1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_base_atoms(part, out)
         return
     out.append(_normalize_base(raw))
@@ -281,16 +290,19 @@ def _collect_constructors_multiset(hint: str, out: list[str]) -> None:
     union_parts = _split_top_level(raw, "|")
     if len(union_parts) > 1:
         for part in union_parts:
+            check_deadline()
             _collect_constructors_multiset(part, out)
         return
     if raw.startswith("Optional[") and raw.endswith("]"):
         inner = raw[len("Optional[") : -1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_constructors_multiset(part, out)
         return
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_constructors_multiset(part, out)
         return
     if "[" in raw and raw.endswith("]"):
@@ -299,6 +311,7 @@ def _collect_constructors_multiset(hint: str, out: list[str]) -> None:
         out.append(normalized_base)
         inner = inner[:-1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_constructors_multiset(part, out)
 
 def _normalize_type_list(value: object) -> list[str]:
@@ -310,6 +323,7 @@ def _normalize_type_list(value: object) -> list[str]:
         items = [part.strip() for part in value.split(",") if part.strip()]
     elif isinstance(value, (list, tuple, set)):
         for item in value:
+            check_deadline()
             if isinstance(item, str):
                 items.extend([part.strip() for part in item.split(",") if part.strip()])
     return [item for item in items if item]
@@ -323,16 +337,19 @@ def _collect_constructors(hint: str, out: set[str]) -> None:
     union_parts = _split_top_level(raw, "|")
     if len(union_parts) > 1:
         for part in union_parts:
+            check_deadline()
             _collect_constructors(part, out)
         return
     if raw.startswith("Optional[") and raw.endswith("]"):
         inner = raw[len("Optional[") : -1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_constructors(part, out)
         return
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_constructors(part, out)
         return
     if "[" in raw and raw.endswith("]"):
@@ -341,6 +358,7 @@ def _collect_constructors(hint: str, out: set[str]) -> None:
         out.add(normalized_base)
         inner = inner[:-1]
         for part in _split_top_level(inner, ","):
+            check_deadline()
             _collect_constructors(part, out)
 
 
@@ -349,6 +367,7 @@ def _dimension_from_keys(keys: Iterable[str], registry: PrimeRegistry) -> Finger
     product = 1
     mask = 0
     for key in keys:
+        check_deadline()
         if not key:
             continue
         prime = registry.get_or_assign(key)
@@ -367,6 +386,7 @@ def _ctor_dimension_from_names(
     product = 1
     mask = 0
     for name in names:
+        check_deadline()
         if not name:
             continue
         key = f"ctor:{_normalize_base(name)}"
@@ -434,10 +454,12 @@ def build_synth_registry(
     check_deadline()
     counts: dict[Fingerprint, int] = {}
     for fingerprint in fingerprints:
+        check_deadline()
         counts[fingerprint] = counts.get(fingerprint, 0) + 1
     synth_registry = SynthRegistry(registry=registry, version=version)
     candidates = [fp for fp, count in counts.items() if count >= min_occurrences]
     for fingerprint in sorted(candidates, key=_fingerprint_sort_key):
+        check_deadline()
         synth_registry.get_or_assign(fingerprint)
     return synth_registry
 
@@ -466,6 +488,7 @@ def synth_registry_payload(
     check_deadline()
     entries: list[JSONObject] = []
     for prime, tail in sorted(synth_registry.tails.items()):
+        check_deadline()
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
             tail.base.product, registry
         )
@@ -544,6 +567,7 @@ def build_synth_registry_from_payload(
     entries, version, _ = load_synth_registry_payload(payload)
     synth_registry = SynthRegistry(registry=registry, version=version)
     for entry in entries:
+        check_deadline()
         if not isinstance(entry, dict):
             continue
         prime = entry.get("prime")
@@ -596,18 +620,21 @@ def _apply_registry_payload(
     bits_map: dict[str, int] = {}
     if isinstance(primes, dict):
         for key, value in primes.items():
+            check_deadline()
             if not isinstance(key, str):
                 continue
             if isinstance(value, int):
                 primes_map[key] = value
     if isinstance(bits, dict):
         for key, value in bits.items():
+            check_deadline()
             if not isinstance(key, str):
                 continue
             if isinstance(value, int):
                 bits_map[key] = value
 
     for key, prime in primes_map.items():
+        check_deadline()
         existing = registry.primes.get(key)
         if existing is not None and existing != prime:
             raise ValueError(
@@ -616,6 +643,7 @@ def _apply_registry_payload(
         registry.primes.setdefault(key, prime)
 
     for key, bit in bits_map.items():
+        check_deadline()
         existing = registry.bit_positions.get(key)
         if existing is not None and existing != bit:
             raise ValueError(
@@ -640,6 +668,7 @@ def _apply_registry_payload(
     # Older payloads may omit bit positions; assign deterministically for any
     # primes without a bit position so mask carriers remain usable.
     for key in sorted(registry.primes):
+        check_deadline()
         if key not in registry.bit_positions:
             registry.bit_positions[key] = registry.next_bit
             registry.next_bit += 1
@@ -665,11 +694,13 @@ def bundle_fingerprint_dimensional(
     base_keys: list[str] = []
     ctor_names: list[str] = []
     for hint in types:
+        check_deadline()
         _collect_base_atoms(hint, base_keys)
         if ctor_registry is not None:
             _collect_constructors_multiset(hint, ctor_names)
     if ctor_registry is not None:
         for ctor in ctor_names:
+            check_deadline()
             ctor_registry.get_or_assign(ctor)
     base_dim = _dimension_from_keys(base_keys, registry)
     ctor_dim = _ctor_dimension_from_names(ctor_names, registry) if ctor_registry else FingerprintDimension()
@@ -680,6 +711,7 @@ def bundle_fingerprint(types: Iterable[str], registry: PrimeRegistry) -> int:
     check_deadline()
     product = 1
     for hint in types:
+        check_deadline()
         key = canonical_type_key(hint)
         if not key:
             continue
@@ -691,12 +723,14 @@ def bundle_fingerprint_setlike(types: Iterable[str], registry: PrimeRegistry) ->
     check_deadline()
     keys: set[str] = set()
     for hint in types:
+        check_deadline()
         key = canonical_type_key(hint)
         if not key:
             continue
         keys.add(key)
     product = 1
     for key in sorted(keys):
+        check_deadline()
         product *= registry.get_or_assign(key)
     return product
 
@@ -709,6 +743,7 @@ def bundle_fingerprint_with_constructors(
     check_deadline()
     product = 1
     for hint in types:
+        check_deadline()
         key = canonical_type_key_with_constructor(hint, ctor_registry)
         if not key:
             continue
@@ -720,6 +755,7 @@ def fingerprint_bitmask(types: Iterable[str], registry: PrimeRegistry) -> int:
     check_deadline()
     mask = 0
     for hint in types:
+        check_deadline()
         key = canonical_type_key(hint)
         if not key:
             continue
@@ -745,21 +781,26 @@ def build_fingerprint_registry(
     constructor_keys: set[str] = set()
     spec_entries: dict[str, list[str]] = {}
     for name, entry in spec.items():
+        check_deadline()
         types = _normalize_type_list(entry)
         spec_entries[str(name)] = types
         if not types:
             continue
         for hint in types:
+            check_deadline()
             atoms: list[str] = []
             _collect_base_atoms(hint, atoms)
             base_keys.update(atom for atom in atoms if atom)
             _collect_constructors(hint, constructor_keys)
     for constructor in sorted(constructor_keys):
+        check_deadline()
         ctor_registry.get_or_assign(constructor)
     for key in sorted(base_keys):
+        check_deadline()
         registry.get_or_assign(key)
     index: dict[Fingerprint, set[str]] = {}
     for name in sorted(spec_entries):
+        check_deadline()
         types = spec_entries[name]
         if not types:
             continue
@@ -782,7 +823,9 @@ def fingerprint_to_type_keys_with_remainder(
     if remaining <= 1:
         return keys, remaining
     for key, prime in sorted(registry.primes.items(), key=lambda item: item[1]):
+        check_deadline()
         while remaining % prime == 0:
+            check_deadline()
             keys.append(key)
             remaining //= prime
         if remaining == 1:

@@ -28,6 +28,7 @@ def build_forest_signature(forest: Forest) -> dict[str, JSONValue]:
     node_intern: list[list[JSONValue]] = []
     node_index: dict[NodeId, int] = {}
     for idx, node_id in enumerate(nodes):
+        check_deadline()
         node_index[node_id] = idx
         node_intern.append([node_id.kind, _normalize_key(node_id.key)])
 
@@ -36,6 +37,7 @@ def build_forest_signature(forest: Forest) -> dict[str, JSONValue]:
     alt_edges: list[list[JSONValue]] = []
     alts_sorted = sorted(forest.alts, key=lambda alt: _alt_sort_key(alt, node_index))
     for alt in alts_sorted:
+        check_deadline()
         kind_idx = alt_kind_index[alt.kind]
         inputs = [node_index[node_id] for node_id in alt.inputs]
         alt_edges.append([kind_idx, inputs])
@@ -61,11 +63,14 @@ def build_forest_signature_from_groups(
     check_deadline()
     forest = Forest()
     for path in sorted(groups_by_path, key=lambda item: str(item)):
+        check_deadline()
         groups = groups_by_path[path]
         path_name = _path_name(path)
         for fn_name in sorted(groups):
+            check_deadline()
             site_id = forest.add_site(path_name, fn_name)
             for bundle in groups[fn_name]:
+                check_deadline()
                 paramset_id = forest.add_paramset(bundle)
                 forest.add_alt("SignatureBundle", (site_id, paramset_id))
     return build_forest_signature(forest)
@@ -82,6 +87,7 @@ def _normalize_key(parts: Iterable[object]) -> list[JSONValue]:
     check_deadline()
     normalized: list[JSONValue] = []
     for part in parts:
+        check_deadline()
         if isinstance(part, (str, int, float, bool)) or part is None:
             normalized.append(part)
         else:

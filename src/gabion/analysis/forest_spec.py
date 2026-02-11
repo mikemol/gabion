@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Iterable, Mapping
@@ -208,6 +207,7 @@ def forest_spec_from_dict(payload: Mapping[str, JSONValue]) -> ForestSpec:
     collectors: list[ForestCollectorSpec] = []
     if isinstance(collectors_payload, list):
         for entry in collectors_payload:
+            check_deadline()
             if not isinstance(entry, Mapping):
                 continue
             collector_name = str(entry.get("name", "") or "").strip()
@@ -262,9 +262,12 @@ def forest_spec_canonical_json(spec: ForestSpec) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-def forest_spec_hash(spec: ForestSpec) -> str:
-    encoded = forest_spec_canonical_json(spec)
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+def forest_spec_hash(spec: ForestSpec | Mapping[str, JSONValue] | str) -> str:
+    if isinstance(spec, str):
+        return spec
+    if isinstance(spec, Mapping):
+        spec = forest_spec_from_dict(spec)
+    return forest_spec_canonical_json(spec)
 
 
 def forest_spec_metadata(spec: ForestSpec) -> dict[str, JSONValue]:
@@ -282,6 +285,7 @@ def _normalize_decision_tiers(
         return {}
     normalized: dict[str, int] = {}
     for key, value in tiers.items():
+        check_deadline()
         name = str(key).strip()
         if not name:
             continue

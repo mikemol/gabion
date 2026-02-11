@@ -83,6 +83,7 @@ def _normalize_name_list(value: TomlValue) -> list[str]:
         items = [part.strip() for part in value.split(",") if part.strip()]
     elif isinstance(value, (list, tuple, set)):
         for item in value:
+            check_deadline()
             if isinstance(item, str):
                 items.extend([part.strip() for part in item.split(",") if part.strip()])
     return [item for item in items if item]
@@ -106,7 +107,9 @@ def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
         return {}
     tiers: dict[str, int] = {}
     for tier, key in ((1, "tier1"), (2, "tier2"), (3, "tier3")):
+        check_deadline()
         for name in _normalize_name_list(section.get(key)):
+            check_deadline()
             tiers[name] = tier
     return tiers
 
@@ -147,6 +150,7 @@ def merge_payload(payload: TomlTable, defaults: TomlTable) -> TomlTable:
     check_deadline()
     merged = dict(defaults)
     for key, value in payload.items():
+        check_deadline()
         if value is None:
             continue
         merged[key] = value
