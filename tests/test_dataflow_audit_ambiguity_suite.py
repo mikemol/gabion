@@ -38,7 +38,7 @@ def test_ambiguity_suite_relation_skips_missing_function_meta() -> None:
 
 def test_ambiguity_suite_relation_skips_empty_alt_inputs() -> None:
     forest = Forest()
-    forest.add_alt("AmbiguitySet", ())
+    forest.add_alt("CallCandidate", ())
     relation, _ = _ambiguity_suite_relation(forest)
     assert relation == []
 
@@ -46,7 +46,7 @@ def test_ambiguity_suite_relation_skips_empty_alt_inputs() -> None:
 def test_ambiguity_suite_relation_skips_non_suite_node() -> None:
     forest = Forest()
     func_id = forest.add_site("a.py", "mod.fn")
-    forest.add_alt("AmbiguitySet", (func_id,))
+    forest.add_alt("CallCandidate", (func_id, func_id))
     relation, _ = _ambiguity_suite_relation(forest)
     assert relation == []
 
@@ -54,7 +54,8 @@ def test_ambiguity_suite_relation_skips_non_suite_node() -> None:
 def test_ambiguity_suite_relation_skips_non_call_suite() -> None:
     forest = Forest()
     suite_id = forest.add_suite_site("a.py", "mod.fn", "function", span=(0, 0, 0, 1))
-    forest.add_alt("AmbiguitySet", (suite_id,))
+    candidate_id = forest.add_site("a.py", "mod.target")
+    forest.add_alt("CallCandidate", (suite_id, candidate_id))
     relation, _ = _ambiguity_suite_relation(forest)
     assert relation == []
 
@@ -66,7 +67,8 @@ def test_ambiguity_suite_relation_requires_path_qual() -> None:
         ("", "", "call"),
         {"suite_kind": "call"},
     )
-    forest.add_alt("AmbiguitySet", (suite_id,))
+    candidate_id = forest.add_site("a.py", "mod.target")
+    forest.add_alt("CallCandidate", (suite_id, candidate_id))
     with pytest.raises(NeverThrown):
         _ambiguity_suite_relation(forest)
 
@@ -74,7 +76,8 @@ def test_ambiguity_suite_relation_requires_path_qual() -> None:
 def test_ambiguity_suite_relation_requires_span() -> None:
     forest = Forest()
     suite_id = forest.add_suite_site("a.py", "mod.fn", "call")
-    forest.add_alt("AmbiguitySet", (suite_id,))
+    candidate_id = forest.add_site("a.py", "mod.target")
+    forest.add_alt("CallCandidate", (suite_id, candidate_id))
     with pytest.raises(NeverThrown):
         _ambiguity_suite_relation(forest)
 
@@ -91,7 +94,8 @@ def test_ambiguity_suite_relation_requires_int_span() -> None:
             "span": ["a", "b", "c", "d"],
         },
     )
-    forest.add_alt("AmbiguitySet", (suite_id,))
+    candidate_id = forest.add_site("a.py", "mod.target")
+    forest.add_alt("CallCandidate", (suite_id, candidate_id))
     with pytest.raises(NeverThrown):
         _ambiguity_suite_relation(forest)
 

@@ -120,7 +120,7 @@ def build_forest_spec(
         )
 
     if include_ambiguities:
-        outputs = ("AmbiguitySet", "PartitionWitness")
+        outputs = ("SuiteSite", "SuiteSiteInFunction", "CallCandidate", "PartitionWitness")
         declared_outputs.update(outputs)
         collectors.append(
             ForestCollectorSpec(

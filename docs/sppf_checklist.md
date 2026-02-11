@@ -1,5 +1,5 @@
 ---
-doc_revision: 143
+doc_revision: 145
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -39,7 +39,7 @@ doc_review_notes:
   glossary.md#deadness_witness: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
   glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_sections:
-  sppf_checklist: 2
+  sppf_checklist: 4
 doc_section_requires:
   sppf_checklist:
     - README.md#repo_contract
@@ -55,47 +55,47 @@ doc_section_reviews:
   sppf_checklist:
     README.md#repo_contract:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
     glossary.md#decision_table:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
     glossary.md#decision_bundle:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
     glossary.md#decision_protocol:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
     glossary.md#decision_surface:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed glossary.md#decision_surface rev1 (decision surface tier boundary semantics)."
     glossary.md#value_encoded_decision:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed glossary.md#value_encoded_decision rev1 (value-encoded decision surface semantics)."
     glossary.md#deadness_witness:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
     glossary.md#exception_obligation:
       dep_version: 1
-      self_version_at_review: 2
+      self_version_at_review: 4
       outcome: no_change
       note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -201,8 +201,9 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70) sppf{doc=partial; impl=done; doc_ref=in-22@1}
 - [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71) sppf{doc=partial; impl=done; doc_ref=in-22@1}
 - [x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73) sppf{doc=done; impl=done; doc_ref=in-23@8}
-- [~] SuiteSite carriers + loop-scoped deadline obligations. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@23}
-- [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server). (in-30, GH-87) sppf{doc=partial; impl=done; doc_ref=in-30@23}
+- [~] SuiteSite carriers + loop-scoped deadline obligations. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@24}
+- [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server). (in-30, GH-87) sppf{doc=partial; impl=done; doc_ref=in-30@24}
+- [~] Structural ambiguity as CallCandidate alts (SuiteSite) with virtual AmbiguitySet. (in-30, GH-88) sppf{doc=partial; impl=done; doc_ref=in-30@24}
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).

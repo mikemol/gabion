@@ -215,11 +215,12 @@ def test_ambiguity_witnesses_emit(tmp_path: Path) -> None:
     )
     assert any("GABION_AMBIGUITY" in line for line in analysis.lint_lines)
     assert analysis.forest is not None
-    assert any(node.kind == "AmbiguitySet" for node in analysis.forest.nodes)
+    assert not any(node.kind == "AmbiguitySet" for node in analysis.forest.nodes.values())
     assert any(
         node.kind == "SuiteSite" and node.meta.get("suite_kind") == "call"
         for node in analysis.forest.nodes.values()
     )
+    assert any(alt.kind == "CallCandidate" for alt in analysis.forest.alts)
     summary = da._summarize_call_ambiguities(analysis.ambiguity_witnesses)
     assert summary
     assert summary[0].startswith("generated_by_spec_id:")

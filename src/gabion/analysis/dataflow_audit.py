@@ -4081,9 +4081,9 @@ def _ambiguity_suite_relation(
         function_index[(path, qual)] = node_id
     for alt in forest.alts:
         check_deadline()
-        if alt.kind != "AmbiguitySet":
+        if alt.kind != "CallCandidate":
             continue
-        if not alt.inputs:
+        if len(alt.inputs) < 2:
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
@@ -4863,10 +4863,6 @@ def _emit_call_ambiguities(
             "call",
             span=call_span,
         )
-        candidate_nodes = [
-            forest.add_site(candidate.path.name, candidate.qual)
-            for candidate in entry.candidates
-        ]
         ambiguity_key = evidence_keys.make_ambiguity_set_key(
             path=site_path,
             qual=entry.caller.qual,
@@ -4874,12 +4870,17 @@ def _emit_call_ambiguities(
             candidates=candidate_targets,
         )
         ambiguity_key = evidence_keys.normalize_key(ambiguity_key)
-        ambiguity_identity = evidence_keys.key_identity(ambiguity_key)
-        ambiguity_node = forest.add_node(
-            "AmbiguitySet",
-            (ambiguity_identity,),
-            meta={"evidence_key": ambiguity_key},
-        )
+        for candidate in entry.candidates:
+            candidate_id = forest.add_site(candidate.path.name, candidate.qual)
+            forest.add_alt(
+                "CallCandidate",
+                (suite_id, candidate_id),
+                evidence={
+                    "kind": entry.kind,
+                    "phase": entry.phase,
+                    "ambiguity_key": ambiguity_key,
+                },
+            )
         witness_key = evidence_keys.make_partition_witness_key(
             kind=entry.kind,
             site=ambiguity_key.get("site", {}),
@@ -4900,17 +4901,8 @@ def _emit_call_ambiguities(
             meta={"evidence_key": witness_key},
         )
         forest.add_alt(
-            "AmbiguitySet",
-            (suite_id, ambiguity_node, *sorted(candidate_nodes, key=lambda node: node.sort_key())),
-            evidence={
-                "kind": entry.kind,
-                "candidate_count": len(candidate_nodes),
-                "phase": entry.phase,
-            },
-        )
-        forest.add_alt(
             "PartitionWitness",
-            (suite_id, ambiguity_node, witness_node),
+            (suite_id, witness_node),
             evidence={
                 "kind": entry.kind,
                 "phase": entry.phase,

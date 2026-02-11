@@ -156,7 +156,7 @@ def test_emit_call_ambiguities_uses_call_suite(tmp_path: Path) -> None:
         for node in forest.nodes.values()
     )
     assert any(
-        alt.kind == "AmbiguitySet"
+        alt.kind == "CallCandidate"
         and forest.nodes.get(alt.inputs[0], None) is not None
         and forest.nodes[alt.inputs[0]].kind == "SuiteSite"
         for alt in forest.alts
