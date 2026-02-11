@@ -19,6 +19,7 @@ class ParentAnnotator(ast.NodeVisitor):
     def generic_visit(self, node: ast.AST) -> None:
         check_deadline()
         for child in ast.iter_child_nodes(node):
+            check_deadline()
             self.parents[child] = node
             self.visit(child)
 
@@ -32,6 +33,7 @@ class ImportVisitor(ast.NodeVisitor):
     def visit_Import(self, node: ast.Import) -> None:
         check_deadline()
         for alias in node.names:
+            check_deadline()
             local = alias.asname or alias.name
             self.table.imports[(self.module, local)] = alias.name
 
@@ -50,6 +52,7 @@ class ImportVisitor(ast.NodeVisitor):
         else:
             source = node.module or ""
         for alias in node.names:
+            check_deadline()
             if alias.name == "*":
                 self.table.star_imports.setdefault(self.module, set()).add(source)
                 continue
@@ -126,6 +129,7 @@ class UseVisitor(ast.NodeVisitor):
         star_pos: list[tuple[int, str]] = []
         star_kw: list[str] = []
         for idx, arg in enumerate(node.args):
+            check_deadline()
             if isinstance(arg, ast.Starred):
                 if isinstance(arg.value, ast.Name) and arg.value.id in self.alias_to_param:
                     star_pos.append((idx, self.alias_to_param[arg.value.id]))
@@ -141,6 +145,7 @@ class UseVisitor(ast.NodeVisitor):
             else:
                 non_const_pos.add(str(idx))
         for kw in node.keywords:
+            check_deadline()
             if kw.arg is None:
                 if isinstance(kw.value, ast.Name) and kw.value.id in self.alias_to_param:
                     star_kw.append(self.alias_to_param[kw.value.id])
@@ -175,6 +180,7 @@ class UseVisitor(ast.NodeVisitor):
     def _check_write(self, target: ast.AST) -> None:
         check_deadline()
         for node in ast.walk(target):
+            check_deadline()
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
                 name = node.id
                 if name in self.alias_to_param:
@@ -186,6 +192,7 @@ class UseVisitor(ast.NodeVisitor):
                     key for key in self._attr_alias_to_param if key[0] == name
                 ]
                 for key in to_remove:
+                    check_deadline()
                     param = self._attr_alias_to_param.pop(key, None)
                     if param in self.use_map:
                         self.use_map[param].non_forward = True
@@ -193,6 +200,7 @@ class UseVisitor(ast.NodeVisitor):
                     key for key in self._key_alias_to_param if key[0] == name
                 ]
                 for key in to_remove:
+                    check_deadline()
                     param = self._key_alias_to_param.pop(key, None)
                     if param in self.use_map:
                         self.use_map[param].non_forward = True
@@ -207,6 +215,7 @@ class UseVisitor(ast.NodeVisitor):
         if len(target.elts) != len(rhs.elts):
             return False
         for lhs, rhs_node in zip(target.elts, rhs.elts):
+            check_deadline()
             if isinstance(lhs, (ast.Tuple, ast.List)) and isinstance(rhs_node, (ast.Tuple, ast.List)):
                 if not self._bind_sequence(lhs, rhs_node):
                     self._check_write(lhs)
@@ -227,6 +236,7 @@ class UseVisitor(ast.NodeVisitor):
         if isinstance(rhs, (ast.Tuple, ast.List)):
             sources: set[str] = set()
             for elt in rhs.elts:
+                check_deadline()
                 sources.update(self._collect_alias_sources(elt))
             return sources
         return set()
@@ -244,6 +254,7 @@ class UseVisitor(ast.NodeVisitor):
             return None
         mapping: dict[str, str | None] = {}
         for idx, arg in enumerate(call.args):
+            check_deadline()
             if isinstance(arg, ast.Starred):
                 return None
             if idx >= len(params):
@@ -253,6 +264,7 @@ class UseVisitor(ast.NodeVisitor):
             else:
                 mapping[params[idx]] = None
         for kw in call.keywords:
+            check_deadline()
             if kw.arg is None:
                 return None
             if kw.arg not in params:
@@ -263,6 +275,7 @@ class UseVisitor(ast.NodeVisitor):
                 mapping[kw.arg] = None
         resolved: list[str] = []
         for param in aliases:
+            check_deadline()
             mapped = mapping.get(param)
             if not mapped:
                 return None
@@ -290,6 +303,7 @@ class UseVisitor(ast.NodeVisitor):
             if not all(isinstance(elt, ast.Name) for elt in target.elts):
                 return False
             for elt, param in zip(target.elts, aliases):
+                check_deadline()
                 if isinstance(elt, ast.Name):
                     self.alias_to_param[elt.id] = param
                     if param in self.use_map:
@@ -310,6 +324,7 @@ class UseVisitor(ast.NodeVisitor):
 
         handled_alias = False
         for target in node.targets:
+            check_deadline()
             if self._bind_sequence(target, node.value):
                 handled_alias = True
                 continue
@@ -409,11 +424,13 @@ class UseVisitor(ast.NodeVisitor):
         callee = self.callee_name(call)
         slot = None
         for idx, arg in enumerate(call.args):
+            check_deadline()
             if arg is node:
                 slot = f"arg[{idx}]"
                 break
         if slot is None:
             for kw in call.keywords:
+                check_deadline()
                 if kw.value is node and kw.arg is not None:
                     slot = f"kw[{kw.arg}]"
                     break
@@ -425,6 +442,7 @@ class UseVisitor(ast.NodeVisitor):
         check_deadline()
         current = node
         while isinstance(current, (ast.Attribute, ast.Subscript)):
+            check_deadline()
             current = current.value
         if isinstance(current, ast.Name):
             return current.id
@@ -459,11 +477,13 @@ class UseVisitor(ast.NodeVisitor):
         callee = self.callee_name(call)
         slot = None
         for idx, arg in enumerate(call.args):
+            check_deadline()
             if arg is node:
                 slot = f"arg[{idx}]"
                 break
         if slot is None:
             for kw in call.keywords:
+                check_deadline()
                 if kw.value is node and kw.arg is not None:
                     slot = f"kw[{kw.arg}]"
                     break
@@ -511,11 +531,13 @@ class UseVisitor(ast.NodeVisitor):
         callee = self.callee_name(call)
         slot = None
         for idx, arg in enumerate(call.args):
+            check_deadline()
             if arg is node:
                 slot = f"arg[{idx}]"
                 break
         if slot is None:
             for kw in call.keywords:
+                check_deadline()
                 if kw.value is node and kw.arg is not None:
                     slot = f"kw[{kw.arg}]"
                     break

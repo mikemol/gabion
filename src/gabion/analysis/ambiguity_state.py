@@ -84,6 +84,7 @@ def _normalize_witnesses(
     check_deadline(allow_frame_fallback=True)
     witnesses: list[dict[str, JSONValue]] = []
     for entry in payload:
+        check_deadline()
         if not isinstance(entry, Mapping):
             continue
         witnesses.append({str(k): entry[k] for k in entry})

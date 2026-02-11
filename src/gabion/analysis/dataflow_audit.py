@@ -155,6 +155,7 @@ class SymbolTable:
         if not candidates:
             return None
         for module in sorted(candidates):
+            check_deadline()
             exports = self.module_exports.get(module)
             if exports is None or name not in exports:
                 continue
@@ -210,10 +211,12 @@ def _call_context(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> tuple[ast.C
     child = node
     parent = parents.get(child)
     while parent is not None:
+        check_deadline()
         if isinstance(parent, ast.Call):
             if child in parent.args:
                 return parent, True
             for kw in parent.keywords:
+                check_deadline()
                 if child is kw or child is kw.value:
                     return parent, True
             return parent, False
@@ -288,15 +291,18 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
     check_deadline()
     out: list[Path] = []
     for p in paths:
+        check_deadline()
         path = Path(p)
         if path.is_dir():
             for root, dirnames, filenames in os.walk(path, topdown=True):
+                check_deadline()
                 if config.exclude_dirs:
                     # Prune excluded dirs before descending to avoid scanning
                     # large env/vendor trees like `.venv/`.
                     dirnames[:] = [d for d in dirnames if d not in config.exclude_dirs]
                 dirnames.sort()
                 for filename in sorted(filenames):
+                    check_deadline()
                     if not filename.endswith(".py"):
                         continue
                     candidate = Path(root) / filename
@@ -314,6 +320,7 @@ def _collect_functions(tree: ast.AST):
     check_deadline()
     funcs = []
     for node in ast.walk(tree):
+        check_deadline()
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             funcs.append(node)
     return funcs
@@ -412,17 +419,21 @@ def _collect_invariant_propositions(
     tree = ast.parse(path.read_text())
     propositions: list[InvariantProposition] = []
     for fn in _collect_functions(tree):
+        check_deadline()
         params = set(_param_names(fn, ignore_params))
         if not params:
             continue
         scope = f"{_scope_path(path, project_root)}:{fn.name}"
         collector = _InvariantCollector(params, scope)
         for stmt in fn.body:
+            check_deadline()
             collector.visit(stmt)
         propositions.extend(collector.propositions)
         for emitter in emitters:
+            check_deadline()
             emitted = emitter(fn)
             for prop in emitted:
+                check_deadline()
                 if not isinstance(prop, InvariantProposition):
                     raise TypeError(
                         "Invariant emitters must yield InvariantProposition instances."
@@ -464,6 +475,7 @@ def _decorator_name(node: ast.AST) -> str | None:
         parts: list[str] = []
         current: ast.AST = node
         while isinstance(current, ast.Attribute):
+            check_deadline()
             parts.append(current.attr)
             current = current.value
         if isinstance(current, ast.Name):
@@ -535,6 +547,7 @@ def _decorators_transparent(
     if not transparent_decorators:
         return True
     for deco in fn.decorator_list:
+        check_deadline()
         name = _decorator_name(deco)
         if not name:
             return False
@@ -549,6 +562,7 @@ def _collect_local_class_bases(
     check_deadline()
     class_bases: dict[str, list[str]] = {}
     for node in ast.walk(tree):
+        check_deadline()
         if not isinstance(node, ast.ClassDef):
             continue
         scopes = _enclosing_class_scopes(node, parents)
@@ -557,6 +571,7 @@ def _collect_local_class_bases(
         qual = ".".join(qual_parts)
         bases: list[str] = []
         for base in node.bases:
+            check_deadline()
             base_name = _base_identifier(base)
             if base_name:
                 bases.append(base_name)
@@ -590,6 +605,7 @@ def _resolve_local_method_in_hierarchy(
     if candidate in local_functions:
         return candidate
     for base in class_bases.get(class_name, []):
+        check_deadline()
         base_name = _local_class_name(base, class_bases)
         if base_name is None:
             continue
@@ -628,6 +644,7 @@ def _decision_root_name(node: ast.AST) -> str | None:
     check_deadline()
     current = node
     while isinstance(current, (ast.Attribute, ast.Subscript)):
+        check_deadline()
         current = current.value
     if isinstance(current, ast.Name):
         return current.id
@@ -646,6 +663,7 @@ def _decision_surface_params(
     def _mark(expr: ast.AST, out: set[str]) -> None:
         check_deadline()
         for node in ast.walk(expr):
+            check_deadline()
             if isinstance(node, ast.Name) and node.id in params:
                 out.add(node.id)
                 continue
@@ -656,6 +674,7 @@ def _decision_surface_params(
 
     decision_params: set[str] = set()
     for node in ast.walk(fn):
+        check_deadline()
         if isinstance(node, ast.If):
             _mark(node.test, decision_params)
         elif isinstance(node, ast.While):
@@ -667,6 +686,7 @@ def _decision_surface_params(
         elif isinstance(node, ast.Match):
             _mark(node.subject, decision_params)
             for case in node.cases:
+                check_deadline()
                 if case.guard is not None:
                     _mark(case.guard, decision_params)
     return decision_params
@@ -675,6 +695,7 @@ def _decision_surface_params(
 def _mark_param_roots(expr: ast.AST, params: set[str], out: set[str]) -> None:
     check_deadline()
     for node in ast.walk(expr):
+        check_deadline()
         if isinstance(node, ast.Name) and node.id in params:
             out.add(node.id)
             continue
@@ -693,6 +714,7 @@ def _collect_param_roots(expr: ast.AST, params: set[str]) -> set[str]:
 def _contains_boolish(expr: ast.AST) -> bool:
     check_deadline()
     for node in ast.walk(expr):
+        check_deadline()
         if isinstance(node, (ast.Compare, ast.BoolOp)):
             return True
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
@@ -711,6 +733,7 @@ def _value_encoded_decision_params(
     flagged: set[str] = set()
     reasons: set[str] = set()
     for node in ast.walk(fn):
+        check_deadline()
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name) and func.id in {"min", "max"}:
@@ -782,6 +805,7 @@ def analyze_decision_surfaces_repo(
     lint_lines: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
+        check_deadline()
         if _is_test_path(info.path):
             continue
         if not info.decision_params:
@@ -810,6 +834,7 @@ def analyze_decision_surfaces_repo(
             + f" ({boundary})"
         )
         for param in params:
+            check_deadline()
             tier = _decision_tier_for(
                 info,
                 param,
@@ -888,6 +913,7 @@ def analyze_value_encoded_decisions_repo(
     lint_lines: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
+        check_deadline()
         if _is_test_path(info.path):
             continue
         if not info.value_decision_params:
@@ -923,6 +949,7 @@ def analyze_value_encoded_decisions_repo(
             + f" ({reasons})"
         )
         for param in params:
+            check_deadline()
             tier = _decision_tier_for(
                 info,
                 param,
@@ -1003,6 +1030,7 @@ def _param_spans(
         args = args[1:]
         names = names[1:]
     for arg in args:
+        check_deadline()
         if ignore_params and arg.arg in ignore_params:
             continue
         span = _node_span(arg)
@@ -1035,6 +1063,7 @@ def _enclosing_class(
     check_deadline()
     current = parents.get(node)
     while current is not None:
+        check_deadline()
         if isinstance(current, ast.ClassDef):
             return current.name
         current = parents.get(current)
@@ -1048,6 +1077,7 @@ def _enclosing_scopes(
     scopes: list[str] = []
     current = parents.get(node)
     while current is not None:
+        check_deadline()
         if isinstance(current, ast.ClassDef):
             scopes.append(current.name)
         elif isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1063,6 +1093,7 @@ def _enclosing_class_scopes(
     scopes: list[str] = []
     current = parents.get(node)
     while current is not None:
+        check_deadline()
         if isinstance(current, ast.ClassDef):
             scopes.append(current.name)
         current = parents.get(current)
@@ -1076,6 +1107,7 @@ def _enclosing_function_scopes(
     scopes: list[str] = []
     current = parents.get(node)
     while current is not None:
+        check_deadline()
         if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
             scopes.append(current.name)
         current = parents.get(current)
@@ -1091,6 +1123,7 @@ def _param_annotations(
     names = [a.arg for a in args]
     annots: dict[str, str | None] = {}
     for name, arg in zip(names, args):
+        check_deadline()
         if arg.annotation is None:
             annots[name] = None
         else:
@@ -1120,6 +1153,7 @@ def _param_annotations(
         annots.pop(names[0], None)
     if ignore_params:
         for name in list(annots.keys()):
+            check_deadline()
             if name in ignore_params:
                 annots.pop(name, None)
     return annots
@@ -1137,6 +1171,7 @@ def _param_defaults(
         defaulted = names[-len(fn.args.defaults) :]
         defaults.update(defaulted)
     for kw_arg, default in zip(fn.args.kwonlyargs, fn.args.kw_defaults):
+        check_deadline()
         if default is not None:
             defaults.add(kw_arg.arg)
     if names and names[0] in {"self", "cls"}:
@@ -1154,6 +1189,7 @@ def _param_annotations_by_path(
     check_deadline()
     annotations: dict[Path, dict[str, dict[str, str | None]]] = {}
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except Exception:
@@ -1163,6 +1199,7 @@ def _param_annotations_by_path(
         parents = parent.parents
         by_fn: dict[str, dict[str, str | None]] = {}
         for fn in _collect_functions(tree):
+            check_deadline()
             scopes = _enclosing_scopes(fn, parents)
             fn_key = _function_key(scopes, fn.name)
             by_fn[fn_key] = _param_annotations(fn, ignore_params)
@@ -1183,10 +1220,13 @@ def _compute_fingerprint_warnings(
     if not index:
         return warnings
     for path, groups in groups_by_path.items():
+        check_deadline()
         annots_by_fn = annotations_by_path.get(path, {})
         for fn_name, bundles in groups.items():
+            check_deadline()
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
+                check_deadline()
                 missing = [param for param in bundle if not fn_annots.get(param)]
                 if missing:
                     warnings.append(
@@ -1249,10 +1289,13 @@ def _compute_fingerprint_matches(
     if not index:
         return matches
     for path, groups in groups_by_path.items():
+        check_deadline()
         annots_by_fn = annotations_by_path.get(path, {})
         for fn_name, bundles in groups.items():
+            check_deadline()
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
+                check_deadline()
                 missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
@@ -1308,6 +1351,7 @@ def _fingerprint_soundness_issues(
     ]
     issues: list[str] = []
     for label, left, right in pairs:
+        check_deadline()
         if _is_empty(left) or _is_empty(right):
             continue
         if not fingerprint_carrier_soundness(left, right):
@@ -1327,11 +1371,14 @@ def _compute_fingerprint_provenance(
     check_deadline()
     entries: list[JSONObject] = []
     for path, groups in groups_by_path.items():
+        check_deadline()
         path_value = _normalize_snapshot_path(path, project_root)
         annots_by_fn = annotations_by_path.get(path, {})
         for fn_name, bundles in groups.items():
+            check_deadline()
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
+                check_deadline()
                 missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
@@ -1407,6 +1454,7 @@ def _summarize_fingerprint_provenance(
         return []
     grouped: dict[tuple[object, ...], list[JSONObject]] = {}
     for entry in entries:
+        check_deadline()
         matches = entry.get("glossary_matches") or []
         if isinstance(matches, list) and matches:
             key = ("glossary", tuple(matches))
@@ -1419,6 +1467,7 @@ def _summarize_fingerprint_provenance(
     for key, group in sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0]))[
         :max_groups
     ]:
+        check_deadline()
         label = ""
         if key and key[0] == "glossary":
             label = "glossary=" + ", ".join(key[1])
@@ -1430,6 +1479,7 @@ def _summarize_fingerprint_provenance(
                 label += f" ctor={ctor_keys}"
         lines.append(f"- {label} occurrences={len(group)}")
         for entry in group[:max_examples]:
+            check_deadline()
             path = entry.get("path")
             fn_name = entry.get("function")
             bundle = entry.get("bundle")
@@ -1449,6 +1499,7 @@ def _summarize_deadness_witnesses(
         return []
     lines: list[str] = []
     for entry in entries[:max_entries]:
+        check_deadline()
         path = entry.get("path", "?")
         function = entry.get("function", "?")
         bundle = entry.get("bundle", [])
@@ -1474,6 +1525,7 @@ def _compute_fingerprint_coherence(
     check_deadline()
     witnesses: list[JSONObject] = []
     for entry in entries:
+        check_deadline()
         matches = entry.get("glossary_matches") or []
         if not isinstance(matches, list) or len(matches) < 2:
             continue
@@ -1526,6 +1578,7 @@ def _summarize_coherence_witnesses(
         return []
     lines: list[str] = []
     for entry in entries[:max_entries]:
+        check_deadline()
         site = entry.get("site", {})
         path = site.get("path", "?")
         function = site.get("function", "?")
@@ -1552,6 +1605,7 @@ def _compute_fingerprint_rewrite_plans(
     check_deadline()
     coherence_map: dict[tuple[str, str, str], JSONObject] = {}
     for entry in coherence:
+        check_deadline()
         raw_site = entry.get("site", {}) or {}
         site = Site.from_payload(raw_site)
         if site is None:
@@ -1562,6 +1616,7 @@ def _compute_fingerprint_rewrite_plans(
     exception_summary_map: dict[tuple[str, str, str], dict[str, int]] = {}
     if exception_obligations is not None:
         for entry in exception_obligations:
+            check_deadline()
             raw_site = entry.get("site", {}) or {}
             site = Site.from_payload(raw_site)
             if site is None:
@@ -1580,6 +1635,7 @@ def _compute_fingerprint_rewrite_plans(
 
     plans: list[JSONObject] = []
     for entry in provenance:
+        check_deadline()
         matches = entry.get("glossary_matches") or []
         if not isinstance(matches, list) or len(matches) < 2:
             continue
@@ -1699,6 +1755,7 @@ def _find_provenance_entry_for_site(
     check_deadline()
     target_key = site.key()
     for entry in provenance:
+        check_deadline()
         entry_site = Site.from_payload(entry)
         if entry_site is None:
             continue
@@ -1811,6 +1868,7 @@ def verify_rewrite_plan(
         return value in (0, 1)
 
     for predicate in requested_predicates:
+        check_deadline()
         kind = str(predicate.get("kind", ""))
         if kind == "base_conservation":
             base_ok = post_base == expected_base
@@ -1977,6 +2035,7 @@ def _summarize_rewrite_plans(
         return []
     lines: list[str] = []
     for entry in entries[:max_entries]:
+        check_deadline()
         plan_id = entry.get("plan_id", "?")
         site = entry.get("site", {})
         path = site.get("path", "?")
@@ -1998,6 +2057,7 @@ def _enclosing_function_node(
     check_deadline()
     current = parents.get(node)
     while current is not None:
+        check_deadline()
         if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
             return current
         current = parents.get(current)
@@ -2010,6 +2070,7 @@ def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
         return []
     names: set[str] = set()
     for node in ast.walk(expr):
+        check_deadline()
         if isinstance(node, ast.Name) and node.id in params:
             names.add(node.id)
     return sorted(names)
@@ -2057,9 +2118,11 @@ def _handler_label(handler: ast.ExceptHandler) -> str:
 def _node_in_try_body(node: ast.AST, try_node: ast.Try) -> bool:
     check_deadline()
     for stmt in try_node.body:
+        check_deadline()
         if node is stmt:
             return True
         for child in ast.walk(stmt):
+            check_deadline()
             if node is child:
                 return True
     return False
@@ -2071,6 +2134,7 @@ def _find_handling_try(
     check_deadline()
     current = parents.get(node)
     while current is not None:
+        check_deadline()
         if isinstance(current, ast.Try) and _node_in_try_body(node, current):
             return current
         current = parents.get(current)
@@ -2080,9 +2144,11 @@ def _find_handling_try(
 def _node_in_block(node: ast.AST, block: list[ast.stmt]) -> bool:
     check_deadline()
     for stmt in block:
+        check_deadline()
         if node is stmt:
             return True
         for child in ast.walk(stmt):
+            check_deadline()
             if node is child:
                 return True
     return False
@@ -2092,6 +2158,7 @@ def _names_in_expr(expr: ast.AST) -> set[str]:
     check_deadline()
     names: set[str] = set()
     for node in ast.walk(expr):
+        check_deadline()
         if isinstance(node, ast.Name):
             names.add(node.id)
     return names
@@ -2132,6 +2199,7 @@ def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> bool | None:
         if isinstance(expr.op, ast.And):
             any_unknown = False
             for value in expr.values:
+                check_deadline()
                 result = _eval_bool_expr(value, env)
                 if result is False:
                     return False
@@ -2141,6 +2209,7 @@ def _eval_bool_expr(expr: ast.AST, env: dict[str, JSONValue]) -> bool | None:
         if isinstance(expr.op, ast.Or):
             any_unknown = False
             for value in expr.values:
+                check_deadline()
                 result = _eval_bool_expr(value, env)
                 if result is True:
                     return True
@@ -2179,6 +2248,7 @@ def _branch_reachability_under_env(
     current_node: ast.AST = node
     current = parents.get(current_node)
     while current is not None:
+        check_deadline()
         if isinstance(current, ast.If):
             if _node_in_block(current_node, current.body):
                 constraints.append((current.test, True))
@@ -2190,6 +2260,7 @@ def _branch_reachability_under_env(
         return None
     any_unknown = False
     for test, want_true in constraints:
+        check_deadline()
         result = _eval_bool_expr(test, env)
         if result is None:
             any_unknown = True
@@ -2208,6 +2279,7 @@ def _collect_handledness_witnesses(
     check_deadline()
     witnesses: list[JSONObject] = []
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except SyntaxError:
@@ -2217,9 +2289,11 @@ def _collect_handledness_witnesses(
         parents = parent.parents
         params_by_fn: dict[ast.AST, set[str]] = {}
         for fn in _collect_functions(tree):
+            check_deadline()
             params_by_fn[fn] = set(_param_names(fn, ignore_params))
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
+            check_deadline()
             if not isinstance(node, (ast.Raise, ast.Assert)):
                 continue
             try_node = _find_handling_try(node, parents)
@@ -2300,6 +2374,7 @@ def _dead_env_map(
     if not deadness_witnesses:
         return dead_env_map
     for entry in deadness_witnesses:
+        check_deadline()
         path_value = str(entry.get("path", ""))
         function_value = str(entry.get("function", ""))
         bundle = entry.get("bundle", []) or []
@@ -2338,11 +2413,13 @@ def _collect_exception_obligations(
     handled_map: dict[str, JSONObject] = {}
     if handledness_witnesses:
         for entry in handledness_witnesses:
+            check_deadline()
             exception_id = str(entry.get("exception_path_id", ""))
             if exception_id:
                 handled_map[exception_id] = entry
     dead_env_map = _dead_env_map(deadness_witnesses)
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except SyntaxError:
@@ -2352,9 +2429,11 @@ def _collect_exception_obligations(
         parents = parent.parents
         params_by_fn: dict[ast.AST, set[str]] = {}
         for fn in _collect_functions(tree):
+            check_deadline()
             params_by_fn[fn] = set(_param_names(fn, ignore_params))
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
+            check_deadline()
             if not isinstance(node, (ast.Raise, ast.Assert)):
                 continue
             source_kind = "E0"
@@ -2408,10 +2487,12 @@ def _collect_exception_obligations(
                         names: set[str] = set()
                         current = parents.get(node)
                         while current is not None:
+                            check_deadline()
                             if isinstance(current, ast.If):
                                 names.update(_names_in_expr(current.test))
                             current = parents.get(current)
                         for name in sorted(names):
+                            check_deadline()
                             if name not in env_entries:
                                 continue
                             _, witness = env_entries[name]
@@ -2458,6 +2539,7 @@ def _never_reason(call: ast.Call) -> str | None:
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
             return first.value
     for kw in call.keywords:
+        check_deadline()
         if kw.arg == "reason":
             if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
                 return kw.value.value
@@ -2476,6 +2558,7 @@ def _collect_never_invariants(
     invariants: list[JSONObject] = []
     dead_env_map = _dead_env_map(deadness_witnesses)
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except SyntaxError:
@@ -2485,9 +2568,11 @@ def _collect_never_invariants(
         parents = parent.parents
         params_by_fn: dict[ast.AST, set[str]] = {}
         for fn in _collect_functions(tree):
+            check_deadline()
             params_by_fn[fn] = set(_param_names(fn, ignore_params))
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
+            check_deadline()
             if not isinstance(node, ast.Call):
                 continue
             if not _is_never_call(node):
@@ -2518,10 +2603,12 @@ def _collect_never_invariants(
                     names: set[str] = set()
                     current = parents.get(node)
                     while current is not None:
+                        check_deadline()
                         if isinstance(current, ast.If):
                             names.update(_names_in_expr(current.test))
                         current = parents.get(current)
                     for name in sorted(names):
+                        check_deadline()
                         if name not in env_entries:
                             continue
                         _, witness = env_entries[name]
@@ -2538,6 +2625,7 @@ def _collect_never_invariants(
                     names: set[str] = set()
                     current = parents.get(node)
                     while current is not None:
+                        check_deadline()
                         if isinstance(current, ast.If):
                             names.update(_names_in_expr(current.test))
                         current = parents.get(current)
@@ -2626,6 +2714,7 @@ def _target_names(target: ast.AST) -> set[str]:
     check_deadline()
     names: set[str] = set()
     for node in ast.walk(target):
+        check_deadline()
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             names.add(node.id)
     return names
@@ -2638,7 +2727,42 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
         self.loop = False
         self.check_params: set[str] = set()
         self.ambient_check = False
+        self.loop_sites: list[_DeadlineLoopFacts] = []
+        self._loop_stack: list[_DeadlineLoopFacts] = []
         self.assignments: list[tuple[list[ast.AST], ast.AST | None, tuple[int, int, int, int] | None]] = []
+
+    def _mark_param_check(self, name: str) -> None:
+        if self._loop_stack:
+            self._loop_stack[-1].check_params.add(name)
+        else:
+            self.check_params.add(name)
+
+    def _mark_ambient_check(self) -> None:
+        if self._loop_stack:
+            self._loop_stack[-1].ambient_check = True
+        else:
+            self.ambient_check = True
+
+    def _record_call_span(self, node: ast.AST) -> None:
+        if not self._loop_stack:
+            return
+        span = _node_span(node)
+        if span is None:
+            return
+        self._loop_stack[-1].call_spans.add(span)
+
+    def _visit_loop_body(self, node: ast.AST, kind: str) -> None:
+        self.loop = True
+        loop_fact = _DeadlineLoopFacts(span=_node_span(node), kind=kind)
+        self._loop_stack.append(loop_fact)
+        for stmt in getattr(node, "body", []):
+            check_deadline()
+            self.visit(stmt)
+        self._loop_stack.pop()
+        self.loop_sites.append(loop_fact)
+        for stmt in getattr(node, "orelse", []):
+            check_deadline()
+            self.visit(stmt)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if node is not self._root:
@@ -2655,37 +2779,43 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 
     def visit_For(self, node: ast.For) -> None:
         self.loop = True
-        self.generic_visit(node)
+        self.visit(node.target)
+        self.visit(node.iter)
+        self._visit_loop_body(node, "for")
 
     def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
         self.loop = True
-        self.generic_visit(node)
+        self.visit(node.target)
+        self.visit(node.iter)
+        self._visit_loop_body(node, "async_for")
 
     def visit_While(self, node: ast.While) -> None:
         self.loop = True
-        self.generic_visit(node)
+        self.visit(node.test)
+        self._visit_loop_body(node, "while")
 
     def visit_Call(self, node: ast.Call) -> None:
+        self._record_call_span(node)
         if isinstance(node.func, ast.Attribute):
             if (
                 node.func.attr in _DEADLINE_CHECK_METHODS
                 and isinstance(node.func.value, ast.Name)
                 and node.func.value.id in self._params
             ):
-                self.check_params.add(node.func.value.id)
+                self._mark_param_check(node.func.value.id)
             if node.func.attr == "check_deadline" and node.args:
                 first = node.args[0]
                 if isinstance(first, ast.Name) and first.id in self._params:
-                    self.check_params.add(first.id)
+                    self._mark_param_check(first.id)
             if node.func.attr in {"check_deadline", "require_deadline"} and not node.args:
-                self.ambient_check = True
+                self._mark_ambient_check()
         elif isinstance(node.func, ast.Name):
             if node.func.id == "check_deadline" and node.args:
                 first = node.args[0]
                 if isinstance(first, ast.Name) and first.id in self._params:
-                    self.check_params.add(first.id)
+                    self._mark_param_check(first.id)
             if node.func.id in {"check_deadline", "require_deadline"} and not node.args:
-                self.ambient_check = True
+                self._mark_ambient_check()
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
@@ -2699,6 +2829,15 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self.assignments.append(([node.target], node.value, _node_span(node)))
         self.generic_visit(node)
+
+
+@dataclass
+class _DeadlineLoopFacts:
+    span: tuple[int, int, int, int] | None
+    kind: str
+    check_params: set[str] = field(default_factory=set)
+    ambient_check: bool = False
+    call_spans: set[tuple[int, int, int, int]] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
@@ -2716,6 +2855,7 @@ class _DeadlineFunctionFacts:
     loop: bool
     check_params: set[str]
     ambient_check: bool
+    loop_sites: list[_DeadlineLoopFacts]
     local_info: _DeadlineLocalInfo
 
 
@@ -2727,10 +2867,13 @@ def _collect_deadline_local_info(
     origin_assign: set[str] = set()
     origin_spans: dict[str, tuple[int, int, int, int]] = {}
     for targets, value, span in assignments:
+        check_deadline()
         if value is None or not _is_deadline_origin_call(value):
             continue
         for target in targets:
+            check_deadline()
             for name in _target_names(target):
+                check_deadline()
                 origin_assign.add(name)
                 if span is not None and name not in origin_spans:
                     origin_spans[name] = span
@@ -2739,8 +2882,10 @@ def _collect_deadline_local_info(
     origin_alias: set[str] = set()
     unknown_assign: set[str] = set()
     for targets, value, _ in assignments:
+        check_deadline()
         if value is None:
             for target in targets:
+                check_deadline()
                 unknown_assign.update(_target_names(target))
             continue
         if _is_deadline_origin_call(value):
@@ -2752,11 +2897,15 @@ def _collect_deadline_local_info(
             elif value.id in origin_assign:
                 alias_source = None
                 for target in targets:
+                    check_deadline()
                     for name in _target_names(target):
+                        check_deadline()
                         origin_alias.add(name)
                 continue
         for target in targets:
+            check_deadline()
             for name in _target_names(target):
+                check_deadline()
                 if alias_source is not None:
                     alias_assign[name].add(alias_source)
                 else:
@@ -2770,11 +2919,13 @@ def _collect_deadline_local_info(
     }
     alias_to_param: dict[str, str] = {}
     for name, sources in alias_assign.items():
+        check_deadline()
         if name in unknown_assign or name in origin_candidates:
             continue
         if len(sources) == 1:
             alias_to_param[name] = next(iter(sources))
     for param in params:
+        check_deadline()
         alias_to_param[param] = param
     return _DeadlineLocalInfo(
         origin_vars=origin_vars,
@@ -2792,6 +2943,7 @@ def _collect_deadline_function_facts(
     check_deadline()
     facts: dict[str, _DeadlineFunctionFacts] = {}
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except Exception:
@@ -2800,6 +2952,7 @@ def _collect_deadline_function_facts(
         parents.visit(tree)
         module = _module_name(path, project_root)
         for fn in _collect_functions(tree):
+            check_deadline()
             scopes = _enclosing_scopes(fn, parents.parents)
             qual_parts = [module] if module else []
             if scopes:
@@ -2817,6 +2970,7 @@ def _collect_deadline_function_facts(
                 loop=collector.loop,
                 check_params=set(collector.check_params),
                 ambient_check=collector.ambient_check,
+                loop_sites=list(collector.loop_sites),
                 local_info=local_info,
             )
     return facts
@@ -2830,6 +2984,7 @@ def _collect_call_nodes_by_path(
     check_deadline()
     call_nodes: dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]] = {}
     for path in paths:
+        check_deadline()
         if trees is not None and path in trees:
             tree = trees[path]
         else:
@@ -2839,6 +2994,7 @@ def _collect_call_nodes_by_path(
                 continue
         span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
         for node in ast.walk(tree):
+            check_deadline()
             if not isinstance(node, ast.Call):
                 continue
             span = _node_span(node)
@@ -2860,10 +3016,13 @@ def _collect_call_edges(
     check_deadline()
     edges: dict[str, set[str]] = defaultdict(set)
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             if _is_test_path(info.path):
                 continue
             for call in info.calls:
+                check_deadline()
                 if call.is_test:
                     continue
                 callee = _resolve_callee(
@@ -2899,6 +3058,7 @@ def _collect_recursive_functions(edges: Mapping[str, set[str]]) -> set[str]:
         stack.append(node)
         on_stack.add(node)
         for succ in edges.get(node, set()):
+            check_deadline()
             if succ not in indices:
                 _strongconnect(succ)
                 lowlink[node] = min(lowlink[node], lowlink.get(succ, lowlink[node]))
@@ -2907,6 +3067,7 @@ def _collect_recursive_functions(edges: Mapping[str, set[str]]) -> set[str]:
         if lowlink.get(node) == indices.get(node):
             scc: list[str] = []
             while True:
+                check_deadline()
                 w = stack.pop()
                 on_stack.discard(w)
                 scc.append(w)
@@ -2919,6 +3080,7 @@ def _collect_recursive_functions(edges: Mapping[str, set[str]]) -> set[str]:
                     recursive.add(node)
 
     for node in edges:
+        check_deadline()
         if node not in indices:
             _strongconnect(node)
     return recursive
@@ -2949,6 +3111,7 @@ def _bind_call_args(
     star_args: list[ast.AST] = []
     star_kwargs: list[ast.AST] = []
     for idx, arg in enumerate(call_node.args):
+        check_deadline()
         if isinstance(arg, ast.Starred):
             star_args.append(arg.value)
             continue
@@ -2957,6 +3120,7 @@ def _bind_call_args(
         elif callee.vararg is not None:
             mapping.setdefault(callee.vararg, arg)
     for kw in call_node.keywords:
+        check_deadline()
         if kw.arg is None:
             star_kwargs.append(kw.value)
             continue
@@ -2968,9 +3132,11 @@ def _bind_call_args(
         remaining = [p for p in sorted(named_params) if p not in mapping]
         if len(star_args) == 1 and isinstance(star_args[0], ast.Name):
             for param in remaining:
+                check_deadline()
                 mapping.setdefault(param, star_args[0])
         if len(star_kwargs) == 1 and isinstance(star_kwargs[0], ast.Name):
             for param in remaining:
+                check_deadline()
                 mapping.setdefault(param, star_kwargs[0])
     return mapping
 
@@ -3012,12 +3178,14 @@ def _fallback_deadline_arg_info(
     named_params = set(pos_params) | kwonly_params
     mapping: dict[str, _DeadlineArgInfo] = {}
     for idx_str, caller_param in call.pos_map.items():
+        check_deadline()
         idx = int(idx_str)
         if idx < len(pos_params):
             mapping[pos_params[idx]] = _DeadlineArgInfo(kind="param", param=caller_param)
         elif callee.vararg is not None:
             mapping.setdefault(callee.vararg, _DeadlineArgInfo(kind="param", param=caller_param))
     for idx_str, const_val in call.const_pos.items():
+        check_deadline()
         idx = int(idx_str)
         if idx < len(pos_params):
             kind = "none" if const_val == "None" else "const"
@@ -3026,17 +3194,20 @@ def _fallback_deadline_arg_info(
             kind = "none" if const_val == "None" else "const"
             mapping.setdefault(callee.vararg, _DeadlineArgInfo(kind=kind, const=const_val))
     for idx_str in call.non_const_pos:
+        check_deadline()
         idx = int(idx_str)
         if idx < len(pos_params):
             mapping[pos_params[idx]] = _DeadlineArgInfo(kind="unknown")
         elif callee.vararg is not None:
             mapping.setdefault(callee.vararg, _DeadlineArgInfo(kind="unknown"))
     for kw_name, caller_param in call.kw_map.items():
+        check_deadline()
         if kw_name in named_params:
             mapping[kw_name] = _DeadlineArgInfo(kind="param", param=caller_param)
         elif callee.kwarg is not None:
             mapping.setdefault(callee.kwarg, _DeadlineArgInfo(kind="param", param=caller_param))
     for kw_name, const_val in call.const_kw.items():
+        check_deadline()
         if kw_name in named_params:
             kind = "none" if const_val == "None" else "const"
             mapping[kw_name] = _DeadlineArgInfo(kind=kind, const=const_val)
@@ -3044,6 +3215,7 @@ def _fallback_deadline_arg_info(
             kind = "none" if const_val == "None" else "const"
             mapping.setdefault(callee.kwarg, _DeadlineArgInfo(kind=kind, const=const_val))
     for kw_name in call.non_const_kw:
+        check_deadline()
         if kw_name in named_params:
             mapping[kw_name] = _DeadlineArgInfo(kind="unknown")
         elif callee.kwarg is not None:
@@ -3053,10 +3225,12 @@ def _fallback_deadline_arg_info(
         if len(call.star_pos) == 1:
             _, star_param = call.star_pos[0]
             for param in remaining:
+                check_deadline()
                 mapping.setdefault(param, _DeadlineArgInfo(kind="param", param=star_param))
         if len(call.star_kw) == 1:
             star_param = call.star_kw[0]
             for param in remaining:
+                check_deadline()
                 mapping.setdefault(param, _DeadlineArgInfo(kind="param", param=star_param))
     return mapping
 
@@ -3076,6 +3250,7 @@ def _deadline_arg_info_map(
     expr_map = _bind_call_args(call_node, callee, strictness=strictness)
     info_map: dict[str, _DeadlineArgInfo] = {}
     for param, expr in expr_map.items():
+        check_deadline()
         info_map[param] = _classify_deadline_expr(
             expr,
             alias_to_param=alias_to_param,
@@ -3119,16 +3294,20 @@ def _collect_deadline_obligations(
 
     deadline_params: dict[str, set[str]] = defaultdict(set)
     for info in by_qual.values():
+        check_deadline()
         if _is_test_path(info.path):
             continue
         for name in info.params:
+            check_deadline()
             if _is_deadline_param(name, info.annots.get(name)):
                 deadline_params[info.qual].add(name)
     if extra_deadline_params:
         for qual, params in extra_deadline_params.items():
+            check_deadline()
             if params:
                 deadline_params[qual].update(params)
     for helper in _DEADLINE_HELPER_QUALS:
+        check_deadline()
         deadline_params.pop(helper, None)
 
     def _callee_to_caller_params(
@@ -3145,6 +3324,7 @@ def _collect_deadline_obligations(
         mapping: dict[str, set[str]] = defaultdict(set)
         mapped_params: set[str] = set()
         for pos_idx, caller_param in call.pos_map.items():
+            check_deadline()
             idx = int(pos_idx)
             if idx < len(pos_params):
                 callee_param = pos_params[idx]
@@ -3155,6 +3335,7 @@ def _collect_deadline_obligations(
             mapped_params.add(callee_param)
             mapping[callee_param].add(caller_param)
         for kw_name, caller_param in call.kw_map.items():
+            check_deadline()
             if kw_name in named_params:
                 mapped_params.add(kw_name)
                 mapping[kw_name].add(caller_param)
@@ -3170,21 +3351,27 @@ def _collect_deadline_obligations(
             if len(call.star_pos) == 1:
                 _, star_param = call.star_pos[0]
                 for param in remaining:
+                    check_deadline()
                     mapping[param].add(star_param)
             if len(call.star_kw) == 1:
                 star_param = call.star_kw[0]
                 for param in remaining:
+                    check_deadline()
                     mapping[param].add(star_param)
         return mapping
 
     changed = True
     while changed:
+        check_deadline()
         changed = False
         for infos in by_name.values():
+            check_deadline()
             for info in infos:
+                check_deadline()
                 if _is_test_path(info.path):
                     continue
                 for call in info.calls:
+                    check_deadline()
                     callee = _resolve_callee(
                         call.callee,
                         info,
@@ -3198,14 +3385,18 @@ def _collect_deadline_obligations(
                         continue
                     mapping = _callee_to_caller_params(call, callee)
                     for callee_param in deadline_params.get(callee.qual, set()):
+                        check_deadline()
                         for caller_param in mapping.get(callee_param, set()):
+                            check_deadline()
                             if caller_param not in deadline_params[info.qual]:
                                 deadline_params[info.qual].add(caller_param)
                                 changed = True
 
     call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfo]]]] = defaultdict(list)
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             if _is_test_path(info.path):
                 continue
             facts = facts_by_qual.get(info.qual)
@@ -3213,6 +3404,7 @@ def _collect_deadline_obligations(
             origin_vars = facts.local_info.origin_vars if facts else set()
             span_index = call_nodes_by_path.get(info.path, {})
             for call in info.calls:
+                check_deadline()
                 callee = _resolve_callee(
                     call.callee,
                     info,
@@ -3240,20 +3432,26 @@ def _collect_deadline_obligations(
                 call_infos[info.qual].append((call, callee, arg_info))
     if extra_call_infos:
         for qual, entries in extra_call_infos.items():
+            check_deadline()
             call_infos[qual].extend(entries)
 
     trusted_params: dict[str, set[str]] = defaultdict(set)
     roots = set(config.deadline_roots)
     for qual, params in deadline_params.items():
+        check_deadline()
         if qual in roots:
             trusted_params[qual].update(params)
 
     changed = True
     while changed:
+        check_deadline()
         changed = False
         for caller_qual, entries in call_infos.items():
+            check_deadline()
             for call, callee, arg_info in entries:
+                check_deadline()
                 for callee_param in deadline_params.get(callee.qual, set()):
+                    check_deadline()
                     info = arg_info.get(callee_param)
                     if info is None:
                         continue
@@ -3268,11 +3466,14 @@ def _collect_deadline_obligations(
 
     forwarded_params: dict[str, set[str]] = defaultdict(set)
     for caller_qual, entries in call_infos.items():
+        check_deadline()
         caller_params = deadline_params.get(caller_qual, set())
         if not caller_params:
             continue
         for _, callee, arg_info in entries:
+            check_deadline()
             for callee_param in deadline_params.get(callee.qual, set()):
+                check_deadline()
                 info = arg_info.get(callee_param)
                 if info is None:
                     continue
@@ -3320,6 +3521,7 @@ def _collect_deadline_obligations(
         obligations.append(entry)
 
     for qual, facts in facts_by_qual.items():
+        check_deadline()
         if qual not in by_qual:
             continue
         if _is_test_path(facts.path):
@@ -3327,6 +3529,7 @@ def _collect_deadline_obligations(
         if qual in roots:
             continue
         for name, span in facts.local_info.origin_spans.items():
+            check_deadline()
             if name not in facts.local_info.origin_vars:
                 continue
             _add_obligation(
@@ -3340,10 +3543,12 @@ def _collect_deadline_obligations(
             )
 
     for qual, params in deadline_params.items():
+        check_deadline()
         info = by_qual.get(qual)
         if info is None or _is_test_path(info.path):
             continue
         for param in sorted(params):
+            check_deadline()
             if param in info.defaults:
                 span = info.param_spans.get(param)
                 _add_obligation(
@@ -3367,20 +3572,44 @@ def _collect_deadline_obligations(
     def _deadline_exempt(qual: str) -> bool:
         return any(qual.startswith(prefix) for prefix in _DEADLINE_EXEMPT_PREFIXES)
 
-    required = {
-        qual
-        for qual, facts in facts_by_qual.items()
-        if (facts.loop or qual in recursive) and not _deadline_exempt(qual)
-    }
+    recursive_required = {qual for qual in recursive if not _deadline_exempt(qual)}
 
-    for qual in sorted(required):
+    def _loop_forwarded_params(
+        qual: str,
+        loop_fact: _DeadlineLoopFacts,
+    ) -> set[str]:
+        forwarded: set[str] = set()
+        caller_params = deadline_params.get(qual, set())
+        if not caller_params:
+            return forwarded
+        for call, callee, arg_info in call_infos.get(qual, []):
+            check_deadline()
+            if call.span is None or call.span not in loop_fact.call_spans:
+                continue
+            for callee_param in deadline_params.get(callee.qual, set()):
+                check_deadline()
+                info = arg_info.get(callee_param)
+                if info is None:
+                    continue
+                if info.kind == "param" and info.param in caller_params:
+                    forwarded.add(info.param)
+        return forwarded
+
+    for qual in sorted(recursive_required):
+        check_deadline()
         facts = facts_by_qual.get(qual)
         info = by_qual.get(qual)
         if facts is None or info is None or _is_test_path(info.path):
             continue
         carriers = deadline_params.get(qual, set())
+        loop_checked: set[str] = set()
+        loop_ambient = False
+        for loop_fact in facts.loop_sites:
+            check_deadline()
+            loop_checked |= loop_fact.check_params
+            loop_ambient = loop_ambient or loop_fact.ambient_check
         if not carriers:
-            if facts.ambient_check:
+            if facts.ambient_check or loop_ambient:
                 continue
             _add_obligation(
                 path=_normalize_snapshot_path(info.path, project_root),
@@ -3388,12 +3617,12 @@ def _collect_deadline_obligations(
                 param=None,
                 status="VIOLATION",
                 kind="missing_carrier",
-                detail="loop/recursion requires Deadline carrier",
+                detail="recursion requires Deadline carrier",
                 span=facts.span,
             )
             continue
-        checked = facts.check_params & carriers
-        if facts.ambient_check:
+        checked = (facts.check_params | loop_checked) & carriers
+        if facts.ambient_check or loop_ambient:
             checked = set(carriers)
         forwarded = forwarded_params.get(qual, set()) & carriers
         if not checked and not forwarded:
@@ -3403,20 +3632,63 @@ def _collect_deadline_obligations(
                 param=None,
                 status="VIOLATION",
                 kind="unchecked_deadline",
-                detail="deadline carrier not checked or forwarded",
+                detail="deadline carrier not checked or forwarded (recursion)",
                 span=facts.span,
             )
 
+    for qual, facts in facts_by_qual.items():
+        check_deadline()
+        if _deadline_exempt(qual):
+            continue
+        info = by_qual.get(qual)
+        if facts is None or info is None or _is_test_path(info.path):
+            continue
+        if not facts.loop_sites:
+            continue
+        carriers = deadline_params.get(qual, set())
+        for loop_fact in facts.loop_sites:
+            check_deadline()
+            if not carriers:
+                if loop_fact.ambient_check:
+                    continue
+                _add_obligation(
+                    path=_normalize_snapshot_path(info.path, project_root),
+                    function=qual,
+                    param=None,
+                    status="VIOLATION",
+                    kind="missing_carrier",
+                    detail="loop requires Deadline carrier",
+                    span=loop_fact.span,
+                )
+                continue
+            checked = loop_fact.check_params & carriers
+            if loop_fact.ambient_check:
+                checked = set(carriers)
+            forwarded = _loop_forwarded_params(qual, loop_fact) & carriers
+            if not checked and not forwarded:
+                _add_obligation(
+                    path=_normalize_snapshot_path(info.path, project_root),
+                    function=qual,
+                    param=None,
+                    status="VIOLATION",
+                    kind="unchecked_deadline",
+                    detail="deadline carrier not checked or forwarded in loop",
+                    span=loop_fact.span,
+                )
+
     for caller_qual, entries in call_infos.items():
+        check_deadline()
         caller_info = by_qual.get(caller_qual)
         if caller_info is None or _is_test_path(caller_info.path):
             continue
         for call, callee, arg_info in entries:
+            check_deadline()
             callee_deadlines = deadline_params.get(callee.qual, set())
             if not callee_deadlines:
                 continue
             span = call.span
             for callee_param in sorted(callee_deadlines):
+                check_deadline()
                 info = arg_info.get(callee_param)
                 if info is None:
                     missing_unknown = bool(
@@ -3529,6 +3801,7 @@ def _summarize_deadline_obligations(
         return []
     lines: list[str] = []
     for entry in entries[:max_entries]:
+        check_deadline()
         site = entry.get("site", {}) or {}
         path = site.get("path", "?")
         function = site.get("function", "?")
@@ -3548,6 +3821,7 @@ def _deadline_lint_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in entries:
+        check_deadline()
         site = entry.get("site", {}) if isinstance(entry.get("site"), dict) else {}
         path = str(site.get("path", "") or "")
         span = entry.get("span")
@@ -3578,6 +3852,7 @@ def _summarize_exception_obligations(
         return []
     lines: list[str] = []
     for entry in entries[:max_entries]:
+        check_deadline()
         site = entry.get("site", {})
         path = site.get("path", "?")
         function = site.get("function", "?")
@@ -3609,6 +3884,7 @@ def _summarize_call_ambiguities(
         return []
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
+        check_deadline()
         if not isinstance(entry, Mapping):
             continue
         kind = str(entry.get("kind", "") or "unknown")
@@ -3647,15 +3923,18 @@ def _summarize_call_ambiguities(
     projected = apply_spec(AMBIGUITY_SUMMARY_SPEC, relation)
     counts: dict[str, int] = {}
     for row in relation:
+        check_deadline()
         kind = str(row.get("kind", "") or "unknown")
         counts[kind] = counts.get(kind, 0) + 1
     lines: list[str] = []
     lines.extend(spec_metadata_lines(AMBIGUITY_SUMMARY_SPEC))
     lines.append("Counts by witness kind:")
     for kind in sorted(counts):
+        check_deadline()
         lines.append(f"- {kind}: {counts[kind]}")
     lines.append("Top ambiguous sites:")
     for row in projected[:max_entries]:
+        check_deadline()
         path = row.get("site_path") or "?"
         function = row.get("site_function") or "?"
         span = _format_span_fields(
@@ -3757,6 +4036,7 @@ def _summarize_never_invariants(
 
     relation: list[dict[str, JSONValue]] = []
     for entry in entries:
+        check_deadline()
         if not isinstance(entry, Mapping):
             continue
         status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
@@ -3807,6 +4087,7 @@ def _summarize_never_invariants(
     ordered_statuses = list(params.get("ordered_statuses") or [])
     grouped: dict[str, list[dict[str, JSONValue]]] = {}
     for row in projected:
+        check_deadline()
         status = str(row.get("status", "UNKNOWN") or "UNKNOWN")
         grouped.setdefault(status, []).append(row)
     extra_statuses = sorted(
@@ -3815,6 +4096,7 @@ def _summarize_never_invariants(
     lines: list[str] = []
     lines.extend(spec_metadata_lines(NEVER_INVARIANTS_SPEC))
     for status in ordered_statuses + extra_statuses:
+        check_deadline()
         if status == "PROVEN_UNREACHABLE" and not include_proven_unreachable:
             continue
         items = grouped.get(status) or []
@@ -3822,6 +4104,7 @@ def _summarize_never_invariants(
             continue
         lines.append(f"{status}:")
         for entry in items[:max_entries]:
+            check_deadline()
             reason = entry.get("reason") or ""
             evidence = _format_evidence(entry, status)
             bits: list[str] = []
@@ -3840,6 +4123,7 @@ def _exception_protocol_warnings(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     warnings: list[str] = []
     for entry in entries:
+        check_deadline()
         if entry.get("protocol") != "never":
             continue
         if entry.get("status") == "DEAD":
@@ -3859,6 +4143,7 @@ def _exception_protocol_evidence(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in entries:
+        check_deadline()
         if entry.get("protocol") != "never":
             continue
         exception_id = entry.get("exception_path_id", "?")
@@ -3922,9 +4207,11 @@ def _decision_tier_for(
         line, col, _, _ = span
         location = f"{path}:{line + 1}:{col + 1}"
         for key in (location, f"{location}:{param}"):
+            check_deadline()
             if key in tier_map:
                 return tier_map[key]
     for key in (f"{info.qual}:{param}", f"{info.qual}.{param}", param):
+        check_deadline()
         if key in tier_map:
             return tier_map[key]
     return None
@@ -3937,9 +4224,11 @@ def _collect_transitive_callers(
     check_deadline()
     transitive: dict[str, set[str]] = {}
     for qual in by_qual:
+        check_deadline()
         seen: set[str] = set()
         stack = list(callers_by_qual.get(qual, set()))
         while stack:
+            check_deadline()
             caller = stack.pop()
             if caller in seen:
                 continue
@@ -3972,8 +4261,11 @@ def _build_call_graph(
     class_index = _collect_class_index(paths, project_root)
     callers_by_qual: dict[str, set[str]] = defaultdict(set)
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             for call in info.calls:
+                check_deadline()
                 if call.is_test:
                     continue
                 callee = _resolve_callee(
@@ -4035,8 +4327,11 @@ def _collect_call_ambiguities(
         )
 
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             for call in info.calls:
+                check_deadline()
                 if call.is_test:
                     continue
                 _resolve_callee(
@@ -4060,6 +4355,7 @@ def _dedupe_call_ambiguities(
     seen: set[tuple[object, ...]] = set()
     ordered: list[CallAmbiguity] = []
     for entry in ambiguities:
+        check_deadline()
         span = entry.call.span if entry.call is not None else None
         candidate_keys = tuple(
             (candidate.path, candidate.qual) for candidate in entry.candidates
@@ -4088,6 +4384,7 @@ def _emit_call_ambiguities(
     check_deadline()
     entries: list[JSONObject] = []
     for entry in ambiguities:
+        check_deadline()
         call_span = entry.call.span if entry.call is not None else None
         site_path = _normalize_snapshot_path(entry.caller.path, project_root)
         site_payload: JSONObject = {
@@ -4098,6 +4395,7 @@ def _emit_call_ambiguities(
             site_payload["span"] = list(call_span)
         candidate_targets: list[dict[str, str]] = []
         for candidate in entry.candidates:
+            check_deadline()
             candidate_targets.append(
                 {
                     "path": _normalize_snapshot_path(candidate.path, project_root),
@@ -4179,6 +4477,7 @@ def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in evidence:
+        check_deadline()
         parsed = _parse_lint_location(entry)
         if not parsed:
             continue
@@ -4192,6 +4491,7 @@ def _lint_lines_from_type_evidence(evidence: Iterable[str]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in evidence:
+        check_deadline()
         parsed = _parse_lint_location(entry)
         if not parsed:
             continue
@@ -4205,6 +4505,7 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
     check_deadline()
     lines: list[str] = []
     for entry in entries:
+        check_deadline()
         if not isinstance(entry, Mapping):
             continue
         site = entry.get("site", {})
@@ -4236,6 +4537,7 @@ def _lint_lines_from_unused_arg_smells(smells: Iterable[str]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in smells:
+        check_deadline()
         parsed = _parse_lint_location(entry)
         if not parsed:
             continue
@@ -4256,6 +4558,7 @@ def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in smells:
+        check_deadline()
         parsed = _parse_lint_location(entry)
         if not parsed:
             sample = _extract_smell_sample(entry)
@@ -4285,6 +4588,7 @@ def _exception_protocol_lint_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in entries:
+        check_deadline()
         if entry.get("protocol") != "never":
             continue
         if entry.get("status") == "DEAD":
@@ -4305,6 +4609,7 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
     check_deadline()
     lines: list[str] = []
     for entry in sorted(entries, key=_never_sort_key):
+        check_deadline()
         status = entry.get("status", "UNKNOWN")
         if status == "PROVEN_UNREACHABLE":
             continue
@@ -4338,7 +4643,9 @@ def _never_invariant_lint_lines(entries: list[JSONObject]) -> list[str]:
 def _has_bundles(groups_by_path: dict[Path, dict[str, list[set[str]]]]) -> bool:
     check_deadline()
     for groups in groups_by_path.values():
+        check_deadline()
         for bundles in groups.values():
+            check_deadline()
             if bundles:
                 return True
     return False
@@ -4366,6 +4673,7 @@ def _collect_bundle_evidence_lines(
     bundle_site_index = _bundle_site_index(groups_by_path, bundle_sites_by_path)
     evidence_lines: list[str] = []
     for comp in components:
+        check_deadline()
         evidence = _render_component_callsite_evidence(
             component=comp,
             nodes=projection.nodes,
@@ -4406,6 +4714,7 @@ def _populate_bundle_forest(
             transparent_decorators,
         )
         for qual in sorted(by_qual):
+            check_deadline()
             info = by_qual[qual]
             if _is_test_path(info.path):
                 continue
@@ -4425,10 +4734,13 @@ def _populate_bundle_forest(
         forest.add_alt(kind, inputs, evidence)
 
     for path in sorted(groups_by_path):
+        check_deadline()
         groups = groups_by_path[path]
         for fn_name in sorted(groups):
+            check_deadline()
             site_id = forest.add_site(path.name, fn_name)
             for bundle in groups[fn_name]:
+                check_deadline()
                 paramset_id = forest.add_paramset(bundle)
                 _add_alt(
                     "SignatureBundle",
@@ -4438,8 +4750,10 @@ def _populate_bundle_forest(
 
     config_bundles_by_path = _collect_config_bundles(file_paths)
     for path in sorted(config_bundles_by_path):
+        check_deadline()
         bundles = config_bundles_by_path[path]
         for name in sorted(bundles):
+            check_deadline()
             paramset_id = forest.add_paramset(bundles[name])
             _add_alt(
                 "ConfigBundle",
@@ -4452,6 +4766,7 @@ def _populate_bundle_forest(
         project_root=project_root,
     )
     for qual_name in sorted(dataclass_registry):
+        check_deadline()
         paramset_id = forest.add_paramset(dataclass_registry[qual_name])
         _add_alt(
             "DataclassBundle",
@@ -4465,7 +4780,9 @@ def _populate_bundle_forest(
         external_filter=True,
     )
     for path in sorted(file_paths):
+        check_deadline()
         for bundle in sorted(_iter_documented_bundles(path)):
+            check_deadline()
             paramset_id = forest.add_paramset(bundle)
             _add_alt("MarkerBundle", (paramset_id,), evidence={"path": path.name})
         for bundle in sorted(
@@ -4476,6 +4793,7 @@ def _populate_bundle_forest(
                 dataclass_registry=dataclass_registry,
             )
         ):
+            check_deadline()
             paramset_id = forest.add_paramset(bundle)
             _add_alt(
                 "DataclassCallBundle",
@@ -4526,6 +4844,7 @@ def _summarize_handledness_witnesses(
         return []
     lines: list[str] = []
     for entry in entries[:max_entries]:
+        check_deadline()
         site = entry.get("site", {})
         path = site.get("path", "?")
         function = site.get("function", "?")
@@ -4552,10 +4871,13 @@ def _compute_fingerprint_synth(
         return [], None
     fingerprints: list[Fingerprint] = []
     for path, groups in groups_by_path.items():
+        check_deadline()
         annots_by_fn = annotations_by_path.get(path, {})
         for fn_name, bundles in groups.items():
+            check_deadline()
             fn_annots = annots_by_fn.get(fn_name, {})
             for bundle in bundles:
+                check_deadline()
                 if any(param not in fn_annots for param in bundle):
                     continue
                 types = [fn_annots[param] for param in sorted(bundle)]
@@ -4593,6 +4915,7 @@ def _compute_fingerprint_synth(
         )
     lines: list[str] = [f"synth registry {synth_registry.version}:"]
     for entry in payload.get("entries", []):
+        check_deadline()
         tail = entry.get("tail", {})
         base_keys = entry.get("base_keys", [])
         ctor_keys = entry.get("ctor_keys", [])
@@ -4620,6 +4943,7 @@ def _build_synth_registry_payload(
     check_deadline()
     entries: list[JSONObject] = []
     for prime, tail in sorted(synth_registry.tails.items()):
+        check_deadline()
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
             tail.base.product, registry
         )
@@ -4694,6 +5018,7 @@ def _return_aliases(
     param_set = set(params)
     collector = _ReturnAliasCollector()
     for stmt in fn.body:
+        check_deadline()
         collector.visit(stmt)
     if not collector.returns:
         return None
@@ -4708,6 +5033,7 @@ def _return_aliases(
         if isinstance(expr, (ast.Tuple, ast.List)):
             names: list[str] = []
             for elt in expr.elts:
+                check_deadline()
                 if isinstance(elt, ast.Name) and elt.id in param_set:
                     names.append(elt.id)
                 else:
@@ -4716,6 +5042,7 @@ def _return_aliases(
         return None
 
     for expr in collector.returns:
+        check_deadline()
         candidate = _alias_from_expr(expr)
         if candidate is None:
             return None
@@ -4737,6 +5064,7 @@ def _collect_return_aliases(
     aliases: dict[str, tuple[list[str], list[str]]] = {}
     conflicts: set[str] = set()
     for fn in funcs:
+        check_deadline()
         alias = _return_aliases(fn, ignore_params)
         if not alias:
             continue
@@ -4750,6 +5078,7 @@ def _collect_return_aliases(
             keys.add(_function_key(scopes, fn.name))
         info = (params, alias)
         for key in keys:
+            check_deadline()
             if key in conflicts:
                 continue
             if key in aliases:
@@ -4852,6 +5181,7 @@ def _unused_params(use_map: dict[str, ParamUse]) -> set[str]:
     check_deadline()
     unused: set[str] = set()
     for name, info in use_map.items():
+        check_deadline()
         if info.non_forward:
             continue
         if info.direct_forward:
@@ -4864,6 +5194,7 @@ def _group_by_signature(use_map: dict[str, ParamUse]) -> list[set[str]]:
     check_deadline()
     sig_map: dict[tuple[tuple[str, str], ...], list[str]] = defaultdict(list)
     for name, info in use_map.items():
+        check_deadline()
         if info.non_forward:
             continue
         sig = tuple(sorted(info.direct_forward))
@@ -4880,14 +5211,18 @@ def _union_groups(groups: list[set[str]]) -> list[set[str]]:
     check_deadline()
     changed = True
     while changed:
+        check_deadline()
         changed = False
         out = []
         while groups:
+            check_deadline()
             base = groups.pop()
             merged = True
             while merged:
+                check_deadline()
                 merged = False
                 for i, other in enumerate(groups):
+                    check_deadline()
                     if base & other:
                         base |= other
                         groups.pop(i)
@@ -4909,6 +5244,7 @@ def _propagate_groups(
     check_deadline()
     groups: list[set[str]] = []
     for call in call_args:
+        check_deadline()
         if opaque_callees and call.callee in opaque_callees:
             continue
         if call.callee not in callee_groups:
@@ -4917,10 +5253,12 @@ def _propagate_groups(
         # Build mapping from callee param to caller param.
         callee_to_caller: dict[str, str] = {}
         for idx, pname in enumerate(callee_params):
+            check_deadline()
             key = str(idx)
             if key in call.pos_map:
                 callee_to_caller[pname] = call.pos_map[key]
         for kw, caller_name in call.kw_map.items():
+            check_deadline()
             callee_to_caller[kw] = caller_name
         if strictness == "low":
             mapped = set(callee_to_caller.keys())
@@ -4928,12 +5266,15 @@ def _propagate_groups(
             if len(call.star_pos) == 1:
                 _, star_param = call.star_pos[0]
                 for param in remaining:
+                    check_deadline()
                     callee_to_caller.setdefault(param, star_param)
             if len(call.star_kw) == 1:
                 star_param = call.star_kw[0]
                 for param in remaining:
+                    check_deadline()
                     callee_to_caller.setdefault(param, star_param)
         for group in callee_groups[call.callee]:
+            check_deadline()
             mapped = {callee_to_caller.get(p) for p in group}
             mapped.discard(None)
             if len(mapped) > 1:
@@ -4956,23 +5297,28 @@ def _callsite_evidence_for_bundle(
     out: list[JSONObject] = []
     seen: set[tuple[tuple[int, int, int, int], str, tuple[str, ...], tuple[str, ...]]] = set()
     for call in calls:
+        check_deadline()
         if call.span is None:
             continue
         params_in_call: list[str] = []
         slots: list[str] = []
         for idx_str, param in call.pos_map.items():
+            check_deadline()
             if param in bundle:
                 params_in_call.append(param)
                 slots.append(f"arg[{idx_str}]")
         for name, param in call.kw_map.items():
+            check_deadline()
             if param in bundle:
                 params_in_call.append(param)
                 slots.append(f"kw[{name}]")
         for idx, param in call.star_pos:
+            check_deadline()
             if param in bundle:
                 params_in_call.append(param)
                 slots.append(f"arg[{idx}]*")
         for param in call.star_kw:
+            check_deadline()
             if param in bundle:
                 params_in_call.append(param)
                 slots.append("kw[**]")
@@ -5035,6 +5381,7 @@ def _analyze_file_internal(
     fn_class_names: dict[str, str | None] = {}
     opaque_callees: set[str] = set()
     for f in funcs:
+        check_deadline()
         class_name = _enclosing_class(f, parents)
         scopes = _enclosing_scopes(f, parents)
         lexical_scopes = _enclosing_function_scopes(f, parents)
@@ -5060,6 +5407,7 @@ def _analyze_file_internal(
 
     local_by_name: dict[str, list[str]] = defaultdict(list)
     for key, name in fn_names.items():
+        check_deadline()
         local_by_name[name].append(key)
 
     def _resolve_local_callee(callee: str, caller_key: str) -> str | None:
@@ -5071,6 +5419,7 @@ def _analyze_file_internal(
             return None
         effective_scope = list(fn_lexical_scopes.get(caller_key, ())) + [fn_names[caller_key]]
         while True:
+            check_deadline()
             scoped = [
                 key
                 for key in candidates
@@ -5087,8 +5436,10 @@ def _analyze_file_internal(
         return None
 
     for caller_key, calls in list(fn_calls.items()):
+        check_deadline()
         resolved_calls: list[CallArgs] = []
         for call in calls:
+            check_deadline()
             resolved = _resolve_local_callee(call.callee, caller_key)
             if resolved:
                 resolved_calls.append(replace(call, callee=resolved))
@@ -5111,8 +5462,10 @@ def _analyze_file_internal(
             )
 
         for caller_key, calls in list(fn_calls.items()):
+            check_deadline()
             resolved_calls = []
             for call in calls:
+                check_deadline()
                 if "." in call.callee:
                     resolved = _resolve_local_method(call.callee)
                     if resolved and resolved != call.callee:
@@ -5126,6 +5479,7 @@ def _analyze_file_internal(
     if not recursive:
         bundle_sites_by_fn: dict[str, list[list[JSONObject]]] = {}
         for fn_key, bundles in groups_by_fn.items():
+            check_deadline()
             calls = fn_calls.get(fn_key, [])
             bundle_sites_by_fn[fn_key] = [
                 _callsite_evidence_for_bundle(calls, bundle) for bundle in bundles
@@ -5134,8 +5488,10 @@ def _analyze_file_internal(
 
     changed = True
     while changed:
+        check_deadline()
         changed = False
         for fn in fn_use:
+            check_deadline()
             propagated = _propagate_groups(
                 fn_calls[fn],
                 groups_by_fn,
@@ -5151,6 +5507,7 @@ def _analyze_file_internal(
                 changed = True
     bundle_sites_by_fn: dict[str, list[list[JSONObject]]] = {}
     for fn_key, bundles in groups_by_fn.items():
+        check_deadline()
         calls = fn_calls.get(fn_key, [])
         bundle_sites_by_fn[fn_key] = [
             _callsite_evidence_for_bundle(calls, bundle) for bundle in bundles
@@ -5190,6 +5547,7 @@ def _split_top_level(value: str, sep: str) -> list[str]:
     buf: list[str] = []
     depth = 0
     for ch in value:
+        check_deadline()
         if ch in "[({":
             depth += 1
         elif ch in "])}":
@@ -5230,6 +5588,7 @@ def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
     check_deadline()
     normalized_sets = []
     for hint in types:
+        check_deadline()
         expanded = _expand_type_hint(hint)
         normalized_sets.append(
             tuple(sorted(t for t in expanded if t not in _NONE_TYPES))
@@ -5237,6 +5596,7 @@ def _combine_type_hints(types: set[str]) -> tuple[str, bool]:
     unique_normalized = {norm for norm in normalized_sets if norm}
     expanded: set[str] = set()
     for hint in types:
+        check_deadline()
         expanded.update(_expand_type_hint(hint))
     none_types = {t for t in expanded if t in _NONE_TYPES}
     expanded -= none_types
@@ -5305,6 +5665,7 @@ def _string_list(node: ast.AST) -> list[str] | None:
     if isinstance(node, (ast.List, ast.Tuple)):
         values: list[str] = []
         for elt in node.elts:
+            check_deadline()
             if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                 values.append(elt.value)
             else:
@@ -5338,6 +5699,7 @@ def _collect_module_exports(
     check_deadline()
     explicit_all: list[str] | None = None
     for stmt in getattr(tree, "body", []):
+        check_deadline()
         if isinstance(stmt, ast.Assign):
             targets = stmt.targets
             if any(isinstance(t, ast.Name) and t.id == "__all__" for t in targets):
@@ -5363,11 +5725,13 @@ def _collect_module_exports(
 
     local_defs: set[str] = set()
     for stmt in getattr(tree, "body", []):
+        check_deadline()
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             if not stmt.name.startswith("_"):
                 local_defs.add(stmt.name)
         elif isinstance(stmt, ast.Assign):
             for target in stmt.targets:
+                check_deadline()
                 if isinstance(target, ast.Name) and not target.id.startswith("_"):
                     local_defs.add(target.id)
         elif isinstance(stmt, ast.AnnAssign):
@@ -5384,6 +5748,7 @@ def _collect_module_exports(
 
     export_map: dict[str, str] = {}
     for name in export_names:
+        check_deadline()
         if name in import_map:
             export_map[name] = import_map[name]
         elif name in local_defs:
@@ -5399,6 +5764,7 @@ def _build_symbol_table(
     check_deadline()
     table = SymbolTable(external_filter=external_filter)
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except Exception:
@@ -5431,6 +5797,7 @@ def _collect_class_index(
     check_deadline()
     class_index: dict[str, ClassInfo] = {}
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except Exception:
@@ -5439,6 +5806,7 @@ def _collect_class_index(
         parents.visit(tree)
         module = _module_name(path, project_root)
         for node in ast.walk(tree):
+            check_deadline()
             if not isinstance(node, ast.ClassDef):
                 continue
             scopes = _enclosing_class_scopes(node, parents.parents)
@@ -5448,11 +5816,13 @@ def _collect_class_index(
             qual = ".".join(qual_parts)
             bases: list[str] = []
             for base in node.bases:
+                check_deadline()
                 base_name = _base_identifier(base)
                 if base_name:
                     bases.append(base_name)
             methods: set[str] = set()
             for stmt in node.body:
+                check_deadline()
                 if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     methods.add(stmt.name)
             class_index[qual] = ClassInfo(
@@ -5500,6 +5870,7 @@ def _resolve_class_candidates(
     seen: set[str] = set()
     resolved: list[str] = []
     for candidate in candidates:
+        check_deadline()
         if candidate in seen:
             continue
         seen.add(candidate)
@@ -5528,12 +5899,14 @@ def _resolve_method_in_hierarchy(
     if info is None:
         return None
     for base in info.bases:
+        check_deadline()
         for base_qual in _resolve_class_candidates(
             base,
             module=info.module,
             symbol_table=symbol_table,
             class_index=class_index,
         ):
+            check_deadline()
             resolved = _resolve_method_in_hierarchy(
                 base_qual,
                 method,
@@ -5558,6 +5931,7 @@ def _build_function_index(
     by_name: dict[str, list[FunctionInfo]] = defaultdict(list)
     by_qual: dict[str, FunctionInfo] = {}
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except Exception:
@@ -5573,6 +5947,7 @@ def _build_function_index(
             funcs, parent_map, ignore_params=ignore_params
         )
         for fn in funcs:
+            check_deadline()
             class_name = _enclosing_class(fn, parent_map)
             scopes = _enclosing_scopes(fn, parent_map)
             lexical_scopes = _enclosing_function_scopes(fn, parent_map)
@@ -5662,6 +6037,7 @@ def _resolve_callee(
         ambiguous = False
         effective_scope = list(caller.lexical_scope) + [caller.name]
         while True:
+            check_deadline()
             scoped = [
                 info
                 for info in candidates
@@ -5743,6 +6119,7 @@ def _resolve_callee(
                     class_index=class_index,
                 )
             for class_qual in class_candidates:
+                check_deadline()
                 resolved = _resolve_method_in_hierarchy(
                     class_qual,
                     method,
@@ -5804,7 +6181,9 @@ def _infer_type_flow(
     class_index = _collect_class_index(paths, project_root)
     inferred: dict[str, dict[str, str | None]] = {}
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             inferred[info.qual] = dict(info.annots)
 
     def _get_annot(info: FunctionInfo, param: str) -> str | None:
@@ -5815,6 +6194,7 @@ def _infer_type_flow(
         downstream: dict[str, set[str]] = defaultdict(set)
         sites: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
         for call in info.calls:
+            check_deadline()
             callee = _resolve_callee(
                 call.callee,
                 info,
@@ -5836,6 +6216,7 @@ def _infer_type_flow(
             mapped_params: set[str] = set()
             callee_to_caller: dict[str, set[str]] = defaultdict(set)
             for pos_idx, caller_param in call.pos_map.items():
+                check_deadline()
                 idx = int(pos_idx)
                 if idx < len(pos_params):
                     callee_param = pos_params[idx]
@@ -5846,6 +6227,7 @@ def _infer_type_flow(
                 mapped_params.add(callee_param)
                 callee_to_caller[callee_param].add(caller_param)
             for kw_name, caller_param in call.kw_map.items():
+                check_deadline()
                 if kw_name in named_params:
                     mapped_params.add(kw_name)
                     callee_to_caller[kw_name].add(caller_param)
@@ -5861,16 +6243,20 @@ def _infer_type_flow(
                 if len(call.star_pos) == 1:
                     _, star_param = call.star_pos[0]
                     for param in remaining:
+                        check_deadline()
                         callee_to_caller[param].add(star_param)
                 if len(call.star_kw) == 1:
                     star_param = call.star_kw[0]
                     for param in remaining:
+                        check_deadline()
                         callee_to_caller[param].add(star_param)
             for callee_param, callers in callee_to_caller.items():
+                check_deadline()
                 annot = _get_annot(callee, callee_param)
                 if not annot:
                     continue
                 for caller_param in callers:
+                    check_deadline()
                     downstream[caller_param].add(annot)
                     sites[caller_param][annot].add(
                         _format_type_flow_site(
@@ -5888,13 +6274,17 @@ def _infer_type_flow(
     # Fixed-point inference pass.
     changed = True
     while changed:
+        check_deadline()
         changed = False
         for infos in by_name.values():
+            check_deadline()
             for info in infos:
+                check_deadline()
                 if _is_test_path(info.path):
                     continue
                 downstream, _ = _downstream_for(info)
                 for param, annots in downstream.items():
+                    check_deadline()
                     if len(annots) != 1:
                         continue
                     downstream_annot = next(iter(annots))
@@ -5908,21 +6298,26 @@ def _infer_type_flow(
     ambiguities: set[str] = set()
     evidence_lines: set[str] = set()
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             if _is_test_path(info.path):
                 continue
             downstream, sites = _downstream_for(info)
             fn_key = _function_key(info.scope, info.name)
             path_key = _normalize_snapshot_path(info.path, project_root)
             for param, annots in downstream.items():
+                check_deadline()
                 if len(annots) > 1:
                     ambiguities.add(
                         f"{path_key}:{fn_key}.{param} downstream types conflict: {sorted(annots)}"
                     )
                     for annot in sorted(annots):
+                        check_deadline()
                         for site in sorted(sites.get(param, {}).get(annot, set()))[
                             :max_sites_per_param
                         ]:
+                            check_deadline()
                             evidence_lines.add(site)
                     continue
                 downstream_annot = next(iter(annots))
@@ -5935,6 +6330,7 @@ def _infer_type_flow(
                     for site in sorted(
                         sites.get(param, {}).get(downstream_annot, set())
                     )[:max_sites_per_param]:
+                        check_deadline()
                         evidence_lines.add(site)
     return inferred, sorted(suggestions), sorted(ambiguities), sorted(evidence_lines)
 
@@ -6023,6 +6419,7 @@ def analyze_constant_flow_repo(
     )
     smells: list[str] = []
     for detail in details:
+        check_deadline()
         path_name = detail.path.name if isinstance(detail.path, Path) else str(detail.path)
         site_suffix = ""
         if detail.sites:
@@ -6088,8 +6485,11 @@ def _collect_constant_flow_details(
         call_sites[key].add(_format_call_site(caller, call))
 
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             for call in info.calls:
+                check_deadline()
                 if call.is_test:
                     continue
                 callee = _resolve_callee(
@@ -6114,17 +6514,20 @@ def _collect_constant_flow_details(
                 named_params = set(pos_params) | kwonly_params
                 mapped_params = set()
                 for idx_str in call.pos_map:
+                    check_deadline()
                     idx = int(idx_str)
                     if idx < len(pos_params):
                         mapped_params.add(pos_params[idx])
                     elif callee.vararg is not None:
                         mapped_params.add(callee.vararg)
                 for kw in call.kw_map:
+                    check_deadline()
                     if kw in named_params:
                         mapped_params.add(kw)
                 remaining = [p for p in named_params if p not in mapped_params]
 
                 for idx_str, value in call.const_pos.items():
+                    check_deadline()
                     idx = int(idx_str)
                     if idx < len(pos_params):
                         key = (callee.qual, pos_params[idx])
@@ -6134,6 +6537,7 @@ def _collect_constant_flow_details(
                     elif callee.vararg is not None:
                         non_const[(callee.qual, callee.vararg)] = True
                 for idx_str in call.pos_map:
+                    check_deadline()
                     idx = int(idx_str)
                     if idx < len(pos_params):
                         key = (callee.qual, pos_params[idx])
@@ -6142,6 +6546,7 @@ def _collect_constant_flow_details(
                     elif callee.vararg is not None:
                         non_const[(callee.qual, callee.vararg)] = True
                 for idx_str in call.non_const_pos:
+                    check_deadline()
                     idx = int(idx_str)
                     if idx < len(pos_params):
                         key = (callee.qual, pos_params[idx])
@@ -6152,6 +6557,7 @@ def _collect_constant_flow_details(
                 if strictness == "low":
                     if len(call.star_pos) == 1:
                         for param in remaining:
+                            check_deadline()
                             key = (callee.qual, param)
                             non_const[key] = True
                             call_counts[key] += 1
@@ -6159,6 +6565,7 @@ def _collect_constant_flow_details(
                             non_const[(callee.qual, callee.vararg)] = True
 
                 for kw, value in call.const_kw.items():
+                    check_deadline()
                     if kw not in named_params:
                         continue
                     key = (callee.qual, kw)
@@ -6166,12 +6573,14 @@ def _collect_constant_flow_details(
                     call_counts[key] += 1
                     _record_site(key, info, call)
                 for kw in call.kw_map:
+                    check_deadline()
                     if kw not in named_params:
                         continue
                     key = (callee.qual, kw)
                     non_const[key] = True
                     call_counts[key] += 1
                 for kw in call.non_const_kw:
+                    check_deadline()
                     if kw not in named_params:
                         continue
                     key = (callee.qual, kw)
@@ -6180,6 +6589,7 @@ def _collect_constant_flow_details(
                 if strictness == "low":
                     if len(call.star_kw) == 1:
                         for param in remaining:
+                            check_deadline()
                             key = (callee.qual, param)
                             non_const[key] = True
                             call_counts[key] += 1
@@ -6188,6 +6598,7 @@ def _collect_constant_flow_details(
 
     details: list[ConstantFlowDetail] = []
     for key, values in const_values.items():
+        check_deadline()
         if non_const.get(key):
             continue
         if len(values) != 1:
@@ -6238,6 +6649,7 @@ def analyze_deadness_flow_repo(
     )
     witnesses: list[JSONObject] = []
     for detail in details:
+        check_deadline()
         path_value = _normalize_snapshot_path(detail.path, project_root)
         predicate = f"{detail.param} != {detail.value}"
         core = [
@@ -6287,8 +6699,11 @@ def _compute_knob_param_names(
     explicit_passed: dict[tuple[str, str], bool] = defaultdict(bool)
     call_counts: dict[str, int] = defaultdict(int)
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             for call in info.calls:
+                check_deadline()
                 if call.is_test:
                     continue
                 callee = _resolve_callee(
@@ -6316,6 +6731,7 @@ def _compute_knob_param_names(
                 if callee.kwarg is not None:
                     remaining.add(callee.kwarg)
                 for idx_str, value in call.const_pos.items():
+                    check_deadline()
                     idx = int(idx_str)
                     if idx < len(pos_params):
                         param = pos_params[idx]
@@ -6327,6 +6743,7 @@ def _compute_knob_param_names(
                         explicit_passed[(callee.qual, callee.vararg)] = True
                         remaining.discard(callee.vararg)
                 for idx_str in call.pos_map:
+                    check_deadline()
                     idx = int(idx_str)
                     if idx < len(pos_params):
                         param = pos_params[idx]
@@ -6338,6 +6755,7 @@ def _compute_knob_param_names(
                         explicit_passed[(callee.qual, callee.vararg)] = True
                         remaining.discard(callee.vararg)
                 for idx_str in call.non_const_pos:
+                    check_deadline()
                     idx = int(idx_str)
                     if idx < len(pos_params):
                         param = pos_params[idx]
@@ -6349,6 +6767,7 @@ def _compute_knob_param_names(
                         explicit_passed[(callee.qual, callee.vararg)] = True
                         remaining.discard(callee.vararg)
                 for kw, value in call.const_kw.items():
+                    check_deadline()
                     if kw in named_params:
                         const_values[(callee.qual, kw)].add(value)
                         explicit_passed[(callee.qual, kw)] = True
@@ -6358,6 +6777,7 @@ def _compute_knob_param_names(
                         explicit_passed[(callee.qual, callee.kwarg)] = True
                         remaining.discard(callee.kwarg)
                 for kw in call.kw_map:
+                    check_deadline()
                     if kw in named_params:
                         non_const[(callee.qual, kw)] = True
                         explicit_passed[(callee.qual, kw)] = True
@@ -6367,6 +6787,7 @@ def _compute_knob_param_names(
                         explicit_passed[(callee.qual, callee.kwarg)] = True
                         remaining.discard(callee.kwarg)
                 for kw in call.non_const_kw:
+                    check_deadline()
                     if kw in named_params:
                         non_const[(callee.qual, kw)] = True
                         explicit_passed[(callee.qual, kw)] = True
@@ -6378,22 +6799,27 @@ def _compute_knob_param_names(
                 if strictness == "low":
                     if len(call.star_pos) == 1:
                         for param in remaining:
+                            check_deadline()
                             non_const[(callee.qual, param)] = True
                             explicit_passed[(callee.qual, param)] = True
                     if len(call.star_kw) == 1:
                         for param in remaining:
+                            check_deadline()
                             non_const[(callee.qual, param)] = True
                             explicit_passed[(callee.qual, param)] = True
     knob_names: set[str] = set()
     for key, values in const_values.items():
+        check_deadline()
         if non_const.get(key):
             continue
         if len(values) == 1:
             knob_names.add(key[1])
     for qual, info in by_qual.items():
+        check_deadline()
         if call_counts.get(qual, 0) == 0:
             continue
         for param in info.defaults:
+            check_deadline()
             if not explicit_passed.get((qual, param), False):
                 knob_names.add(param)
     return knob_names
@@ -6442,8 +6868,11 @@ def analyze_unused_arg_flow_repo(
         )
 
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             for call in info.calls:
+                check_deadline()
                 if call.is_test:
                     continue
                 callee = _resolve_callee(
@@ -6464,11 +6893,13 @@ def analyze_unused_arg_flow_repo(
                 callee_params = callee.params
                 mapped_params = set()
                 for idx_str in call.pos_map:
+                    check_deadline()
                     idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
                     mapped_params.add(callee_params[idx])
                 for kw in call.kw_map:
+                    check_deadline()
                     if kw in callee_params:
                         mapped_params.add(kw)
                 remaining = [
@@ -6478,6 +6909,7 @@ def analyze_unused_arg_flow_repo(
                 ]
 
                 for idx_str, caller_param in call.pos_map.items():
+                    check_deadline()
                     idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
@@ -6493,6 +6925,7 @@ def analyze_unused_arg_flow_repo(
                             )
                         )
                 for idx_str in call.non_const_pos:
+                    check_deadline()
                     idx = int(idx_str)
                     if idx >= len(callee_params):
                         continue
@@ -6508,6 +6941,7 @@ def analyze_unused_arg_flow_repo(
                             )
                         )
                 for kw, caller_param in call.kw_map.items():
+                    check_deadline()
                     if kw not in callee_params:
                         continue
                     if kw in callee.unused_params:
@@ -6521,6 +6955,7 @@ def analyze_unused_arg_flow_repo(
                             )
                         )
                 for kw in call.non_const_kw:
+                    check_deadline()
                     if kw not in callee_params:
                         continue
                     if kw in callee.unused_params:
@@ -6536,6 +6971,7 @@ def analyze_unused_arg_flow_repo(
                 if strictness == "low":
                     if len(call.star_pos) == 1:
                         for idx, param in remaining:
+                            check_deadline()
                             if param in callee.unused_params:
                                 smells.add(
                                     _format(
@@ -6548,6 +6984,7 @@ def analyze_unused_arg_flow_repo(
                                 )
                     if len(call.star_kw) == 1:
                         for _, param in remaining:
+                            check_deadline()
                             if param in callee.unused_params:
                                 smells.add(
                                     _format(
@@ -6570,6 +7007,7 @@ def _iter_config_fields(path: Path) -> dict[str, set[str]]:
         return {}
     bundles: dict[str, set[str]] = {}
     for node in ast.walk(tree):
+        check_deadline()
         if not isinstance(node, ast.ClassDef):
             continue
         decorators = {getattr(d, "id", None) for d in node.decorator_list}
@@ -6579,12 +7017,14 @@ def _iter_config_fields(path: Path) -> dict[str, set[str]]:
             continue
         fields: set[str] = set()
         for stmt in node.body:
+            check_deadline()
             if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
                 name = stmt.target.id
                 if is_config or name.endswith("_fn"):
                     fields.add(name)
             elif isinstance(stmt, ast.Assign):
                 for target in stmt.targets:
+                    check_deadline()
                     if isinstance(target, ast.Name):
                         if is_config or target.id.endswith("_fn"):
                             fields.add(target.id)
@@ -6598,6 +7038,7 @@ def _collect_config_bundles(paths: list[Path]) -> dict[Path, dict[str, set[str]]
     _forbid_adhoc_bundle_discovery("_collect_config_bundles")
     bundles_by_path: dict[Path, dict[str, set[str]]] = {}
     for path in paths:
+        check_deadline()
         bundles = _iter_config_fields(path)
         if bundles:
             bundles_by_path[path] = bundles
@@ -6617,6 +7058,7 @@ def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
     except Exception:
         return bundles
     for line in text.splitlines():
+        check_deadline()
         match = _BUNDLE_MARKER.search(line)
         if not match:
             continue
@@ -6638,12 +7080,14 @@ def _collect_dataclass_registry(
     check_deadline()
     registry: dict[str, list[str]] = {}
     for path in paths:
+        check_deadline()
         try:
             tree = ast.parse(path.read_text())
         except Exception:
             continue
         module = _module_name(path, project_root)
         for node in ast.walk(tree):
+            check_deadline()
             if not isinstance(node, ast.ClassDef):
                 continue
             decorators = {
@@ -6654,10 +7098,12 @@ def _collect_dataclass_registry(
                 continue
             fields: list[str] = []
             for stmt in node.body:
+                check_deadline()
                 if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
                     fields.append(stmt.target.id)
                 elif isinstance(stmt, ast.Assign):
                     for target in stmt.targets:
+                        check_deadline()
                         if isinstance(target, ast.Name):
                             fields.append(target.id)
             if not fields:
@@ -6679,11 +7125,14 @@ def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
     )
     name_map: dict[tuple[str, ...], set[str]] = defaultdict(set)
     for bundles in config_bundles_by_path.values():
+        check_deadline()
         for name, fields in bundles.items():
+            check_deadline()
             key = tuple(sorted(fields))
             if key:
                 name_map[key].add(name)
     for qual_name, fields in dataclass_registry.items():
+        check_deadline()
         key = tuple(sorted(fields))
         if key:
             name_map[key].add(qual_name.split(".")[-1])
@@ -6708,6 +7157,7 @@ def _iter_dataclass_call_bundles(
     module = _module_name(path, project_root)
     local_dataclasses: dict[str, list[str]] = {}
     for node in ast.walk(tree):
+        check_deadline()
         if not isinstance(node, ast.ClassDef):
             continue
         decorators = {
@@ -6717,10 +7167,12 @@ def _iter_dataclass_call_bundles(
         if any("dataclass" in dec for dec in decorators):
             fields: list[str] = []
             for stmt in node.body:
+                check_deadline()
                 if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
                     fields.append(stmt.target.id)
                 elif isinstance(stmt, ast.Assign):
                     for target in stmt.targets:
+                        check_deadline()
                         if isinstance(target, ast.Name):
                             fields.append(target.id)
             if fields:
@@ -6728,6 +7180,7 @@ def _iter_dataclass_call_bundles(
     if dataclass_registry is None:
         dataclass_registry = {}
         for name, fields in local_dataclasses.items():
+            check_deadline()
             if module:
                 dataclass_registry[f"{module}.{name}"] = fields
             else:  # pragma: no cover - module name is always non-empty for file paths
@@ -6769,6 +7222,7 @@ def _iter_dataclass_call_bundles(
         return None
 
     for node in ast.walk(tree):
+        check_deadline()
         if not isinstance(node, ast.Call):
             continue
         fields = _resolve_fields(node)
@@ -6777,6 +7231,7 @@ def _iter_dataclass_call_bundles(
         names: list[str] = []
         ok = True
         for idx, arg in enumerate(node.args):
+            check_deadline()
             if isinstance(arg, ast.Starred):
                 ok = False
                 break
@@ -6788,6 +7243,7 @@ def _iter_dataclass_call_bundles(
         if not ok:
             continue
         for kw in node.keywords:
+            check_deadline()
             if kw.arg is None:
                 ok = False
                 break
@@ -6814,6 +7270,7 @@ class BundleProjection:
 def _alt_input(alt: Alt, kind: str) -> NodeId | None:
     check_deadline()
     for node_id in alt.inputs:
+        check_deadline()
         if node_id.kind == kind:
             return node_id
     return None
@@ -6839,6 +7296,7 @@ def _bundle_projection_from_forest(
     bundle_map: dict[NodeId, tuple[str, ...]] = {}
     bundle_counts: dict[tuple[str, ...], int] = defaultdict(int)
     for alt in forest.alts:
+        check_deadline()
         if alt.kind != "SignatureBundle":
             continue
         site_id = _alt_input(alt, "FunctionSite")
@@ -6865,6 +7323,7 @@ def _bundle_projection_from_forest(
     declared_by_path: dict[str, set[tuple[str, ...]]] = defaultdict(set)
     documented_by_path: dict[str, set[tuple[str, ...]]] = defaultdict(set)
     for alt in forest.alts:
+        check_deadline()
         paramset_id = _alt_input(alt, "ParamSet")
         if paramset_id is None:
             continue
@@ -6885,6 +7344,7 @@ def _bundle_projection_from_forest(
         root = Path(".")
     path_lookup: dict[str, Path] = {}
     for path in file_paths:
+        check_deadline()
         path_lookup.setdefault(path.name, path)
     return BundleProjection(
         nodes=nodes,
@@ -6906,10 +7366,13 @@ def _bundle_site_index(
     check_deadline()
     index: dict[tuple[str, str, tuple[str, ...]], list[list[JSONObject]]] = {}
     for path, groups in groups_by_path.items():
+        check_deadline()
         fn_sites = bundle_sites_by_path.get(path, {})
         for fn_name, bundles in groups.items():
+            check_deadline()
             sites = fn_sites.get(fn_name, [])
             for idx, bundle in enumerate(bundles):
+                check_deadline()
                 bundle_key = tuple(sorted(bundle))
                 entry = index.setdefault((path.name, fn_name, bundle_key), [])
                 if idx < len(sites):
@@ -6928,13 +7391,16 @@ def _emit_dot(forest: Forest | None) -> str:
         "  node [fontsize=10];",
     ]
     for node_id, meta in projection.nodes.items():
+        check_deadline()
         label = meta["label"].replace('"', "'")
         if meta["kind"] == "fn":
             lines.append(f'  {abs(hash(node_id.sort_key()))} [shape=box,label="{label}"];')
         else:
             lines.append(f'  {abs(hash(node_id.sort_key()))} [shape=ellipse,label="{label}"];')
     for src, targets in projection.adj.items():
+        check_deadline()
         for dst in targets:
+            check_deadline()
             if projection.nodes.get(src, {}).get("kind") == "fn":
                 lines.append(
                     f"  {abs(hash(src.sort_key()))} -> {abs(hash(dst.sort_key()))};"
@@ -6951,15 +7417,18 @@ def _connected_components(
     seen: set[NodeId] = set()
     comps: list[list[NodeId]] = []
     for node in nodes:
+        check_deadline()
         if node in seen:
             continue
         q: deque[NodeId] = deque([node])
         seen.add(node)
         comp: list[NodeId] = []
         while q:
+            check_deadline()
             curr = q.popleft()
             comp.append(curr)
             for nxt in adj.get(curr, ()):
+                check_deadline()
                 if nxt not in seen:
                     seen.add(nxt)
                     q.append(nxt)
@@ -6983,13 +7452,17 @@ def _render_mermaid_component(
     fn_nodes = [n for n in component if nodes[n]["kind"] == "fn"]
     bundle_nodes = [n for n in component if nodes[n]["kind"] == "bundle"]
     for n in fn_nodes:
+        check_deadline()
         label = nodes[n]["label"].replace('"', "'")
         lines.append(f'  {abs(hash(n.sort_key()))}["{label}"]')
     for n in bundle_nodes:
+        check_deadline()
         label = nodes[n]["label"].replace('"', "'")
         lines.append(f'  {abs(hash(n.sort_key()))}(({label}))')
     for n in component:
+        check_deadline()
         for nxt in adj.get(n, ()):
+            check_deadline()
             if nxt in component and nodes[n]["kind"] == "fn":
                 lines.append(
                     f"  {abs(hash(n.sort_key()))} --> {abs(hash(nxt.sort_key()))}"
@@ -7013,10 +7486,12 @@ def _render_mermaid_component(
     observed = [bundle_map[n] for n in bundle_nodes if n in bundle_map]
     component_paths: set[str] = set()
     for n in fn_nodes:
+        check_deadline()
         component_paths.add(nodes[n]["path"])
     declared_local = set()
     documented = set()
     for path in component_paths:
+        check_deadline()
         declared_local |= declared_by_path.get(path, set())
         documented |= documented_by_path.get(path, set())
     observed_norm = {tuple(sorted(b)) for b in observed}
@@ -7043,6 +7518,7 @@ def _render_mermaid_component(
     if observed_only:
         summary_lines.append("Observed-only bundles (not declared in Configs):")
         for bundle in observed_only:
+            check_deadline()
             tier = _tier(bundle)
             documented_flag = "documented" if bundle in documented else "undocumented"
             summary_lines.append(
@@ -7084,13 +7560,16 @@ def _render_component_callsite_evidence(
     bundle_nodes = [n for n in component if nodes[n]["kind"] == "bundle"]
     component_paths: set[str] = set()
     for n in fn_nodes:
+        check_deadline()
         component_paths.add(nodes[n]["path"])
     documented: set[tuple[str, ...]] = set()
     for path in component_paths:
+        check_deadline()
         documented |= documented_by_path.get(path, set())
 
     bundle_key_by_node: dict[NodeId, tuple[str, ...]] = {}
     for n in bundle_nodes:
+        check_deadline()
         key = tuple(sorted(bundle_map[n]))
         bundle_key_by_node[n] = key
 
@@ -7102,6 +7581,7 @@ def _render_component_callsite_evidence(
 
     lines: list[str] = []
     for bundle_id in ordered_nodes:
+        check_deadline()
         bundle_key = bundle_key_by_node[bundle_id]
         observed_only = (not declared_global) or (bundle_key not in declared_global)
         if not observed_only or bundle_key in documented:
@@ -7113,6 +7593,7 @@ def _render_component_callsite_evidence(
             if nodes.get(node_id, {}).get("kind") == "fn"
         ]
         for site_id in adjacent_sites:
+            check_deadline()
             path_name = nodes[site_id]["path"]
             fn_name = nodes[site_id]["qual"]
             evidence_sets = bundle_site_index.get((path_name, fn_name, bundle_key), [])
@@ -7121,8 +7602,10 @@ def _render_component_callsite_evidence(
             path = path_lookup.get(path_name, Path(path_name))
             evidence_entries: list[JSONObject] = []
             for entry in evidence_sets:
+                check_deadline()
                 evidence_entries.extend(entry)
             for site in evidence_entries[:max_sites_per_bundle]:
+                check_deadline()
                 start_line, start_col, end_line, end_col = site["span"]
                 loc = f"{start_line + 1}:{start_col + 1}-{end_line + 1}:{end_col + 1}"
                 rel = _normalize_snapshot_path(path, root)
@@ -7210,6 +7693,7 @@ def _emit_report(
                 f"Showing top {max_components} components of {len(components)}."
             )
         for idx, comp in enumerate(components[:max_components], start=1):
+            check_deadline()
             lines.append(f"### Component {idx}")
             mermaid, summary = _render_mermaid_component(
                 projection.nodes,
@@ -7250,6 +7734,7 @@ def _emit_report(
             for line in summary.splitlines():
                 # Violation strings are semantic objects; avoid leaking markdown
                 # bullets into baseline keys.
+                check_deadline()
                 candidate = line.strip()
                 if candidate.startswith("- "):
                     candidate = candidate[2:].strip()
@@ -7261,6 +7746,7 @@ def _emit_report(
     if deadline_obligations:
         deadline_violations: list[str] = []
         for entry in deadline_obligations:
+            check_deadline()
             if entry.get("status") != "VIOLATION":
                 continue
             site = entry.get("site", {}) or {}
@@ -7478,14 +7964,18 @@ def compute_structure_metrics(
     function_count = sum(len(groups) for groups in groups_by_path.values())
     bundle_sizes: list[int] = []
     for groups in groups_by_path.values():
+        check_deadline()
         for bundles in groups.values():
+            check_deadline()
             for bundle in bundles:
+                check_deadline()
                 bundle_sizes.append(len(bundle))
     bundle_count = len(bundle_sizes)
     mean_bundle_size = (sum(bundle_sizes) / bundle_count) if bundle_count else 0.0
     max_bundle_size = max(bundle_sizes) if bundle_sizes else 0
     size_histogram: dict[int, int] = defaultdict(int)
     for size in bundle_sizes:
+        check_deadline()
         size_histogram[size] += 1
     metrics: JSONObject = {
         "files": file_count,
@@ -7551,6 +8041,7 @@ def render_structure_snapshot(
     invariant_map: dict[tuple[str, str], list[InvariantProposition]] = {}
     if invariant_propositions:
         for prop in invariant_propositions:
+            check_deadline()
             if not prop.scope or ":" not in prop.scope:
                 continue
             scope_path, fn_name = prop.scope.rsplit(":", 1)
@@ -7559,10 +8050,12 @@ def render_structure_snapshot(
     for path in sorted(
         groups_by_path, key=lambda p: _normalize_snapshot_path(p, root)
     ):
+        check_deadline()
         groups = groups_by_path[path]
         functions: list[JSONObject] = []
         path_key = _normalize_snapshot_path(path, root)
         for fn_name in sorted(groups):
+            check_deadline()
             bundles = groups[fn_name]
             normalized = [sorted(bundle) for bundle in bundles]
             normalized.sort(key=lambda bundle: (len(bundle), bundle))
@@ -7674,14 +8167,17 @@ def _bundle_counts_from_snapshot(snapshot: JSONObject) -> dict[tuple[str, ...], 
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     files = snapshot.get("files") or []
     for file_entry in files:
+        check_deadline()
         if not isinstance(file_entry, dict):
             continue
         functions = file_entry.get("functions") or []
         for fn_entry in functions:
+            check_deadline()
             if not isinstance(fn_entry, dict):
                 continue
             bundles = fn_entry.get("bundles") or []
             for bundle in bundles:
+                check_deadline()
                 if not isinstance(bundle, list):
                     continue
                 counts[tuple(bundle)] += 1
@@ -7704,6 +8200,7 @@ def diff_structure_snapshots(
     removed: list[JSONObject] = []
     changed: list[JSONObject] = []
     for bundle in all_bundles:
+        check_deadline()
         before = baseline_counts.get(bundle, 0)
         after = current_counts.get(bundle, 0)
         entry = {
@@ -7805,6 +8302,7 @@ def compute_structure_reuse(
 
     file_hashes: list[str] = []
     for file_entry in files:
+        check_deadline()
         if not isinstance(file_entry, dict):
             continue
         file_path = file_entry.get("path")
@@ -7813,6 +8311,7 @@ def compute_structure_reuse(
         function_hashes: list[str] = []
         functions = file_entry.get("functions") or []
         for fn_entry in functions:
+            check_deadline()
             if not isinstance(fn_entry, dict):
                 continue
             fn_name = fn_entry.get("name")
@@ -7821,6 +8320,7 @@ def compute_structure_reuse(
             bundle_hashes: list[str] = []
             bundles = fn_entry.get("bundles") or []
             for bundle in bundles:
+                check_deadline()
                 if not isinstance(bundle, list):
                     continue
                 normalized = tuple(sorted(str(item) for item in bundle))
@@ -7867,6 +8367,7 @@ def compute_structure_reuse(
     suggested: list[JSONObject] = []
     replacement_map: dict[str, list[JSONObject]] = {}
     for entry in reused:
+        check_deadline()
         kind = entry.get("kind")
         if kind not in {"bundle", "function"}:
             continue
@@ -7921,10 +8422,12 @@ def _build_reuse_replacement_map(
     check_deadline()
     replacement_map: dict[str, list[JSONObject]] = {}
     for suggestion in suggested:
+        check_deadline()
         locations = suggestion.get("locations") or []
         if not isinstance(locations, list):
             continue
         for location in locations:
+            check_deadline()
             if not isinstance(location, str):
                 continue
             replacement_map.setdefault(location, []).append(
@@ -7953,6 +8456,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         (e for e in suggested if isinstance(e, dict)),
         key=lambda e: (str(e.get("kind", "")), str(e.get("suggested_name", ""))),
     ):
+        check_deadline()
         name = entry.get("suggested_name")
         if not isinstance(name, str) or not name:
             continue
@@ -7980,8 +8484,11 @@ def _bundle_counts(
     _forbid_adhoc_bundle_discovery("_bundle_counts")
     counts: dict[tuple[str, ...], int] = defaultdict(int)
     for groups in groups_by_path.values():
+        check_deadline()
         for bundles in groups.values():
+            check_deadline()
             for bundle in bundles:
+                check_deadline()
                 counts[tuple(sorted(bundle))] += 1
     return counts
 
@@ -7996,9 +8503,11 @@ def _merge_counts_by_knobs(
     bundles = [set(bundle) for bundle in counts]
     merged: dict[tuple[str, ...], int] = defaultdict(int)
     for bundle_key, count in counts.items():
+        check_deadline()
         bundle = set(bundle_key)
         target = bundle
         for other in bundles:
+            check_deadline()
             if bundle and bundle.issubset(other):
                 extra = set(other) - bundle
                 if extra and extra.issubset(knob_names):
@@ -8015,7 +8524,9 @@ def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     file_paths = sorted(root.rglob("*.py"))
     bundles_by_path = _collect_config_bundles(file_paths)
     for bundles in bundles_by_path.values():
+        check_deadline()
         for fields in bundles.values():
+            check_deadline()
             declared.add(tuple(sorted(fields)))
     return declared
 
@@ -8062,6 +8573,7 @@ def build_synthesis_plan(
     counts = _merge_counts_by_knobs(counts, knob_names)
     bundle_evidence: dict[frozenset[str], set[str]] = defaultdict(set)
     for bundle in counts:
+        check_deadline()
         bundle_evidence[frozenset(bundle)].add("dataflow")
 
     decision_params_by_fn: dict[tuple[Path, str], set[str]] = {}
@@ -8069,6 +8581,7 @@ def build_synthesis_plan(
         audit_config.decision_ignore_params or audit_config.ignore_params
     )
     for info in by_qual.values():
+        check_deadline()
         if not info.decision_params and not info.value_decision_params:
             continue
         fn_key = _function_key(info.scope, info.name)
@@ -8076,16 +8589,20 @@ def build_synthesis_plan(
         decision_params_by_fn[(info.path, fn_key)] = params
 
     for path, groups in groups_by_path.items():
+        check_deadline()
         for fn_key, bundles in groups.items():
+            check_deadline()
             decision_params = decision_params_by_fn.get((path, fn_key))
             if not decision_params:
                 continue
             for bundle in bundles:
+                check_deadline()
                 bundle_evidence[frozenset(bundle)].add("control_context")
 
     decision_counts: dict[tuple[str, ...], int] = defaultdict(int)
     value_decision_counts: dict[tuple[str, ...], int] = defaultdict(int)
     for info in by_qual.values():
+        check_deadline()
         if info.decision_params:
             bundle = tuple(sorted(info.decision_params))
             decision_counts[bundle] += 1
@@ -8095,9 +8612,11 @@ def build_synthesis_plan(
             value_decision_counts[bundle] += 1
             bundle_evidence[frozenset(bundle)].add("value_decision_surface")
     for bundle, count in decision_counts.items():
+        check_deadline()
         if bundle not in counts:
             counts[bundle] = count
     for bundle, count in value_decision_counts.items():
+        check_deadline()
         if bundle not in counts:
             counts[bundle] = count
     if not counts:
@@ -8115,9 +8634,11 @@ def build_synthesis_plan(
     frequency: dict[str, int] = defaultdict(int)
     bundle_fields: set[str] = set()
     for bundle, count in counts.items():
+        check_deadline()
         tier = 1 if bundle in declared else (2 if count > 1 else 3)
         bundle_tiers[frozenset(bundle)] = tier
         for field in bundle:
+            check_deadline()
             frequency[field] += count
             bundle_fields.add(field)
 
@@ -8139,6 +8660,7 @@ def build_synthesis_plan(
     )
     if merged_bundles:
         for merged in merged_bundles:
+            check_deadline()
             members = [
                 bundle
                 for bundle in original_bundles
@@ -8153,6 +8675,7 @@ def build_synthesis_plan(
         if merged_bundle_tiers:
             bundle_tiers = merged_bundle_tiers
             for merged in merged_bundles:
+                check_deadline()
                 members = [
                     bundle
                     for bundle in original_bundles
@@ -8162,6 +8685,7 @@ def build_synthesis_plan(
                     continue
                 evidence: set[str] = set()
                 for member in members:
+                    check_deadline()
                     evidence.update(bundle_evidence.get(frozenset(member), set()))
                 merged_bundle_evidence[frozenset(merged)] = evidence
             if merged_bundle_evidence:
@@ -8181,13 +8705,18 @@ def build_synthesis_plan(
         )
         type_sets: dict[str, set[str]] = defaultdict(set)
         for annots in inferred.values():
+            check_deadline()
             for name, annot in annots.items():
+                check_deadline()
                 if name not in bundle_fields or not annot:
                     continue
                 type_sets[name].add(annot)
         for infos in by_name.values():
+            check_deadline()
             for info in infos:
+                check_deadline()
                 for call in info.calls:
+                    check_deadline()
                     if call.is_test:
                         continue
                     callee = _resolve_callee(
@@ -8203,6 +8732,7 @@ def build_synthesis_plan(
                         continue
                     callee_params = callee.params
                     for idx_str, value in call.const_pos.items():
+                        check_deadline()
                         idx = int(idx_str)
                         if idx >= len(callee_params):
                             continue
@@ -8213,12 +8743,14 @@ def build_synthesis_plan(
                         if hint:
                             type_sets[param].add(hint)
                     for kw, value in call.const_kw.items():
+                        check_deadline()
                         if kw not in callee_params or kw not in bundle_fields:
                             continue
                         hint = _type_from_const_repr(value)
                         if hint:
                             type_sets[kw].add(hint)
         for name, types in type_sets.items():
+            check_deadline()
             combined, conflicted = _combine_type_hints(types)
             field_types[name] = combined
             if conflicted and len(types) > 1:
@@ -8268,11 +8800,13 @@ def render_synthesis_section(plan: JSONObject) -> str:
     else:
         evidence_counts: Counter[str] = Counter()
         for spec in protocols:
+            check_deadline()
             name = spec.get("name", "Bundle")
             tier = spec.get("tier", "?")
             fields = spec.get("fields", [])
             parts = []
             for field in fields:
+                check_deadline()
                 fname = field.get("name", "")
                 type_hint = field.get("type_hint") or "Any"
                 if fname:
@@ -8315,7 +8849,9 @@ def render_protocol_stubs(plan: JSONObject, kind: str = "dataclass") -> str:
     if kind == "protocol":
         typing_names.add("Protocol")
     for spec in protocols:
+        check_deadline()
         for field in spec.get("fields", []) or []:
+            check_deadline()
             hint = field.get("type_hint") or "Any"
             if "Optional[" in hint:
                 typing_names.add("Optional")
@@ -8336,6 +8872,7 @@ def render_protocol_stubs(plan: JSONObject, kind: str = "dataclass") -> str:
         return "\n".join(lines)
     placeholder_base = "TODO_Name_Me"
     for idx, spec in enumerate(protocols, start=1):
+        check_deadline()
         name = placeholder_base if idx == 1 else f"{placeholder_base}{idx}"
         suggested = spec.get("name", "Bundle")
         tier = spec.get("tier", "?")
@@ -8359,18 +8896,21 @@ def render_protocol_stubs(plan: JSONObject, kind: str = "dataclass") -> str:
         if fields:
             field_summary = []
             for field in fields:
+                check_deadline()
                 fname = field.get("name") or "field"
                 type_hint = field.get("type_hint") or "Any"
                 field_summary.append(f"{fname}: {type_hint}")
             doc_lines.append("Fields: " + ", ".join(field_summary))
         lines.append('    """')
         for line in doc_lines:
+            check_deadline()
             lines.append(f"    {line}")
         lines.append('    """')
         if not fields:
             lines.append("    pass")
         else:
             for field in fields:
+                check_deadline()
                 fname = field.get("name") or "field"
                 type_hint = field.get("type_hint") or "Any"
                 lines.append(f"    {fname}: {type_hint}")
@@ -8405,14 +8945,19 @@ def build_refactor_plan(
     class_index = _collect_class_index(file_paths, config.project_root)
     info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
     for infos in by_name.values():
+        check_deadline()
         for info in infos:
+            check_deadline()
             key = _function_key(info.scope, info.name)
             info_by_path_name[(info.path, key)] = info
 
     bundle_map: dict[tuple[str, ...], dict[str, FunctionInfo]] = defaultdict(dict)
     for path, groups in groups_by_path.items():
+        check_deadline()
         for fn, bundles in groups.items():
+            check_deadline()
             for bundle in bundles:
+                check_deadline()
                 key = tuple(sorted(bundle))
                 info = info_by_path_name.get((path, fn))
                 if info is not None:
@@ -8420,10 +8965,13 @@ def build_refactor_plan(
 
     plans: list[JSONObject] = []
     for bundle, infos in sorted(bundle_map.items(), key=lambda item: (len(item[0]), item[0])):
+        check_deadline()
         comp = dict(infos)
         deps: dict[str, set[str]] = {qual: set() for qual in comp}
         for info in infos.values():
+            check_deadline()
             for call in info.calls:
+                check_deadline()
                 callee = _resolve_callee(
                     call.callee,
                     info,
@@ -8466,6 +9014,7 @@ def render_refactor_plan(plan: JSONObject) -> str:
         lines.append("No refactoring plan available.")
     else:
         for entry in bundles:
+            check_deadline()
             bundle = entry.get("bundle", [])
             title = ", ".join(bundle) if bundle else "(unknown bundle)"
             lines.append(f"### Bundle: {title}")
@@ -8474,6 +9023,7 @@ def render_refactor_plan(plan: JSONObject) -> str:
                 lines.append("Order (callee-first):")
                 lines.append("```")
                 for item in order:
+                    check_deadline()
                     lines.append(f"- {item}")
                 lines.append("```")
             cycles = entry.get("cycles", [])
@@ -8481,6 +9031,7 @@ def render_refactor_plan(plan: JSONObject) -> str:
                 lines.append("Cycles:")
                 lines.append("```")
                 for cycle in cycles:
+                    check_deadline()
                     lines.append(", ".join(cycle))
                 lines.append("```")
     if warnings:
@@ -8509,6 +9060,7 @@ def _render_type_mermaid(
 
     for entry in suggestions:
         # Format: file:func.param can tighten to Type
+        check_deadline()
         if " can tighten to " not in entry:
             continue
         lhs, rhs = entry.split(" can tighten to ", 1)
@@ -8516,6 +9068,7 @@ def _render_type_mermaid(
         dst = _node(rhs)
         lines.append(f"  {src} --> {dst}")
     for entry in ambiguities:
+        check_deadline()
         if " downstream types conflict: " not in entry:
             continue
         lhs, rhs = entry.split(" downstream types conflict: ", 1)
@@ -8526,12 +9079,14 @@ def _render_type_mermaid(
             rhs = rhs[1:-1]
         type_names = []
         for item in rhs.split(","):
+            check_deadline()
             item = item.strip()
             if not item:
                 continue
             item = item.strip("'\"")
             type_names.append(item)
         for type_name in type_names:
+            check_deadline()
             dst = _node(type_name)
             lines.append(f"  {src} -.-> {dst}")
     lines.append("```")
@@ -8606,6 +9161,7 @@ def _load_baseline(path: Path) -> set[str]:
         return set()
     entries: set[str] = set()
     for line in raw.splitlines():
+        check_deadline()
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -8788,6 +9344,7 @@ def analyze_paths(
         )
 
     for path in file_paths:
+        check_deadline()
         _deadline_check(allow_frame_fallback=True)
         groups, spans, sites = _analyze_file_internal(
             path, recursive=recursive, config=config
@@ -9042,6 +9599,7 @@ def analyze_paths(
     context_suggestions: list[str] = []
     if decision_surfaces:
         for entry in decision_surfaces:
+            check_deadline()
             if "(internal callers" in entry:
                 context_suggestions.append(f"Consider contextvar for {entry}")
     lint_lines: list[str] = []
@@ -9290,6 +9848,7 @@ def _normalize_transparent_decorators(
         items = [part.strip() for part in value.split(",") if part.strip()]
     elif isinstance(value, (list, tuple, set)):
         for item in value:
+            check_deadline()
             if isinstance(item, str):
                 items.extend([part.strip() for part in item.split(",") if part.strip()])
     if not items:
@@ -9312,7 +9871,9 @@ def run(argv: list[str] | None = None) -> int:
     if args.exclude is not None:
         exclude_dirs = []
         for entry in args.exclude:
+            check_deadline()
             for part in entry.split(","):
+                check_deadline()
                 part = part.strip()
                 if part:
                     exclude_dirs.append(part)
@@ -9534,6 +10095,7 @@ def run(argv: list[str] | None = None) -> int:
             Path(fingerprint_handledness_json).write_text(payload_json)
     if args.lint:
         for line in analysis.lint_lines:
+            check_deadline()
             print(line)
     structure_tree_path = args.emit_structure_tree
     structure_metrics_path = args.emit_structure_metrics
@@ -9674,10 +10236,12 @@ def run(argv: list[str] | None = None) -> int:
         if analysis.type_suggestions:
             print("Type tightening candidates:")
             for line in analysis.type_suggestions[: args.type_audit_max]:
+                check_deadline()
                 print(f"- {line}")
         if analysis.type_ambiguities:
             print("Type ambiguities (conflicting downstream expectations):")
             for line in analysis.type_ambiguities[: args.type_audit_max]:
+                check_deadline()
                 print(f"- {line}")
         if args.report is None and not (
             args.synthesis_plan
@@ -9748,12 +10312,15 @@ def run(argv: list[str] | None = None) -> int:
                 return 1
         return 0
     for path, groups in analysis.groups_by_path.items():
+        check_deadline()
         print(f"# {path}")
         for fn, bundles in groups.items():
+            check_deadline()
             if not bundles:
                 continue
             print(f"{fn}:")
             for bundle in bundles:
+                check_deadline()
                 print(f"  bundle: {sorted(bundle)}")
         print()
     if args.fail_on_type_ambiguities and analysis.type_ambiguities:
