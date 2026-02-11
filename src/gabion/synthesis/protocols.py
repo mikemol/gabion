@@ -38,6 +38,7 @@ class Synthesizer:
         )
 
         for bundle, tier in bundle_tiers.items():
+            check_deadline()
             bundle_set = set(bundle)
             if not self._bundle_allowed(bundle_set, tier):
                 continue
@@ -72,6 +73,7 @@ class Synthesizer:
         check_deadline()
         fields: List[FieldSpec] = []
         for name in sorted(bundle):
+            check_deadline()
             type_hint = field_types.get(name)
             fields.append(FieldSpec(name=name, type_hint=type_hint, source_params={name}))
         return fields

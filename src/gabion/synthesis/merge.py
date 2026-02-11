@@ -19,13 +19,16 @@ def merge_bundles(
     merged: List[Set[str]] = [set(b) for b in bundles]
     changed = True
     while changed:
+        check_deadline()
         changed = False
         merged.sort(key=lambda b: (len(b), sorted(b)))
         result: List[Set[str]] = []
         while merged:
+            check_deadline()
             current = merged.pop(0)
             merged_any = False
             for idx, other in enumerate(list(merged)):
+                check_deadline()
                 if _jaccard(current, other) >= min_overlap:
                     current |= other
                     merged.pop(idx)

@@ -42,6 +42,7 @@ def suggest_name(fields: Iterable[str], context: NamingContext | None = None) ->
     counter = 2
     existing = set(context.existing_names)
     while name in existing:
+        check_deadline()
         name = f"{base}{counter}"
         counter += 1
     return name
