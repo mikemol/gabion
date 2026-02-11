@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import io
+import json
+import os
 
 import pytest
 import typer
@@ -523,7 +526,14 @@ def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
         runner=runner,
     )
     assert captured["command"] == cli.STRUCTURE_DIFF_COMMAND
-    assert captured["payload"] == {"baseline": str(baseline), "current": str(current)}
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["baseline"] == str(baseline)
+    assert payload["current"] == str(current)
+    assert isinstance(payload.get("analysis_timeout_ticks"), int)
+    assert payload["analysis_timeout_ticks"] > 0
+    assert isinstance(payload.get("analysis_timeout_tick_ns"), int)
+    assert payload["analysis_timeout_tick_ns"] > 0
     assert captured["root"] == tmp_path
     assert result == {"added_bundles": []}
 
@@ -547,8 +557,93 @@ def test_run_decision_diff_uses_runner(tmp_path: Path) -> None:
         runner=runner,
     )
     assert captured["command"] == cli.DECISION_DIFF_COMMAND
-    assert captured["payload"] == {"baseline": str(baseline), "current": str(current)}
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["baseline"] == str(baseline)
+    assert payload["current"] == str(current)
+    assert isinstance(payload.get("analysis_timeout_ticks"), int)
+    assert payload["analysis_timeout_ticks"] > 0
+    assert isinstance(payload.get("analysis_timeout_tick_ns"), int)
+    assert payload["analysis_timeout_tick_ns"] > 0
     assert result == {"exit_code": 0}
+
+
+def _rpc_message(payload: dict) -> bytes:
+    body = json.dumps(payload).encode("utf-8")
+    header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
+    return header + body
+
+
+class _FakeProc:
+    def __init__(self, stdout_bytes: bytes) -> None:
+        self.stdin = io.BytesIO()
+        self.stdout = io.BytesIO(stdout_bytes)
+        self.stderr = io.BytesIO()
+        self.returncode = 0
+
+    def communicate(self, timeout: float | None = None):
+        return (b"", b"")
+
+
+def _extract_rpc_messages(buffer: bytes) -> list[dict]:
+    messages: list[dict] = []
+    offset = 0
+    while True:
+        header_end = buffer.find(b"\r\n\r\n", offset)
+        if header_end < 0:
+            break
+        header = buffer[offset:header_end].decode("utf-8")
+        length = None
+        for line in header.split("\r\n"):
+            if line.lower().startswith("content-length:"):
+                length = int(line.split(":", 1)[1].strip())
+                break
+        if length is None:
+            break
+        body_start = header_end + 4
+        body_end = body_start + length
+        if body_end > len(buffer):
+            break
+        payload = json.loads(buffer[body_start:body_end].decode("utf-8"))
+        messages.append(payload)
+        offset = body_end
+    return messages
+
+
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.dispatch_command
+def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
+    proc_holder: dict[str, _FakeProc] = {}
+
+    def factory(*_args, **_kwargs):
+        init = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {}})
+        cmd = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {"ok": True}})
+        shutdown = _rpc_message({"jsonrpc": "2.0", "id": 3, "result": {}})
+        proc = _FakeProc(init + cmd + shutdown)
+        proc_holder["proc"] = proc
+        return proc
+
+    previous = os.environ.get("GABION_DIRECT_RUN")
+    os.environ.pop("GABION_DIRECT_RUN", None)
+    try:
+        result = cli.dispatch_command(
+            command=cli.STRUCTURE_DIFF_COMMAND,
+            payload={"baseline": str(tmp_path / "base.json"), "current": str(tmp_path / "current.json")},
+            root=tmp_path,
+            runner=cli.run_command,
+            process_factory=factory,
+        )
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_DIRECT_RUN", None)
+        else:
+            os.environ["GABION_DIRECT_RUN"] = previous
+    assert result == {"ok": True}
+    proc = proc_holder["proc"]
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert payload["analysis_timeout_ticks"] > 0
+    assert payload["analysis_timeout_tick_ns"] > 0
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs

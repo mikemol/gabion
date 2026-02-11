@@ -427,6 +427,7 @@ def dispatch_command(
     payload: JSONObject,
     root: Path | None = None,
     runner: Runner = run_command,
+    process_factory: Callable[..., subprocess.Popen] | None = None,
 ) -> JSONObject:
     ticks, tick_ns = _cli_timeout_ticks()
     if (
@@ -444,7 +445,17 @@ def dispatch_command(
         if flag in {"1", "true", "yes", "on"}:
             resolved = run_command_direct
     if resolved is run_command:
-        return resolved(request, root=root, timeout_ticks=ticks, timeout_tick_ns=tick_ns)
+        if process_factory is None:
+            return resolved(
+                request, root=root, timeout_ticks=ticks, timeout_tick_ns=tick_ns
+            )
+        return resolved(
+            request,
+            root=root,
+            timeout_ticks=ticks,
+            timeout_tick_ns=tick_ns,
+            process_factory=process_factory,
+        )
     return resolved(request, root=root)
 
 
