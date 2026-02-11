@@ -9,7 +9,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.invariants import never
 
 try:
     import yaml
@@ -31,6 +32,36 @@ CONTENT_WRITE_WORKFLOWS = {
 }
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+
+_DEFAULT_POLICY_TIMEOUT_TICKS = 120_000
+_DEFAULT_POLICY_TIMEOUT_TICK_NS = 1_000_000
+
+
+def _policy_deadline() -> Deadline:
+    raw_ticks = os.getenv("GABION_POLICY_TIMEOUT_TICKS", "").strip()
+    raw_tick_ns = os.getenv("GABION_POLICY_TIMEOUT_TICK_NS", "").strip()
+    if raw_ticks or raw_tick_ns:
+        if not raw_ticks:
+            never("missing policy timeout ticks", tick_ns=raw_tick_ns)
+        if not raw_tick_ns:
+            never("missing policy timeout tick_ns", ticks=raw_ticks)
+        try:
+            ticks_value = int(raw_ticks)
+        except ValueError:
+            ticks_value = -1
+        try:
+            tick_ns_value = int(raw_tick_ns)
+        except ValueError:
+            tick_ns_value = -1
+        if ticks_value <= 0:
+            never("invalid policy timeout ticks", ticks=raw_ticks)
+        if tick_ns_value <= 0:
+            never("invalid policy timeout tick_ns", tick_ns=raw_tick_ns)
+        return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
+    return Deadline.from_timeout_ticks(
+        _DEFAULT_POLICY_TIMEOUT_TICKS,
+        _DEFAULT_POLICY_TIMEOUT_TICK_NS,
+    )
 
 
 @dataclass(frozen=True)
@@ -1023,10 +1054,11 @@ def main():
     if not args.workflows and not args.posture:
         args.workflows = True
 
-    if args.workflows:
-        check_workflows()
-    if args.posture:
-        check_posture()
+    with deadline_scope(_policy_deadline()):
+        if args.workflows:
+            check_workflows()
+        if args.posture:
+            check_posture()
     return 0
 
 
