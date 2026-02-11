@@ -55,6 +55,7 @@ def spec_from_dict(payload: Mapping[str, JSONValue]) -> ProjectionSpec:
     ops: list[ProjectionOp] = []
     if isinstance(pipeline_payload, list):
         for entry in pipeline_payload:
+            check_deadline()
             if not isinstance(entry, Mapping):
                 continue
             op_name = str(entry.get("op", "") or "").strip()

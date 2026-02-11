@@ -34,6 +34,7 @@ def apply_spec(
     current: Relation = [dict(row) for row in rows if isinstance(row, Mapping)]
 
     for op in normalized.get("pipeline") or []:
+        check_deadline()
         if not isinstance(op, Mapping):
             continue
         op_name = op.get("op")
@@ -48,6 +49,7 @@ def apply_spec(
             if not isinstance(predicates, list):
                 predicates = []
             for predicate_name in predicates:
+                check_deadline()
                 if not isinstance(predicate_name, str):
                     continue
                 predicate = op_registry.get(predicate_name)
@@ -64,6 +66,7 @@ def apply_spec(
                 continue
             projected: Relation = []
             for row in current:
+                check_deadline()
                 projected.append({field: row.get(field) for field in fields})
             current = projected
             continue
@@ -76,8 +79,10 @@ def apply_spec(
                 continue
             counts: dict[tuple[object, ...], dict[str, JSONValue]] = {}
             for row in current:
+                check_deadline()
                 key_parts: list[object] = []
                 for field in fields:
+                    check_deadline()
                     if not isinstance(field, str):
                         key_parts.append("")
                         continue
@@ -101,6 +106,7 @@ def apply_spec(
                 continue
             sort_keys: list[tuple[str, str]] = []
             for entry in by:
+                check_deadline()
                 if not isinstance(entry, Mapping):
                     continue
                 field = entry.get("field")
@@ -112,6 +118,7 @@ def apply_spec(
                 order_norm = order.strip().lower() or "asc"
                 sort_keys.append((field, order_norm))
             for field, order in reversed(sort_keys):
+                check_deadline()
                 current = sorted(
                     current,
                     key=lambda row, name=field: _sort_value(row.get(name)),

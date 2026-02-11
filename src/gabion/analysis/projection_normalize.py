@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import Iterable, Mapping
 
-from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
+from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 
@@ -24,9 +23,12 @@ def spec_canonical_json(spec: ProjectionSpec) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-def spec_hash(spec: ProjectionSpec) -> str:
-    encoded = spec_canonical_json(spec)
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+def spec_hash(spec: ProjectionSpec | Mapping[str, JSONValue] | str) -> str:
+    if isinstance(spec, str):
+        return spec
+    if isinstance(spec, Mapping):
+        spec = spec_from_dict(spec)
+    return spec_canonical_json(spec)
 
 
 def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSONValue]]:
@@ -46,6 +48,7 @@ def _normalize_pipeline(pipeline: Iterable[ProjectionOp]) -> list[dict[str, JSON
         pending_selects = []
 
     for op in pipeline:
+        check_deadline()
         op_name = str(op.op).strip()
         params = op.params if isinstance(op.params, Mapping) else {}
         if op_name == "select":
@@ -104,6 +107,7 @@ def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
         predicates.append(explicit.strip())
     elif isinstance(explicit, list):
         for entry in explicit:
+            check_deadline()
             if isinstance(entry, str):
                 cleaned = entry.strip()
                 predicates.append(cleaned)
@@ -123,11 +127,13 @@ def _normalize_fields(value: JSONValue) -> list[str]:
             fields.append(value.strip())
     elif isinstance(value, list):
         for entry in value:
+            check_deadline()
             if isinstance(entry, str) and entry.strip():
                 fields.append(entry.strip())
     seen: set[str] = set()
     ordered: list[str] = []
     for field in fields:
+        check_deadline()
         if field in seen:
             continue
         seen.add(field)
@@ -151,6 +157,7 @@ def _normalize_sort_by(value: JSONValue) -> list[dict[str, JSONValue]]:
         return items
     if isinstance(value, list):
         for entry in value:
+            check_deadline()
             if isinstance(entry, str):
                 if entry.strip():
                     items.append({"field": entry.strip(), "order": "asc"})
