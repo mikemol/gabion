@@ -16,7 +16,12 @@ def _has_pygls() -> bool:
 
 
 def _cli_env() -> dict[str, str]:
-    return {**os.environ, "GABION_DIRECT_RUN": "1"}
+    return {
+        **os.environ,
+        "GABION_DIRECT_RUN": "1",
+        "GABION_LSP_TIMEOUT_TICKS": "5000",
+        "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+    }
 
 
 def _invoke(runner: CliRunner, args: list[str]):

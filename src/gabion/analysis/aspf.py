@@ -77,6 +77,11 @@ class Forest:
         self.nodes[node_id] = Node(node_id=node_id, meta=meta or {})
         return node_id
 
+    def add_file_site(self, path: str) -> NodeId:
+        key = (path,)
+        node_id = NodeId(kind="FileSite", key=key)
+        return self._intern_node(node_id, {"path": path})
+
     def add_param(self, name: str) -> NodeId:
         key = (canon_param(name),)
         node_id = NodeId(kind="Param", key=key)
@@ -92,6 +97,7 @@ class Forest:
         return node_id
 
     def add_site(self, path: str, qual: str, span: tuple[int, int, int, int] | None = None) -> NodeId:
+        file_id = self.add_file_site(path)
         key: NodeKey = (path, qual)
         if span is not None:
             key = (*key, *span)
@@ -99,7 +105,11 @@ class Forest:
         meta: dict[str, object] = {"path": path, "qual": qual}
         if span is not None:
             meta["span"] = list(span)
-        return self._intern_node(node_id, meta)
+        existed = node_id in self.nodes
+        site_id = self._intern_node(node_id, meta)
+        if not existed:
+            self.add_alt("FunctionSiteInFile", (site_id, file_id), evidence={"path": path})
+        return site_id
 
     def add_suite_site(
         self,
@@ -108,6 +118,7 @@ class Forest:
         suite_kind: str,
         span: tuple[int, int, int, int] | None = None,
     ) -> NodeId:
+        file_id = self.add_file_site(path)
         key: NodeKey = (path, qual, suite_kind)
         if span is not None:
             key = (*key, *span)
@@ -126,6 +137,11 @@ class Forest:
             self.add_alt(
                 "SuiteSiteInFunction",
                 (suite_id, func_id),
+                evidence={"suite_kind": suite_kind},
+            )
+            self.add_alt(
+                "SuiteSiteInFile",
+                (suite_id, file_id),
                 evidence={"suite_kind": suite_kind},
             )
         return suite_id

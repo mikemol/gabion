@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import inspect
+import json
 import time
+from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from contextlib import contextmanager
 from pathlib import Path
@@ -11,6 +13,7 @@ from typing import Callable, Iterable, Mapping
 from contextvars import ContextVar, Token
 
 from gabion.analysis.aspf import Forest
+from gabion.invariants import never
 from gabion.json_types import JSONValue
 
 
@@ -46,14 +49,37 @@ class TimeoutExceeded(TimeoutError):
 
 @dataclass(frozen=True)
 class Deadline:
-    deadline: float
+    deadline_ns: int
+
+    @classmethod
+    def from_timeout_ticks(cls, ticks: int, tick_ns: int) -> "Deadline":
+        ticks_value = int(ticks)
+        tick_ns_value = int(tick_ns)
+        if ticks_value < 0:
+            ticks_value = 0
+        if tick_ns_value <= 0:
+            tick_ns_value = 1
+        total_ns = ticks_value * tick_ns_value
+        return cls(deadline_ns=time.monotonic_ns() + total_ns)
+
+    @classmethod
+    def from_timeout_ms(cls, milliseconds: int) -> "Deadline":
+        return cls.from_timeout_ticks(milliseconds, 1_000_000)
 
     @classmethod
     def from_timeout(cls, seconds: float) -> "Deadline":
-        return cls(deadline=time.monotonic() + max(float(seconds), 0.0))
+        # Deprecated: prefer from_timeout_ticks/from_timeout_ms (integer-only).
+        try:
+            value = Decimal(str(seconds))
+        except (InvalidOperation, ValueError):
+            value = Decimal(0)
+        if value < 0:
+            value = Decimal(0)
+        millis = int(value * Decimal(1000))
+        return cls.from_timeout_ms(millis)
 
     def expired(self) -> bool:
-        return time.monotonic() >= self.deadline
+        return time.monotonic_ns() >= self.deadline_ns
 
     def check(self, builder: Callable[[], TimeoutContext]) -> None:
         if self.expired():
@@ -63,7 +89,9 @@ class Deadline:
 _deadline_var: ContextVar[Deadline | None] = ContextVar("gabion_deadline", default=None)
 
 
-def set_deadline(deadline: Deadline | None) -> Token[Deadline | None]:
+def set_deadline(deadline: Deadline) -> Token[Deadline | None]:
+    if deadline is None:
+        never("deadline carrier missing")
     return _deadline_var.set(deadline)
 
 
@@ -71,12 +99,17 @@ def reset_deadline(token: Token[Deadline | None]) -> None:
     _deadline_var.reset(token)
 
 
-def get_deadline() -> Deadline | None:
-    return _deadline_var.get()
+def get_deadline() -> Deadline:
+    deadline = _deadline_var.get()
+    if deadline is None:
+        never("deadline carrier missing")
+    return deadline
 
 
 @contextmanager
-def deadline_scope(deadline: Deadline | None):
+def deadline_scope(deadline: Deadline):
+    if deadline is None:
+        never("deadline carrier missing")
     token = set_deadline(deadline)
     try:
         yield
@@ -95,8 +128,6 @@ def check_deadline(
 ) -> None:
     if deadline is None:
         deadline = get_deadline()
-    if deadline is None:
-        return
     deadline.check(
         lambda: build_timeout_context_from_stack(
             forest=forest,
@@ -116,7 +147,7 @@ def _frame_site_key(
     frame: FrameType,
     *,
     project_root: Path | None,
-) -> tuple[str, str] | None:
+) -> tuple[str, str]:
     module = frame.f_globals.get("__name__") or ""
     qualname = _normalize_qualname(frame.f_code.co_qualname or frame.f_code.co_name)
     if module:
@@ -128,7 +159,7 @@ def _frame_site_key(
         try:
             path = path.resolve().relative_to(project_root)
         except ValueError:
-            return None
+            never("frame outside project_root", path=str(path), project_root=str(project_root))
     return (path.name, qual)
 
 
@@ -138,7 +169,8 @@ def _site_key_payload(
     qual: str,
     span: list[int] | None = None,
 ) -> dict[str, JSONValue]:
-    key: list[JSONValue] = [path, qual]
+    file_payload: JSONValue = {"kind": "FileSite", "key": [path]}
+    key: list[JSONValue] = [file_payload, qual]
     if span and len(span) == 4:
         key.extend(span)
     return {"kind": "FunctionSite", "key": key}
@@ -171,20 +203,21 @@ def pack_call_stack(sites: Iterable[Mapping[str, JSONValue]]) -> PackedCallStack
     normalized: list[dict[str, JSONValue]] = []
     for site in sites:
         payload = _normalize_site_payload(site)
-        if payload is None:
-            continue
         normalized.append(payload)
-    unique = {(entry["kind"], tuple(entry["key"])) for entry in normalized}
+    unique: dict[tuple[str, tuple[object, ...]], list[JSONValue]] = {}
+    for entry in normalized:
+        frozen = _freeze_key(entry["key"])
+        unique.setdefault((str(entry["kind"]), frozen), list(entry["key"]))
     site_table = [
         {"kind": kind, "key": list(key)}
-        for kind, key in sorted(unique, key=_site_sort_key)
+        for (kind, _), key in sorted(unique.items(), key=_site_sort_entry_key)
     ]
     index = {
-        (entry["kind"], tuple(entry["key"])): idx
+        (entry["kind"], _freeze_key(entry["key"])): idx
         for idx, entry in enumerate(site_table)
     }
     stack = [
-        index[(entry["kind"], tuple(entry["key"]))]
+        index[(entry["kind"], _freeze_key(entry["key"]))]
         for entry in normalized
     ]
     return PackedCallStack(site_table=site_table, stack=stack)
@@ -192,24 +225,54 @@ def pack_call_stack(sites: Iterable[Mapping[str, JSONValue]]) -> PackedCallStack
 
 def _normalize_site_payload(
     site: Mapping[str, JSONValue],
-) -> dict[str, JSONValue] | None:
+) -> dict[str, JSONValue]:
     kind = str(site.get("kind", "") or "FunctionSite")
     key_payload = site.get("key")
     if isinstance(key_payload, list) and key_payload:
         key = [value for value in key_payload]
+        if (
+            len(key) >= 2
+            and isinstance(key[0], str)
+            and isinstance(key[1], str)
+        ):
+            file_payload: JSONValue = {"kind": "FileSite", "key": [key[0]]}
+            key = [file_payload, key[1], *key[2:]]
         return {"kind": kind, "key": key}
     path = str(site.get("path", "") or "")
     qual = str(site.get("qual", "") or "")
     if not path or not qual:
-        return None
+        never("site payload missing path/qual", site=dict(site))
     span = site.get("span")
     span_list = list(span) if isinstance(span, list) else None
     return _site_key_payload(path=path, qual=qual, span=span_list)
 
 
-def _site_sort_key(entry: tuple[str, tuple[JSONValue, ...]]) -> tuple[str, tuple[str, ...]]:
-    kind, key = entry
-    return (kind, tuple(str(part) for part in key))
+def _freeze_value(value: JSONValue) -> object:
+    if isinstance(value, dict):
+        items = tuple((key, _freeze_value(value[key])) for key in sorted(value))
+        return ("dict", items)
+    if isinstance(value, list):
+        return ("list", tuple(_freeze_value(item) for item in value))
+    return ("atom", value)
+
+
+def _freeze_key(key: Iterable[JSONValue]) -> tuple[object, ...]:
+    return tuple(_freeze_value(part) for part in key)
+
+
+def _render_sort_value(value: JSONValue) -> str:
+    if isinstance(value, dict):
+        return json.dumps(value, sort_keys=True)
+    if isinstance(value, list):
+        return json.dumps(value)
+    return str(value)
+
+
+def _site_sort_entry_key(
+    entry: tuple[tuple[str, tuple[object, ...]], list[JSONValue]]
+) -> tuple[str, tuple[str, ...]]:
+    (kind, _), key = entry
+    return (kind, tuple(_render_sort_value(part) for part in key))
 
 
 def build_timeout_context_from_stack(
@@ -224,10 +287,15 @@ def build_timeout_context_from_stack(
     site_index = build_site_index(forest)
     frame_list = list(frames) if frames is not None else [frame.frame for frame in inspect.stack()]
     sites: list[dict[str, JSONValue]] = []
+    resolved_root = project_root.resolve() if project_root is not None else None
     for frame in frame_list:
-        key = _frame_site_key(frame, project_root=project_root)
-        if key is None:
-            continue
+        if resolved_root is not None:
+            frame_path = Path(frame.f_code.co_filename).resolve()
+            try:
+                frame_path.relative_to(resolved_root)
+            except ValueError:
+                continue
+        key = _frame_site_key(frame, project_root=resolved_root)
         if key in site_index:
             sites.append(site_index[key])
         elif allow_frame_fallback:

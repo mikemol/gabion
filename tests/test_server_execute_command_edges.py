@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from gabion import server
+from gabion.exceptions import NeverThrown
 from gabion.analysis import (
     ambiguity_delta,
     ambiguity_state,
@@ -33,6 +34,16 @@ class _DummyServer:
 class _CommandResult:
     exit_code: int
     violations: int
+
+
+_TIMEOUT_PAYLOAD = {
+    "analysis_timeout_ticks": 1000,
+    "analysis_timeout_tick_ns": 1_000_000,
+}
+
+
+def _with_timeout(payload: dict) -> dict:
+    return {**_TIMEOUT_PAYLOAD, **payload}
 
 
 def _write_bundle_module(path: Path) -> None:
@@ -73,14 +84,16 @@ def test_execute_command_dash_outputs(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
-            "root": str(tmp_path),
-            "paths": [str(module_path)],
-            "dot": "-",
-            "synthesis_plan": "-",
-            "synthesis_protocols": "-",
-            "refactor_plan_json": "-",
-        },
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "dot": "-",
+                "synthesis_plan": "-",
+                "synthesis_protocols": "-",
+                "refactor_plan_json": "-",
+            }
+        ),
     )
     assert "dot" in result
     assert "synthesis_plan" in result
@@ -101,13 +114,34 @@ def test_execute_command_invalid_synth_min_occurrences(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
-            "root": str(tmp_path),
-            "paths": [str(module_path)],
-            "config": str(config_path),
-        },
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "config": str(config_path),
+            }
+        ),
     )
     assert result.get("exit_code") == 0
+
+
+# gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_reports_synthesis_error(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "synthesis_plan": "-",
+                "synthesis_min_bundle_size": "bad",
+            }
+        ),
+    )
+    assert result.get("synthesis_errors")
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -115,15 +149,17 @@ def test_execute_command_ignores_invalid_timeout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    result = server.execute_command(
-        ls,
-        {
-            "root": str(tmp_path),
-            "paths": [str(module_path)],
-            "analysis_timeout_seconds": "nope",
-        },
-    )
-    assert result.get("exit_code") == 0
+    with pytest.raises(NeverThrown):
+        server.execute_command(
+            ls,
+            _with_timeout(
+                {
+                    "root": str(tmp_path),
+                    "paths": [str(module_path)],
+                    "analysis_timeout_ticks": "nope",
+                }
+            ),
+        )
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
@@ -133,16 +169,100 @@ def test_execute_command_reports_timeout(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
-            "root": str(tmp_path),
-            "paths": [str(module_path)],
-            "report": str(tmp_path / "report.md"),
-            "analysis_timeout_seconds": "1e-9",
-        },
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": str(tmp_path / "report.md"),
+                "analysis_timeout_ticks": 1,
+                "analysis_timeout_tick_ns": 1,
+            }
+        ),
     )
     assert result.get("exit_code") == 2
     assert result.get("timeout") is True
     assert "timeout_context" in result
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(NeverThrown):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "analysis_timeout_ticks": 1,
+                "analysis_timeout_tick_ns": "nope",
+            },
+        )
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_uses_timeout_ms(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "analysis_timeout_ms": 1000,
+        },
+    )
+    assert result.get("exit_code") == 0
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_invalid_timeout_ms_ignored(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(NeverThrown):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "analysis_timeout_ms": "nope",
+            },
+        )
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_uses_timeout_seconds(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "analysis_timeout_seconds": "10",
+        },
+    )
+    assert result.get("exit_code") == 0
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_command
+def test_execute_command_invalid_timeout_seconds_ignored(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(NeverThrown):
+        server.execute_command(
+            ls,
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "analysis_timeout_seconds": "nope",
+            },
+        )
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
@@ -172,7 +292,7 @@ def test_execute_command_fingerprint_outputs_and_decision_snapshot(tmp_path: Pat
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "config": str(config_path),
@@ -184,7 +304,7 @@ def test_execute_command_fingerprint_outputs_and_decision_snapshot(tmp_path: Pat
             "fingerprint_exception_obligations_json": "-",
             "fingerprint_handledness_json": "-",
             "decision_snapshot": "-",
-        },
+        }),
     )
     assert "fingerprint_synth_registry" in result
     assert "fingerprint_provenance" in result
@@ -232,7 +352,7 @@ def test_execute_command_writes_fingerprint_outputs(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "config": str(config_path),
@@ -243,7 +363,7 @@ def test_execute_command_writes_fingerprint_outputs(tmp_path: Path) -> None:
             "fingerprint_rewrite_plans_json": str(rewrite_plans_path),
             "fingerprint_exception_obligations_json": str(exception_obligations_path),
             "fingerprint_handledness_json": str(handledness_path),
-        },
+        }),
     )
     assert result.get("exit_code") == 0
     assert synth_path.exists()
@@ -263,11 +383,11 @@ def test_execute_command_writes_decision_snapshot(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "decision_snapshot": str(decision_path),
-        },
+        }),
     )
     assert result.get("exit_code") == 0
     assert decision_path.exists()
@@ -282,12 +402,12 @@ def test_execute_command_baseline_apply(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "baseline": str(baseline_path),
             "fail_on_violations": True,
-        },
+        }),
     )
     assert result.get("baseline_written") is False
     assert _CommandResult(
@@ -303,11 +423,11 @@ def test_execute_command_fail_on_type_ambiguities(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "fail_on_type_ambiguities": True,
-        },
+        }),
     )
     assert result.get("exit_code") == 1
     assert result.get("type_ambiguities")
@@ -320,11 +440,11 @@ def test_execute_command_includes_lint_lines(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "lint": True,
-        },
+        }),
     )
     assert "lint_lines" in result
 
@@ -338,14 +458,14 @@ def test_execute_command_report_baseline_write(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "report": str(report_path),
             "baseline": str(baseline_path),
             "baseline_write": True,
             "fail_on_violations": True,
-        },
+        }),
     )
     assert result.get("baseline_written") is True
     assert result.get("exit_code") == 0
@@ -355,21 +475,23 @@ def test_execute_command_report_baseline_write(tmp_path: Path) -> None:
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::server.py::gabion.server.execute_structure_reuse::payload
 def test_execute_structure_reuse_missing_snapshot() -> None:
-    result = server.execute_structure_reuse(None, {})
+    result = server.execute_structure_reuse(None, _with_timeout({}))
     assert result.get("exit_code") == 2
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::server.py::gabion.server.execute_structure_reuse::payload
 def test_execute_structure_reuse_payload_none() -> None:
-    result = server.execute_structure_reuse(None, None)
-    assert result.get("exit_code") == 2
+    with pytest.raises(NeverThrown):
+        server.execute_structure_reuse(None, None)
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::server.py::gabion.server.execute_structure_reuse::payload
 def test_execute_structure_reuse_invalid_snapshot(tmp_path: Path) -> None:
     bad = tmp_path / "bad.json"
     bad.write_text("[]")
-    result = server.execute_structure_reuse(None, {"snapshot": str(bad)})
+    result = server.execute_structure_reuse(
+        None, _with_timeout({"snapshot": str(bad)})
+    )
     assert result.get("exit_code") == 2
 
 
@@ -381,7 +503,9 @@ def test_execute_structure_reuse_writes_lemma_stubs(tmp_path: Path) -> None:
     )
     result = server.execute_structure_reuse(
         None,
-        {"snapshot": str(snapshot_path), "lemma_stubs": "-", "min_count": "bad"},
+        _with_timeout(
+            {"snapshot": str(snapshot_path), "lemma_stubs": "-", "min_count": "bad"}
+        ),
     )
     assert result.get("exit_code") == 0
     assert "lemma_stubs" in result
@@ -396,7 +520,7 @@ def test_execute_structure_reuse_writes_lemma_stubs_file(tmp_path: Path) -> None
     lemma_path = tmp_path / "lemmas.py"
     result = server.execute_structure_reuse(
         None,
-        {"snapshot": str(snapshot_path), "lemma_stubs": str(lemma_path)},
+        _with_timeout({"snapshot": str(snapshot_path), "lemma_stubs": str(lemma_path)}),
     )
     assert result.get("exit_code") == 0
     assert lemma_path.exists()
@@ -404,14 +528,14 @@ def test_execute_structure_reuse_writes_lemma_stubs_file(tmp_path: Path) -> None
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_decision_diff::payload
 def test_execute_decision_diff_missing_paths() -> None:
-    result = server.execute_decision_diff(None, {})
+    result = server.execute_decision_diff(None, _with_timeout({}))
     assert result.get("exit_code") == 2
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_decision_diff::payload
 def test_execute_decision_diff_payload_none() -> None:
-    result = server.execute_decision_diff(None, None)
-    assert result.get("exit_code") == 2
+    with pytest.raises(NeverThrown):
+        server.execute_decision_diff(None, None)
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_decision_diff::payload
@@ -420,7 +544,7 @@ def test_execute_decision_diff_invalid_snapshot(tmp_path: Path) -> None:
     bad.write_text("[]")
     result = server.execute_decision_diff(
         None,
-        {"baseline": str(bad), "current": str(bad)},
+        _with_timeout({"baseline": str(bad), "current": str(bad)}),
     )
     assert result.get("exit_code") == 2
 
@@ -437,11 +561,17 @@ def test_execute_decision_diff_valid_snapshot(tmp_path: Path) -> None:
     )
     result = server.execute_decision_diff(
         None,
-        {"baseline": str(baseline), "current": str(current)},
+        _with_timeout({"baseline": str(baseline), "current": str(current)}),
     )
     assert result.get("exit_code") == 0
     diff = result.get("diff") or {}
     assert "decision_surfaces" in diff
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_structure_diff::payload
+def test_execute_structure_diff_requires_timeout_payload() -> None:
+    with pytest.raises(NeverThrown):
+        server.execute_structure_diff(None, None)
 
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -455,19 +585,28 @@ def test_execute_command_report_appends_sections(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "report": str(report_path),
             "baseline": str(baseline_path),
+            "decision_snapshot": "-",
+            "structure_tree": "-",
+            "structure_metrics": "-",
+            "dot": "-",
             "synthesis_report": True,
             "refactor_plan": True,
             "refactor_plan_json": str(refactor_json),
-        },
+        }),
     )
     assert result.get("baseline_written") is False
+    assert "decision_snapshot" in result
+    assert "structure_tree" in result
+    assert "structure_metrics" in result
+    assert "dot" in result
     assert report_path.exists()
     report_text = report_path.read_text()
+    assert "decision_surfaces" in report_text
     assert "Synthesis plan" in report_text
     assert "Refactoring plan" in report_text
     assert refactor_json.exists()
@@ -506,12 +645,12 @@ def test_execute_command_emits_test_reports(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_test_evidence_suggestions": True,
             "emit_test_obsolescence": True,
-        },
+        }),
     )
     assert (artifact_dir / "test_evidence_suggestions.json").exists()
     assert (artifact_dir / "test_obsolescence_report.json").exists()
@@ -560,11 +699,11 @@ def test_execute_command_emits_obsolescence_delta(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_test_obsolescence_delta": True,
-        },
+        }),
     )
     assert (artifact_dir / "test_obsolescence_delta.json").exists()
     assert (out_dir / "test_obsolescence_delta.md").exists()
@@ -605,12 +744,12 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_test_obsolescence_delta": True,
             "test_obsolescence_state": str(state_path),
-        },
+        }),
     )
     assert (artifact_dir / "test_obsolescence_delta.json").exists()
     assert (out_dir / "test_obsolescence_delta.md").exists()
@@ -622,17 +761,17 @@ def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> N
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_obsolescence_delta": True,
                 "test_obsolescence_state": str(
                     tmp_path / "artifacts" / "out" / "missing.json"
                 ),
-            },
+            }),
         )
 
 
@@ -663,11 +802,11 @@ def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_test_obsolescence_state": True,
-        },
+        }),
     )
     assert (artifact_dir / "test_obsolescence_state.json").exists()
 
@@ -700,11 +839,11 @@ def test_execute_command_writes_obsolescence_baseline(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "write_test_obsolescence_baseline": True,
-        },
+        }),
     )
     baseline_path = test_obsolescence_delta.resolve_baseline_path(tmp_path)
     assert baseline_path.exists()
@@ -769,11 +908,11 @@ def test_execute_command_emits_annotation_drift_delta(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(tests_dir)],
             "emit_test_annotation_drift_delta": True,
-        },
+        }),
     )
     assert (artifact_dir / "test_annotation_drift_delta.json").exists()
     assert (out_dir / "test_annotation_drift_delta.md").exists()
@@ -787,17 +926,17 @@ def test_execute_command_rejects_missing_annotation_drift_state(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_annotation_drift_delta": True,
                 "test_annotation_drift_state": str(
                     tmp_path / "artifacts" / "out" / "missing.json"
                 ),
-            },
+            }),
         )
 
 
@@ -811,15 +950,15 @@ def test_execute_command_rejects_invalid_annotation_drift_state(
     state_path = tmp_path / "artifacts" / "out" / "test_annotation_drift.json"
     state_path.write_text(json.dumps(["bad"]), encoding="utf-8")
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(ValueError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_annotation_drift_delta": True,
                 "test_annotation_drift_state": str(state_path),
-            },
+            }),
         )
 
 
@@ -858,12 +997,12 @@ def test_execute_command_emits_annotation_drift_delta_from_state(
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_test_annotation_drift_delta": True,
             "test_annotation_drift_state": str(state_path),
-        },
+        }),
     )
     assert (artifact_dir / "test_annotation_drift_delta.json").exists()
     assert (out_dir / "test_annotation_drift_delta.md").exists()
@@ -915,11 +1054,11 @@ def test_execute_command_emits_annotation_drift(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(tests_dir)],
             "emit_test_annotation_drift": True,
-        },
+        }),
     )
     assert (artifact_dir / "test_annotation_drift.json").exists()
     assert (out_dir / "test_annotation_drift.md").exists()
@@ -965,11 +1104,11 @@ def test_execute_command_emits_call_clusters(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(tests_dir), str(module_path)],
             "emit_call_clusters": True,
-        },
+        }),
     )
     assert (artifact_dir / "call_clusters.json").exists()
     assert (out_dir / "call_clusters.md").exists()
@@ -1025,11 +1164,11 @@ def test_execute_command_emits_call_cluster_consolidation(tmp_path: Path) -> Non
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(tests_dir), str(module_path)],
             "emit_call_cluster_consolidation": True,
-        },
+        }),
     )
     assert (artifact_dir / "call_cluster_consolidation.json").exists()
     assert (out_dir / "call_cluster_consolidation.md").exists()
@@ -1070,14 +1209,14 @@ def test_execute_command_requires_annotation_drift_baseline(tmp_path: Path) -> N
     )
 
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(tests_dir)],
                 "emit_test_annotation_drift_delta": True,
-            },
+            }),
         )
 
 
@@ -1105,11 +1244,11 @@ def test_execute_command_writes_annotation_drift_baseline(tmp_path: Path) -> Non
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "write_test_annotation_drift_baseline": True,
-        },
+        }),
     )
     baseline_path = test_annotation_drift_delta.resolve_baseline_path(tmp_path)
     assert baseline_path.exists()
@@ -1122,15 +1261,15 @@ def test_execute_command_rejects_annotation_drift_flags(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(ValueError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_annotation_drift_delta": True,
                 "write_test_annotation_drift_baseline": True,
-            },
+            }),
         )
 
 
@@ -1140,14 +1279,14 @@ def test_execute_command_requires_ambiguity_baseline(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_ambiguity_delta": True,
-            },
+            }),
         )
 
 
@@ -1165,11 +1304,11 @@ def test_execute_command_emits_ambiguity_delta(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_ambiguity_delta": True,
-        },
+        }),
     )
     out_dir = tmp_path / "out"
     artifact_dir = _artifact_out_dir(tmp_path)
@@ -1209,12 +1348,12 @@ def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> Non
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_ambiguity_delta": True,
             "ambiguity_state": str(state_path),
-        },
+        }),
     )
     assert (artifact_dir / "ambiguity_delta.json").exists()
     assert (out_dir / "ambiguity_delta.md").exists()
@@ -1226,15 +1365,15 @@ def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_ambiguity_delta": True,
                 "ambiguity_state": str(tmp_path / "artifacts" / "out" / "missing.json"),
-            },
+            }),
         )
 
 
@@ -1245,11 +1384,11 @@ def test_execute_command_emits_ambiguity_state(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "emit_ambiguity_state": True,
-        },
+        }),
     )
     artifact_dir = _artifact_out_dir(tmp_path)
     assert (artifact_dir / "ambiguity_state.json").exists()
@@ -1263,11 +1402,11 @@ def test_execute_command_writes_ambiguity_baseline(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
-        {
+        _with_timeout({
             "root": str(tmp_path),
             "paths": [str(module_path)],
             "write_ambiguity_baseline": True,
-        },
+        }),
     )
     baseline_path = ambiguity_delta.resolve_baseline_path(tmp_path)
     assert baseline_path.exists()
@@ -1280,15 +1419,15 @@ def test_execute_command_rejects_ambiguity_flags(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(ValueError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_ambiguity_delta": True,
                 "write_ambiguity_baseline": True,
-            },
+            }),
         )
 
 
@@ -1297,15 +1436,15 @@ def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> Non
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(ValueError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_ambiguity_state": True,
                 "ambiguity_state": "artifacts/out/ambiguity_state.json",
-            },
+            }),
         )
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -1315,15 +1454,15 @@ def test_execute_command_rejects_conflicting_obsolescence_flags(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(ValueError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_obsolescence_delta": True,
                 "write_test_obsolescence_baseline": True,
-            },
+            }),
         )
 
 
@@ -1334,15 +1473,15 @@ def test_execute_command_rejects_obsolescence_state_conflict(
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(ValueError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_obsolescence_state": True,
                 "test_obsolescence_state": "artifacts/out/test_obsolescence_state.json",
-            },
+            }),
         )
 
 
@@ -1372,23 +1511,22 @@ def test_execute_command_requires_obsolescence_baseline(tmp_path: Path) -> None:
     )
 
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(NeverThrown):
         server.execute_command(
             ls,
-            {
+            _with_timeout({
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_obsolescence_delta": True,
-            },
+            }),
         )
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
 def test_execute_command_defaults_payload(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
-    result = server.execute_command(ls, None)
-    assert "violations" in result
-    assert "exit_code" in result
+    with pytest.raises(NeverThrown):
+        server.execute_command(ls, None)
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_refactor::ls,payload
@@ -1398,12 +1536,12 @@ def test_execute_refactor_valid_payload(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_refactor(
         ls,
-        {
+        _with_timeout({
             "protocol_name": "ExampleProto",
             "bundle": ["a", "b"],
             "target_path": str(module_path),
             "target_functions": [],
-        },
+        }),
     )
     assert result.get("errors") == []
     edits = result.get("edits", [])
@@ -1413,21 +1551,21 @@ def test_execute_refactor_valid_payload(tmp_path: Path) -> None:
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_refactor::ls,payload
 def test_execute_refactor_invalid_payload(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
-    result = server.execute_refactor(ls, {"protocol_name": 123})
+    result = server.execute_refactor(ls, _with_timeout({"protocol_name": 123}))
     assert result.get("errors")
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_refactor::ls,payload
 def test_execute_refactor_payload_none(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
-    result = server.execute_refactor(ls, None)
-    assert result.get("errors")
+    with pytest.raises(NeverThrown):
+        server.execute_refactor(ls, None)
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_synthesis::payload
 def test_execute_synthesis_invalid_payload(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
-    result = server.execute_synthesis(ls, {"bundles": "not-a-list"})
+    result = server.execute_synthesis(ls, _with_timeout({"bundles": "not-a-list"}))
     assert result.get("errors")
 
 
@@ -1436,12 +1574,12 @@ def test_execute_synthesis_records_bundle_tiers(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_synthesis(
         ls,
-        {
+        _with_timeout({
             "bundles": [
                 {"bundle": ["a", "b"], "tier": 2},
             ],
             "existing_names": [],
-        },
+        }),
     )
     assert result.get("errors") == []
     assert "protocols" in result
@@ -1450,8 +1588,8 @@ def test_execute_synthesis_records_bundle_tiers(tmp_path: Path) -> None:
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_synthesis::payload
 def test_execute_synthesis_payload_none(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
-    result = server.execute_synthesis(ls, None)
-    assert result.get("errors")
+    with pytest.raises(NeverThrown):
+        server.execute_synthesis(ls, None)
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_synthesis::payload
@@ -1459,8 +1597,8 @@ def test_execute_synthesis_skips_empty_bundle(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     result = server.execute_synthesis(
         ls,
-        {
+        _with_timeout({
             "bundles": [{"bundle": [], "tier": 2}],
-        },
+        }),
     )
     assert result.get("protocols") == []

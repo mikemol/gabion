@@ -8,6 +8,7 @@ import pytest
 
 from gabion import server
 from gabion.lsp_client import CommandRequest, LspClientError, _wait_readable, run_command_direct
+from gabion.exceptions import NeverThrown
 
 
 class _NoFileno:
@@ -50,3 +51,8 @@ def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) ->
 def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
     with pytest.raises(LspClientError):
         run_command_direct(CommandRequest("gabion.unknown", []), root=tmp_path)
+
+
+def test_run_command_direct_rejects_non_dict_payload(tmp_path: Path) -> None:
+    with pytest.raises(NeverThrown):
+        run_command_direct(CommandRequest(server.DATAFLOW_COMMAND, [123]), root=tmp_path)

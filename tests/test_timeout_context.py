@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from contextvars import Context
 from pathlib import Path
 
 import pytest
@@ -12,9 +13,13 @@ from gabion.analysis.timeout_context import (
     TimeoutExceeded,
     build_timeout_context_from_stack,
     build_site_index,
+    deadline_scope,
+    get_deadline,
     pack_call_stack,
+    set_deadline,
     _frame_site_key,
 )
+from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
@@ -26,8 +31,14 @@ def test_pack_call_stack_orders_and_indexes() -> None:
     ]
     packed = pack_call_stack(sites)
     assert packed.site_table == [
-        {"kind": "FunctionSite", "key": ["a.py", "mod.a"]},
-        {"kind": "FunctionSite", "key": ["b.py", "mod.b"]},
+        {
+            "kind": "FunctionSite",
+            "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.a"],
+        },
+        {
+            "kind": "FunctionSite",
+            "key": [{"kind": "FileSite", "key": ["b.py"]}, "mod.b"],
+        },
     ]
     assert packed.stack == [1, 0, 1]
 
@@ -50,7 +61,10 @@ def test_build_timeout_context_from_stack_uses_forest() -> None:
 
     context, qual = outer()
     sites = context.call_stack.site_table
-    assert {"kind": "FunctionSite", "key": [path_name, qual]} in sites
+    assert {
+        "kind": "FunctionSite",
+        "key": [{"kind": "FileSite", "key": [path_name]}, qual],
+    } in sites
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutContext.as_payload
@@ -75,13 +89,21 @@ def test_timeout_exceeded_carries_context() -> None:
     assert exc.context is context
 
 
-# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.check
 def test_deadline_expired_raises() -> None:
-    deadline = Deadline.from_timeout(0.0)
+    deadline = Deadline.from_timeout_ms(0)
     assert deadline.expired() is True
     with pytest.raises(TimeoutExceeded):
         deadline.check(lambda: TimeoutContext(call_stack=pack_call_stack([])))
+
+
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout
+# gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks
+def test_deadline_from_timeout_variants() -> None:
+    assert Deadline.from_timeout_ticks(-5, 0).expired() is True
+    assert Deadline.from_timeout(-1).expired() is True
+    assert Deadline.from_timeout("nope").expired() is True
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_site_index
@@ -95,24 +117,44 @@ def test_build_site_index_filters_nodes() -> None:
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
-def test_pack_call_stack_skips_invalid_entries_and_keeps_span() -> None:
+def test_pack_call_stack_keeps_span() -> None:
     packed = pack_call_stack(
         [
-            {"path": "", "qual": "missing"},
             {"path": "a.py", "qual": "mod.fn", "span": [1, 2, 3, 4]},
             {"kind": "FunctionSite", "key": ["b.py", "mod.other"]},
         ]
     )
-    assert {"kind": "FunctionSite", "key": ["a.py", "mod.fn", 1, 2, 3, 4]} in packed.site_table
-    assert {"kind": "FunctionSite", "key": ["b.py", "mod.other"]} in packed.site_table
+    assert {
+        "kind": "FunctionSite",
+        "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.fn", 1, 2, 3, 4],
+    } in packed.site_table
+    assert {
+        "kind": "FunctionSite",
+        "key": [{"kind": "FileSite", "key": ["b.py"]}, "mod.other"],
+    } in packed.site_table
+
+
+def test_pack_call_stack_rejects_invalid_entries() -> None:
+    with pytest.raises(NeverThrown):
+        pack_call_stack([{"path": "", "qual": "missing"}])
+
+
+def test_pack_call_stack_accepts_list_key_part() -> None:
+    packed = pack_call_stack(
+        [{"kind": "FunctionSite", "key": [["file"], "mod.fn"]}]
+    )
+    assert packed.site_table == [
+        {"kind": "FunctionSite", "key": [["file"], "mod.fn"]}
+    ]
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key
-def test_frame_site_key_outside_root_returns_none() -> None:
+def test_frame_site_key_outside_root_raises() -> None:
     frame = inspect.currentframe()
     assert frame is not None
     project_root = Path(__file__).resolve().parents[1] / "missing_root"
-    assert _frame_site_key(frame, project_root=project_root) is None
+    with pytest.raises(NeverThrown):
+        _frame_site_key(frame, project_root=project_root)
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key
@@ -134,6 +176,23 @@ def test_frame_site_key_without_module_name() -> None:
         },
     )()
     assert _frame_site_key(frame, project_root=None) == ("mod.py", "inner")
+
+
+def test_set_deadline_rejects_none() -> None:
+    with pytest.raises(NeverThrown):
+        set_deadline(None)  # type: ignore[arg-type]
+
+
+def test_deadline_scope_rejects_none() -> None:
+    with pytest.raises(NeverThrown):
+        with deadline_scope(None):  # type: ignore[arg-type]
+            pass
+
+
+def test_get_deadline_requires_carrier() -> None:
+    ctx = Context()
+    with pytest.raises(NeverThrown):
+        ctx.run(get_deadline)
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack

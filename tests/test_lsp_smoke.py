@@ -8,6 +8,9 @@ import sys
 
 import pytest
 
+_TIMEOUT_TICKS = 5_000
+_TIMEOUT_TICK_NS = 1_000_000
+
 
 def _has_pygls() -> bool:
     return importlib.util.find_spec("pygls") is not None
@@ -63,6 +66,8 @@ def test_lsp_execute_command(tmp_path: Path) -> None:
             [{"paths": [str(tmp_path)], "fail_on_violations": False}],
         ),
         root=tmp_path,
+        timeout_ticks=_TIMEOUT_TICKS,
+        timeout_tick_ns=_TIMEOUT_TICK_NS,
         process_factory=_fake_process_factory(stdout_bytes),
     )
     assert "exit_code" in result
@@ -86,6 +91,8 @@ def test_lsp_execute_command(tmp_path: Path) -> None:
             ],
         ),
         root=tmp_path,
+        timeout_ticks=_TIMEOUT_TICKS,
+        timeout_tick_ns=_TIMEOUT_TICK_NS,
         process_factory=_fake_process_factory(snapshot_bytes),
     )
     assert "structure_tree" in snapshot_result
@@ -110,6 +117,8 @@ def test_lsp_execute_command(tmp_path: Path) -> None:
             ],
         ),
         root=repo_root,
+        timeout_ticks=_TIMEOUT_TICKS,
+        timeout_tick_ns=_TIMEOUT_TICK_NS,
         process_factory=_fake_process_factory(synth_bytes),
     )
     assert "protocols" in synth_result
@@ -147,6 +156,8 @@ def test_lsp_execute_command_writes_structure_snapshot(tmp_path: Path) -> None:
             ],
         ),
         root=tmp_path,
+        timeout_ticks=_TIMEOUT_TICKS,
+        timeout_tick_ns=_TIMEOUT_TICK_NS,
         process_factory=_fake_process_factory(stdout_bytes, on_start=_write_snapshot),
     )
     assert "exit_code" in result

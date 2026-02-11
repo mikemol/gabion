@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from contextlib import contextmanager
 from typing import Callable, List, Optional, TypeAlias
 import argparse
 import json
@@ -12,7 +13,7 @@ import subprocess
 import sys
 
 import typer
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
@@ -20,13 +21,36 @@ REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
-from gabion.lsp_client import CommandRequest, run_command, run_command_direct
+from gabion.lsp_client import (
+    CommandRequest,
+    run_command,
+    run_command_direct,
+    _env_timeout_ticks,
+    _has_env_timeout,
+)
 from gabion.json_types import JSONObject
 app = typer.Typer(add_completion=False)
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
 
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
+
+_DEFAULT_TIMEOUT_TICKS = 100
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+
+
+def _cli_deadline() -> Deadline:
+    if _has_env_timeout():
+        ticks, tick_ns = _env_timeout_ticks()
+    else:
+        ticks, tick_ns = _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
+    return Deadline.from_timeout_ticks(ticks, tick_ns)
+
+
+@contextmanager
+def _cli_deadline_scope():
+    with deadline_scope(_cli_deadline()):
+        yield
 
 
 @dataclass(frozen=True)
@@ -612,48 +636,49 @@ def check(
 ) -> None:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     """Run the dataflow grammar audit with strict defaults."""
-    lint_enabled = lint or bool(lint_jsonl or lint_sarif)
-    result = run_check(
-        paths=paths,
-        report=report,
-        fail_on_violations=fail_on_violations,
-        root=root,
-        config=config,
-        baseline=baseline,
-        baseline_write=baseline_write,
-        decision_snapshot=decision_snapshot,
-        emit_test_obsolescence=emit_test_obsolescence,
-        emit_test_obsolescence_state=emit_test_obsolescence_state,
-        test_obsolescence_state=test_obsolescence_state,
-        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-        emit_test_evidence_suggestions=emit_test_evidence_suggestions,
-        emit_call_clusters=emit_call_clusters,
-        emit_call_cluster_consolidation=emit_call_cluster_consolidation,
-        emit_test_annotation_drift=emit_test_annotation_drift,
-        test_annotation_drift_state=test_annotation_drift_state,
-        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-        write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-        emit_ambiguity_delta=emit_ambiguity_delta,
-        emit_ambiguity_state=emit_ambiguity_state,
-        ambiguity_state=ambiguity_state,
-        write_ambiguity_baseline=write_ambiguity_baseline,
-        exclude=exclude,
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
-        allow_external=allow_external,
-        strictness=strictness,
-        fail_on_type_ambiguities=fail_on_type_ambiguities,
-        lint=lint_enabled,
-    )
-    lint_lines = result.get("lint_lines", []) or []
-    _emit_lint_outputs(
-        lint_lines,
-        lint=lint,
-        lint_jsonl=lint_jsonl,
-        lint_sarif=lint_sarif,
-    )
-    raise typer.Exit(code=int(result.get("exit_code", 0)))
+    with _cli_deadline_scope():
+        lint_enabled = lint or bool(lint_jsonl or lint_sarif)
+        result = run_check(
+            paths=paths,
+            report=report,
+            fail_on_violations=fail_on_violations,
+            root=root,
+            config=config,
+            baseline=baseline,
+            baseline_write=baseline_write,
+            decision_snapshot=decision_snapshot,
+            emit_test_obsolescence=emit_test_obsolescence,
+            emit_test_obsolescence_state=emit_test_obsolescence_state,
+            test_obsolescence_state=test_obsolescence_state,
+            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+            emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+            emit_call_clusters=emit_call_clusters,
+            emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+            emit_test_annotation_drift=emit_test_annotation_drift,
+            test_annotation_drift_state=test_annotation_drift_state,
+            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+            write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+            write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+            emit_ambiguity_delta=emit_ambiguity_delta,
+            emit_ambiguity_state=emit_ambiguity_state,
+            ambiguity_state=ambiguity_state,
+            write_ambiguity_baseline=write_ambiguity_baseline,
+            exclude=exclude,
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+            allow_external=allow_external,
+            strictness=strictness,
+            fail_on_type_ambiguities=fail_on_type_ambiguities,
+            lint=lint_enabled,
+        )
+        lint_lines = result.get("lint_lines", []) or []
+        _emit_lint_outputs(
+            lint_lines,
+            lint=lint,
+            lint_jsonl=lint_jsonl,
+            lint_sarif=lint_sarif,
+        )
+        raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
 def _dataflow_audit(
@@ -775,7 +800,8 @@ def dataflow_audit(
     args: List[str] = typer.Argument(None),
 ) -> None:
     request = DataflowAuditRequest(ctx=ctx, args=args)
-    _dataflow_audit(request)
+    with _cli_deadline_scope():
+        _dataflow_audit(request)
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:
@@ -1152,34 +1178,35 @@ def synth(
     ),
 ) -> None:
     """Run the dataflow audit and emit synthesis outputs (prototype)."""
-    result, paths_out, timestamp = _run_synth(
-        paths=paths,
-        root=root,
-        out_dir=out_dir,
-        no_timestamp=no_timestamp,
-        config=config,
-        exclude=exclude,
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
-        allow_external=allow_external,
-        strictness=strictness,
-        no_recursive=no_recursive,
-        max_components=max_components,
-        type_audit_report=type_audit_report,
-        type_audit_max=type_audit_max,
-        synthesis_max_tier=synthesis_max_tier,
-        synthesis_min_bundle_size=synthesis_min_bundle_size,
-        synthesis_allow_singletons=synthesis_allow_singletons,
-        synthesis_protocols_kind=synthesis_protocols_kind,
-        refactor_plan=refactor_plan,
-        fail_on_violations=fail_on_violations,
-    )
-    _emit_synth_outputs(
-        paths_out=paths_out,
-        timestamp=timestamp,
-        refactor_plan=refactor_plan,
-    )
-    raise typer.Exit(code=int(result.get("exit_code", 0)))
+    with _cli_deadline_scope():
+        result, paths_out, timestamp = _run_synth(
+            paths=paths,
+            root=root,
+            out_dir=out_dir,
+            no_timestamp=no_timestamp,
+            config=config,
+            exclude=exclude,
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+            allow_external=allow_external,
+            strictness=strictness,
+            no_recursive=no_recursive,
+            max_components=max_components,
+            type_audit_report=type_audit_report,
+            type_audit_max=type_audit_max,
+            synthesis_max_tier=synthesis_max_tier,
+            synthesis_min_bundle_size=synthesis_min_bundle_size,
+            synthesis_allow_singletons=synthesis_allow_singletons,
+            synthesis_protocols_kind=synthesis_protocols_kind,
+            refactor_plan=refactor_plan,
+            fail_on_violations=fail_on_violations,
+        )
+        _emit_synth_outputs(
+            paths_out=paths_out,
+            timestamp=timestamp,
+            refactor_plan=refactor_plan,
+        )
+        raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
 @app.command("synthesis-plan")
@@ -1192,7 +1219,8 @@ def synthesis_plan(
     ),
 ) -> None:
     """Generate a synthesis plan from a JSON payload (prototype)."""
-    _run_synthesis_plan(input_path=input_path, output_path=output_path)
+    with _cli_deadline_scope():
+        _run_synthesis_plan(input_path=input_path, output_path=output_path)
 
 
 def _run_synthesis_plan(
@@ -1354,8 +1382,9 @@ def structure_diff(
 ) -> None:
     """Compare two structure snapshots and emit a JSON diff."""
     # dataflow-bundle: baseline, current
-    result = run_structure_diff(baseline=baseline, current=current, root=root)
-    _emit_structure_diff(result)
+    with _cli_deadline_scope():
+        result = run_structure_diff(baseline=baseline, current=current, root=root)
+        _emit_structure_diff(result)
 
 
 @app.command("decision-diff")
@@ -1365,8 +1394,9 @@ def decision_diff(
     root: Optional[Path] = typer.Option(None, "--root"),
 ) -> None:
     """Compare two decision surface snapshots and emit a JSON diff."""
-    result = run_decision_diff(baseline=baseline, current=current, root=root)
-    _emit_decision_diff(result)
+    with _cli_deadline_scope():
+        result = run_decision_diff(baseline=baseline, current=current, root=root)
+        _emit_decision_diff(result)
 
 
 @app.command("structure-reuse")
@@ -1379,13 +1409,14 @@ def structure_reuse(
     root: Optional[Path] = typer.Option(None, "--root"),
 ) -> None:
     """Detect repeated subtrees in a structure snapshot."""
-    result = run_structure_reuse(
-        snapshot=snapshot,
-        min_count=min_count,
-        lemma_stubs=lemma_stubs,
-        root=root,
-    )
-    _emit_structure_reuse(result)
+    with _cli_deadline_scope():
+        result = run_structure_reuse(
+            snapshot=snapshot,
+            min_count=min_count,
+            lemma_stubs=lemma_stubs,
+            root=root,
+        )
+        _emit_structure_reuse(result)
 
 
 @app.command("refactor-protocol")
@@ -1411,17 +1442,18 @@ def refactor_protocol(
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
-    _run_refactor_protocol(
-        input_path=input_path,
-        output_path=output_path,
-        protocol_name=protocol_name,
-        bundle=bundle,
-        field=field,
-        target_path=target_path,
-        target_functions=target_functions,
-        compatibility_shim=compatibility_shim,
-        rationale=rationale,
-    )
+    with _cli_deadline_scope():
+        _run_refactor_protocol(
+            input_path=input_path,
+            output_path=output_path,
+            protocol_name=protocol_name,
+            bundle=bundle,
+            field=field,
+            target_path=target_path,
+            target_functions=target_functions,
+            compatibility_shim=compatibility_shim,
+            rationale=rationale,
+        )
 
 
 def _run_refactor_protocol(

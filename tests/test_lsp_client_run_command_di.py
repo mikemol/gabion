@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from gabion.lsp_client import CommandRequest, LspClientError, run_command
+from gabion.lsp_client import (
+    CommandRequest,
+    LspClientError,
+    run_command,
+    _env_timeout_ticks,
+    _remaining_deadline_ns,
+)
+from gabion.exceptions import NeverThrown
 
 
 def _rpc_message(payload: dict) -> bytes:
@@ -69,6 +76,24 @@ def _make_proc_with_cmd_result(returncode: int | None, stderr_bytes: bytes, cmd_
     return _FakeProc(init + cmd + shutdown, stderr_bytes, returncode)
 
 
+def _set_env(values: dict[str, str | None]) -> dict[str, str | None]:
+    previous = {key: os.environ.get(key) for key in values}
+    for key, value in values.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+    return previous
+
+
+def _restore_env(previous: dict[str, str | None]) -> None:
+    for key, value in previous.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 def test_run_command_raises_on_nonzero_returncode() -> None:
     def factory(*_args, **_kwargs):
@@ -115,69 +140,75 @@ def test_run_command_uses_env_timeout() -> None:
     def factory(*_args, **_kwargs):
         return proc
 
-    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
-    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "1.0"
+    previous_ticks = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
+    previous_tick_ns = os.environ.get("GABION_LSP_TIMEOUT_TICK_NS")
+    os.environ["GABION_LSP_TIMEOUT_TICKS"] = "1000"
+    os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = "1000000"
     try:
         result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
     finally:
-        if previous is None:
-            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        if previous_ticks is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
         else:
-            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+            os.environ["GABION_LSP_TIMEOUT_TICKS"] = previous_ticks
+        if previous_tick_ns is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICK_NS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = previous_tick_ns
     assert result == {}
     assert proc.last_timeout is not None
     assert 0 < proc.last_timeout <= 1.0
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
-def test_run_command_ignores_invalid_env_timeout() -> None:
+def test_run_command_rejects_invalid_env_timeout() -> None:
     proc = _make_proc(0, b"")
 
     def factory(*_args, **_kwargs):
         return proc
 
-    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
-    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "nope"
+    previous = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
+    os.environ["GABION_LSP_TIMEOUT_TICKS"] = "nope"
     try:
-        result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+        with pytest.raises(NeverThrown):
+            run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
     finally:
         if previous is None:
-            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+            os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
         else:
-            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
-    assert result == {}
-    assert proc.last_timeout is not None
+            os.environ["GABION_LSP_TIMEOUT_TICKS"] = previous
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
-def test_run_command_env_timeout_zero_ignored() -> None:
+def test_run_command_env_timeout_zero_rejected() -> None:
     proc = _make_proc(0, b"")
 
     def factory(*_args, **_kwargs):
         return proc
 
-    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
-    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "0"
+    previous = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
+    os.environ["GABION_LSP_TIMEOUT_TICKS"] = "0"
     try:
-        result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+        with pytest.raises(NeverThrown):
+            run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
     finally:
         if previous is None:
-            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+            os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
         else:
-            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
-    assert result == {}
-    assert proc.last_timeout is not None
+            os.environ["GABION_LSP_TIMEOUT_TICKS"] = previous
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
-def test_run_command_injects_analysis_timeout_seconds() -> None:
+def test_run_command_injects_analysis_timeout_ticks() -> None:
     proc = _make_proc(0, b"")
 
     def factory(*_args, **_kwargs):
         return proc
 
-    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
-    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "1.0"
+    previous_ticks = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
+    previous_tick_ns = os.environ.get("GABION_LSP_TIMEOUT_TICK_NS")
+    os.environ["GABION_LSP_TIMEOUT_TICKS"] = "1000"
+    os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = "1000000"
     try:
         run_command(
             CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
@@ -185,69 +216,492 @@ def test_run_command_injects_analysis_timeout_seconds() -> None:
             process_factory=factory,
         )
     finally:
-        if previous is None:
-            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        if previous_ticks is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
         else:
-            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+            os.environ["GABION_LSP_TIMEOUT_TICKS"] = previous_ticks
+        if previous_tick_ns is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICK_NS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = previous_tick_ns
     messages = _extract_rpc_messages(proc.stdin.getvalue())
     execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
     payload = execute["params"]["arguments"][0]
-    assert 0 < payload.get("analysis_timeout_seconds", 0) <= 1.0
+    assert payload.get("analysis_timeout_tick_ns") == 1000000
+    assert 0 < payload.get("analysis_timeout_ticks", 0) <= 1000
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_preserves_lower_analysis_timeout_ticks() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous_ticks = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
+    previous_tick_ns = os.environ.get("GABION_LSP_TIMEOUT_TICK_NS")
+    os.environ["GABION_LSP_TIMEOUT_TICKS"] = "5000"
+    os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = "1000000"
+    try:
+        run_command(
+            CommandRequest(
+                "gabion.dataflowAudit",
+                [{"analysis_timeout_ticks": 1, "analysis_timeout_tick_ns": 1000000, "paths": ["."]}],
+            ),
+            root=Path("."),
+            process_factory=factory,
+        )
+    finally:
+        if previous_ticks is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_TICKS"] = previous_ticks
+        if previous_tick_ns is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICK_NS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = previous_tick_ns
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert payload.get("analysis_timeout_ticks") == 1
+    assert payload.get("analysis_timeout_tick_ns") == 1000000
+
+
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_overrides_invalid_analysis_timeout_ticks() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous_ticks = os.environ.get("GABION_LSP_TIMEOUT_TICKS")
+    previous_tick_ns = os.environ.get("GABION_LSP_TIMEOUT_TICK_NS")
+    os.environ["GABION_LSP_TIMEOUT_TICKS"] = "1000"
+    os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = "1000000"
+    try:
+        with pytest.raises(NeverThrown):
+            run_command(
+                CommandRequest(
+                    "gabion.dataflowAudit",
+                    [{"analysis_timeout_ticks": "nope", "analysis_timeout_tick_ns": "bad", "paths": ["."]}],
+                ),
+                root=Path("."),
+                process_factory=factory,
+            )
+    finally:
+        if previous_ticks is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_TICKS"] = previous_ticks
+        if previous_tick_ns is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_TICK_NS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = previous_tick_ns
+
+
+def test_run_command_rejects_missing_analysis_timeout_tick_ns() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            run_command(
+                CommandRequest(
+                    "gabion.dataflowAudit",
+                    [{"analysis_timeout_ticks": 1, "paths": ["."]}],
+                ),
+                root=Path("."),
+                process_factory=factory,
+            )
+    finally:
+        _restore_env(previous)
+
+
+def test_run_command_rejects_zero_analysis_timeout_tick_ns() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            run_command(
+                CommandRequest(
+                    "gabion.dataflowAudit",
+                    [{"analysis_timeout_ticks": 1, "analysis_timeout_tick_ns": 0, "paths": ["."]}],
+                ),
+                root=Path("."),
+                process_factory=factory,
+            )
+    finally:
+        _restore_env(previous)
+
+
+def test_run_command_preserves_lower_analysis_timeout_ms() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "5000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+        }
+    )
+    try:
+        run_command(
+            CommandRequest(
+                "gabion.dataflowAudit",
+                [{"analysis_timeout_ms": 1, "paths": ["."]}],
+            ),
+            root=Path("."),
+            process_factory=factory,
+        )
+    finally:
+        _restore_env(previous)
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert payload.get("analysis_timeout_ms") == 1
+    assert "analysis_timeout_ticks" not in payload
+
+
 def test_run_command_preserves_lower_analysis_timeout_seconds() -> None:
     proc = _make_proc(0, b"")
 
     def factory(*_args, **_kwargs):
         return proc
 
-    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
-    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "5.0"
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "5000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+        }
+    )
     try:
         run_command(
             CommandRequest(
                 "gabion.dataflowAudit",
-                [{"analysis_timeout_seconds": 0.01, "paths": ["."]}],
+                [{"analysis_timeout_seconds": "0.001", "paths": ["."]}],
             ),
             root=Path("."),
             process_factory=factory,
         )
     finally:
-        if previous is None:
-            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
-        else:
-            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+        _restore_env(previous)
     messages = _extract_rpc_messages(proc.stdin.getvalue())
     execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
     payload = execute["params"]["arguments"][0]
-    assert payload.get("analysis_timeout_seconds") == 0.01
+    assert payload.get("analysis_timeout_seconds") == "0.001"
+    assert "analysis_timeout_ticks" not in payload
 
 
-# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
 def test_run_command_overrides_invalid_analysis_timeout_seconds() -> None:
     proc = _make_proc(0, b"")
 
     def factory(*_args, **_kwargs):
         return proc
 
-    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
-    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "1.0"
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "1000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+        }
+    )
     try:
-        run_command(
-            CommandRequest(
-                "gabion.dataflowAudit",
-                [{"analysis_timeout_seconds": "nope", "paths": ["."]}],
-            ),
-            root=Path("."),
-            process_factory=factory,
-        )
+        with pytest.raises(NeverThrown):
+            run_command(
+                CommandRequest(
+                    "gabion.dataflowAudit",
+                    [{"analysis_timeout_seconds": "nope", "paths": ["."]}],
+                ),
+                root=Path("."),
+                process_factory=factory,
+            )
     finally:
-        if previous is None:
-            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
-        else:
-            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+        _restore_env(previous)
+
+
+def test_run_command_rejects_zero_analysis_timeout_seconds() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "1000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            run_command(
+                CommandRequest(
+                    "gabion.dataflowAudit",
+                    [{"analysis_timeout_seconds": "0", "paths": ["."]}],
+                ),
+                root=Path("."),
+                process_factory=factory,
+            )
+    finally:
+        _restore_env(previous)
+
+
+def test_run_command_overrides_invalid_analysis_timeout_ms() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "1000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            run_command(
+                CommandRequest(
+                    "gabion.dataflowAudit",
+                    [{"analysis_timeout_ms": "nope", "paths": ["."]}],
+                ),
+                root=Path("."),
+                process_factory=factory,
+            )
+    finally:
+        _restore_env(previous)
+
+
+def test_run_command_rejects_zero_analysis_timeout_ms() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "1000",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            run_command(
+                CommandRequest(
+                    "gabion.dataflowAudit",
+                    [{"analysis_timeout_ms": 0, "paths": ["."]}],
+                ),
+                root=Path("."),
+                process_factory=factory,
+            )
+    finally:
+        _restore_env(previous)
+
+
+def test_run_command_tick_ns_clamps_to_remaining() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    run_command(
+        CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+        root=Path("."),
+        timeout_ticks=1,
+        timeout_tick_ns=1_000_000_000,
+        process_factory=factory,
+    )
     messages = _extract_rpc_messages(proc.stdin.getvalue())
     execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
     payload = execute["params"]["arguments"][0]
-    assert 0 < payload.get("analysis_timeout_seconds", 0) <= 1.0
+    assert payload.get("analysis_timeout_ticks") == 1
+    assert 0 < payload.get("analysis_timeout_tick_ns", 0) <= 1_000_000_000
+
+
+def test_env_timeout_ticks_with_tick_ns() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "5",
+            "GABION_LSP_TIMEOUT_TICK_NS": "2000000",
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        assert _env_timeout_ticks() == (5, 2000000)
+    finally:
+        _restore_env(previous)
+
+
+def test_env_timeout_ms_parsing() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": "15",
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        assert _env_timeout_ticks() == (15, 1_000_000)
+    finally:
+        _restore_env(previous)
+
+
+def test_env_timeout_tick_ns_invalid_falls_back_to_ms() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "5",
+            "GABION_LSP_TIMEOUT_TICK_NS": "nope",
+            "GABION_LSP_TIMEOUT_MS": "10",
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            _env_timeout_ticks()
+    finally:
+        _restore_env(previous)
+
+
+def test_env_timeout_tick_ns_missing_raises() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "5",
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            _env_timeout_ticks()
+    finally:
+        _restore_env(previous)
+
+
+def test_env_timeout_ms_invalid_returns_none() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": "nope",
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            _env_timeout_ticks()
+    finally:
+        _restore_env(previous)
+
+
+def test_env_timeout_seconds_parsing() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": "0.25",
+        }
+    )
+    try:
+        assert _env_timeout_ticks() == (250, 1000000)
+    finally:
+        _restore_env(previous)
+
+
+def test_env_timeout_seconds_invalid_returns_none() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": "nope",
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            _env_timeout_ticks()
+    finally:
+        _restore_env(previous)
+
+
+def test_env_timeout_missing_raises() -> None:
+    previous = _set_env(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": None,
+            "GABION_LSP_TIMEOUT_TICK_NS": None,
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
+    try:
+        with pytest.raises(NeverThrown):
+            _env_timeout_ticks()
+    finally:
+        _restore_env(previous)
+
+
+def test_run_command_clamps_zero_timeout_ticks() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    run_command(
+        CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+        root=Path("."),
+        timeout_ticks=0,
+        timeout_tick_ns=1_000_000_000,
+        process_factory=factory,
+    )
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert payload.get("analysis_timeout_ticks", 0) > 0
+
+
+def test_run_command_clamps_zero_tick_ns() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    run_command(
+        CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+        root=Path("."),
+        timeout_ticks=1_000_000_000,
+        timeout_tick_ns=0,
+        process_factory=factory,
+    )
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert payload.get("analysis_timeout_ticks", 0) > 0
+
+
+def test_remaining_deadline_ns_raises_when_expired() -> None:
+    with pytest.raises(NeverThrown):
+        _remaining_deadline_ns(0)

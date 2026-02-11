@@ -128,3 +128,4 @@ Status legend:
 - in/in-28.md — **adopted** (in_step template discipline enforced; docflow structure and review requirements codified.)
 - in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)
 - in/in-30.md — **partial** (SuiteSite carrier + loop-scoped deadlines design; implementation in progress; SPPF/GH-85.)
+- in/in-31.md — **partial** (projection carriers + meet-boundary ordering semantics; convergence in progress.)

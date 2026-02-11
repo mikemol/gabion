@@ -8,6 +8,7 @@ from gabion.analysis.projection_normalize import (
     spec_hash,
 )
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
+from gabion.analysis.timeout_context import Deadline, deadline_scope
 from gabion.json_types import JSONValue
 
 
@@ -402,4 +403,5 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
     )
 
 
-REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}
+with deadline_scope(Deadline.from_timeout_ms(1000)):
+    REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}

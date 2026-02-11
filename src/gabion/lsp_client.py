@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import select
 import subprocess
 import sys
 import time
+from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +14,8 @@ from typing import Callable
 
 from gabion.json_types import JSONObject
 from gabion import server
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.invariants import never
 
 
 class LspClientError(RuntimeError):
@@ -27,21 +28,62 @@ class CommandRequest:
     arguments: list[JSONObject] | None = None
 
 
-def _env_timeout_seconds() -> float | None:
-    raw = os.getenv("GABION_LSP_TIMEOUT_SECONDS", "").strip()
-    if not raw:
-        return None
-    try:
-        value = float(raw)
-    except ValueError:
-        return None
-    if not math.isfinite(value) or value <= 0:
-        return None
-    return value
+def _has_env_timeout() -> bool:
+    return any(
+        os.getenv(key, "").strip()
+        for key in (
+            "GABION_LSP_TIMEOUT_TICKS",
+            "GABION_LSP_TIMEOUT_TICK_NS",
+            "GABION_LSP_TIMEOUT_MS",
+            "GABION_LSP_TIMEOUT_SECONDS",
+        )
+    )
 
 
-def _wait_readable(stream, deadline: float | None) -> None:
-    if deadline is None:
+def _env_timeout_ticks() -> tuple[int, int]:
+    raw_ticks = os.getenv("GABION_LSP_TIMEOUT_TICKS", "").strip()
+    raw_tick_ns = os.getenv("GABION_LSP_TIMEOUT_TICK_NS", "").strip()
+    if raw_ticks:
+        try:
+            ticks = int(raw_ticks)
+        except ValueError:
+            ticks = -1
+        if ticks > 0:
+            if not raw_tick_ns:
+                never("missing env timeout tick_ns", ticks=raw_ticks)
+            try:
+                tick_ns = int(raw_tick_ns)
+            except ValueError:
+                tick_ns = -1
+            if tick_ns > 0:
+                return ticks, tick_ns
+            never("invalid env timeout tick_ns", tick_ns=raw_tick_ns)
+        never("invalid env timeout ticks", ticks=raw_ticks)
+    raw_ms = os.getenv("GABION_LSP_TIMEOUT_MS", "").strip()
+    if raw_ms:
+        try:
+            ticks = int(raw_ms)
+        except ValueError:
+            ticks = -1
+        if ticks > 0:
+            return ticks, 1_000_000
+        never("invalid env timeout ms", ms=raw_ms)
+    raw_seconds = os.getenv("GABION_LSP_TIMEOUT_SECONDS", "").strip()
+    if raw_seconds:
+        try:
+            seconds = Decimal(raw_seconds)
+        except (InvalidOperation, ValueError):
+            seconds = Decimal(-1)
+        if seconds > 0:
+            millis = int(seconds * Decimal(1000))
+            if millis > 0:
+                return millis, 1_000_000
+        never("invalid env timeout seconds", seconds=raw_seconds)
+    never("missing env timeout configuration")
+
+
+def _wait_readable(stream, deadline_ns: int | None) -> None:
+    if deadline_ns is None:
         return
     fileno = getattr(stream, "fileno", None)
     if fileno is None:
@@ -50,18 +92,26 @@ def _wait_readable(stream, deadline: float | None) -> None:
         fd = fileno()
     except Exception:
         return
-    timeout = max(0.0, deadline - time.monotonic())
+    remaining_ns = deadline_ns - time.monotonic_ns()
+    timeout = max(0.0, remaining_ns / 1_000_000_000)
     ready, _, _ = select.select([fd], [], [], timeout)
     if not ready:
         raise LspClientError("LSP response timed out")
 
 
-def _read_rpc(stream, deadline: float | None = None) -> JSONObject:
+def _remaining_deadline_ns(deadline_ns: int) -> int:
+    remaining_ns = deadline_ns - time.monotonic_ns()
+    if remaining_ns <= 0:
+        never("lsp deadline already expired")
+    return remaining_ns
+
+
+def _read_rpc(stream, deadline_ns: int | None = None) -> JSONObject:
     check_deadline()
     header = b""
     while b"\r\n\r\n" not in header:
         check_deadline()
-        _wait_readable(stream, deadline)
+        _wait_readable(stream, deadline_ns)
         chunk = stream.read(1)
         if not chunk:
             raise LspClientError("LSP stream closed")
@@ -77,7 +127,7 @@ def _read_rpc(stream, deadline: float | None = None) -> JSONObject:
         raise LspClientError("Invalid LSP Content-Length")
     body = rest
     if len(body) < length:
-        _wait_readable(stream, deadline)
+        _wait_readable(stream, deadline_ns)
         body += stream.read(length - len(body))
     message = json.loads(body.decode("utf-8"))
     if not isinstance(message, dict):
@@ -93,12 +143,12 @@ def _write_rpc(stream, message: JSONObject) -> None:
 
 
 def _read_response(
-    stream, request_id: int, deadline: float | None = None
+    stream, request_id: int, deadline_ns: int | None = None
 ) -> JSONObject:
     check_deadline()
     while True:
         check_deadline()
-        message = _read_rpc(stream, deadline)
+        message = _read_rpc(stream, deadline_ns)
         if message.get("id") == request_id:
             return message
 
@@ -107,12 +157,22 @@ def run_command(
     request: CommandRequest,
     *,
     root: Path | None = None,
-    timeout: float = 5.0,
+    timeout_ticks: int | None = None,
+    timeout_tick_ns: int = 1_000_000,
     process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
 ) -> JSONObject:
-    env_timeout = _env_timeout_seconds()
-    if env_timeout is not None:
-        timeout = env_timeout
+    if _has_env_timeout():
+        timeout_ticks, timeout_tick_ns = _env_timeout_ticks()
+    if timeout_ticks is None:
+        timeout_ticks = 100
+    ticks_value = int(timeout_ticks)
+    tick_ns_value = int(timeout_tick_ns)
+    if ticks_value <= 0:
+        ticks_value = 1
+    if tick_ns_value <= 0:
+        tick_ns_value = 1
+    deadline = Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
+    deadline_ns = deadline.deadline_ns
     proc = process_factory(
         [sys.executable, "-m", "gabion.server"],
         stdin=subprocess.PIPE,
@@ -123,68 +183,117 @@ def run_command(
     assert proc.stdout is not None
 
     root_uri = (root or Path.cwd()).resolve().as_uri()
-    deadline = None
-    if timeout is not None:
-        deadline = time.monotonic() + max(timeout, 0.0)
-    initialize_id = 1
-    _write_rpc(
-        proc.stdin,
-        {
-            "jsonrpc": "2.0",
-            "id": initialize_id,
-            "method": "initialize",
-            "params": {"rootUri": root_uri, "capabilities": {}},
-        },
-    )
-    _read_response(proc.stdout, initialize_id, deadline)
-    _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
+    with deadline_scope(deadline):
+        initialize_id = 1
+        _write_rpc(
+            proc.stdin,
+            {
+                "jsonrpc": "2.0",
+                "id": initialize_id,
+                "method": "initialize",
+                "params": {"rootUri": root_uri, "capabilities": {}},
+            },
+        )
+        _read_response(proc.stdout, initialize_id, deadline_ns)
+        _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
-    cmd_id = 2
-    command_args = list(request.arguments or [])
-    if deadline is not None and command_args and isinstance(command_args[0], dict):
-        remaining = max(0.0, deadline - time.monotonic())
-        if remaining > 0:
+        cmd_id = 2
+        command_args = list(request.arguments or [])
+        remaining_ns = _remaining_deadline_ns(deadline_ns)
+        if command_args and isinstance(command_args[0], dict):
             payload = dict(command_args[0])
-            existing = payload.get("analysis_timeout_seconds")
-            try:
-                existing_value = float(existing) if existing is not None else None
-            except (TypeError, ValueError):
-                existing_value = None
-            if existing_value is None or existing_value > remaining:
-                payload["analysis_timeout_seconds"] = remaining
             command_args[0] = payload
-    _write_rpc(
-        proc.stdin,
-        {
-            "jsonrpc": "2.0",
-            "id": cmd_id,
-            "method": "workspace/executeCommand",
-            "params": {"command": request.command, "arguments": command_args},
-        },
-    )
-    response = _read_response(proc.stdout, cmd_id, deadline)
+        else:
+            payload = {}
+            command_args = [payload]
+        existing_ticks = payload.get("analysis_timeout_ticks")
+        existing_tick_ns = payload.get("analysis_timeout_tick_ns")
+        existing_total_ns = None
+        if existing_ticks not in (None, "") or existing_tick_ns not in (None, ""):
+            if existing_ticks in (None, "") or existing_tick_ns in (None, ""):
+                never(
+                    "missing analysis timeout tick_ns",
+                    ticks=existing_ticks,
+                    tick_ns=existing_tick_ns,
+                )
+            try:
+                ticks_value = int(existing_ticks)
+                tick_ns_value = int(existing_tick_ns)
+            except (TypeError, ValueError):
+                never(
+                    "invalid analysis timeout ticks",
+                    ticks=existing_ticks,
+                    tick_ns=existing_tick_ns,
+                )
+            if ticks_value <= 0 or tick_ns_value <= 0:
+                never(
+                    "invalid analysis timeout ticks",
+                    ticks=existing_ticks,
+                    tick_ns=existing_tick_ns,
+                )
+            existing_total_ns = ticks_value * tick_ns_value
+        else:
+            existing_ms = payload.get("analysis_timeout_ms")
+            if existing_ms not in (None, ""):
+                try:
+                    ms_value = int(existing_ms)
+                except (TypeError, ValueError):
+                    never("invalid analysis timeout ms", ms=existing_ms)
+                if ms_value <= 0:
+                    never("invalid analysis timeout ms", ms=existing_ms)
+                existing_total_ns = ms_value * 1_000_000
+            else:
+                existing_seconds = payload.get("analysis_timeout_seconds")
+                if existing_seconds not in (None, ""):
+                    try:
+                        seconds_value = Decimal(str(existing_seconds))
+                    except (InvalidOperation, ValueError):
+                        never(
+                            "invalid analysis timeout seconds", seconds=existing_seconds
+                        )
+                    if seconds_value <= 0:
+                        never(
+                            "invalid analysis timeout seconds", seconds=existing_seconds
+                        )
+                    existing_total_ns = int(seconds_value * Decimal(1_000_000_000))
+        if existing_total_ns is None or existing_total_ns > remaining_ns:
+            ticks_value = remaining_ns // tick_ns_value
+            if ticks_value <= 0:
+                ticks_value = 1
+                tick_ns_value = remaining_ns
+            payload["analysis_timeout_ticks"] = int(ticks_value)
+            payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
+        _write_rpc(
+            proc.stdin,
+            {
+                "jsonrpc": "2.0",
+                "id": cmd_id,
+                "method": "workspace/executeCommand",
+                "params": {"command": request.command, "arguments": command_args},
+            },
+        )
+        response = _read_response(proc.stdout, cmd_id, deadline_ns)
 
-    shutdown_id = 3
-    _write_rpc(proc.stdin, {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"})
-    _read_response(proc.stdout, shutdown_id, deadline)
-    _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
-    remaining = None
-    if deadline is not None:
-        remaining = max(0.0, deadline - time.monotonic())
-    out, err = proc.communicate(timeout=remaining)
-    if response.get("error"):
-        raise LspClientError(f"LSP error: {response['error']}")
-    if proc.returncode not in (0, None):
-        detail = err.decode("utf-8", errors="replace").strip()
-        raise LspClientError(f"LSP server failed (exit {proc.returncode}): {detail}")
-    if err:
-        detail = err.decode("utf-8", errors="replace").strip()
-        if detail:
-            raise LspClientError(f"LSP server error output: {detail}")
-    result = response.get("result", {})
-    if not isinstance(result, dict):
-        raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
-    return result
+        shutdown_id = 3
+        _write_rpc(proc.stdin, {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"})
+        _read_response(proc.stdout, shutdown_id, deadline_ns)
+        _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
+        remaining_ns = deadline_ns - time.monotonic_ns()
+        remaining = max(0.0, remaining_ns / 1_000_000_000)
+        out, err = proc.communicate(timeout=remaining)
+        if response.get("error"):
+            raise LspClientError(f"LSP error: {response['error']}")
+        if proc.returncode not in (0, None):
+            detail = err.decode("utf-8", errors="replace").strip()
+            raise LspClientError(f"LSP server failed (exit {proc.returncode}): {detail}")
+        if err:
+            detail = err.decode("utf-8", errors="replace").strip()
+            if detail:
+                raise LspClientError(f"LSP server error output: {detail}")
+        result = response.get("result", {})
+        if not isinstance(result, dict):
+            raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
+        return result
 
 
 def run_command_direct(
@@ -192,9 +301,16 @@ def run_command_direct(
     *,
     root: Path | None = None,
 ) -> JSONObject:
-    payload = {}
+    payload: dict = {}
     if request.arguments:
-        payload = request.arguments[0]
+        if isinstance(request.arguments[0], dict):
+            payload = dict(request.arguments[0])
+        else:
+            never("direct command payload must be a dict", payload=request.arguments[0])
+    if "analysis_timeout_ticks" not in payload and "analysis_timeout_ms" not in payload and "analysis_timeout_seconds" not in payload:
+        ticks_value, tick_ns_value = _env_timeout_ticks() if _has_env_timeout() else (100, 1_000_000)
+        payload["analysis_timeout_ticks"] = int(ticks_value)
+        payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
     workspace = SimpleNamespace(root_path=str((root or Path.cwd()).resolve()))
     ls = SimpleNamespace(workspace=workspace)
     if request.command == server.DATAFLOW_COMMAND:
