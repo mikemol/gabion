@@ -58,11 +58,13 @@ def main() -> None:
     if tag.startswith("test-v"):
         if head_sha != next_sha:
             raise SystemExit(f"Test tags must be created from next.\nhead={head_sha}\nnext={next_sha}")
+        tag_target = next_sha
     elif tag.startswith("v"):
         if head_sha != release_sha:
             raise SystemExit(
                 f"Release tags must be created from release.\nhead={head_sha}\nrelease={release_sha}"
             )
+        tag_target = release_sha
 
     if _tag_exists(tag):
         raise SystemExit(f"Tag already exists: {tag}")
@@ -76,9 +78,17 @@ def main() -> None:
             f"tag={tag}\nproject.version={project_version}"
         )
 
+    _run(["git", "fetch", "origin", "main", "next", "release", "--tags"])
+    if _git_output("rev-parse", "origin/main") != main_sha:
+        raise SystemExit("Main moved after verification; re-run tagging workflow.")
+    if _git_output("rev-parse", "origin/next") != next_sha:
+        raise SystemExit("Next moved after verification; re-run tagging workflow.")
+    if _git_output("rev-parse", "origin/release") != release_sha:
+        raise SystemExit("Release moved after verification; re-run tagging workflow.")
+
     _run(["git", "config", "user.name", "github-actions[bot]"])
     _run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"])
-    _run(["git", "tag", "-a", tag, "-m", f"Release {tag}"])
+    _run(["git", "tag", "-a", tag, "-m", f"Release {tag}", tag_target])
     _run(["git", "push", "origin", f"refs/tags/{tag}"])
 
 

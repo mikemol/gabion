@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def main() -> int:
-    path = Path("out/test_obsolescence_delta.json")
+    path = Path("artifacts/out/test_obsolescence_delta.json")
     if not path.exists():
         print("Test obsolescence delta missing; gate skipped.")
         return 0

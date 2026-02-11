@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
 from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.aspf import Forest
+from gabion.analysis.projection_exec import apply_spec
+from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
+from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
+from gabion.analysis import evidence_keys
 
 
 # --- Docflow audit constants ---
@@ -54,6 +59,9 @@ LIST_FIELDS = {
 MAP_FIELDS = {
     "doc_reviewed_as_of",
     "doc_review_notes",
+    "doc_sections",
+    "doc_section_requires",
+    "doc_section_reviews",
 }
 
 FrontmatterScalar: TypeAlias = str | int
@@ -109,6 +117,24 @@ class ConsolidationConfig:
     min_files: int = 2
     max_examples: int = 5
     require_forest: bool = False
+
+
+@dataclass(frozen=True)
+class DocflowInvariant:
+    name: str
+    kind: str
+    spec: ProjectionSpec
+    status: str = "active"
+
+
+@dataclass(frozen=True)
+class DocflowAuditContext:
+    docs: dict[str, Doc]
+    revisions: dict[str, int]
+    invariant_rows: list[dict[str, object]]
+    invariants: list[DocflowInvariant]
+    warnings: list[str]
+    violations: list[str]
 
 
 def _coerce_argv(argv: list[str] | None) -> list[str]:
@@ -265,6 +291,146 @@ def _format_doc_ref(doc_id: str, rev: int | None) -> str:
     return f"{doc_id}@{rev}" if rev is not None else doc_id
 
 
+def _make_invariant_spec(name: str, predicates: list[str]) -> ProjectionSpec:
+    ops = [
+        ProjectionOp(
+            op="select",
+            params={"predicates": predicates},
+        )
+    ]
+    return ProjectionSpec(
+        spec_version=1,
+        name=name,
+        domain="docflow",
+        pipeline=tuple(ops),
+        params={},
+    )
+
+
+def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]]:
+    def _is_row(row: Mapping[str, JSONValue], kind: str) -> bool:
+        return str(row.get("row_kind", "") or "") == kind
+
+    def _param_list(params: Mapping[str, JSONValue], *keys: str) -> list[str]:
+        for key in keys:
+            value = params.get(key)
+            if isinstance(value, str) and value.strip():
+                return [value.strip()]
+            if isinstance(value, list):
+                return [str(v).strip() for v in value if str(v).strip()]
+        return []
+
+    def _missing_frontmatter(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_missing_frontmatter")
+
+    def _missing_required_field(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_required_field") and not bool(row.get("present", False))
+
+    def _invalid_field_type(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_field_type") and not bool(row.get("valid", False))
+
+    def _missing_governance_ref(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_missing_governance_ref")
+
+    def _missing_explicit_ref(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_requires_ref") and not bool(row.get("explicit", False))
+
+    def _review_pin_mismatch(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_review_pin") and not bool(row.get("match", False))
+
+    def _missing_review_note(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_review_note") and not bool(row.get("note_present", False))
+
+    def _commute_unreciprocated(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "doc_commute_edge") and not bool(row.get("reciprocated", False))
+
+    def _evidence_row(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        return _is_row(row, "evidence_key")
+
+    def _evidence_kind(row: Mapping[str, JSONValue], params: Mapping[str, JSONValue]) -> bool:
+        if not _is_row(row, "evidence_key"):
+            return False
+        kinds = _param_list(params, "evidence_kind", "evidence_kinds")
+        if not kinds:
+            return False
+        return str(row.get("evidence_kind", "") or "") in kinds
+
+    def _evidence_id(row: Mapping[str, JSONValue], params: Mapping[str, JSONValue]) -> bool:
+        if not _is_row(row, "evidence_key"):
+            return False
+        ids = _param_list(params, "evidence_id", "evidence_ids")
+        if not ids:
+            return False
+        return str(row.get("evidence_id", "") or "") in ids
+
+    def _evidence_source(row: Mapping[str, JSONValue], params: Mapping[str, JSONValue]) -> bool:
+        if not _is_row(row, "evidence_key"):
+            return False
+        sources = _param_list(params, "evidence_source", "evidence_sources")
+        if not sources:
+            return False
+        return str(row.get("evidence_source", "") or "") in sources
+
+    return {
+        "missing_frontmatter": _missing_frontmatter,
+        "missing_required_field": _missing_required_field,
+        "invalid_field_type": _invalid_field_type,
+        "missing_governance_ref": _missing_governance_ref,
+        "missing_explicit_ref": _missing_explicit_ref,
+        "review_pin_mismatch": _review_pin_mismatch,
+        "missing_review_note": _missing_review_note,
+        "commutation_unreciprocated": _commute_unreciprocated,
+        "evidence_row": _evidence_row,
+        "evidence_kind": _evidence_kind,
+        "evidence_id": _evidence_id,
+        "evidence_source": _evidence_source,
+    }
+
+
+DOCFLOW_AUDIT_INVARIANTS = [
+    DocflowInvariant(
+        name="docflow:missing_frontmatter",
+        kind="never",
+        spec=_make_invariant_spec("docflow:missing_frontmatter", ["missing_frontmatter"]),
+    ),
+    DocflowInvariant(
+        name="docflow:missing_required_field",
+        kind="never",
+        spec=_make_invariant_spec("docflow:missing_required_field", ["missing_required_field"]),
+    ),
+    DocflowInvariant(
+        name="docflow:invalid_field_type",
+        kind="never",
+        spec=_make_invariant_spec("docflow:invalid_field_type", ["invalid_field_type"]),
+    ),
+    DocflowInvariant(
+        name="docflow:missing_governance_ref",
+        kind="never",
+        spec=_make_invariant_spec("docflow:missing_governance_ref", ["missing_governance_ref"]),
+    ),
+    DocflowInvariant(
+        name="docflow:missing_explicit_reference",
+        kind="never",
+        spec=_make_invariant_spec("docflow:missing_explicit_reference", ["missing_explicit_ref"]),
+    ),
+    DocflowInvariant(
+        name="docflow:review_pin_mismatch",
+        kind="never",
+        spec=_make_invariant_spec("docflow:review_pin_mismatch", ["review_pin_mismatch"]),
+    ),
+    DocflowInvariant(
+        name="docflow:missing_review_note",
+        kind="never",
+        spec=_make_invariant_spec("docflow:missing_review_note", ["missing_review_note"]),
+    ),
+    DocflowInvariant(
+        name="docflow:commutation_unreciprocated",
+        kind="never",
+        spec=_make_invariant_spec("docflow:commutation_unreciprocated", ["commutation_unreciprocated"]),
+    ),
+]
+
+
 def _load_issues_json(path: Path | None) -> dict[str, dict[str, object]]:
     if path is None or not path.exists():
         return {}
@@ -285,6 +451,510 @@ def _load_issues_json(path: Path | None) -> dict[str, dict[str, object]]:
         key = f"GH-{number}"
         issues[key] = entry
     return issues
+
+
+def _slugify_heading(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "section"
+
+
+def _frontmatter_block(lines: list[str]) -> tuple[list[str], int] | None:
+    if not lines or lines[0].strip() != "---":
+        return None
+    for idx in range(1, len(lines)):
+        if lines[idx].strip() == "---":
+            return lines[1:idx], idx
+    return None
+
+
+def _suite_key(
+    *,
+    domain: str,
+    kind: str,
+    path: str,
+    qual: str,
+    span: tuple[int, int, int, int],
+) -> tuple[object, ...]:
+    return (domain, kind, path, qual, *span)
+
+
+def _add_suite_node(
+    forest: Forest,
+    *,
+    domain: str,
+    kind: str,
+    path: str,
+    qual: str,
+    span: tuple[int, int, int, int],
+    parent: tuple[object, ...] | None,
+) -> tuple[object, ...]:
+    key = _suite_key(domain=domain, kind=kind, path=path, qual=qual, span=span)
+    meta: dict[str, object] = {
+        "domain": domain,
+        "kind": kind,
+        "path": path,
+        "qual": qual,
+        "span": list(span),
+    }
+    if parent is not None:
+        meta["parent"] = list(parent)
+    node_id = forest.add_node("SuiteSite", key, meta=meta)
+    if parent is not None:
+        parent_node = forest.add_node("SuiteSite", parent, meta=None)
+        forest.add_alt("SuiteContains", (parent_node, node_id))
+    return key
+
+
+def _iter_docflow_paths(root: Path, extra_paths: list[str] | None) -> list[Path]:
+    paths: list[Path] = []
+    seen: set[Path] = set()
+    for rel in GOVERNANCE_DOCS:
+        path = root / rel
+        if path.exists():
+            if path not in seen:
+                paths.append(path)
+                seen.add(path)
+    if extra_paths:
+        for entry in extra_paths:
+            if not entry:
+                continue
+            raw = Path(entry)
+            path = raw if raw.is_absolute() else root / raw
+            if path.is_dir():
+                for doc in sorted(path.rglob("*.md")):
+                    if doc not in seen:
+                        paths.append(doc)
+                        seen.add(doc)
+            elif path.is_file():
+                if path not in seen:
+                    paths.append(path)
+                    seen.add(path)
+    return paths
+
+
+def _suite_meta(
+    *,
+    key: tuple[object, ...],
+    domain: str,
+    kind: str,
+    path: str,
+    qual: str,
+    span: tuple[int, int, int, int],
+    parent: tuple[object, ...] | None,
+) -> dict[str, object]:
+    return {
+        "suite_key": list(key),
+        "suite_domain": domain,
+        "suite_kind": kind,
+        "path": path,
+        "qual": qual,
+        "span_line": span[0],
+        "span_col": span[1],
+        "span_end_line": span[2],
+        "span_end_col": span[3],
+        "parent_key": list(parent) if parent is not None else None,
+    }
+
+
+def _emit_docflow_suite_artifacts(
+    *,
+    root: Path,
+    extra_paths: list[str] | None,
+    issues_json: Path | None,
+    forest_output: Path | None,
+    relation_output: Path | None,
+) -> None:
+    doc_paths = _iter_docflow_paths(root, extra_paths)
+    issues = _load_issues_json(issues_json)
+    forest = Forest()
+    rows: list[dict[str, object]] = []
+    suite_meta_index: dict[tuple[object, ...], dict[str, object]] = {}
+    docs: dict[str, Doc] = {}
+    missing_frontmatter: set[str] = set()
+    doc_suite_by_rel: dict[str, tuple[object, ...]] = {}
+
+    def _record_suite(
+        *,
+        domain: str,
+        kind: str,
+        path: str,
+        qual: str,
+        span: tuple[int, int, int, int],
+        parent: tuple[object, ...] | None,
+    ) -> tuple[object, ...]:
+        key = _add_suite_node(
+            forest,
+            domain=domain,
+            kind=kind,
+            path=path,
+            qual=qual,
+            span=span,
+            parent=parent,
+        )
+        meta = _suite_meta(
+            key=key,
+            domain=domain,
+            kind=kind,
+            path=path,
+            qual=qual,
+            span=span,
+            parent=parent,
+        )
+        suite_meta_index[key] = meta
+        row = {"row_kind": "suite", **meta}
+        rows.append(row)
+        return key
+
+    heading_re = re.compile(r"^(#{1,6})\s+(.*)$")
+    list_item_re = re.compile(r"^\s*[-*+]\s+")
+    issue_checklist_re = re.compile(r"^\s*[-*+]\s*\[(?P<state>[ xX])\]\s+(?P<text>.*)$")
+
+    for path in doc_paths:
+        check_deadline()
+        try:
+            rel = path.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            rel = path.as_posix()
+        text = path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        doc_span = (0, 0, max(len(lines) - 1, 0), len(lines[-1]) if lines else 0)
+        fm_block = _frontmatter_block(lines)
+        fm_payload: Frontmatter = {}
+        fm_end = None
+        if fm_block is not None:
+            fm_lines, fm_end = fm_block
+            fm_payload = _parse_yaml_like(list(fm_lines))
+        if not fm_payload:
+            missing_frontmatter.add(rel)
+        else:
+            docs[rel] = Doc(frontmatter=fm_payload, body="\n".join(lines[fm_end + 1 :] if fm_end is not None else lines))
+        doc_id = fm_payload.get("doc_id") if isinstance(fm_payload.get("doc_id"), str) else None
+        doc_qual = doc_id or rel
+
+        doc_suite = _record_suite(
+            domain="docflow",
+            kind="doc_file",
+            path=rel,
+            qual=doc_qual,
+            span=doc_span,
+            parent=None,
+        )
+        doc_suite_by_rel[rel] = doc_suite
+
+        if fm_end is not None:
+            front_span = (0, 0, fm_end, len(lines[fm_end]) if fm_end < len(lines) else 0)
+            front_suite = _record_suite(
+                domain="docflow",
+                kind="frontmatter",
+                path=rel,
+                qual=doc_qual,
+                span=front_span,
+                parent=doc_suite,
+            )
+            base = suite_meta_index[front_suite]
+            for field, value in fm_payload.items():
+                check_deadline()
+                if isinstance(value, dict):
+                    for entry_key, entry_value in value.items():
+                        rows.append(
+                            {
+                                "row_kind": "frontmatter_entry",
+                                **base,
+                                "field": field,
+                                "entry_key": entry_key,
+                                "entry_value": entry_value,
+                            }
+                        )
+                elif isinstance(value, list):
+                    for item in value:
+                        rows.append(
+                            {
+                                "row_kind": "frontmatter_item",
+                                **base,
+                                "field": field,
+                                "value": item,
+                            }
+                        )
+                else:
+                    rows.append(
+                        {
+                            "row_kind": "frontmatter_field",
+                            **base,
+                            "field": field,
+                            "value": value,
+                        }
+                    )
+
+        headings: list[tuple[int, int, str]] = []
+        for idx, line in enumerate(lines):
+            match = heading_re.match(line.strip())
+            if match:
+                headings.append((idx, len(match.group(1)), match.group(2).strip()))
+        section_ranges: list[tuple[int, int, tuple[object, ...]]] = []
+        for index, (start_line, level, title) in enumerate(headings):
+            end_line = headings[index + 1][0] - 1 if index + 1 < len(headings) else len(lines) - 1
+            section_span = (start_line, 0, max(end_line, start_line), len(lines[end_line]) if lines else 0)
+            section_qual = f"{doc_qual}#{_slugify_heading(title)}"
+            section_suite = _record_suite(
+                domain="docflow",
+                kind="section",
+                path=rel,
+                qual=section_qual,
+                span=section_span,
+                parent=doc_suite,
+            )
+            rows.append(
+                {
+                    "row_kind": "section_meta",
+                    **suite_meta_index[section_suite],
+                    "heading": title,
+                    "level": level,
+                }
+            )
+            section_ranges.append((start_line, end_line, section_suite))
+
+        def _section_for_line(line_no: int) -> tuple[object, ...] | None:
+            for start, end, suite_key in reversed(section_ranges):
+                if start <= line_no <= end:
+                    return suite_key
+            return None
+
+        sppf_issue_re = re.compile(r"\bGH-(\d+)\b")
+        for idx, line in enumerate(lines):
+            check_deadline()
+            if not list_item_re.match(line):
+                continue
+            parent_suite = _section_for_line(idx) or doc_suite
+            item_span = (idx, 0, idx, len(line))
+            item_qual = f"{doc_qual}::item:{idx + 1}"
+            item_suite = _record_suite(
+                domain="docflow",
+                kind="list_item",
+                path=rel,
+                qual=item_qual,
+                span=item_span,
+                parent=parent_suite,
+            )
+            rows.append(
+                {
+                    "row_kind": "list_item_meta",
+                    **suite_meta_index[item_suite],
+                    "text": line.strip(),
+                }
+            )
+            if "sppf{" in line:
+                tag_match = SPPF_TAG_RE.search(line)
+                tags = _parse_sppf_tag(tag_match.group(1)) if tag_match else {}
+                sppf_span = (idx, 0, idx, len(line))
+                sppf_qual = f"{doc_qual}::sppf:{idx + 1}"
+                sppf_suite = _record_suite(
+                    domain="docflow",
+                    kind="sppf_item",
+                    path=rel,
+                    qual=sppf_qual,
+                    span=sppf_span,
+                    parent=item_suite,
+                )
+                issues_found = [f"GH-{issue_id}" for issue_id in sppf_issue_re.findall(line)]
+                rows.append(
+                    {
+                        "row_kind": "sppf_item",
+                        **suite_meta_index[sppf_suite],
+                        "checklist_state": SPPF_LINE_RE.match(line.strip()).group("state")
+                        if SPPF_LINE_RE.match(line.strip())
+                        else "",
+                        "doc_status": tags.get("doc"),
+                        "impl_status": tags.get("impl"),
+                        "doc_ref": tags.get("doc_ref"),
+                        "issue_refs": issues_found,
+                    }
+                )
+                for issue_key in issues_found:
+                    issue_meta = issues.get(issue_key)
+                    if issue_meta is None:
+                        continue
+                    issue_suite_key = _suite_key(
+                        domain="github",
+                        kind="issue",
+                        path=issue_key,
+                        qual=issue_key,
+                        span=(0, 0, 0, 0),
+                    )
+                    issue_node = forest.add_node(
+                        "SuiteSite",
+                        issue_suite_key,
+                        meta={
+                            "domain": "github",
+                            "kind": "issue",
+                            "path": issue_key,
+                            "qual": issue_key,
+                            "span": [0, 0, 0, 0],
+                        },
+                    )
+                    forest.add_alt("SuiteRef", (forest.add_node("SuiteSite", sppf_suite, meta=None), issue_node))
+
+        for idx, line in enumerate(lines):
+            check_deadline()
+            if "sppf{" not in line:
+                continue
+            if list_item_re.match(line):
+                continue
+            parent_suite = _section_for_line(idx) or doc_suite
+            tag_match = SPPF_TAG_RE.search(line)
+            tags = _parse_sppf_tag(tag_match.group(1)) if tag_match else {}
+            sppf_span = (idx, 0, idx, len(line))
+            sppf_qual = f"{doc_qual}::sppf:{idx + 1}"
+            sppf_suite = _record_suite(
+                domain="docflow",
+                kind="sppf_item",
+                path=rel,
+                qual=sppf_qual,
+                span=sppf_span,
+                parent=parent_suite,
+            )
+            issues_found = [f"GH-{issue_id}" for issue_id in sppf_issue_re.findall(line)]
+            rows.append(
+                {
+                    "row_kind": "sppf_item",
+                    **suite_meta_index[sppf_suite],
+                    "checklist_state": SPPF_LINE_RE.match(line.strip()).group("state")
+                    if SPPF_LINE_RE.match(line.strip())
+                    else "",
+                    "doc_status": tags.get("doc"),
+                    "impl_status": tags.get("impl"),
+                    "doc_ref": tags.get("doc_ref"),
+                    "issue_refs": issues_found,
+                }
+            )
+
+    revisions: dict[str, int] = {}
+    for rel, payload in docs.items():
+        doc_rev = payload.frontmatter.get("doc_revision")
+        if isinstance(doc_rev, int):
+            revisions[rel] = doc_rev
+        _add_section_revisions(revisions, rel=rel, fm=payload.frontmatter)
+
+    def _suite_base_meta(rel: str, doc_id: str | None) -> dict[str, object]:
+        suite_key = doc_suite_by_rel.get(rel)
+        if suite_key is not None and suite_key in suite_meta_index:
+            return suite_meta_index[suite_key]
+        return _docflow_base_meta(rel, doc_id)
+
+    invariant_rows, _ = _docflow_invariant_rows(
+        docs=docs,
+        revisions=revisions,
+        core_set=set(CORE_GOVERNANCE_DOCS),
+        missing_frontmatter=missing_frontmatter,
+        base_meta=_suite_base_meta,
+    )
+    rows.extend(invariant_rows)
+
+    for issue_key, meta in issues.items():
+        check_deadline()
+        issue_suite = _record_suite(
+            domain="github",
+            kind="issue",
+            path=issue_key,
+            qual=issue_key,
+            span=(0, 0, 0, 0),
+            parent=None,
+        )
+        base = suite_meta_index[issue_suite]
+        rows.append(
+            {
+                "row_kind": "issue_meta",
+                **base,
+                "issue_id": issue_key,
+                "title": meta.get("title"),
+                "state": meta.get("state"),
+                "url": meta.get("url"),
+            }
+        )
+        body = meta.get("body")
+        if isinstance(body, str) and body.strip():
+            body_lines = body.splitlines()
+            body_span = (
+                0,
+                0,
+                max(len(body_lines) - 1, 0),
+                len(body_lines[-1]) if body_lines else 0,
+            )
+            body_suite = _record_suite(
+                domain="github",
+                kind="issue_body",
+                path=issue_key,
+                qual=f"{issue_key}::body",
+                span=body_span,
+                parent=issue_suite,
+            )
+            rows.append(
+                {
+                    "row_kind": "issue_body",
+                    **suite_meta_index[body_suite],
+                    "line_count": len(body_lines),
+                }
+            )
+            for idx, line in enumerate(body_lines):
+                match = issue_checklist_re.match(line)
+                if not match:
+                    continue
+                item_span = (idx, 0, idx, len(line))
+                item_suite = _record_suite(
+                    domain="github",
+                    kind="issue_checklist_item",
+                    path=issue_key,
+                    qual=f"{issue_key}::item:{idx + 1}",
+                    span=item_span,
+                    parent=body_suite,
+                )
+                rows.append(
+                    {
+                        "row_kind": "issue_checklist_item",
+                        **suite_meta_index[item_suite],
+                        "checked": match.group("state").lower() == "x",
+                        "text": match.group("text").strip(),
+                    }
+                )
+        labels = meta.get("labels")
+        if isinstance(labels, list):
+            for label in labels:
+                if isinstance(label, dict) and isinstance(label.get("name"), str):
+                    rows.append(
+                        {
+                            "row_kind": "issue_label",
+                            **base,
+                            "label": label.get("name"),
+                        }
+                    )
+
+    rows.sort(
+        key=lambda row: (
+            str(row.get("row_kind", "")),
+            str(row.get("path", "")),
+            str(row.get("suite_kind", "")),
+            int(row.get("span_line", 0) or 0),
+            int(row.get("span_col", 0) or 0),
+            str(row.get("qual", "")),
+        )
+    )
+
+    if forest_output is not None:
+        forest_output.parent.mkdir(parents=True, exist_ok=True)
+        forest_output.write_text(
+            json.dumps(forest.to_json(), indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if relation_output is not None:
+        relation_output.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "format_version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "suites": rows,
+        }
+        relation_output.write_text(
+            json.dumps(payload, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
 
 
 def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) -> dict[str, object]:
@@ -547,71 +1217,1554 @@ def _parse_frontmatter(text: str) -> tuple[Frontmatter, str]:
 
 
 def _parse_yaml_like(lines: List[str]) -> Frontmatter:
+    def _parse_scalar(raw: str) -> FrontmatterScalar:
+        value = raw.strip()
+        if value.startswith("\"") and value.endswith("\""):
+            value = value[1:-1]
+        return int(value) if value.isdigit() else value
+
+    def _next_significant(start: int) -> tuple[int, str] | None:
+        idx = start
+        while idx < len(lines):
+            candidate = lines[idx].rstrip()
+            if not candidate.strip():
+                idx += 1
+                continue
+            if candidate.lstrip().startswith("#"):
+                idx += 1
+                continue
+            return idx, candidate
+        return None
+
     data: Frontmatter = {}
-    current_list_key: str | None = None
-    current_map_key: str | None = None
-    for raw in lines:
+    stack: list[tuple[int, object]] = [(0, data)]
+    idx = 0
+    while idx < len(lines):
         check_deadline()
-        line = raw.rstrip()
-        if not line.strip():
+        raw = lines[idx].rstrip()
+        idx += 1
+        if not raw.strip():
             continue
-        if line.lstrip().startswith("#"):
+        if raw.lstrip().startswith("#"):
             continue
-        if current_map_key is not None and line.startswith("  ") and ":" in line:
-            key, value = line.strip().split(":", 1)
-            key = key.strip()
-            value = value.strip()
-            if value.startswith("\"") and value.endswith("\""):
-                value = value[1:-1]
-            parsed: FrontmatterScalar = int(value) if value.isdigit() else value
-            mapping = data.get(current_map_key)
-            if not isinstance(mapping, dict):
-                mapping = {}
-            mapping[key] = parsed
-            data[current_map_key] = mapping
-            continue
-        if line.lstrip().startswith("- "):
-            if current_list_key is None:
+        indent = len(raw) - len(raw.lstrip(" "))
+        line = raw.strip()
+        while stack and indent < stack[-1][0]:
+            stack.pop()
+        if not stack:
+            stack = [(0, data)]
+        container = stack[-1][1]
+
+        if line.startswith("- "):
+            if not isinstance(container, list):
                 continue
-            item = line.strip()[2:].strip()
-            if isinstance(data.get(current_list_key), list):
-                data[current_list_key].append(item)
-            continue
-        if ":" in line:
-            key, value = line.split(":", 1)
-            key = key.strip()
-            value = value.strip()
-            if value == "":
-                if key in MAP_FIELDS:
-                    data[key] = {}
-                    current_map_key = key
-                    current_list_key = None
+            item = line[2:].strip()
+            if ":" in item:
+                key, value = item.split(":", 1)
+                key = key.strip()
+                value = value.strip()
+                entry: dict[str, FrontmatterScalar | object] = {}
+                if value == "":
+                    lookahead = _next_significant(idx)
+                    nested: object = [] if lookahead and lookahead[1].lstrip().startswith("- ") else {}
+                    entry[key] = nested
+                    container.append(entry)
+                    stack.append((indent + 2, nested))
                 else:
-                    data[key] = []
-                    current_list_key = key
-                    current_map_key = None
-                continue
-            if value.startswith("\"") and value.endswith("\""):
-                value = value[1:-1]
-            if value.isdigit():
-                data[key] = int(value)
+                    entry[key] = _parse_scalar(value)
+                    container.append(entry)
+                    lookahead = _next_significant(idx)
+                    if lookahead and (len(lookahead[1]) - len(lookahead[1].lstrip(" "))) > indent:
+                        stack.append((indent + 2, entry))
             else:
-                data[key] = value
-            current_list_key = None
-            current_map_key = None
+                container.append(_parse_scalar(item))
+            continue
+
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if not isinstance(container, dict):
+            continue
+        if value == "":
+            lookahead = _next_significant(idx)
+            nested: object = [] if lookahead and lookahead[1].lstrip().startswith("- ") else {}
+            container[key] = nested
+            stack.append((indent + 2, nested))
+        else:
+            if value in ("[]", "[ ]"):
+                container[key] = []
+            elif value in ("{}", "{ }"):
+                container[key] = {}
+            else:
+                container[key] = _parse_scalar(value)
     return data
+
+
+def _docflow_base_meta(rel: str, doc_id: str | None) -> dict[str, object]:
+    return {"path": rel, "qual": doc_id or rel}
+
+
+def _split_doc_ref(ref: str) -> tuple[str, str | None]:
+    if "#" in ref:
+        base, frag = ref.split("#", 1)
+        frag = frag.strip()
+        return base, frag or None
+    return ref, None
+
+
+def _doc_ref_base(ref: str) -> str:
+    return _split_doc_ref(ref)[0]
+
+
+def _add_section_revisions(
+    revisions: dict[str, int],
+    *,
+    rel: str,
+    fm: Frontmatter,
+) -> None:
+    sections = fm.get("doc_sections")
+    if not isinstance(sections, dict):
+        return
+    for key, value in sections.items():
+        if not isinstance(key, str) or not key:
+            continue
+        if not isinstance(value, int):
+            continue
+        revisions[f"{rel}#{key}"] = value
+
+
+def _docflow_invariant_rows(
+    *,
+    docs: dict[str, Doc],
+    revisions: dict[str, int],
+    core_set: set[str],
+    missing_frontmatter: set[str],
+    base_meta: Callable[[str, str | None], dict[str, object]] = _docflow_base_meta,
+) -> tuple[list[dict[str, object]], list[str]]:
+    rows: list[dict[str, object]] = []
+    warnings: list[str] = []
+    for rel in sorted(missing_frontmatter):
+        rows.append(
+            {
+                "row_kind": "doc_missing_frontmatter",
+                **base_meta(rel, None),
+            }
+        )
+    for rel, payload in docs.items():
+        check_deadline()
+        fm = payload.frontmatter
+        body = payload.body
+        doc_id = fm.get("doc_id") if isinstance(fm.get("doc_id"), str) else None
+        base = base_meta(rel, doc_id)
+        for field in REQUIRED_FIELDS:
+            rows.append(
+                {
+                    "row_kind": "doc_required_field",
+                    **base,
+                    "field": field,
+                    "present": field in fm,
+                }
+            )
+        for field in ("doc_scope", "doc_requires"):
+            if field in fm:
+                rows.append(
+                    {
+                        "row_kind": "doc_field_type",
+                        **base,
+                        "field": field,
+                        "expected": "list",
+                        "valid": isinstance(fm.get(field), list),
+                    }
+                )
+        for field in (
+            "doc_reviewed_as_of",
+            "doc_review_notes",
+            "doc_sections",
+            "doc_section_requires",
+            "doc_section_reviews",
+        ):
+            if field in fm:
+                rows.append(
+                    {
+                        "row_kind": "doc_field_type",
+                        **base,
+                        "field": field,
+                        "expected": "map",
+                        "valid": isinstance(fm.get(field), dict),
+                    }
+                )
+        requires = fm.get("doc_requires", [])
+        if isinstance(requires, list):
+            for req in requires:
+                check_deadline()
+                if not isinstance(req, str):
+                    continue
+                explicit = req in body
+                implicit = False
+                if not explicit:
+                    req_name = _lower_name(Path(req))
+                    if req_name and req_name in body.lower():
+                        implicit = True
+                        warnings.append(
+                            f"{rel}: implicit reference to {req} (Tier-2); prefer explicit path"
+                        )
+                rows.append(
+                    {
+                        "row_kind": "doc_requires_ref",
+                        **base,
+                        "req": req,
+                        "explicit": explicit,
+                        "implicit": implicit,
+                    }
+                )
+        if fm.get("doc_authority") == "normative":
+            requires_raw = fm.get("doc_requires", [])
+            requires = set(_doc_ref_base(req) for req in requires_raw if isinstance(req, str))
+            required_core = core_set
+            projection = fm.get("doc_dependency_projection")
+            if isinstance(projection, str) and projection == "glossary_root":
+                required_core = set()
+            missing = sorted(required_core - {rel} - requires)
+            for req in missing:
+                rows.append(
+                    {
+                        "row_kind": "doc_missing_governance_ref",
+                        **base,
+                        "missing": req,
+                    }
+                )
+        reviewed = fm.get("doc_reviewed_as_of")
+        review_notes = fm.get("doc_review_notes")
+        if isinstance(requires, list) and requires:
+            for req in requires:
+                check_deadline()
+                if not isinstance(req, str):
+                    continue
+                expected = revisions.get(req)
+                seen = reviewed.get(req) if isinstance(reviewed, dict) else None
+                resolved = expected is not None
+                match = isinstance(seen, int) and expected is not None and seen == expected
+                rows.append(
+                    {
+                        "row_kind": "doc_review_pin",
+                        **base,
+                        "req": req,
+                        "expected": expected,
+                        "seen": seen,
+                        "resolved": resolved,
+                        "match": match,
+                    }
+                )
+                note = review_notes.get(req) if isinstance(review_notes, dict) else None
+                rows.append(
+                    {
+                        "row_kind": "doc_review_note",
+                        **base,
+                        "req": req,
+                        "note_present": isinstance(note, str) and bool(note.strip()),
+                    }
+                )
+        commutes = fm.get("doc_commutes_with")
+        if isinstance(commutes, list):
+            for other in commutes:
+                check_deadline()
+                if not isinstance(other, str):
+                    continue
+                other_base = _doc_ref_base(other)
+                other_doc = docs.get(other_base)
+                target_exists = other_doc is not None
+                reciprocated = False
+                if target_exists:
+                    other_commutes = other_doc.frontmatter.get("doc_commutes_with", [])
+                    if isinstance(other_commutes, list):
+                        reciprocated = any(
+                            _doc_ref_base(item) == rel
+                            for item in other_commutes
+                            if isinstance(item, str)
+                        )
+                rows.append(
+                    {
+                        "row_kind": "doc_commute_edge",
+                        **base,
+                        "other": other,
+                        "target_exists": target_exists,
+                        "reciprocated": reciprocated,
+                    }
+                )
+    return rows, warnings
+
+
+def _load_test_evidence(root: Path) -> dict[str, object] | None:
+    candidates = [
+        root / "out" / "test_evidence.json",
+        root / "artifacts" / "out" / "test_evidence.json",
+    ]
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    return None
+
+
+def _evidence_rows_from_test_evidence(payload: dict[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    evidence_index = payload.get("evidence_index")
+    if not isinstance(evidence_index, list):
+        return rows
+    for entry in evidence_index:
+        check_deadline()
+        if not isinstance(entry, dict):
+            continue
+        key = entry.get("key")
+        if not isinstance(key, dict):
+            continue
+        normalized = evidence_keys.normalize_key(key)
+        evidence_id = evidence_keys.key_identity(normalized)
+        display = entry.get("display")
+        if not isinstance(display, str) or not display.strip():
+            display = evidence_keys.render_display(normalized)
+        rows.append(
+            {
+                "row_kind": "evidence_key",
+                "evidence_id": evidence_id,
+                "evidence_kind": normalized.get("k"),
+                "evidence_key": normalized,
+                "evidence_display": display,
+                "evidence_source": "test_evidence",
+                "tests": entry.get("tests", []),
+            }
+        )
+    return rows
+
+
+def _format_docflow_violation(row: Mapping[str, JSONValue]) -> str:
+    path = str(row.get("path", "?") or "?")
+    kind = str(row.get("row_kind", "") or "")
+    if kind == "doc_missing_frontmatter":
+        return f"{path}: missing frontmatter"
+    if kind == "doc_required_field":
+        field = row.get("field", "?")
+        return f"{path}: missing frontmatter field '{field}'"
+    if kind == "doc_field_type":
+        field = row.get("field", "?")
+        expected = row.get("expected", "?")
+        return f"{path}: frontmatter field '{field}' must be a {expected}"
+    if kind == "doc_missing_governance_ref":
+        missing = row.get("missing", "?")
+        return f"{path}: missing required governance references: {missing}"
+    if kind == "doc_requires_ref":
+        req = row.get("req", "?")
+        return f"{path}: missing explicit reference to {req}"
+    if kind == "doc_review_pin":
+        req = row.get("req", "?")
+        expected = row.get("expected")
+        seen = row.get("seen")
+        if not bool(row.get("resolved", False)):
+            return f"{path}: doc_reviewed_as_of cannot resolve {req}"
+        if not isinstance(seen, int):
+            return f"{path}: doc_reviewed_as_of[{req}] must be an integer"
+        return f"{path}: doc_reviewed_as_of[{req}]={seen} does not match {expected}"
+    if kind == "doc_review_note":
+        req = row.get("req", "?")
+        return f"{path}: doc_review_notes[{req}] missing or empty"
+    if kind == "doc_commute_edge":
+        other = row.get("other", "?")
+        if not bool(row.get("target_exists", False)):
+            return f"{path}: doc_commutes_with target missing: {other}"
+        return f"{path}: commutation with {other} not reciprocated"
+    return f"{path}: docflow invariant violation"
+
+
+def _docflow_compliance_rows(
+    rows: list[dict[str, object]],
+    *,
+    invariants: Iterable[DocflowInvariant],
+) -> list[dict[str, object]]:
+    compliance: list[dict[str, object]] = []
+    op_registry = _docflow_predicates()
+    evidence_rows = [row for row in rows if row.get("row_kind") == "evidence_key"]
+    covered_evidence: set[str] = set()
+    for invariant in invariants:
+        check_deadline()
+        matched = apply_spec(
+            invariant.spec,
+            rows,
+            op_registry=op_registry,
+        )
+        evidence_matched = [
+            row for row in matched if row.get("row_kind") == "evidence_key"
+        ]
+        if invariant.status != "active":
+            if invariant.kind == "cover":
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "proposed",
+                        "match_count": len(evidence_matched),
+                        "detail": "cover target missing" if not evidence_matched else None,
+                    }
+                )
+            elif invariant.kind == "never":
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "proposed",
+                        "match_count": len(matched),
+                        "would_violate": bool(matched),
+                    }
+                )
+            elif invariant.kind == "require":
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "proposed",
+                        "match_count": len(matched),
+                        "would_violate": not bool(matched),
+                        "detail": "requirement missing" if not matched else None,
+                    }
+                )
+            continue
+        if invariant.kind == "cover":
+            if evidence_matched:
+                for row in evidence_matched:
+                    evidence_id = str(row.get("evidence_id", "") or "")
+                    if evidence_id:
+                        covered_evidence.add(evidence_id)
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "compliant",
+                        "match_count": len(evidence_matched),
+                    }
+                )
+            else:
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "contradicts",
+                        "match_count": 0,
+                        "detail": "cover target missing",
+                    }
+                )
+            continue
+        if invariant.kind == "never":
+            if matched:
+                for row in matched:
+                    compliance.append(
+                        {
+                            "row_kind": "docflow_compliance",
+                            "invariant": invariant.name,
+                            "invariant_kind": invariant.kind,
+                            "status": "contradicts",
+                            "match_count": len(matched),
+                            "path": row.get("path"),
+                            "qual": row.get("qual"),
+                            "source_row_kind": row.get("row_kind"),
+                        }
+                    )
+            else:
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "compliant",
+                        "match_count": 0,
+                    }
+                )
+            continue
+        if invariant.kind == "require":
+            if matched:
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "compliant",
+                        "match_count": len(matched),
+                    }
+                )
+            else:
+                compliance.append(
+                    {
+                        "row_kind": "docflow_compliance",
+                        "invariant": invariant.name,
+                        "invariant_kind": invariant.kind,
+                        "status": "contradicts",
+                        "match_count": 0,
+                        "detail": "requirement missing",
+                    }
+                )
+    for row in evidence_rows:
+        evidence_id = str(row.get("evidence_id", "") or "")
+        if evidence_id and evidence_id not in covered_evidence:
+            compliance.append(
+                {
+                    "row_kind": "docflow_compliance",
+                    "status": "excess",
+                    "evidence_id": evidence_id,
+                    "evidence_kind": row.get("evidence_kind"),
+                    "evidence_display": row.get("evidence_display"),
+                    "evidence_source": row.get("evidence_source"),
+                }
+            )
+    return compliance
+
+
+def _summarize_docflow_compliance(rows: list[dict[str, object]]) -> dict[str, int]:
+    counts = {"compliant": 0, "contradicts": 0, "excess": 0, "proposed": 0}
+    for row in rows:
+        status = str(row.get("status", "") or "")
+        if status in counts:
+            counts[status] += 1
+    return counts
+
+
+def _render_docflow_compliance_md(rows: list[dict[str, object]]) -> list[str]:
+    summary = _summarize_docflow_compliance(rows)
+    lines: list[str] = []
+    lines.append("Docflow compliance report")
+    lines.append(f"- compliant: {summary.get('compliant', 0)}")
+    lines.append(f"- contradicts: {summary.get('contradicts', 0)}")
+    lines.append(f"- proposed: {summary.get('proposed', 0)}")
+    lines.append(f"- excess: {summary.get('excess', 0)}")
+    lines.append("")
+    lines.append("Contradictions:")
+    for row in rows:
+        if row.get("status") != "contradicts":
+            continue
+        invariant = row.get("invariant", "?")
+        path = row.get("path")
+        qual = row.get("qual")
+        source_kind = row.get("source_row_kind")
+        detail = row.get("detail")
+        parts = [f"invariant={invariant}"]
+        if path:
+            parts.append(f"path={path}")
+        if qual:
+            parts.append(f"qual={qual}")
+        if source_kind:
+            parts.append(f"row={source_kind}")
+        if detail:
+            parts.append(f"detail={detail}")
+        lines.append(f"- {'; '.join(parts)}")
+    if not any(row.get("status") == "contradicts" for row in rows):
+        lines.append("- (none)")
+    lines.append("")
+    lines.append("Proposed invariants (not enforced):")
+    for row in rows:
+        if row.get("status") != "proposed":
+            continue
+        invariant = row.get("invariant", "?")
+        detail = row.get("detail")
+        match_count = row.get("match_count")
+        would_violate = row.get("would_violate")
+        parts = [f"invariant={invariant}"]
+        if match_count is not None:
+            parts.append(f"matches={match_count}")
+        if would_violate is True:
+            parts.append("would_violate=true")
+        if detail:
+            parts.append(f"detail={detail}")
+        lines.append(f"- {'; '.join(parts)}")
+    if not any(row.get("status") == "proposed" for row in rows):
+        lines.append("- (none)")
+    lines.append("")
+    lines.append("Excess evidence:")
+    for row in rows:
+        if row.get("status") != "excess":
+            continue
+        evidence_id = row.get("evidence_id", "?")
+        evidence_kind = row.get("evidence_kind")
+        evidence_display = row.get("evidence_display")
+        parts = [f"id={evidence_id}"]
+        if evidence_kind:
+            parts.append(f"kind={evidence_kind}")
+        if evidence_display:
+            parts.append(f"display={evidence_display}")
+        lines.append(f"- {'; '.join(parts)}")
+    if not any(row.get("status") == "excess" for row in rows):
+        lines.append("- (none)")
+    return lines
+
+
+def _render_docflow_report_md(doc_id: str, lines: list[str]) -> str:
+    frontmatter = [
+        "---",
+        "doc_revision: 1",
+        "reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.",
+        f"doc_id: {doc_id}",
+        "doc_role: report",
+        "doc_scope:",
+        "  - repo",
+        "  - docflow",
+        "  - report",
+        "doc_authority: informative",
+        "doc_change_protocol: POLICY_SEED.md#change_protocol",
+        "doc_requires: []",
+        "doc_reviewed_as_of: {}",
+        "doc_review_notes: {}",
+        "doc_sections:",
+        f"  {doc_id}: 1",
+        "doc_section_requires:",
+        f"  {doc_id}: []",
+        "doc_section_reviews:",
+        f"  {doc_id}: {{}}",
+        "---",
+        "",
+        f'<a id="{doc_id}"></a>',
+        "",
+    ]
+    return "\n".join(frontmatter + lines) + "\n"
+
+
+def _emit_docflow_compliance(
+    *,
+    rows: list[dict[str, object]],
+    invariants: Iterable[DocflowInvariant],
+    json_output: Path | None,
+    md_output: Path | None,
+) -> None:
+    compliance_rows = _docflow_compliance_rows(rows, invariants=invariants)
+    payload = {
+        "version": 2,
+        "summary": _summarize_docflow_compliance(compliance_rows),
+        "rows": compliance_rows,
+    }
+    if json_output is not None:
+        json_output.parent.mkdir(parents=True, exist_ok=True)
+        json_output.write_text(
+            json.dumps(payload, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    if md_output is not None:
+        md_output.parent.mkdir(parents=True, exist_ok=True)
+        md_output.write_text(
+            _render_docflow_report_md(
+                "docflow_compliance",
+                _render_docflow_compliance_md(compliance_rows),
+            )
+        )
+
+
+def _load_docflow_docs(
+    *,
+    root: Path,
+    extra_paths: list[str] | None,
+) -> dict[str, Doc]:
+    docs: dict[str, Doc] = {}
+    for path in _iter_docflow_paths(root, extra_paths):
+        check_deadline()
+        try:
+            rel = path.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            rel = path.as_posix()
+        text = path.read_text(encoding="utf-8")
+        fm, body = _parse_frontmatter(text)
+        docs[rel] = Doc(frontmatter=fm, body=body)
+    return docs
+
+
+def _glossary_section_headings(doc: Doc) -> dict[str, str]:
+    lines = doc.body.splitlines()
+    anchor_re = re.compile(r'^\s*<a id="([^"]+)"></a>\s*$')
+    heading_re = re.compile(r"^#{1,6}\s+(.*)$")
+    anchors: list[tuple[str, int]] = []
+    for idx, line in enumerate(lines):
+        match = anchor_re.match(line)
+        if match:
+            anchors.append((match.group(1), idx))
+    headings: dict[str, str] = {}
+    for key, idx in anchors:
+        title = None
+        for j in range(idx + 1, len(lines)):
+            match = heading_re.match(lines[j].strip())
+            if match:
+                title = match.group(1).strip()
+                break
+        if title:
+            title = re.sub(r"^\d+\.\s*", "", title)
+            headings[key] = title
+    return headings
+
+
+def _term_pattern(heading: str) -> re.Pattern[str]:
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9\\s\\-]*", heading):
+        return re.compile(rf"\\b{re.escape(heading)}\\b", re.IGNORECASE)
+    return re.compile(re.escape(heading), re.IGNORECASE)
+
+
+def _docflow_canonicality_entries(
+    *,
+    docs: dict[str, Doc],
+) -> tuple[list[dict[str, object]], list[dict[str, object]], dict[str, object]]:
+    glossary = docs.get("glossary.md")
+    if glossary is None:
+        return [], [], {"error": "glossary.md not found"}
+    sections = glossary.frontmatter.get("doc_sections", {})
+    if not isinstance(sections, dict):
+        return [], [], {"error": "glossary.md missing doc_sections"}
+    headings = _glossary_section_headings(glossary)
+    terms = sorted(str(key) for key in sections.keys())
+
+    entries: list[dict[str, object]] = []
+    signal_rows: list[dict[str, object]] = []
+    ambiguous_terms: set[str] = set()
+    no_induced_terms: set[str] = set()
+
+    def _record_signal(term: str, signal: str, doc: str | None = None) -> None:
+        signal_rows.append(
+            {
+                "row_kind": "canonicality_signal",
+                "term": term,
+                "signal": signal,
+                "doc": doc,
+            }
+        )
+
+    for term in terms:
+        check_deadline()
+        term_ref = f"glossary.md#{term}"
+        heading = headings.get(term)
+        pattern = _term_pattern(heading) if heading else None
+        requires_docs: set[str] = set()
+        explicit_docs: set[str] = set()
+        implicit_docs: set[str] = set()
+
+        for rel, doc in docs.items():
+            check_deadline()
+            if rel == "glossary.md":
+                continue
+            requires = doc.frontmatter.get("doc_requires", [])
+            if isinstance(requires, list) and term_ref in requires:
+                requires_docs.add(rel)
+            if term_ref in doc.body:
+                explicit_docs.add(rel)
+            if pattern and rel not in explicit_docs and rel not in requires_docs:
+                if pattern.search(doc.body):
+                    implicit_docs.add(rel)
+
+        explicit_without_requires = explicit_docs - requires_docs
+        requires_without_explicit = requires_docs - explicit_docs
+        missing_anchor = term not in headings
+
+        if missing_anchor:
+            _record_signal(term, "missing_anchor")
+            ambiguous_terms.add(term)
+        for rel in sorted(explicit_without_requires):
+            _record_signal(term, "explicit_without_requires", rel)
+            ambiguous_terms.add(term)
+        for rel in sorted(requires_without_explicit):
+            _record_signal(term, "requires_without_explicit", rel)
+            ambiguous_terms.add(term)
+        for rel in sorted(implicit_docs):
+            _record_signal(term, "implicit_without_requires", rel)
+            ambiguous_terms.add(term)
+        if not requires_docs:
+            _record_signal(term, "no_induced_meaning")
+            no_induced_terms.add(term)
+
+        candidate = (
+            term not in ambiguous_terms
+            and term not in no_induced_terms
+            and bool(requires_docs)
+            and not missing_anchor
+        )
+        entries.append(
+            {
+                "term": term,
+                "heading": heading,
+                "anchor_present": not missing_anchor,
+                "requires_docs": sorted(requires_docs),
+                "explicit_docs": sorted(explicit_docs),
+                "implicit_docs": sorted(implicit_docs),
+                "explicit_without_requires": sorted(explicit_without_requires),
+                "requires_without_explicit": sorted(requires_without_explicit),
+                "candidate": candidate,
+            }
+        )
+
+    summary = {
+        "total_terms": len(terms),
+        "candidates": sum(1 for entry in entries if entry.get("candidate")),
+        "ambiguous": len(ambiguous_terms),
+        "no_induced_meaning": len(no_induced_terms),
+    }
+    return entries, signal_rows, summary
+
+
+def _docflow_dependency_graph(
+    docs: dict[str, DocflowDocument],
+) -> dict[str, object]:
+    nodes: dict[str, dict[str, object]] = {}
+    edges: list[dict[str, object]] = []
+    for rel, doc in sorted(docs.items()):
+        fm = doc.frontmatter
+        requires = fm.get("doc_requires", [])
+        deps: list[str] = []
+        if isinstance(requires, list):
+            deps = [
+                _doc_ref_base(req)
+                for req in requires
+                if isinstance(req, str)
+            ]
+        nodes[rel] = {
+            "path": rel,
+            "doc_id": fm.get("doc_id"),
+            "doc_role": fm.get("doc_role"),
+            "doc_authority": fm.get("doc_authority"),
+            "doc_dependency_projection": fm.get("doc_dependency_projection"),
+            "requires": deps,
+        }
+        for dep in deps:
+            edges.append({"from": rel, "to": dep})
+    return {"nodes": nodes, "edges": edges}
+
+
+def _docflow_strongly_connected_components(
+    graph: dict[str, set[str]],
+) -> list[set[str]]:
+    index = 0
+    indices: dict[str, int] = {}
+    lowlinks: dict[str, int] = {}
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    components: list[set[str]] = []
+
+    def visit(node: str) -> None:
+        nonlocal index
+        indices[node] = index
+        lowlinks[node] = index
+        index += 1
+        stack.append(node)
+        on_stack.add(node)
+        for neighbor in graph.get(node, set()):
+            if neighbor not in indices:
+                visit(neighbor)
+                lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
+            elif neighbor in on_stack:
+                lowlinks[node] = min(lowlinks[node], indices[neighbor])
+        if lowlinks[node] == indices[node]:
+            component: set[str] = set()
+            while True:
+                popped = stack.pop()
+                on_stack.discard(popped)
+                component.add(popped)
+                if popped == node:
+                    break
+            components.append(component)
+
+    for node in graph:
+        if node not in indices:
+            visit(node)
+    return components
+
+
+def _docflow_cycles(
+    graph: dict[str, object],
+    *,
+    lift_roles: set[str] | None = None,
+    projection: str | None = None,
+) -> list[dict[str, object]]:
+    nodes = graph.get("nodes", {})
+    edges = graph.get("edges", [])
+    if not isinstance(nodes, dict) or not isinstance(edges, list):
+        return []
+    lifted = lift_roles or set()
+    core = set(CORE_GOVERNANCE_DOCS)
+    adjacency: dict[str, set[str]] = {
+        key: set() for key in nodes.keys()
+    }
+    for edge in edges:
+        if not isinstance(edge, dict):
+            continue
+        src = edge.get("from")
+        dst = edge.get("to")
+        if isinstance(src, str) and isinstance(dst, str):
+            if lifted:
+                meta = nodes.get(src, {})
+                if isinstance(meta, dict):
+                    role = meta.get("doc_role")
+                    if isinstance(role, str) and role in lifted:
+                        continue
+            if projection == "dependency":
+                meta = nodes.get(src, {})
+                if isinstance(meta, dict):
+                    proj = meta.get("doc_dependency_projection")
+                    if isinstance(proj, str):
+                        if proj == "glossary_root":
+                            continue
+                        if proj == "glossary_lifted" and dst in core:
+                            continue
+            adjacency.setdefault(src, set()).add(dst)
+            adjacency.setdefault(dst, set())
+    components = _docflow_strongly_connected_components(adjacency)
+    cycles: list[dict[str, object]] = []
+    for comp in components:
+        if not comp:
+            continue
+        has_self = any(node in adjacency.get(node, set()) for node in comp)
+        if len(comp) == 1 and not has_self:
+            continue
+        ordered = sorted(comp)
+        kind = "non_core"
+        if set(ordered).issubset(core):
+            kind = "core"
+        elif set(ordered) & core:
+            kind = "mixed"
+        cycles.append(
+            {
+                "nodes": ordered,
+                "kind": kind,
+                "size": len(ordered),
+            }
+        )
+    cycles.sort(key=lambda entry: (entry.get("kind"), entry.get("size", 0), entry.get("nodes")))
+    return cycles
+
+
+def _render_docflow_cycles_md(
+    *,
+    raw_cycles: list[dict[str, object]],
+    projection_cycles: list[dict[str, object]],
+    projection_label: str,
+) -> list[str]:
+    lines: list[str] = []
+    lines.append("Docflow dependency cycles")
+    if not raw_cycles:
+        lines.append("- none")
+        return lines
+    lines.append("Summary (raw graph):")
+    counts: dict[str, int] = {}
+    for entry in raw_cycles:
+        kind = str(entry.get("kind", "unknown"))
+        counts[kind] = counts.get(kind, 0) + 1
+    for kind in sorted(counts):
+        lines.append(f"- {kind}: {counts[kind]}")
+    lines.append("")
+    lines.append(f"Summary ({projection_label}):")
+    projection_counts: dict[str, int] = {}
+    for entry in projection_cycles:
+        kind = str(entry.get("kind", "unknown"))
+        projection_counts[kind] = projection_counts.get(kind, 0) + 1
+    if projection_counts:
+        for kind in sorted(projection_counts):
+            lines.append(f"- {kind}: {projection_counts[kind]}")
+    else:
+        lines.append("- none")
+    lines.append("")
+    lines.append("Cycles (raw graph):")
+    for entry in raw_cycles:
+        nodes = entry.get("nodes", [])
+        if not isinstance(nodes, list):
+            continue
+        kind = entry.get("kind", "unknown")
+        lines.append(f"- ({kind}) {', '.join(nodes)}")
+    lines.append("")
+    lines.append(f"Cycles ({projection_label}):")
+    if projection_cycles:
+        for entry in projection_cycles:
+            nodes = entry.get("nodes", [])
+            if not isinstance(nodes, list):
+                continue
+            kind = entry.get("kind", "unknown")
+            lines.append(f"- ({kind}) {', '.join(nodes)}")
+    else:
+        lines.append("- none")
+    lines.append("")
+    lines.append("Guidance:")
+    lines.append("- core: expected governance cycle; break only with policy change.")
+    lines.append("- mixed: consider lifting shared semantics to glossary and removing non-core back-edges.")
+    lines.append("- non_core: lift shared semantics to glossary to break the cycle.")
+    return lines
+
+
+def _emit_docflow_cycles(
+    docs: dict[str, DocflowDocument],
+    *,
+    json_output: Path | None,
+    md_output: Path | None,
+) -> None:
+    graph = _docflow_dependency_graph(docs)
+    raw_cycles = _docflow_cycles(graph)
+    projection_cycles = _docflow_cycles(graph, projection="dependency")
+    payload = {
+        "graph": graph,
+        "cycles": raw_cycles,
+        "projection": {
+            "mode": "dependency",
+            "cycles": projection_cycles,
+        },
+    }
+    if json_output is not None:
+        json_output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    if md_output is not None:
+        md_output.write_text(
+            _render_docflow_report_md(
+                "docflow_cycles",
+                _render_docflow_cycles_md(
+                    raw_cycles=raw_cycles,
+                    projection_cycles=projection_cycles,
+                    projection_label="dependency projection",
+                ),
+            ),
+            encoding="utf-8",
+        )
+
+
+_CHANGE_PROTOCOL_CANONICAL = "POLICY_SEED.md#change_protocol"
+_CHANGE_PROTOCOL_LEGACY = re.compile(r"^POLICY_SEED\.md\s*§\s*6(?:\b|$)")
+
+
+def _classify_change_protocol(value: object) -> tuple[str, str | None]:
+    if not isinstance(value, str) or not value.strip():
+        return "missing", None
+    raw = value.strip()
+    if raw == _CHANGE_PROTOCOL_CANONICAL:
+        return "canonical", raw
+    if _CHANGE_PROTOCOL_LEGACY.match(raw):
+        return "legacy", _CHANGE_PROTOCOL_CANONICAL
+    return "custom", raw
+
+
+def _docflow_change_protocol_entries(
+    docs: dict[str, Doc],
+) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for rel in sorted(docs):
+        check_deadline()
+        fm = docs[rel].frontmatter
+        status, normalized = _classify_change_protocol(fm.get("doc_change_protocol"))
+        entries.append(
+            {
+                "path": rel,
+                "doc_id": fm.get("doc_id") if isinstance(fm.get("doc_id"), str) else None,
+                "raw": fm.get("doc_change_protocol"),
+                "status": status,
+                "normalized": normalized,
+            }
+        )
+    return entries
+
+
+def _render_docflow_change_protocol_md(
+    entries: list[dict[str, object]],
+) -> list[str]:
+    counts: Counter[str] = Counter()
+    by_status: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for entry in entries:
+        status = str(entry.get("status") or "unknown")
+        counts[status] += 1
+        by_status[status].append(entry)
+    lines: list[str] = ["Docflow change-protocol normalization report"]
+    lines.append("Summary:")
+    for status in sorted(counts):
+        lines.append(f"- {status}: {counts[status]}")
+    for status in ("legacy", "custom", "missing"):
+        rows = by_status.get(status) or []
+        if not rows:
+            continue
+        lines.append(f"{status.capitalize()} entries:")
+        for entry in rows:
+            path = entry.get("path") or "?"
+            raw = entry.get("raw")
+            normalized = entry.get("normalized")
+            suffix = ""
+            if normalized and normalized != raw:
+                suffix = f" -> {normalized}"
+            lines.append(f"- {path}: {raw}{suffix}")
+    return lines
+
+
+def _emit_docflow_change_protocol(
+    docs: dict[str, Doc],
+    *,
+    json_output: Path,
+    md_output: Path,
+) -> None:
+    entries = _docflow_change_protocol_entries(docs)
+    payload = {
+        "canonical": _CHANGE_PROTOCOL_CANONICAL,
+        "entries": entries,
+    }
+    json_output.parent.mkdir(parents=True, exist_ok=True)
+    json_output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    md_output.parent.mkdir(parents=True, exist_ok=True)
+    md_output.write_text(
+        _render_docflow_report_md(
+            "docflow_change_protocol",
+            _render_docflow_change_protocol_md(entries),
+        ),
+        encoding="utf-8",
+    )
+
+
+def _docflow_section_review_rows(
+    docs: dict[str, Doc],
+    revisions: dict[str, int],
+) -> tuple[list[dict[str, object]], list[str]]:
+    rows: list[dict[str, object]] = []
+    warnings: list[str] = []
+    for rel in sorted(docs):
+        check_deadline()
+        fm = docs[rel].frontmatter
+        doc_id = fm.get("doc_id") if isinstance(fm.get("doc_id"), str) else None
+        base = _docflow_base_meta(rel, doc_id)
+        sections = fm.get("doc_sections")
+        requires_map = fm.get("doc_section_requires")
+        reviews_map = fm.get("doc_section_reviews")
+        if not isinstance(sections, dict) or not isinstance(requires_map, dict):
+            continue
+        review_lookup = reviews_map if isinstance(reviews_map, dict) else {}
+        for anchor, deps in requires_map.items():
+            check_deadline()
+            if not isinstance(anchor, str) or not anchor:
+                continue
+            anchor_version = sections.get(anchor)
+            if anchor_version is None:
+                warnings.append(f"{rel}: doc_section_requires references unknown anchor {anchor}")
+                continue
+            if not isinstance(deps, list):
+                warnings.append(f"{rel}: doc_section_requires.{anchor} must be a list")
+                continue
+            anchor_reviews = review_lookup.get(anchor, {})
+            if anchor not in review_lookup:
+                warnings.append(f"{rel}: missing doc_section_reviews for anchor {anchor}")
+            if anchor in review_lookup and not isinstance(anchor_reviews, dict):
+                warnings.append(f"{rel}: doc_section_reviews.{anchor} must be a map")
+                anchor_reviews = {}
+            for dep in deps:
+                if not isinstance(dep, str) or not dep:
+                    continue
+                expected_dep_version = revisions.get(dep)
+                review_entry = anchor_reviews.get(dep) if isinstance(anchor_reviews, dict) else None
+                status = "ok"
+                dep_version = None
+                self_version = None
+                outcome = None
+                note = None
+                if expected_dep_version is None:
+                    status = "unknown_dependency"
+                if not isinstance(review_entry, dict):
+                    status = "missing_review"
+                else:
+                    dep_version = review_entry.get("dep_version")
+                    self_version = review_entry.get("self_version_at_review")
+                    outcome = review_entry.get("outcome")
+                    note = review_entry.get("note")
+                    if not isinstance(dep_version, int) or expected_dep_version is None:
+                        status = "invalid_dep_version"
+                    elif dep_version != expected_dep_version:
+                        status = "stale_dep"
+                    if not isinstance(self_version, int):
+                        status = "invalid_self_version"
+                    elif isinstance(anchor_version, int) and self_version != anchor_version:
+                        status = "stale_self"
+                    if outcome not in {"no_change", "changed"}:
+                        status = "invalid_outcome"
+                    if not isinstance(note, str) or not note.strip():
+                        status = "missing_note"
+                if status != "ok":
+                    warnings.append(
+                        f"{rel}: {anchor} review for {dep} status={status}"
+                    )
+                rows.append(
+                    {
+                        "row_kind": "doc_section_review",
+                        **base,
+                        "anchor": anchor,
+                        "anchor_version": anchor_version,
+                        "dep": dep,
+                        "expected_dep_version": expected_dep_version,
+                        "dep_version": dep_version,
+                        "self_version_at_review": self_version,
+                        "outcome": outcome,
+                        "note_present": isinstance(note, str) and bool(note.strip()),
+                        "status": status,
+                    }
+                )
+    return rows, warnings
+
+
+def _render_docflow_section_reviews_md(
+    rows: list[dict[str, object]],
+) -> list[str]:
+    counts: Counter[str] = Counter()
+    for row in rows:
+        status = str(row.get("status") or "unknown")
+        counts[status] += 1
+    lines: list[str] = ["Docflow anchor review report"]
+    lines.append("Summary:")
+    for status in sorted(counts):
+        lines.append(f"- {status}: {counts[status]}")
+    for row in rows:
+        status = str(row.get("status") or "unknown")
+        if status == "ok":
+            continue
+        path = row.get("path") or "?"
+        anchor = row.get("anchor") or "?"
+        dep = row.get("dep") or "?"
+        expected = row.get("expected_dep_version")
+        seen = row.get("dep_version")
+        self_version = row.get("self_version_at_review")
+        lines.append(
+            f"- {path}::{anchor} -> {dep} status={status} dep={seen}/{expected} self={self_version}"
+        )
+    return lines
+
+
+def _emit_docflow_section_reviews(
+    docs: dict[str, Doc],
+    revisions: dict[str, int],
+    *,
+    json_output: Path,
+    md_output: Path,
+) -> None:
+    rows, _ = _docflow_section_review_rows(docs, revisions)
+    payload = {"rows": rows}
+    json_output.parent.mkdir(parents=True, exist_ok=True)
+    json_output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    md_output.parent.mkdir(parents=True, exist_ok=True)
+    md_output.write_text(
+        _render_docflow_report_md(
+            "docflow_section_reviews",
+            _render_docflow_section_reviews_md(rows),
+        ),
+        encoding="utf-8",
+    )
+
+def _canonicality_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mapping[str, JSONValue]], bool]]:
+    def _is_ambiguous(row: Mapping[str, JSONValue], _: Mapping[str, JSONValue]) -> bool:
+        if row.get("row_kind") != "canonicality_signal":
+            return False
+        signal = str(row.get("signal") or "")
+        return signal in {
+            "missing_anchor",
+            "explicit_without_requires",
+            "requires_without_explicit",
+            "implicit_without_requires",
+        }
+
+    return {"canonicality_is_ambiguous": _is_ambiguous}
+
+
+def _render_docflow_canonicality_md(
+    entries: list[dict[str, object]],
+    summary: dict[str, object],
+    *,
+    convergence: dict[str, object],
+    spec_id: str,
+) -> list[str]:
+    lines: list[str] = []
+    lines.append("Docflow canonicality report")
+    lines.append(f"- total_terms: {summary.get('total_terms', 0)}")
+    lines.append(f"- candidates: {summary.get('candidates', 0)}")
+    lines.append(f"- ambiguous: {summary.get('ambiguous', 0)}")
+    lines.append(f"- no_induced_meaning: {summary.get('no_induced_meaning', 0)}")
+    lines.append(f"- projection_spec_id: {spec_id}")
+    lines.append("")
+
+    candidates = [entry for entry in entries if entry.get("candidate")]
+    lines.append("Canonicality candidates:")
+    if not candidates:
+        lines.append("- (none)")
+    else:
+        for entry in sorted(candidates, key=lambda e: str(e.get("term"))):
+            heading = entry.get("heading") or ""
+            requires = entry.get("requires_docs") or []
+            lines.append(
+                f"- {entry.get('term')} ({heading}) requires={len(requires)}"
+            )
+    lines.append("")
+
+    ambiguous = [
+        entry
+        for entry in entries
+        if not entry.get("candidate")
+        and (
+            entry.get("explicit_without_requires")
+            or entry.get("requires_without_explicit")
+            or entry.get("implicit_docs")
+            or not entry.get("anchor_present", True)
+        )
+    ]
+    lines.append("Ambiguity signals:")
+    if not ambiguous:
+        lines.append("- (none)")
+    else:
+        for entry in sorted(ambiguous, key=lambda e: str(e.get("term"))):
+            term = entry.get("term")
+            reasons: list[str] = []
+            if not entry.get("anchor_present", True):
+                reasons.append("missing_anchor")
+            if entry.get("explicit_without_requires"):
+                reasons.append("explicit_without_requires")
+            if entry.get("requires_without_explicit"):
+                reasons.append("requires_without_explicit")
+            if entry.get("implicit_docs"):
+                reasons.append("implicit_without_requires")
+            reason_blob = ", ".join(reasons) if reasons else "unknown"
+            lines.append(f"- {term}: {reason_blob}")
+    lines.append("")
+
+    no_induced = [entry for entry in entries if not entry.get("requires_docs")]
+    lines.append("No induced meaning (no doc_requires references):")
+    if not no_induced:
+        lines.append("- (none)")
+    else:
+        for entry in sorted(no_induced, key=lambda e: str(e.get("term"))):
+            heading = entry.get("heading") or ""
+            lines.append(f"- {entry.get('term')} ({heading})")
+    lines.append("")
+
+    lines.append("Convergence (docflow vs projection spec):")
+    lines.append(f"- matched: {convergence.get('matched', False)}")
+    docflow_terms = convergence.get("docflow_terms", [])
+    projection_terms = convergence.get("projection_terms", [])
+    lines.append(f"- docflow_ambiguous_terms: {len(docflow_terms)}")
+    lines.append(f"- projection_ambiguous_terms: {len(projection_terms)}")
+    if not convergence.get("matched", False):
+        lines.append(f"- docflow_only: {convergence.get('docflow_only', [])}")
+        lines.append(f"- projection_only: {convergence.get('projection_only', [])}")
+    return lines
+
+
+def _emit_docflow_canonicality(
+    *,
+    root: Path,
+    extra_paths: list[str] | None,
+    json_output: Path | None,
+    md_output: Path | None,
+) -> None:
+    docs = _load_docflow_docs(root=root, extra_paths=extra_paths)
+    entries, signal_rows, summary = _docflow_canonicality_entries(docs=docs)
+
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="docflow_canonicality_ambiguity",
+        domain="docflow_canonicality",
+        pipeline=(
+            ProjectionOp("select", {"predicates": ["canonicality_is_ambiguous"]}),
+            ProjectionOp("project", {"fields": ["term", "signal", "doc"]}),
+            ProjectionOp("count_by", {"fields": ["term"]}),
+            ProjectionOp("sort", {"by": ["term"]}),
+        ),
+    )
+    op_registry = _canonicality_predicates()
+    projection_rows = apply_spec(spec, signal_rows, op_registry=op_registry)
+    projection_terms = {row.get("term") for row in projection_rows if row.get("term")}
+    docflow_terms = {
+        entry.get("term")
+        for entry in entries
+        if not entry.get("candidate")
+        and (
+            entry.get("explicit_without_requires")
+            or entry.get("requires_without_explicit")
+            or entry.get("implicit_docs")
+            or not entry.get("anchor_present", True)
+        )
+    }
+    projection_terms = {str(term) for term in projection_terms if term}
+    docflow_terms = {str(term) for term in docflow_terms if term}
+    convergence = {
+        "matched": docflow_terms == projection_terms,
+        "docflow_terms": sorted(docflow_terms),
+        "projection_terms": sorted(projection_terms),
+        "docflow_only": sorted(docflow_terms - projection_terms),
+        "projection_only": sorted(projection_terms - docflow_terms),
+    }
+
+    payload = {
+        "summary": summary,
+        "spec": {
+            "id": spec_hash(spec),
+            "payload": json.loads(spec_canonical_json(spec)),
+        },
+        "entries": entries,
+        "signals": signal_rows,
+        "projection_summary": projection_rows,
+        "convergence": convergence,
+    }
+    if json_output is not None:
+        json_output.parent.mkdir(parents=True, exist_ok=True)
+        json_output.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    if md_output is not None:
+        md_output.parent.mkdir(parents=True, exist_ok=True)
+        md_output.write_text(
+            _render_docflow_report_md(
+                "docflow_canonicality",
+                _render_docflow_canonicality_md(
+                    entries,
+                    summary,
+                    convergence=convergence,
+                    spec_id=payload["spec"]["id"],
+                ),
+            ),
+            encoding="utf-8",
+        )
+
+
+def _evaluate_docflow_invariants(
+    rows: list[dict[str, object]],
+    *,
+    invariants: Iterable[DocflowInvariant],
+) -> list[str]:
+    violations: list[str] = []
+    op_registry = _docflow_predicates()
+    for invariant in invariants:
+        check_deadline()
+        matched = apply_spec(
+            invariant.spec,
+            rows,
+            op_registry=op_registry,
+        )
+        if invariant.kind == "never":
+            for row in matched:
+                violations.append(_format_docflow_violation(row))
+        elif invariant.kind == "require":
+            if not matched:
+                violations.append(f"docflow invariant failed: {invariant.name}")
+    return violations
+
+
+def _parse_docflow_invariant_entry(entry: object) -> DocflowInvariant | None:
+    if isinstance(entry, dict):
+        kind = str(entry.get("kind", "never") or "never").strip().lower()
+        status_raw = str(entry.get("status", "active") or "active").strip().lower()
+        status = status_raw if status_raw in {"active", "proposed"} else "active"
+        cover_kind = entry.get("cover_evidence_kind")
+        cover_id = entry.get("cover_evidence_id")
+        cover_source = entry.get("cover_evidence_source")
+        if cover_kind or cover_id or cover_source:
+            predicates: list[str] = []
+            params: dict[str, JSONValue] = {}
+
+            def _collect_list(value: object) -> list[str]:
+                if isinstance(value, list):
+                    return [str(v).strip() for v in value if str(v).strip()]
+                if isinstance(value, str) and value.strip():
+                    return [value.strip()]
+                return []
+
+            kind_list = _collect_list(cover_kind)
+            if kind_list:
+                predicates.append("evidence_kind")
+                params["evidence_kinds" if len(kind_list) > 1 else "evidence_kind"] = (
+                    kind_list if len(kind_list) > 1 else kind_list[0]
+                )
+            id_list = _collect_list(cover_id)
+            if id_list:
+                predicates.append("evidence_id")
+                params["evidence_ids" if len(id_list) > 1 else "evidence_id"] = (
+                    id_list if len(id_list) > 1 else id_list[0]
+                )
+            source_list = _collect_list(cover_source)
+            if source_list:
+                predicates.append("evidence_source")
+                params["evidence_sources" if len(source_list) > 1 else "evidence_source"] = (
+                    source_list if len(source_list) > 1 else source_list[0]
+                )
+            if predicates:
+                name = str(entry.get("name") or "docflow:cover")
+                spec = ProjectionSpec(
+                    spec_version=1,
+                    name=name,
+                    domain="docflow",
+                    pipeline=(ProjectionOp(op="select", params={"predicates": predicates}),),
+                    params=params,
+                )
+                return DocflowInvariant(name=name, kind="cover", spec=spec, status=status)
+        spec_payload = entry.get("spec")
+        spec_json = entry.get("spec_json")
+        spec_data: dict[str, JSONValue] | None = None
+        if isinstance(spec_payload, dict):
+            spec_data = {str(k): spec_payload[k] for k in spec_payload}
+        elif isinstance(spec_json, str) and spec_json.strip():
+            try:
+                spec_data = json.loads(spec_json)
+            except Exception:
+                spec_data = None
+        if spec_data is None:
+            return None
+        spec = spec_from_dict(spec_data)
+        name = str(entry.get("name") or spec.name or "docflow:custom")
+        return DocflowInvariant(name=name, kind=kind, spec=spec, status=status)
+    if isinstance(entry, str):
+        entry = entry.strip()
+        if entry.startswith("{") and entry.endswith("}"):
+            try:
+                spec_data = json.loads(entry)
+            except Exception:
+                return None
+            spec = spec_from_dict(spec_data)
+            return DocflowInvariant(name=str(spec.name or "docflow:inline"), kind="never", spec=spec)
+    return None
+
+
+def _parse_inline_docflow_invariants(rel: str, body: str) -> list[DocflowInvariant]:
+    invariants: list[DocflowInvariant] = []
+    pattern = re.compile(r"docflow:\s*(never|require)\(([^)]*)\)")
+    for lineno, line in enumerate(body.splitlines(), start=1):
+        for match in pattern.finditer(line):
+            kind = match.group(1).strip().lower()
+            raw_pred = match.group(2).strip()
+            if not raw_pred:
+                continue
+            predicates = [part.strip() for part in raw_pred.split(",") if part.strip()]
+            name = f"docflow:{rel}:{lineno}:{kind}"
+            invariants.append(
+                DocflowInvariant(
+                    name=name,
+                    kind=kind,
+                    spec=_make_invariant_spec(name, predicates),
+                    status="active",
+                )
+            )
+    return invariants
+
+
+def _collect_docflow_invariants(
+    docs: dict[str, Doc],
+) -> list[DocflowInvariant]:
+    invariants: list[DocflowInvariant] = list(DOCFLOW_AUDIT_INVARIANTS)
+    for rel, payload in docs.items():
+        check_deadline()
+        fm = payload.frontmatter
+        inv_list = fm.get("doc_invariants")
+        if isinstance(inv_list, list):
+            for entry in inv_list:
+                custom = _parse_docflow_invariant_entry(entry)
+                if custom is not None:
+                    invariants.append(custom)
+        invariants.extend(_parse_inline_docflow_invariants(rel, payload.body))
+    return invariants
 
 
 def _lower_name(path: Path) -> str:
     return path.stem.lower()
 
 
-def _docflow_audit(
+def _docflow_audit_context(
     root: Path,
     extra_paths: list[str] | None = None,
     *,
     extra_strict: bool = False,
-) -> Tuple[List[str], List[str]]:
+) -> DocflowAuditContext:
     violations: List[str] = []
     warnings: List[str] = []
 
@@ -619,6 +2772,7 @@ def _docflow_audit(
     doc_ids: dict[str, str] = {}
     extra_revisions: dict[str, int] = {}
     skipped_no_frontmatter: set[str] = set()
+    missing_frontmatter: set[str] = set()
 
     def _load_doc(path: Path, rel: str, *, strict: bool = False) -> None:
         if rel in docs:
@@ -629,7 +2783,7 @@ def _docflow_audit(
         fm, body = _parse_frontmatter(text)
         if not fm:
             if strict:
-                violations.append(f"{rel}: missing frontmatter")
+                missing_frontmatter.add(rel)
             else:
                 warnings.append(f"{rel}: missing frontmatter; skipping")
             skipped_no_frontmatter.add(rel)
@@ -673,6 +2827,7 @@ def _docflow_audit(
             skipped_no_frontmatter.add(rel)
             return
         extra_revisions[rel] = revision
+        _add_section_revisions(extra_revisions, rel=rel, fm=fm)
 
     for rel in GOVERNANCE_DOCS:
         check_deadline()
@@ -703,101 +2858,23 @@ def _docflow_audit(
         fm = payload.frontmatter
         if isinstance(fm.get("doc_revision"), int):
             revisions[rel] = fm["doc_revision"]
+        _add_section_revisions(revisions, rel=rel, fm=fm)
     revisions.update(extra_revisions)
 
-    for rel, payload in docs.items():
-        check_deadline()
-        fm = payload.frontmatter
-        body = payload.body
-        # Required fields
-        for field in REQUIRED_FIELDS:
-            check_deadline()
-            if field not in fm:
-                violations.append(f"{rel}: missing frontmatter field '{field}'")
-        # Required list for doc_scope/doc_requires
-        for field in ("doc_scope", "doc_requires"):
-            check_deadline()
-            if field in fm and not isinstance(fm[field], list):
-                violations.append(f"{rel}: frontmatter field '{field}' must be a list")
-        for field in ("doc_reviewed_as_of", "doc_review_notes"):
-            check_deadline()
-            if field in fm and not isinstance(fm[field], dict):
-                violations.append(
-                    f"{rel}: frontmatter field '{field}' must be a map"
-                )
-        # Normative docs must require the governance bundle.
-        if fm.get("doc_authority") == "normative":
-            requires = set(fm.get("doc_requires", []))
-            expected = core_set - {rel}
-            missing = sorted(expected - requires)
-            if missing:
-                violations.append(
-                    f"{rel}: missing required governance references: {', '.join(missing)}"
-                )
-        # Commutation symmetry
-        commutes = fm.get("doc_commutes_with")
-        if isinstance(commutes, list):
-            for other in commutes:
-                check_deadline()
-                other_doc = docs.get(other)
-                if other_doc is None:
-                    violations.append(f"{rel}: doc_commutes_with target missing: {other}")
-                    continue
-                other_fm = other_doc.frontmatter
-                other_commutes = other_fm.get("doc_commutes_with", [])
-                if not isinstance(other_commutes, list) or rel not in other_commutes:
-                    violations.append(
-                        f"{rel}: commutation with {other} not reciprocated"
-                    )
-        # Body references vs frontmatter requirements
-        requires = fm.get("doc_requires", [])
-        if isinstance(requires, list):
-            body_lower = body.lower()
-            for req in requires:
-                check_deadline()
-                if req in body:
-                    continue
-                req_name = _lower_name(Path(req))
-                if req_name and req_name in body_lower:
-                    warnings.append(
-                        f"{rel}: implicit reference to {req} (Tier-2); prefer explicit path"
-                    )
-                else:
-                    violations.append(f"{rel}: missing explicit reference to {req}")
-        # Convergence check (re-reviewed as of)
-        reviewed = fm.get("doc_reviewed_as_of")
-        review_notes = fm.get("doc_review_notes")
-        if isinstance(requires, list) and requires:
-            if not isinstance(reviewed, dict):
-                violations.append(f"{rel}: doc_reviewed_as_of missing or invalid")
-            else:
-                for req in requires:
-                    check_deadline()
-                    expected = revisions.get(req)
-                    if expected is None:
-                        violations.append(
-                            f"{rel}: doc_reviewed_as_of cannot resolve {req}"
-                        )
-                        continue
-                    seen = reviewed.get(req)
-                    if not isinstance(seen, int):
-                        violations.append(
-                            f"{rel}: doc_reviewed_as_of[{req}] must be an integer"
-                        )
-                    elif seen != expected:
-                        violations.append(
-                            f"{rel}: doc_reviewed_as_of[{req}]={seen} does not match {expected}"
-                        )
-            if not isinstance(review_notes, dict):
-                violations.append(f"{rel}: doc_review_notes missing or invalid")
-            else:
-                for req in requires:
-                    check_deadline()
-                    note = review_notes.get(req)
-                    if not isinstance(note, str) or not note.strip():
-                        violations.append(
-                            f"{rel}: doc_review_notes[{req}] missing or empty"
-                        )
+    invariant_rows, invariant_warnings = _docflow_invariant_rows(
+        docs=docs,
+        revisions=revisions,
+        core_set=core_set,
+        missing_frontmatter=missing_frontmatter,
+    )
+    evidence_payload = _load_test_evidence(root)
+    if evidence_payload is not None:
+        invariant_rows.extend(_evidence_rows_from_test_evidence(evidence_payload))
+    else:
+        warnings.append("docflow: missing test_evidence.json; evidence compliance skipped")
+    warnings.extend(invariant_warnings)
+    invariants = _collect_docflow_invariants(docs)
+    violations.extend(_evaluate_docflow_invariants(invariant_rows, invariants=invariants))
 
     warnings.extend(_tooling_warnings(root, docs))
     warnings.extend(_influence_warnings(root))
@@ -805,9 +2882,28 @@ def _docflow_audit(
     sppf_violations, sppf_warnings = _sppf_axis_audit(root, docs)
     violations.extend(sppf_violations)
     warnings.extend(sppf_warnings)
+    _, section_review_warnings = _docflow_section_review_rows(docs, revisions)
+    warnings.extend(section_review_warnings)
 
     _ = governance_set
-    return violations, warnings
+    return DocflowAuditContext(
+        docs=docs,
+        revisions=revisions,
+        invariant_rows=invariant_rows,
+        invariants=invariants,
+        warnings=warnings,
+        violations=violations,
+    )
+
+
+def _docflow_audit(
+    root: Path,
+    extra_paths: list[str] | None = None,
+    *,
+    extra_strict: bool = False,
+) -> Tuple[List[str], List[str]]:
+    context = _docflow_audit_context(root, extra_paths=extra_paths, extra_strict=extra_strict)
+    return context.violations, context.warnings
 
 
 def _tooling_warnings(root: Path, docs: dict[str, Doc]) -> List[str]:
@@ -1370,10 +3466,48 @@ def _summarize_lint(lines: Iterable[str]) -> dict[str, object]:
 
 def _docflow_command(args: argparse.Namespace) -> int:
     root = Path(args.root)
-    violations, warnings = _docflow_audit(
+    context = _docflow_audit_context(
         root,
         extra_paths=args.extra_path,
         extra_strict=args.extra_strict,
+    )
+    docs = _load_docflow_docs(root=root, extra_paths=args.extra_path)
+    violations = context.violations
+    warnings = context.warnings
+    _emit_docflow_suite_artifacts(
+        root=root,
+        extra_paths=args.extra_path,
+        issues_json=args.issues_json,
+        forest_output=args.suite_forest,
+        relation_output=args.suite_relation,
+    )
+    _emit_docflow_compliance(
+        rows=context.invariant_rows,
+        invariants=context.invariants,
+        json_output=args.compliance_json,
+        md_output=args.compliance_md,
+    )
+    _emit_docflow_canonicality(
+        root=root,
+        extra_paths=args.extra_path,
+        json_output=args.canonicality_json,
+        md_output=args.canonicality_md,
+    )
+    _emit_docflow_cycles(
+        docs,
+        json_output=args.cycles_json,
+        md_output=args.cycles_md,
+    )
+    _emit_docflow_change_protocol(
+        docs,
+        json_output=args.change_protocol_json,
+        md_output=args.change_protocol_md,
+    )
+    _emit_docflow_section_reviews(
+        docs,
+        context.revisions,
+        json_output=args.section_reviews_json,
+        md_output=args.section_reviews_md,
     )
 
     print("Docflow audit summary")
@@ -1504,7 +3638,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--extra-path",
         action="append",
-        default=["in"],
+        default=["in", "out"],
         help="Additional doc path(s) or directories to include (repeatable).",
     )
     parser.add_argument(
@@ -1516,6 +3650,84 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
         "--fail-on-violations",
         action="store_true",
         help="Exit non-zero if violations are detected",
+    )
+    parser.add_argument(
+        "--issues-json",
+        type=Path,
+        default=None,
+        help="Optional GH issues JSON payload (gh issue list --json ...) for suite metadata.",
+    )
+    parser.add_argument(
+        "--suite-forest",
+        type=Path,
+        default=Path("artifacts/docflow_suite_forest.json"),
+        help="Output path for docflow SuiteSite forest JSON.",
+    )
+    parser.add_argument(
+        "--suite-relation",
+        type=Path,
+        default=Path("artifacts/docflow_suite_relation.json"),
+        help="Output path for docflow SuiteSite relation JSON.",
+    )
+    parser.add_argument(
+        "--compliance-json",
+        type=Path,
+        default=Path("artifacts/out/docflow_compliance.json"),
+        help="Output path for docflow compliance JSON.",
+    )
+    parser.add_argument(
+        "--compliance-md",
+        type=Path,
+        default=Path("out/docflow_compliance.md"),
+        help="Output path for docflow compliance markdown.",
+    )
+    parser.add_argument(
+        "--canonicality-json",
+        type=Path,
+        default=Path("artifacts/out/docflow_canonicality.json"),
+        help="Output path for docflow canonicality JSON.",
+    )
+    parser.add_argument(
+        "--canonicality-md",
+        type=Path,
+        default=Path("out/docflow_canonicality.md"),
+        help="Output path for docflow canonicality markdown.",
+    )
+    parser.add_argument(
+        "--cycles-json",
+        type=Path,
+        default=Path("artifacts/out/docflow_cycles.json"),
+        help="Output path for docflow dependency cycle JSON.",
+    )
+    parser.add_argument(
+        "--cycles-md",
+        type=Path,
+        default=Path("out/docflow_cycles.md"),
+        help="Output path for docflow dependency cycle markdown.",
+    )
+    parser.add_argument(
+        "--change-protocol-json",
+        type=Path,
+        default=Path("artifacts/out/docflow_change_protocol.json"),
+        help="Output path for docflow change-protocol JSON.",
+    )
+    parser.add_argument(
+        "--change-protocol-md",
+        type=Path,
+        default=Path("out/docflow_change_protocol.md"),
+        help="Output path for docflow change-protocol markdown.",
+    )
+    parser.add_argument(
+        "--section-reviews-json",
+        type=Path,
+        default=Path("artifacts/out/docflow_section_reviews.json"),
+        help="Output path for docflow anchor review JSON.",
+    )
+    parser.add_argument(
+        "--section-reviews-md",
+        type=Path,
+        default=Path("out/docflow_section_reviews.md"),
+        help="Output path for docflow anchor review markdown.",
     )
     parser.set_defaults(func=_docflow_command)
 

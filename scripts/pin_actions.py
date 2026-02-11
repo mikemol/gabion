@@ -12,6 +12,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from gabion.analysis.timeout_context import check_deadline
+
 
 USES_RE = re.compile(r"^(\s*(?:-\s+)?uses:\s+)([^@\s]+)@([^\s]+)\s*$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -84,6 +86,7 @@ def _pin_file(path: Path) -> tuple[int, list[str]]:
     updated = 0
     pinned: list[str] = []
     for i, line in enumerate(lines):
+        check_deadline()
         match = USES_RE.match(line)
         if not match:
             continue
@@ -113,12 +116,14 @@ def main() -> int:
 
     total = 0
     for raw in args.paths:
+        check_deadline()
         path = Path(raw)
         if not path.exists():
             raise SystemExit(f"File not found: {path}")
         updated, pinned = _pin_file(path)
         total += updated
         for line in pinned:
+            check_deadline()
             print(f"{path}: {line}")
     print(f"Updated {total} action reference(s).")
     return 0

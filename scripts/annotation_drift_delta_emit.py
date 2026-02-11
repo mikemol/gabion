@@ -14,7 +14,7 @@ def _build_command() -> list[str]:
         "check",
         "--emit-test-annotation-drift-delta",
     ]
-    state_path = Path("out/test_annotation_drift.json")
+    state_path = Path("artifacts/out/test_annotation_drift.json")
     if state_path.exists():
         cmd.extend(["--test-annotation-drift-state", str(state_path)])
     return cmd

@@ -6,6 +6,8 @@ import subprocess
 import sys
 from typing import Any
 
+from gabion.analysis.timeout_context import check_deadline
+
 
 def _run(*cmd: str) -> str:
     proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
@@ -70,6 +72,7 @@ def main() -> int:
     if not run_id:
         if args.prefer_active:
             for status in ("in_progress", "queued", "requested", "waiting", "pending"):
+                check_deadline()
                 run_id = _find_run_id(args.branch, status, args.workflow)
                 if run_id:
                     break

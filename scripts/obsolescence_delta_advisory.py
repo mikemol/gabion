@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 
+from gabion.analysis.timeout_context import check_deadline
+
 
 ENV_FLAG = "GABION_GATE_UNMAPPED_DELTA"
 
@@ -32,6 +34,7 @@ def _print_summary(delta_path: Path) -> None:
     ]
     print("Test obsolescence delta summary (advisory):")
     for key in keys:
+        check_deadline()
         print(
             f"- {key}: {baseline.get(key, 0)} -> {current.get(key, 0)} ({delta.get(key, 0)})"
         )
@@ -49,7 +52,7 @@ def main() -> int:
                 f"{ENV_FLAG}=1 enables the gate."
             )
             return 0
-        _print_summary(Path("out/test_obsolescence_delta.json"))
+        _print_summary(Path("artifacts/out/test_obsolescence_delta.json"))
     except Exception as exc:  # advisory only; keep CI green
         print(f"Test obsolescence delta advisory error: {exc}")
     return 0

@@ -17,7 +17,7 @@ def main() -> int:
     if not _enabled():
         print(f"Unmapped delta gate disabled; set {ENV_FLAG}=1 to enable.")
         return 0
-    path = Path("out/test_obsolescence_delta.json")
+    path = Path("artifacts/out/test_obsolescence_delta.json")
     if not path.exists():
         print("Test obsolescence delta missing; gate skipped.")
         return 0

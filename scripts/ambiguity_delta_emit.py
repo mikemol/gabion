@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _build_command() -> list[str]:
     cmd = [sys.executable, "-m", "gabion", "check", "--emit-ambiguity-delta"]
-    state_path = Path("out/ambiguity_state.json")
+    state_path = Path("artifacts/out/ambiguity_state.json")
     if state_path.exists():
         cmd.extend(["--ambiguity-state", str(state_path)])
     return cmd

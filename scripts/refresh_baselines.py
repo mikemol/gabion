@@ -3,17 +3,23 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+from gabion.analysis.timeout_context import check_deadline
 
-OBSOLESCENCE_DELTA_PATH = Path("out/test_obsolescence_delta.json")
-ANNOTATION_DRIFT_DELTA_PATH = Path("out/test_annotation_drift_delta.json")
-AMBIGUITY_DELTA_PATH = Path("out/ambiguity_delta.json")
-OBSOLESCENCE_STATE_PATH = Path("out/test_obsolescence_state.json")
-ANNOTATION_DRIFT_STATE_PATH = Path("out/test_annotation_drift.json")
-AMBIGUITY_STATE_PATH = Path("out/ambiguity_state.json")
+
+OBSOLESCENCE_DELTA_PATH = Path("artifacts/out/test_obsolescence_delta.json")
+ANNOTATION_DRIFT_DELTA_PATH = Path("artifacts/out/test_annotation_drift_delta.json")
+AMBIGUITY_DELTA_PATH = Path("artifacts/out/ambiguity_delta.json")
+DOCFLOW_DELTA_PATH = Path("artifacts/out/docflow_compliance_delta.json")
+OBSOLESCENCE_STATE_PATH = Path("artifacts/out/test_obsolescence_state.json")
+ANNOTATION_DRIFT_STATE_PATH = Path("artifacts/out/test_annotation_drift.json")
+AMBIGUITY_STATE_PATH = Path("artifacts/out/ambiguity_state.json")
+DOCFLOW_BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
+DOCFLOW_CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
 
 ENV_GATE_UNMAPPED = "GABION_GATE_UNMAPPED_DELTA"
 ENV_GATE_ORPHANED = "GABION_GATE_ORPHANED_DELTA"
@@ -37,6 +43,17 @@ def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -
     subprocess.run(cmd, check=True, timeout=timeout, env=env)
 
 
+def _run_docflow_delta_emit(timeout: int | None) -> None:
+    env = dict(os.environ)
+    env.setdefault("GABION_DIRECT_RUN", "1")
+    subprocess.run(
+        [sys.executable, "scripts/docflow_delta_emit.py"],
+        check=True,
+        timeout=timeout,
+        env=env,
+    )
+
+
 def _state_args(path: Path, flag: str) -> list[str]:
     if path.exists():
         return [flag, str(path)]
@@ -55,6 +72,7 @@ def _load_json(path: Path) -> dict[str, object]:
 def _get_nested(payload: object, keys: list[str], default: int = 0) -> int:
     current = payload
     for key in keys:
+        check_deadline()
         if not isinstance(current, dict):
             return default
         current = current.get(key)
@@ -129,6 +147,22 @@ def _guard_ambiguity_delta(timeout: int | None) -> None:
         )
 
 
+def _guard_docflow_delta(timeout: int | None) -> None:
+    _run_docflow_delta_emit(timeout)
+    if not DOCFLOW_DELTA_PATH.exists():
+        raise FileNotFoundError(
+            f"Missing docflow delta output at {DOCFLOW_DELTA_PATH}"
+        )
+    payload = _load_json(DOCFLOW_DELTA_PATH)
+    if payload.get("baseline_missing"):
+        return
+    contradicts = _get_nested(payload, ["summary", "delta", "contradicts"])
+    if contradicts > 0:
+        raise SystemExit(
+            "Refusing to refresh docflow baseline: contradictions delta > 0."
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Refresh baseline carriers via gabion check.",
@@ -154,6 +188,11 @@ def main() -> int:
         help="Refresh all baselines (default when no flags provided).",
     )
     parser.add_argument(
+        "--docflow",
+        action="store_true",
+        help="Refresh baselines/docflow_compliance_baseline.json",
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=None,
@@ -161,7 +200,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    if not (args.obsolescence or args.annotation_drift or args.ambiguity or args.all):
+    if not (
+        args.obsolescence
+        or args.annotation_drift
+        or args.ambiguity
+        or args.docflow
+        or args.all
+    ):
         args.all = True
 
     if args.all or args.obsolescence:
@@ -187,6 +232,14 @@ def main() -> int:
             args.timeout,
             _state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
         )
+    if args.all or args.docflow:
+        _guard_docflow_delta(args.timeout)
+        if not DOCFLOW_CURRENT_PATH.exists():
+            raise FileNotFoundError(
+                f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"
+            )
+        DOCFLOW_BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(DOCFLOW_CURRENT_PATH, DOCFLOW_BASELINE_PATH)
 
     return 0
 

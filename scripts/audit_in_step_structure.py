@@ -6,6 +6,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from gabion.analysis.timeout_context import check_deadline
+
 
 REQUIRED_FRONTMATTER_FIELDS = {
     "doc_id",
@@ -51,6 +53,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], list[str]]:
     fm_lines: list[str] = []
     idx = 1
     while idx < len(lines):
+        check_deadline()
         line = lines[idx]
         if line.strip() == "---":
             idx += 1
@@ -66,6 +69,7 @@ def _parse_yaml_like(lines: list[str]) -> dict[str, object]:
     current_list_key: str | None = None
     current_map_key: str | None = None
     for raw in lines:
+        check_deadline()
         line = raw.rstrip()
         if not line.strip() or line.lstrip().startswith("#"):
             continue
@@ -110,6 +114,7 @@ def _normalize_header(header: str) -> str:
 def _collect_headers(body_lines: list[str]) -> list[str]:
     headers: list[str] = []
     for line in body_lines:
+        check_deadline()
         if not line.startswith("#"):
             continue
         stripped = line.lstrip("#").strip()
@@ -131,11 +136,13 @@ def _audit_doc(path: Path) -> list[str]:
         return violations
 
     for field in REQUIRED_FRONTMATTER_FIELDS:
+        check_deadline()
         if field not in frontmatter:
             violations.append(f"{path}: missing frontmatter field '{field}'")
 
     headers = set(_collect_headers(body_lines))
     for section in REQUIRED_SECTIONS:
+        check_deadline()
         if section not in headers:
             violations.append(f"{path}: missing section '{section}'")
 
@@ -148,6 +155,7 @@ def _audit_doc(path: Path) -> list[str]:
 def _iter_paths(paths: list[str]) -> list[Path]:
     resolved: list[Path] = []
     for raw in paths:
+        check_deadline()
         path = Path(raw)
         if path.is_dir():
             resolved.extend(sorted(path.rglob("*.md")))
@@ -163,6 +171,7 @@ def main(argv: list[str] | None = None) -> int:
 
     violations: list[str] = []
     for path in _iter_paths(args.paths):
+        check_deadline()
         if not path.exists():
             violations.append(f"{path}: missing file")
             continue
@@ -170,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if violations:
         for violation in violations:
+            check_deadline()
             print(violation)
         return 2
     return 0

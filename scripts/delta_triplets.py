@@ -5,6 +5,8 @@ import os
 import subprocess
 import sys
 
+from gabion.analysis.timeout_context import check_deadline
+
 
 TRIPLETS: dict[str, list[str]] = {
     "obsolescence": [
@@ -23,6 +25,11 @@ TRIPLETS: dict[str, list[str]] = {
         "scripts/ambiguity_delta_advisory.py",
         "scripts/ambiguity_delta_gate.py",
     ],
+    "docflow": [
+        "scripts/docflow_delta_emit.py",
+        "scripts/docflow_delta_advisory.py",
+        "scripts/docflow_delta_gate.py",
+    ],
 }
 
 
@@ -31,6 +38,7 @@ def _run_triplet(name: str, steps: list[str]) -> int:
     env = dict(os.environ)
     env.setdefault("GABION_DIRECT_RUN", "1")
     for step in steps:
+        check_deadline()
         result = subprocess.run([sys.executable, step], check=False, env=env)
         if result.returncode != 0:
             print(f"{name} step failed: {step} (exit {result.returncode})")
@@ -48,6 +56,7 @@ def main() -> int:
             for name, steps in TRIPLETS.items()
         }
         for future in concurrent.futures.as_completed(futures):
+            check_deadline()
             name = futures[future]
             try:
                 result = future.result()

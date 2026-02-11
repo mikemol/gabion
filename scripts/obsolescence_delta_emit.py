@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _build_command() -> list[str]:
     cmd = [sys.executable, "-m", "gabion", "check", "--emit-test-obsolescence-delta"]
-    state_path = Path("out/test_obsolescence_state.json")
+    state_path = Path("artifacts/out/test_obsolescence_state.json")
     if state_path.exists():
         cmd.extend(["--test-obsolescence-state", str(state_path)])
     return cmd

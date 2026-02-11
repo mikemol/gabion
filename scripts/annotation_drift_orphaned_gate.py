@@ -69,7 +69,7 @@ def check_gate(path: Path, *, enabled: bool | None = None) -> int:
 
 
 def main() -> int:
-    return check_gate(Path("out/test_annotation_drift_delta.json"))
+    return check_gate(Path("artifacts/out/test_annotation_drift_delta.json"))
 
 
 if __name__ == "__main__":

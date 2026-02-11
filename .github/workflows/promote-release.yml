@@ -47,6 +47,7 @@ jobs:
           fi
           HEAD_SHA=$(git rev-parse HEAD)
           NEXT_SHA=$(git rev-parse origin/next)
+          RELEASE_SHA=$(git rev-parse origin/release)
           TAG_SHA=$(git rev-parse "refs/tags/$TAG^{commit}")
           if [ "$HEAD_SHA" != "$TAG_SHA" ]; then
             echo "Workflow head sha must match tag."
@@ -61,4 +62,4 @@ jobs:
           git merge-base --is-ancestor "$HEAD_SHA" origin/main
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git push --force-with-lease origin "$HEAD_SHA":refs/heads/release
+          git push --force-with-lease=refs/heads/release:"$RELEASE_SHA" origin "$HEAD_SHA":refs/heads/release

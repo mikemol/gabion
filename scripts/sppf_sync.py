@@ -13,6 +13,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
+from gabion.analysis.timeout_context import check_deadline
+
 
 GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 KEYWORD_REF_RE = re.compile(r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE)
@@ -53,6 +55,7 @@ def _collect_commits(rev_range: str) -> list[CommitInfo]:
 
     commits: list[CommitInfo] = []
     for record in raw.split("\x1e"):
+        check_deadline()
         if not record.strip():
             continue
         parts = record.split("\x1f")
@@ -72,6 +75,7 @@ def _extract_issue_ids(text: str) -> set[str]:
 def _issue_ids_from_commits(commits: list[CommitInfo]) -> set[str]:
     issues: set[str] = set()
     for commit in commits:
+        check_deadline()
         issues.update(_extract_issue_ids(commit.subject))
         issues.update(_extract_issue_ids(commit.body))
     return issues
@@ -80,6 +84,7 @@ def _issue_ids_from_commits(commits: list[CommitInfo]) -> set[str]:
 def _build_comment(rev_range: str, commits: list[CommitInfo]) -> str:
     lines = [f"SPPF sync from `{rev_range}`:"]
     for commit in commits:
+        check_deadline()
         lines.append(f"- {commit.sha[:8]} {commit.subject}")
     return "\n".join(lines)
 
@@ -129,6 +134,7 @@ def main() -> int:
 
     comment = _build_comment(rev_range, commits)
     for issue_id in issue_ids:
+        check_deadline()
         if args.close:
             _run_gh(["issue", "close", issue_id, "-c", comment], args.dry_run)
         elif args.comment:

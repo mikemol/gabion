@@ -60,7 +60,7 @@ def check_gate(path: Path, *, enabled: bool | None = None) -> int:
 
 
 def main() -> int:
-    return check_gate(Path("out/ambiguity_delta.json"))
+    return check_gate(Path("artifacts/out/ambiguity_delta.json"))
 
 
 if __name__ == "__main__":
