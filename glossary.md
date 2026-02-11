@@ -1,5 +1,5 @@
 ---
-doc_revision: 42
+doc_revision: 43
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -43,8 +43,8 @@ doc_sections:
   test_obsolescence_projection: 1
   test_evidence_suggestions_projection: 1
   evidence_key: 1
-  ambiguity_set: 1
-  partition_witness: 1
+  ambiguity_set: 2
+  partition_witness: 2
   annotation_drift: 1
   grothendieck_analysis: 1
   self_review: 1
@@ -1953,9 +1953,10 @@ Display formatting is erased; key identity is not.
 
 ### Meaning
 
-**Definition:** A canonical, order-independent set of candidate carriers when
-resolution is not unique. Ambiguity sets are derived from the graph carrier
-and recorded as first-class nodes.
+**Definition:** An emergent, order-independent set of candidate carriers when
+resolution is not unique. Ambiguity sets are **not** first-class nodes; they
+are derived from the graph carrier as the **set of CallCandidate alts** attached
+to a call SuiteSite.
 
 ### Axis
 
@@ -1973,11 +1974,13 @@ permute(C) ⇒ same Ambiguity Set
 
 - Ambiguity erased or silently resolved without recording candidates.
 - Candidate ordering treated as identity.
+- Ambiguity reified as a node rather than a derived property of topology.
 
 ### Normative Rule
 
-> Ambiguity Sets must be derived from the graph carrier and recorded with
-> canonical candidate ordering. Resolution must not drop candidates.
+> Ambiguity Sets must be **derived** from CallCandidate alts on a call SuiteSite.
+> Candidate ordering is erased; resolution must not drop candidates unless the
+> corresponding CallCandidate alt is removed.
 
 ### Erasure
 
@@ -1995,7 +1998,8 @@ Candidate ordering is erased; candidate identity is not.
 ### Meaning
 
 **Definition:** A structured certificate explaining why an ambiguity exists
-and what would collapse it, anchored to a specific Ambiguity Set.
+and what would collapse it, anchored to the call SuiteSite exhibiting the
+ambiguity.
 
 ### Axis
 
@@ -2014,8 +2018,9 @@ permute(candidates) ⇒ same Partition Witness
 
 ### Normative Rule
 
-> Each Ambiguity Set must have at least one Partition Witness that records
-> the resolution phase and a minimal collapse hint.
+> Each ambiguous call SuiteSite must have at least one Partition Witness that
+> records the resolution phase and a minimal collapse hint. The witness must
+> be stable under candidate-order permutation.
 
 ### Erasure
 
