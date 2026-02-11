@@ -37,6 +37,7 @@ def normalize_string_list(value: object) -> list[str]:
 
     parts: list[str] = []
     for item in raw:
+        check_deadline()
         parts.extend([part.strip() for part in item.split(",") if part.strip()])
     return sorted(set(parts))
 
@@ -72,6 +73,7 @@ def exception_obligation_summary_for_site(
     summary = {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0}
     bundle_key = site.bundle_key()
     for entry in obligations:
+        check_deadline()
         raw_site = entry.get("site", {}) or {}
         if not isinstance(raw_site, Mapping):
             continue

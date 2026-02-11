@@ -53,6 +53,7 @@ def _normalize_span(value: object) -> list[int] | None:
         return None
     normalized: list[int] = []
     for part in parts:
+        check_deadline()
         try:
             item = int(part)  # type: ignore[arg-type]
         except (TypeError, ValueError):
@@ -86,6 +87,7 @@ def normalize_targets(targets: Iterable[object]) -> list[dict[str, str]]:
     check_deadline()
     cleaned: dict[tuple[str, str], dict[str, str]] = {}
     for target in targets:
+        check_deadline()
         parts = _normalize_target(target)
         if not parts:
             continue
@@ -384,6 +386,7 @@ def render_display(
         targets = normalized.get("targets", [])
         if isinstance(targets, list):
             for target in targets:
+                check_deadline()
                 if not isinstance(target, Mapping):
                     continue
                 target_path = str(target.get("path", "") or "")
@@ -397,6 +400,7 @@ def render_display(
         parts: list[str] = []
         if isinstance(targets, list):
             for target in targets:
+                check_deadline()
                 if not isinstance(target, Mapping):
                     continue
                 target_path = str(target.get("path", "") or "")
@@ -456,6 +460,7 @@ def parse_display(display: str) -> dict[str, object] | None:
             return None
         target_pairs = []
         for idx in range(0, len(targets), 2):
+            check_deadline()
             target_pairs.append((targets[idx], targets[idx + 1]))
         return make_call_footprint_key(path=path, qual=qual, targets=target_pairs)
     if prefix == "call_cluster":
@@ -465,6 +470,7 @@ def parse_display(display: str) -> dict[str, object] | None:
             return None
         target_pairs = []
         for idx in range(0, len(rest), 2):
+            check_deadline()
             target_pairs.append((rest[idx], rest[idx + 1]))
         return make_call_cluster_key(targets=target_pairs)
     if prefix == "ambiguity_set":
