@@ -12,6 +12,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.report_markdown import render_report_markdown
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
@@ -53,9 +54,11 @@ def build_call_cluster_consolidation_payload(
     plan: list[ConsolidationEntry] = []
 
     for entry in entries:
+        check_deadline()
         call_footprints: list[tuple[tuple[tuple[str, str], ...], str]] = []
         call_clusters: set[tuple[tuple[str, str], ...]] = set()
         for token in entry.evidence:
+            check_deadline()
             key = evidence_keys.parse_display(token)
             if key is None:
                 continue
@@ -107,6 +110,7 @@ def build_call_cluster_consolidation_payload(
 
     cluster_summaries: list[ClusterSummary] = []
     for cluster in clusters.values():
+        check_deadline()
         tests = tuple(sorted({str(test_id) for test_id in cluster["tests"]}))
         cluster_summaries.append(
             ClusterSummary(
@@ -125,6 +129,7 @@ def build_call_cluster_consolidation_payload(
 
     relation: list[dict[str, JSONValue]] = []
     for entry in plan:
+        check_deadline()
         summary = eligible.get(entry.cluster_identity)
         if summary is None:
             continue
@@ -188,10 +193,11 @@ def render_markdown(
     lines.append("")
     if not isinstance(plan, list) or not plan:
         lines.append("No consolidation candidates.")
-        return "\n".join(lines)
+        return render_report_markdown("out_call_cluster_consolidation", lines)
     cluster_index: dict[str, Mapping[str, JSONValue]] = {}
     if isinstance(clusters, list):
         for cluster in clusters:
+            check_deadline()
             if not isinstance(cluster, Mapping):
                 continue
             identity = str(cluster.get("identity", "") or "")
@@ -200,6 +206,7 @@ def render_markdown(
     lines.append("Consolidation plan:")
     current_cluster = None
     for entry in plan:
+        check_deadline()
         if not isinstance(entry, Mapping):
             continue
         identity = str(entry.get("cluster_identity", "") or "")
@@ -228,7 +235,7 @@ def render_markdown(
         )
     if lines and lines[-1] != "```":
         lines.append("```")
-    return "\n".join(lines)
+    return render_report_markdown("out_call_cluster_consolidation", lines)
 
 
 def write_call_cluster_consolidation(
@@ -249,6 +256,7 @@ def _targets_signature(value: object) -> tuple[tuple[str, str], ...]:
         return ()
     pairs: list[tuple[str, str]] = []
     for item in value:
+        check_deadline()
         if not isinstance(item, Mapping):
             continue
         path = str(item.get("path", "") or "").strip()

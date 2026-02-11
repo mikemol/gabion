@@ -12,6 +12,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.report_markdown import render_report_markdown
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 
@@ -295,7 +296,7 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
     )
     _render_evidence_changes(lines, _section_list(evidence_section, "changed"))
 
-    return "\n".join(lines).rstrip() + "\n"
+    return render_report_markdown("out_test_obsolescence_delta", lines)
 
 
 def build_baseline_payload_from_paths(

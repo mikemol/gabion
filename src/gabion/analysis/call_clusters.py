@@ -14,6 +14,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_payload,
 )
 from gabion.analysis.projection_spec import ProjectionSpec
+from gabion.analysis.report_markdown import render_report_markdown
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
@@ -48,6 +49,7 @@ def build_call_clusters_payload(
     )
     clusters: dict[str, dict[str, object]] = {}
     for entry in entries:
+        check_deadline()
         targets = footprints.get(entry.test_id)
         if not targets:
             continue
@@ -68,6 +70,7 @@ def build_call_clusters_payload(
 
     cluster_rows: list[dict[str, JSONValue]] = []
     for cluster in clusters.values():
+        check_deadline()
         tests = sorted({str(test_id) for test_id in cluster["tests"]})
         cluster["tests"] = tests
         count = len(tests)
@@ -84,6 +87,7 @@ def build_call_clusters_payload(
     projected = apply_spec(spec, cluster_rows)
     ordered: list[CallClusterEntry] = []
     for row in projected:
+        check_deadline()
         identity = str(row.get("identity", "") or "")
         cluster = clusters.get(identity)
         if cluster is None:
@@ -134,9 +138,10 @@ def render_markdown(
     lines.append("")
     if not isinstance(clusters, list) or not clusters:
         lines.append("No call clusters found.")
-        return "\n".join(lines)
+        return render_report_markdown("out_call_clusters", lines)
     lines.append("Call clusters:")
     for entry in clusters:
+        check_deadline()
         if not isinstance(entry, Mapping):
             continue
         display = str(entry.get("display", "") or "")
@@ -147,9 +152,10 @@ def render_markdown(
         if isinstance(tests, list) and tests:
             lines.append("```")
             for test_id in tests:
+                check_deadline()
                 lines.append(str(test_id))
             lines.append("```")
-    return "\n".join(lines)
+    return render_report_markdown("out_call_clusters", lines)
 
 
 def write_call_clusters(

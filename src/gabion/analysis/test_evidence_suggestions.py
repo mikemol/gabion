@@ -27,6 +27,7 @@ from gabion.analysis.dataflow_audit import (
     _paramset_key,
     _resolve_callee,
 )
+from gabion.analysis.report_markdown import render_report_markdown
 
 
 GRAPH_SOURCE = "graph"
@@ -245,7 +246,7 @@ def render_markdown(
     lines.append("## Suggestions")
     if not suggestions:
         lines.append("- None")
-        return "\n".join(lines).rstrip() + "\n"
+        return render_report_markdown("out_test_evidence_suggestions", lines)
 
     for entry in sorted(suggestions, key=lambda item: item.test_id):
         evidence_list = ", ".join(item.display for item in entry.suggested)
@@ -255,7 +256,7 @@ def render_markdown(
         lines.append(
             f"- `{entry.test_id}` -> {evidence_list} ({'; '.join(details)})"
         )
-    return "\n".join(lines).rstrip() + "\n"
+    return render_report_markdown("out_test_evidence_suggestions", lines)
 
 
 def render_json_payload(

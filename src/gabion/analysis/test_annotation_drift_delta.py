@@ -11,6 +11,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.report_markdown import render_report_markdown
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 
@@ -123,7 +124,7 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
         change = delta.get(key, after - before)
         lines.append(f"- {key}: {before} -> {after} ({_format_delta_value(change)})")
     lines.append("```")
-    return "\n".join(lines)
+    return render_report_markdown("out_test_annotation_drift_delta", lines)
 
 
 def _format_delta_value(delta: object) -> str:

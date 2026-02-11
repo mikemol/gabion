@@ -12,6 +12,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.report_markdown import render_report_markdown
 from gabion.analysis.timeout_context import check_deadline
 
 
@@ -301,7 +302,7 @@ def render_markdown(
                 suffix = " (" + "; ".join(suffix_parts) + ")"
             lines.append(f"- `{test_id}`{suffix}")
         lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
+    return render_report_markdown("out_test_obsolescence_report", lines)
 
 
 def render_json_payload(

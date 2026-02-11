@@ -11,6 +11,7 @@ from gabion.analysis.projection_registry import (
     spec_metadata_lines,
     spec_metadata_payload,
 )
+from gabion.analysis.report_markdown import render_report_markdown
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 
@@ -67,6 +68,7 @@ def parse_baseline_payload(
         by_kind_payload = summary.get("by_kind", {})
         if isinstance(by_kind_payload, Mapping):
             for key, raw in by_kind_payload.items():
+                check_deadline()
                 by_kind[str(key)] = _coerce_int(raw, 0)
     spec_id = str(payload.get("generated_by_spec_id", "") or "")
     spec_payload = payload.get("generated_by_spec", {})
@@ -159,6 +161,7 @@ def render_markdown(
         delta = by_kind.get("delta", {})
         kinds = sorted({*baseline.keys(), *current.keys(), *delta.keys()})
         for kind in kinds:
+            check_deadline()
             before = baseline.get(kind, 0)
             after = current.get(kind, 0)
             change = delta.get(kind, after - before)
@@ -166,7 +169,7 @@ def render_markdown(
                 f"- {kind}: {before} -> {after} ({_format_delta_value(change)})"
             )
     lines.append("```")
-    return "\n".join(lines)
+    return render_report_markdown("out_ambiguity_delta", lines)
 
 
 def _count_by_kind(
@@ -175,6 +178,7 @@ def _count_by_kind(
     check_deadline(allow_frame_fallback=True)
     counts: dict[str, int] = {}
     for entry in entries:
+        check_deadline()
         kind = str(entry.get("kind", "") or "unknown")
         counts[kind] = counts.get(kind, 0) + 1
     return counts
