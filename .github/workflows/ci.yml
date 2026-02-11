@@ -48,6 +48,8 @@ jobs:
       - name: Dataflow audit
         env:
           GABION_DIRECT_RUN: "1"
+          GABION_LSP_TIMEOUT_TICKS: "120000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: |
           mkdir -p artifacts/audit_reports
           .venv/bin/python -m gabion check \
