@@ -216,6 +216,10 @@ def test_ambiguity_witnesses_emit(tmp_path: Path) -> None:
     assert any("GABION_AMBIGUITY" in line for line in analysis.lint_lines)
     assert analysis.forest is not None
     assert any(node.kind == "AmbiguitySet" for node in analysis.forest.nodes)
+    assert any(
+        node.kind == "SuiteSite" and node.meta.get("suite_kind") == "call"
+        for node in analysis.forest.nodes.values()
+    )
     summary = da._summarize_call_ambiguities(analysis.ambiguity_witnesses)
     assert summary
     assert summary[0].startswith("generated_by_spec_id:")
@@ -966,7 +970,7 @@ def test_analyze_paths_deadline_includes_forest_spec(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
     target.write_text("def callee(x):\n    return x\n", encoding="utf-8")
-    with deadline_scope(Deadline.from_timeout(10.0)):
+    with deadline_scope(Deadline.from_timeout_ms(10_000)):
         result = da.analyze_paths(
             [target],
             recursive=True,
@@ -1023,7 +1027,7 @@ def test_deadline_origin_not_allowlisted(tmp_path: Path) -> None:
             return 1
 
         def helper():
-            deadline = Deadline.from_timeout(1.0)
+            deadline = Deadline.from_timeout_ms(1_000)
             callee(deadline)
         """,
         roots={"mod.root"},

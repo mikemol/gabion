@@ -81,6 +81,7 @@ from .projection_exec import apply_spec
 from .projection_normalize import spec_hash as projection_spec_hash
 from .projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
+    AMBIGUITY_SUITE_AGG_SPEC,
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
     NEVER_INVARIANTS_SPEC,
     SUITE_ORDER_SPEC,
@@ -4062,6 +4063,104 @@ def _materialize_suite_order_spec(
     )
 
 
+def _ambiguity_suite_relation(
+    forest: Forest,
+) -> tuple[list[dict[str, JSONValue]], dict[tuple[str, str], NodeId]]:
+    relation: list[dict[str, JSONValue]] = []
+    function_index: dict[tuple[str, str], NodeId] = {}
+    for node_id, node in forest.nodes.items():
+        if node_id.kind != "FunctionSite":
+            continue
+        path = str(node.meta.get("path", "") or "")
+        qual = str(node.meta.get("qual", "") or "")
+        if not path or not qual:
+            continue
+        function_index[(path, qual)] = node_id
+    for alt in forest.alts:
+        if alt.kind != "AmbiguitySet":
+            continue
+        if not alt.inputs:
+            continue
+        suite_id = alt.inputs[0]
+        suite_node = forest.nodes.get(suite_id)
+        if suite_node is None or suite_node.kind != "SuiteSite":
+            continue
+        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+        if suite_kind != "call":
+            continue
+        path = str(suite_node.meta.get("path", "") or "")
+        qual = str(suite_node.meta.get("qual", "") or "")
+        if not path or not qual:
+            never(
+                "ambiguity suite requires path/qual",
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+            )
+        span = suite_node.meta.get("span")
+        if not isinstance(span, list) or len(span) != 4:
+            never(
+                "ambiguity suite requires span",
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+            )
+        try:
+            span_line = int(span[0])
+            span_col = int(span[1])
+            span_end_line = int(span[2])
+            span_end_col = int(span[3])
+        except (TypeError, ValueError):
+            never(
+                "ambiguity suite span fields must be integers",
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+                span=span,
+            )
+        relation.append(
+            {
+                "suite_path": path,
+                "suite_qual": qual,
+                "suite_kind": suite_kind,
+                "span_line": span_line,
+                "span_col": span_col,
+                "span_end_line": span_end_line,
+                "span_end_col": span_end_col,
+                "kind": str(alt.evidence.get("kind", "") or ""),
+                "phase": str(alt.evidence.get("phase", "") or ""),
+            }
+        )
+    return relation, function_index
+
+
+def _ambiguity_suite_row_to_site(
+    row: Mapping[str, JSONValue],
+    function_index: Mapping[tuple[str, str], NodeId],
+) -> NodeId | None:
+    path = str(row.get("suite_path", "") or "")
+    qual = str(row.get("suite_qual", "") or "")
+    if not path or not qual:
+        return None
+    return function_index.get((path, qual))
+
+
+def _materialize_ambiguity_suite_agg_spec(
+    *,
+    forest: Forest,
+) -> None:
+    relation, function_index = _ambiguity_suite_relation(forest)
+    if not relation:
+        return
+    projected = apply_spec(AMBIGUITY_SUITE_AGG_SPEC, relation)
+    _materialize_projection_spec_rows(
+        spec=AMBIGUITY_SUITE_AGG_SPEC,
+        projected=projected,
+        forest=forest,
+        row_to_site=lambda row: _ambiguity_suite_row_to_site(row, function_index),
+    )
+
+
 def _summarize_deadline_obligations(
     entries: list[JSONObject],
     *,
@@ -4745,10 +4844,19 @@ def _emit_call_ambiguities(
         entries.append(payload)
         if forest is None:
             continue
-        call_site_id = forest.add_site(
+        if call_span is None:
+            never(
+                "call ambiguity requires span",
+                path=site_path,
+                qual=entry.caller.qual,
+                kind=entry.kind,
+                phase=entry.phase,
+            )
+        suite_id = forest.add_suite_site(
             entry.caller.path.name,
             entry.caller.qual,
-            call_span,
+            "call",
+            span=call_span,
         )
         candidate_nodes = [
             forest.add_site(candidate.path.name, candidate.qual)
@@ -4788,15 +4896,16 @@ def _emit_call_ambiguities(
         )
         forest.add_alt(
             "AmbiguitySet",
-            (call_site_id, ambiguity_node, *sorted(candidate_nodes, key=lambda node: node.sort_key())),
+            (suite_id, ambiguity_node, *sorted(candidate_nodes, key=lambda node: node.sort_key())),
             evidence={
                 "kind": entry.kind,
                 "candidate_count": len(candidate_nodes),
+                "phase": entry.phase,
             },
         )
         forest.add_alt(
             "PartitionWitness",
-            (call_site_id, ambiguity_node, witness_node),
+            (suite_id, ambiguity_node, witness_node),
             evidence={
                 "kind": entry.kind,
                 "phase": entry.phase,
@@ -9749,6 +9858,8 @@ def analyze_paths(
             project_root=config.project_root,
             forest=forest,
         )
+        if forest is not None:
+            _materialize_ambiguity_suite_agg_spec(forest=forest)
 
     type_suggestions: list[str] = []
     type_ambiguities: list[str] = []
