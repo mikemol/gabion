@@ -46,6 +46,7 @@ def _split_csv_entries(entries: Optional[List[str]]) -> list[str] | None:
         return None
     merged: list[str] = []
     for entry in entries:
+        check_deadline()
         merged.extend([part.strip() for part in entry.split(",") if part.strip()])
     return merged or None
 
@@ -81,6 +82,7 @@ def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
     check_deadline()
     entries: list[dict[str, object]] = []
     for line in lines:
+        check_deadline()
         parsed = _parse_lint_line(line)
         if parsed is not None:
             entries.append(parsed)
@@ -100,6 +102,7 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
     rules: dict[str, dict[str, object]] = {}
     results: list[dict[str, object]] = []
     for entry in entries:
+        check_deadline()
         code = str(entry.get("code") or "GABION")
         message = str(entry.get("message") or "").strip()
         path = str(entry.get("path") or "")
@@ -156,6 +159,7 @@ def _emit_lint_outputs(
     check_deadline()
     if lint:
         for line in lint_lines:
+            check_deadline()
             typer.echo(line)
     if lint_jsonl or lint_sarif:
         entries = _collect_lint_entries(lint_lines)
@@ -370,6 +374,7 @@ def build_refactor_payload(
         )
     field_specs: list[dict[str, str | None]] = []
     for spec in field or []:
+        check_deadline()
         name, _, hint = spec.partition(":")
         name = name.strip()
         if not name:
@@ -490,12 +495,14 @@ def check(
     emit_test_obsolescence: bool = typer.Option(
         False,
         "--emit-test-obsolescence/--no-emit-test-obsolescence",
-        help="Write test obsolescence report to out/.",
+        help=(
+            "Write test obsolescence report (JSON in artifacts/out, markdown in out/)."
+        ),
     ),
     emit_test_obsolescence_state: bool = typer.Option(
         False,
         "--emit-test-obsolescence-state/--no-emit-test-obsolescence-state",
-        help="Write test obsolescence state to out/.",
+        help="Write test obsolescence state to artifacts/out.",
     ),
     test_obsolescence_state: Optional[Path] = typer.Option(
         None,
@@ -505,27 +512,35 @@ def check(
     emit_test_obsolescence_delta: bool = typer.Option(
         False,
         "--emit-test-obsolescence-delta/--no-emit-test-obsolescence-delta",
-        help="Write test obsolescence delta report to out/.",
+        help=(
+            "Write test obsolescence delta report (JSON in artifacts/out, markdown in out/)."
+        ),
     ),
     emit_test_evidence_suggestions: bool = typer.Option(
         False,
         "--emit-test-evidence-suggestions/--no-emit-test-evidence-suggestions",
-        help="Write test evidence suggestions to out/.",
+        help=(
+            "Write test evidence suggestions (JSON in artifacts/out, markdown in out/)."
+        ),
     ),
     emit_call_clusters: bool = typer.Option(
         False,
         "--emit-call-clusters/--no-emit-call-clusters",
-        help="Write call cluster report to out/.",
+        help="Write call cluster report (JSON in artifacts/out, markdown in out/).",
     ),
     emit_call_cluster_consolidation: bool = typer.Option(
         False,
         "--emit-call-cluster-consolidation/--no-emit-call-cluster-consolidation",
-        help="Write call cluster consolidation plan to out/.",
+        help=(
+            "Write call cluster consolidation plan (JSON in artifacts/out, markdown in out/)."
+        ),
     ),
     emit_test_annotation_drift: bool = typer.Option(
         False,
         "--emit-test-annotation-drift/--no-emit-test-annotation-drift",
-        help="Write test annotation drift report to out/.",
+        help=(
+            "Write test annotation drift report (JSON in artifacts/out, markdown in out/)."
+        ),
     ),
     test_annotation_drift_state: Optional[Path] = typer.Option(
         None,
@@ -535,7 +550,9 @@ def check(
     emit_test_annotation_drift_delta: bool = typer.Option(
         False,
         "--emit-test-annotation-drift-delta/--no-emit-test-annotation-drift-delta",
-        help="Write test annotation drift delta report to out/.",
+        help=(
+            "Write test annotation drift delta report (JSON in artifacts/out, markdown in out/)."
+        ),
     ),
     write_test_annotation_drift_baseline: bool = typer.Option(
         False,
@@ -550,12 +567,12 @@ def check(
     emit_ambiguity_delta: bool = typer.Option(
         False,
         "--emit-ambiguity-delta/--no-emit-ambiguity-delta",
-        help="Write ambiguity delta report to out/.",
+        help="Write ambiguity delta report (JSON in artifacts/out, markdown in out/).",
     ),
     emit_ambiguity_state: bool = typer.Option(
         False,
         "--emit-ambiguity-state/--no-emit-ambiguity-state",
-        help="Write ambiguity state to out/.",
+        help="Write ambiguity state to artifacts/out.",
     ),
     ambiguity_state: Optional[Path] = typer.Option(
         None,
@@ -669,10 +686,12 @@ def _dataflow_audit(
         if suggestions:
             typer.echo("Type tightening candidates:")
             for line in suggestions[: opts.type_audit_max]:
+                check_deadline()
                 typer.echo(f"- {line}")
         if ambiguities:
             typer.echo("Type ambiguities (conflicting downstream expectations):")
             for line in ambiguities[: opts.type_audit_max]:
+                check_deadline()
                 typer.echo(f"- {line}")
     if opts.dot == "-" and "dot" in result:
         typer.echo(result["dot"])
@@ -1000,6 +1019,7 @@ def _run_synth(
     if exclude is not None:
         exclude_dirs = []
         for entry in exclude:
+            check_deadline()
             exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
     ignore_list: list[str] | None = None
     if ignore_params_csv is not None:
@@ -1294,6 +1314,7 @@ def _emit_structure_diff(result: JSONObject) -> None:
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
     if errors:
         for error in errors:
+            check_deadline()
             typer.secho(str(error), err=True, fg=typer.colors.RED)
     if exit_code:
         raise typer.Exit(code=exit_code)
@@ -1306,6 +1327,7 @@ def _emit_decision_diff(result: JSONObject) -> None:
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
     if errors:
         for error in errors:
+            check_deadline()
             typer.secho(str(error), err=True, fg=typer.colors.RED)
     if exit_code:
         raise typer.Exit(code=exit_code)
@@ -1318,6 +1340,7 @@ def _emit_structure_reuse(result: JSONObject) -> None:
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
     if errors:
         for error in errors:
+            check_deadline()
             typer.secho(str(error), err=True, fg=typer.colors.RED)
     if exit_code:
         raise typer.Exit(code=exit_code)

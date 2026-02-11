@@ -419,7 +419,9 @@ def test_check_payload_rejects_obsolescence_state_and_path() -> None:
             decision_snapshot=None,
             emit_test_obsolescence=False,
             emit_test_obsolescence_state=True,
-            test_obsolescence_state=Path("out/test_obsolescence_state.json"),
+            test_obsolescence_state=Path(
+                "artifacts/out/test_obsolescence_state.json"
+            ),
             emit_test_obsolescence_delta=False,
             emit_test_evidence_suggestions=False,
             emit_call_clusters=False,
@@ -469,7 +471,7 @@ def test_check_payload_rejects_ambiguity_state_and_path() -> None:
             write_test_obsolescence_baseline=False,
             emit_ambiguity_delta=False,
             emit_ambiguity_state=True,
-            ambiguity_state=Path("out/ambiguity_state.json"),
+            ambiguity_state=Path("artifacts/out/ambiguity_state.json"),
             write_ambiguity_baseline=False,
             exclude=None,
             ignore_params_csv=None,

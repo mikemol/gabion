@@ -60,6 +60,12 @@ def _write_type_conflict_module(path: Path) -> None:
     )
 
 
+def _artifact_out_dir(root: Path) -> Path:
+    artifact_dir = root / "artifacts" / "out"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    return artifact_dir
+
+
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
 def test_execute_command_dash_outputs(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -474,6 +480,11 @@ def test_execute_command_emits_test_reports(tmp_path: Path) -> None:
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
+    artifact_dir = _artifact_out_dir(tmp_path)
+    artifact_dir = _artifact_out_dir(tmp_path)
+    artifact_dir = _artifact_out_dir(tmp_path)
+    artifact_dir = _artifact_out_dir(tmp_path)
     evidence_payload = {
         "schema_version": 2,
         "scope": {"root": ".", "include": [], "exclude": []},
@@ -502,8 +513,10 @@ def test_execute_command_emits_test_reports(tmp_path: Path) -> None:
             "emit_test_obsolescence": True,
         },
     )
-    assert (out_dir / "test_evidence_suggestions.json").exists()
-    assert (out_dir / "test_obsolescence_report.json").exists()
+    assert (artifact_dir / "test_evidence_suggestions.json").exists()
+    assert (artifact_dir / "test_obsolescence_report.json").exists()
+    assert (out_dir / "test_evidence_suggestions.md").exists()
+    assert (out_dir / "test_obsolescence_report.md").exists()
     assert "test_evidence_suggestions_summary" in result
     assert "test_obsolescence_summary" in result
 
@@ -515,6 +528,7 @@ def test_execute_command_emits_obsolescence_delta(tmp_path: Path) -> None:
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     evidence_payload = {
         "schema_version": 2,
         "scope": {"root": ".", "include": [], "exclude": []},
@@ -552,7 +566,7 @@ def test_execute_command_emits_obsolescence_delta(tmp_path: Path) -> None:
             "emit_test_obsolescence_delta": True,
         },
     )
-    assert (out_dir / "test_obsolescence_delta.json").exists()
+    assert (artifact_dir / "test_obsolescence_delta.json").exists()
     assert (out_dir / "test_obsolescence_delta.md").exists()
     assert "test_obsolescence_delta_summary" in result
 
@@ -564,6 +578,7 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     key = evidence_keys.make_paramset_key(["x"])
     ref = test_obsolescence.EvidenceRef(
         key=key,
@@ -579,7 +594,7 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
     state_payload = test_obsolescence_state.build_state_payload(
         evidence_by_test, status_by_test, candidates, summary
     )
-    state_path = out_dir / "test_obsolescence_state.json"
+    state_path = artifact_dir / "test_obsolescence_state.json"
     state_path.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n")
 
     baseline_payload = state_payload["baseline"]
@@ -597,7 +612,7 @@ def test_execute_command_emits_obsolescence_delta_from_state(tmp_path: Path) -> 
             "test_obsolescence_state": str(state_path),
         },
     )
-    assert (out_dir / "test_obsolescence_delta.json").exists()
+    assert (artifact_dir / "test_obsolescence_delta.json").exists()
     assert (out_dir / "test_obsolescence_delta.md").exists()
     assert "test_obsolescence_delta_summary" in result
 
@@ -614,7 +629,9 @@ def test_execute_command_rejects_missing_obsolescence_state(tmp_path: Path) -> N
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_obsolescence_delta": True,
-                "test_obsolescence_state": str(tmp_path / "out" / "missing.json"),
+                "test_obsolescence_state": str(
+                    tmp_path / "artifacts" / "out" / "missing.json"
+                ),
             },
         )
 
@@ -625,6 +642,7 @@ def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
     _write_bundle_module(module_path)
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     evidence_payload = {
         "schema_version": 2,
         "scope": {"root": ".", "include": [], "exclude": []},
@@ -651,7 +669,7 @@ def test_execute_command_emits_obsolescence_state(tmp_path: Path) -> None:
             "emit_test_obsolescence_state": True,
         },
     )
-    assert (out_dir / "test_obsolescence_state.json").exists()
+    assert (artifact_dir / "test_obsolescence_state.json").exists()
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
@@ -710,6 +728,7 @@ def test_execute_command_emits_annotation_drift_delta(tmp_path: Path) -> None:
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     key = {"k": "function_site", "site": {"path": "sample.py", "qual": "pkg.fn"}}
     evidence_payload = {
         "schema_version": 2,
@@ -756,7 +775,7 @@ def test_execute_command_emits_annotation_drift_delta(tmp_path: Path) -> None:
             "emit_test_annotation_drift_delta": True,
         },
     )
-    assert (out_dir / "test_annotation_drift_delta.json").exists()
+    assert (artifact_dir / "test_annotation_drift_delta.json").exists()
     assert (out_dir / "test_annotation_drift_delta.md").exists()
     assert "test_annotation_drift_delta_summary" in result
 
@@ -775,7 +794,9 @@ def test_execute_command_rejects_missing_annotation_drift_state(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_annotation_drift_delta": True,
-                "test_annotation_drift_state": str(tmp_path / "out" / "missing.json"),
+                "test_annotation_drift_state": str(
+                    tmp_path / "artifacts" / "out" / "missing.json"
+                ),
             },
         )
 
@@ -786,9 +807,8 @@ def test_execute_command_rejects_invalid_annotation_drift_state(
 ) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
-    out_dir = tmp_path / "out"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    state_path = out_dir / "test_annotation_drift.json"
+    _artifact_out_dir(tmp_path)
+    state_path = tmp_path / "artifacts" / "out" / "test_annotation_drift.json"
     state_path.write_text(json.dumps(["bad"]), encoding="utf-8")
     ls = _DummyServer(str(tmp_path))
     with pytest.raises(ValueError):
@@ -812,6 +832,7 @@ def test_execute_command_emits_annotation_drift_delta_from_state(
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     drift_payload = {
         "version": 1,
         "summary": {
@@ -824,7 +845,7 @@ def test_execute_command_emits_annotation_drift_delta_from_state(
         "generated_by_spec_id": "spec",
         "generated_by_spec": {},
     }
-    state_path = out_dir / "test_annotation_drift.json"
+    state_path = artifact_dir / "test_annotation_drift.json"
     state_path.write_text(json.dumps(drift_payload, indent=2, sort_keys=True) + "\n")
 
     baseline_payload = test_annotation_drift_delta.build_baseline_payload(
@@ -844,7 +865,7 @@ def test_execute_command_emits_annotation_drift_delta_from_state(
             "test_annotation_drift_state": str(state_path),
         },
     )
-    assert (out_dir / "test_annotation_drift_delta.json").exists()
+    assert (artifact_dir / "test_annotation_drift_delta.json").exists()
     assert (out_dir / "test_annotation_drift_delta.md").exists()
     assert "test_annotation_drift_delta_summary" in result
 
@@ -865,6 +886,7 @@ def test_execute_command_emits_annotation_drift(tmp_path: Path) -> None:
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     key = {"k": "function_site", "site": {"path": "sample.py", "qual": "pkg.fn"}}
     evidence_payload = {
         "schema_version": 2,
@@ -899,7 +921,7 @@ def test_execute_command_emits_annotation_drift(tmp_path: Path) -> None:
             "emit_test_annotation_drift": True,
         },
     )
-    assert (out_dir / "test_annotation_drift.json").exists()
+    assert (artifact_dir / "test_annotation_drift.json").exists()
     assert (out_dir / "test_annotation_drift.md").exists()
     assert "test_annotation_drift_summary" in result
 
@@ -921,6 +943,7 @@ def test_execute_command_emits_call_clusters(tmp_path: Path) -> None:
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     evidence_payload = {
         "schema_version": 2,
         "scope": {"root": ".", "include": ["tests"], "exclude": []},
@@ -948,7 +971,7 @@ def test_execute_command_emits_call_clusters(tmp_path: Path) -> None:
             "emit_call_clusters": True,
         },
     )
-    assert (out_dir / "call_clusters.json").exists()
+    assert (artifact_dir / "call_clusters.json").exists()
     assert (out_dir / "call_clusters.md").exists()
     assert "call_clusters_summary" in result
 
@@ -970,6 +993,7 @@ def test_execute_command_emits_call_cluster_consolidation(tmp_path: Path) -> Non
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     call_footprint = evidence_keys.make_call_footprint_key(
         path="tests/test_sample.py",
         qual="test_alpha",
@@ -1007,7 +1031,7 @@ def test_execute_command_emits_call_cluster_consolidation(tmp_path: Path) -> Non
             "emit_call_cluster_consolidation": True,
         },
     )
-    assert (out_dir / "call_cluster_consolidation.json").exists()
+    assert (artifact_dir / "call_cluster_consolidation.json").exists()
     assert (out_dir / "call_cluster_consolidation.md").exists()
     assert "call_cluster_consolidation_summary" in result
 
@@ -1148,7 +1172,8 @@ def test_execute_command_emits_ambiguity_delta(tmp_path: Path) -> None:
         },
     )
     out_dir = tmp_path / "out"
-    assert (out_dir / "ambiguity_delta.json").exists()
+    artifact_dir = _artifact_out_dir(tmp_path)
+    assert (artifact_dir / "ambiguity_delta.json").exists()
     assert (out_dir / "ambiguity_delta.md").exists()
     assert "ambiguity_delta_summary" in result
 
@@ -1160,6 +1185,7 @@ def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> Non
 
     out_dir = tmp_path / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = _artifact_out_dir(tmp_path)
     witnesses = [
         {
             "kind": "local_resolution_ambiguous",
@@ -1172,7 +1198,7 @@ def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> Non
         }
     ]
     state_payload = ambiguity_state.build_state_payload(witnesses)
-    state_path = out_dir / "ambiguity_state.json"
+    state_path = artifact_dir / "ambiguity_state.json"
     state_path.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n")
 
     baseline_payload = ambiguity_delta.build_baseline_payload(witnesses)
@@ -1190,7 +1216,7 @@ def test_execute_command_emits_ambiguity_delta_from_state(tmp_path: Path) -> Non
             "ambiguity_state": str(state_path),
         },
     )
-    assert (out_dir / "ambiguity_delta.json").exists()
+    assert (artifact_dir / "ambiguity_delta.json").exists()
     assert (out_dir / "ambiguity_delta.md").exists()
     assert "ambiguity_delta_summary" in result
 
@@ -1207,7 +1233,7 @@ def test_execute_command_rejects_missing_ambiguity_state(tmp_path: Path) -> None
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_ambiguity_delta": True,
-                "ambiguity_state": str(tmp_path / "out" / "missing.json"),
+                "ambiguity_state": str(tmp_path / "artifacts" / "out" / "missing.json"),
             },
         )
 
@@ -1225,8 +1251,8 @@ def test_execute_command_emits_ambiguity_state(tmp_path: Path) -> None:
             "emit_ambiguity_state": True,
         },
     )
-    out_dir = tmp_path / "out"
-    assert (out_dir / "ambiguity_state.json").exists()
+    artifact_dir = _artifact_out_dir(tmp_path)
+    assert (artifact_dir / "ambiguity_state.json").exists()
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_command::payload
@@ -1278,7 +1304,7 @@ def test_execute_command_rejects_ambiguity_state_conflict(tmp_path: Path) -> Non
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_ambiguity_state": True,
-                "ambiguity_state": "out/ambiguity_state.json",
+                "ambiguity_state": "artifacts/out/ambiguity_state.json",
             },
         )
 
@@ -1315,7 +1341,7 @@ def test_execute_command_rejects_obsolescence_state_conflict(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "emit_test_obsolescence_state": True,
-                "test_obsolescence_state": "out/test_obsolescence_state.json",
+                "test_obsolescence_state": "artifacts/out/test_obsolescence_state.json",
             },
         )
 

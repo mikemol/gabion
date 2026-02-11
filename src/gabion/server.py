@@ -107,6 +107,14 @@ STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 
 
+def _output_dirs(report_root: Path) -> tuple[Path, Path]:
+    out_dir = report_root / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = report_root / "artifacts" / "out"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir, artifact_dir
+
+
 def _uri_to_path(uri: str) -> Path:
     parsed = urlparse(uri)
     if parsed.scheme == "file":
@@ -123,6 +131,7 @@ def _normalize_transparent_decorators(value: object) -> set[str] | None:
         items = [part.strip() for part in value.split(",") if part.strip()]
     elif isinstance(value, (list, tuple, set)):
         for item in value:
+            check_deadline()
             if isinstance(item, str):
                 items.extend([part.strip() for part in item.split(",") if part.strip()])
     if not items:
@@ -144,12 +153,16 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
     )
     diagnostics: list[Diagnostic] = []
     for path, bundles in result.groups_by_path.items():
+        check_deadline()
         span_map = result.param_spans_by_path.get(path, {})
         for fn_name, group_list in bundles.items():
+            check_deadline()
             param_spans = span_map.get(fn_name, {})
             for bundle in group_list:
+                check_deadline()
                 message = f"Implicit bundle detected: {', '.join(sorted(bundle))}"
                 for name in sorted(bundle):
+                    check_deadline()
                     span = param_spans.get(name)
                     if span is None:  # pragma: no cover - spans are derived from parsed params
                         start = Position(line=0, character=0)  # pragma: no cover
@@ -571,11 +584,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             suggestions, summary
         )
         report_md = test_evidence_suggestions.render_markdown(suggestions, summary)
-        output_dir = report_root / "out"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        out_dir, artifact_dir = _output_dirs(report_root)
         report_json = json.dumps(suggestions_payload, indent=2, sort_keys=True) + "\n"
-        (output_dir / "test_evidence_suggestions.json").write_text(report_json)
-        (output_dir / "test_evidence_suggestions.md").write_text(report_md)
+        (artifact_dir / "test_evidence_suggestions.json").write_text(report_json)
+        (out_dir / "test_evidence_suggestions.md").write_text(report_md)
         response["test_evidence_suggestions_summary"] = (
             suggestions_payload.get("summary", {})
         )
@@ -589,11 +601,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             config=config,
         )
         report_md = call_clusters.render_markdown(clusters_payload)
-        output_dir = report_root / "out"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        out_dir, artifact_dir = _output_dirs(report_root)
         report_json = json.dumps(clusters_payload, indent=2, sort_keys=True) + "\n"
-        (output_dir / "call_clusters.json").write_text(report_json)
-        (output_dir / "call_clusters.md").write_text(report_md)
+        (artifact_dir / "call_clusters.json").write_text(report_json)
+        (out_dir / "call_clusters.md").write_text(report_md)
         response["call_clusters_summary"] = clusters_payload.get("summary", {})
     if emit_call_cluster_consolidation:
         report_root = Path(root)
@@ -604,13 +615,12 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             )
         )
         report_md = call_cluster_consolidation.render_markdown(consolidation_payload)
-        output_dir = report_root / "out"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        out_dir, artifact_dir = _output_dirs(report_root)
         report_json = (
             json.dumps(consolidation_payload, indent=2, sort_keys=True) + "\n"
         )
-        (output_dir / "call_cluster_consolidation.json").write_text(report_json)
-        (output_dir / "call_cluster_consolidation.md").write_text(report_md)
+        (artifact_dir / "call_cluster_consolidation.json").write_text(report_json)
+        (out_dir / "call_cluster_consolidation.md").write_text(report_md)
         response["call_cluster_consolidation_summary"] = consolidation_payload.get(
             "summary", {}
         )
@@ -643,13 +653,12 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         or write_test_annotation_drift_baseline
     ):
         report_root = Path(root)
-        output_dir = report_root / "out"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        out_dir, artifact_dir = _output_dirs(report_root)
         if emit_test_annotation_drift:
             report_json = json.dumps(drift_payload, indent=2, sort_keys=True) + "\n"
             report_md = test_annotation_drift.render_markdown(drift_payload)
-            (output_dir / "test_annotation_drift.json").write_text(report_json)
-            (output_dir / "test_annotation_drift.md").write_text(report_md)
+            (artifact_dir / "test_annotation_drift.json").write_text(report_json)
+            (out_dir / "test_annotation_drift.md").write_text(report_md)
             response["test_annotation_drift_summary"] = drift_payload.get(
                 "summary", {}
             )
@@ -686,10 +695,10 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 )
                 report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
                 report_md = test_annotation_drift_delta.render_markdown(delta_payload)
-                (output_dir / "test_annotation_drift_delta.json").write_text(
+                (artifact_dir / "test_annotation_drift_delta.json").write_text(
                     report_json
                 )
-                (output_dir / "test_annotation_drift_delta.md").write_text(report_md)
+                (out_dir / "test_annotation_drift_delta.md").write_text(report_md)
                 response["test_annotation_drift_delta_summary"] = delta_payload.get(
                     "summary", {}
                 )
@@ -737,15 +746,14 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             obsolescence_baseline_payload
         )
         if emit_test_obsolescence_state:
-            output_dir = report_root / "out"
-            output_dir.mkdir(parents=True, exist_ok=True)
+            out_dir, artifact_dir = _output_dirs(report_root)
             state_payload = test_obsolescence_state.build_state_payload(
                 evidence_by_test,
                 status_by_test,
                 candidates,
                 summary_counts,
             )
-            (output_dir / "test_obsolescence_state.json").write_text(
+            (artifact_dir / "test_obsolescence_state.json").write_text(
                 json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
             )
 
@@ -754,14 +762,13 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         report_payload = test_obsolescence.render_json_payload(
             obsolescence_candidates, obsolescence_summary or {}
         )
-        output_dir = report_root / "out"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        out_dir, artifact_dir = _output_dirs(report_root)
         report_json = json.dumps(report_payload, indent=2, sort_keys=True) + "\n"
         report_md = test_obsolescence.render_markdown(
             obsolescence_candidates, obsolescence_summary or {}
         )
-        (output_dir / "test_obsolescence_report.json").write_text(report_json)
-        (output_dir / "test_obsolescence_report.md").write_text(report_md)
+        (artifact_dir / "test_obsolescence_report.json").write_text(report_json)
+        (out_dir / "test_obsolescence_report.md").write_text(report_md)
         response["test_obsolescence_summary"] = obsolescence_summary or {}
 
     if (
@@ -794,12 +801,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             delta_payload = test_obsolescence_delta.build_delta_payload(
                 baseline, current, baseline_path=str(baseline_path)
             )
-            output_dir = report_root / "out"
-            output_dir.mkdir(parents=True, exist_ok=True)
+            out_dir, artifact_dir = _output_dirs(report_root)
             report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
             report_md = test_obsolescence_delta.render_markdown(delta_payload)
-            (output_dir / "test_obsolescence_delta.json").write_text(report_json)
-            (output_dir / "test_obsolescence_delta.md").write_text(report_md)
+            (artifact_dir / "test_obsolescence_delta.json").write_text(report_json)
+            (out_dir / "test_obsolescence_delta.md").write_text(report_md)
             response["test_obsolescence_delta_summary"] = delta_payload.get(
                 "summary", {}
             )
@@ -827,12 +833,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         ]
         if emit_ambiguity_state:
             report_root = Path(root)
-            output_dir = report_root / "out"
-            output_dir.mkdir(parents=True, exist_ok=True)
+            out_dir, artifact_dir = _output_dirs(report_root)
             state_payload = ambiguity_state.build_state_payload(
                 ambiguity_witnesses,
             )
-            (output_dir / "ambiguity_state.json").write_text(
+            (artifact_dir / "ambiguity_state.json").write_text(
                 json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
             )
         ambiguity_baseline_payload = ambiguity_delta.build_baseline_payload(
@@ -871,14 +876,13 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             delta_payload = ambiguity_delta.build_delta_payload(
                 baseline, current, baseline_path=str(baseline_path)
             )
-            output_dir = report_root / "out"
-            output_dir.mkdir(parents=True, exist_ok=True)
+            out_dir, artifact_dir = _output_dirs(report_root)
             report_json = json.dumps(delta_payload, indent=2, sort_keys=True) + "\n"
             report_md = ambiguity_delta.render_markdown(
                 delta_payload,
             )
-            (output_dir / "ambiguity_delta.json").write_text(report_json)
-            (output_dir / "ambiguity_delta.md").write_text(report_md)
+            (artifact_dir / "ambiguity_delta.json").write_text(report_json)
+            (out_dir / "ambiguity_delta.md").write_text(report_md)
             response["ambiguity_delta_summary"] = delta_payload.get("summary", {})
 
     violations: list[str] = []
@@ -1040,6 +1044,7 @@ def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
 
     bundle_tiers: dict[frozenset[str], int] = {}
     for entry in request.bundles:
+        check_deadline()
         bundle = entry.bundle
         if not bundle:
             continue

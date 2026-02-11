@@ -60,6 +60,7 @@ def _read_rpc(stream, deadline: float | None = None) -> JSONObject:
     check_deadline()
     header = b""
     while b"\r\n\r\n" not in header:
+        check_deadline()
         _wait_readable(stream, deadline)
         chunk = stream.read(1)
         if not chunk:
@@ -68,6 +69,7 @@ def _read_rpc(stream, deadline: float | None = None) -> JSONObject:
     head, _, rest = header.partition(b"\r\n\r\n")
     length = 0
     for line in head.split(b"\r\n"):
+        check_deadline()
         if line.lower().startswith(b"content-length:"):
             length = int(line.split(b":", 1)[1].strip())
             break
@@ -95,6 +97,7 @@ def _read_response(
 ) -> JSONObject:
     check_deadline()
     while True:
+        check_deadline()
         message = _read_rpc(stream, deadline)
         if message.get("id") == request_id:
             return message
