@@ -176,6 +176,45 @@ DEADLINE_OBLIGATIONS_SUMMARY_SPEC = ProjectionSpec(
 )
 
 
+SUITE_ORDER_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="suite_order",
+    domain="suite_order",
+    pipeline=(
+        ProjectionOp(
+            "project",
+            {
+                "fields": [
+                    "suite_path",
+                    "suite_qual",
+                    "suite_kind",
+                    "span_line",
+                    "span_col",
+                    "span_end_line",
+                    "span_end_col",
+                    "depth",
+                    "complexity",
+                    "order_key",
+                ]
+            },
+        ),
+        ProjectionOp(
+            "sort",
+            {
+                "by": [
+                    "depth",
+                    "complexity",
+                    "suite_path",
+                    "suite_qual",
+                    "span_line",
+                    "span_col",
+                ]
+            },
+        ),
+    ),
+)
+
+
 CALL_CLUSTER_SUMMARY_SPEC = ProjectionSpec(
     spec_version=1,
     name="call_cluster_summary",
@@ -309,6 +348,7 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         TEST_OBSOLESCENCE_DELTA_SPEC,
         AMBIGUITY_SUMMARY_SPEC,
         DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
+        SUITE_ORDER_SPEC,
         CALL_CLUSTER_SUMMARY_SPEC,
         TEST_ANNOTATION_DRIFT_SPEC,
         TEST_ANNOTATION_DRIFT_BASELINE_SPEC,

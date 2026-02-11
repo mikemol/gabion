@@ -83,6 +83,7 @@ from .projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
     NEVER_INVARIANTS_SPEC,
+    SUITE_ORDER_SPEC,
     spec_metadata_lines,
 )
 from gabion.schema import SynthesisResponse
@@ -2708,7 +2709,17 @@ def _is_deadline_origin_call(expr: ast.AST) -> bool:
         return False
     if name == "Deadline" or name.endswith(".Deadline"):
         return True
-    if name == "Deadline.from_timeout" or name.endswith(".Deadline.from_timeout"):
+    if name in {
+        "Deadline.from_timeout",
+        "Deadline.from_timeout_ms",
+        "Deadline.from_timeout_ticks",
+    }:
+        return True
+    if name.endswith(".Deadline.from_timeout"):
+        return True
+    if name.endswith(".Deadline.from_timeout_ms"):
+        return True
+    if name.endswith(".Deadline.from_timeout_ticks"):
         return True
     return False
 
@@ -3921,6 +3932,134 @@ def _materialize_projection_spec_rows(
         for key, value in row.items():
             evidence[str(key)] = value
         forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
+
+
+def _suite_order_depth(suite_kind: str) -> int:
+    if suite_kind in {"function", "spec"}:
+        return 0
+    return 1
+
+
+def _suite_order_relation(
+    forest: Forest,
+) -> tuple[list[dict[str, JSONValue]], dict[tuple[object, ...], NodeId]]:
+    alt_degree: Counter[NodeId] = Counter()
+    for alt in forest.alts:
+        for node_id in alt.inputs:
+            alt_degree[node_id] += 1
+    relation: list[dict[str, JSONValue]] = []
+    suite_index: dict[tuple[object, ...], NodeId] = {}
+    for node_id, node in forest.nodes.items():
+        if node_id.kind != "SuiteSite":
+            continue
+        suite_kind = str(node.meta.get("suite_kind", "") or "")
+        if suite_kind == "spec":
+            continue
+        path = str(node.meta.get("path", "") or "")
+        qual = str(node.meta.get("qual", "") or "")
+        if not path or not qual:
+            never(
+                "suite order requires path/qual",
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+            )
+        span = node.meta.get("span")
+        if not isinstance(span, list) or len(span) != 4:
+            never(
+                "suite order requires span",
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+            )
+        try:
+            span_line = int(span[0])
+            span_col = int(span[1])
+            span_end_line = int(span[2])
+            span_end_col = int(span[3])
+        except (TypeError, ValueError):
+            never(
+                "suite order span fields must be integers",
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+                span=span,
+            )
+        depth = _suite_order_depth(suite_kind)
+        complexity = int(alt_degree.get(node_id, 0))
+        order_key: list[JSONValue] = [
+            depth,
+            complexity,
+            path,
+            qual,
+            span_line,
+            span_col,
+            span_end_line,
+            span_end_col,
+        ]
+        relation.append(
+            {
+                "suite_path": path,
+                "suite_qual": qual,
+                "suite_kind": suite_kind,
+                "span_line": span_line,
+                "span_col": span_col,
+                "span_end_line": span_end_line,
+                "span_end_col": span_end_col,
+                "depth": depth,
+                "complexity": complexity,
+                "order_key": order_key,
+            }
+        )
+        suite_index[
+            (path, qual, suite_kind, span_line, span_col, span_end_line, span_end_col)
+        ] = node_id
+    return relation, suite_index
+
+
+def _suite_order_row_to_site(
+    row: Mapping[str, JSONValue],
+    suite_index: Mapping[tuple[object, ...], NodeId],
+) -> NodeId | None:
+    path = str(row.get("suite_path", "") or "")
+    qual = str(row.get("suite_qual", "") or "")
+    suite_kind = str(row.get("suite_kind", "") or "")
+    if not path or not qual or not suite_kind:
+        return None
+    try:
+        span_line = int(row.get("span_line", -1))
+        span_col = int(row.get("span_col", -1))
+        span_end_line = int(row.get("span_end_line", -1))
+        span_end_col = int(row.get("span_end_col", -1))
+    except (TypeError, ValueError):
+        return None
+    key = (
+        path,
+        qual,
+        suite_kind,
+        span_line,
+        span_col,
+        span_end_line,
+        span_end_col,
+    )
+    return suite_index.get(key)
+
+
+def _materialize_suite_order_spec(
+    *,
+    forest: Forest,
+) -> None:
+    relation, suite_index = _suite_order_relation(forest)
+    if not relation:
+        return
+    projected = apply_spec(SUITE_ORDER_SPEC, relation)
+
+    _materialize_projection_spec_rows(
+        spec=SUITE_ORDER_SPEC,
+        projected=projected,
+        forest=forest,
+        row_to_site=lambda row: _suite_order_row_to_site(row, suite_index),
+    )
 
 
 def _summarize_deadline_obligations(
@@ -9660,6 +9799,8 @@ def analyze_paths(
             config=config,
             forest=forest,
         )
+        if forest is not None:
+            _materialize_suite_order_spec(forest=forest)
     deadness_witnesses: list[JSONObject] = []
     if include_deadness_witnesses:
         deadness_witnesses = analyze_deadness_flow_repo(

@@ -68,9 +68,19 @@ def test_deadline_helper_classification_and_unparse_error() -> None:
     assert da._is_deadline_origin_call(bad_call) is False
 
     origin_call = ast.parse("Deadline()").body[0].value
-    from_timeout = ast.parse("Deadline.from_timeout(1.0)").body[0].value
+    from_timeout = ast.parse("Deadline.from_timeout(1)").body[0].value
+    from_timeout_ms = ast.parse("Deadline.from_timeout_ms(1)").body[0].value
+    from_timeout_ticks = ast.parse("Deadline.from_timeout_ticks(1, 1000000)").body[0].value
     assert da._is_deadline_origin_call(origin_call) is True
     assert da._is_deadline_origin_call(from_timeout) is True
+    assert da._is_deadline_origin_call(from_timeout_ms) is True
+    assert da._is_deadline_origin_call(from_timeout_ticks) is True
+    prefixed = ast.parse("mod.Deadline.from_timeout(1)").body[0].value
+    prefixed_ms = ast.parse("mod.Deadline.from_timeout_ms(1)").body[0].value
+    prefixed_ticks = ast.parse("mod.Deadline.from_timeout_ticks(1, 1000000)").body[0].value
+    assert da._is_deadline_origin_call(prefixed) is True
+    assert da._is_deadline_origin_call(prefixed_ms) is True
+    assert da._is_deadline_origin_call(prefixed_ticks) is True
 
     assert da._is_deadline_param("deadline", None) is True
     info_const = da._classify_deadline_expr(
@@ -688,6 +698,106 @@ def test_deadline_summary_materializes_spec_facets() -> None:
     ]
     assert spec_sites
     assert any(alt.kind == "SpecFacet" for alt in forest.alts)
+
+
+def test_suite_order_spec_materializes_spec_facets() -> None:
+    da = _load()
+    forest = da.Forest()
+    forest.add_suite_site("mod.py", "mod.fn", "loop", span=(0, 0, 0, 1))
+    da._materialize_suite_order_spec(forest=forest)
+    spec_sites = [
+        node
+        for node in forest.nodes.values()
+        if node.kind == "SuiteSite"
+        and node.meta.get("suite_kind") == "spec"
+        and node.meta.get("spec_name") == "suite_order"
+    ]
+    assert spec_sites
+    spec_facets = [alt for alt in forest.alts if alt.kind == "SpecFacet"]
+    assert spec_facets
+    assert any("order_key" in alt.evidence for alt in spec_facets)
+
+
+def test_suite_order_relation_skips_spec_sites() -> None:
+    da = _load()
+    forest = da.Forest()
+    forest.add_spec_site(
+        spec_hash="spec",
+        spec_name="suite_order",
+        spec_domain="suite_order",
+        spec_version=1,
+    )
+    relation, suite_index = da._suite_order_relation(forest)
+    assert relation == []
+    assert suite_index == {}
+
+
+def test_suite_order_relation_requires_path_and_qual() -> None:
+    da = _load()
+    from gabion.exceptions import NeverThrown
+
+    forest = da.Forest()
+    forest.add_node(
+        "SuiteSite",
+        ("missing",),
+        {"suite_kind": "loop", "span": [0, 0, 0, 1]},
+    )
+    with pytest.raises(NeverThrown):
+        da._suite_order_relation(forest)
+
+
+def test_suite_order_relation_requires_span() -> None:
+    da = _load()
+    from gabion.exceptions import NeverThrown
+
+    forest = da.Forest()
+    forest.add_node(
+        "SuiteSite",
+        ("missing-span",),
+        {"suite_kind": "loop", "path": "mod.py", "qual": "mod.fn"},
+    )
+    with pytest.raises(NeverThrown):
+        da._suite_order_relation(forest)
+
+
+def test_suite_order_relation_requires_int_span_fields() -> None:
+    da = _load()
+    from gabion.exceptions import NeverThrown
+
+    forest = da.Forest()
+    forest.add_node(
+        "SuiteSite",
+        ("bad-span",),
+        {"suite_kind": "loop", "path": "mod.py", "qual": "mod.fn", "span": ["x", 0, 0, 1]},
+    )
+    with pytest.raises(NeverThrown):
+        da._suite_order_relation(forest)
+
+
+def test_suite_order_row_to_site_rejects_missing_fields() -> None:
+    da = _load()
+    suite_index = {}
+    assert da._suite_order_row_to_site(
+        {"suite_path": "", "suite_qual": "q", "suite_kind": "loop"},
+        suite_index,
+    ) is None
+
+
+def test_suite_order_row_to_site_rejects_invalid_span() -> None:
+    da = _load()
+    suite_index = {}
+    assert da._suite_order_row_to_site(
+        {
+            "suite_path": "mod.py",
+            "suite_qual": "mod.fn",
+            "suite_kind": "loop",
+            "span_line": "x",
+            "span_col": 0,
+            "span_end_line": 0,
+            "span_end_col": 1,
+        },
+        suite_index,
+    ) is None
 
 
 def test_spec_row_span_handles_invalid_and_valid() -> None:
