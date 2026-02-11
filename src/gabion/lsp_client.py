@@ -140,13 +140,26 @@ def run_command(
     _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
     cmd_id = 2
+    command_args = list(request.arguments or [])
+    if deadline is not None and command_args and isinstance(command_args[0], dict):
+        remaining = max(0.0, deadline - time.monotonic())
+        if remaining > 0:
+            payload = dict(command_args[0])
+            existing = payload.get("analysis_timeout_seconds")
+            try:
+                existing_value = float(existing) if existing is not None else None
+            except (TypeError, ValueError):
+                existing_value = None
+            if existing_value is None or existing_value > remaining:
+                payload["analysis_timeout_seconds"] = remaining
+            command_args[0] = payload
     _write_rpc(
         proc.stdin,
         {
             "jsonrpc": "2.0",
             "id": cmd_id,
             "method": "workspace/executeCommand",
-            "params": {"command": request.command, "arguments": request.arguments or []},
+            "params": {"command": request.command, "arguments": command_args},
         },
     )
     response = _read_response(proc.stdout, cmd_id, deadline)

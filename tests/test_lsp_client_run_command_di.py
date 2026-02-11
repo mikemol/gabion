@@ -30,6 +30,31 @@ class _FakeProc:
         return (b"", self.stderr.read())
 
 
+def _extract_rpc_messages(buffer: bytes) -> list[dict]:
+    messages: list[dict] = []
+    offset = 0
+    while True:
+        header_end = buffer.find(b"\r\n\r\n", offset)
+        if header_end < 0:
+            break
+        header = buffer[offset:header_end].decode("utf-8")
+        length = None
+        for line in header.split("\r\n"):
+            if line.lower().startswith("content-length:"):
+                length = int(line.split(":", 1)[1].strip())
+                break
+        if length is None:
+            break
+        body_start = header_end + 4
+        body_end = body_start + length
+        if body_end > len(buffer):
+            break
+        payload = json.loads(buffer[body_start:body_end].decode("utf-8"))
+        messages.append(payload)
+        offset = body_end
+    return messages
+
+
 def _make_proc(returncode: int | None, stderr_bytes: bytes) -> _FakeProc:
     init = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {}})
     cmd = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {}})
@@ -142,3 +167,87 @@ def test_run_command_env_timeout_zero_ignored() -> None:
             os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
     assert result == {}
     assert proc.last_timeout is not None
+
+
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_injects_analysis_timeout_seconds() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
+    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "1.0"
+    try:
+        run_command(
+            CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+            root=Path("."),
+            process_factory=factory,
+        )
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert 0 < payload.get("analysis_timeout_seconds", 0) <= 1.0
+
+
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_preserves_lower_analysis_timeout_seconds() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
+    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "5.0"
+    try:
+        run_command(
+            CommandRequest(
+                "gabion.dataflowAudit",
+                [{"analysis_timeout_seconds": 0.01, "paths": ["."]}],
+            ),
+            root=Path("."),
+            process_factory=factory,
+        )
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert payload.get("analysis_timeout_seconds") == 0.01
+
+
+# gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
+def test_run_command_overrides_invalid_analysis_timeout_seconds() -> None:
+    proc = _make_proc(0, b"")
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    previous = os.environ.get("GABION_LSP_TIMEOUT_SECONDS")
+    os.environ["GABION_LSP_TIMEOUT_SECONDS"] = "1.0"
+    try:
+        run_command(
+            CommandRequest(
+                "gabion.dataflowAudit",
+                [{"analysis_timeout_seconds": "nope", "paths": ["."]}],
+            ),
+            root=Path("."),
+            process_factory=factory,
+        )
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous
+    messages = _extract_rpc_messages(proc.stdin.getvalue())
+    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
+    payload = execute["params"]["arguments"][0]
+    assert 0 < payload.get("analysis_timeout_seconds", 0) <= 1.0
