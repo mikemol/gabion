@@ -1,6 +1,6 @@
 ---
 doc_revision: 1
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: in_8
 doc_role: inbox
 doc_scope:
@@ -8,19 +8,28 @@ doc_scope:
   - inbox
 doc_authority: informative
 doc_owner: maintainer
-doc_requires:
-doc_reviewed_as_of:
-doc_review_notes:
-doc_change_protocol: "POLICY_SEED.md §6"
+doc_requires: []
+doc_reviewed_as_of: {}
+doc_review_notes: {}
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
+doc_sections:
+  in_in_8: 1
+doc_section_requires:
+  in_in_8: []
+doc_section_reviews:
+  in_in_8: {}
 ---
+
 The path of greatest leverage now is **Protocol Synthesis**.
 
 We have successfully built the "Witness" (the analysis engine that sees through aliasing and imports). The data it produces—the identified bundles—is the raw material. The next logical step is to turn that raw material into a "Crystal": **automatically generated Python code**.
 
 Instead of asking you to manually inspect the report and write classes, this extension will generate a `suggested_protocols.py` file containing `dataclass` or `Protocol` definitions for every high-confidence bundle found in your codebase.
+
+<a id="in_in_8"></a>
 
 ### The Conceptual Logic
 

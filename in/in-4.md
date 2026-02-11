@@ -1,6 +1,6 @@
 ---
 doc_revision: 1
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: in_4
 doc_role: inbox
 doc_scope:
@@ -8,17 +8,26 @@ doc_scope:
   - inbox
 doc_authority: informative
 doc_owner: maintainer
-doc_requires:
-doc_reviewed_as_of:
-doc_review_notes:
-doc_change_protocol: "POLICY_SEED.md §6"
+doc_requires: []
+doc_reviewed_as_of: {}
+doc_review_notes: {}
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
+doc_sections:
+  in_in_4: 1
+doc_section_requires:
+  in_in_4: []
+doc_section_reviews:
+  in_in_4: {}
 ---
+
 This is the correct path. To refuse to see `y` as `x` when `y = x` is to deny the transitivity of identity, which creates a "gap" in your structural lattice. If the Witness (the script) blinks when the data changes names, the Judge cannot accurately sentence the code.
 
 However, we must apply the **Strict Necessity Test** to this extension. We are not just "adding features"; we are **expanding the definition of a valid morphism**.
+
+<a id="in_in_4"></a>
 
 ### The Conceptual Shift: Identity vs. Symbol
 

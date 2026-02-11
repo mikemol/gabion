@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 42
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -8,24 +8,49 @@ doc_scope:
   - semantics
   - tooling
 doc_authority: normative
-doc_requires:
-  - README.md
-  - CONTRIBUTING.md
-  - AGENTS.md
-  - POLICY_SEED.md
+doc_dependency_projection: glossary_root
+doc_requires: []
 doc_reviewed_as_of:
-  README.md: 59
-  CONTRIBUTING.md: 78
-  AGENTS.md: 13
-  POLICY_SEED.md: 33
 doc_review_notes:
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+doc_sections:
+  contract: 1
+  rule_of_polysemy: 1
+  bundle: 1
+  tier: 1
+  decision_table: 1
+  decision_bundle: 1
+  decision_protocol: 1
+  decision_surface: 1
+  value_encoded_decision: 1
+  aspf: 1
+  forest: 1
+  suite_site: 1
+  hash_consing: 1
+  never_throw_exception_protocol: 1
+  deadness_witness: 1
+  coherence_witness: 1
+  rewrite_plan: 1
+  exception_path: 1
+  handledness_witness: 1
+  exception_obligation: 1
+  attribute_carrier: 1
+  attribute_transport: 1
+  evidence_id: 1
+  witness: 1
+  evidence_surface: 1
+  evidence_dominance: 1
+  equivalent_witness: 1
+  test_obsolescence_projection: 1
+  test_evidence_suggestions_projection: 1
+  evidence_key: 1
+  ambiguity_set: 1
+  partition_witness: 1
+  annotation_drift: 1
+  grothendieck_analysis: 1
+  self_review: 1
 doc_commutes_with:
-  - POLICY_SEED.md
-doc_change_protocol: "POLICY_SEED.md §6"
+  - POLICY_SEED.md#policy_seed
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - rule_of_polysemy
   - tier2_reification
@@ -36,6 +61,7 @@ doc_erasure:
 doc_owner: maintainer
 ---
 
+<a id="contract"></a>
 # Glossary (Normative)
 
 > **Glossary Contract (Normative):**
@@ -45,21 +71,21 @@ doc_owner: maintainer
 > what is erased by aliasing or projection.
 >
 > **Security Contract (Normative Pointer):**
-> Execution and CI safety are governed by `POLICY_SEED.md`.
+> Execution and CI safety are governed by `POLICY_SEED.md#policy_seed`.
 > The semantic obligations in this glossary are enforced only when execution
 > complies with that policy. Both contracts are required for validity.
 >
 > **Dataflow Grammar Invariant (Normative Pointer):**
-> The dataflow grammar audit in `POLICY_SEED.md` treats recurring parameter
+> The dataflow grammar audit in `POLICY_SEED.md#policy_seed` treats recurring parameter
 > bundles as type-level obligations. Any bundle that crosses function
 > boundaries must be promoted to a Protocol (dataclass config/local bundle)
 > or explicitly documented with a `# dataflow-bundle:` marker. Enforcement is
 > via `gabion check`.
 >
 > **Repository Cross-References (Normative Pointers):**
-> `README.md` defines project scope and status.
-> `CONTRIBUTING.md` defines workflow guardrails and required checks.
-> `AGENTS.md` defines LLM/agent obligations and refusal rules.
+> `README.md#repo_contract` defines project scope and status.
+> `CONTRIBUTING.md#contributing_contract` defines workflow guardrails and required checks.
+> `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
 >
 > **Reserved Notation (Normative):**
 > `alias(·)` denotes a bijective renaming of symbols within a signature scope.
@@ -68,6 +94,7 @@ doc_owner: maintainer
 > `tier(·, scope)` denotes the evidence-based classification of a bundle in a
 > declared observation scope.
 
+<a id="rule_of_polysemy"></a>
 ## 0. Rule of Polysemy
 
 Polysemy is permitted only when:
@@ -80,6 +107,7 @@ If any of (1-3) are absent, the reuse is invalid.
 
 Goal: engineer convergence, not avoid ambiguity.
 
+<a id="bundle"></a>
 ## 1. Bundle
 
 ### Meaning
@@ -129,6 +157,7 @@ Renaming variables erases the symbol but preserves the bundle identity.
 
 ---
 
+<a id="tier"></a>
 ## 2. Tier
 
 ### Meaning
@@ -303,7 +332,7 @@ set and declared scope counts remain.
   implemented as a dataclass (config/local bundle) or an explicit
   `# dataflow-bundle:` marker.
 - **Protocol (change):** an ordered, enforceable procedure for modifying
-  policy (e.g. the change protocol in `POLICY_SEED.md`).
+  policy (e.g. the change protocol in `POLICY_SEED.md#policy_seed`).
 
 ### Axes
 
@@ -323,7 +352,7 @@ Statements about Protocol (dataflow) must not imply anything about Protocol
 ### Normative Rule
 
 > Qualify the meaning of Protocol in every normative statement.
-> In `POLICY_SEED.md` §1.1, "Protocols" refers to Protocol (dataflow).
+> In `POLICY_SEED.md#policy_seed` §1.1, "Protocols" refers to Protocol (dataflow).
 
 ### Erasure
 
@@ -658,6 +687,7 @@ Layout choices, rendering engines, and styling are erased.
 
 ---
 
+<a id="decision_table"></a>
 ## 12. Decision Table (Control-Flow Documentation)
 
 ### Meaning
@@ -698,6 +728,7 @@ Row order, formatting, and whitespace are erased.
 
 ---
 
+<a id="decision_bundle"></a>
 ## 13. Decision Bundle (Control-Flow Structural)
 
 ### Meaning
@@ -740,6 +771,7 @@ Predicate names and order are erased if semantics are preserved.
 
 ---
 
+<a id="decision_protocol"></a>
 ## 14. Decision Protocol (Control-Flow Explicit)
 
 ### Meaning
@@ -782,6 +814,7 @@ equivalent.
 
 ---
 
+<a id="decision_surface"></a>
 ## 15. Decision Surface (Control-Flow Boundary)
 
 ### Meaning
@@ -820,6 +853,7 @@ Predicate naming and formatting are erased if semantics are preserved.
 
 ---
 
+<a id="value_encoded_decision"></a>
 ## 16. Value-Encoded Decision (Branchless Control)
 
 ### Meaning
@@ -1073,6 +1107,7 @@ Lemma naming and placement are erased if semantics are preserved.
 
 ---
 
+<a id="aspf"></a>
 ## 23. ASPF (Algebraic Structural Prime Fingerprint)
 
 ### Meaning
@@ -1258,6 +1293,7 @@ Syntactic formatting is erased; derivation identity is not.
 
 ---
 
+<a id="never_throw_exception_protocol"></a>
 ## 28. Never‑Throw Exception Protocol
 
 ### Meaning
@@ -1299,6 +1335,7 @@ identity and reachability obligation are not.
 
 ---
 
+<a id="deadness_witness"></a>
 ## 29. Deadness Witness
 
 ### Meaning
@@ -1336,6 +1373,7 @@ Formatting and ordering are erased; environment assumptions are **not**.
 
 ---
 
+<a id="coherence_witness"></a>
 ## 30. Coherence Witness
 
 ### Meaning
@@ -1373,6 +1411,7 @@ Ordering of alternatives is erased; boundary and fork identity are **not**.
 
 ---
 
+<a id="rewrite_plan"></a>
 ## 31. Rewrite Plan (Proof‑Carrying Refactor)
 
 ### Meaning
@@ -1410,6 +1449,7 @@ Formatting is erased; plan identity and evidence links are **not**.
 
 ---
 
+<a id="exception_path"></a>
 ## 32. Exception Path
 
 ### Meaning
@@ -1445,6 +1485,7 @@ Exception message text is erased; path identity is **not**.
 
 ---
 
+<a id="handledness_witness"></a>
 ## 33. Handledness Witness
 
 ### Meaning
@@ -1481,6 +1522,7 @@ Formatting is erased; handler boundary is **not**.
 
 ---
 
+<a id="exception_obligation"></a>
 ## 34. Exception Obligation
 
 ### Meaning
@@ -1516,6 +1558,7 @@ Ordering is erased; obligation identity is **not**.
 
 ---
 
+<a id="attribute_carrier"></a>
 ## 35. Attribute Carrier
 
 ### Meaning
@@ -1558,6 +1601,7 @@ Transport mechanism is erased; carrier shape and values are **not**.
 
 ---
 
+<a id="attribute_transport"></a>
 ## 36. Attribute Transport (ContextVar)
 
 ### Meaning
@@ -1599,6 +1643,7 @@ ContextVar identity is erased; carrier content is **not**.
 
 ---
 
+<a id="evidence_id"></a>
 ## 37. Evidence ID
 
 ### Meaning
@@ -1642,6 +1687,7 @@ Tag placement and formatting are erased; only the ID values persist.
 
 ---
 
+<a id="witness"></a>
 ## 38. Witness
 
 ### Meaning
@@ -1676,6 +1722,7 @@ Test ordering is erased; witness identity is not.
 
 ---
 
+<a id="evidence_surface"></a>
 ## 39. Evidence Surface
 
 ### Meaning
@@ -1714,6 +1761,7 @@ Multiplicity of witnesses is erased; set membership remains.
 
 ---
 
+<a id="evidence_dominance"></a>
 ## 40. Evidence Dominance (Strict)
 
 ### Meaning
@@ -1749,6 +1797,7 @@ Ordering of Evidence IDs is erased; set inclusion is not.
 
 ---
 
+<a id="equivalent_witness"></a>
 ## 41. Equivalent Witness
 
 ### Meaning
@@ -1783,6 +1832,7 @@ Within-class ordering is erased.
 
 ---
 
+<a id="test_obsolescence_projection"></a>
 ## 42. Test Obsolescence Projection
 
 ### Meaning
@@ -1819,6 +1869,7 @@ Formatting is erased; class assignments are not.
 
 ---
 
+<a id="test_evidence_suggestions_projection"></a>
 ## 43. Test Evidence Suggestions Projection
 
 ### Meaning
@@ -1855,6 +1906,7 @@ Suggestion ordering is erased; evidence IDs are not.
 
 ---
 
+<a id="evidence_key"></a>
 ## 44. Evidence Key
 
 ### Meaning
@@ -1896,6 +1948,7 @@ Display formatting is erased; key identity is not.
 
 ---
 
+<a id="ambiguity_set"></a>
 ## 45. Ambiguity Set
 
 ### Meaning
@@ -1936,6 +1989,7 @@ Candidate ordering is erased; candidate identity is not.
 
 ---
 
+<a id="partition_witness"></a>
 ## 46. Partition Witness
 
 ### Meaning
@@ -1973,6 +2027,7 @@ Formatting of witness details is erased; witness identity is not.
 
 ---
 
+<a id="annotation_drift"></a>
 ## 47. Annotation Drift
 
 ### Meaning
@@ -2010,6 +2065,7 @@ Display formatting is erased; key identity is not.
 
 ---
 
+<a id="grothendieck_analysis"></a>
 ## 48. Grothendieck Analysis (Doc Review Cofibration)
 
 ### Meaning
@@ -2048,6 +2104,7 @@ Formatting and ordering of notes are erased; semantic contrasts are not.
 
 ---
 
+<a id="self_review"></a>
 ## 49. Self‑Review (Docflow Exception)
 
 ### Meaning
@@ -2118,3 +2175,135 @@ Remote alias names are erased; commit‑graph relations are not.
 ### Test Obligations (to be mapped)
 
 - Policy checker enforces ancestor checks and explicit SHA updates.
+
+---
+
+<a id="forest"></a>
+## 50. Forest (Interned Carrier Graph)
+
+### Meaning
+
+**Definition:** The Forest is the materialized, interned carrier graph for ASPF.
+It stores nodes, alternatives, and metadata such that ASPF semantics are
+queryable and auditable. Forest does not add semantics; it **materializes**
+ASPF structure for ProjectionSpec and evidence emission.
+
+### Axis
+
+**Axis:** Structural (carrier graph / provenance materialization).
+
+### Desired Commutation (Internment ↔ Queryability)
+
+```
+intern(x) ⇒ node(x) with stable identity and queryable provenance
+```
+
+### Failure Modes
+
+- Forest treated as an ephemeral runtime cache (identity not preserved).
+- Forest nodes emitted without stable span/qual keys (non‑semantic edits break identity).
+- Facets attached to functions rather than SuiteSites (locality lost).
+
+### Normative Rule
+
+> Forest nodes are interned into ASPF and must preserve identity across
+> re‑audits. SuiteSites are Forest nodes; locality facets attach to SuiteSites.
+> Function‑level evidence is an aggregation over SuiteSites.
+
+### Erasure
+
+Ordering of node emission is erased; canonical keys are not.
+
+### Test Obligations (to be mapped)
+
+- Forest emission is deterministic across re‑audits.
+- Forest identity is stable under non‑semantic edits.
+
+---
+
+<a id="suite_site"></a>
+## 51. SuiteSite
+
+### Meaning
+
+**Definition:** A SuiteSite is the canonical locality carrier: a contiguous
+executable block (code suite) or logical suite (docflow / issue metadata) with
+stable identity keyed by `(domain, kind, path, qual, span)`.
+
+### Axis
+
+**Axis:** Structural (locality carrier / suite containment).
+
+### Desired Commutation (Projection Stability)
+
+Let `suite_id` be derived from the canonical key.
+
+```
+alias(suite_id) with identical key ⇒ projections invariant
+```
+
+### Failure Modes
+
+- Suite identity changes under non‑semantic edits (span instability).
+- Facets attach to function scope instead of the enclosing suite.
+- Mixed domains (`docflow` vs `github`) without explicit links.
+
+### Normative Rule
+
+> All locality‑bound facets attach to SuiteSite.
+> FunctionSite is a projection over contained SuiteSites.
+> Suite identity must remain stable under non‑semantic edits; spans and domain
+> are not erased. Docflow and GitHub suites follow `in/in-30.md`.
+
+### Erasure
+
+Suite alias names may be erased; canonical key fields are not.
+
+### Test Obligations (to be mapped)
+
+- Suite emission is deterministic across re‑audits.
+- Suite→function aggregation matches legacy function‑level reports.
+
+---
+
+<a id="hash_consing"></a>
+## 52. Hash‑Consing (Internment)
+
+### Meaning
+
+**Definition:** Internment is hash‑consing: `hash(x)` *is* normalization and
+returns the canonical normalized representative. Hashes are addresses of
+normalized forms only; raw objects are not separately addressable.
+
+### Axis
+
+**Axis:** Identity (canonicalization / ledger address).
+
+### Desired Commutation (Normalization ↔ Hash)
+
+```
+hash(normalize(x)) == normalize(hash(x))
+hash(hash(x)) == hash(x)
+```
+
+### Failure Modes
+
+- Hash used as a lossy digest (information loss).
+- Hash computed on raw/un‑normalized forms.
+- Multiple hashes for equivalent normalized structures.
+
+### Normative Rule
+
+> `hash()` must not lose information. It returns the normalized form and is
+> idempotent. Any intrinsic computation (e.g., β‑reduction or substitution)
+> must be defined as a normalization rule prior to internment.
+> Because internment is hash‑consing, β‑reduction is intrinsic and automatic
+> to internment whenever it is part of the normalization system.
+
+### Erasure
+
+Formatting differences are erased; semantic structure is not.
+
+### Test Obligations (to be mapped)
+
+- Hash idempotence and normalization commutation.

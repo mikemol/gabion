@@ -1,5 +1,5 @@
 ---
-doc_revision: 10
+doc_revision: 18
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -10,44 +10,167 @@ doc_scope:
   - analysis
   - governance
 doc_authority: normative
+doc_dependency_projection: glossary_lifted
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - README.md
-  - CONTRIBUTING.md
-  - AGENTS.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - glossary.md#rule_of_polysemy
+  - glossary.md#bundle
+  - glossary.md#tier
+  - glossary.md#decision_table
+  - glossary.md#decision_bundle
+  - glossary.md#decision_protocol
+  - glossary.md#evidence_surface
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+  - AGENTS.md#agent_obligations
 doc_reviewed_as_of:
-  POLICY_SEED.md: 33
-  glossary.md: 29
-  README.md: 59
-  CONTRIBUTING.md: 78
-  AGENTS.md: 13
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  glossary.md#rule_of_polysemy: 1
+  glossary.md#bundle: 1
+  glossary.md#tier: 1
+  glossary.md#decision_table: 1
+  glossary.md#decision_bundle: 1
+  glossary.md#decision_protocol: 1
+  glossary.md#evidence_surface: 1
+  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  AGENTS.md#agent_obligations: 1
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); coverage semantics aligned."
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  AGENTS.md: "Agent review discipline consistent with coverage obligations."
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); glossary-lifted dependencies."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  glossary.md#rule_of_polysemy: "Reviewed glossary.md#rule_of_polysemy rev1 (polysemy axes + commutation obligations)."
+  glossary.md#bundle: "Reviewed glossary.md#bundle rev1 (bundle identity + alias invariance)."
+  glossary.md#tier: "Reviewed glossary.md#tier rev1 (tier evidence thresholds + promotion requirements)."
+  glossary.md#decision_table: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
+  glossary.md#decision_bundle: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
+  glossary.md#decision_protocol: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
+  glossary.md#evidence_surface: "Reviewed glossary.md#evidence_surface rev1 (evidence surfaces bind carriers to documented obligations); glossary-lifted dependencies."
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); glossary-lifted dependencies."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); glossary-lifted dependencies."
+  AGENTS.md#agent_obligations: "Agent review discipline consistent with coverage obligations."
+doc_sections:
+  coverage_semantics: 1
+doc_section_requires:
+  coverage_semantics:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - glossary.md#rule_of_polysemy
+    - glossary.md#bundle
+    - glossary.md#tier
+    - glossary.md#decision_table
+    - glossary.md#decision_bundle
+    - glossary.md#decision_protocol
+    - glossary.md#evidence_surface
+    - README.md#repo_contract
+    - CONTRIBUTING.md#contributing_contract
+    - AGENTS.md#agent_obligations
+doc_section_reviews:
+  coverage_semantics:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); glossary-lifted dependencies."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+    glossary.md#rule_of_polysemy:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#rule_of_polysemy rev1 (polysemy axes + commutation obligations)."
+    glossary.md#bundle:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#bundle rev1 (bundle identity + alias invariance)."
+    glossary.md#tier:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#tier rev1 (tier evidence thresholds + promotion requirements)."
+    glossary.md#decision_table:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
+    glossary.md#decision_bundle:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
+    glossary.md#decision_protocol:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
+    glossary.md#evidence_surface:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed glossary.md#evidence_surface rev1 (evidence surfaces bind carriers to documented obligations); glossary-lifted dependencies."
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); glossary-lifted dependencies."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); glossary-lifted dependencies."
+    AGENTS.md#agent_obligations:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Agent review discipline consistent with coverage obligations."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - coverage_is_evidence
   - rule_coverage_required
   - ratchet_only
   - coverage_smell_tracking
+  - name: docflow:cover:decision_surface
+    kind: cover
+    status: proposed
+    cover_evidence_kind: decision_surface
+  - name: docflow:cover:function_site
+    kind: cover
+    status: proposed
+    cover_evidence_kind: function_site
+  - name: docflow:cover:call_footprint
+    kind: cover
+    status: proposed
+    cover_evidence_kind: call_footprint
+  - name: docflow:cover:call_cluster
+    kind: cover
+    status: proposed
+    cover_evidence_kind: call_cluster
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
 ---
 
+<a id="coverage_semantics"></a>
+
 # Coverage Semantics (Normative)
 
 Coverage is not a vanity metric in this repository. It is **evidence** that the
-semantic invariants described in `glossary.md` and `POLICY_SEED.md` are actually
+semantic invariants described in [glossary.md#contract](glossary.md#contract) and [POLICY_SEED.md#policy_seed](POLICY_SEED.md#policy_seed) are actually
 enforced by tests.
 
-This policy is scoped by the repository contract (`README.md`), the workflow
-rules (`CONTRIBUTING.md`), and agent obligations (`AGENTS.md`).
+This policy is scoped by the repository contract ([README.md#repo_contract](README.md#repo_contract)), workflow
+rules ([CONTRIBUTING.md#contributing_contract](CONTRIBUTING.md#contributing_contract)), and agent obligations ([AGENTS.md#agent_obligations](AGENTS.md#agent_obligations)).
+
+Normative pointers (explicit): [POLICY_SEED.md#policy_seed](POLICY_SEED.md#policy_seed), [glossary.md#contract](glossary.md#contract), [glossary.md#rule_of_polysemy](glossary.md#rule_of_polysemy),
+[glossary.md#bundle](glossary.md#bundle), [glossary.md#tier](glossary.md#tier), [glossary.md#decision_table](glossary.md#decision_table),
+[glossary.md#decision_bundle](glossary.md#decision_bundle), [glossary.md#decision_protocol](glossary.md#decision_protocol), [glossary.md#evidence_surface](glossary.md#evidence_surface),
+[README.md#repo_contract](README.md#repo_contract), [CONTRIBUTING.md#contributing_contract](CONTRIBUTING.md#contributing_contract), [AGENTS.md#agent_obligations](AGENTS.md#agent_obligations).
 
 ## 1. Coverage Axes (Evidence Types)
 
@@ -71,7 +194,7 @@ When a new AST feature or language construct is supported, add at least one
 fixture where the feature **changes the analysis outcome**.
 
 ### 1.4 Convergence/commutation coverage (required for invariants)
-Metamorphic tests must cover commutation laws in `glossary.md`:
+Metamorphic tests must cover commutation laws in [glossary.md#contract](glossary.md#contract):
 - rename/alias invariance of bundle identity
 - fixed-point stability of analysis/refactor loops
 
@@ -81,7 +204,8 @@ When control-flow is refactored into decision structures, tests must include:
 - **Tier-2 (Decision Bundle):** centralized guard map with positive/negative cases.
 - **Tier-1 (Decision Protocol):** schema validation + edge cases derived from the protocol.
 
-See `glossary.md` §§12–14 for decision-flow tier definitions.
+See [glossary.md#decision_table](glossary.md#decision_table), [glossary.md#decision_bundle](glossary.md#decision_bundle), and
+[glossary.md#decision_protocol](glossary.md#decision_protocol) for decision-flow tier definitions.
 
 ### 1.6 Evidence surface coverage (required)
 The canonical semantic coverage carrier is `out/test_evidence.json`. It records

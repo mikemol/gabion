@@ -1,6 +1,6 @@
 ---
 doc_revision: 1
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: in_2
 doc_role: inbox
 doc_scope:
@@ -8,17 +8,26 @@ doc_scope:
   - inbox
 doc_authority: informative
 doc_owner: maintainer
-doc_requires:
-doc_reviewed_as_of:
-doc_review_notes:
-doc_change_protocol: "POLICY_SEED.md §6"
+doc_requires: []
+doc_reviewed_as_of: {}
+doc_review_notes: {}
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
+doc_sections:
+  in_in_2: 1
+doc_section_requires:
+  in_in_2: []
+doc_section_reviews:
+  in_in_2: {}
 ---
+
 This is a highly specialized static analysis tool that sits somewhere between a linter and a compiler optimizer. It attempts to reverse-engineer architectural intent (specifically, data grouping) from implementation details.
 
 Here is the evaluation based on your requested dimensions:
+
+<a id="in_in_2"></a>
 
 ### 1. What is Novel?
 

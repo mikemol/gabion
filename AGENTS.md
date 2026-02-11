@@ -1,5 +1,5 @@
 ---
-doc_revision: 13
+doc_revision: 18
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -9,21 +9,51 @@ doc_scope:
   - tooling
 doc_authority: normative
 doc_requires:
-  - README.md
-  - CONTRIBUTING.md
-  - POLICY_SEED.md
-  - glossary.md
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
 doc_reviewed_as_of:
-  README.md: 59
-  CONTRIBUTING.md: 78
-  POLICY_SEED.md: 33
-  glossary.md: 29
+  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
 doc_review_notes:
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); agent obligations unchanged."
-doc_change_protocol: "POLICY_SEED.md §6"
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+doc_sections:
+  agent_obligations: 1
+doc_section_requires:
+  agent_obligations:
+    - README.md#repo_contract
+    - CONTRIBUTING.md#contributing_contract
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+doc_section_reviews:
+  agent_obligations:
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Repo contract reviewed; agent obligations unchanged."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Contributor contract reviewed; agent obligations unchanged."
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Policy seed reviewed; agent obligations unchanged."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Glossary contract reviewed; agent obligations unchanged."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - read_policy_glossary_first
   - refuse_on_conflict
@@ -36,20 +66,21 @@ doc_erasure:
 doc_owner: maintainer
 ---
 
-# AGENTS.md
+<a id="agent_obligations"></a>
+# AGENTS.md#agent_obligations
 
-This repository is governed by `POLICY_SEED.md`. Treat it as authoritative.
-Semantic correctness is governed by `glossary.md` (co-equal contract).
+This repository is governed by `POLICY_SEED.md#policy_seed`. Treat it as authoritative.
+Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract)` (co-equal contract).
 
 ## Cross-references (normative pointers)
-- `README.md` defines project scope, status, and entry points.
-- `CONTRIBUTING.md` defines human+machine workflow guardrails.
-- `POLICY_SEED.md` defines execution and CI safety constraints.
-- `glossary.md` defines semantic meanings, axes, and commutation obligations.
+- `README.md#repo_contract` defines project scope, status, and entry points.
+- `CONTRIBUTING.md#contributing_contract` defines human+machine workflow guardrails.
+- `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
+- `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
 
 ## Required behavior
-- Read `POLICY_SEED.md` and `glossary.md` before proposing or applying changes.
-- If a request conflicts with `POLICY_SEED.md`, stop and ask for guidance.
+- Read `POLICY_SEED.md#policy_seed` and `[glossary.md#contract](glossary.md#contract)` before proposing or applying changes.
+- If a request conflicts with `POLICY_SEED.md#policy_seed`, stop and ask for guidance.
 - Do not weaken or bypass self-hosted runner protections.
 - Keep workflow actions pinned to full commit SHAs and allow-listed.
 - When changing workflows, run the policy checks (once the scripts exist) and
@@ -68,8 +99,8 @@ Semantic correctness is governed by `glossary.md` (co-equal contract).
 - Any bundle that crosses function boundaries must be promoted to a Protocol
   (dataclass config/local bundle) or explicitly documented with a
   `# dataflow-bundle:` marker.
-- Tier-2 bundles must be reified before merge (see `glossary.md`).
-- Tier-3 bundles must be documented or reified (see `glossary.md`).
+- Tier-2 bundles must be reified before merge (see `[glossary.md#contract](glossary.md#contract)`).
+- Tier-3 bundles must be documented or reified (see `[glossary.md#contract](glossary.md#contract)`).
 
 ## Doc hygiene
 - Markdown docs include a YAML front-matter block with `doc_revision`.

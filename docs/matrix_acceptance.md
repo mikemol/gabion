@@ -1,6 +1,6 @@
 ---
-doc_revision: 4
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_revision: 10
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: matrix_acceptance
 doc_role: reference
 doc_scope:
@@ -10,38 +10,103 @@ doc_scope:
   - governance
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - CONTRIBUTING.md
-  - README.md
-  - in/in-24.md
-  - in/in-25.md
-  - in/in-26.md
-  - in/in-27.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - glossary.md#exception_obligation
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
+  - in/in-24.md#in_in_24
+  - in/in-25.md#in_in_25
+  - in/in-26.md#in_in_26
+  - in/in-27.md#in_in_27
 doc_reviewed_as_of:
-  POLICY_SEED.md: 33
-  glossary.md: 29
-  CONTRIBUTING.md: 78
-  README.md: 59
-  in/in-24.md: 3
-  in/in-25.md: 3
-  in/in-26.md: 3
-  in/in-27.md: 1
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  glossary.md#exception_obligation: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 1
+  in/in-24.md#in_in_24: 1
+  in/in-25.md#in_in_25: 1
+  in/in-26.md#in_in_26: 1
+  in/in-27.md#in_in_27: 1
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); matrix acceptance framing unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  in/in-24.md: "Deadness matrix acceptance checks align with artifact schema requirements."
-  in/in-25.md: "Coherence matrix acceptance mapping remains consistent with evidence artifacts."
-  in/in-26.md: "Rewrite-plan verification predicates match matrix obligations."
-  in/in-27.md: "Exception obligation mapping aligns with handledness/deadness requirements."
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+  glossary.md#exception_obligation: Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage).
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+  in/in-24.md#in_in_24: Reviewed in/in-24.md rev8 (deadness matrix acceptance checks align with artifact schema requirements).
+  in/in-25.md#in_in_25: Reviewed in/in-25.md rev8 (coherence matrix acceptance mapping remains consistent with evidence artifacts).
+  in/in-26.md#in_in_26: Reviewed in/in-26.md rev8 (rewrite-plan verification predicates match matrix obligations).
+  in/in-27.md#in_in_27: Reviewed in/in-27.md rev6 (exception obligation mapping aligns with handledness/deadness requirements).
+doc_sections:
+  matrix_acceptance: 1
+doc_section_requires:
+  matrix_acceptance:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - glossary.md#exception_obligation
+    - CONTRIBUTING.md#contributing_contract
+    - README.md#repo_contract
+    - in/in-24.md#in_in_24
+    - in/in-25.md#in_in_25
+    - in/in-26.md#in_in_26
+    - in/in-27.md#in_in_27
+doc_section_reviews:
+  matrix_acceptance:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+    glossary.md#exception_obligation:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage).
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+    in/in-24.md#in_in_24:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed in/in-24.md rev8 (deadness matrix acceptance checks align with artifact schema requirements).
+    in/in-25.md#in_in_25:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed in/in-25.md rev8 (coherence matrix acceptance mapping remains consistent with evidence artifacts).
+    in/in-26.md#in_in_26:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed in/in-26.md rev8 (rewrite-plan verification predicates match matrix obligations).
+    in/in-27.md#in_in_27:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed in/in-27.md rev6 (exception obligation mapping aligns with handledness/deadness requirements).
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
 ---
+
+<a id="matrix_acceptance"></a>
 
 # Matrix-to-Tests Mapping (Acceptance Reference)
 
@@ -63,14 +128,15 @@ issues).
 
 ## Normative pointers (explicit)
 
-- `POLICY_SEED.md`
-- `glossary.md`
-- `CONTRIBUTING.md`
-- `README.md`
-- `in/in-24.md`
-- `in/in-25.md`
-- `in/in-26.md`
-- `in/in-27.md`
+- `POLICY_SEED.md#policy_seed`
+- `[glossary.md#contract](glossary.md#contract)`
+- `[glossary.md#exception_obligation](glossary.md#exception_obligation)`
+- `CONTRIBUTING.md#contributing_contract`
+- `README.md#repo_contract`
+- `in/in-24.md#in_in_24`
+- `in/in-25.md#in_in_25`
+- `in/in-26.md#in_in_26`
+- `in/in-27.md#in_in_27`
 
 ---
 

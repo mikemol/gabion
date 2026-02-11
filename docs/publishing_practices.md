@@ -1,5 +1,5 @@
 ---
-doc_revision: 23
+doc_revision: 27
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: publishing_practices
 doc_role: practices
@@ -9,28 +9,30 @@ doc_scope:
   - packaging
   - ci
 doc_authority: informative
-doc_requires:
-  - POLICY_SEED.md
-  - CONTRIBUTING.md
+doc_requires: []
 doc_reviewed_as_of:
-  POLICY_SEED.md: 33
-  CONTRIBUTING.md: 78
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-doc_change_protocol: "POLICY_SEED.md §6"
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
+doc_sections:
+  publishing_practices: 1
+doc_section_requires:
+  publishing_practices: []
+doc_section_reviews:
+  publishing_practices: {}
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
 ---
 
+<a id="publishing_practices"></a>
+
 # Publishing Practices (Best-Practice Register)
 
 This document reifies the current best practices for publishing Gabion as a
-Python package. It is **advisory**, but referenced from `POLICY_SEED.md` so the
+Python package. It is **advisory**, but referenced from `POLICY_SEED.md#policy_seed` so the
 practices remain visible and reviewable as policy evolves.
-See `CONTRIBUTING.md` for workflow guardrails and execution constraints.
+See `CONTRIBUTING.md#contributing_contract` for workflow guardrails and execution constraints.
 
 ## 1. Metadata completeness (PEP 621)
 Provide a complete `pyproject.toml` metadata block before first release:
@@ -121,6 +123,6 @@ Current workflows:
 
 ## 7. Versioning discipline
 Follow semantic versioning for user-facing releases.
-Document the meaning of pre-1.0 changes in `README.md`.
+Document the meaning of pre-1.0 changes in `README.md#repo_contract`.
 
 Rationale: avoids surprising users on initial adoption.

@@ -1,6 +1,6 @@
 ---
-doc_revision: 1
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_revision: 3
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: doer_judge_witness
 doc_role: protocol
 doc_scope:
@@ -9,29 +9,67 @@ doc_scope:
   - workflow
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - AGENTS.md
-  - CONTRIBUTING.md
-  - README.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - AGENTS.md#agent_obligations
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md: 33
-  glossary.md: 29
-  AGENTS.md: 13
-  CONTRIBUTING.md: 78
-  README.md: 59
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  AGENTS.md#agent_obligations: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 1
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); role terminology unchanged."
-  AGENTS.md: "Agent obligations align with doer/judge/witness separation."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+  AGENTS.md#agent_obligations: Agent obligations align with doer/judge/witness separation.
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
+doc_sections:
+  doer_judge_witness: 1
+doc_section_requires:
+  doer_judge_witness:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - AGENTS.md#agent_obligations
+    - CONTRIBUTING.md#contributing_contract
+    - README.md#repo_contract
+doc_section_reviews:
+  doer_judge_witness:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+    AGENTS.md#agent_obligations:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Agent obligations align with doer/judge/witness separation.
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
 ---
+
+<a id="doer_judge_witness"></a>
 
 # Doer / Judge / Witness (Optional Framing)
 
@@ -41,7 +79,7 @@ changes into three roles so the governance layer remains explicit and testable.
 ## Roles
 
 - **Doer:** produces candidate changes (code, docs, scripts).
-- **Judge:** evaluates changes against `POLICY_SEED.md`, `glossary.md`, and CI.
+- **Judge:** evaluates changes against `POLICY_SEED.md#policy_seed`, `[glossary.md#contract](glossary.md#contract)`, and CI.
 - **Witness:** records outcomes and ensures the governance record stays coherent.
 
 ## Why this exists

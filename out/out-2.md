@@ -1,6 +1,6 @@
 ---
-doc_revision: 4
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_revision: 6
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: out_2
 doc_role: hypothesis
 doc_scope:
@@ -10,26 +10,58 @@ doc_scope:
   - research
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - CONTRIBUTING.md
-  - README.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md: 33
-  glossary.md: 29
-  CONTRIBUTING.md: 78
-  README.md: 59
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 1
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed POLICY_SEED.md rev33 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
-  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); sync/commutation terms unchanged."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
+doc_sections:
+  out_out_2: 1
+doc_section_requires:
+  out_out_2:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - CONTRIBUTING.md#contributing_contract
+    - README.md#repo_contract
+doc_section_reviews:
+  out_out_2:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
 ---
+
+<a id="out_out_2"></a>
 
 # Hypothesis: “Rsync for REST” + Gabion Semantics
 
@@ -43,7 +75,7 @@ Terraform can do this, but it is heavy and stateful. The alternative is a
 meaning constraints. The core remains “REST‑agnostic.” Gabion supplies the
 meaning and invariants.
 
-Normative pointers (explicit): `POLICY_SEED.md`, `glossary.md`, `CONTRIBUTING.md`, `README.md`.
+Normative pointers (explicit): [POLICY_SEED.md#policy_seed](POLICY_SEED.md#policy_seed), [glossary.md#contract](glossary.md#contract), [CONTRIBUTING.md#contributing_contract](CONTRIBUTING.md#contributing_contract), [README.md#repo_contract](README.md#repo_contract).
 
 ## 1. Design Goals
 - **Golden config without heavy state.** Desired state lives in a local file.

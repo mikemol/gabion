@@ -1,7 +1,53 @@
 ---
 doc_revision: 1
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+doc_change_protocol: POLICY_SEED.md#change_protocol
+doc_requires:
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - CONTRIBUTING.md#contributing_contract
+doc_reviewed_as_of:
+  POLICY_SEED.md#policy_seed: 38
+  glossary.md#contract: 42
+  CONTRIBUTING.md#contributing_contract: 84
+doc_review_notes:
+  POLICY_SEED.md#policy_seed: Confirms policy contract reference for CI/self-hosted safeguards.
+  glossary.md#contract: Confirms semantic correctness contract reference.
+  CONTRIBUTING.md#contributing_contract: Confirms contributor guardrails reference for required checks.
+doc_id: in_readme
+doc_role: readme
+doc_scope:
+  - repo
+  - documentation
+  - readme
+doc_authority: informative
+doc_sections:
+  in_readme: 1
+doc_section_requires:
+  in_readme:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - CONTRIBUTING.md#contributing_contract
+doc_section_reviews:
+  in_readme:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 38
+      self_version_at_review: 1
+      outcome: no_change
+      note: Policy contract reference remains current.
+    glossary.md#contract:
+      dep_version: 42
+      self_version_at_review: 1
+      outcome: no_change
+      note: Semantic correctness contract reference remains current.
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 84
+      self_version_at_review: 1
+      outcome: no_change
+      note: Contributor guardrails reference remains current.
 ---
+
+<a id="in_readme"></a>
 
 # Prism VM
 
@@ -116,7 +162,7 @@ mise exec -- pytest
 ```
 
 ## Agda proofs
-Agda checks run in a pinned container image. See `agda/README.md` for the
+Agda checks run in a pinned container image. See `agda/README.md#repo_contract` for the
 current digest and full instructions. Quick local run:
 ```
 scripts/check_agda_container.sh
@@ -177,16 +223,16 @@ scripts/ci_watch.sh --artifacts-dir artifacts
 ```
 
 ## Policy
-This repo uses a self-hosted runner. Read `POLICY_SEED.md` before changing any
+This repo uses a self-hosted runner. Read `POLICY_SEED.md#policy_seed` before changing any
 workflow or CI behavior. Install advisory hooks with:
 ```
 scripts/install_policy_hooks.sh
 ```
 
-Semantic correctness is governed by `in/glossary.md` and is a co-equal normative
-contract alongside `POLICY_SEED.md`.
+Semantic correctness is governed by `glossary.md#contract` and is a co-equal normative
+contract alongside `POLICY_SEED.md#policy_seed`.
 
-See `CONTRIBUTING.md` for the guardrails and required checks.
+See `CONTRIBUTING.md#contributing_contract` for the guardrails and required checks.
 
 ## Milestones
 m1 semantic commitments: Ledger interning uses full key-byte equality, univalence

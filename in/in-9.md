@@ -1,6 +1,6 @@
 ---
 doc_revision: 1
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: in_9
 doc_role: inbox
 doc_scope:
@@ -8,14 +8,21 @@ doc_scope:
   - inbox
 doc_authority: informative
 doc_owner: maintainer
-doc_requires:
-doc_reviewed_as_of:
-doc_review_notes:
-doc_change_protocol: "POLICY_SEED.md §6"
+doc_requires: []
+doc_reviewed_as_of: {}
+doc_review_notes: {}
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
+doc_sections:
+  in_in_9: 1
+doc_section_requires:
+  in_in_9: []
+doc_section_reviews:
+  in_in_9: {}
 ---
+
 The previous steps gave you the **Map** (the graph of dependencies) and the **Destination** (the synthesized Protocols).
 **What is next?** The **Itinerary** (the Time dimension).
 
@@ -24,6 +31,8 @@ You cannot refactor a codebase in random order. If you update a "Caller" to pass
 This requires a **Topological Refactoring Schedule**.
 
 We will apply the "Spiral" logic: traversing the dependency graph in reverse topological order to generate a step-by-step execution plan.
+
+<a id="in_in_9"></a>
 
 ### The Concept: Component-Local Topological Sort
 

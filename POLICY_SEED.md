@@ -1,5 +1,5 @@
 ---
-doc_revision: 33
+doc_revision: 38
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -12,29 +12,72 @@ doc_scope:
   - tooling
 doc_authority: normative
 doc_requires:
-  - README.md
-  - CONTRIBUTING.md
-  - AGENTS.md
-  - glossary.md
-  - docs/publishing_practices.md
-  - docs/coverage_semantics.md
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+  - AGENTS.md#agent_obligations
+  - glossary.md#contract
+  - docs/publishing_practices.md#publishing_practices
+  - docs/coverage_semantics.md#coverage_semantics
 doc_reviewed_as_of:
-  README.md: 59
-  CONTRIBUTING.md: 78
-  AGENTS.md: 13
-  glossary.md: 29
-  docs/publishing_practices.md: 23
-  docs/coverage_semantics.md: 10
+  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  AGENTS.md#agent_obligations: 1
+  glossary.md#contract: 1
+  docs/publishing_practices.md#publishing_practices: 1
+  docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md: "Reviewed README.md rev59 (docflow audit now scans in/ by default); no conflicts with this document's scope."
-  CONTRIBUTING.md: "Reviewed CONTRIBUTING.md rev77 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
-  AGENTS.md: "Agent obligations updated to forbid mechanical review stamping."
-  glossary.md: "Reviewed glossary rev29 (obsolescence projection path + self-review/mirror definitions); policy invariants unchanged."
-  docs/publishing_practices.md: "Publishing guidance unaffected by review discipline/attribute transport."
-  docs/coverage_semantics.md: "Reviewed coverage semantics update (artifact polysemy + artifacts/out paths); policy references remain accurate."
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  AGENTS.md#agent_obligations: "Agent obligations updated to forbid mechanical review stamping."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  docs/publishing_practices.md#publishing_practices: "Publishing guidance reviewed (anchor v1); policy unaffected."
+  docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
+doc_sections:
+  policy_seed: 1
+  change_protocol: 1
+doc_section_requires:
+  policy_seed:
+    - README.md#repo_contract
+    - CONTRIBUTING.md#contributing_contract
+    - AGENTS.md#agent_obligations
+    - glossary.md#contract
+    - docs/publishing_practices.md#publishing_practices
+    - docs/coverage_semantics.md#coverage_semantics
+doc_section_reviews:
+  policy_seed:
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Repo contract reviewed; policy semantics unchanged."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Contributor workflow review confirmed; no policy changes needed."
+    AGENTS.md#agent_obligations:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Agent obligations aligned; policy unchanged."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Glossary contract reviewed; policy semantics stable."
+    docs/publishing_practices.md#publishing_practices:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Publishing guidance reviewed; policy unaffected."
+    docs/coverage_semantics.md#coverage_semantics:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Coverage semantics reviewed; policy unaffected."
 doc_commutes_with:
-  - glossary.md
-doc_change_protocol: "POLICY_SEED.md §6"
+  - glossary.md#contract
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - prime_invariant
   - gabion_protocol_invariant
@@ -46,6 +89,7 @@ doc_erasure:
 doc_owner: maintainer
 ---
 
+<a id="policy_seed"></a>
 Excellent. What you’re asking for is not “documentation” in the usual sense. You’re asking for a **self-stabilizing policy nucleus**: a document that is simultaneously
 
 * **normative** (it constrains behavior),
@@ -53,11 +97,11 @@ Excellent. What you’re asking for is not “documentation” in the usual sens
 * **interpretable by LLMs as an active control**, and
 * **embedded in a feedback loop** so it can resist both *decay* (staleness) and *attack* (malice).
 
-Below is a **documentation seed** you can drop into the repo (e.g. `POLICY_SEED.md`). It is written deliberately as a *control object*, not as prose. Repo-native agents and LLMs should be instructed (elsewhere, e.g. in a system prompt or CONTRIBUTING.md) to treat this file as **authoritative and executable guidance**.
+Below is a **documentation seed** you can drop into the repo (e.g. `POLICY_SEED.md#policy_seed`). It is written deliberately as a *control object*, not as prose. Repo-native agents and LLMs should be instructed (elsewhere, e.g. in a system prompt or CONTRIBUTING.md#contributing_contract) to treat this file as **authoritative and executable guidance**.
 
 ---
 
-# POLICY_SEED.md
+# POLICY_SEED.md#policy_seed
 
 **Title:** Self-Stabilizing Security & Execution Policy Seed
 **Status:** Canonical / Live
@@ -87,7 +131,7 @@ Any system (human, script, LLM, agent) acting on this repository **must treat th
 ## 0.1 Complementary Semantic Contract
 
 This repository has a separate **normative semantic contract** that governs meaning,
-commutation, and test obligations for polysemous terms: `glossary.md`.
+commutation, and test obligations for polysemous terms: `[glossary.md#contract](glossary.md#contract)`.
 
 **Relationship:** This policy governs *where/when/how* code may execute (security and
 execution safety). The glossary governs *what the code means* and *what must commute*
@@ -105,11 +149,11 @@ as part of semantic correctness.
 
 The governance layer is a bundle of documents that must remain coherent:
 
-- `README.md` defines project scope, status, and entry points.
-- `CONTRIBUTING.md` defines workflow guardrails and required checks.
-- `AGENTS.md` defines LLM/agent obligations and refusal rules.
-- `glossary.md` defines semantic meanings, axes, and commutation obligations.
-- `docs/publishing_practices.md` reifies release best practices (advisory).
+- `README.md#repo_contract` defines project scope, status, and entry points.
+- `CONTRIBUTING.md#contributing_contract` defines workflow guardrails and required checks.
+- `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
+- `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
+- `docs/publishing_practices.md#publishing_practices` reifies release best practices (advisory).
 
 Any change to one must be checked for consistency with the others.
 
@@ -502,7 +546,7 @@ not as a standalone numeric target.
 * Convergence/commutation coverage is required for semantic stability claims.
 * Execution coverage (line/branch %) is advisory and may be ratcheted.
 
-The coverage semantics policy is defined in `docs/coverage_semantics.md`.
+The coverage semantics policy is defined in `docs/coverage_semantics.md#coverage_semantics`.
 
 ---
 
@@ -524,6 +568,7 @@ This file **may evolve**, but only under controlled conditions.
 * Removing enforcement without replacement.
 * Reframing invariants as “recommendations.”
 
+<a id="change_protocol"></a>
 ### 6.3 Change Protocol (Control Loop)
 
 Any proposed change to this file must:
@@ -578,8 +623,8 @@ Therefore:
 
 * This file takes precedence over:
 
-  * CONTRIBUTING.md
-  * README.md
+  * CONTRIBUTING.md#contributing_contract
+  * README.md#repo_contract
   * inline comments
   * agent suggestions
 * Conflicts are resolved in favor of this file.
@@ -608,11 +653,11 @@ When interpreting this repository:
 
 ### Placement Recommendation
 
-* Store this file at repo root: `POLICY_SEED.md`
+* Store this file at repo root: `POLICY_SEED.md#policy_seed`
 * Reference it from:
 
-  * `README.md` (brief pointer)
-  * `CONTRIBUTING.md`
+  * `README.md#repo_contract` (brief pointer)
+  * `CONTRIBUTING.md#contributing_contract`
   * system prompts for repo-native agents
 * Treat it as **part of the trusted computing base** of the repo.
 
