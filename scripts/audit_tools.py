@@ -259,6 +259,7 @@ INFLUENCE_STATUS_MAP = {
 def _parse_sppf_tag(payload: str) -> dict[str, str]:
     items: dict[str, str] = {}
     for chunk in payload.split(";"):
+        check_deadline()
         part = chunk.strip()
         if not part or "=" not in part:
             continue
@@ -270,6 +271,7 @@ def _parse_sppf_tag(payload: str) -> dict[str, str]:
 def _parse_doc_ref(value: str) -> list[tuple[str, int | None]]:
     refs: list[tuple[str, int | None]] = []
     for part in SPPF_DOC_REF_SPLIT_RE.split(value):
+        check_deadline()
         chunk = part.strip()
         if not chunk:
             continue
@@ -325,6 +327,7 @@ def _docflow_predicates() -> dict[str, Callable[[Mapping[str, JSONValue], Mappin
 
     def _param_list(params: Mapping[str, JSONValue], *keys: str) -> list[str]:
         for key in keys:
+            check_deadline()
             value = params.get(key)
             if isinstance(value, str) and value.strip():
                 return [value.strip()]
@@ -474,6 +477,7 @@ def _frontmatter_block(lines: list[str]) -> tuple[list[str], int] | None:
     if not lines or lines[0].strip() != "---":
         return None
     for idx in range(1, len(lines)):
+        check_deadline()
         if lines[idx].strip() == "---":
             return lines[1:idx], idx
     return None
@@ -521,6 +525,7 @@ def _iter_docflow_paths(root: Path, extra_paths: list[str] | None) -> list[Path]
     paths: list[Path] = []
     seen: set[Path] = set()
     for rel in GOVERNANCE_DOCS:
+        check_deadline()
         path = root / rel
         if path.exists():
             if path not in seen:
@@ -528,12 +533,14 @@ def _iter_docflow_paths(root: Path, extra_paths: list[str] | None) -> list[Path]
                 seen.add(path)
     if extra_paths:
         for entry in extra_paths:
+            check_deadline()
             if not entry:
                 continue
             raw = Path(entry)
             path = raw if raw.is_absolute() else root / raw
             if path.is_dir():
                 for doc in sorted(path.rglob("*.md")):
+                    check_deadline()
                     if doc not in seen:
                         paths.append(doc)
                         seen.add(doc)
@@ -668,6 +675,7 @@ def _emit_docflow_suite_artifacts(
                 check_deadline()
                 if isinstance(value, dict):
                     for entry_key, entry_value in value.items():
+                        check_deadline()
                         rows.append(
                             {
                                 "row_kind": "frontmatter_entry",
@@ -679,6 +687,7 @@ def _emit_docflow_suite_artifacts(
                         )
                 elif isinstance(value, list):
                     for item in value:
+                        check_deadline()
                         rows.append(
                             {
                                 "row_kind": "frontmatter_item",
@@ -699,11 +708,13 @@ def _emit_docflow_suite_artifacts(
 
         headings: list[tuple[int, int, str]] = []
         for idx, line in enumerate(lines):
+            check_deadline()
             match = heading_re.match(line.strip())
             if match:
                 headings.append((idx, len(match.group(1)), match.group(2).strip()))
         section_ranges: list[tuple[int, int, tuple[object, ...]]] = []
         for index, (start_line, level, title) in enumerate(headings):
+            check_deadline()
             end_line = headings[index + 1][0] - 1 if index + 1 < len(headings) else len(lines) - 1
             section_span = (start_line, 0, max(end_line, start_line), len(lines[end_line]) if lines else 0)
             section_qual = f"{doc_qual}#{_slugify_heading(title)}"
@@ -727,6 +738,7 @@ def _emit_docflow_suite_artifacts(
 
         def _section_for_line(line_no: int) -> tuple[object, ...] | None:
             for start, end, suite_key in reversed(section_ranges):
+                check_deadline()
                 if start <= line_no <= end:
                     return suite_key
             return None
@@ -782,6 +794,7 @@ def _emit_docflow_suite_artifacts(
                     }
                 )
                 for issue_key in issues_found:
+                    check_deadline()
                     issue_meta = issues.get(issue_key)
                     if issue_meta is None:
                         continue
@@ -841,6 +854,7 @@ def _emit_docflow_suite_artifacts(
 
     revisions: dict[str, int] = {}
     for rel, payload in docs.items():
+        check_deadline()
         doc_rev = payload.frontmatter.get("doc_revision")
         if isinstance(doc_rev, int):
             revisions[rel] = doc_rev
@@ -907,6 +921,7 @@ def _emit_docflow_suite_artifacts(
                 }
             )
             for idx, line in enumerate(body_lines):
+                check_deadline()
                 match = issue_checklist_re.match(line)
                 if not match:
                     continue
@@ -930,6 +945,7 @@ def _emit_docflow_suite_artifacts(
         labels = meta.get("labels")
         if isinstance(labels, list):
             for label in labels:
+                check_deadline()
                 if isinstance(label, dict) and isinstance(label.get("name"), str):
                     rows.append(
                         {
@@ -1000,6 +1016,7 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
             doc_refs = _parse_doc_ref(doc_ref_raw)
         formatted_refs = [_format_doc_ref(doc_id, rev) for doc_id, rev in doc_refs]
         for issue_id in issue_ids:
+            check_deadline()
             issue_key = f"GH-{issue_id}"
             node = issue_nodes.setdefault(issue_key, {
                 "id": issue_key,
@@ -1024,6 +1041,7 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
                 issues_without_doc_ref.add(issue_key)
 
             for doc_id, rev in doc_refs:
+                check_deadline()
                 doc_key = _format_doc_ref(doc_id, rev)
                 doc_node = doc_nodes.setdefault(doc_key, {
                     "id": doc_key,
@@ -1036,6 +1054,7 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
 
         if formatted_refs and not issue_ids:
             for doc_id, rev in doc_refs:
+                check_deadline()
                 docs_without_issue.add(_format_doc_ref(doc_id, rev))
 
     graph = {
@@ -1059,15 +1078,18 @@ def _write_sppf_graph_outputs(graph: dict[str, object], *, json_output: Path | N
         dot_output.parent.mkdir(parents=True, exist_ok=True)
         lines = ["digraph sppf_deps {"]
         for doc_key, node in sorted(graph.get("docs", {}).items()):
+            check_deadline()
             label = doc_key
             lines.append(f"  \"{doc_key}\" [shape=box,label=\"{label}\"];")
         for issue_key, node in sorted(graph.get("issues", {}).items()):
+            check_deadline()
             label = issue_key
             title = node.get("title")
             if isinstance(title, str):
                 label = f"{issue_key}\\n{title}"
             lines.append(f"  \"{issue_key}\" [shape=ellipse,label=\"{label}\"];")
         for edge in graph.get("edges", []):
+            check_deadline()
             src = edge.get("from")
             dst = edge.get("to")
             if src and dst:
@@ -1083,6 +1105,7 @@ def _influence_statuses(root: Path) -> dict[str, str]:
     text = index_path.read_text(encoding="utf-8")
     entries: dict[str, str] = {}
     for line in text.splitlines():
+        check_deadline()
         match = re.match(r"^- in/in-(\d+)\.md — \*\*(\w+)\*\*", line.strip())
         if not match:
             continue
@@ -1098,6 +1121,7 @@ def _in_doc_revisions(root: Path) -> dict[str, int]:
     if not inbox.exists():
         return revisions
     for path in inbox.glob("in-*.md"):
+        check_deadline()
         text = path.read_text(encoding="utf-8")
         fm, _ = _parse_frontmatter(text)
         doc_rev = fm.get("doc_revision")
@@ -1158,6 +1182,7 @@ def _sppf_axis_audit(root: Path, docs: dict[str, Doc]) -> tuple[list[str], list[
         expected_doc_statuses: set[str] = set()
         checked_doc_status = False
         for doc_id, rev in refs:
+            check_deadline()
             if doc_id.startswith("in-") and doc_id[3:].isdigit():
                 expected = statuses.get(doc_id)
                 if expected is None:
@@ -1238,6 +1263,7 @@ def _parse_yaml_like(lines: List[str]) -> Frontmatter:
     def _next_significant(start: int) -> tuple[int, str] | None:
         idx = start
         while idx < len(lines):
+            check_deadline()
             candidate = lines[idx].rstrip()
             if not candidate.strip():
                 idx += 1
@@ -1262,6 +1288,7 @@ def _parse_yaml_like(lines: List[str]) -> Frontmatter:
         indent = len(raw) - len(raw.lstrip(" "))
         line = raw.strip()
         while stack and indent < stack[-1][0]:
+            check_deadline()
             stack.pop()
         if not stack:
             stack = [(0, data)]
@@ -1340,6 +1367,7 @@ def _add_section_revisions(
     if not isinstance(sections, dict):
         return
     for key, value in sections.items():
+        check_deadline()
         if not isinstance(key, str) or not key:
             continue
         if not isinstance(value, int):
@@ -1358,6 +1386,7 @@ def _docflow_invariant_rows(
     rows: list[dict[str, object]] = []
     warnings: list[str] = []
     for rel in sorted(missing_frontmatter):
+        check_deadline()
         rows.append(
             {
                 "row_kind": "doc_missing_frontmatter",
@@ -1371,6 +1400,7 @@ def _docflow_invariant_rows(
         doc_id = fm.get("doc_id") if isinstance(fm.get("doc_id"), str) else None
         base = base_meta(rel, doc_id)
         for field in REQUIRED_FIELDS:
+            check_deadline()
             rows.append(
                 {
                     "row_kind": "doc_required_field",
@@ -1380,6 +1410,7 @@ def _docflow_invariant_rows(
                 }
             )
         for field in ("doc_scope", "doc_requires"):
+            check_deadline()
             if field in fm:
                 rows.append(
                     {
@@ -1397,6 +1428,7 @@ def _docflow_invariant_rows(
             "doc_section_requires",
             "doc_section_reviews",
         ):
+            check_deadline()
             if field in fm:
                 rows.append(
                     {
@@ -1440,6 +1472,7 @@ def _docflow_invariant_rows(
                 required_core = set()
             missing = sorted(required_core - {rel} - requires)
             for req in missing:
+                check_deadline()
                 rows.append(
                     {
                         "row_kind": "doc_missing_governance_ref",
@@ -1514,6 +1547,7 @@ def _load_test_evidence(root: Path) -> dict[str, object] | None:
         root / "artifacts" / "out" / "test_evidence.json",
     ]
     for path in candidates:
+        check_deadline()
         if not path.exists():
             continue
         try:
@@ -1650,6 +1684,7 @@ def _docflow_compliance_rows(
         if invariant.kind == "cover":
             if evidence_matched:
                 for row in evidence_matched:
+                    check_deadline()
                     evidence_id = str(row.get("evidence_id", "") or "")
                     if evidence_id:
                         covered_evidence.add(evidence_id)
@@ -1677,6 +1712,7 @@ def _docflow_compliance_rows(
         if invariant.kind == "never":
             if matched:
                 for row in matched:
+                    check_deadline()
                     compliance.append(
                         {
                             "row_kind": "docflow_compliance",
@@ -1723,6 +1759,7 @@ def _docflow_compliance_rows(
                     }
                 )
     for row in evidence_rows:
+        check_deadline()
         evidence_id = str(row.get("evidence_id", "") or "")
         if evidence_id and evidence_id not in covered_evidence:
             compliance.append(
@@ -1741,6 +1778,7 @@ def _docflow_compliance_rows(
 def _summarize_docflow_compliance(rows: list[dict[str, object]]) -> dict[str, int]:
     counts = {"compliant": 0, "contradicts": 0, "excess": 0, "proposed": 0}
     for row in rows:
+        check_deadline()
         status = str(row.get("status", "") or "")
         if status in counts:
             counts[status] += 1
@@ -1758,6 +1796,7 @@ def _render_docflow_compliance_md(rows: list[dict[str, object]]) -> list[str]:
     lines.append("")
     lines.append("Contradictions:")
     for row in rows:
+        check_deadline()
         if row.get("status") != "contradicts":
             continue
         invariant = row.get("invariant", "?")
@@ -1780,6 +1819,7 @@ def _render_docflow_compliance_md(rows: list[dict[str, object]]) -> list[str]:
     lines.append("")
     lines.append("Proposed invariants (not enforced):")
     for row in rows:
+        check_deadline()
         if row.get("status") != "proposed":
             continue
         invariant = row.get("invariant", "?")
@@ -1799,6 +1839,7 @@ def _render_docflow_compliance_md(rows: list[dict[str, object]]) -> list[str]:
     lines.append("")
     lines.append("Excess evidence:")
     for row in rows:
+        check_deadline()
         if row.get("status") != "excess":
             continue
         evidence_id = row.get("evidence_id", "?")
@@ -1898,13 +1939,16 @@ def _glossary_section_headings(doc: Doc) -> dict[str, str]:
     heading_re = re.compile(r"^#{1,6}\s+(.*)$")
     anchors: list[tuple[str, int]] = []
     for idx, line in enumerate(lines):
+        check_deadline()
         match = anchor_re.match(line)
         if match:
             anchors.append((match.group(1), idx))
     headings: dict[str, str] = {}
     for key, idx in anchors:
+        check_deadline()
         title = None
         for j in range(idx + 1, len(lines)):
+            check_deadline()
             match = heading_re.match(lines[j].strip())
             if match:
                 title = match.group(1).strip()
@@ -1939,6 +1983,7 @@ def _docflow_canonicality_entries(
     ambiguous_terms: set[str] = set()
     no_induced_terms: set[str] = set()
 
+    # dataflow-bundle: doc, signal, term
     def _record_signal(term: str, signal: str, doc: str | None = None) -> None:
         signal_rows.append(
             {
@@ -1979,12 +2024,15 @@ def _docflow_canonicality_entries(
             _record_signal(term, "missing_anchor")
             ambiguous_terms.add(term)
         for rel in sorted(explicit_without_requires):
+            check_deadline()
             _record_signal(term, "explicit_without_requires", rel)
             ambiguous_terms.add(term)
         for rel in sorted(requires_without_explicit):
+            check_deadline()
             _record_signal(term, "requires_without_explicit", rel)
             ambiguous_terms.add(term)
         for rel in sorted(implicit_docs):
+            check_deadline()
             _record_signal(term, "implicit_without_requires", rel)
             ambiguous_terms.add(term)
         if not requires_docs:
@@ -2026,6 +2074,7 @@ def _docflow_dependency_graph(
     nodes: dict[str, dict[str, object]] = {}
     edges: list[dict[str, object]] = []
     for rel, doc in sorted(docs.items()):
+        check_deadline()
         fm = doc.frontmatter
         requires = fm.get("doc_requires", [])
         deps: list[str] = []
@@ -2044,6 +2093,7 @@ def _docflow_dependency_graph(
             "requires": deps,
         }
         for dep in deps:
+            check_deadline()
             edges.append({"from": rel, "to": dep})
     return {"nodes": nodes, "edges": edges}
 
@@ -2066,6 +2116,7 @@ def _docflow_strongly_connected_components(
         stack.append(node)
         on_stack.add(node)
         for neighbor in graph.get(node, set()):
+            check_deadline()
             if neighbor not in indices:
                 visit(neighbor)
                 lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
@@ -2074,6 +2125,7 @@ def _docflow_strongly_connected_components(
         if lowlinks[node] == indices[node]:
             component: set[str] = set()
             while True:
+                check_deadline()
                 popped = stack.pop()
                 on_stack.discard(popped)
                 component.add(popped)
@@ -2082,6 +2134,7 @@ def _docflow_strongly_connected_components(
             components.append(component)
 
     for node in graph:
+        check_deadline()
         if node not in indices:
             visit(node)
     return components
@@ -2103,6 +2156,7 @@ def _docflow_cycles(
         key: set() for key in nodes.keys()
     }
     for edge in edges:
+        check_deadline()
         if not isinstance(edge, dict):
             continue
         src = edge.get("from")
@@ -2128,6 +2182,7 @@ def _docflow_cycles(
     components = _docflow_strongly_connected_components(adjacency)
     cycles: list[dict[str, object]] = []
     for comp in components:
+        check_deadline()
         if not comp:
             continue
         has_self = any(node in adjacency.get(node, set()) for node in comp)
@@ -2164,24 +2219,29 @@ def _render_docflow_cycles_md(
     lines.append("Summary (raw graph):")
     counts: dict[str, int] = {}
     for entry in raw_cycles:
+        check_deadline()
         kind = str(entry.get("kind", "unknown"))
         counts[kind] = counts.get(kind, 0) + 1
     for kind in sorted(counts):
+        check_deadline()
         lines.append(f"- {kind}: {counts[kind]}")
     lines.append("")
     lines.append(f"Summary ({projection_label}):")
     projection_counts: dict[str, int] = {}
     for entry in projection_cycles:
+        check_deadline()
         kind = str(entry.get("kind", "unknown"))
         projection_counts[kind] = projection_counts.get(kind, 0) + 1
     if projection_counts:
         for kind in sorted(projection_counts):
+            check_deadline()
             lines.append(f"- {kind}: {projection_counts[kind]}")
     else:
         lines.append("- none")
     lines.append("")
     lines.append("Cycles (raw graph):")
     for entry in raw_cycles:
+        check_deadline()
         nodes = entry.get("nodes", [])
         if not isinstance(nodes, list):
             continue
@@ -2191,6 +2251,7 @@ def _render_docflow_cycles_md(
     lines.append(f"Cycles ({projection_label}):")
     if projection_cycles:
         for entry in projection_cycles:
+            check_deadline()
             nodes = entry.get("nodes", [])
             if not isinstance(nodes, list):
                 continue
@@ -2280,19 +2341,23 @@ def _render_docflow_change_protocol_md(
     counts: Counter[str] = Counter()
     by_status: dict[str, list[dict[str, object]]] = defaultdict(list)
     for entry in entries:
+        check_deadline()
         status = str(entry.get("status") or "unknown")
         counts[status] += 1
         by_status[status].append(entry)
     lines: list[str] = ["Docflow change-protocol normalization report"]
     lines.append("Summary:")
     for status in sorted(counts):
+        check_deadline()
         lines.append(f"- {status}: {counts[status]}")
     for status in ("legacy", "custom", "missing"):
+        check_deadline()
         rows = by_status.get(status) or []
         if not rows:
             continue
         lines.append(f"{status.capitalize()} entries:")
         for entry in rows:
+            check_deadline()
             path = entry.get("path") or "?"
             raw = entry.get("raw")
             normalized = entry.get("normalized")
@@ -2361,6 +2426,7 @@ def _docflow_section_review_rows(
                 warnings.append(f"{rel}: doc_section_reviews.{anchor} must be a map")
                 anchor_reviews = {}
             for dep in deps:
+                check_deadline()
                 if not isinstance(dep, str) or not dep:
                     continue
                 expected_dep_version = revisions.get(dep)
@@ -2418,13 +2484,16 @@ def _render_docflow_section_reviews_md(
 ) -> list[str]:
     counts: Counter[str] = Counter()
     for row in rows:
+        check_deadline()
         status = str(row.get("status") or "unknown")
         counts[status] += 1
     lines: list[str] = ["Docflow anchor review report"]
     lines.append("Summary:")
     for status in sorted(counts):
+        check_deadline()
         lines.append(f"- {status}: {counts[status]}")
     for row in rows:
+        check_deadline()
         status = str(row.get("status") or "unknown")
         if status == "ok":
             continue
@@ -2497,6 +2566,7 @@ def _render_docflow_canonicality_md(
         lines.append("- (none)")
     else:
         for entry in sorted(candidates, key=lambda e: str(e.get("term"))):
+            check_deadline()
             heading = entry.get("heading") or ""
             requires = entry.get("requires_docs") or []
             lines.append(
@@ -2520,6 +2590,7 @@ def _render_docflow_canonicality_md(
         lines.append("- (none)")
     else:
         for entry in sorted(ambiguous, key=lambda e: str(e.get("term"))):
+            check_deadline()
             term = entry.get("term")
             reasons: list[str] = []
             if not entry.get("anchor_present", True):
@@ -2540,6 +2611,7 @@ def _render_docflow_canonicality_md(
         lines.append("- (none)")
     else:
         for entry in sorted(no_induced, key=lambda e: str(e.get("term"))):
+            check_deadline()
             heading = entry.get("heading") or ""
             lines.append(f"- {entry.get('term')} ({heading})")
     lines.append("")
@@ -2647,6 +2719,7 @@ def _evaluate_docflow_invariants(
         )
         if invariant.kind == "never":
             for row in matched:
+                check_deadline()
                 violations.append(_format_docflow_violation(row))
         elif invariant.kind == "require":
             if not matched:
@@ -2732,7 +2805,9 @@ def _parse_inline_docflow_invariants(rel: str, body: str) -> list[DocflowInvaria
     invariants: list[DocflowInvariant] = []
     pattern = re.compile(r"docflow:\s*(never|require)\(([^)]*)\)")
     for lineno, line in enumerate(body.splitlines(), start=1):
+        check_deadline()
         for match in pattern.finditer(line):
+            check_deadline()
             kind = match.group(1).strip().lower()
             raw_pred = match.group(2).strip()
             if not raw_pred:
@@ -2760,6 +2835,7 @@ def _collect_docflow_invariants(
         inv_list = fm.get("doc_invariants")
         if isinstance(inv_list, list):
             for entry in inv_list:
+                check_deadline()
                 custom = _parse_docflow_invariant_entry(entry)
                 if custom is not None:
                     invariants.append(custom)
@@ -2813,6 +2889,7 @@ def _docflow_audit_context(
     def _iter_extra_docs(paths: list[str]) -> list[Path]:
         extra: list[Path] = []
         for entry in paths:
+            check_deadline()
             if not entry:
                 continue
             raw_path = Path(entry)

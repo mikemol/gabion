@@ -18,20 +18,35 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from audit_tools import _parse_frontmatter  # type: ignore
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
 
 
 AnchorMap = dict[str, tuple[str, int]]
+
+_DEFAULT_PROMOTE_TIMEOUT_TICKS = 120_000
+_DEFAULT_PROMOTE_TIMEOUT_TICK_NS = 1_000_000
+
+
+def _promote_deadline_scope():
+    return deadline_scope(
+        Deadline.from_timeout_ticks(
+            _DEFAULT_PROMOTE_TIMEOUT_TICKS,
+            _DEFAULT_PROMOTE_TIMEOUT_TICK_NS,
+        )
+    )
 
 
 def _iter_docs(paths: Iterable[str]) -> list[Path]:
     out: list[Path] = []
     seen: set[Path] = set()
     for raw in paths:
+        check_deadline()
         if not raw:
             continue
         path = Path(raw)
         if path.is_dir():
             for doc in sorted(path.rglob("*.md")):
+                check_deadline()
                 if doc not in seen:
                     out.append(doc)
                     seen.add(doc)
@@ -59,6 +74,7 @@ def _dump_yaml_like(data: dict[str, Any], indent: int = 0) -> list[str]:
     lines: list[str] = []
     pad = " " * indent
     for key, value in data.items():
+        check_deadline()
         if isinstance(value, dict):
             if value:
                 lines.append(f"{pad}{key}:")
@@ -72,6 +88,7 @@ def _dump_yaml_like(data: dict[str, Any], indent: int = 0) -> list[str]:
                 continue
             lines.append(f"{pad}{key}:")
             for item in value:
+                check_deadline()
                 if isinstance(item, dict):
                     lines.append(f"{pad}  -")
                     lines.extend(_dump_yaml_like(item, indent + 4))
@@ -139,6 +156,7 @@ def _ensure_anchor(body: str, anchor: str) -> str:
         return body
     lines = body.splitlines()
     for idx, line in enumerate(lines):
+        check_deadline()
         if line.strip().startswith("#"):
             lines.insert(idx, "")
             lines.insert(idx, marker)
@@ -149,6 +167,7 @@ def _ensure_anchor(body: str, anchor: str) -> str:
 def _anchor_map(all_docs: dict[str, dict[str, Any]]) -> AnchorMap:
     anchors: AnchorMap = {}
     for rel, fm in all_docs.items():
+        check_deadline()
         sections = fm.get("doc_sections")
         if isinstance(sections, dict) and len(sections) == 1:
             key, value = next(iter(sections.items()))
@@ -168,6 +187,7 @@ def _anchorize_ref(ref: str, anchors: AnchorMap) -> tuple[str, int | None]:
 
 def _rewrite_body_refs(body: str, replacements: dict[str, str]) -> str:
     for old, new in replacements.items():
+        check_deadline()
         pattern = re.compile(rf"{re.escape(old)}(?!#)")
         body = pattern.sub(new, body)
     return body
@@ -179,11 +199,13 @@ def _update_section_reviews(
 ) -> dict[str, Any]:
     updated: dict[str, Any] = {}
     for anchor, deps in reviews.items():
+        check_deadline()
         if not isinstance(deps, dict):
             updated[anchor] = deps
             continue
         next_deps: dict[str, Any] = {}
         for dep, payload in deps.items():
+            check_deadline()
             if not isinstance(dep, str):
                 next_deps[dep] = payload
                 continue
@@ -211,6 +233,7 @@ def _update_doc(path: Path, anchors: AnchorMap, *, add_sections: bool, anchorize
         fm["doc_section_requires"] = {anchor: list(fm.get("doc_requires") or [])}
         reviews: dict[str, Any] = {}
         for dep in fm.get("doc_requires") or []:
+            check_deadline()
             if not isinstance(dep, str):
                 continue
             dep_version = None
@@ -253,6 +276,7 @@ def _update_doc(path: Path, anchors: AnchorMap, *, add_sections: bool, anchorize
         replacements: dict[str, str] = {}
         new_requires: list[str] = []
         for dep in fm.get("doc_requires") or []:
+            check_deadline()
             if not isinstance(dep, str):
                 continue
             new_dep, version = _anchorize_ref(dep, anchors)
@@ -279,11 +303,13 @@ def _update_doc(path: Path, anchors: AnchorMap, *, add_sections: bool, anchorize
         if isinstance(fm.get("doc_section_requires"), dict):
             updated = {}
             for anchor, deps in fm["doc_section_requires"].items():
+                check_deadline()
                 if not isinstance(deps, list):
                     updated[anchor] = deps
                     continue
                 out_list = []
                 for dep in deps:
+                    check_deadline()
                     if not isinstance(dep, str):
                         continue
                     new_dep, version = _anchorize_ref(dep, anchors)
@@ -334,23 +360,26 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    doc_paths = _iter_docs(args.paths)
-    all_docs: dict[str, dict[str, Any]] = {}
-    for path in doc_paths:
-        fm, _ = _parse_frontmatter(path.read_text(encoding="utf-8"))
-        if not fm:
-            continue
-        all_docs[path.as_posix()] = dict(fm)
+    with _promote_deadline_scope():
+        doc_paths = _iter_docs(args.paths)
+        all_docs: dict[str, dict[str, Any]] = {}
+        for path in doc_paths:
+            check_deadline()
+            fm, _ = _parse_frontmatter(path.read_text(encoding="utf-8"))
+            if not fm:
+                continue
+            all_docs[path.as_posix()] = dict(fm)
 
-    anchors = _anchor_map(all_docs)
+        anchors = _anchor_map(all_docs)
 
-    changed = 0
-    for path in doc_paths:
-        if _update_doc(path, anchors, add_sections=args.add_sections, anchorize=args.anchorize):
-            changed += 1
-            print(f"updated {path}")
-    print(f"Updated {changed} document(s).")
-    return 0
+        changed = 0
+        for path in doc_paths:
+            check_deadline()
+            if _update_doc(path, anchors, add_sections=args.add_sections, anchorize=args.anchorize):
+                changed += 1
+                print(f"updated {path}")
+        print(f"Updated {changed} document(s).")
+        return 0
 
 
 if __name__ == "__main__":

@@ -286,7 +286,7 @@ def forest_spec_canonical_json(spec: ForestSpec) -> str:
 def forest_spec_hash(spec: ForestSpec | Mapping[str, JSONValue] | str) -> str:
     if isinstance(spec, str):
         return spec
-    if isinstance(spec, Mapping):
+    if not isinstance(spec, ForestSpec):
         spec = forest_spec_from_dict(spec)
     return forest_spec_canonical_json(spec)
 

@@ -485,8 +485,12 @@ def test_bundle_projection_and_emitters(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError):
         da._emit_dot(None)
 
-    with pytest.raises(RuntimeError):
-        da._emit_report({path: {"f": [set(["x"])]}}, 3, forest=None)
+    report, _ = da._emit_report(
+        {path: {"f": [set(["x"])]}},
+        3,
+        forest=da.Forest(),
+    )
+    assert report
 
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery

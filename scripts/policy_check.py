@@ -715,6 +715,7 @@ def _check_release_pypi_workflow(doc, path, errors):
 def _job_uses_action(job, action_prefix: str) -> bool:
     steps = job.get("steps", [])
     for step in steps:
+        check_deadline()
         if not isinstance(step, dict):
             continue
         uses = step.get("uses")
@@ -732,6 +733,7 @@ def _job_has_same_repo_pr_guard(job) -> bool:
     if any(token in cond for token in guard_tokens):
         return True
     for step in job.get("steps", []):
+        check_deadline()
         if not isinstance(step, dict):
             continue
         cond = _normalize_if(step.get("if"))
@@ -745,6 +747,7 @@ def _check_pr_comment_guard(doc, path, errors):
     if not isinstance(jobs, dict):
         return
     for name, job in jobs.items():
+        check_deadline()
         permissions = job.get("permissions")
         if not isinstance(permissions, dict):
             continue
@@ -768,6 +771,7 @@ def _check_id_token_scoping(doc, path, errors):
             f"{path}: id-token write must be scoped to publishing jobs when multiple jobs are present"
         )
     for name, job in jobs.items():
+        check_deadline()
         permissions = job.get("permissions")
         has_id_token = isinstance(permissions, dict) and permissions.get("id-token") == "write"
         uses_publish = _job_uses_action(job, "pypa/gh-action-pypi-publish@")

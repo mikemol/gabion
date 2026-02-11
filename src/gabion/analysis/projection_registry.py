@@ -367,8 +367,8 @@ AMBIGUITY_STATE_SPEC = ProjectionSpec(
 
 
 def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
-    spec_id = spec_hash(spec)
     spec_json = spec_canonical_json(spec)
+    spec_id = spec_json
     return [
         f"generated_by_spec_id: {spec_id}",
         f"generated_by_spec: {spec_json}",
@@ -376,8 +376,9 @@ def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
 
 
 def spec_metadata_payload(spec: ProjectionSpec) -> dict[str, JSONValue]:
+    spec_id = spec_canonical_json(spec)
     return {
-        "generated_by_spec_id": spec_hash(spec),
+        "generated_by_spec_id": spec_id,
         "generated_by_spec": normalize_spec(spec),
     }
 

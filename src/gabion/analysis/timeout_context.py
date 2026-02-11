@@ -52,6 +52,7 @@ class Deadline:
     deadline_ns: int
 
     @classmethod
+    # dataflow-bundle: tick_ns, ticks
     def from_timeout_ticks(cls, ticks: int, tick_ns: int) -> "Deadline":
         ticks_value = int(ticks)
         tick_ns_value = int(tick_ns)

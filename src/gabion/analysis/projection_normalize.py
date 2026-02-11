@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from typing import Iterable, Mapping
 
-from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
+from gabion.analysis.projection_spec import (
+    ProjectionOp,
+    ProjectionSpec,
+    spec_from_dict,
+)
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 
@@ -26,7 +30,7 @@ def spec_canonical_json(spec: ProjectionSpec) -> str:
 def spec_hash(spec: ProjectionSpec | Mapping[str, JSONValue] | str) -> str:
     if isinstance(spec, str):
         return spec
-    if isinstance(spec, Mapping):
+    if not isinstance(spec, ProjectionSpec):
         spec = spec_from_dict(spec)
     return spec_canonical_json(spec)
 

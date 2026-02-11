@@ -6,10 +6,23 @@ import subprocess
 import sys
 from pathlib import Path
 
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
 
 BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
 DELTA_PATH = Path("artifacts/out/docflow_compliance_delta.json")
+
+_DEFAULT_DELTA_TIMEOUT_TICKS = 120_000
+_DEFAULT_DELTA_TIMEOUT_TICK_NS = 1_000_000
+
+
+def _delta_deadline_scope():
+    return deadline_scope(
+        Deadline.from_timeout_ticks(
+            _DEFAULT_DELTA_TIMEOUT_TICKS,
+            _DEFAULT_DELTA_TIMEOUT_TICK_NS,
+        )
+    )
 
 
 def _run_docflow_audit() -> None:
@@ -29,6 +42,7 @@ def _load_summary(path: Path) -> tuple[dict[str, int], bool]:
     summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
     counts: dict[str, int] = {}
     for key in ("compliant", "contradicts", "excess", "proposed"):
+        check_deadline()
         value = 0
         if isinstance(summary, dict):
             try:
@@ -45,34 +59,36 @@ def _delta_counts(
 ) -> dict[str, int]:
     delta: dict[str, int] = {}
     for key in ("compliant", "contradicts", "excess", "proposed"):
+        check_deadline()
         delta[key] = int(current.get(key, 0)) - int(baseline.get(key, 0))
     return delta
 
 
 def main() -> int:
-    try:
-        _run_docflow_audit()
-    except subprocess.CalledProcessError:
-        print("Docflow delta emit failed: docflow audit did not succeed.")
+    with _delta_deadline_scope():
+        try:
+            _run_docflow_audit()
+        except subprocess.CalledProcessError:
+            print("Docflow delta emit failed: docflow audit did not succeed.")
+            return 0
+        if not CURRENT_PATH.exists():
+            print("Docflow compliance output missing; delta emit skipped.")
+            return 0
+        baseline_counts, baseline_missing = _load_summary(BASELINE_PATH)
+        current_counts, _ = _load_summary(CURRENT_PATH)
+        payload = {
+            "baseline": {"path": str(BASELINE_PATH)},
+            "current": {"path": str(CURRENT_PATH)},
+            "baseline_missing": baseline_missing,
+            "summary": {
+                "baseline": baseline_counts,
+                "current": current_counts,
+                "delta": _delta_counts(baseline_counts, current_counts),
+            },
+            "version": 1,
+        }
+        DELTA_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True))
         return 0
-    if not CURRENT_PATH.exists():
-        print("Docflow compliance output missing; delta emit skipped.")
-        return 0
-    baseline_counts, baseline_missing = _load_summary(BASELINE_PATH)
-    current_counts, _ = _load_summary(CURRENT_PATH)
-    payload = {
-        "baseline": {"path": str(BASELINE_PATH)},
-        "current": {"path": str(CURRENT_PATH)},
-        "baseline_missing": baseline_missing,
-        "summary": {
-            "baseline": baseline_counts,
-            "current": current_counts,
-            "delta": _delta_counts(baseline_counts, current_counts),
-        },
-        "version": 1,
-    }
-    DELTA_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True))
-    return 0
 
 
 if __name__ == "__main__":

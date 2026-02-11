@@ -629,9 +629,11 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     assert "untrusted_param" in kinds
     assert "unknown_arg" in kinds
 
-    summary = da._summarize_deadline_obligations(obligations, max_entries=1)
+    summary = da._summarize_deadline_obligations(
+        obligations, max_entries=1, forest=da.Forest()
+    )
     assert summary
-    assert da._summarize_deadline_obligations([]) == []
+    assert da._summarize_deadline_obligations([], forest=da.Forest()) == []
 
     lint_lines = da._deadline_lint_lines(
         [
@@ -654,6 +656,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     report, violations = da._emit_report(
         {},
         0,
+        forest=da.Forest(),
         deadline_obligations=obligations,
     )
     assert "Deadline propagation:" in report
@@ -662,6 +665,8 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
 
 def test_deadline_summary_handles_bad_span() -> None:
     da = _load()
+    from gabion.exceptions import NeverThrown
+
     entries = [
         {
             "deadline_id": "deadline:mod.py:f:missing",
@@ -672,8 +677,10 @@ def test_deadline_summary_handles_bad_span() -> None:
             "span": ["x", "y", "z", "w"],
         }
     ]
-    summary = da._summarize_deadline_obligations(entries, max_entries=1)
-    assert summary
+    with pytest.raises(NeverThrown):
+        da._summarize_deadline_obligations(
+            entries, max_entries=1, forest=da.Forest()
+        )
 
 
 def test_deadline_summary_materializes_spec_facets() -> None:
@@ -829,7 +836,7 @@ def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> No
     da._materialize_projection_spec_rows(
         spec=spec,
         projected=[],
-        forest=None,
+        forest=da.Forest(),
         row_to_site=lambda row: None,
     )
     forest = da.Forest()

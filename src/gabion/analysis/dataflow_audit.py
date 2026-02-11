@@ -3553,17 +3553,16 @@ def _collect_deadline_obligations(
         callee: str | None = None,
         suite_kind: str = "function",
     ) -> None:
-        span = _fallback_span(function, param, span)
+        function_name = str(function)
+        span = _fallback_span(function_name, param, span)
         require_not_none(
             span,
             reason="deadline obligation missing span",
             strict=True,
-            function=function,
-            param=param or "",
             kind=kind,
         )
         bundle = [param] if param else []
-        key_parts = [path, function, kind]
+        key_parts = [path, function_name, kind]
         if param:
             key_parts.append(param)
         if span is not None:
@@ -3573,7 +3572,7 @@ def _collect_deadline_obligations(
             "deadline_id": deadline_id,
             "site": {
                 "path": path,
-                "function": function,
+                "function": function_name,
                 "bundle": bundle,
             },
             "status": status,
@@ -3590,7 +3589,7 @@ def _collect_deadline_obligations(
         if forest is None:
             return
         suite_path = Path(path).name
-        suite_id = forest.add_suite_site(suite_path, function, suite_kind, span=span)
+        suite_id = forest.add_suite_site(suite_path, function_name, suite_kind, span=span)
         paramset_id = forest.add_paramset(bundle)
         evidence: dict[str, object] = {
             "deadline_id": deadline_id,
@@ -3910,11 +3909,9 @@ def _materialize_projection_spec_rows(
     *,
     spec: ProjectionSpec,
     projected: Iterable[Mapping[str, JSONValue]],
-    forest: Forest | None,
+    forest: Forest,
     row_to_site: Callable[[Mapping[str, JSONValue]], NodeId | None],
 ) -> None:
-    if forest is None:
-        return
     spec_identity = projection_spec_hash(spec)
     spec_site = forest.add_spec_site(
         spec_hash=spec_identity,
@@ -3923,6 +3920,7 @@ def _materialize_projection_spec_rows(
         spec_version=int(spec.spec_version) if spec.spec_version else None,
     )
     for row in projected:
+        check_deadline()
         site_id = row_to_site(row)
         if site_id is None:
             continue
@@ -3931,6 +3929,7 @@ def _materialize_projection_spec_rows(
             "spec_hash": spec_identity,
         }
         for key, value in row.items():
+            check_deadline()
             evidence[str(key)] = value
         forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
 
@@ -3946,11 +3945,14 @@ def _suite_order_relation(
 ) -> tuple[list[dict[str, JSONValue]], dict[tuple[object, ...], NodeId]]:
     alt_degree: Counter[NodeId] = Counter()
     for alt in forest.alts:
+        check_deadline()
         for node_id in alt.inputs:
+            check_deadline()
             alt_degree[node_id] += 1
     relation: list[dict[str, JSONValue]] = []
     suite_index: dict[tuple[object, ...], NodeId] = {}
     for node_id, node in forest.nodes.items():
+        check_deadline()
         if node_id.kind != "SuiteSite":
             continue
         suite_kind = str(node.meta.get("suite_kind", "") or "")
@@ -4069,6 +4071,7 @@ def _ambiguity_suite_relation(
     relation: list[dict[str, JSONValue]] = []
     function_index: dict[tuple[str, str], NodeId] = {}
     for node_id, node in forest.nodes.items():
+        check_deadline()
         if node_id.kind != "FunctionSite":
             continue
         path = str(node.meta.get("path", "") or "")
@@ -4077,6 +4080,7 @@ def _ambiguity_suite_relation(
             continue
         function_index[(path, qual)] = node_id
     for alt in forest.alts:
+        check_deadline()
         if alt.kind != "AmbiguitySet":
             continue
         if not alt.inputs:
@@ -4165,7 +4169,7 @@ def _summarize_deadline_obligations(
     entries: list[JSONObject],
     *,
     max_entries: int = 20,
-    forest: Forest | None = None,
+    forest: Forest,
 ) -> list[str]:
     check_deadline()
     if not entries:
@@ -4228,6 +4232,7 @@ def _summarize_deadline_obligations(
     lines: list[str] = []
     lines.extend(spec_metadata_lines(DEADLINE_OBLIGATIONS_SUMMARY_SPEC))
     for entry in projected[:max_entries]:
+        check_deadline()
         path = entry.get("site_path") or "?"
         function = entry.get("site_function") or "?"
         span = _format_span_fields(
@@ -8065,7 +8070,7 @@ def _emit_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest | None = None,
+    forest: Forest,
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
@@ -8094,10 +8099,6 @@ def _emit_report(
     check_deadline()
     has_bundles = _has_bundles(groups_by_path)
     if groups_by_path:
-        if has_bundles and forest is None:
-            raise RuntimeError(
-                "forest required for dataflow grammar report; rerun with forest emission enabled"
-            )
         common = os.path.commonpath([str(p) for p in groups_by_path])
         root = Path(common)
     else:
@@ -8105,11 +8106,7 @@ def _emit_report(
     # Use the analyzed file set (not a repo-wide rglob) so reports and schema
     # audits don't accidentally ingest virtualenvs or unrelated files.
     file_paths = sorted(groups_by_path) if groups_by_path else []
-    projection = (
-        _bundle_projection_from_forest(forest, file_paths=file_paths)
-        if forest is not None and has_bundles
-        else None
-    )
+    projection = _bundle_projection_from_forest(forest, file_paths=file_paths) if has_bundles else None
     components = (
         _connected_components(projection.nodes, projection.adj)
         if projection is not None
@@ -9541,7 +9538,7 @@ def _compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest | None = None,
+    forest: Forest,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     decision_warnings: list[str] | None = None,
@@ -9660,7 +9657,7 @@ def render_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest | None = None,
+    forest: Forest,
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
@@ -9721,7 +9718,7 @@ def compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest | None = None,
+    forest: Forest,
     type_suggestions: list[str] | None = None,
     type_ambiguities: list[str] | None = None,
     decision_warnings: list[str] | None = None,

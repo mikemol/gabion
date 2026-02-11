@@ -60,5 +60,7 @@ def test_run_command_unknown_command_raises() -> None:
         run_command(
             CommandRequest("gabion.unknown", []),
             root=repo_root,
+            timeout_ticks=10_000,
+            timeout_tick_ns=1_000_000,
             process_factory=_fake_process_factory(stdout_bytes),
         )
