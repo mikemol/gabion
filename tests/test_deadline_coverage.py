@@ -101,7 +101,7 @@ def test_deadline_collector_handles_missing_span_and_orelse() -> None:
     collector = da._DeadlineFunctionCollector(fn, set())
     collector.visit(fn)
     assert collector.ambient_check is True
-    loop_fact = da._DeadlineLoopFacts(span=None, kind="for")
+    loop_fact = da._DeadlineLoopFacts(span=(0, 0, 0, 1), kind="for")
     collector._loop_stack.append(loop_fact)
     call = ast.Call(func=ast.Name(id="noop", ctx=ast.Load()), args=[], keywords=[])
     collector._record_call_span(call)
@@ -197,7 +197,7 @@ def test_collect_call_edges_and_recursive_helpers() -> None:
         star_pos=[],
         star_kw=[],
         is_test=True,
-        span=None,
+        span=(0, 0, 0, 1),
     )
     test_info = _make_fn_info(
         da,
@@ -231,7 +231,7 @@ def test_collect_call_edges_and_recursive_helpers() -> None:
 
 def test_deadline_loop_forwarded_params_branches() -> None:
     da = _load()
-    loop_fact = da._DeadlineLoopFacts(span=None, kind="for")
+    loop_fact = da._DeadlineLoopFacts(span=(0, 0, 0, 1), kind="for")
     call = da.CallArgs(
         callee="mod.callee",
         pos_map={"0": "deadline"},
@@ -343,7 +343,7 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
         star_pos=[(1, "star")],
         star_kw=["starkw"],
         is_test=False,
-        span=None,
+        span=(0, 0, 0, 1),
     )
     info_low = da._fallback_deadline_arg_info(call_low, callee, strictness="low")
     assert "opt" in info_low
@@ -359,7 +359,7 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
         star_pos=[],
         star_kw=[],
         is_test=False,
-        span=None,
+        span=(0, 0, 0, 1),
     )
     info_non_const = da._fallback_deadline_arg_info(call_non_const, callee, strictness="high")
     assert info_non_const["a"].kind == "unknown"
@@ -507,7 +507,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
         "missing.qual": da._DeadlineFunctionFacts(
             path=Path("missing.py"),
             qual="missing.qual",
-            span=None,
+            span=(0, 0, 0, 1),
             loop=False,
             check_params=set(),
             ambient_check=False,
@@ -533,7 +533,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
                     star_pos=[],
                     star_kw=[],
                     is_test=False,
-                    span=None,
+                    span=(0, 0, 0, 1),
                 ),
                 _make_fn_info(da, name="callee", qual="mod.callee", params=["deadline"]),
                 {},
@@ -552,7 +552,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
                     star_pos=[],
                     star_kw=[],
                     is_test=False,
-                    span=None,
+                    span=(1, 0, 1, 5),
                 ),
                 _make_fn_info(da, name="callee", qual="mod.callee", params=["deadline"]),
                 {"deadline": da._DeadlineArgInfo(kind="origin")},
@@ -569,7 +569,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
                     star_pos=[],
                     star_kw=[],
                     is_test=False,
-                    span=None,
+                    span=(0, 0, 0, 1),
                 ),
                 _make_fn_info(
                     da,
@@ -591,7 +591,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
                     star_pos=[],
                     star_kw=[],
                     is_test=False,
-                    span=None,
+                    span=(0, 0, 0, 1),
                 ),
                 _make_fn_info(da, name="callee", qual="mod.callee", params=["deadline"]),
                 {},
@@ -692,30 +692,25 @@ def test_deadline_summary_materializes_spec_facets() -> None:
 
 def test_spec_row_span_handles_invalid_and_valid() -> None:
     da = _load()
-    assert da._spec_row_span({"span_line": "x"}) is None
-    assert da._spec_row_span({"span_line": None}) is None
-    assert da._spec_row_span({"span_line": -1, "span_col": 0, "span_end_line": 0, "span_end_col": 1}) is None
+    from gabion.exceptions import NeverThrown
+
+    with pytest.raises(NeverThrown):
+        da._spec_row_span({"span_line": "x"})
+    with pytest.raises(NeverThrown):
+        da._spec_row_span(
+            {"span_line": -1, "span_col": 0, "span_end_line": 0, "span_end_col": 1}
+        )
     assert da._spec_row_span(
         {"span_line": 1, "span_col": 2, "span_end_line": 3, "span_end_col": 4}
     ) == (1, 2, 3, 4)
 
 
-def test_spec_row_span_strict_mode_raises_on_none() -> None:
+def test_spec_row_span_raises_on_none() -> None:
     da = _load()
-    import os
     from gabion.exceptions import NeverThrown
 
-    key = "GABION_PROOF_MODE"
-    previous = os.environ.get(key)
-    os.environ[key] = "strict"
-    try:
-        with pytest.raises(NeverThrown):
-            da._spec_row_span({"span_line": None})
-    finally:
-        if previous is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = previous
+    with pytest.raises(NeverThrown):
+        da._spec_row_span({"span_line": None})
 
 
 def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> None:
@@ -760,10 +755,167 @@ def test_deadline_summary_row_to_site_handles_missing_path() -> None:
             "status": "VIOLATION",
             "kind": "missing",
             "detail": "oops",
+            "span": [0, 0, 0, 1],
         }
     ]
     summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
     assert summary
+
+
+def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root(deadline):
+                pass
+
+            def callee(deadline):
+                pass
+
+            def loop_missing_check(deadline):
+                pass
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        deadline_roots={"mod.root"},
+    )
+    extra_call_infos = {
+        "mod.root": [
+            (
+                da.CallArgs(
+                    callee="mod.callee",
+                    pos_map={},
+                    kw_map={},
+                    const_pos={},
+                    const_kw={},
+                    non_const_pos=set(),
+                    non_const_kw=set(),
+                    star_pos=[],
+                    star_kw=[],
+                    is_test=False,
+                    span=None,
+                ),
+                _make_fn_info(da, name="callee", qual="mod.callee", params=["deadline"]),
+                {},
+            )
+        ]
+    }
+    extra_facts = {
+        "mod.loop_missing_check": da._DeadlineFunctionFacts(
+            path=target,
+            qual="mod.loop_missing_check",
+            span=(5, 0, 5, 10),
+            loop=True,
+            check_params=set(),
+            ambient_check=False,
+            loop_sites=[da._DeadlineLoopFacts(span=None, kind="for")],
+            local_info=da._DeadlineLocalInfo(
+                origin_vars=set(),
+                origin_spans={},
+                alias_to_param={},
+            ),
+        )
+    }
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        extra_call_infos=extra_call_infos,
+        extra_facts_by_qual=extra_facts,
+    )
+    _, by_qual = da._build_function_index(
+        [target],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=None,
+    )
+    root_span = by_qual["mod.root"].param_spans["deadline"]
+    assert any(
+        entry.get("kind") == "missing_arg"
+        and entry.get("span") == list(root_span)
+        for entry in obligations
+    )
+    assert any(
+        entry.get("kind") == "unchecked_deadline"
+        and entry.get("span") == list(extra_facts["mod.loop_missing_check"].span)
+        for entry in obligations
+    )
+
+
+def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> None:
+    da = _load()
+    from gabion.exceptions import NeverThrown
+
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root():
+                pass
+
+            def callee(deadline):
+                pass
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        deadline_roots={"mod.root"},
+    )
+    extra_call_infos = {
+        "mod.root": [
+            (
+                da.CallArgs(
+                    callee="mod.callee",
+                    pos_map={},
+                    kw_map={},
+                    const_pos={},
+                    const_kw={},
+                    non_const_pos=set(),
+                    non_const_kw=set(),
+                    star_pos=[],
+                    star_kw=[],
+                    is_test=False,
+                    span=None,
+                ),
+                _make_fn_info(da, name="callee", qual="mod.callee", params=["deadline"]),
+                {},
+            )
+        ]
+    }
+    extra_facts = {
+        "mod.root": da._DeadlineFunctionFacts(
+            path=target,
+            qual="mod.root",
+            span=None,
+            loop=False,
+            check_params=set(),
+            ambient_check=False,
+            loop_sites=[],
+            local_info=da._DeadlineLocalInfo(
+                origin_vars=set(),
+                origin_spans={},
+                alias_to_param={},
+            ),
+        )
+    }
+    with pytest.raises(NeverThrown):
+        da._collect_deadline_obligations(
+            [target],
+            project_root=tmp_path,
+            config=config,
+            extra_call_infos=extra_call_infos,
+            extra_facts_by_qual=extra_facts,
+        )
 
 
 def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> None:
@@ -991,7 +1143,7 @@ def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
         "gabion.analysis.timeout_context.fake": da._DeadlineFunctionFacts(
             path=Path("timeout_context.py"),
             qual="gabion.analysis.timeout_context.fake",
-            span=None,
+            span=(0, 0, 0, 1),
             loop=False,
             check_params=set(),
             ambient_check=False,

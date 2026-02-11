@@ -37,7 +37,7 @@ from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.analysis import evidence_keys
-from gabion.invariants import require_not_none
+from gabion.invariants import never, require_not_none
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -3511,6 +3511,23 @@ def _collect_deadline_obligations(
 
     obligations: list[JSONObject] = []
 
+    def _fallback_span(
+        function: str,
+        param: str | None,
+        span: tuple[int, int, int, int] | None,
+    ) -> tuple[int, int, int, int] | None:
+        if span is not None:
+            return span
+        info = by_qual.get(function)
+        if param and info is not None:
+            candidate = info.param_spans.get(param)
+            if candidate is not None:
+                return candidate
+        facts = facts_by_qual.get(function)
+        if facts is not None and facts.span is not None:
+            return facts.span
+        return span
+
     def _add_obligation(
         *,
         path: str,
@@ -3524,6 +3541,15 @@ def _collect_deadline_obligations(
         callee: str | None = None,
         suite_kind: str = "function",
     ) -> None:
+        span = _fallback_span(function, param, span)
+        require_not_none(
+            span,
+            reason="deadline obligation missing span",
+            strict=True,
+            function=function,
+            param=param or "",
+            kind=kind,
+        )
         bundle = [param] if param else []
         key_parts = [path, function, kind]
         if param:
@@ -3840,23 +3866,31 @@ def _collect_deadline_obligations(
 def _spec_row_span(row: Mapping[str, JSONValue]) -> tuple[int, int, int, int] | None:
     def _coerce(name: str, value: JSONValue) -> int:
         if value is None:
-            require_not_none(
-                value,
-                reason=f"projection spec missing {name}",
+            never(
+                f"projection spec missing {name}",
                 field=name,
             )
-            return -1
-        return int(value)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            never(
+                f"projection spec {name} must be an int",
+                field=name,
+                value=value,
+            )
 
-    try:
-        line = _coerce("span_line", row.get("span_line", -1))
-        col = _coerce("span_col", row.get("span_col", -1))
-        end_line = _coerce("span_end_line", row.get("span_end_line", -1))
-        end_col = _coerce("span_end_col", row.get("span_end_col", -1))
-    except (TypeError, ValueError):
-        return None
+    line = _coerce("span_line", row.get("span_line"))
+    col = _coerce("span_col", row.get("span_col"))
+    end_line = _coerce("span_end_line", row.get("span_end_line"))
+    end_col = _coerce("span_end_col", row.get("span_end_col"))
     if line < 0 or col < 0 or end_line < 0 or end_col < 0:
-        return None
+        never(
+            "projection spec span fields must be non-negative",
+            span_line=line,
+            span_col=col,
+            span_end_line=end_line,
+            span_end_col=end_col,
+        )
     return (line, col, end_line, end_col)
 
 
@@ -3938,8 +3972,13 @@ def _summarize_deadline_obligations(
                 return None
             span = _spec_row_span(row)
             path_name = Path(path).name
-            if span is None:
-                return forest.add_site(path_name, function)
+            require_not_none(
+                span,
+                reason="projection spec row missing span",
+                strict=True,
+                path=path,
+                function=function,
+            )
             return forest.add_site(path_name, function, span)
 
         _materialize_projection_spec_rows(
