@@ -130,6 +130,29 @@ class Forest:
             )
         return suite_id
 
+    def add_spec_site(
+        self,
+        *,
+        spec_hash: str,
+        spec_name: str,
+        spec_domain: str | None = None,
+        spec_version: int | None = None,
+    ) -> NodeId:
+        key: NodeKey = ("projection_spec", spec_hash, "spec")
+        node_id = NodeId(kind="SuiteSite", key=key)
+        meta: dict[str, object] = {
+            "path": "projection_spec",
+            "qual": spec_hash,
+            "suite_kind": "spec",
+            "spec_name": spec_name,
+            "spec_hash": spec_hash,
+        }
+        if spec_domain:
+            meta["spec_domain"] = spec_domain
+        if spec_version is not None:
+            meta["spec_version"] = spec_version
+        return self._intern_node(node_id, meta)
+
     def add_alt(
         self,
         kind: str,

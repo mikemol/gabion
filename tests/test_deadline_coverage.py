@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 import sys
 import textwrap
+import pytest
 
 
 def _load():
@@ -662,6 +663,106 @@ def test_deadline_summary_handles_bad_span() -> None:
         }
     ]
     summary = da._summarize_deadline_obligations(entries, max_entries=1)
+    assert summary
+
+
+def test_deadline_summary_materializes_spec_facets() -> None:
+    da = _load()
+    forest = da.Forest()
+    entries = [
+        {
+            "deadline_id": "deadline:mod.py:f:missing",
+            "site": {"path": "mod.py", "function": "f", "bundle": []},
+            "status": "VIOLATION",
+            "kind": "missing",
+            "detail": "oops",
+            "span": [0, 1, 0, 2],
+        }
+    ]
+    summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
+    assert summary
+    spec_sites = [
+        node
+        for node in forest.nodes.values()
+        if node.kind == "SuiteSite" and node.meta.get("suite_kind") == "spec"
+    ]
+    assert spec_sites
+    assert any(alt.kind == "SpecFacet" for alt in forest.alts)
+
+
+def test_spec_row_span_handles_invalid_and_valid() -> None:
+    da = _load()
+    assert da._spec_row_span({"span_line": "x"}) is None
+    assert da._spec_row_span({"span_line": None}) is None
+    assert da._spec_row_span({"span_line": -1, "span_col": 0, "span_end_line": 0, "span_end_col": 1}) is None
+    assert da._spec_row_span(
+        {"span_line": 1, "span_col": 2, "span_end_line": 3, "span_end_col": 4}
+    ) == (1, 2, 3, 4)
+
+
+def test_spec_row_span_strict_mode_raises_on_none() -> None:
+    da = _load()
+    import os
+    from gabion.exceptions import NeverThrown
+
+    key = "GABION_PROOF_MODE"
+    previous = os.environ.get(key)
+    os.environ[key] = "strict"
+    try:
+        with pytest.raises(NeverThrown):
+            da._spec_row_span({"span_line": None})
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = previous
+
+
+def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> None:
+    da = _load()
+    spec = da.DEADLINE_OBLIGATIONS_SUMMARY_SPEC
+    da._materialize_projection_spec_rows(
+        spec=spec,
+        projected=[],
+        forest=None,
+        row_to_site=lambda row: None,
+    )
+    forest = da.Forest()
+    da._materialize_projection_spec_rows(
+        spec=spec,
+        projected=[{"site_path": "mod.py", "site_function": "f"}],
+        forest=forest,
+        row_to_site=lambda row: None,
+    )
+    assert not any(alt.kind == "SpecFacet" for alt in forest.alts)
+
+
+def test_deadline_summary_row_to_site_handles_missing_path() -> None:
+    da = _load()
+    forest = da.Forest()
+    entries = [
+        {
+            "deadline_id": "deadline::f:missing",
+            "site": {"path": "", "function": "f", "bundle": []},
+            "status": "VIOLATION",
+            "kind": "missing",
+            "detail": "oops",
+            "span": [0, 0, 0, 1],
+        }
+    ]
+    summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
+    assert summary
+
+    entries = [
+        {
+            "deadline_id": "deadline:mod.py:f:missing",
+            "site": {"path": "mod.py", "function": "f", "bundle": []},
+            "status": "VIOLATION",
+            "kind": "missing",
+            "detail": "oops",
+        }
+    ]
+    summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
     assert summary
 
 

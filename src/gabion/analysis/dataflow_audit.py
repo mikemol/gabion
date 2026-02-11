@@ -37,6 +37,7 @@ from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.analysis import evidence_keys
+from gabion.invariants import require_not_none
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -77,6 +78,7 @@ from .forest_spec import (
 )
 from .timeout_context import build_timeout_context_from_stack, check_deadline
 from .projection_exec import apply_spec
+from .projection_normalize import spec_hash as projection_spec_hash
 from .projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
@@ -3835,10 +3837,63 @@ def _collect_deadline_obligations(
     )
 
 
+def _spec_row_span(row: Mapping[str, JSONValue]) -> tuple[int, int, int, int] | None:
+    def _coerce(name: str, value: JSONValue) -> int:
+        if value is None:
+            require_not_none(
+                value,
+                reason=f"projection spec missing {name}",
+                field=name,
+            )
+            return -1
+        return int(value)
+
+    try:
+        line = _coerce("span_line", row.get("span_line", -1))
+        col = _coerce("span_col", row.get("span_col", -1))
+        end_line = _coerce("span_end_line", row.get("span_end_line", -1))
+        end_col = _coerce("span_end_col", row.get("span_end_col", -1))
+    except (TypeError, ValueError):
+        return None
+    if line < 0 or col < 0 or end_line < 0 or end_col < 0:
+        return None
+    return (line, col, end_line, end_col)
+
+
+def _materialize_projection_spec_rows(
+    *,
+    spec: ProjectionSpec,
+    projected: Iterable[Mapping[str, JSONValue]],
+    forest: Forest | None,
+    row_to_site: Callable[[Mapping[str, JSONValue]], NodeId | None],
+) -> None:
+    if forest is None:
+        return
+    spec_identity = projection_spec_hash(spec)
+    spec_site = forest.add_spec_site(
+        spec_hash=spec_identity,
+        spec_name=str(spec.name),
+        spec_domain=str(spec.domain),
+        spec_version=int(spec.spec_version) if spec.spec_version else None,
+    )
+    for row in projected:
+        site_id = row_to_site(row)
+        if site_id is None:
+            continue
+        evidence: dict[str, object] = {
+            "spec_name": str(spec.name),
+            "spec_hash": spec_identity,
+        }
+        for key, value in row.items():
+            evidence[str(key)] = value
+        forest.add_alt("SpecFacet", (spec_site, site_id), evidence=evidence)
+
+
 def _summarize_deadline_obligations(
     entries: list[JSONObject],
     *,
     max_entries: int = 20,
+    forest: Forest | None = None,
 ) -> list[str]:
     check_deadline()
     if not entries:
@@ -3875,6 +3930,24 @@ def _summarize_deadline_obligations(
         )
 
     projected = apply_spec(DEADLINE_OBLIGATIONS_SUMMARY_SPEC, relation)
+    if forest is not None:
+        def _row_to_site(row: Mapping[str, JSONValue]) -> NodeId | None:
+            path = str(row.get("site_path", "") or "")
+            function = str(row.get("site_function", "") or "")
+            if not path or not function:
+                return None
+            span = _spec_row_span(row)
+            path_name = Path(path).name
+            if span is None:
+                return forest.add_site(path_name, function)
+            return forest.add_site(path_name, function, span)
+
+        _materialize_projection_spec_rows(
+            spec=DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
+            projected=projected,
+            forest=forest,
+            row_to_site=_row_to_site,
+        )
     lines: list[str] = []
     lines.extend(spec_metadata_lines(DEADLINE_OBLIGATIONS_SUMMARY_SPEC))
     for entry in projected[:max_entries]:
@@ -7938,7 +8011,10 @@ def _emit_report(
             lines.extend(summary)
             lines.append("```")
     if deadline_obligations:
-        summary = _summarize_deadline_obligations(deadline_obligations)
+        summary = _summarize_deadline_obligations(
+            deadline_obligations,
+            forest=forest,
+        )
         if summary:
             lines.append("Deadline propagation:")
             lines.append("```")

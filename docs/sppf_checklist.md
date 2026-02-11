@@ -198,7 +198,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70) sppf{doc=partial; impl=done; doc_ref=in-22@1}
 - [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71) sppf{doc=partial; impl=done; doc_ref=in-22@1}
 - [x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73) sppf{doc=done; impl=done; doc_ref=in-23@8}
-- [~] SuiteSite carriers + loop-scoped deadline obligations. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@21}
+- [~] SuiteSite carriers + loop-scoped deadline obligations. (in-30, GH-85) sppf{doc=partial; impl=done; doc_ref=in-30@22}
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).

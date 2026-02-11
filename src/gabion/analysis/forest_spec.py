@@ -136,7 +136,12 @@ def build_forest_spec(
         )
 
     if include_deadline_obligations:
-        outputs = ("SuiteSite", "SuiteSiteInFunction", "DeadlineObligation")
+        outputs = (
+            "SuiteSite",
+            "SuiteSiteInFunction",
+            "DeadlineObligation",
+            "SpecFacet",
+        )
         declared_outputs.update(outputs)
         collectors.append(
             ForestCollectorSpec(
