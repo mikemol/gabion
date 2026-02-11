@@ -39,11 +39,14 @@ _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 
 
-def _cli_deadline() -> Deadline:
+def _cli_timeout_ticks() -> tuple[int, int]:
     if _has_env_timeout():
-        ticks, tick_ns = _env_timeout_ticks()
-    else:
-        ticks, tick_ns = _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
+        return _env_timeout_ticks()
+    return _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
+
+
+def _cli_deadline() -> Deadline:
+    ticks, tick_ns = _cli_timeout_ticks()
     return Deadline.from_timeout_ticks(ticks, tick_ns)
 
 
@@ -425,12 +428,23 @@ def dispatch_command(
     root: Path | None = None,
     runner: Runner = run_command,
 ) -> JSONObject:
+    ticks, tick_ns = _cli_timeout_ticks()
+    if (
+        "analysis_timeout_ticks" not in payload
+        and "analysis_timeout_ms" not in payload
+        and "analysis_timeout_seconds" not in payload
+    ):
+        payload = dict(payload)
+        payload["analysis_timeout_ticks"] = int(ticks)
+        payload["analysis_timeout_tick_ns"] = int(tick_ns)
     request = CommandRequest(command, [payload])
     resolved = runner
     if runner is run_command:
         flag = os.getenv("GABION_DIRECT_RUN", "").strip().lower()
         if flag in {"1", "true", "yes", "on"}:
             resolved = run_command_direct
+    if resolved is run_command:
+        return resolved(request, root=root, timeout_ticks=ticks, timeout_tick_ns=tick_ns)
     return resolved(request, root=root)
 
 
