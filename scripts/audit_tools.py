@@ -13,12 +13,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
 from gabion.analysis.aspf import Forest
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis import evidence_keys
+
+_DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
+_DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
+
+
+def _audit_deadline_scope():
+    return deadline_scope(
+        Deadline.from_timeout_ticks(
+            _DEFAULT_AUDIT_TIMEOUT_TICKS,
+            _DEFAULT_AUDIT_TIMEOUT_TICK_NS,
+        )
+    )
 
 
 # --- Docflow audit constants ---
@@ -3828,33 +3840,39 @@ def main(argv: list[str] | None = None) -> int:
         subparsers.add_parser("sppf-graph", help="Emit SPPF dependency graph.")
     )
 
-    args = parser.parse_args(argv)
-    return int(args.func(args))
+    with _audit_deadline_scope():
+        args = parser.parse_args(argv)
+        return int(args.func(args))
 
 
 def run_docflow_cli(argv: list[str] | None = None) -> int:
-    args = _parse_single_command_args(_add_docflow_args, argv)
-    return _docflow_command(args)
+    with _audit_deadline_scope():
+        args = _parse_single_command_args(_add_docflow_args, argv)
+        return _docflow_command(args)
 
 
 def run_decision_tiers_cli(argv: list[str] | None = None) -> int:
-    args = _parse_single_command_args(_add_decision_tier_args, argv)
-    return _decision_tiers_command(args)
+    with _audit_deadline_scope():
+        args = _parse_single_command_args(_add_decision_tier_args, argv)
+        return _decision_tiers_command(args)
 
 
 def run_consolidation_cli(argv: list[str] | None = None) -> int:
-    args = _parse_single_command_args(_add_consolidation_args, argv)
-    return _consolidation_command(args)
+    with _audit_deadline_scope():
+        args = _parse_single_command_args(_add_consolidation_args, argv)
+        return _consolidation_command(args)
 
 
 def run_lint_summary_cli(argv: list[str] | None = None) -> int:
-    args = _parse_single_command_args(_add_lint_summary_args, argv)
-    return _lint_summary_command(args)
+    with _audit_deadline_scope():
+        args = _parse_single_command_args(_add_lint_summary_args, argv)
+        return _lint_summary_command(args)
 
 
 def run_sppf_graph_cli(argv: list[str] | None = None) -> int:
-    args = _parse_single_command_args(_add_sppf_graph_args, argv)
-    return _sppf_graph_command(args)
+    with _audit_deadline_scope():
+        args = _parse_single_command_args(_add_sppf_graph_args, argv)
+        return _sppf_graph_command(args)
 
 
 if __name__ == "__main__":
