@@ -15,13 +15,16 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
     check_deadline()
     nodes: Set[str] = set(graph.keys())
     for deps in graph.values():
+        check_deadline()
         nodes.update(deps)
 
     incoming: Dict[str, Set[str]] = {node: set() for node in nodes}
     outgoing: Dict[str, Set[str]] = {node: set() for node in nodes}
 
     for node, deps in graph.items():
+        check_deadline()
         for dep in deps:
+            check_deadline()
             outgoing[dep].add(node)
             incoming[node].add(dep)
 
@@ -29,9 +32,11 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
     order: List[str] = []
 
     while ready:
+        check_deadline()
         node = ready.pop(0)
         order.append(node)
         for follower in sorted(outgoing[node]):
+            check_deadline()
             incoming[follower].discard(node)
             if not incoming[follower]:
                 if follower not in ready and follower not in order:
@@ -69,6 +74,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
         stack.append(node)
         on_stack.add(node)
         for neighbor in graph.get(node, set()):
+            check_deadline()
             if neighbor not in indices:
                 visit(neighbor)
                 lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
@@ -77,6 +83,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
         if lowlinks[node] == indices[node]:
             component: Set[str] = set()
             while True:
+                check_deadline()
                 popped = stack.pop()
                 on_stack.discard(popped)
                 component.add(popped)
@@ -85,6 +92,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
             components.append(component)
 
     for node in graph:
+        check_deadline()
         if node not in indices:
             visit(node)
 

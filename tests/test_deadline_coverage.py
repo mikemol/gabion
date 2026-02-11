@@ -333,18 +333,22 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
                     pass
 
             def loop_checked(deadline: Deadline):
-                check_deadline(deadline)
                 for _ in range(1):
+                    check_deadline(deadline)
                     pass
 
-            def loop_ambient():
-                check_deadline()
+            def loop_forward(deadline: Deadline):
                 for _ in range(1):
+                    callee(deadline)
+
+            def loop_ambient():
+                for _ in range(1):
+                    check_deadline()
                     pass
 
             def loop_ambient_with_carrier(deadline: Deadline):
-                check_deadline()
                 for _ in range(1):
+                    check_deadline()
                     pass
 
             def loop_missing_carrier():
@@ -421,6 +425,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
             loop=False,
             check_params=set(),
             ambient_check=False,
+            loop_sites=[],
             local_info=da._DeadlineLocalInfo(
                 origin_vars=set(),
                 origin_spans={},
@@ -589,3 +594,34 @@ def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> Non
         config=config,
     )
     assert obligations is not None
+
+
+def test_deadline_loop_requires_check_in_body(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def loop_precheck(deadline: Deadline):
+                check_deadline(deadline)
+                for _ in range(1):
+                    pass
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+    )
+    assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
