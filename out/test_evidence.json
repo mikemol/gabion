@@ -9186,6 +9186,13 @@
       "test_id": "tests/test_baseline_ratchet.py::test_baseline_write_and_apply"
     },
     {
+      "evidence": [],
+      "file": "tests/test_broad_type_lint.py",
+      "line": 63,
+      "status": "unmapped",
+      "test_id": "tests/test_broad_type_lint.py::test_internal_broad_type_int_linted"
+    },
+    {
       "evidence": [
         {
           "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._internal_broad_type_lint_lines::annot",
@@ -9204,6 +9211,13 @@
       "line": 19,
       "status": "mapped",
       "test_id": "tests/test_broad_type_lint.py::test_internal_broad_type_str_linted"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_broad_type_lint.py",
+      "line": 107,
+      "status": "unmapped",
+      "test_id": "tests/test_broad_type_lint.py::test_internal_node_id_not_linted"
     },
     {
       "evidence": [

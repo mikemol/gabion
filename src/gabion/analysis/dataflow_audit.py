@@ -5284,6 +5284,7 @@ def _populate_bundle_forest(
             )
 
 
+# dataflow-bundle: decision_lint_lines, broad_type_lint_lines
 def _compute_lint_lines(
     *,
     forest: Forest | None,
@@ -6031,6 +6032,25 @@ def _normalize_type_name(value: str) -> str:
     return value
 
 
+_BROAD_SCALAR_TYPES = {
+    "str",
+    "int",
+    "float",
+    "bool",
+    "bytes",
+    "bytearray",
+    "complex",
+}
+
+
+def _is_node_id_type(value: str) -> bool:
+    return value == "NodeId" or value.endswith(".NodeId")
+
+
+def _is_literal_type(value: str) -> bool:
+    return value.startswith("Literal[")
+
+
 def _is_broad_internal_type(annot: str | None) -> bool:
     if annot is None:
         return False
@@ -6039,9 +6059,15 @@ def _is_broad_internal_type(annot: str | None) -> bool:
     non_none = {t for t in expanded if t not in _NONE_TYPES}
     if not non_none:
         return False
+    if all(_is_node_id_type(t) for t in non_none):
+        return False
+    if any(_is_literal_type(t) for t in non_none):
+        return True
     if "Any" in non_none or "object" in non_none:
         return True
-    return non_none == {"str"}
+    if _BROAD_SCALAR_TYPES & non_none:
+        return True
+    return False
 
 
 _NONE_TYPES = {"None", "NoneType", "type(None)"}

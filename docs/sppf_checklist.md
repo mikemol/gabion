@@ -1,5 +1,5 @@
 ---
-doc_revision: 146
+doc_revision: 147
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -39,7 +39,7 @@ doc_review_notes:
   glossary.md#deadness_witness: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
   glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_sections:
-  sppf_checklist: 5
+  sppf_checklist: 6
 doc_section_requires:
   sppf_checklist:
     - README.md#repo_contract
@@ -55,47 +55,47 @@ doc_section_reviews:
   sppf_checklist:
     README.md#repo_contract:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
     glossary.md#decision_table:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed glossary.md#decision_table rev1 (decision table tier definition)."
     glossary.md#decision_bundle:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed glossary.md#decision_bundle rev1 (decision bundle tier definition)."
     glossary.md#decision_protocol:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed glossary.md#decision_protocol rev1 (decision protocol tier definition)."
     glossary.md#decision_surface:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed glossary.md#decision_surface rev1 (decision surface tier boundary semantics)."
     glossary.md#value_encoded_decision:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed glossary.md#value_encoded_decision rev1 (value-encoded decision surface semantics)."
     glossary.md#deadness_witness:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed glossary.md#deadness_witness rev1 (deadness witness obligations for negative evidence)."
     glossary.md#exception_obligation:
       dep_version: 1
-      self_version_at_review: 5
+      self_version_at_review: 6
       outcome: no_change
       note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -173,7 +173,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Wildcard forwarding: signature-aware mapping for `*args/**kwargs`.
 - [x] Wildcard forwarding: pass-through via `*args/**kwargs` variables.
 - [x] Type-flow tightening audit (downstream annotations).
-- [~] Internal broad-type lint (Any/object/str) on non-boundary surfaces. (GH-89) sppf{doc=planned; impl=done; doc_ref=in-31@1}
+- [~] Internal broad-type lint (Any/object + scalar types like str/int/float/bool/bytes, except NodeId) on non-boundary surfaces. (GH-89) sppf{doc=planned; impl=done; doc_ref=in-31@1}
 - [x] Type-flow ambiguities fail `gabion check` in repo defaults.
 - [x] Anonymous schema surface detection (dict[str, object]/Any payload annotations).
 - [x] Constant-flow audit (dead knobs / always-constant params).
