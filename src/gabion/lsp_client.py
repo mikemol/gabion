@@ -244,9 +244,7 @@ def run_command(
     slack_ns = _analysis_timeout_slack_ns(analysis_target_ns)
     base_total_ns = ticks_value * tick_ns_value
     lsp_total_ns = max(base_total_ns, analysis_target_ns + slack_ns)
-    lsp_ticks = (lsp_total_ns + tick_ns_value - 1) // tick_ns_value
-    if lsp_ticks <= 0:
-        lsp_ticks = 1
+    lsp_ticks = max(1, (lsp_total_ns + tick_ns_value - 1) // tick_ns_value)
 
     deadline = Deadline.from_timeout_ticks(lsp_ticks, tick_ns_value)
     deadline_ns = deadline.deadline_ns
@@ -277,13 +275,9 @@ def run_command(
         cmd_id = 2
         remaining_ns = _remaining_deadline_ns(deadline_ns)
         if existing_total_ns is None or existing_total_ns > remaining_ns:
-            target_ns = analysis_target_ns
-            if target_ns > remaining_ns:
-                target_ns = remaining_ns
-            ticks_value = target_ns // tick_ns_value
-            if ticks_value <= 0:
-                ticks_value = 1
-                tick_ns_value = target_ns
+            target_ns = min(analysis_target_ns, remaining_ns)
+            tick_ns_value = min(tick_ns_value, target_ns)
+            ticks_value = max(1, target_ns // tick_ns_value)
             payload["analysis_timeout_ticks"] = int(ticks_value)
             payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
         _write_rpc(
