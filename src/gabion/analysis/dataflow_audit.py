@@ -3111,11 +3111,16 @@ def _function_suite_id(path: str, qual: str) -> NodeId:
 
 def _suite_caller_function_id(
     suite_node: Node,
-) -> NodeId | None:
+) -> NodeId:
     path = str(suite_node.meta.get("path", "") or "")
     qual = str(suite_node.meta.get("qual", "") or "")
     if not path or not qual:
-        return None
+        never(
+            "suite site missing caller identity",
+            suite_kind=str(suite_node.meta.get("suite_kind", "") or ""),
+            path=path,
+            qual=qual,
+        )
     return _function_suite_id(path, qual)
 
 
@@ -3130,7 +3135,7 @@ def _node_to_function_suite_id(
         path = str(node.meta.get("path", "") or "")
         qual = str(node.meta.get("qual", "") or "")
         if not path or not qual:
-            return None
+            never("function site missing identity", path=path, qual=qual)
         return _function_suite_id(path, qual)
     if node.kind == "SuiteSite":
         suite_kind = str(node.meta.get("suite_kind", "") or "")
@@ -3139,36 +3144,66 @@ def _node_to_function_suite_id(
         path = str(node.meta.get("path", "") or "")
         qual = str(node.meta.get("qual", "") or "")
         if not path or not qual:
-            return None
+            never("function suite missing identity", path=path, qual=qual)
         return _function_suite_id(path, qual)
     return None
 
 
+def _obligation_candidate_suite_ids(
+    *,
+    by_name: dict[str, list[FunctionInfo]],
+    callee_key: str,
+) -> set[NodeId]:
+    key = _callee_key(callee_key)
+    candidates: set[NodeId] = set()
+    for info in by_name.get(key, []):
+        check_deadline()
+        if _is_test_path(info.path):
+            continue
+        candidates.add(_function_suite_id(info.path.name, info.qual))
+    return candidates
+
+
 def _collect_call_edges_from_forest(
     forest: Forest,
+    *,
+    by_name: dict[str, list[FunctionInfo]],
 ) -> dict[NodeId, set[NodeId]]:
     check_deadline()
     edges: dict[NodeId, set[NodeId]] = defaultdict(set)
     for alt in forest.alts:
         check_deadline()
-        if alt.kind != "CallCandidate":
-            continue
-        if len(alt.inputs) < 2:
+        if not alt.inputs:
             continue
         suite_id = alt.inputs[0]
         suite_node = forest.nodes.get(suite_id)
-        if suite_node is None or suite_node.kind != "SuiteSite":
+        if suite_node is None:
+            continue
+        if suite_node.kind != "SuiteSite":
             continue
         suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
         if suite_kind != "call":
             continue
         caller_id = _suite_caller_function_id(suite_node)
-        if caller_id is None:
+        if alt.kind == "CallCandidate":
+            if len(alt.inputs) < 2:
+                continue
+            candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
+            if candidate_id is None:
+                continue
+            edges[caller_id].add(candidate_id)
             continue
-        candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
-        if candidate_id is None:
+        if alt.kind != "CallResolutionObligation":
             continue
-        edges[caller_id].add(candidate_id)
+        callee_key = str(alt.evidence.get("callee", "") or "")
+        if not callee_key:
+            continue
+        for candidate_id in _obligation_candidate_suite_ids(
+            by_name=by_name,
+            callee_key=callee_key,
+        ):
+            check_deadline()
+            edges[caller_id].add(candidate_id)
     return edges
 
 
@@ -3192,8 +3227,6 @@ def _collect_call_resolution_obligations_from_forest(
         if suite_kind != "call":
             continue
         caller_id = _suite_caller_function_id(suite_node)
-        if caller_id is None:
-            continue
         caller_path = str(suite_node.meta.get("path", "") or "")
         caller_qual = str(suite_node.meta.get("qual", "") or "")
         if not caller_path or not caller_qual:
@@ -4027,7 +4060,7 @@ def _collect_deadline_obligations(
                     suite_kind="function",
                 )
 
-    edges = _collect_call_edges_from_forest(forest)
+    edges = _collect_call_edges_from_forest(forest, by_name=by_name)
     resolution_obligations = _collect_call_resolution_obligations_from_forest(forest)
     recursive_nodes = _collect_recursive_nodes(edges)
     def _deadline_exempt(qual: str) -> bool:
@@ -9270,8 +9303,6 @@ def compute_structure_metrics(
     forest: Forest,
 ) -> JSONObject:
     check_deadline()
-    if forest is None:
-        never("structure metrics require forest")
     file_count = len(groups_by_path)
     function_count = sum(len(groups) for groups in groups_by_path.values())
     bundle_sizes: list[int] = []
@@ -9346,8 +9377,6 @@ def render_structure_snapshot(
     invariant_propositions: list[InvariantProposition] | None = None,
 ) -> JSONObject:
     check_deadline()
-    if forest is None:
-        never("structure snapshot requires forest")
     root = project_root or _infer_root(groups_by_path)
     invariant_map: dict[tuple[str, str], list[InvariantProposition]] = {}
     if invariant_propositions:

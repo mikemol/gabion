@@ -766,6 +766,36 @@ def test_call_resolution_obligation_is_discharged_by_call_candidate(
     )
 
 
+def test_call_edges_include_resolution_obligation_candidates() -> None:
+    da = _load()
+    caller = _make_fn_info(da, name="root", qual="mod.root", path=Path("mod.py"))
+    callee = _make_fn_info(da, name="callee", qual="mod.callee", path=Path("mod.py"))
+    by_name = {"callee": [callee]}
+    forest = da.Forest()
+    call_suite_id = forest.add_suite_site(
+        "mod.py",
+        "mod.root",
+        "call",
+        span=(0, 0, 0, 1),
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (call_suite_id,),
+        evidence={
+            "callee": "callee",
+            "phase": "unresolved",
+            "kind": "unresolved_internal_callee",
+        },
+    )
+    edges = da._collect_call_edges_from_forest(
+        forest,
+        by_name=by_name,
+    )
+    caller_id = da.NodeId("SuiteSite", (caller.path.name, caller.qual, "function"))
+    callee_id = da.NodeId("SuiteSite", (callee.path.name, callee.qual, "function"))
+    assert edges[caller_id] == {callee_id}
+
+
 # gabion:evidence E:deadline/call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates
 def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> None:
     da = _load()
