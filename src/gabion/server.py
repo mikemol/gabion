@@ -8,6 +8,7 @@ from typing import Callable
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
+from pydantic import ValidationError
 from lsprotocol.types import (
     TEXT_DOCUMENT_DID_OPEN,
     TEXT_DOCUMENT_DID_SAVE,
@@ -603,7 +604,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                     merge_overlap_threshold=payload.get("merge_overlap_threshold", None),
                     config=config,
                 )
-            except Exception as exc:
+            except (TypeError, ValueError, OSError) as exc:
                 response.setdefault("synthesis_errors", []).append(str(exc))
             if synthesis_plan is not None:
                 if synthesis_plan_path:
@@ -1202,7 +1203,7 @@ def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
         check_deadline()
         try:
             request = SynthesisRequest.model_validate(payload)
-        except Exception as exc:  # pydantic validation
+        except ValidationError as exc:
             return {"protocols": [], "warnings": [], "errors": [str(exc)]}
 
         bundle_tiers: dict[frozenset[str], int] = {}
@@ -1260,7 +1261,7 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
     with _deadline_scope_from_payload(payload):
         try:
             request = RefactorRequest.model_validate(payload)
-        except Exception as exc:  # pydantic validation
+        except ValidationError as exc:
             return RefactorResponse(errors=[str(exc)]).model_dump()
 
         project_root = None
