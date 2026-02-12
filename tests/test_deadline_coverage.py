@@ -176,14 +176,21 @@ def test_deadline_function_facts_parse_error_and_scopes(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     invalid.write_text("def oops(:\n", encoding="utf-8")
+    parse_failures: list[dict[str, object]] = []
     facts = da._collect_deadline_function_facts(
         [valid, invalid],
         project_root=tmp_path,
         ignore_params=set(),
+        parse_failure_witnesses=parse_failures,
     )
     assert "mod.Box.method" in facts
-    call_nodes = da._collect_call_nodes_by_path([invalid])
+    assert any(entry["stage"] == "deadline_function_facts" for entry in parse_failures)
+    call_nodes = da._collect_call_nodes_by_path(
+        [invalid],
+        parse_failure_witnesses=parse_failures,
+    )
     assert invalid not in call_nodes
+    assert any(entry["stage"] == "call_nodes" for entry in parse_failures)
 
 
 def test_collect_call_nodes_handles_missing_span(tmp_path: Path) -> None:
@@ -191,7 +198,11 @@ def test_collect_call_nodes_handles_missing_span(tmp_path: Path) -> None:
     path = tmp_path / "dummy.py"
     call = ast.Call(func=ast.Name(id="f", ctx=ast.Load()), args=[], keywords=[])
     tree = ast.Module(body=[ast.Expr(value=call)], type_ignores=[])
-    result = da._collect_call_nodes_by_path([path], trees={path: tree})
+    result = da._collect_call_nodes_by_path(
+        [path],
+        trees={path: tree},
+        parse_failure_witnesses=[],
+    )
     assert result[path] == {}
 
 

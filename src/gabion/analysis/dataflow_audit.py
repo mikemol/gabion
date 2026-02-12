@@ -269,6 +269,7 @@ class AnalysisResult:
     value_decision_rewrites: list[str] = field(default_factory=list)
     ambiguity_witnesses: list[JSONObject] = field(default_factory=list)
     deadline_obligations: list[JSONObject] = field(default_factory=list)
+    parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     forest_spec: ForestSpec | None = None
 
 
@@ -301,6 +302,7 @@ class ReportCarrier:
     invariant_propositions: list[InvariantProposition] = field(default_factory=list)
     value_decision_rewrites: list[str] = field(default_factory=list)
     deadline_obligations: list[JSONObject] = field(default_factory=list)
+    parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
 
     @classmethod
     def from_analysis_result(
@@ -337,6 +339,7 @@ class ReportCarrier:
             invariant_propositions=analysis.invariant_propositions,
             value_decision_rewrites=analysis.value_decision_rewrites,
             deadline_obligations=analysis.deadline_obligations,
+            parse_failure_witnesses=analysis.parse_failure_witnesses,
         )
 
 
@@ -1305,10 +1308,35 @@ def _param_defaults(
     return defaults
 
 
+def _parse_failure_witness(
+    *,
+    path: Path,
+    stage: str,
+    error: Exception,
+) -> JSONObject:
+    return {
+        "path": str(path),
+        "stage": stage,
+        "error_type": type(error).__name__,
+        "error": str(error),
+    }
+
+
+def _record_parse_failure_witness(
+    *,
+    sink: list[JSONObject],
+    path: Path,
+    stage: str,
+    error: Exception,
+) -> None:
+    sink.append(_parse_failure_witness(path=path, stage=stage, error=error))
+
+
 def _param_annotations_by_path(
     paths: list[Path],
     *,
     ignore_params: set[str],
+    parse_failure_witnesses: list[JSONObject],
 ) -> dict[Path, dict[str, dict[str, str | None]]]:
     check_deadline()
     annotations: dict[Path, dict[str, dict[str, str | None]]] = {}
@@ -1316,7 +1344,13 @@ def _param_annotations_by_path(
         check_deadline()
         try:
             tree = ast.parse(path.read_text())
-        except Exception:
+        except Exception as exc:
+            _record_parse_failure_witness(
+                sink=parse_failure_witnesses,
+                path=path,
+                stage="param_annotations",
+                error=exc,
+            )
             continue
         parent = ParentAnnotator()
         parent.visit(tree)
@@ -3072,6 +3106,7 @@ def _collect_deadline_function_facts(
     *,
     project_root: Path | None,
     ignore_params: set[str],
+    parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
     facts: dict[str, _DeadlineFunctionFacts] = {}
@@ -3079,7 +3114,13 @@ def _collect_deadline_function_facts(
         check_deadline()
         try:
             tree = ast.parse(path.read_text())
-        except Exception:
+        except Exception as exc:
+            _record_parse_failure_witness(
+                sink=parse_failure_witnesses,
+                path=path,
+                stage="deadline_function_facts",
+                error=exc,
+            )
             continue
         parents = ParentAnnotator()
         parents.visit(tree)
@@ -3113,6 +3154,7 @@ def _collect_call_nodes_by_path(
     paths: list[Path],
     *,
     trees: Mapping[Path, ast.AST] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:
     check_deadline()
     call_nodes: dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]] = {}
@@ -3123,7 +3165,13 @@ def _collect_call_nodes_by_path(
         else:
             try:
                 tree = ast.parse(path.read_text())
-            except Exception:
+            except Exception as exc:
+                _record_parse_failure_witness(
+                    sink=parse_failure_witnesses,
+                    path=path,
+                    stage="call_nodes",
+                    error=exc,
+                )
                 continue
         span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
         for node in ast.walk(tree):
@@ -3752,16 +3800,20 @@ def _collect_deadline_obligations(
     extra_facts_by_qual: dict[str, "_DeadlineFunctionFacts"] | None = None,
     extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
     extra_deadline_params: dict[str, set[str]] | None = None,
+    parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> list[JSONObject]:
     check_deadline()
     if not config.deadline_roots:
         return []
+    if parse_failure_witnesses is None:
+        parse_failure_witnesses = []
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
         config.ignore_params,
         config.strictness,
         config.transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     symbol_table = _build_symbol_table(
         paths, project_root, external_filter=config.external_filter
@@ -3775,11 +3827,15 @@ def _collect_deadline_obligations(
         project_root=project_root,
         class_index=class_index,
     )
-    call_nodes_by_path = _collect_call_nodes_by_path(paths)
+    call_nodes_by_path = _collect_call_nodes_by_path(
+        paths,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
     facts_by_qual = _collect_deadline_function_facts(
         paths,
         project_root=project_root,
         ignore_params=config.ignore_params,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     if extra_facts_by_qual:
         facts_by_qual = dict(facts_by_qual)
@@ -5975,6 +6031,7 @@ def _populate_bundle_forest(
     ignore_params: set[str] | None = None,
     strictness: str = "high",
     transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> None:
     check_deadline()
     if not groups_by_path:
@@ -5986,6 +6043,7 @@ def _populate_bundle_forest(
             ignore_params or set(),
             strictness,
             transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
         )
         for qual in sorted(by_qual):
             check_deadline()
@@ -6038,6 +6096,7 @@ def _populate_bundle_forest(
     dataclass_registry = _collect_dataclass_registry(
         file_paths,
         project_root=project_root,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     for qual_name in sorted(dataclass_registry):
         check_deadline()
@@ -6179,6 +6238,39 @@ def _summarize_handledness_witnesses(
         lines.append(f"{path}:{function} bundle={bundle} handler={handler}")
     if len(entries) > max_entries:
         lines.append(f"... {len(entries) - max_entries} more")
+    return lines
+
+
+def _summarize_parse_failure_witnesses(
+    entries: list[JSONObject],
+    *,
+    max_entries: int = 25,
+) -> list[str]:
+    check_deadline()
+    if not entries:
+        return []
+    lines: list[str] = []
+    ordered = sorted(
+        entries,
+        key=lambda entry: (
+            str(entry.get("path", "")),
+            str(entry.get("stage", "")),
+            str(entry.get("error_type", "")),
+            str(entry.get("error", "")),
+        ),
+    )
+    for entry in ordered[:max_entries]:
+        check_deadline()
+        path = str(entry.get("path", "?"))
+        stage = str(entry.get("stage", "?"))
+        error_type = str(entry.get("error_type", "Error"))
+        error = str(entry.get("error", "")).strip()
+        if error:
+            lines.append(f"{path} stage={stage} {error_type}: {error}")
+        else:
+            lines.append(f"{path} stage={stage} {error_type}")
+    if len(ordered) > max_entries:
+        lines.append(f"... {len(ordered) - max_entries} more")
     return lines
 
 
@@ -7300,6 +7392,7 @@ def _build_function_index(
     ignore_params: set[str],
     strictness: str,
     transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
     check_deadline()
     by_name: dict[str, list[FunctionInfo]] = defaultdict(list)
@@ -7308,7 +7401,14 @@ def _build_function_index(
         check_deadline()
         try:
             tree = ast.parse(path.read_text())
-        except Exception:
+        except Exception as exc:
+            if parse_failure_witnesses is not None:
+                _record_parse_failure_witness(
+                    sink=parse_failure_witnesses,
+                    path=path,
+                    stage="function_index",
+                    error=exc,
+                )
             continue
         funcs = _collect_functions(tree)
         if not funcs:
@@ -8545,6 +8645,7 @@ def _collect_dataclass_registry(
     paths: list[Path],
     *,
     project_root: Path | None,
+    parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> dict[str, list[str]]:
     check_deadline()
     registry: dict[str, list[str]] = {}
@@ -8552,7 +8653,14 @@ def _collect_dataclass_registry(
         check_deadline()
         try:
             tree = ast.parse(path.read_text())
-        except Exception:
+        except Exception as exc:
+            if parse_failure_witnesses is not None:
+                _record_parse_failure_witness(
+                    sink=parse_failure_witnesses,
+                    path=path,
+                    stage="dataclass_registry",
+                    error=exc,
+                )
             continue
         module = _module_name(path, project_root)
         for node in ast.walk(tree):
@@ -9121,6 +9229,7 @@ def _emit_report(
     invariant_propositions = report.invariant_propositions
     value_decision_rewrites = report.value_decision_rewrites
     deadline_obligations = report.deadline_obligations
+    parse_failure_witnesses = report.parse_failure_witnesses
     has_bundles = _has_bundles(groups_by_path)
     if groups_by_path:
         common = os.path.commonpath([str(p) for p in groups_by_path])
@@ -9338,6 +9447,13 @@ def _emit_report(
             lines.append("Deadline propagation:")
             lines.append("```")
             lines.extend(_projected("deadline_summary", summary))
+            lines.append("```")
+    if parse_failure_witnesses:
+        summary = _summarize_parse_failure_witnesses(parse_failure_witnesses)
+        if summary:
+            lines.append("Parse failure witnesses:")
+            lines.append("```")
+            lines.extend(_projected("parse_failure_witnesses", summary))
             lines.append("```")
     if decision_surfaces:
         lines.append("Decision surface candidates (direct param use in conditionals):")
@@ -10734,6 +10850,7 @@ def analyze_paths(
         invariant_propositions: list[InvariantProposition] = []
         forest_spec: ForestSpec | None = None
         ambiguity_witnesses: list[JSONObject] = []
+        parse_failure_witnesses: list[JSONObject] = []
 
         def _deadline_check(*, allow_frame_fallback: bool) -> None:
             forest_spec_id = None
@@ -10784,6 +10901,7 @@ def analyze_paths(
                 ignore_params=config.ignore_params,
                 strictness=config.strictness,
                 transparent_decorators=config.transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
             )
             forest_spec = build_forest_spec(
                 include_bundle_forest=True,
@@ -10870,6 +10988,7 @@ def analyze_paths(
                 project_root=config.project_root,
                 config=config,
                 forest=forest,
+                parse_failure_witnesses=parse_failure_witnesses,
             )
             _materialize_suite_order_spec(forest=forest)
         deadness_witnesses: list[JSONObject] = []
@@ -10961,6 +11080,7 @@ def analyze_paths(
             annotations_by_path = _param_annotations_by_path(
                 file_paths,
                 ignore_params=config.ignore_params,
+                parse_failure_witnesses=parse_failure_witnesses,
             )
             fingerprint_warnings = _compute_fingerprint_warnings(
                 groups_by_path,
@@ -11068,6 +11188,7 @@ def analyze_paths(
             value_decision_rewrites=value_decision_rewrites,
             ambiguity_witnesses=ambiguity_witnesses,
             deadline_obligations=deadline_obligations,
+            parse_failure_witnesses=parse_failure_witnesses,
             forest_spec=forest_spec,
         )
     finally:
@@ -11743,6 +11864,7 @@ def run(argv: list[str] | None = None) -> int:
             type_ambiguities=analysis.type_ambiguities if args.type_audit_report else [],
             decision_warnings=analysis.decision_warnings,
             fingerprint_warnings=analysis.fingerprint_warnings,
+            parse_failure_witnesses=analysis.parse_failure_witnesses,
         )
         violations = _compute_violations(
             analysis.groups_by_path,

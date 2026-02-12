@@ -1071,6 +1071,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 type_ambiguities=analysis.type_ambiguities if type_audit_report else [],
                 decision_warnings=analysis.decision_warnings,
                 fingerprint_warnings=analysis.fingerprint_warnings,
+                parse_failure_witnesses=analysis.parse_failure_witnesses,
             )
             violations = compute_violations(
                 analysis.groups_by_path,

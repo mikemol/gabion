@@ -233,8 +233,15 @@ def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:
     da = _load()
     bad = tmp_path / "bad.py"
     _write(bad, "def f(:\n")
-    result = da._param_annotations_by_path([bad], ignore_params=set())
+    parse_failures: list[dict[str, object]] = []
+    result = da._param_annotations_by_path(
+        [bad],
+        ignore_params=set(),
+        parse_failure_witnesses=parse_failures,
+    )
     assert bad not in result
+    assert parse_failures
+    assert parse_failures[0]["stage"] == "param_annotations"
 
 
 def test_lint_rows_materialize_and_project_from_forest() -> None:
