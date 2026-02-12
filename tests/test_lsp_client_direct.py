@@ -38,11 +38,17 @@ def test_wait_readable_times_out() -> None:
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct
 def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) -> None:
-    reuse_request = CommandRequest(server.STRUCTURE_REUSE_COMMAND, [{}])
+    reuse_request = CommandRequest(
+        server.STRUCTURE_REUSE_COMMAND,
+        [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
+    )
     reuse_result = run_command_direct(reuse_request, root=tmp_path)
     assert reuse_result["exit_code"] == 2
 
-    diff_request = CommandRequest(server.DECISION_DIFF_COMMAND, [{}])
+    diff_request = CommandRequest(
+        server.DECISION_DIFF_COMMAND,
+        [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
+    )
     diff_result = run_command_direct(diff_request, root=tmp_path)
     assert diff_result["exit_code"] == 2
 
@@ -50,7 +56,13 @@ def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) ->
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct
 def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
     with pytest.raises(LspClientError):
-        run_command_direct(CommandRequest("gabion.unknown", []), root=tmp_path)
+        run_command_direct(
+            CommandRequest(
+                "gabion.unknown",
+                [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
+            ),
+            root=tmp_path,
+        )
 
 
 def test_run_command_direct_rejects_non_dict_payload(tmp_path: Path) -> None:

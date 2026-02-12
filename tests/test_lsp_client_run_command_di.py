@@ -690,42 +690,36 @@ def test_env_timeout_missing_raises() -> None:
         _restore_env(previous)
 
 
-def test_run_command_clamps_zero_timeout_ticks() -> None:
+def test_run_command_rejects_zero_timeout_ticks() -> None:
     proc = _make_proc(0, b"")
 
     def factory(*_args, **_kwargs):
         return proc
 
-    run_command(
-        CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
-        root=Path("."),
-        timeout_ticks=0,
-        timeout_tick_ns=1_000_000_000,
-        process_factory=factory,
-    )
-    messages = _extract_rpc_messages(proc.stdin.getvalue())
-    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
-    payload = execute["params"]["arguments"][0]
-    assert payload.get("analysis_timeout_ticks", 0) > 0
+    with pytest.raises(NeverThrown):
+        run_command(
+            CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+            root=Path("."),
+            timeout_ticks=0,
+            timeout_tick_ns=1_000_000_000,
+            process_factory=factory,
+        )
 
 
-def test_run_command_clamps_zero_tick_ns() -> None:
+def test_run_command_rejects_zero_tick_ns() -> None:
     proc = _make_proc(0, b"")
 
     def factory(*_args, **_kwargs):
         return proc
 
-    run_command(
-        CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
-        root=Path("."),
-        timeout_ticks=1_000_000_000,
-        timeout_tick_ns=0,
-        process_factory=factory,
-    )
-    messages = _extract_rpc_messages(proc.stdin.getvalue())
-    execute = next(msg for msg in messages if msg.get("method") == "workspace/executeCommand")
-    payload = execute["params"]["arguments"][0]
-    assert payload.get("analysis_timeout_ticks", 0) > 0
+    with pytest.raises(NeverThrown):
+        run_command(
+            CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+            root=Path("."),
+            timeout_ticks=1_000_000_000,
+            timeout_tick_ns=0,
+            process_factory=factory,
+        )
 
 
 def test_remaining_deadline_ns_raises_when_expired() -> None:

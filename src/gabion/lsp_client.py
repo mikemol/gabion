@@ -237,9 +237,9 @@ def run_command(
     ticks_value = int(timeout_ticks)
     tick_ns_value = int(timeout_tick_ns)
     if ticks_value <= 0:
-        ticks_value = 1
+        never("invalid lsp timeout ticks", ticks=timeout_ticks)
     if tick_ns_value <= 0:
-        tick_ns_value = 1
+        never("invalid lsp timeout tick_ns", tick_ns=timeout_tick_ns)
 
     command_args = list(request.arguments or [])
     if command_args and isinstance(command_args[0], dict):
@@ -342,10 +342,12 @@ def run_command_direct(
             payload = dict(request.arguments[0])
         else:
             never("direct command payload must be a dict", payload=request.arguments[0])
-    if "analysis_timeout_ticks" not in payload and "analysis_timeout_ms" not in payload and "analysis_timeout_seconds" not in payload:
-        ticks_value, tick_ns_value = _env_timeout_ticks() if _has_env_timeout() else (100, 1_000_000)
-        payload["analysis_timeout_ticks"] = int(ticks_value)
-        payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
+    if (
+        "analysis_timeout_ticks" not in payload
+        and "analysis_timeout_ms" not in payload
+        and "analysis_timeout_seconds" not in payload
+    ):
+        never("missing analysis timeout in direct command payload")
     workspace = SimpleNamespace(root_path=str((root or Path.cwd()).resolve()))
     ls = SimpleNamespace(workspace=workspace)
     if request.command == server.DATAFLOW_COMMAND:

@@ -511,8 +511,8 @@ def test_execute_structure_reuse_writes_lemma_stubs(tmp_path: Path) -> None:
             {"snapshot": str(snapshot_path), "lemma_stubs": "-", "min_count": "bad"}
         ),
     )
-    assert result.get("exit_code") == 0
-    assert "lemma_stubs" in result
+    assert result.get("exit_code") == 2
+    assert "min_count must be an integer" in str(result.get("errors"))
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::server.py::gabion.server.execute_structure_reuse::payload

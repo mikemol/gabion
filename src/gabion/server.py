@@ -121,6 +121,12 @@ _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
 
 
+def _require_payload(payload: dict | None, *, command: str) -> dict:
+    if payload is None:
+        never("missing command payload", command=command)
+    return payload
+
+
 def _truthy_flag(value: object) -> bool:
     if isinstance(value, bool):
         return value
@@ -204,9 +210,9 @@ def _deadline_from_payload(payload: dict) -> Deadline:
 
 
 @contextmanager
-def _deadline_scope_from_payload(payload: dict | None):
+def _deadline_scope_from_payload(payload: dict):
     if payload is None:
-        payload = {}
+        never("missing command payload")
     deadline = _deadline_from_payload(payload)
     profile_enabled = _truthy_flag(payload.get("deadline_profile"))
     root_value = payload.get("root")
@@ -303,8 +309,7 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
 
 @server.command(DATAFLOW_COMMAND)
 def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
-    if payload is None:
-        payload = {}
+    payload = _require_payload(payload, command=DATAFLOW_COMMAND)
     profile_enabled = _truthy_flag(payload.get("deadline_profile"))
     profile_root_value = payload.get("root") or ls.workspace.root_path or "."
     profile_token = set_deadline_profile(
@@ -1187,8 +1192,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
 @server.command(SYNTHESIS_COMMAND)
 
 def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
-    if payload is None:
-        payload = {}
+    payload = _require_payload(payload, command=SYNTHESIS_COMMAND)
     with _deadline_scope_from_payload(payload):
         check_deadline()
         try:
@@ -1247,8 +1251,7 @@ def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
 
 @server.command(REFACTOR_COMMAND)
 def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
-    if payload is None:
-        payload = {}
+    payload = _require_payload(payload, command=REFACTOR_COMMAND)
     with _deadline_scope_from_payload(payload):
         try:
             request = RefactorRequest.model_validate(payload)
@@ -1292,8 +1295,7 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
 
 @server.command(STRUCTURE_DIFF_COMMAND)
 def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
-    if payload is None:
-        payload = {}
+    payload = _require_payload(payload, command=STRUCTURE_DIFF_COMMAND)
     with _deadline_scope_from_payload(payload):
         baseline_path = payload.get("baseline")
         current_path = payload.get("current")
@@ -1312,8 +1314,7 @@ def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> d
 
 @server.command(STRUCTURE_REUSE_COMMAND)
 def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> dict:
-    if payload is None:
-        payload = {}
+    payload = _require_payload(payload, command=STRUCTURE_REUSE_COMMAND)
     with _deadline_scope_from_payload(payload):
         snapshot_path = payload.get("snapshot")
         lemma_stubs_path = payload.get("lemma_stubs")
@@ -1327,7 +1328,9 @@ def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> 
         try:
             min_count_int = int(min_count)
         except (TypeError, ValueError):
-            min_count_int = 2
+            return {"exit_code": 2, "errors": ["min_count must be an integer"]}
+        if min_count_int <= 0:
+            return {"exit_code": 2, "errors": ["min_count must be positive"]}
         reuse = compute_structure_reuse(snapshot, min_count=min_count_int)
         response: JSONObject = {"exit_code": 0, "reuse": reuse}
         if lemma_stubs_path:
@@ -1341,8 +1344,7 @@ def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> 
 
 @server.command(DECISION_DIFF_COMMAND)
 def execute_decision_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
-    if payload is None:
-        payload = {}
+    payload = _require_payload(payload, command=DECISION_DIFF_COMMAND)
     with _deadline_scope_from_payload(payload):
         baseline_path = payload.get("baseline")
         current_path = payload.get("current")
