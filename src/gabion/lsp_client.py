@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Callable
+from typing import Callable, Mapping
 
 from gabion.json_types import JSONObject
 from gabion import server
@@ -82,7 +82,19 @@ def _env_timeout_ticks() -> tuple[int, int]:
     never("missing env timeout configuration")
 
 
-def _analysis_timeout_total_ns(payload: dict) -> int | None:
+def _has_analysis_timeout(payload: Mapping[str, object]) -> bool:
+    return any(
+        payload.get(key) not in (None, "")
+        for key in (
+            "analysis_timeout_ticks",
+            "analysis_timeout_tick_ns",
+            "analysis_timeout_ms",
+            "analysis_timeout_seconds",
+        )
+    )
+
+
+def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
     existing_ticks = payload.get("analysis_timeout_ticks")
     existing_tick_ns = payload.get("analysis_timeout_tick_ns")
     if existing_ticks not in (None, "") or existing_tick_ns not in (None, ""):
@@ -126,7 +138,7 @@ def _analysis_timeout_total_ns(payload: dict) -> int | None:
         if seconds_value <= 0:
             never("invalid analysis timeout seconds", seconds=existing_seconds)
         return int(seconds_value * Decimal(1_000_000_000))
-    return None
+    never("missing analysis timeout", payload_keys=sorted(str(key) for key in payload.keys()))
 
 
 def _analysis_timeout_slack_ns(total_ns: int) -> int:
@@ -138,15 +150,22 @@ def _analysis_timeout_slack_ns(total_ns: int) -> int:
     return slack_ns
 
 
-def _wait_readable(stream, deadline_ns: int | None) -> None:
-    if deadline_ns is None:
-        return
+def _wait_readable(stream, deadline_ns: int) -> None:
+    read = getattr(stream, "read", None)
     fileno = getattr(stream, "fileno", None)
     if fileno is None:
+        if read is None:
+            raise LspClientError("LSP stream does not expose fileno")
+        if time.monotonic_ns() >= deadline_ns:
+            raise LspClientError("LSP response timed out")
         return
     try:
         fd = fileno()
-    except Exception:
+    except (OSError, ValueError) as exc:
+        if read is None:
+            raise LspClientError("LSP stream fileno failed") from exc
+        if time.monotonic_ns() >= deadline_ns:
+            raise LspClientError("LSP response timed out")
         return
     remaining_ns = deadline_ns - time.monotonic_ns()
     timeout = max(0.0, remaining_ns / 1_000_000_000)
@@ -155,7 +174,7 @@ def _wait_readable(stream, deadline_ns: int | None) -> None:
         raise LspClientError("LSP response timed out")
 
 
-def _read_exact(stream, length: int, deadline_ns: int | None) -> bytes:
+def _read_exact(stream, length: int, deadline_ns: int) -> bytes:
     body = bytearray()
     while len(body) < length:
         check_deadline()
@@ -174,7 +193,7 @@ def _remaining_deadline_ns(deadline_ns: int) -> int:
     return remaining_ns
 
 
-def _read_rpc(stream, deadline_ns: int | None = None) -> JSONObject:
+def _read_rpc(stream, deadline_ns: int) -> JSONObject:
     check_deadline()
     header = b""
     while b"\r\n\r\n" not in header:
@@ -212,7 +231,7 @@ def _write_rpc(stream, message: JSONObject) -> None:
 
 
 def _read_response(
-    stream, request_id: int, deadline_ns: int | None = None
+    stream, request_id: int, deadline_ns: int
 ) -> JSONObject:
     check_deadline()
     while True:
@@ -249,13 +268,14 @@ def run_command(
         payload = {}
         command_args = [payload]
 
-    existing_total_ns = _analysis_timeout_total_ns(payload)
-    if existing_total_ns is None:
-        analysis_target_ns = ticks_value * tick_ns_value
-    else:
-        analysis_target_ns = existing_total_ns
-    slack_ns = _analysis_timeout_slack_ns(analysis_target_ns)
     base_total_ns = ticks_value * tick_ns_value
+    has_existing_analysis_timeout = _has_analysis_timeout(payload)
+    analysis_target_ns = (
+        _analysis_timeout_total_ns(payload)
+        if has_existing_analysis_timeout
+        else base_total_ns
+    )
+    slack_ns = _analysis_timeout_slack_ns(analysis_target_ns)
     lsp_total_ns = max(base_total_ns, analysis_target_ns + slack_ns)
     lsp_ticks = max(1, (lsp_total_ns + tick_ns_value - 1) // tick_ns_value)
 
@@ -288,7 +308,7 @@ def run_command(
 
         cmd_id = 2
         remaining_ns = _remaining_deadline_ns(deadline_ns)
-        if existing_total_ns is None or existing_total_ns > remaining_ns:
+        if not has_existing_analysis_timeout or analysis_target_ns > remaining_ns:
             target_ns = min(analysis_target_ns, remaining_ns)
             tick_ns_value = min(tick_ns_value, target_ns)
             ticks_value = max(1, target_ns // tick_ns_value)

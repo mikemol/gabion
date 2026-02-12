@@ -138,7 +138,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
         fail_on_type_ambiguities=False,
         lint=False,
     )
-    assert payload["baseline_write"] is None
+    assert payload["baseline_write"] is False
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._split_csv::value

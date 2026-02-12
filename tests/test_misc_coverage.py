@@ -4,6 +4,7 @@ import io
 import json
 import runpy
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -79,16 +80,16 @@ def test_lsp_client_rpc_roundtrip() -> None:
     data = json.dumps(payload).encode("utf-8")
     header = f"Content-Length: {len(data)}\r\n\r\n".encode("utf-8")
     stream = io.BytesIO(header + data)
-    assert _read_rpc(stream)["id"] == 1
+    assert _read_rpc(stream, time.monotonic_ns() + 1_000_000_000)["id"] == 1
 
     bad = io.BytesIO(b"Content-Length: 0\r\n\r\n{}")
     try:
-        _read_rpc(bad)
+        _read_rpc(bad, time.monotonic_ns() + 1_000_000_000)
         assert False, "Expected LspClientError"
     except LspClientError:
         pass
     try:
-        _read_rpc(io.BytesIO(b""))
+        _read_rpc(io.BytesIO(b""), time.monotonic_ns() + 1_000_000_000)
         assert False, "Expected LspClientError"
     except LspClientError:
         pass
@@ -96,7 +97,9 @@ def test_lsp_client_rpc_roundtrip() -> None:
     payload2 = {"jsonrpc": "2.0", "id": 2, "result": {"ok": False}}
     data2 = json.dumps(payload2).encode("utf-8")
     stream2 = io.BytesIO(header + data + f"Content-Length: {len(data2)}\r\n\r\n".encode("utf-8") + data2)
-    assert _read_response(stream2, 2)["result"] == {"ok": False}
+    assert _read_response(stream2, 2, time.monotonic_ns() + 1_000_000_000)["result"] == {
+        "ok": False
+    }
 
     out = io.BytesIO()
     _write_rpc(out, payload)

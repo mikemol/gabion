@@ -121,9 +121,15 @@ _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
 
 
-def _require_payload(payload: dict | None, *, command: str) -> dict:
+def _require_payload(payload: object, *, command: str) -> dict[str, object]:
     if payload is None:
         never("missing command payload", command=command)
+    if not isinstance(payload, dict):
+        never(
+            "invalid command payload type",
+            command=command,
+            payload_type=type(payload).__name__,
+        )
     return payload
 
 
@@ -210,12 +216,11 @@ def _deadline_from_payload(payload: dict) -> Deadline:
 
 
 @contextmanager
-def _deadline_scope_from_payload(payload: dict):
-    if payload is None:
-        never("missing command payload")
-    deadline = _deadline_from_payload(payload)
-    profile_enabled = _truthy_flag(payload.get("deadline_profile"))
-    root_value = payload.get("root")
+def _deadline_scope_from_payload(payload: object):
+    normalized_payload = _require_payload(payload, command="deadline_scope")
+    deadline = _deadline_from_payload(normalized_payload)
+    profile_enabled = _truthy_flag(normalized_payload.get("deadline_profile"))
+    root_value = normalized_payload.get("root")
     profile_root = Path(str(root_value)).resolve() if root_value not in (None, "") else None
     with deadline_profile_scope(
         project_root=profile_root,

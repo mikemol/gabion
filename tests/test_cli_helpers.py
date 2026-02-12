@@ -13,13 +13,11 @@ from gabion import cli
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_split_csv_helpers() -> None:
-    assert cli._split_csv_entries(None) is None
     assert cli._split_csv_entries(["a, b", " ", "c"]) == ["a", "b", "c"]
-    assert cli._split_csv_entries([" ", ""]) is None
+    assert cli._split_csv_entries([" ", ""]) == []
 
-    assert cli._split_csv(None) is None
     assert cli._split_csv("a, , b") == ["a", "b"]
-    assert cli._split_csv(" ,") is None
+    assert cli._split_csv(" ,") == []
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target

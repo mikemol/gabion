@@ -16,8 +16,9 @@ class _NoFileno:
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable
-def test_wait_readable_skips_missing_fileno() -> None:
-    _wait_readable(_NoFileno(), time.monotonic() + 0.1)
+def test_wait_readable_rejects_missing_fileno() -> None:
+    with pytest.raises(LspClientError):
+        _wait_readable(_NoFileno(), time.monotonic_ns() + 100_000_000)
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client._wait_readable
@@ -28,7 +29,7 @@ def test_wait_readable_times_out() -> None:
             write_fd, "wb", closefd=True
         ):
             with pytest.raises(LspClientError):
-                _wait_readable(reader, time.monotonic())
+                _wait_readable(reader, time.monotonic_ns())
     finally:
         try:
             os.close(write_fd)

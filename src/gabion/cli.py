@@ -75,22 +75,18 @@ def _find_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _split_csv_entries(entries: Optional[List[str]]) -> list[str] | None:
+def _split_csv_entries(entries: List[str]) -> list[str]:
     check_deadline()
-    if entries is None:
-        return None
     merged: list[str] = []
     for entry in entries:
         check_deadline()
         merged.extend([part.strip() for part in entry.split(",") if part.strip()])
-    return merged or None
+    return merged
 
 
-def _split_csv(value: Optional[str]) -> list[str] | None:
-    if value is None:
-        return None
+def _split_csv(value: str) -> list[str]:
     items = [part.strip() for part in value.split(",") if part.strip()]
-    return items or None
+    return items
 
 
 def _parse_lint_line(line: str) -> dict[str, object] | None:
@@ -287,10 +283,10 @@ def build_check_payload(
         raise typer.BadParameter(
             "Use --emit-ambiguity-state or --ambiguity-state, not both."
         )
-    exclude_dirs = _split_csv_entries(exclude)
-    ignore_list = _split_csv(ignore_params_csv)
-    transparent_list = _split_csv(transparent_decorators_csv)
-    baseline_write_value: bool | None = baseline_write if baseline is not None else None
+    exclude_dirs = _split_csv_entries(exclude) if exclude else []
+    ignore_list = _split_csv(ignore_params_csv) if ignore_params_csv else []
+    transparent_list = _split_csv(transparent_decorators_csv) if transparent_decorators_csv else []
+    baseline_write_value = bool(baseline is not None and baseline_write)
     root = root or Path(".")
     payload = {
         "paths": [str(p) for p in paths],
@@ -340,9 +336,9 @@ def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
 
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    exclude_dirs = _split_csv_entries(opts.exclude)
-    ignore_list = _split_csv(opts.ignore_params)
-    transparent_list = _split_csv(opts.transparent_decorators)
+    exclude_dirs = _split_csv_entries(opts.exclude) if opts.exclude else []
+    ignore_list = _split_csv(opts.ignore_params) if opts.ignore_params else []
+    transparent_list = _split_csv(opts.transparent_decorators) if opts.transparent_decorators else []
     payload: JSONObject = {
         "paths": [str(p) for p in opts.paths],
         "root": str(opts.root),
