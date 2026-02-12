@@ -3090,18 +3090,21 @@ def _collect_call_edges(
                 check_deadline()
                 if call.is_test:
                     continue
-                callee = _resolve_callee(
+                resolution = _resolve_callee_outcome(
                     call.callee,
                     info,
                     by_name,
                     by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
+                    symbol_table=symbol_table,
+                    project_root=project_root,
+                    class_index=class_index,
+                    call=call,
                 )
-                if callee is None:
+                if not resolution.candidates:
                     continue
-                edges[info.qual].add(callee.qual)
+                for candidate in resolution.candidates:
+                    check_deadline()
+                    edges[info.qual].add(candidate.qual)
     return edges
 
 
@@ -3328,51 +3331,18 @@ def _materialize_call_candidates(
                 check_deadline()
                 if call.is_test:
                     continue
-                ambiguous_candidates: list[FunctionInfo] = []
-                ambiguity_phase = "unresolved"
-                ambiguity_callee_key = call.callee
-
-                def _sink(
-                    caller: FunctionInfo,
-                    call_arg: CallArgs | None,
-                    candidates: list[FunctionInfo],
-                    phase: str,
-                    callee_key: str,
-                ) -> None:
-                    check_deadline()
-                    del caller, call_arg
-                    ambiguous_candidates.extend(candidates)
-                    nonlocal ambiguity_phase, ambiguity_callee_key
-                    ambiguity_phase = phase
-                    ambiguity_callee_key = callee_key
-
-                callee = _resolve_callee(
+                resolution = _resolve_callee_outcome(
                     call.callee,
                     info,
                     by_name,
                     by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
+                    symbol_table=symbol_table,
+                    project_root=project_root,
+                    class_index=class_index,
                     call=call,
-                    ambiguity_sink=_sink,
                 )
-                candidate_infos: list[FunctionInfo] = []
-                resolution = "resolved"
-                if callee is not None:
-                    candidate_infos = [callee]
-                elif ambiguous_candidates:
-                    resolution = "ambiguous"
-                    deduped: dict[str, FunctionInfo] = {}
-                    for candidate in ambiguous_candidates:
-                        check_deadline()
-                        deduped[candidate.qual] = candidate
-                    candidate_infos = sorted(
-                        deduped.values(),
-                        key=lambda candidate: candidate.qual,
-                    )
                 if call.span is None:
-                    if candidate_infos or _callee_key(call.callee) in by_name:
+                    if resolution.status != "unresolved_external":
                         never(
                             "call candidate requires span",
                             path=_normalize_snapshot_path(info.path, project_root),
@@ -3386,8 +3356,8 @@ def _materialize_call_candidates(
                     "call",
                     span=call.span,
                 )
-                if candidate_infos:
-                    for candidate in candidate_infos:
+                if resolution.status in {"resolved", "ambiguous"}:
+                    for candidate in resolution.candidates:
                         check_deadline()
                         candidate_id = _call_candidate_target_site(
                             forest=forest,
@@ -3401,13 +3371,13 @@ def _materialize_call_candidates(
                             "CallCandidate",
                             (suite_id, candidate_id),
                             evidence={
-                                "resolution": resolution,
-                                "phase": ambiguity_phase if resolution == "ambiguous" else "resolved",
-                                "callee": ambiguity_callee_key if resolution == "ambiguous" else call.callee,
+                                "resolution": resolution.status,
+                                "phase": resolution.phase,
+                                "callee": resolution.callee_key,
                             },
                         )
                     continue
-                if _callee_key(call.callee) not in by_name:
+                if resolution.status != "unresolved_internal":
                     continue
                 if suite_id in obligation_seen:
                     continue
@@ -3416,7 +3386,7 @@ def _materialize_call_candidates(
                     "CallResolutionObligation",
                     (suite_id,),
                     evidence={
-                        "phase": ambiguity_phase,
+                        "phase": resolution.phase,
                         "callee": call.callee,
                         "kind": "unresolved_internal_callee",
                     },
@@ -3827,25 +3797,28 @@ def _collect_deadline_obligations(
                     continue
                 for call in info.calls:
                     check_deadline()
-                    callee = _resolve_callee(
+                    resolution = _resolve_callee_outcome(
                         call.callee,
                         info,
                         by_name,
                         by_qual,
-                        symbol_table,
-                        project_root,
-                        class_index,
+                        symbol_table=symbol_table,
+                        project_root=project_root,
+                        class_index=class_index,
+                        call=call,
                     )
-                    if callee is None:
+                    if not resolution.candidates:
                         continue
-                    mapping = _callee_to_caller_params(call, callee)
-                    for callee_param in deadline_params.get(callee.qual, set()):
+                    for callee in resolution.candidates:
                         check_deadline()
-                        for caller_param in mapping.get(callee_param, set()):
+                        mapping = _callee_to_caller_params(call, callee)
+                        for callee_param in deadline_params.get(callee.qual, set()):
                             check_deadline()
-                            if caller_param not in deadline_params[info.qual]:
-                                deadline_params[info.qual].add(caller_param)
-                                changed = True
+                            for caller_param in mapping.get(callee_param, set()):
+                                check_deadline()
+                                if caller_param not in deadline_params[info.qual]:
+                                    deadline_params[info.qual].add(caller_param)
+                                    changed = True
 
     call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfo]]]] = defaultdict(list)
     for infos in by_name.values():
@@ -3860,31 +3833,34 @@ def _collect_deadline_obligations(
             span_index = call_nodes_by_path.get(info.path, {})
             for call in info.calls:
                 check_deadline()
-                callee = _resolve_callee(
+                resolution = _resolve_callee_outcome(
                     call.callee,
                     info,
                     by_name,
                     by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
+                    symbol_table=symbol_table,
+                    project_root=project_root,
+                    class_index=class_index,
+                    call=call,
                 )
-                if callee is None:
+                if not resolution.candidates:
                     continue
                 call_node = None
                 if call.span is not None:
                     nodes = span_index.get(call.span)
                     if nodes:
                         call_node = nodes[0]
-                arg_info = _deadline_arg_info_map(
-                    call,
-                    callee,
-                    call_node=call_node,
-                    alias_to_param=alias_to_param,
-                    origin_vars=origin_vars,
-                    strictness=config.strictness,
-                )
-                call_infos[info.qual].append((call, callee, arg_info))
+                for callee in resolution.candidates:
+                    check_deadline()
+                    arg_info = _deadline_arg_info_map(
+                        call,
+                        callee,
+                        call_node=call_node,
+                        alias_to_param=alias_to_param,
+                        origin_vars=origin_vars,
+                        strictness=config.strictness,
+                    )
+                    call_infos[info.qual].append((call, callee, arg_info))
     if extra_call_infos:
         for qual, entries in extra_call_infos.items():
             check_deadline()
@@ -7462,6 +7438,100 @@ def _resolve_callee(
                 if resolved is not None:
                     return resolved
     return None
+
+
+@dataclass(frozen=True)
+class _CalleeResolutionOutcome:
+    status: str
+    phase: str
+    callee_key: str
+    candidates: tuple[FunctionInfo, ...] = ()
+
+
+def _dedupe_resolution_candidates(
+    candidates: Iterable[FunctionInfo],
+) -> tuple[FunctionInfo, ...]:
+    deduped: dict[str, FunctionInfo] = {}
+    for candidate in candidates:
+        check_deadline()
+        if _is_test_path(candidate.path):
+            continue
+        deduped[candidate.qual] = candidate
+    return tuple(sorted(deduped.values(), key=lambda info: info.qual))
+
+
+def _resolve_callee_outcome(
+    callee_key: str,
+    caller: FunctionInfo,
+    by_name: dict[str, list[FunctionInfo]],
+    by_qual: dict[str, FunctionInfo],
+    *,
+    symbol_table: SymbolTable | None = None,
+    project_root: Path | None = None,
+    class_index: dict[str, ClassInfo] | None = None,
+    call: CallArgs | None = None,
+) -> _CalleeResolutionOutcome:
+    check_deadline()
+    ambiguous_candidates: list[FunctionInfo] = []
+    ambiguity_phase = "unresolved"
+    ambiguity_callee_key = callee_key
+
+    def _sink(
+        sink_caller: FunctionInfo,
+        sink_call: CallArgs | None,
+        candidates: list[FunctionInfo],
+        phase: str,
+        sink_callee_key: str,
+    ) -> None:
+        check_deadline()
+        del sink_caller, sink_call
+        ambiguous_candidates.extend(candidates)
+        nonlocal ambiguity_phase, ambiguity_callee_key
+        ambiguity_phase = phase
+        ambiguity_callee_key = sink_callee_key
+
+    resolved = _resolve_callee(
+        callee_key,
+        caller,
+        by_name,
+        by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=class_index,
+        call=call,
+        ambiguity_sink=_sink,
+    )
+    if resolved is not None:
+        return _CalleeResolutionOutcome(
+            status="resolved",
+            phase="resolved",
+            callee_key=callee_key,
+            candidates=(resolved,),
+        )
+    ambiguous = _dedupe_resolution_candidates(ambiguous_candidates)
+    if ambiguous:
+        return _CalleeResolutionOutcome(
+            status="ambiguous",
+            phase=ambiguity_phase,
+            callee_key=ambiguity_callee_key,
+            candidates=ambiguous,
+        )
+    internal_candidates = _dedupe_resolution_candidates(
+        by_name.get(_callee_key(callee_key), [])
+    )
+    if internal_candidates:
+        return _CalleeResolutionOutcome(
+            status="unresolved_internal",
+            phase="unresolved_internal",
+            callee_key=callee_key,
+            candidates=internal_candidates,
+        )
+    return _CalleeResolutionOutcome(
+        status="unresolved_external",
+        phase="unresolved_external",
+        callee_key=callee_key,
+        candidates=(),
+    )
 
 
 def _format_type_flow_site(
