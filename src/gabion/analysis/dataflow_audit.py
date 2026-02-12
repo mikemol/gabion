@@ -272,6 +272,74 @@ class AnalysisResult:
     forest_spec: ForestSpec | None = None
 
 
+@dataclass
+class ReportCarrier:
+    forest: Forest
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = field(
+        default_factory=dict
+    )
+    type_suggestions: list[str] = field(default_factory=list)
+    type_ambiguities: list[str] = field(default_factory=list)
+    type_callsite_evidence: list[str] = field(default_factory=list)
+    constant_smells: list[str] = field(default_factory=list)
+    unused_arg_smells: list[str] = field(default_factory=list)
+    deadness_witnesses: list[JSONObject] = field(default_factory=list)
+    coherence_witnesses: list[JSONObject] = field(default_factory=list)
+    rewrite_plans: list[JSONObject] = field(default_factory=list)
+    exception_obligations: list[JSONObject] = field(default_factory=list)
+    never_invariants: list[JSONObject] = field(default_factory=list)
+    ambiguity_witnesses: list[JSONObject] = field(default_factory=list)
+    handledness_witnesses: list[JSONObject] = field(default_factory=list)
+    decision_surfaces: list[str] = field(default_factory=list)
+    value_decision_surfaces: list[str] = field(default_factory=list)
+    decision_warnings: list[str] = field(default_factory=list)
+    fingerprint_warnings: list[str] = field(default_factory=list)
+    fingerprint_matches: list[str] = field(default_factory=list)
+    fingerprint_synth: list[str] = field(default_factory=list)
+    fingerprint_provenance: list[JSONObject] = field(default_factory=list)
+    context_suggestions: list[str] = field(default_factory=list)
+    invariant_propositions: list[InvariantProposition] = field(default_factory=list)
+    value_decision_rewrites: list[str] = field(default_factory=list)
+    deadline_obligations: list[JSONObject] = field(default_factory=list)
+
+    @classmethod
+    def from_analysis_result(
+        cls,
+        analysis: AnalysisResult,
+        *,
+        include_type_audit: bool = True,
+    ) -> "ReportCarrier":
+        return cls(
+            forest=analysis.forest,
+            bundle_sites_by_path=analysis.bundle_sites_by_path,
+            type_suggestions=analysis.type_suggestions if include_type_audit else [],
+            type_ambiguities=analysis.type_ambiguities if include_type_audit else [],
+            type_callsite_evidence=(
+                analysis.type_callsite_evidence if include_type_audit else []
+            ),
+            constant_smells=analysis.constant_smells,
+            unused_arg_smells=analysis.unused_arg_smells,
+            deadness_witnesses=analysis.deadness_witnesses,
+            coherence_witnesses=analysis.coherence_witnesses,
+            rewrite_plans=analysis.rewrite_plans,
+            exception_obligations=analysis.exception_obligations,
+            never_invariants=analysis.never_invariants,
+            ambiguity_witnesses=analysis.ambiguity_witnesses,
+            handledness_witnesses=analysis.handledness_witnesses,
+            decision_surfaces=analysis.decision_surfaces,
+            value_decision_surfaces=analysis.value_decision_surfaces,
+            decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
+            fingerprint_matches=analysis.fingerprint_matches,
+            fingerprint_synth=analysis.fingerprint_synth,
+            fingerprint_provenance=analysis.fingerprint_provenance,
+            context_suggestions=analysis.context_suggestions,
+            invariant_propositions=analysis.invariant_propositions,
+            value_decision_rewrites=analysis.value_decision_rewrites,
+            deadline_obligations=analysis.deadline_obligations,
+        )
+
+
 @dataclass(frozen=True)
 class CallAmbiguity:
     kind: str
@@ -9025,33 +9093,34 @@ def _emit_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest,
-    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
-    type_suggestions: list[str] | None = None,
-    type_ambiguities: list[str] | None = None,
-    type_callsite_evidence: list[str] | None = None,
-    constant_smells: list[str] | None = None,
-    unused_arg_smells: list[str] | None = None,
-    deadness_witnesses: list[JSONObject] | None = None,
-    coherence_witnesses: list[JSONObject] | None = None,
-    rewrite_plans: list[JSONObject] | None = None,
-    exception_obligations: list[JSONObject] | None = None,
-    never_invariants: list[JSONObject] | None = None,
-    ambiguity_witnesses: list[JSONObject] | None = None,
-    handledness_witnesses: list[JSONObject] | None = None,
-    decision_surfaces: list[str] | None = None,
-    value_decision_surfaces: list[str] | None = None,
-    decision_warnings: list[str] | None = None,
-    fingerprint_warnings: list[str] | None = None,
-    fingerprint_matches: list[str] | None = None,
-    fingerprint_synth: list[str] | None = None,
-    fingerprint_provenance: list[JSONObject] | None = None,
-    context_suggestions: list[str] | None = None,
-    invariant_propositions: list[InvariantProposition] | None = None,
-    value_decision_rewrites: list[str] | None = None,
-    deadline_obligations: list[JSONObject] | None = None,
+    report: ReportCarrier,
 ) -> tuple[str, list[str]]:
     check_deadline()
+    forest = report.forest
+    bundle_sites_by_path = report.bundle_sites_by_path
+    type_suggestions = report.type_suggestions
+    type_ambiguities = report.type_ambiguities
+    type_callsite_evidence = report.type_callsite_evidence
+    constant_smells = report.constant_smells
+    unused_arg_smells = report.unused_arg_smells
+    deadness_witnesses = report.deadness_witnesses
+    coherence_witnesses = report.coherence_witnesses
+    rewrite_plans = report.rewrite_plans
+    exception_obligations = report.exception_obligations
+    never_invariants = report.never_invariants
+    ambiguity_witnesses = report.ambiguity_witnesses
+    handledness_witnesses = report.handledness_witnesses
+    decision_surfaces = report.decision_surfaces
+    value_decision_surfaces = report.value_decision_surfaces
+    decision_warnings = report.decision_warnings
+    fingerprint_warnings = report.fingerprint_warnings
+    fingerprint_matches = report.fingerprint_matches
+    fingerprint_synth = report.fingerprint_synth
+    fingerprint_provenance = report.fingerprint_provenance
+    context_suggestions = report.context_suggestions
+    invariant_propositions = report.invariant_propositions
+    value_decision_rewrites = report.value_decision_rewrites
+    deadline_obligations = report.deadline_obligations
     has_bundles = _has_bundles(groups_by_path)
     if groups_by_path:
         common = os.path.commonpath([str(p) for p in groups_by_path])
@@ -10501,26 +10570,12 @@ def _compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest,
-    type_suggestions: list[str] | None = None,
-    type_ambiguities: list[str] | None = None,
-    decision_warnings: list[str] | None = None,
-    fingerprint_warnings: list[str] | None = None,
+    report: ReportCarrier,
 ) -> list[str]:
     _, violations = _emit_report(
         groups_by_path,
         max_components,
-        forest=forest,
-        type_suggestions=type_suggestions,
-        type_ambiguities=type_ambiguities,
-        constant_smells=[],
-        unused_arg_smells=[],
-        decision_surfaces=[],
-        value_decision_surfaces=[],
-        decision_warnings=decision_warnings,
-        fingerprint_warnings=fingerprint_warnings,
-        context_suggestions=[],
-        ambiguity_witnesses=[],
+        report=report,
     )
     return violations
 
@@ -10620,60 +10675,12 @@ def render_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest,
-    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] | None = None,
-    type_suggestions: list[str] | None = None,
-    type_ambiguities: list[str] | None = None,
-    type_callsite_evidence: list[str] | None = None,
-    constant_smells: list[str] | None = None,
-    unused_arg_smells: list[str] | None = None,
-    deadness_witnesses: list[JSONObject] | None = None,
-    coherence_witnesses: list[JSONObject] | None = None,
-    rewrite_plans: list[JSONObject] | None = None,
-    exception_obligations: list[JSONObject] | None = None,
-    never_invariants: list[JSONObject] | None = None,
-    ambiguity_witnesses: list[JSONObject] | None = None,
-    handledness_witnesses: list[JSONObject] | None = None,
-    decision_surfaces: list[str] | None = None,
-    value_decision_surfaces: list[str] | None = None,
-    decision_warnings: list[str] | None = None,
-    fingerprint_warnings: list[str] | None = None,
-    fingerprint_matches: list[str] | None = None,
-    fingerprint_synth: list[str] | None = None,
-    fingerprint_provenance: list[JSONObject] | None = None,
-    context_suggestions: list[str] | None = None,
-    invariant_propositions: list[InvariantProposition] | None = None,
-    value_decision_rewrites: list[str] | None = None,
-    deadline_obligations: list[JSONObject] | None = None,
+    report: ReportCarrier,
 ) -> tuple[str, list[str]]:
     return _emit_report(
         groups_by_path,
         max_components,
-        forest=forest,
-        bundle_sites_by_path=bundle_sites_by_path,
-        type_suggestions=type_suggestions,
-        type_ambiguities=type_ambiguities,
-        type_callsite_evidence=type_callsite_evidence,
-        constant_smells=constant_smells,
-        unused_arg_smells=unused_arg_smells,
-        deadness_witnesses=deadness_witnesses,
-        coherence_witnesses=coherence_witnesses,
-        rewrite_plans=rewrite_plans,
-        exception_obligations=exception_obligations,
-        never_invariants=never_invariants,
-        ambiguity_witnesses=ambiguity_witnesses,
-        handledness_witnesses=handledness_witnesses,
-        decision_surfaces=decision_surfaces,
-        value_decision_surfaces=value_decision_surfaces,
-        decision_warnings=decision_warnings,
-        fingerprint_warnings=fingerprint_warnings,
-        fingerprint_matches=fingerprint_matches,
-        fingerprint_synth=fingerprint_synth,
-        fingerprint_provenance=fingerprint_provenance,
-        context_suggestions=context_suggestions,
-        invariant_propositions=invariant_propositions,
-        value_decision_rewrites=value_decision_rewrites,
-        deadline_obligations=deadline_obligations,
+        report=report,
     )
 
 
@@ -10681,20 +10688,12 @@ def compute_violations(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
     *,
-    forest: Forest,
-    type_suggestions: list[str] | None = None,
-    type_ambiguities: list[str] | None = None,
-    decision_warnings: list[str] | None = None,
-    fingerprint_warnings: list[str] | None = None,
+    report: ReportCarrier,
 ) -> list[str]:
     return _compute_violations(
         groups_by_path,
         max_components,
-        forest=forest,
-        type_suggestions=type_suggestions,
-        type_ambiguities=type_ambiguities,
-        decision_warnings=decision_warnings,
-        fingerprint_warnings=fingerprint_warnings,
+        report=report,
     )
 
 
@@ -11680,30 +11679,14 @@ def run(argv: list[str] | None = None) -> int:
         ):
             return 0
     if args.report is not None:
+        report_carrier = ReportCarrier.from_analysis_result(
+            analysis,
+            include_type_audit=args.type_audit_report,
+        )
         report, violations = _emit_report(
             analysis.groups_by_path,
             args.max_components,
-            forest=analysis.forest,
-            type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
-            type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
-            constant_smells=analysis.constant_smells,
-            unused_arg_smells=analysis.unused_arg_smells,
-            deadness_witnesses=analysis.deadness_witnesses,
-            coherence_witnesses=analysis.coherence_witnesses,
-            rewrite_plans=analysis.rewrite_plans,
-            exception_obligations=analysis.exception_obligations,
-            never_invariants=analysis.never_invariants,
-            ambiguity_witnesses=analysis.ambiguity_witnesses,
-            handledness_witnesses=analysis.handledness_witnesses,
-            decision_surfaces=analysis.decision_surfaces,
-            value_decision_surfaces=analysis.value_decision_surfaces,
-            value_decision_rewrites=analysis.value_decision_rewrites,
-            decision_warnings=analysis.decision_warnings,
-            fingerprint_warnings=analysis.fingerprint_warnings,
-            fingerprint_matches=analysis.fingerprint_matches,
-            context_suggestions=analysis.context_suggestions,
-            invariant_propositions=analysis.invariant_propositions,
-            deadline_obligations=analysis.deadline_obligations,
+            report=report_carrier,
         )
         suppressed: list[str] = []
         new_violations = violations
@@ -11754,14 +11737,17 @@ def run(argv: list[str] | None = None) -> int:
     if args.fail_on_type_ambiguities and analysis.type_ambiguities:
         return 1
     if args.fail_on_violations:
+        violation_carrier = ReportCarrier(
+            forest=analysis.forest,
+            type_suggestions=analysis.type_suggestions if args.type_audit_report else [],
+            type_ambiguities=analysis.type_ambiguities if args.type_audit_report else [],
+            decision_warnings=analysis.decision_warnings,
+            fingerprint_warnings=analysis.fingerprint_warnings,
+        )
         violations = _compute_violations(
             analysis.groups_by_path,
             args.max_components,
-            forest=analysis.forest,
-            type_suggestions=analysis.type_suggestions if args.type_audit_report else None,
-            type_ambiguities=analysis.type_ambiguities if args.type_audit_report else None,
-            decision_warnings=analysis.decision_warnings,
-            fingerprint_warnings=analysis.fingerprint_warnings,
+            report=violation_carrier,
         )
         if baseline_path is not None:
             baseline_entries = _load_baseline(baseline_path)

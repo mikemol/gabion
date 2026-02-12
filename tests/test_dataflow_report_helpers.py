@@ -32,7 +32,9 @@ def _forest_for_groups(
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::bundle_counts E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::entries,include_proven_unreachable,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_coherence_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_rewrite_plans::entries,max_entries E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::file_paths
 def test_emit_report_empty_groups() -> None:
     da = _load()
-    report, violations = da._emit_report({}, 3, forest=da.Forest())
+    report, violations = da._emit_report(
+        {}, 3, report=da.ReportCarrier(forest=da.Forest())
+    )
     assert "No bundle components detected." in report
     assert violations == []
 
@@ -64,15 +66,25 @@ def test_emit_report_component_summary(tmp_path: Path) -> None:
     report, violations = da._emit_report(
         groups_by_path,
         3,
-        forest=forest,
-        type_suggestions=["f.a can tighten to int"],
-        type_ambiguities=["f.b downstream types conflict: ['int', 'str']"],
-        constant_smells=["mod.py:f.a only observed constant 1 across 1 non-test call(s)"],
-        unused_arg_smells=["mod.py:f passes param x to unused mod.py:f.x"],
-        decision_surfaces=["mod.py:f decision surface params: a"],
-        value_decision_surfaces=["mod.py:f value-encoded decision params: a (min/max)"],
-        decision_warnings=["mod.py:f decision param 'a' missing decision tier metadata"],
-        context_suggestions=["Consider contextvar for mod.py:f decision surface params: a"],
+        report=da.ReportCarrier(
+            forest=forest,
+            type_suggestions=["f.a can tighten to int"],
+            type_ambiguities=["f.b downstream types conflict: ['int', 'str']"],
+            constant_smells=[
+                "mod.py:f.a only observed constant 1 across 1 non-test call(s)"
+            ],
+            unused_arg_smells=["mod.py:f passes param x to unused mod.py:f.x"],
+            decision_surfaces=["mod.py:f decision surface params: a"],
+            value_decision_surfaces=[
+                "mod.py:f value-encoded decision params: a (min/max)"
+            ],
+            decision_warnings=[
+                "mod.py:f decision param 'a' missing decision tier metadata"
+            ],
+            context_suggestions=[
+                "Consider contextvar for mod.py:f decision surface params: a"
+            ],
+        ),
     )
     assert "Observed-only bundles" in report
     assert "Documented bundles" in report
@@ -120,7 +132,12 @@ def test_emit_report_fingerprint_provenance_summary(tmp_path: Path) -> None:
         },
     ]
     report, _ = da._emit_report(
-        groups_by_path, 3, forest=da.Forest(), fingerprint_provenance=entries
+        groups_by_path,
+        3,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            fingerprint_provenance=entries,
+        ),
     )
     assert "Packed derivation view (ASPF provenance)" in report
     assert "glossary=user_context" in report
@@ -137,12 +154,21 @@ def test_emit_report_fingerprint_matches_and_synth(tmp_path: Path) -> None:
     report, _ = da._emit_report(
         groups_by_path,
         3,
-        forest=forest,
-        fingerprint_matches=["mod.py:f bundle ['a', 'b'] fingerprint {base=2} matches: user_context"],
-        fingerprint_synth=["synth registry synth@1:"],
-        invariant_propositions=[
-            da.InvariantProposition(form="Equal", terms=("a", "b"), scope="mod.py:f", source="assert")
-        ],
+        report=da.ReportCarrier(
+            forest=forest,
+            fingerprint_matches=[
+                "mod.py:f bundle ['a', 'b'] fingerprint {base=2} matches: user_context"
+            ],
+            fingerprint_synth=["synth registry synth@1:"],
+            invariant_propositions=[
+                da.InvariantProposition(
+                    form="Equal",
+                    terms=("a", "b"),
+                    scope="mod.py:f",
+                    source="assert",
+                )
+            ],
+        ),
     )
     assert "Fingerprint matches" in report
     assert "Fingerprint synthesis" in report
@@ -167,7 +193,12 @@ def test_emit_report_deadness_summary(tmp_path: Path) -> None:
         }
     ]
     report, _ = da._emit_report(
-        groups_by_path, 3, forest=da.Forest(), deadness_witnesses=deadness
+        groups_by_path,
+        3,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            deadness_witnesses=deadness,
+        ),
     )
     assert "Deadness evidence" in report
     assert "UNREACHABLE" in report
@@ -188,7 +219,12 @@ def test_emit_report_coherence_summary(tmp_path: Path) -> None:
         }
     ]
     report, _ = da._emit_report(
-        groups_by_path, 3, forest=da.Forest(), coherence_witnesses=coherence
+        groups_by_path,
+        3,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            coherence_witnesses=coherence,
+        ),
     )
     assert "Coherence evidence" in report
     assert "glossary-ambiguity" in report
@@ -209,7 +245,12 @@ def test_emit_report_rewrite_plan_summary(tmp_path: Path) -> None:
         }
     ]
     report, _ = da._emit_report(
-        groups_by_path, 3, forest=da.Forest(), rewrite_plans=plans
+        groups_by_path,
+        3,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            rewrite_plans=plans,
+        ),
     )
     assert "Rewrite plans" in report
     assert "BUNDLE_ALIGN" in report
@@ -230,7 +271,12 @@ def test_emit_report_exception_obligation_summary(tmp_path: Path) -> None:
         }
     ]
     report, _ = da._emit_report(
-        groups_by_path, 3, forest=da.Forest(), exception_obligations=obligations
+        groups_by_path,
+        3,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            exception_obligations=obligations,
+        ),
     )
     assert "Exception obligations" in report
     assert "UNKNOWN" in report
@@ -249,7 +295,12 @@ def test_emit_report_handledness_summary(tmp_path: Path) -> None:
         }
     ]
     report, _ = da._emit_report(
-        groups_by_path, 3, forest=da.Forest(), handledness_witnesses=handled
+        groups_by_path,
+        3,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            handledness_witnesses=handled,
+        ),
     )
     assert "Handledness evidence" in report
     assert "except Exception" in report
@@ -268,7 +319,9 @@ def test_emit_report_anonymous_schema_surfaces(tmp_path: Path) -> None:
         "    return None\n",
     )
     groups_by_path = {path: {}}
-    report, _ = da._emit_report(groups_by_path, 3, forest=da.Forest())
+    report, _ = da._emit_report(
+        groups_by_path, 3, report=da.ReportCarrier(forest=da.Forest())
+    )
     assert "Anonymous schema surfaces" in report
     assert "dict[str, Any]" in report
 
@@ -281,7 +334,9 @@ def test_emit_report_anonymous_schema_surfaces_truncates_long_list(tmp_path: Pat
     for idx in range(51):
         lines.append(f"x{idx}: dict[str, object] = {{}}")
     _write(path, "\n".join(lines) + "\n")
-    report, _ = da._emit_report({path: {}}, 3, forest=da.Forest())
+    report, _ = da._emit_report(
+        {path: {}}, 3, report=da.ReportCarrier(forest=da.Forest())
+    )
     assert "Anonymous schema surfaces" in report
     assert "... 1 more" in report
 
@@ -293,7 +348,9 @@ def test_emit_report_max_components_cutoff(tmp_path: Path) -> None:
     _write(path, "def f(a, b):\n    return a\n")
     groups_by_path = {path: {"f": [set(["a", "b"])]}}
     forest = _forest_for_groups(da, groups_by_path, tmp_path)
-    report, _ = da._emit_report(groups_by_path, 0, forest=forest)
+    report, _ = da._emit_report(
+        groups_by_path, 0, report=da.ReportCarrier(forest=forest)
+    )
     assert "Showing top 0 components" in report
 
 

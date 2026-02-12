@@ -54,8 +54,10 @@ def test_exception_protocol_never_violation(tmp_path: Path) -> None:
     report, violations = da._emit_report(
         analysis.groups_by_path,
         3,
-        forest=analysis.forest,
-        exception_obligations=obligations,
+        report=da.ReportCarrier(
+            forest=analysis.forest,
+            exception_obligations=obligations,
+        ),
     )
     assert "Exception protocol violations" in report
     assert any("protocol=never" in line for line in violations)

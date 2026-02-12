@@ -37,7 +37,7 @@ def test_report_uses_forest_only_invariant(tmp_path: Path) -> None:
         report, _ = da.render_report(
             analysis.groups_by_path,
             max_components=3,
-            forest=analysis.forest,
+            report=da.ReportCarrier.from_analysis_result(analysis),
         )
     finally:
         if previous is None:

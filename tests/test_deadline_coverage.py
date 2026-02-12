@@ -658,8 +658,10 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     report, violations = da._emit_report(
         {},
         0,
-        forest=da.Forest(),
-        deadline_obligations=obligations,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            deadline_obligations=obligations,
+        ),
     )
     assert "Deadline propagation:" in report
     assert violations

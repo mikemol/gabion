@@ -368,13 +368,15 @@ def test_render_report_includes_ambiguities() -> None:
     report, _ = da.render_report(
         {},
         0,
-        forest=da.Forest(),
-        ambiguity_witnesses=[
-            {
-                "kind": "local_resolution_ambiguous",
-                "site": {"path": "mod.py", "function": "f", "span": [1, 2, 3, 4]},
-                "candidate_count": 2,
-            }
-        ],
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            ambiguity_witnesses=[
+                {
+                    "kind": "local_resolution_ambiguous",
+                    "site": {"path": "mod.py", "function": "f", "span": [1, 2, 3, 4]},
+                    "candidate_count": 2,
+                }
+            ],
+        ),
     )
     assert "Ambiguities:" in report

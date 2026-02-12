@@ -597,7 +597,9 @@ def test_emit_report_tier2_violation(tmp_path: Path) -> None:
         project_root=tmp_path,
     )
     report, violations = da._emit_report(
-        groups_by_path, max_components=10, forest=forest
+        groups_by_path,
+        max_components=10,
+        report=da.ReportCarrier(forest=forest),
     )
     assert "tier-2" in report
     assert violations

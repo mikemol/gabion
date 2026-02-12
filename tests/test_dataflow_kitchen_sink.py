@@ -11,6 +11,7 @@ def _load():
     sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import (
         AuditConfig,
+        ReportCarrier,
         analyze_paths,
         build_refactor_plan,
         build_synthesis_plan,
@@ -22,6 +23,7 @@ def _load():
 
     return (
         AuditConfig,
+        ReportCarrier,
         analyze_paths,
         build_refactor_plan,
         build_synthesis_plan,
@@ -134,6 +136,7 @@ def _write_kitchen_sink(root: Path) -> None:
 def test_kitchen_sink_analysis_outputs(tmp_path: Path) -> None:
     (
         AuditConfig,
+        ReportCarrier,
         analyze_paths,
         build_refactor_plan,
         build_synthesis_plan,
@@ -166,11 +169,7 @@ def test_kitchen_sink_analysis_outputs(tmp_path: Path) -> None:
     report, violations = render_report(
         analysis.groups_by_path,
         5,
-        forest=analysis.forest,
-        type_suggestions=analysis.type_suggestions,
-        type_ambiguities=analysis.type_ambiguities,
-        constant_smells=analysis.constant_smells,
-        unused_arg_smells=analysis.unused_arg_smells,
+        report=ReportCarrier.from_analysis_result(analysis),
     )
     assert "Dataflow grammar" in report or "dataflow-grammar" in report
     assert isinstance(violations, list)

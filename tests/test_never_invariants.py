@@ -45,8 +45,7 @@ def test_never_invariants_emit_forest_and_report(tmp_path: Path) -> None:
     report, _ = da.render_report(
         analysis.groups_by_path,
         max_components=3,
-        forest=analysis.forest,
-        never_invariants=analysis.never_invariants,
+        report=da.ReportCarrier.from_analysis_result(analysis),
     )
     assert "Never invariants" in report
 
@@ -209,8 +208,7 @@ def test_never_invariant_report_order_and_evidence(tmp_path: Path) -> None:
     report, _ = da.render_report(
         analysis.groups_by_path,
         max_components=3,
-        forest=analysis.forest,
-        never_invariants=analysis.never_invariants,
+        report=da.ReportCarrier.from_analysis_result(analysis),
     )
     assert "Never invariants:" in report
     never_section = report.split("Never invariants:")[1]

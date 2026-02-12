@@ -29,6 +29,7 @@ from gabion.json_types import JSONObject, JSONValue
 from gabion.analysis import (
     AnalysisResult,
     AuditConfig,
+    ReportCarrier,
     analyze_paths,
     apply_baseline,
     compute_structure_metrics,
@@ -1020,34 +1021,11 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         effective_violations: list[str] | None = None
         baseline_entries: list[str] = []
         if report_path:
+            report_carrier = ReportCarrier.from_analysis_result(analysis)
             report, violations = render_report(
                 analysis.groups_by_path,
                 max_components,
-                forest=analysis.forest,
-                bundle_sites_by_path=analysis.bundle_sites_by_path,
-                type_suggestions=analysis.type_suggestions,
-                type_ambiguities=analysis.type_ambiguities,
-                type_callsite_evidence=analysis.type_callsite_evidence,
-                constant_smells=analysis.constant_smells,
-                unused_arg_smells=analysis.unused_arg_smells,
-                deadness_witnesses=analysis.deadness_witnesses,
-                coherence_witnesses=analysis.coherence_witnesses,
-                rewrite_plans=analysis.rewrite_plans,
-                exception_obligations=analysis.exception_obligations,
-                never_invariants=analysis.never_invariants,
-                ambiguity_witnesses=analysis.ambiguity_witnesses,
-                handledness_witnesses=analysis.handledness_witnesses,
-                decision_surfaces=analysis.decision_surfaces,
-                value_decision_surfaces=analysis.value_decision_surfaces,
-                decision_warnings=analysis.decision_warnings,
-                fingerprint_warnings=analysis.fingerprint_warnings,
-                fingerprint_matches=analysis.fingerprint_matches,
-                fingerprint_synth=analysis.fingerprint_synth,
-                fingerprint_provenance=analysis.fingerprint_provenance,
-                context_suggestions=analysis.context_suggestions,
-                invariant_propositions=analysis.invariant_propositions,
-                value_decision_rewrites=analysis.value_decision_rewrites,
-                deadline_obligations=analysis.deadline_obligations,
+                report=report_carrier,
             )
             if baseline_path is not None:
                 baseline_entries = load_baseline(baseline_path)
@@ -1087,14 +1065,17 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                     report = report + render_refactor_plan(plan_payload)
                 Path(report_path).write_text(report)
         else:
+            violation_carrier = ReportCarrier(
+                forest=analysis.forest,
+                type_suggestions=analysis.type_suggestions if type_audit_report else [],
+                type_ambiguities=analysis.type_ambiguities if type_audit_report else [],
+                decision_warnings=analysis.decision_warnings,
+                fingerprint_warnings=analysis.fingerprint_warnings,
+            )
             violations = compute_violations(
                 analysis.groups_by_path,
                 max_components,
-                forest=analysis.forest,
-                type_suggestions=analysis.type_suggestions if type_audit_report else None,
-                type_ambiguities=analysis.type_ambiguities if type_audit_report else None,
-                decision_warnings=analysis.decision_warnings,
-                fingerprint_warnings=analysis.fingerprint_warnings,
+                report=violation_carrier,
             )
             if baseline_path is not None:
                 baseline_entries = load_baseline(baseline_path)

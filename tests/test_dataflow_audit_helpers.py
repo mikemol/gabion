@@ -346,9 +346,11 @@ def test_emit_report_materializes_report_section_specs(tmp_path: Path) -> None:
     report, _ = da.render_report(
         analysis.groups_by_path,
         max_components=5,
-        forest=forest,
-        bundle_sites_by_path=analysis.bundle_sites_by_path,
-        type_suggestions=["sample.py:1:1: tighten type"],
+        report=da.ReportCarrier(
+            forest=forest,
+            bundle_sites_by_path=analysis.bundle_sites_by_path,
+            type_suggestions=["sample.py:1:1: tighten type"],
+        ),
     )
     assert "Dataflow grammar audit" in report
     spec_facets = [
