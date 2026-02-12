@@ -1030,12 +1030,14 @@ def _internal_broad_type_lint_lines(
     )
     lines: list[str] = []
     for info in by_qual.values():
+        check_deadline()
         if _is_test_path(info.path):
             continue
         caller_count = len(transitive_callers.get(info.qual, set()))
         if caller_count == 0:
             continue
         for param, annot in info.annots.items():
+            check_deadline()
             if not _is_broad_internal_type(annot):
                 continue
             message = (
