@@ -4,10 +4,24 @@ import json
 import os
 from pathlib import Path
 
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.lsp_client import _env_timeout_ticks, _has_env_timeout
 
 
 ENV_FLAG = "GABION_GATE_ORPHANED_DELTA"
+_DEFAULT_ADVISORY_TIMEOUT_TICKS = 120_000
+_DEFAULT_ADVISORY_TIMEOUT_TICK_NS = 1_000_000
+
+
+def _deadline_scope():
+    if _has_env_timeout():
+        ticks, tick_ns = _env_timeout_ticks()
+    else:
+        ticks, tick_ns = (
+            _DEFAULT_ADVISORY_TIMEOUT_TICKS,
+            _DEFAULT_ADVISORY_TIMEOUT_TICK_NS,
+        )
+    return deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns))
 
 
 def _enabled() -> bool:
@@ -34,16 +48,17 @@ def _print_summary(delta_path: Path) -> None:
 
 
 def main() -> int:
-    try:
-        if _enabled():
-            print(
-                "Annotation drift delta advisory skipped; "
-                f"{ENV_FLAG}=1 enables the gate."
-            )
-            return 0
-        _print_summary(Path("artifacts/out/test_annotation_drift_delta.json"))
-    except Exception as exc:  # advisory only; keep CI green
-        print(f"Annotation drift delta advisory error: {exc}")
+    with _deadline_scope():
+        try:
+            if _enabled():
+                print(
+                    "Annotation drift delta advisory skipped; "
+                    f"{ENV_FLAG}=1 enables the gate."
+                )
+                return 0
+            _print_summary(Path("artifacts/out/test_annotation_drift_delta.json"))
+        except Exception as exc:  # advisory only; keep CI green
+            print(f"Annotation drift delta advisory error: {exc}")
     return 0
 
 

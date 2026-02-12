@@ -5,7 +5,8 @@ import os
 import subprocess
 import sys
 
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.lsp_client import _env_timeout_ticks, _has_env_timeout
 
 
 TRIPLETS: dict[str, list[str]] = {
@@ -32,40 +33,56 @@ TRIPLETS: dict[str, list[str]] = {
     ],
 }
 
+_DEFAULT_TRIPLET_TIMEOUT_TICKS = 120_000
+_DEFAULT_TRIPLET_TIMEOUT_TICK_NS = 1_000_000
+
+
+def _deadline_scope():
+    if _has_env_timeout():
+        ticks, tick_ns = _env_timeout_ticks()
+    else:
+        ticks, tick_ns = (
+            _DEFAULT_TRIPLET_TIMEOUT_TICKS,
+            _DEFAULT_TRIPLET_TIMEOUT_TICK_NS,
+        )
+    return deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns))
+
 
 def _run_triplet(name: str, steps: list[str]) -> int:
     exit_code = 0
     env = dict(os.environ)
     env.setdefault("GABION_DIRECT_RUN", "1")
-    for step in steps:
-        check_deadline()
-        result = subprocess.run([sys.executable, step], check=False, env=env)
-        if result.returncode != 0:
-            print(f"{name} step failed: {step} (exit {result.returncode})")
-            exit_code = exit_code or result.returncode
+    with _deadline_scope():
+        for step in steps:
+            check_deadline()
+            result = subprocess.run([sys.executable, step], check=False, env=env)
+            if result.returncode != 0:
+                print(f"{name} step failed: {step} (exit {result.returncode})")
+                exit_code = exit_code or result.returncode
     return exit_code
 
 
 def main() -> int:
     failures = 0
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=len(TRIPLETS)
-    ) as executor:
-        futures = {
-            executor.submit(_run_triplet, name, steps): name
-            for name, steps in TRIPLETS.items()
-        }
-        for future in concurrent.futures.as_completed(futures):
-            check_deadline()
-            name = futures[future]
-            try:
-                result = future.result()
-            except Exception as exc:
-                print(f"{name} triplet crashed: {exc}")
-                failures += 1
-                continue
-            if result != 0:
-                failures += 1
+    with _deadline_scope():
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=len(TRIPLETS)
+        ) as executor:
+            futures = {
+                executor.submit(_run_triplet, name, steps): name
+                for name, steps in TRIPLETS.items()
+            }
+            for future in concurrent.futures.as_completed(futures):
+                check_deadline()
+                name = futures[future]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    print(f"{name} triplet crashed: {exc}")
+                    failures += 1
+                    continue
+                if result != 0:
+                    failures += 1
     return 1 if failures else 0
 
 
