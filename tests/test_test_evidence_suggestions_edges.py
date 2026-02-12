@@ -170,6 +170,7 @@ def test_collect_reachable_skips_visited() -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
 
     def resolve_callees(_info: FunctionInfo):
@@ -197,6 +198,7 @@ def test_build_indices_and_helper_functions(tmp_path: Path) -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     index = test_evidence_suggestions._build_test_index({"mod.f": info}, None)
     assert list(index.keys())[0].endswith("sample.py::f")
@@ -304,6 +306,7 @@ def test_collect_call_footprint_targets_no_outer(tmp_path: Path) -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     targets = test_evidence_suggestions._collect_call_footprint_targets(
         info,
@@ -330,6 +333,7 @@ def test_find_module_level_calls_empty_and_missing(tmp_path: Path) -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     empty_entry = _minimal_entry("tests/test_sample.py::test_alpha", "")
     assert (
@@ -380,6 +384,7 @@ def test_find_module_level_calls_node_missing(tmp_path: Path) -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     assert (
         test_evidence_suggestions._find_module_level_calls(

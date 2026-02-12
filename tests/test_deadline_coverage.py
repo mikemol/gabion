@@ -59,6 +59,7 @@ def _make_fn_info(
         vararg=vararg,
         kwarg=kwarg,
         param_spans={},
+        function_span=(0, 0, 0, 1),
     )
 
 
@@ -613,6 +614,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
         [target, test_target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
         extra_facts_by_qual=extra_facts,
         extra_call_infos=extra_call_infos,
         extra_deadline_params=extra_deadline_params,
@@ -661,6 +663,152 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     )
     assert "Deadline propagation:" in report
     assert violations
+
+
+def test_deadline_obligations_include_call_resolution_requirement(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root(deadline: Deadline):
+                return deadline
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    forest = da.Forest()
+    suite_id = forest.add_suite_site(
+        "mod.py",
+        "mod.root",
+        "call",
+        span=(0, 0, 0, 1),
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite_id,),
+        evidence={"callee": "mod.missing", "phase": "unresolved"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=forest,
+    )
+    hits = [entry for entry in obligations if entry.get("kind") == "call_resolution_required"]
+    assert hits
+    assert hits[0].get("status") == "OBLIGATION"
+    assert "requires resolution" in str(hits[0].get("detail", ""))
+
+
+def test_call_resolution_obligation_is_discharged_by_call_candidate(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root(deadline: Deadline):
+                return deadline
+
+            def callee(deadline: Deadline):
+                return deadline
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    forest = da.Forest()
+    suite_id = forest.add_suite_site(
+        "mod.py",
+        "mod.root",
+        "call",
+        span=(0, 0, 0, 1),
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite_id,),
+        evidence={"callee": "mod.callee", "phase": "unresolved"},
+    )
+    callee_id = forest.add_site("mod.py", "mod.callee")
+    forest.add_alt(
+        "CallCandidate",
+        (suite_id, callee_id),
+        evidence={"resolution": "resolved", "phase": "resolved", "callee": "mod.callee"},
+    )
+
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=forest,
+    )
+    assert not any(
+        entry.get("kind") == "call_resolution_required" for entry in obligations
+    )
+
+
+# gabion:evidence E:deadline/call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates
+def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root(deadline: Deadline):
+                return callee(deadline)
+
+            def callee(deadline: Deadline):
+                return deadline
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    forest = da.Forest()
+    da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=forest,
+    )
+    call_candidate_targets = [
+        forest.nodes[alt.inputs[1]]
+        for alt in forest.alts
+        if alt.kind == "CallCandidate"
+        and len(alt.inputs) >= 2
+        and alt.inputs[1] in forest.nodes
+    ]
+    assert any(
+        node.kind == "SuiteSite" and node.meta.get("suite_kind") == "function"
+        for node in call_candidate_targets
+    )
 
 
 def test_deadline_summary_handles_bad_span() -> None:
@@ -943,6 +1091,7 @@ def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> N
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
         extra_call_infos=extra_call_infos,
         extra_facts_by_qual=extra_facts,
     )
@@ -1030,6 +1179,7 @@ def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> Non
             [target],
             project_root=tmp_path,
             config=config,
+            forest=da.Forest(),
             extra_call_infos=extra_call_infos,
             extra_facts_by_qual=extra_facts,
         )
@@ -1063,6 +1213,7 @@ def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> Non
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
     )
     assert obligations is not None
 
@@ -1127,6 +1278,7 @@ def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
     )
     assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
@@ -1156,6 +1308,7 @@ def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
     )
     assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
 
@@ -1187,6 +1340,7 @@ def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
     )
     assert not any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
@@ -1218,6 +1372,7 @@ def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
     )
     assert not any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
 
@@ -1247,6 +1402,7 @@ def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
         extra_facts_by_qual={"mod.recur": None},
     )
     assert obligations is not None
@@ -1284,6 +1440,7 @@ def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
         [dummy],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
         extra_facts_by_qual=facts,
     )
     assert obligations is not None
@@ -1316,5 +1473,6 @@ def test_deadline_loop_requires_check_in_body(tmp_path: Path) -> None:
         [target],
         project_root=tmp_path,
         config=config,
+        forest=da.Forest(),
     )
     assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)

@@ -24,6 +24,7 @@ def _fn(da, *, name: str, qual: str, path: Path, class_name: str | None = None):
         class_name=class_name,
         scope=(),
         lexical_scope=(),
+        function_span=(0, 0, 0, 1),
     )
 
 
@@ -54,6 +55,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=(),
         lexical_scope=(),
+        function_span=(0, 0, 0, 1),
     )
     scoped_one = da.FunctionInfo(
         name="target",
@@ -66,6 +68,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=("outer", "caller"),
         lexical_scope=("caller",),
+        function_span=(0, 0, 0, 1),
     )
     scoped_two = da.FunctionInfo(
         name="target",
@@ -78,6 +81,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=("outer", "caller"),
         lexical_scope=("caller",),
+        function_span=(0, 0, 0, 1),
     )
     global_candidate = da.FunctionInfo(
         name="target",
@@ -90,6 +94,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=(),
         lexical_scope=(),
+        function_span=(0, 0, 0, 1),
     )
     by_name = {"target": [scoped_one, scoped_two, global_candidate]}
     by_qual = {

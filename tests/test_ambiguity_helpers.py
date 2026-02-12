@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from gabion.analysis import dataflow_audit as da
+from gabion.exceptions import NeverThrown
 
 
 def _make_function(path: Path, qual: str) -> da.FunctionInfo:
@@ -14,6 +17,7 @@ def _make_function(path: Path, qual: str) -> da.FunctionInfo:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
 
 
@@ -75,10 +79,23 @@ def test_collect_call_ambiguities_skips_test_calls_in_tests_dir(
 def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
     caller = _make_function(tmp_path / "mod.py", "mod.caller")
     candidate = _make_function(tmp_path / "mod.py", "mod.target")
+    call = da.CallArgs(
+        callee="target",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
     entry = da.CallAmbiguity(
         kind="local_resolution_ambiguous",
         caller=caller,
-        call=None,
+        call=call,
         callee_key="target",
         candidates=(candidate,),
         phase="resolve_local_callee",
@@ -89,7 +106,7 @@ def test_dedupe_emit_and_lint_call_ambiguities(tmp_path: Path) -> None:
     emitted = da._emit_call_ambiguities(
         deduped,
         project_root=tmp_path,
-        forest=None,
+        forest=da.Forest(),
     )
     assert emitted[0]["candidate_count"] == 1
 
@@ -161,6 +178,55 @@ def test_emit_call_ambiguities_uses_call_suite(tmp_path: Path) -> None:
         and forest.nodes[alt.inputs[0]].kind == "SuiteSite"
         for alt in forest.alts
     )
+    assert any(
+        alt.kind == "CallCandidate"
+        and len(alt.inputs) >= 2
+        and forest.nodes.get(alt.inputs[1], None) is not None
+        and forest.nodes[alt.inputs[1]].kind == "SuiteSite"
+        and forest.nodes[alt.inputs[1]].meta.get("suite_kind") == "function"
+        for alt in forest.alts
+    )
+
+
+def test_emit_call_ambiguities_requires_candidate_function_span(tmp_path: Path) -> None:
+    caller = _make_function(tmp_path / "mod.py", "mod.caller")
+    candidate = da.FunctionInfo(
+        name="target",
+        qual="mod.target",
+        path=tmp_path / "mod.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=None,
+    )
+    call = da.CallArgs(
+        callee="target",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
+    entry = da.CallAmbiguity(
+        kind="local_resolution_ambiguous",
+        caller=caller,
+        call=call,
+        callee_key="target",
+        candidates=(candidate,),
+        phase="resolve_local_callee",
+    )
+    with pytest.raises(NeverThrown):
+        da._emit_call_ambiguities(
+            [entry],
+            project_root=tmp_path,
+            forest=da.Forest(),
+        )
 
 
 def test_ambiguity_suite_agg_materializes_spec_facets(tmp_path: Path) -> None:

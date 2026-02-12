@@ -27,6 +27,7 @@ def _dummy_info(path: str = "mod.py", qual: str = "mod.fn") -> FunctionInfo:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
 
 

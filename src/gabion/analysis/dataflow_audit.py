@@ -24,7 +24,7 @@ import sys
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, Mapping
+from typing import Callable, Hashable, Iterable, Iterator, Mapping, TypeVar
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -35,7 +35,7 @@ from gabion.analysis.evidence import (
 )
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
-from gabion.analysis.aspf import Alt, Forest, NodeId
+from gabion.analysis.aspf import Alt, Forest, Node, NodeId
 from gabion.analysis import evidence_keys
 from gabion.invariants import never, require_not_none
 from gabion.config import (
@@ -797,6 +797,11 @@ def analyze_decision_surfaces_repo(
     forest: Forest | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     check_deadline()
+    forest = require_not_none(
+        forest,
+        reason="decision surfaces require forest",
+        strict=True,
+    )
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
         project_root=project_root,
@@ -905,6 +910,11 @@ def analyze_value_encoded_decisions_repo(
     forest: Forest | None = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
     check_deadline()
+    forest = require_not_none(
+        forest,
+        reason="value-encoded decisions require forest",
+        strict=True,
+    )
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
         project_root=project_root,
@@ -2606,6 +2616,11 @@ def _collect_never_invariants(
     deadness_witnesses: list[JSONObject] | None = None,
 ) -> list[JSONObject]:
     check_deadline()
+    forest = require_not_none(
+        forest,
+        reason="never invariants require forest",
+        strict=True,
+    )
     invariants: list[JSONObject] = []
     dead_env_map = _dead_env_map(deadness_witnesses)
     for path in paths:
@@ -2702,15 +2717,14 @@ def _collect_never_invariants(
             if span is not None:
                 entry["span"] = list(span)
             invariants.append(entry)
-            if forest is not None:
-                site_id = forest.add_site(path.name, function)
-                paramset_id = forest.add_paramset(bundle)
-                evidence: dict[str, object] = {"path": path.name, "qual": function}
-                if reason:
-                    evidence["reason"] = reason
-                if span is not None:
-                    evidence["span"] = list(span)
-                forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
+            site_id = forest.add_site(path.name, function)
+            paramset_id = forest.add_paramset(bundle)
+            evidence: dict[str, object] = {"path": path.name, "qual": function}
+            if reason:
+                evidence["reason"] = reason
+            if span is not None:
+                evidence["span"] = list(span)
+            forest.add_alt("NeverInvariantSink", (site_id, paramset_id), evidence=evidence)
     return sorted(
         invariants,
         key=lambda entry: (
@@ -3101,16 +3115,315 @@ def _collect_call_edges(
     return edges
 
 
-def _collect_recursive_functions(edges: Mapping[str, set[str]]) -> set[str]:
+def _function_suite_id(path: str, qual: str) -> NodeId:
+    return NodeId("SuiteSite", (path, qual, "function"))
+
+
+def _suite_caller_function_id(
+    suite_node: Node,
+) -> NodeId | None:
+    path = str(suite_node.meta.get("path", "") or "")
+    qual = str(suite_node.meta.get("qual", "") or "")
+    if not path or not qual:
+        return None
+    return _function_suite_id(path, qual)
+
+
+def _node_to_function_suite_id(
+    forest: Forest,
+    node_id: NodeId,
+) -> NodeId | None:
+    node = forest.nodes.get(node_id)
+    if node is None:
+        return None
+    if node.kind == "FunctionSite":
+        path = str(node.meta.get("path", "") or "")
+        qual = str(node.meta.get("qual", "") or "")
+        if not path or not qual:
+            return None
+        return _function_suite_id(path, qual)
+    if node.kind == "SuiteSite":
+        suite_kind = str(node.meta.get("suite_kind", "") or "")
+        if suite_kind not in {"function", "function_body"}:
+            return None
+        path = str(node.meta.get("path", "") or "")
+        qual = str(node.meta.get("qual", "") or "")
+        if not path or not qual:
+            return None
+        return _function_suite_id(path, qual)
+    return None
+
+
+def _collect_call_edges_from_forest(
+    forest: Forest,
+) -> dict[NodeId, set[NodeId]]:
+    check_deadline()
+    edges: dict[NodeId, set[NodeId]] = defaultdict(set)
+    for alt in forest.alts:
+        check_deadline()
+        if alt.kind != "CallCandidate":
+            continue
+        if len(alt.inputs) < 2:
+            continue
+        suite_id = alt.inputs[0]
+        suite_node = forest.nodes.get(suite_id)
+        if suite_node is None or suite_node.kind != "SuiteSite":
+            continue
+        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+        if suite_kind != "call":
+            continue
+        caller_id = _suite_caller_function_id(suite_node)
+        if caller_id is None:
+            continue
+        candidate_id = _node_to_function_suite_id(forest, alt.inputs[1])
+        if candidate_id is None:
+            continue
+        edges[caller_id].add(candidate_id)
+    return edges
+
+
+def _collect_call_resolution_obligations_from_forest(
+    forest: Forest,
+) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]:
+    check_deadline()
+    obligations: list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]] = []
+    seen: set[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]] = set()
+    for alt in forest.alts:
+        check_deadline()
+        if alt.kind != "CallResolutionObligation":
+            continue
+        if not alt.inputs:
+            continue
+        suite_id = alt.inputs[0]
+        suite_node = forest.nodes.get(suite_id)
+        if suite_node is None or suite_node.kind != "SuiteSite":
+            continue
+        suite_kind = str(suite_node.meta.get("suite_kind", "") or "")
+        if suite_kind != "call":
+            continue
+        caller_id = _suite_caller_function_id(suite_node)
+        if caller_id is None:
+            continue
+        caller_path = str(suite_node.meta.get("path", "") or "")
+        caller_qual = str(suite_node.meta.get("qual", "") or "")
+        if not caller_path or not caller_qual:
+            continue
+        raw_span = suite_node.meta.get("span")
+        span: tuple[int, int, int, int] | None = None
+        if isinstance(raw_span, list) and len(raw_span) == 4:
+            coerced: list[int] = []
+            valid = True
+            for value in raw_span:
+                check_deadline()
+                if not isinstance(value, int):
+                    valid = False
+                    break
+                coerced.append(value)
+            if valid:
+                span = (coerced[0], coerced[1], coerced[2], coerced[3])
+        if span is None:
+            never(
+                "call resolution obligation requires span",
+                path=caller_path,
+                qual=caller_qual,
+            )
+        callee_key = str(alt.evidence.get("callee", "") or "")
+        if not callee_key:
+            continue
+        record = (caller_id, suite_id, span, callee_key)
+        if record in seen:
+            continue
+        seen.add(record)
+        obligations.append(record)
+    return obligations
+
+
+def _collect_unresolved_call_sites_from_forest(
+    forest: Forest,
+) -> list[tuple[str, str, tuple[int, int, int, int] | None, str]]:
+    """Backward-compatible alias for call resolution obligations."""
+    out: list[tuple[str, str, tuple[int, int, int, int] | None, str]] = []
+    for caller_id, _, span, callee_key in _collect_call_resolution_obligations_from_forest(
+        forest
+    ):
+        check_deadline()
+        if caller_id.kind != "SuiteSite" or len(caller_id.key) < 2:
+            continue
+        caller_path = str(caller_id.key[0] or "")
+        caller_qual = str(caller_id.key[1] or "")
+        if not caller_path or not caller_qual:
+            continue
+        out.append((caller_path, caller_qual, span, callee_key))
+    return out
+
+
+def _call_candidate_target_site(
+    *,
+    forest: Forest,
+    candidate: FunctionInfo,
+) -> NodeId:
+    check_deadline()
+    if candidate.function_span is None:
+        never(
+            "call candidate target requires function span",
+            path=candidate.path.name,
+            qual=candidate.qual,
+        )
+    return forest.add_suite_site(
+        candidate.path.name,
+        candidate.qual,
+        "function",
+        span=candidate.function_span,
+    )
+
+
+def _materialize_call_candidates(
+    *,
+    forest: Forest,
+    by_name: dict[str, list[FunctionInfo]],
+    by_qual: dict[str, FunctionInfo],
+    symbol_table: SymbolTable,
+    project_root: Path | None,
+    class_index: dict[str, ClassInfo],
+) -> None:
+    check_deadline()
+    seen: set[tuple[NodeId, NodeId]] = set()
+    obligation_seen: set[NodeId] = set()
+    for alt in forest.alts:
+        if alt.kind != "CallCandidate" or len(alt.inputs) < 2:
+            if alt.kind == "CallResolutionObligation" and alt.inputs:
+                obligation_seen.add(alt.inputs[0])
+            continue
+        seen.add((alt.inputs[0], alt.inputs[1]))
+    for infos in by_name.values():
+        check_deadline()
+        for info in infos:
+            check_deadline()
+            if _is_test_path(info.path):
+                continue
+            for call in info.calls:
+                check_deadline()
+                if call.is_test:
+                    continue
+                ambiguous_candidates: list[FunctionInfo] = []
+                ambiguity_phase = "unresolved"
+                ambiguity_callee_key = call.callee
+
+                def _sink(
+                    caller: FunctionInfo,
+                    call_arg: CallArgs | None,
+                    candidates: list[FunctionInfo],
+                    phase: str,
+                    callee_key: str,
+                ) -> None:
+                    check_deadline()
+                    del caller, call_arg
+                    ambiguous_candidates.extend(candidates)
+                    nonlocal ambiguity_phase, ambiguity_callee_key
+                    ambiguity_phase = phase
+                    ambiguity_callee_key = callee_key
+
+                callee = _resolve_callee(
+                    call.callee,
+                    info,
+                    by_name,
+                    by_qual,
+                    symbol_table,
+                    project_root,
+                    class_index,
+                    call=call,
+                    ambiguity_sink=_sink,
+                )
+                candidate_infos: list[FunctionInfo] = []
+                resolution = "resolved"
+                if callee is not None:
+                    candidate_infos = [callee]
+                elif ambiguous_candidates:
+                    resolution = "ambiguous"
+                    deduped: dict[str, FunctionInfo] = {}
+                    for candidate in ambiguous_candidates:
+                        check_deadline()
+                        deduped[candidate.qual] = candidate
+                    candidate_infos = sorted(
+                        deduped.values(),
+                        key=lambda candidate: candidate.qual,
+                    )
+                if call.span is None:
+                    if candidate_infos or _callee_key(call.callee) in by_name:
+                        never(
+                            "call candidate requires span",
+                            path=_normalize_snapshot_path(info.path, project_root),
+                            qual=info.qual,
+                            callee=call.callee,
+                        )
+                    continue
+                suite_id = forest.add_suite_site(
+                    info.path.name,
+                    info.qual,
+                    "call",
+                    span=call.span,
+                )
+                if candidate_infos:
+                    for candidate in candidate_infos:
+                        check_deadline()
+                        candidate_id = _call_candidate_target_site(
+                            forest=forest,
+                            candidate=candidate,
+                        )
+                        key = (suite_id, candidate_id)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        forest.add_alt(
+                            "CallCandidate",
+                            (suite_id, candidate_id),
+                            evidence={
+                                "resolution": resolution,
+                                "phase": ambiguity_phase if resolution == "ambiguous" else "resolved",
+                                "callee": ambiguity_callee_key if resolution == "ambiguous" else call.callee,
+                            },
+                        )
+                    continue
+                if _callee_key(call.callee) not in by_name:
+                    continue
+                if suite_id in obligation_seen:
+                    continue
+                obligation_seen.add(suite_id)
+                forest.add_alt(
+                    "CallResolutionObligation",
+                    (suite_id,),
+                    evidence={
+                        "phase": ambiguity_phase,
+                        "callee": call.callee,
+                        "kind": "unresolved_internal_callee",
+                    },
+                )
+
+
+_GraphNode = TypeVar("_GraphNode", bound=Hashable)
+
+
+def _sorted_graph_nodes(
+    nodes: Iterable[_GraphNode],
+) -> list[_GraphNode]:
+    try:
+        return sorted(nodes)
+    except TypeError:
+        return sorted(nodes, key=lambda item: repr(item))
+
+
+def _collect_recursive_nodes(
+    edges: Mapping[_GraphNode, set[_GraphNode]],
+) -> set[_GraphNode]:
     check_deadline()
     index = 0
-    stack: list[str] = []
-    on_stack: set[str] = set()
-    indices: dict[str, int] = {}
-    lowlink: dict[str, int] = {}
-    recursive: set[str] = set()
+    stack: list[_GraphNode] = []
+    on_stack: set[_GraphNode] = set()
+    indices: dict[_GraphNode, int] = {}
+    lowlink: dict[_GraphNode, int] = {}
+    recursive: set[_GraphNode] = set()
 
-    def _strongconnect(node: str) -> None:
+    def _strongconnect(node: _GraphNode) -> None:
         check_deadline()
         nonlocal index
         indices[node] = index
@@ -3145,6 +3458,30 @@ def _collect_recursive_functions(edges: Mapping[str, set[str]]) -> set[str]:
         if node not in indices:
             _strongconnect(node)
     return recursive
+
+
+def _collect_recursive_functions(edges: Mapping[str, set[str]]) -> set[str]:
+    return _collect_recursive_nodes(edges)
+
+
+def _reachable_from_roots(
+    edges: Mapping[_GraphNode, set[_GraphNode]],
+    roots: set[_GraphNode],
+) -> set[_GraphNode]:
+    check_deadline()
+    reachable: set[_GraphNode] = set()
+    queue: deque[_GraphNode] = deque(_sorted_graph_nodes(roots))
+    while queue:
+        check_deadline()
+        node = queue.popleft()
+        if node in reachable:
+            continue
+        reachable.add(node)
+        for succ in _sorted_graph_nodes(edges.get(node, set())):
+            check_deadline()
+            if succ not in reachable:
+                queue.append(succ)
+    return reachable
 
 
 @dataclass(frozen=True)
@@ -3358,6 +3695,11 @@ def _collect_deadline_obligations(
     check_deadline()
     if not config.deadline_roots:
         return []
+    forest = require_not_none(
+        forest,
+        reason="deadline obligations require forest",
+        strict=True,
+    )
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -3369,6 +3711,14 @@ def _collect_deadline_obligations(
         paths, project_root, external_filter=config.external_filter
     )
     class_index = _collect_class_index(paths, project_root)
+    _materialize_call_candidates(
+        forest=forest,
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        project_root=project_root,
+        class_index=class_index,
+    )
     call_nodes_by_path = _collect_call_nodes_by_path(paths)
     facts_by_qual = _collect_deadline_function_facts(
         paths,
@@ -3694,18 +4044,80 @@ def _collect_deadline_obligations(
                     suite_kind="function",
                 )
 
-    edges = _collect_call_edges(
-        by_name=by_name,
-        by_qual=by_qual,
-        symbol_table=symbol_table,
-        project_root=project_root,
-        class_index=class_index,
-    )
-    recursive = _collect_recursive_functions(edges)
+    edges = _collect_call_edges_from_forest(forest)
+    resolution_obligations = _collect_call_resolution_obligations_from_forest(forest)
+    recursive_nodes = _collect_recursive_nodes(edges)
     def _deadline_exempt(qual: str) -> bool:
         return any(qual.startswith(prefix) for prefix in _DEADLINE_EXEMPT_PREFIXES)
 
-    recursive_required = {qual for qual in recursive if not _deadline_exempt(qual)}
+    root_site_ids: set[NodeId] = set()
+    for qual in roots:
+        check_deadline()
+        info = by_qual.get(qual)
+        if info is None:
+            continue
+        root_site_ids.add(_function_suite_id(info.path.name, qual))
+
+    reachable_from_roots = _reachable_from_roots(edges, root_site_ids)
+    resolved_call_suites: set[NodeId] = set()
+    for alt in forest.alts:
+        check_deadline()
+        if alt.kind != "CallCandidate" or len(alt.inputs) < 2:
+            continue
+        suite_id = alt.inputs[0]
+        suite_node = forest.nodes.get(suite_id)
+        if suite_node is None or suite_node.kind != "SuiteSite":
+            continue
+        if str(suite_node.meta.get("suite_kind", "") or "") != "call":
+            continue
+        resolved_call_suites.add(suite_id)
+
+    for caller_id, suite_id, span, callee_key in sorted(
+        resolution_obligations,
+        key=lambda entry: (
+            entry[0].sort_key(),
+            entry[1].sort_key(),
+            entry[2] or (-1, -1, -1, -1),
+            entry[3],
+        ),
+    ):
+        check_deadline()
+        if suite_id in resolved_call_suites:
+            continue
+        if caller_id not in reachable_from_roots:
+            continue
+        if caller_id.kind != "SuiteSite" or len(caller_id.key) < 2:
+            continue
+        caller_qual = str(caller_id.key[1] or "")
+        if not caller_qual:
+            continue
+        if _deadline_exempt(caller_qual):
+            continue
+        caller_info = by_qual.get(caller_qual)
+        if caller_info is None or _is_test_path(caller_info.path):
+            continue
+        _add_obligation(
+            path=_normalize_snapshot_path(caller_info.path, project_root),
+            function=caller_qual,
+            param=None,
+            status="OBLIGATION",
+            kind="call_resolution_required",
+            detail=f"call '{callee_key}' requires resolution",
+            span=span,
+            caller=caller_qual,
+            callee=callee_key,
+            suite_kind="call",
+        )
+
+    recursive_required: set[str] = set()
+    for function_id in recursive_nodes:
+        check_deadline()
+        if function_id.kind != "SuiteSite" or len(function_id.key) < 2:
+            continue
+        qual = str(function_id.key[1] or "")
+        if not qual or _deadline_exempt(qual):
+            continue
+        recursive_required.add(qual)
 
     for qual in sorted(recursive_required):
         check_deadline()
@@ -4923,6 +5335,11 @@ def _emit_call_ambiguities(
     forest: Forest | None,
 ) -> list[JSONObject]:
     check_deadline()
+    forest = require_not_none(
+        forest,
+        reason="call ambiguities require forest",
+        strict=True,
+    )
     entries: list[JSONObject] = []
     for entry in ambiguities:
         check_deadline()
@@ -4952,8 +5369,6 @@ def _emit_call_ambiguities(
             "phase": entry.phase,
         }
         entries.append(payload)
-        if forest is None:
-            continue
         if call_span is None:
             never(
                 "call ambiguity requires span",
@@ -4977,7 +5392,10 @@ def _emit_call_ambiguities(
         ambiguity_key = evidence_keys.normalize_key(ambiguity_key)
         for candidate in entry.candidates:
             check_deadline()
-            candidate_id = forest.add_site(candidate.path.name, candidate.qual)
+            candidate_id = _call_candidate_target_site(
+                forest=forest,
+                candidate=candidate,
+            )
             forest.add_alt(
                 "CallCandidate",
                 (suite_id, candidate_id),
@@ -5362,6 +5780,11 @@ def _compute_lint_lines(
     constant_smells: list[str],
     unused_arg_smells: list[str],
 ) -> list[str]:
+    forest = require_not_none(
+        forest,
+        reason="lint lines require forest",
+        strict=True,
+    )
     lint_lines: list[str] = []
     bundle_evidence = _collect_bundle_evidence_lines(
         forest=forest,
@@ -6231,6 +6654,7 @@ class FunctionInfo:
     vararg: str | None = None
     kwarg: str | None = None
     param_spans: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
+    function_span: tuple[int, int, int, int] | None = None
 
 
 @dataclass
@@ -6603,6 +7027,7 @@ def _build_function_index(
                 vararg=vararg,
                 kwarg=kwarg,
                 param_spans=_param_spans(fn, ignore_params),
+                function_span=_node_span(fn),
             )
             by_name[fn.name].append(info)
             by_qual[info.qual] = info
@@ -8549,6 +8974,11 @@ def compute_structure_metrics(
     forest: Forest | None = None,
 ) -> JSONObject:
     check_deadline()
+    forest = require_not_none(
+        forest,
+        reason="structure metrics require forest",
+        strict=True,
+    )
     file_count = len(groups_by_path)
     function_count = sum(len(groups) for groups in groups_by_path.values())
     bundle_sizes: list[int] = []
@@ -8577,10 +9007,7 @@ def compute_structure_metrics(
             str(size): count for size, count in sorted(size_histogram.items())
         },
     }
-    if forest is not None:
-        metrics["forest_signature"] = build_forest_signature(forest)
-    else:
-        metrics.update(_partial_forest_signature_metadata(groups_by_path))
+    metrics["forest_signature"] = build_forest_signature(forest)
     return metrics
 
 
@@ -8626,6 +9053,11 @@ def render_structure_snapshot(
     invariant_propositions: list[InvariantProposition] | None = None,
 ) -> JSONObject:
     check_deadline()
+    forest = require_not_none(
+        forest,
+        reason="structure snapshot requires forest",
+        strict=True,
+    )
     root = project_root or _infer_root(groups_by_path)
     invariant_map: dict[tuple[str, str], list[InvariantProposition]] = {}
     if invariant_propositions:
@@ -8672,11 +9104,7 @@ def render_structure_snapshot(
     }
     spec = forest_spec or default_forest_spec(include_bundle_forest=True)
     snapshot.update(forest_spec_metadata(spec))
-    if forest is None:
-        signature_meta = _partial_forest_signature_metadata(groups_by_path)
-        snapshot.update(signature_meta)
-    else:
-        snapshot["forest_signature"] = build_forest_signature(forest)
+    snapshot["forest_signature"] = build_forest_signature(forest)
     return snapshot
 
 
@@ -8689,6 +9117,11 @@ def render_decision_snapshot(
     forest: Forest | None = None,
     forest_spec: ForestSpec | None = None,
 ) -> JSONObject:
+    forest = require_not_none(
+        forest,
+        reason="decision snapshot requires forest",
+        strict=True,
+    )
     snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
@@ -8699,12 +9132,8 @@ def render_decision_snapshot(
             "value_decision_surfaces": len(value_decision_surfaces),
         },
     }
-    if forest is not None:
-        snapshot["forest"] = forest.to_json()
-        snapshot["forest_signature"] = build_forest_signature(forest)
-    else:
-        snapshot["forest_signature_partial"] = True
-        snapshot["forest_signature_basis"] = "missing"
+    snapshot["forest"] = forest.to_json()
+    snapshot["forest_signature"] = build_forest_signature(forest)
     spec = forest_spec or default_forest_spec(
         include_bundle_forest=forest is not None,
         include_decision_surfaces=True,
@@ -9958,6 +10387,7 @@ def analyze_paths(
         or include_lint_lines
         or include_never_invariants
         or include_deadline_obligations
+        or include_ambiguities
     ):
         forest = Forest()
         _populate_bundle_forest(
@@ -10638,7 +11068,10 @@ def run(argv: list[str] | None = None) -> int:
         include_ambiguities=include_ambiguities,
         include_bundle_forest=bool(args.report)
         or bool(args.dot)
-        or bool(args.fail_on_violations),
+        or bool(args.fail_on_violations)
+        or bool(args.emit_structure_tree)
+        or bool(args.emit_structure_metrics)
+        or bool(args.emit_decision_snapshot),
         config=config,
     )
 

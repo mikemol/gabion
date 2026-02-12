@@ -130,11 +130,11 @@ def _analysis_timeout_total_ns(payload: dict) -> int | None:
 
 
 def _analysis_timeout_slack_ns(total_ns: int) -> int:
-    slack_ns = total_ns // 5
+    slack_ns = total_ns // 3
     if slack_ns < 1_000_000_000:
         slack_ns = 1_000_000_000
-    if slack_ns > 60_000_000_000:
-        slack_ns = 60_000_000_000
+    if slack_ns > 120_000_000_000:
+        slack_ns = 120_000_000_000
     return slack_ns
 
 

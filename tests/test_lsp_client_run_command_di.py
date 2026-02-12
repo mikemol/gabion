@@ -185,7 +185,7 @@ def test_analysis_timeout_slack_floor() -> None:
 
 
 def test_analysis_timeout_slack_cap() -> None:
-    assert _analysis_timeout_slack_ns(1_000_000_000_000) == 60_000_000_000
+    assert _analysis_timeout_slack_ns(1_000_000_000_000) == 120_000_000_000
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command

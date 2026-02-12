@@ -54,6 +54,7 @@ def test_resolve_method_in_hierarchy() -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     class_index = {
         "pkg.Base": da.ClassInfo(qual="pkg.Base", module="pkg", bases=[], methods={"run"}),

@@ -38,6 +38,7 @@ def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
         calls=[],
         unused_params=set(),
         scope=(),
+        function_span=(0, 0, 0, 1),
     )
     callee = FunctionInfo(
         name="callee",
@@ -48,6 +49,7 @@ def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
         calls=[],
         unused_params=set(),
         scope=(),
+        function_span=(0, 0, 0, 1),
     )
     call = CallArgs(
         callee="callee",

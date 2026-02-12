@@ -358,6 +358,7 @@ def test_resolve_callee_global_and_imported(tmp_path: Path) -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     helper = da.FunctionInfo(
         name="helper",
@@ -367,6 +368,7 @@ def test_resolve_callee_global_and_imported(tmp_path: Path) -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     by_name = {"helper": [helper], "caller": [caller]}
     by_qual = {helper.qual: helper, caller.qual: caller}
@@ -389,6 +391,7 @@ def test_resolve_callee_global_and_imported(tmp_path: Path) -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     by_qual[imported.qual] = imported
     by_name.setdefault("target", []).append(imported)
@@ -490,6 +493,7 @@ def test_render_helpers_and_baseline(tmp_path: Path) -> None:
                 annots={},
                 calls=[],
                 unused_params=set(),
+                function_span=(0, 0, 0, 1),
             ),
             {},
             {},

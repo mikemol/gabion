@@ -221,6 +221,7 @@ def test_format_call_site_handles_missing_span(tmp_path: Path) -> None:
         calls=[],
         unused_params=set(),
         scope=("pkg", "mod"),
+        function_span=(0, 0, 0, 1),
     )
     call = CallArgs(
         callee="callee",

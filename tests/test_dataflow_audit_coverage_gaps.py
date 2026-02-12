@@ -341,7 +341,7 @@ def test_collect_never_invariants_skips_bad_syntax(tmp_path: Path) -> None:
     bad = tmp_path / "bad.py"
     bad.write_text("def bad(:\n    pass\n")
     invariants = da._collect_never_invariants(
-        [bad], project_root=tmp_path, ignore_params=set()
+        [bad], project_root=tmp_path, ignore_params=set(), forest=da.Forest()
     )
     assert invariants == []
 
@@ -424,6 +424,7 @@ def test_decision_param_lint_line_missing_span_and_transitive_callers() -> None:
         annots={},
         calls=[],
         unused_params=set(),
+        function_span=(0, 0, 0, 1),
     )
     assert (
         da._decision_param_lint_line(
