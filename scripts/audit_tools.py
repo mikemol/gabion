@@ -3779,7 +3779,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--canonicality-md",
         type=Path,
-        default=Path("out/docflow_canonicality.md"),
+        default=Path("artifacts/out/docflow_canonicality.md"),
         help="Output path for docflow canonicality markdown.",
     )
     parser.add_argument(
