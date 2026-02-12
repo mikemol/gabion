@@ -10,6 +10,8 @@ from gabion.analysis.dataflow_audit import (
     FunctionInfo,
     _ambiguity_suite_relation,
     _ambiguity_suite_row_to_site,
+    _ambiguity_suite_row_to_suite,
+    _ambiguity_virtual_count_gt_1,
     _emit_call_ambiguities,
 )
 from gabion.analysis.timeout_context import Deadline, deadline_scope
@@ -102,6 +104,16 @@ def test_ambiguity_suite_relation_requires_int_span() -> None:
 
 def test_ambiguity_suite_row_to_site_requires_path_qual() -> None:
     assert _ambiguity_suite_row_to_site({}, {}) is None
+
+
+def test_ambiguity_suite_row_to_suite_requires_identity() -> None:
+    forest = Forest()
+    with pytest.raises(NeverThrown):
+        _ambiguity_suite_row_to_suite({}, forest)
+
+
+def test_ambiguity_virtual_count_gt_1_handles_invalid_count() -> None:
+    assert _ambiguity_virtual_count_gt_1({"count": "bad"}, {}) is False
 
 
 def test_emit_call_ambiguities_requires_span_when_forest() -> None:

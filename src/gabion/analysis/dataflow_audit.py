@@ -4223,6 +4223,16 @@ def _ambiguity_suite_row_to_suite(
     )
 
 
+def _ambiguity_virtual_count_gt_1(
+    row: Mapping[str, JSONValue],
+    _params: Mapping[str, JSONValue],
+) -> bool:
+    try:
+        return int(row.get("count", 0) or 0) > 1
+    except (TypeError, ValueError):
+        return False
+
+
 def _materialize_ambiguity_suite_agg_spec(
     *,
     forest: Forest,
@@ -4247,16 +4257,10 @@ def _materialize_ambiguity_virtual_set_spec(
     if not relation:
         return
 
-    def _count_gt_1(row: Mapping[str, JSONValue], _params: Mapping[str, JSONValue]) -> bool:
-        try:
-            return int(row.get("count", 0) or 0) > 1
-        except (TypeError, ValueError):
-            return False
-
     projected = apply_spec(
         AMBIGUITY_VIRTUAL_SET_SPEC,
         relation,
-        op_registry={"count_gt_1": _count_gt_1},
+        op_registry={"count_gt_1": _ambiguity_virtual_count_gt_1},
     )
     _materialize_projection_spec_rows(
         spec=AMBIGUITY_VIRTUAL_SET_SPEC,

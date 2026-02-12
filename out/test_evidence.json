@@ -12445,63 +12445,77 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 85,
+      "line": 87,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_requires_int_span"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 63,
+      "line": 65,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_requires_path_qual"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 76,
+      "line": 78,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_requires_span"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 39,
+      "line": 41,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_empty_alt_inputs"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 31,
+      "line": 33,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_missing_function_meta"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 54,
+      "line": 56,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_non_call_suite"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 46,
+      "line": 48,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_non_suite_node"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 103,
+      "line": 105,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_row_to_site_requires_path_qual"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 107,
+      "line": 109,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_row_to_suite_requires_identity"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_ambiguity_suite.py",
+      "line": 115,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_virtual_count_gt_1_handles_invalid_count"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_ambiguity_suite.py",
+      "line": 119,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_emit_call_ambiguities_requires_span_when_forest"
     },
