@@ -1,5 +1,5 @@
 ---
-doc_revision: 46
+doc_revision: 47
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -31,7 +31,7 @@ doc_review_notes:
   CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
   README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_sections:
-  influence_index: 1
+  influence_index: 2
 doc_section_requires:
   influence_index:
     - POLICY_SEED.md#policy_seed
@@ -44,32 +44,32 @@ doc_section_reviews:
   influence_index:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
     glossary.md#contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
     glossary.md#exception_obligation:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
     glossary.md#handledness_witness:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
     CONTRIBUTING.md#contributing_contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
     README.md#repo_contract:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
 doc_change_protocol: "POLICY_SEED.md#change_protocol"
@@ -129,3 +129,4 @@ Status legend:
 - in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)
 - in/in-30.md — **partial** (SuiteSite carrier + loop-scoped deadlines design; implementation in progress; SPPF/GH-85.)
 - in/in-31.md — **partial** (projection carriers + meet-boundary ordering semantics; convergence in progress.)
+- in/in-32.md — **queued** (hypothetical/non-normative Gödel-numbering exploration; acknowledged, but not a controlling contract for implementation or CI at this time.)

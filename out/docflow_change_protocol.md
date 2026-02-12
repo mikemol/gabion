@@ -24,4 +24,4 @@ doc_section_reviews:
 
 Docflow change-protocol normalization report
 Summary:
-- canonical: 62
+- canonical: 63
