@@ -758,6 +758,21 @@
       ]
     },
     {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._internal_broad_type_lint_lines::annot",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "annot",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._internal_broad_type_lint_lines"
+        }
+      },
+      "tests": [
+        "tests/test_broad_type_lint.py::test_internal_broad_type_str_linted"
+      ]
+    },
+    {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._local_class_name::base,class_bases",
       "key": {
         "k": "decision_surface",
@@ -9169,6 +9184,26 @@
       "line": 16,
       "status": "mapped",
       "test_id": "tests/test_baseline_ratchet.py::test_baseline_write_and_apply"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._internal_broad_type_lint_lines::annot",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "annot",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._internal_broad_type_lint_lines"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_broad_type_lint.py",
+      "line": 19,
+      "status": "mapped",
+      "test_id": "tests/test_broad_type_lint.py::test_internal_broad_type_str_linted"
     },
     {
       "evidence": [

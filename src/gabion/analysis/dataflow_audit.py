@@ -1011,6 +1011,49 @@ def analyze_value_encoded_decisions_repo(
     )
 
 
+def _internal_broad_type_lint_lines(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+) -> list[str]:
+    by_name, by_qual, transitive_callers = _build_call_graph(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+    )
+    lines: list[str] = []
+    for info in by_qual.values():
+        if _is_test_path(info.path):
+            continue
+        caller_count = len(transitive_callers.get(info.qual, set()))
+        if caller_count == 0:
+            continue
+        for param, annot in info.annots.items():
+            if not _is_broad_internal_type(annot):
+                continue
+            message = (
+                f"internal param '{param}' uses broad type '{annot}' "
+                f"(internal callers: {caller_count})"
+            )
+            lint = _decision_param_lint_line(
+                info,
+                param,
+                project_root=project_root,
+                code="GABION_BROAD_TYPE",
+                message=message,
+            )
+            if lint is not None:
+                lines.append(lint)
+    return sorted(set(lines))
+
+
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
     if not hasattr(node, "lineno") or not hasattr(node, "col_offset"):
         return None
@@ -5252,6 +5295,7 @@ def _compute_lint_lines(
     never_invariants: list[JSONObject],
     deadline_obligations: list[JSONObject],
     decision_lint_lines: list[str],
+    broad_type_lint_lines: list[str],
     constant_smells: list[str],
     unused_arg_smells: list[str],
 ) -> list[str]:
@@ -5268,6 +5312,7 @@ def _compute_lint_lines(
     lint_lines.extend(_never_invariant_lint_lines(never_invariants))
     lint_lines.extend(_deadline_lint_lines(deadline_obligations))
     lint_lines.extend(decision_lint_lines)
+    lint_lines.extend(broad_type_lint_lines)
     lint_lines.extend(_lint_lines_from_constant_smells(constant_smells))
     lint_lines.extend(_lint_lines_from_unused_arg_smells(unused_arg_smells))
     return sorted(set(lint_lines))
@@ -5975,6 +6020,28 @@ def _is_broad_type(annot: str | None) -> bool:
         return True
     base = annot.replace("typing.", "")
     return base in {"Any", "object"}
+
+
+def _normalize_type_name(value: str) -> str:
+    value = value.strip()
+    if value.startswith("typing."):
+        value = value[len("typing.") :]
+    if value.startswith("builtins."):
+        value = value[len("builtins.") :]
+    return value
+
+
+def _is_broad_internal_type(annot: str | None) -> bool:
+    if annot is None:
+        return False
+    normalized = annot.replace("typing.", "")
+    expanded = {_normalize_type_name(t) for t in _expand_type_hint(normalized)}
+    non_none = {t for t in expanded if t not in _NONE_TYPES}
+    if not non_none:
+        return False
+    if "Any" in non_none or "object" in non_none:
+        return True
+    return non_none == {"str"}
 
 
 _NONE_TYPES = {"None", "NoneType", "type(None)"}
@@ -10045,6 +10112,14 @@ def analyze_paths(
                 context_suggestions.append(f"Consider contextvar for {entry}")
     lint_lines: list[str] = []
     if include_lint_lines:
+        broad_type_lint_lines = _internal_broad_type_lint_lines(
+            file_paths,
+            project_root=config.project_root,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
+        )
         lint_lines = _compute_lint_lines(
             forest=forest,
             groups_by_path=groups_by_path,
@@ -10055,6 +10130,7 @@ def analyze_paths(
             never_invariants=never_invariants,
             deadline_obligations=deadline_obligations,
             decision_lint_lines=decision_lint_lines,
+            broad_type_lint_lines=broad_type_lint_lines,
             constant_smells=constant_smells,
             unused_arg_smells=unused_arg_smells,
         )
