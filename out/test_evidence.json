@@ -9188,9 +9188,23 @@
     {
       "evidence": [],
       "file": "tests/test_broad_type_lint.py",
+      "line": 153,
+      "status": "unmapped",
+      "test_id": "tests/test_broad_type_lint.py::test_broad_type_helpers_cover_edges"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_broad_type_lint.py",
       "line": 63,
       "status": "unmapped",
       "test_id": "tests/test_broad_type_lint.py::test_internal_broad_type_int_linted"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_broad_type_lint.py",
+      "line": 163,
+      "status": "unmapped",
+      "test_id": "tests/test_broad_type_lint.py::test_internal_broad_type_skips_tests"
     },
     {
       "evidence": [

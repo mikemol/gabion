@@ -148,3 +148,38 @@ def test_internal_node_id_not_linted(tmp_path: Path) -> None:
             config=config,
         )
     assert not any("GABION_BROAD_TYPE" in line for line in analysis.lint_lines)
+
+
+def test_broad_type_helpers_cover_edges(tmp_path: Path) -> None:
+    da = _load()
+    assert da._normalize_type_name("typing.Any") == "Any"
+    assert da._normalize_type_name("builtins.int") == "int"
+    assert da._is_broad_internal_type("None") is False
+    assert da._is_broad_internal_type("Literal['x']") is True
+    assert da._is_broad_internal_type("object") is True
+    assert da._is_broad_internal_type("CustomType") is False
+
+
+def test_internal_broad_type_skips_tests(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "test_sample.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def internal(x: str) -> str:
+                return x
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(project_root=tmp_path)
+    with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
+        lines = da._internal_broad_type_lint_lines(
+            [target],
+            project_root=tmp_path,
+            ignore_params=set(),
+            strictness="high",
+            external_filter=True,
+        )
+    assert lines == []
