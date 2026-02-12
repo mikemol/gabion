@@ -118,7 +118,7 @@ def test_run_command_raises_on_nonzero_returncode() -> None:
         return _make_proc(1, b"boom")
 
     with pytest.raises(LspClientError) as exc:
-        run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+        run_command(CommandRequest("gabion.dataflowAudit", [{}]), root=Path("."), process_factory=factory)
     assert "server failed" in str(exc.value).lower()
 
 
@@ -128,7 +128,7 @@ def test_run_command_raises_on_stderr_output() -> None:
         return _make_proc(0, b"warning")
 
     with pytest.raises(LspClientError) as exc:
-        run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+        run_command(CommandRequest("gabion.dataflowAudit", [{}]), root=Path("."), process_factory=factory)
     assert "error output" in str(exc.value).lower()
 
 
@@ -137,7 +137,7 @@ def test_run_command_allows_blank_stderr() -> None:
     def factory(*_args, **_kwargs):
         return _make_proc(0, b"\n")
 
-    result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+    result = run_command(CommandRequest("gabion.dataflowAudit", [{}]), root=Path("."), process_factory=factory)
     assert result == {}
 
 
@@ -147,7 +147,7 @@ def test_run_command_rejects_non_object_result() -> None:
         return _make_proc_with_cmd_result(0, b"", [])
 
     with pytest.raises(LspClientError) as exc:
-        run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+        run_command(CommandRequest("gabion.dataflowAudit", [{}]), root=Path("."), process_factory=factory)
     assert "unexpected lsp result" in str(exc.value).lower()
 
 
@@ -163,7 +163,7 @@ def test_run_command_uses_env_timeout() -> None:
     os.environ["GABION_LSP_TIMEOUT_TICKS"] = "1000"
     os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = "1000000"
     try:
-        result = run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+        result = run_command(CommandRequest("gabion.dataflowAudit", [{}]), root=Path("."), process_factory=factory)
     finally:
         if previous_ticks is None:
             os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
@@ -189,7 +189,7 @@ def test_run_command_rejects_invalid_env_timeout() -> None:
     os.environ["GABION_LSP_TIMEOUT_TICKS"] = "nope"
     try:
         with pytest.raises(NeverThrown):
-            run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+            run_command(CommandRequest("gabion.dataflowAudit", [{}]), root=Path("."), process_factory=factory)
     finally:
         if previous is None:
             os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
@@ -216,7 +216,7 @@ def test_run_command_env_timeout_zero_rejected() -> None:
     os.environ["GABION_LSP_TIMEOUT_TICKS"] = "0"
     try:
         with pytest.raises(NeverThrown):
-            run_command(CommandRequest("gabion.dataflowAudit", []), root=Path("."), process_factory=factory)
+            run_command(CommandRequest("gabion.dataflowAudit", [{}]), root=Path("."), process_factory=factory)
     finally:
         if previous is None:
             os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)

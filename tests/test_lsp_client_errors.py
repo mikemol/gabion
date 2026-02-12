@@ -58,7 +58,7 @@ def test_run_command_unknown_command_raises() -> None:
     )
     with pytest.raises(LspClientError):
         run_command(
-            CommandRequest("gabion.unknown", []),
+            CommandRequest("gabion.unknown", [{}]),
             root=repo_root,
             timeout_ticks=10_000,
             timeout_tick_ns=1_000_000,

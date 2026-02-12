@@ -316,7 +316,11 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
 
 @server.command(DATAFLOW_COMMAND)
 def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
-    payload = _require_payload(payload, command=DATAFLOW_COMMAND)
+    normalized_payload = _require_payload(payload, command=DATAFLOW_COMMAND)
+    return _execute_command_total(ls, normalized_payload)
+
+
+def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
     profile_enabled = _truthy_flag(payload.get("deadline_profile"))
     profile_root_value = payload.get("root") or ls.workspace.root_path or "."
     profile_token = set_deadline_profile(
@@ -1178,9 +1182,15 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
 
 
 @server.command(SYNTHESIS_COMMAND)
-
 def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
-    payload = _require_payload(payload, command=SYNTHESIS_COMMAND)
+    normalized_payload = _require_payload(payload, command=SYNTHESIS_COMMAND)
+    return _execute_synthesis_total(ls, normalized_payload)
+
+
+def _execute_synthesis_total(
+    ls: LanguageServer,
+    payload: dict[str, object],
+) -> dict:
     with _deadline_scope_from_payload(payload):
         check_deadline()
         try:
@@ -1239,7 +1249,11 @@ def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
 
 @server.command(REFACTOR_COMMAND)
 def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
-    payload = _require_payload(payload, command=REFACTOR_COMMAND)
+    normalized_payload = _require_payload(payload, command=REFACTOR_COMMAND)
+    return _execute_refactor_total(ls, normalized_payload)
+
+
+def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
     with _deadline_scope_from_payload(payload):
         try:
             request = RefactorRequest.model_validate(payload)
@@ -1283,7 +1297,14 @@ def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
 
 @server.command(STRUCTURE_DIFF_COMMAND)
 def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
-    payload = _require_payload(payload, command=STRUCTURE_DIFF_COMMAND)
+    normalized_payload = _require_payload(payload, command=STRUCTURE_DIFF_COMMAND)
+    return _execute_structure_diff_total(ls, normalized_payload)
+
+
+def _execute_structure_diff_total(
+    ls: LanguageServer,
+    payload: dict[str, object],
+) -> dict:
     with _deadline_scope_from_payload(payload):
         baseline_path = payload.get("baseline")
         current_path = payload.get("current")
@@ -1302,7 +1323,14 @@ def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> d
 
 @server.command(STRUCTURE_REUSE_COMMAND)
 def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> dict:
-    payload = _require_payload(payload, command=STRUCTURE_REUSE_COMMAND)
+    normalized_payload = _require_payload(payload, command=STRUCTURE_REUSE_COMMAND)
+    return _execute_structure_reuse_total(ls, normalized_payload)
+
+
+def _execute_structure_reuse_total(
+    ls: LanguageServer,
+    payload: dict[str, object],
+) -> dict:
     with _deadline_scope_from_payload(payload):
         snapshot_path = payload.get("snapshot")
         lemma_stubs_path = payload.get("lemma_stubs")
@@ -1332,7 +1360,14 @@ def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> 
 
 @server.command(DECISION_DIFF_COMMAND)
 def execute_decision_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
-    payload = _require_payload(payload, command=DECISION_DIFF_COMMAND)
+    normalized_payload = _require_payload(payload, command=DECISION_DIFF_COMMAND)
+    return _execute_decision_diff_total(ls, normalized_payload)
+
+
+def _execute_decision_diff_total(
+    ls: LanguageServer,
+    payload: dict[str, object],
+) -> dict:
     with _deadline_scope_from_payload(payload):
         baseline_path = payload.get("baseline")
         current_path = payload.get("current")

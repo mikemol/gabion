@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 from decimal import Decimal, InvalidOperation
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Callable, Mapping
@@ -25,7 +25,25 @@ class LspClientError(RuntimeError):
 @dataclass(frozen=True)
 class CommandRequest:
     command: str
-    arguments: list[JSONObject] | None = None
+    arguments: list[JSONObject] = field(default_factory=list)
+
+
+def _normalized_command_payload(
+    request: CommandRequest,
+) -> tuple[list[JSONObject], dict[str, object]]:
+    command_args = list(request.arguments)
+    if not command_args:
+        never("missing command payload arguments", command=request.command)
+    payload_arg = command_args[0]
+    if not isinstance(payload_arg, dict):
+        never(
+            "command payload must be a dict",
+            command=request.command,
+            payload_type=type(payload_arg).__name__,
+        )
+    payload = dict(payload_arg)
+    command_args[0] = payload
+    return command_args, payload
 
 
 def _has_env_timeout() -> bool:
@@ -260,13 +278,7 @@ def run_command(
     if tick_ns_value <= 0:
         never("invalid lsp timeout tick_ns", tick_ns=timeout_tick_ns)
 
-    command_args = list(request.arguments or [])
-    if command_args and isinstance(command_args[0], dict):
-        payload = dict(command_args[0])
-        command_args[0] = payload
-    else:
-        payload = {}
-        command_args = [payload]
+    command_args, payload = _normalized_command_payload(request)
 
     base_total_ns = ticks_value * tick_ns_value
     has_existing_analysis_timeout = _has_analysis_timeout(payload)
@@ -356,12 +368,7 @@ def run_command_direct(
     *,
     root: Path | None = None,
 ) -> JSONObject:
-    payload: dict = {}
-    if request.arguments:
-        if isinstance(request.arguments[0], dict):
-            payload = dict(request.arguments[0])
-        else:
-            never("direct command payload must be a dict", payload=request.arguments[0])
+    _, payload = _normalized_command_payload(request)
     if (
         "analysis_timeout_ticks" not in payload
         and "analysis_timeout_ms" not in payload
