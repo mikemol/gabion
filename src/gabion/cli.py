@@ -445,16 +445,13 @@ def dispatch_command(
         if flag in {"1", "true", "yes", "on"}:
             resolved = run_command_direct
     if resolved is run_command:
-        if process_factory is None:
-            return resolved(
-                request, root=root, timeout_ticks=ticks, timeout_tick_ns=tick_ns
-            )
+        factory = process_factory or subprocess.Popen
         return resolved(
             request,
             root=root,
             timeout_ticks=ticks,
             timeout_tick_ns=tick_ns,
-            process_factory=process_factory,
+            process_factory=factory,
         )
     return resolved(request, root=root)
 
