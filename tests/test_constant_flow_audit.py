@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -39,7 +40,8 @@ def test_constant_flow_smells_and_star_paths(tmp_path: Path) -> None:
         transparent_decorators=None,
     )
     analysis = analyze_paths(
-        [path],
+        forest=Forest(),
+        paths=[path],
         recursive=False,
         type_audit=False,
         type_audit_report=False,

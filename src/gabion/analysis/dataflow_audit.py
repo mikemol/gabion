@@ -76,7 +76,12 @@ from .forest_spec import (
     default_forest_spec,
     forest_spec_metadata,
 )
-from .timeout_context import build_timeout_context_from_stack, check_deadline
+from .timeout_context import (
+    build_timeout_context_from_stack,
+    check_deadline,
+    reset_forest,
+    set_forest,
+)
 from .projection_exec import apply_spec
 from .projection_normalize import spec_hash as projection_spec_hash
 from .projection_registry import (
@@ -84,7 +89,9 @@ from .projection_registry import (
     AMBIGUITY_SUITE_AGG_SPEC,
     AMBIGUITY_VIRTUAL_SET_SPEC,
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
+    LINT_FINDINGS_SPEC,
     NEVER_INVARIANTS_SPEC,
+    REPORT_SECTION_LINES_SPEC,
     SUITE_ORDER_SPEC,
     spec_metadata_lines,
 )
@@ -241,6 +248,7 @@ class AnalysisResult:
     type_callsite_evidence: list[str]
     constant_smells: list[str]
     unused_arg_smells: list[str]
+    forest: Forest
     lint_lines: list[str] = field(default_factory=list)
     deadness_witnesses: list[JSONObject] = field(default_factory=list)
     coherence_witnesses: list[JSONObject] = field(default_factory=list)
@@ -261,7 +269,6 @@ class AnalysisResult:
     value_decision_rewrites: list[str] = field(default_factory=list)
     ambiguity_witnesses: list[JSONObject] = field(default_factory=list)
     deadline_obligations: list[JSONObject] = field(default_factory=list)
-    forest: Forest | None = None
     forest_spec: ForestSpec | None = None
 
 
@@ -794,14 +801,9 @@ def analyze_decision_surfaces_repo(
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
     require_tiers: bool = False,
-    forest: Forest | None = None,
+    forest: Forest,
 ) -> tuple[list[str], list[str], list[str]]:
     check_deadline()
-    forest = require_not_none(
-        forest,
-        reason="decision surfaces require forest",
-        strict=True,
-    )
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
         project_root=project_root,
@@ -828,17 +830,16 @@ def analyze_decision_surfaces_repo(
             else f"internal callers (transitive): {caller_count}"
         )
         params = sorted(info.decision_params)
-        if forest is not None:
-            site_id = forest.add_site(info.path.name, info.qual)
-            paramset_id = forest.add_paramset(params)
-            forest.add_alt(
-                "DecisionSurface",
-                (site_id, paramset_id),
-                evidence={
-                    "meta": boundary,
-                    "boundary": boundary,
-                },
-            )
+        site_id = forest.add_site(info.path.name, info.qual)
+        paramset_id = forest.add_paramset(params)
+        forest.add_alt(
+            "DecisionSurface",
+            (site_id, paramset_id),
+            evidence={
+                "meta": boundary,
+                "boundary": boundary,
+            },
+        )
         surfaces.append(
             f"{info.path.name}:{info.qual} decision surface params: "
             + ", ".join(params)
@@ -907,14 +908,9 @@ def analyze_value_encoded_decisions_repo(
     transparent_decorators: set[str] | None = None,
     decision_tiers: dict[str, int] | None = None,
     require_tiers: bool = False,
-    forest: Forest | None = None,
+    forest: Forest,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
     check_deadline()
-    forest = require_not_none(
-        forest,
-        reason="value-encoded decisions require forest",
-        strict=True,
-    )
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
         project_root=project_root,
@@ -942,18 +938,17 @@ def analyze_value_encoded_decisions_repo(
             else f"internal callers (transitive): {caller_count}"
         )
         params = sorted(info.value_decision_params)
-        if forest is not None:
-            site_id = forest.add_site(info.path.name, info.qual)
-            paramset_id = forest.add_paramset(params)
-            forest.add_alt(
-                "ValueDecisionSurface",
-                (site_id, paramset_id),
-                evidence={
-                    "meta": reasons,
-                    "boundary": boundary,
-                    "reasons": reasons,
-                },
-            )
+        site_id = forest.add_site(info.path.name, info.qual)
+        paramset_id = forest.add_paramset(params)
+        forest.add_alt(
+            "ValueDecisionSurface",
+            (site_id, paramset_id),
+            evidence={
+                "meta": reasons,
+                "boundary": boundary,
+                "reasons": reasons,
+            },
+        )
         surfaces.append(
             f"{info.path.name}:{info.qual} value-encoded decision params: "
             + ", ".join(params)
@@ -2612,15 +2607,10 @@ def _collect_never_invariants(
     *,
     project_root: Path | None,
     ignore_params: set[str],
-    forest: Forest | None = None,
+    forest: Forest,
     deadness_witnesses: list[JSONObject] | None = None,
 ) -> list[JSONObject]:
     check_deadline()
-    forest = require_not_none(
-        forest,
-        reason="never invariants require forest",
-        strict=True,
-    )
     invariants: list[JSONObject] = []
     dead_env_map = _dead_env_map(deadness_witnesses)
     for path in paths:
@@ -3687,7 +3677,7 @@ def _collect_deadline_obligations(
     *,
     project_root: Path | None,
     config: AuditConfig,
-    forest: Forest | None = None,
+    forest: Forest,
     extra_facts_by_qual: dict[str, "_DeadlineFunctionFacts"] | None = None,
     extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
     extra_deadline_params: dict[str, set[str]] | None = None,
@@ -3695,11 +3685,6 @@ def _collect_deadline_obligations(
     check_deadline()
     if not config.deadline_roots:
         return []
-    forest = require_not_none(
-        forest,
-        reason="deadline obligations require forest",
-        strict=True,
-    )
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -3982,8 +3967,6 @@ def _collect_deadline_obligations(
         if callee:
             entry["callee"] = callee
         obligations.append(entry)
-        if forest is None:
-            return
         suite_path = Path(path).name
         suite_id = forest.add_suite_site(suite_path, function_name, suite_kind, span=span)
         paramset_id = forest.add_paramset(bundle)
@@ -5128,6 +5111,263 @@ def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
     return f"{path}:{line}:{col}: {code} {message}".strip()
 
 
+def _parse_lint_remainder(remainder: str) -> tuple[str, str]:
+    text = remainder.strip()
+    if not text:
+        return ("GABION_UNKNOWN", "")
+    head, *tail = text.split(maxsplit=1)
+    code = head.strip() or "GABION_UNKNOWN"
+    message = tail[0].strip() if tail else ""
+    return (code, message)
+
+
+def _lint_rows_from_lines(
+    lines: Iterable[str],
+    *,
+    source: str,
+) -> list[dict[str, JSONValue]]:
+    check_deadline()
+    rows: list[dict[str, JSONValue]] = []
+    for line in lines:
+        check_deadline()
+        parsed = _parse_lint_location(line)
+        if parsed is None:
+            continue
+        path, lineno, col, remainder = parsed
+        code, message = _parse_lint_remainder(remainder)
+        rows.append(
+            {
+                "path": path,
+                "line": int(lineno),
+                "col": int(col),
+                "code": code,
+                "message": message,
+                "source": source,
+            }
+        )
+    return rows
+
+
+def _materialize_lint_rows(
+    *,
+    forest: Forest,
+    rows: Iterable[Mapping[str, JSONValue]],
+) -> None:
+    check_deadline()
+    seen: set[tuple[NodeId, NodeId, str]] = set()
+    for row in rows:
+        check_deadline()
+        path = str(row.get("path", "") or "")
+        if not path:
+            continue
+        try:
+            lineno = int(row.get("line", 1) or 1)
+            col = int(row.get("col", 1) or 1)
+        except (TypeError, ValueError):
+            continue
+        code = str(row.get("code", "") or "")
+        if not code:
+            continue
+        message = str(row.get("message", "") or "")
+        source = str(row.get("source", "") or "")
+        lint_node = forest.add_node(
+            "LintFinding",
+            (
+                path,
+                lineno,
+                col,
+                code,
+                message,
+            ),
+            meta={
+                "path": path,
+                "line": lineno,
+                "col": col,
+                "code": code,
+                "message": message,
+            },
+        )
+        file_node = forest.add_file_site(path)
+        dedupe_key = (file_node, lint_node, source)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        forest.add_alt("LintFinding", (file_node, lint_node), evidence={"source": source})
+
+
+def _lint_relation_from_forest(forest: Forest) -> list[dict[str, JSONValue]]:
+    check_deadline()
+    by_identity: dict[tuple[str, int, int, str, str], set[str]] = {}
+    for alt in forest.alts:
+        check_deadline()
+        if alt.kind != "LintFinding" or len(alt.inputs) < 2:
+            continue
+        lint_node_id = alt.inputs[1]
+        if lint_node_id.kind != "LintFinding":
+            continue
+        lint_node = forest.nodes.get(lint_node_id)
+        if lint_node is None:
+            continue
+        path = str(lint_node.meta.get("path", "") or "")
+        code = str(lint_node.meta.get("code", "") or "")
+        message = str(lint_node.meta.get("message", "") or "")
+        if not path or not code:
+            continue
+        try:
+            line = int(lint_node.meta.get("line", 1) or 1)
+            col = int(lint_node.meta.get("col", 1) or 1)
+        except (TypeError, ValueError):
+            continue
+        key = (path, line, col, code, message)
+        source = str(alt.evidence.get("source", "") or "")
+        bucket = by_identity.setdefault(key, set())
+        if source:
+            bucket.add(source)
+    relation: list[dict[str, JSONValue]] = []
+    for key in sorted(by_identity):
+        check_deadline()
+        path, line, col, code, message = key
+        relation.append(
+            {
+                "path": path,
+                "line": line,
+                "col": col,
+                "code": code,
+                "message": message,
+                "sources": sorted(by_identity[key]),
+            }
+        )
+    return relation
+
+
+def _project_lint_rows_from_forest(*, forest: Forest) -> list[dict[str, JSONValue]]:
+    relation = _lint_relation_from_forest(forest)
+    if not relation:
+        return []
+    projected = apply_spec(LINT_FINDINGS_SPEC, relation)
+
+    def _row_to_file_site(row: Mapping[str, JSONValue]) -> NodeId | None:
+        path = str(row.get("path", "") or "")
+        if not path:
+            return None
+        return forest.add_file_site(path)
+
+    _materialize_projection_spec_rows(
+        spec=LINT_FINDINGS_SPEC,
+        projected=projected,
+        forest=forest,
+        row_to_site=_row_to_file_site,
+    )
+    return projected
+
+
+def _materialize_report_section_lines(
+    *,
+    forest: Forest,
+    run_id: str,
+    section: str,
+    lines: Iterable[str],
+) -> None:
+    check_deadline()
+    report_file = forest.add_file_site("<report>")
+    for idx, text in enumerate(lines):
+        check_deadline()
+        text_value = str(text)
+        line_node = forest.add_node(
+            "ReportSectionLine",
+            (run_id, section, idx, text_value),
+            meta={
+                "run_id": run_id,
+                "section": section,
+                "line_index": idx,
+                "text": text_value,
+            },
+        )
+        forest.add_alt(
+            "ReportSectionLine",
+            (report_file, line_node),
+            evidence={
+                "run_id": run_id,
+                "section": section,
+            },
+        )
+
+
+def _report_section_line_relation(
+    *,
+    forest: Forest,
+    run_id: str,
+    section: str,
+) -> list[dict[str, JSONValue]]:
+    check_deadline()
+    relation: list[dict[str, JSONValue]] = []
+    for alt in forest.alts:
+        check_deadline()
+        if alt.kind != "ReportSectionLine" or len(alt.inputs) < 2:
+            continue
+        if str(alt.evidence.get("run_id", "") or "") != run_id:
+            continue
+        if str(alt.evidence.get("section", "") or "") != section:
+            continue
+        node_id = alt.inputs[1]
+        if node_id.kind != "ReportSectionLine":
+            continue
+        node = forest.nodes.get(node_id)
+        if node is None:
+            continue
+        node_run_id = str(node.meta.get("run_id", "") or "")
+        node_section = str(node.meta.get("section", "") or "")
+        if node_run_id != run_id or node_section != section:
+            continue
+        try:
+            line_index = int(node.meta.get("line_index", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+        relation.append(
+            {
+                "section": section,
+                "line_index": line_index,
+                "text": str(node.meta.get("text", "") or ""),
+            }
+        )
+    return relation
+
+
+def _project_report_section_lines(
+    *,
+    forest: Forest,
+    run_id: str,
+    section: str,
+    lines: Iterable[str],
+) -> list[str]:
+    check_deadline()
+    _materialize_report_section_lines(
+        forest=forest,
+        run_id=run_id,
+        section=section,
+        lines=lines,
+    )
+    relation = _report_section_line_relation(
+        forest=forest,
+        run_id=run_id,
+        section=section,
+    )
+    if not relation:
+        return []
+    projected = apply_spec(REPORT_SECTION_LINES_SPEC, relation)
+    _materialize_projection_spec_rows(
+        spec=REPORT_SECTION_LINES_SPEC,
+        projected=projected,
+        forest=forest,
+        row_to_site=lambda _row: forest.add_file_site("<report>"),
+    )
+    rendered: list[str] = []
+    for row in projected:
+        check_deadline()
+        rendered.append(str(row.get("text", "") or ""))
+    return rendered
+
+
 def _decision_param_lint_line(
     info: "FunctionInfo",
     param: str,
@@ -5332,14 +5572,9 @@ def _emit_call_ambiguities(
     ambiguities: Iterable[CallAmbiguity],
     *,
     project_root: Path | None,
-    forest: Forest | None,
+    forest: Forest,
 ) -> list[JSONObject]:
     check_deadline()
-    forest = require_not_none(
-        forest,
-        reason="call ambiguities require forest",
-        strict=True,
-    )
     entries: list[JSONObject] = []
     for entry in ambiguities:
         check_deadline()
@@ -5622,12 +5857,12 @@ def _forbid_adhoc_bundle_discovery(reason: str) -> None:
 
 def _collect_bundle_evidence_lines(
     *,
-    forest: Forest | None,
+    forest: Forest,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
 ) -> list[str]:
     check_deadline()
-    if not groups_by_path or not _has_bundles(groups_by_path) or forest is None:
+    if not groups_by_path or not _has_bundles(groups_by_path):
         return []
     file_paths = sorted(groups_by_path)
     projection = _bundle_projection_from_forest(forest, file_paths=file_paths)
@@ -5767,7 +6002,7 @@ def _populate_bundle_forest(
 # dataflow-bundle: decision_lint_lines, broad_type_lint_lines
 def _compute_lint_lines(
     *,
-    forest: Forest | None,
+    forest: Forest,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]],
     type_callsite_evidence: list[str],
@@ -5780,28 +6015,72 @@ def _compute_lint_lines(
     constant_smells: list[str],
     unused_arg_smells: list[str],
 ) -> list[str]:
-    forest = require_not_none(
-        forest,
-        reason="lint lines require forest",
-        strict=True,
-    )
-    lint_lines: list[str] = []
     bundle_evidence = _collect_bundle_evidence_lines(
         forest=forest,
         groups_by_path=groups_by_path,
         bundle_sites_by_path=bundle_sites_by_path,
     )
-    lint_lines.extend(_lint_lines_from_bundle_evidence(bundle_evidence))
-    lint_lines.extend(_lint_lines_from_type_evidence(type_callsite_evidence))
-    lint_lines.extend(_lint_lines_from_call_ambiguities(ambiguity_witnesses))
-    lint_lines.extend(_exception_protocol_lint_lines(exception_obligations))
-    lint_lines.extend(_never_invariant_lint_lines(never_invariants))
-    lint_lines.extend(_deadline_lint_lines(deadline_obligations))
-    lint_lines.extend(decision_lint_lines)
-    lint_lines.extend(broad_type_lint_lines)
-    lint_lines.extend(_lint_lines_from_constant_smells(constant_smells))
-    lint_lines.extend(_lint_lines_from_unused_arg_smells(unused_arg_smells))
-    return sorted(set(lint_lines))
+    bundle_lint_lines = _lint_lines_from_bundle_evidence(bundle_evidence)
+    type_lint_lines = _lint_lines_from_type_evidence(type_callsite_evidence)
+    ambiguity_lint_lines = _lint_lines_from_call_ambiguities(ambiguity_witnesses)
+    exception_lint_lines = _exception_protocol_lint_lines(exception_obligations)
+    never_lint_lines = _never_invariant_lint_lines(never_invariants)
+    deadline_lint_lines = _deadline_lint_lines(deadline_obligations)
+    constant_lint_lines = _lint_lines_from_constant_smells(constant_smells)
+    unused_arg_lint_lines = _lint_lines_from_unused_arg_smells(unused_arg_smells)
+
+    lint_rows: list[dict[str, JSONValue]] = []
+    lint_rows.extend(
+        _lint_rows_from_lines(bundle_lint_lines, source="bundle_evidence")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(type_lint_lines, source="type_evidence")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(ambiguity_lint_lines, source="ambiguity_witnesses")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(exception_lint_lines, source="exception_obligations")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(never_lint_lines, source="never_invariants")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(deadline_lint_lines, source="deadline_obligations")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(decision_lint_lines, source="decision_surfaces")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(broad_type_lint_lines, source="broad_type")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(constant_lint_lines, source="constant_smells")
+    )
+    lint_rows.extend(
+        _lint_rows_from_lines(unused_arg_lint_lines, source="unused_arg_smells")
+    )
+
+    _materialize_lint_rows(forest=forest, rows=lint_rows)
+    projected = _project_lint_rows_from_forest(forest=forest)
+    if not projected:
+        return []
+
+    rendered: list[str] = []
+    for row in projected:
+        check_deadline()
+        path = str(row.get("path", "") or "")
+        code = str(row.get("code", "") or "")
+        message = str(row.get("message", "") or "")
+        if not path or not code:
+            continue
+        try:
+            line = int(row.get("line", 1) or 1)
+            col = int(row.get("col", 1) or 1)
+        except (TypeError, ValueError):
+            continue
+        rendered.append(_lint_line(path, line, col, code, message))
+    return rendered
 
 
 def _summarize_handledness_witnesses(
@@ -8399,9 +8678,9 @@ def _bundle_site_index(
     return index
 
 
-def _emit_dot(forest: Forest | None) -> str:
+def _emit_dot(forest: Forest) -> str:
     check_deadline()
-    if forest is None:
+    if not isinstance(forest, Forest):
         raise RuntimeError("forest required for dataflow dot output")
     projection = _bundle_projection_from_forest(forest, file_paths=[])
     lines = [
@@ -8695,6 +8974,16 @@ def _emit_report(
         "Dataflow grammar audit (observed forwarding bundles).",
         "",
     ]
+    report_run_id = f"report_{len(forest.nodes)}_{len(forest.alts)}"
+
+    def _projected(section_id: str, values: Iterable[str]) -> list[str]:
+        return _project_report_section_lines(
+            forest=forest,
+            run_id=report_run_id,
+            section=section_id,
+            lines=values,
+        )
+
     violations: list[str] = []
     if not components:
         lines.append("No bundle components detected.")
@@ -8716,11 +9005,11 @@ def _emit_report(
                 projection.declared_by_path,
                 projection.documented_by_path,
             )
-            lines.append(mermaid)
+            lines.extend(_projected(f"component_{idx}_mermaid", mermaid.splitlines()))
             lines.append("")
             lines.append("Summary:")
             lines.append("```")
-            lines.append(summary)
+            lines.extend(_projected(f"component_{idx}_summary", summary.splitlines()))
             lines.append("```")
             lines.append("")
             if bundle_sites_by_path:
@@ -8739,7 +9028,7 @@ def _emit_report(
                 if evidence:
                     lines.append("Callsite evidence (undocumented bundles):")
                     lines.append("```")
-                    lines.extend(evidence)
+                    lines.extend(_projected(f"component_{idx}_callsite_evidence", evidence))
                     lines.append("```")
                     lines.append("")
             for line in summary.splitlines():
@@ -8774,90 +9063,91 @@ def _emit_report(
     if violations:
         lines.append("Violations:")
         lines.append("```")
-        lines.extend(violations)
+        lines.extend(_projected("violations", violations))
         lines.append("```")
     if type_suggestions or type_ambiguities:
         lines.append("Type-flow audit:")
         if type_suggestions or type_ambiguities:
-            lines.append(_render_type_mermaid(type_suggestions or [], type_ambiguities or []))
+            type_mermaid = _render_type_mermaid(type_suggestions or [], type_ambiguities or [])
+            lines.extend(_projected("type_flow_mermaid", type_mermaid.splitlines()))
         if type_suggestions:
             lines.append("Type tightening candidates:")
             lines.append("```")
-            lines.extend(type_suggestions)
+            lines.extend(_projected("type_suggestions", type_suggestions))
             lines.append("```")
         if type_ambiguities:
             lines.append("Type ambiguities (conflicting downstream expectations):")
             lines.append("```")
-            lines.extend(type_ambiguities)
+            lines.extend(_projected("type_ambiguities", type_ambiguities))
             lines.append("```")
         if type_callsite_evidence:
             lines.append("Type-flow callsite evidence:")
             lines.append("```")
-            lines.extend(type_callsite_evidence)
+            lines.extend(_projected("type_callsite_evidence", type_callsite_evidence))
             lines.append("```")
     if constant_smells:
         lines.append("Constant-propagation smells (non-test call sites):")
         lines.append("```")
-        lines.extend(constant_smells)
+        lines.extend(_projected("constant_smells", constant_smells))
         lines.append("```")
     if unused_arg_smells:
         lines.append("Unused-argument smells (non-test call sites):")
         lines.append("```")
-        lines.extend(unused_arg_smells)
+        lines.extend(_projected("unused_arg_smells", unused_arg_smells))
         lines.append("```")
     if deadness_witnesses:
         summary = _summarize_deadness_witnesses(deadness_witnesses)
         if summary:
             lines.append("Deadness evidence:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("deadness_summary", summary))
             lines.append("```")
     if coherence_witnesses:
         summary = _summarize_coherence_witnesses(coherence_witnesses)
         if summary:
             lines.append("Coherence evidence:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("coherence_summary", summary))
             lines.append("```")
     if rewrite_plans:
         summary = _summarize_rewrite_plans(rewrite_plans)
         if summary:
             lines.append("Rewrite plans:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("rewrite_plans_summary", summary))
             lines.append("```")
     if never_invariants:
         summary = _summarize_never_invariants(never_invariants)
         if summary:
             lines.append("Never invariants:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("never_invariants_summary", summary))
             lines.append("```")
     if ambiguity_witnesses:
         summary = _summarize_call_ambiguities(ambiguity_witnesses)
         if summary:
             lines.append("Ambiguities:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("ambiguity_summary", summary))
             lines.append("```")
     if exception_obligations:
         summary = _summarize_exception_obligations(exception_obligations)
         if summary:
             lines.append("Exception obligations:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("exception_obligations_summary", summary))
             lines.append("```")
         protocol_evidence = _exception_protocol_evidence(exception_obligations)
         if protocol_evidence:
             lines.append("Exception protocol evidence:")
             lines.append("```")
-            lines.extend(protocol_evidence)
+            lines.extend(_projected("exception_protocol_evidence", protocol_evidence))
             lines.append("```")
         protocol_warnings = _exception_protocol_warnings(exception_obligations)
         if protocol_warnings:
             lines.append("Exception protocol violations:")
             lines.append("```")
-            lines.extend(protocol_warnings)
+            lines.extend(_projected("exception_protocol_warnings", protocol_warnings))
             lines.append("```")
             violations.extend(protocol_warnings)
     if handledness_witnesses:
@@ -8865,7 +9155,7 @@ def _emit_report(
         if summary:
             lines.append("Handledness evidence:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("handledness_summary", summary))
             lines.append("```")
     if deadline_obligations:
         summary = _summarize_deadline_obligations(
@@ -8875,67 +9165,73 @@ def _emit_report(
         if summary:
             lines.append("Deadline propagation:")
             lines.append("```")
-            lines.extend(summary)
+            lines.extend(_projected("deadline_summary", summary))
             lines.append("```")
     if decision_surfaces:
         lines.append("Decision surface candidates (direct param use in conditionals):")
         lines.append("```")
-        lines.extend(decision_surfaces)
+        lines.extend(_projected("decision_surfaces", decision_surfaces))
         lines.append("```")
     if value_decision_surfaces:
         lines.append("Value-encoded decision surface candidates (branchless control):")
         lines.append("```")
-        lines.extend(value_decision_surfaces)
+        lines.extend(_projected("value_decision_surfaces", value_decision_surfaces))
         lines.append("```")
     if value_decision_rewrites:
         lines.append("Value-encoded decision rebranch suggestions:")
         lines.append("```")
-        lines.extend(value_decision_rewrites)
+        lines.extend(_projected("value_decision_rewrites", value_decision_rewrites))
         lines.append("```")
     if decision_warnings:
         lines.append("Decision tier warnings:")
         lines.append("```")
-        lines.extend(decision_warnings)
+        lines.extend(_projected("decision_warnings", decision_warnings))
         lines.append("```")
         violations.extend(decision_warnings)
     if fingerprint_warnings:
         lines.append("Fingerprint warnings:")
         lines.append("```")
-        lines.extend(fingerprint_warnings)
+        lines.extend(_projected("fingerprint_warnings", fingerprint_warnings))
         lines.append("```")
         violations.extend(fingerprint_warnings)
     if fingerprint_matches:
         lines.append("Fingerprint matches:")
         lines.append("```")
-        lines.extend(fingerprint_matches)
+        lines.extend(_projected("fingerprint_matches", fingerprint_matches))
         lines.append("```")
     if fingerprint_synth:
         lines.append("Fingerprint synthesis:")
         lines.append("```")
-        lines.extend(fingerprint_synth)
+        lines.extend(_projected("fingerprint_synthesis", fingerprint_synth))
         lines.append("```")
     if fingerprint_provenance:
         provenance_summary = _summarize_fingerprint_provenance(fingerprint_provenance)
         if provenance_summary:
             lines.append("Packed derivation view (ASPF provenance):")
             lines.append("```")
-            lines.extend(provenance_summary)
+            lines.extend(_projected("fingerprint_provenance_summary", provenance_summary))
             lines.append("```")
     if invariant_propositions:
         lines.append("Invariant propositions:")
         lines.append("```")
-        lines.extend(_format_invariant_propositions(invariant_propositions))
+        lines.extend(
+            _projected(
+                "invariant_propositions",
+                _format_invariant_propositions(invariant_propositions),
+            )
+        )
         lines.append("```")
     if context_suggestions:
         lines.append("Contextvar/ambient rewrite suggestions:")
         lines.append("```")
-        lines.extend(context_suggestions)
+        lines.extend(_projected("context_suggestions", context_suggestions))
         lines.append("```")
     schema_surfaces = find_anonymous_schema_surfaces(file_paths, project_root=root)
     if schema_surfaces:
         lines.append("Anonymous schema surfaces (dict[str, object] payloads):")
         lines.append("```")
-        lines.extend(surface.format() for surface in schema_surfaces[:50])
+        schema_lines = [surface.format() for surface in schema_surfaces[:50]]
+        lines.extend(_projected("schema_surfaces", schema_lines))
         if len(schema_surfaces) > 50:
             lines.append(f"... {len(schema_surfaces) - 50} more")
         lines.append("```")
@@ -8971,14 +9267,11 @@ def load_structure_snapshot(path: Path) -> JSONObject:
 def compute_structure_metrics(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
-    forest: Forest | None = None,
+    forest: Forest,
 ) -> JSONObject:
     check_deadline()
-    forest = require_not_none(
-        forest,
-        reason="structure metrics require forest",
-        strict=True,
-    )
+    if forest is None:
+        never("structure metrics require forest")
     file_count = len(groups_by_path)
     function_count = sum(len(groups) for groups in groups_by_path.values())
     bundle_sizes: list[int] = []
@@ -9048,16 +9341,13 @@ def render_structure_snapshot(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     *,
     project_root: Path | None = None,
-    forest: Forest | None = None,
+    forest: Forest,
     forest_spec: ForestSpec | None = None,
     invariant_propositions: list[InvariantProposition] | None = None,
 ) -> JSONObject:
     check_deadline()
-    forest = require_not_none(
-        forest,
-        reason="structure snapshot requires forest",
-        strict=True,
-    )
+    if forest is None:
+        never("structure snapshot requires forest")
     root = project_root or _infer_root(groups_by_path)
     invariant_map: dict[tuple[str, str], list[InvariantProposition]] = {}
     if invariant_propositions:
@@ -9114,14 +9404,11 @@ def render_decision_snapshot(
     decision_surfaces: list[str],
     value_decision_surfaces: list[str],
     project_root: Path | None = None,
-    forest: Forest | None = None,
+    forest: Forest,
     forest_spec: ForestSpec | None = None,
 ) -> JSONObject:
-    forest = require_not_none(
-        forest,
-        reason="decision snapshot requires forest",
-        strict=True,
-    )
+    if forest is None:
+        never("decision snapshot requires forest")
     snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
@@ -9135,7 +9422,7 @@ def render_decision_snapshot(
     snapshot["forest"] = forest.to_json()
     snapshot["forest_signature"] = build_forest_signature(forest)
     spec = forest_spec or default_forest_spec(
-        include_bundle_forest=forest is not None,
+        include_bundle_forest=True,
         include_decision_surfaces=True,
         include_value_decision_surfaces=True,
     )
@@ -10226,7 +10513,7 @@ def apply_baseline(
     return _apply_baseline(violations, baseline_allowlist)
 
 
-def render_dot(forest: Forest | None) -> str:
+def render_dot(forest: Forest) -> str:
     return _emit_dot(forest)
 
 
@@ -10315,6 +10602,7 @@ def compute_violations(
 def analyze_paths(
     paths: list[Path],
     *,
+    forest: Forest,
     recursive: bool,
     type_audit: bool,
     type_audit_report: bool,
@@ -10337,174 +10625,192 @@ def analyze_paths(
     config: AuditConfig | None = None,
 ) -> AnalysisResult:
     check_deadline()
-    if config is None:
-        config = AuditConfig()
-    file_paths = _iter_paths([str(p) for p in paths], config)
-    groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
-    param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
-    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = {}
-    invariant_propositions: list[InvariantProposition] = []
-    forest: Forest | None = None
-    forest_spec: ForestSpec | None = None
-    ambiguity_witnesses: list[JSONObject] = []
+    forest_token = set_forest(forest)
+    try:
+        if config is None:
+            config = AuditConfig()
+        file_paths = _iter_paths([str(p) for p in paths], config)
+        groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+        param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
+        bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = {}
+        invariant_propositions: list[InvariantProposition] = []
+        forest_spec: ForestSpec | None = None
+        ambiguity_witnesses: list[JSONObject] = []
 
-    def _deadline_check(*, allow_frame_fallback: bool) -> None:
-        forest_spec_id = None
-        if forest_spec is not None:
-            forest_spec_id = forest_spec_metadata(forest_spec).get(
-                "generated_by_forest_spec_id"
-            )
-        check_deadline(
-            forest=forest,
-            project_root=config.project_root,
-            forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
-            allow_frame_fallback=allow_frame_fallback,
-        )
-
-    for path in file_paths:
-        check_deadline()
-        _deadline_check(allow_frame_fallback=True)
-        groups, spans, sites = _analyze_file_internal(
-            path, recursive=recursive, config=config
-        )
-        groups_by_path[path] = groups
-        param_spans_by_path[path] = spans
-        bundle_sites_by_path[path] = sites
-        if include_invariant_propositions:
-            invariant_propositions.extend(
-                _collect_invariant_propositions(
-                    path,
-                    ignore_params=config.ignore_params,
-                    project_root=config.project_root,
-                    emitters=config.invariant_emitters,
+        def _deadline_check(*, allow_frame_fallback: bool) -> None:
+            forest_spec_id = None
+            if forest_spec is not None:
+                forest_spec_id = forest_spec_metadata(forest_spec).get(
+                    "generated_by_forest_spec_id"
                 )
+            check_deadline(
+                project_root=config.project_root,
+                forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
+                allow_frame_fallback=allow_frame_fallback,
             )
 
-    if (
-        include_bundle_forest
-        or include_decision_surfaces
-        or include_value_decision_surfaces
-        or include_lint_lines
-        or include_never_invariants
-        or include_deadline_obligations
-        or include_ambiguities
-    ):
-        forest = Forest()
-        _populate_bundle_forest(
-            forest,
-            groups_by_path=groups_by_path,
-            file_paths=file_paths,
-            project_root=config.project_root,
-            include_all_sites=True,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            transparent_decorators=config.transparent_decorators,
-        )
-        forest_spec = build_forest_spec(
-            include_bundle_forest=True,
-            include_decision_surfaces=include_decision_surfaces,
-            include_value_decision_surfaces=include_value_decision_surfaces,
-            include_never_invariants=include_never_invariants,
-            include_ambiguities=include_ambiguities,
-            include_deadline_obligations=include_deadline_obligations,
-            include_all_sites=True,
-            ignore_params=config.ignore_params,
-            decision_ignore_params=config.decision_ignore_params
-            or config.ignore_params,
-            transparent_decorators=config.transparent_decorators,
-            strictness=config.strictness,
-            decision_tiers=config.decision_tiers,
-            require_tiers=config.decision_require_tiers,
-            external_filter=config.external_filter,
-        )
-        _deadline_check(allow_frame_fallback=False)
-    if include_ambiguities:
-        _deadline_check(allow_frame_fallback=False)
-        call_ambiguities = _collect_call_ambiguities(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-        )
-        ambiguity_witnesses = _emit_call_ambiguities(
-            call_ambiguities,
-            project_root=config.project_root,
-            forest=forest,
-        )
-        if forest is not None:
+        for path in file_paths:
+            check_deadline()
+            _deadline_check(allow_frame_fallback=True)
+            groups, spans, sites = _analyze_file_internal(
+                path, recursive=recursive, config=config
+            )
+            groups_by_path[path] = groups
+            param_spans_by_path[path] = spans
+            bundle_sites_by_path[path] = sites
+            if include_invariant_propositions:
+                invariant_propositions.extend(
+                    _collect_invariant_propositions(
+                        path,
+                        ignore_params=config.ignore_params,
+                        project_root=config.project_root,
+                        emitters=config.invariant_emitters,
+                    )
+                )
+
+        if (
+            include_bundle_forest
+            or include_decision_surfaces
+            or include_value_decision_surfaces
+            or include_lint_lines
+            or include_never_invariants
+            or include_deadline_obligations
+            or include_ambiguities
+        ):
+            _populate_bundle_forest(
+                forest,
+                groups_by_path=groups_by_path,
+                file_paths=file_paths,
+                project_root=config.project_root,
+                include_all_sites=True,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                transparent_decorators=config.transparent_decorators,
+            )
+            forest_spec = build_forest_spec(
+                include_bundle_forest=True,
+                include_decision_surfaces=include_decision_surfaces,
+                include_value_decision_surfaces=include_value_decision_surfaces,
+                include_never_invariants=include_never_invariants,
+                include_ambiguities=include_ambiguities,
+                include_deadline_obligations=include_deadline_obligations,
+                include_lint_findings=include_lint_lines,
+                include_all_sites=True,
+                ignore_params=config.ignore_params,
+                decision_ignore_params=config.decision_ignore_params
+                or config.ignore_params,
+                transparent_decorators=config.transparent_decorators,
+                strictness=config.strictness,
+                decision_tiers=config.decision_tiers,
+                require_tiers=config.decision_require_tiers,
+                external_filter=config.external_filter,
+            )
+            _deadline_check(allow_frame_fallback=False)
+        if include_ambiguities:
+            _deadline_check(allow_frame_fallback=False)
+            call_ambiguities = _collect_call_ambiguities(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                external_filter=config.external_filter,
+                transparent_decorators=config.transparent_decorators,
+            )
+            ambiguity_witnesses = _emit_call_ambiguities(
+                call_ambiguities,
+                project_root=config.project_root,
+                forest=forest,
+            )
             _materialize_ambiguity_suite_agg_spec(forest=forest)
             _materialize_ambiguity_virtual_set_spec(forest=forest)
 
-    type_suggestions: list[str] = []
-    type_ambiguities: list[str] = []
-    type_callsite_evidence: list[str] = []
-    if type_audit or type_audit_report:
-        _deadline_check(allow_frame_fallback=False)
-        type_suggestions, type_ambiguities, type_callsite_evidence = analyze_type_flow_repo_with_evidence(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-        )
-        if type_audit_report:
-            type_suggestions = type_suggestions[:type_audit_max]
-            type_ambiguities = type_ambiguities[:type_audit_max]
-            # Trim evidence opportunistically so reports remain reviewable.
-            type_callsite_evidence = type_callsite_evidence[:type_audit_max]
+        type_suggestions: list[str] = []
+        type_ambiguities: list[str] = []
+        type_callsite_evidence: list[str] = []
+        if type_audit or type_audit_report:
+            _deadline_check(allow_frame_fallback=False)
+            type_suggestions, type_ambiguities, type_callsite_evidence = analyze_type_flow_repo_with_evidence(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                external_filter=config.external_filter,
+                transparent_decorators=config.transparent_decorators,
+            )
+            if type_audit_report:
+                type_suggestions = type_suggestions[:type_audit_max]
+                type_ambiguities = type_ambiguities[:type_audit_max]
+                # Trim evidence opportunistically so reports remain reviewable.
+                type_callsite_evidence = type_callsite_evidence[:type_audit_max]
 
-    constant_smells: list[str] = []
-    if include_constant_smells:
-        constant_smells = analyze_constant_flow_repo(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-        )
+        constant_smells: list[str] = []
+        if include_constant_smells:
+            constant_smells = analyze_constant_flow_repo(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                external_filter=config.external_filter,
+                transparent_decorators=config.transparent_decorators,
+            )
 
-    unused_arg_smells: list[str] = []
-    if include_unused_arg_smells:
-        unused_arg_smells = analyze_unused_arg_flow_repo(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-        )
+        unused_arg_smells: list[str] = []
+        if include_unused_arg_smells:
+            unused_arg_smells = analyze_unused_arg_flow_repo(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                external_filter=config.external_filter,
+                transparent_decorators=config.transparent_decorators,
+            )
 
-    deadline_obligations: list[JSONObject] = []
-    if include_deadline_obligations:
-        deadline_obligations = _collect_deadline_obligations(
-            file_paths,
-            project_root=config.project_root,
-            config=config,
-            forest=forest,
-        )
-        if forest is not None:
+        deadline_obligations: list[JSONObject] = []
+        if include_deadline_obligations:
+            deadline_obligations = _collect_deadline_obligations(
+                file_paths,
+                project_root=config.project_root,
+                config=config,
+                forest=forest,
+            )
             _materialize_suite_order_spec(forest=forest)
-    deadness_witnesses: list[JSONObject] = []
-    if include_deadness_witnesses:
-        deadness_witnesses = analyze_deadness_flow_repo(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-        )
+        deadness_witnesses: list[JSONObject] = []
+        if include_deadness_witnesses:
+            deadness_witnesses = analyze_deadness_flow_repo(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                external_filter=config.external_filter,
+                transparent_decorators=config.transparent_decorators,
+            )
 
-    decision_surfaces: list[str] = []
-    decision_warnings: list[str] = []
-    decision_lint_lines: list[str] = []
-    if include_decision_surfaces:
-        decision_surfaces, decision_warnings, decision_lint_lines = (
-            analyze_decision_surfaces_repo(
+        decision_surfaces: list[str] = []
+        decision_warnings: list[str] = []
+        decision_lint_lines: list[str] = []
+        if include_decision_surfaces:
+            decision_surfaces, decision_warnings, decision_lint_lines = (
+                analyze_decision_surfaces_repo(
+                    file_paths,
+                    project_root=config.project_root,
+                    ignore_params=config.decision_ignore_params or config.ignore_params,
+                    strictness=config.strictness,
+                    external_filter=config.external_filter,
+                    transparent_decorators=config.transparent_decorators,
+                    decision_tiers=config.decision_tiers,
+                    require_tiers=config.decision_require_tiers,
+                    forest=forest,
+                )
+            )
+        value_decision_surfaces: list[str] = []
+        value_decision_rewrites: list[str] = []
+        if include_value_decision_surfaces:
+            (
+                value_decision_surfaces,
+                value_warnings,
+                value_decision_rewrites,
+                value_lint_lines,
+            ) = analyze_value_encoded_decisions_repo(
                 file_paths,
                 project_root=config.project_root,
                 ignore_params=config.decision_ignore_params or config.ignore_params,
@@ -10515,177 +10821,159 @@ def analyze_paths(
                 require_tiers=config.decision_require_tiers,
                 forest=forest,
             )
+            decision_warnings.extend(value_warnings)
+            decision_lint_lines.extend(value_lint_lines)
+        fingerprint_warnings: list[str] = []
+        fingerprint_matches: list[str] = []
+        fingerprint_synth: list[str] = []
+        fingerprint_synth_registry: JSONObject | None = None
+        fingerprint_provenance: list[JSONObject] = []
+        coherence_witnesses: list[JSONObject] = []
+        rewrite_plans: list[JSONObject] = []
+        exception_obligations: list[JSONObject] = []
+        never_invariants: list[JSONObject] = []
+        handledness_witnesses: list[JSONObject] = []
+        need_exception_obligations = include_exception_obligations or (
+            include_lint_lines and bool(config.never_exceptions)
         )
-    value_decision_surfaces: list[str] = []
-    value_decision_rewrites: list[str] = []
-    if include_value_decision_surfaces:
-        (
-            value_decision_surfaces,
-            value_warnings,
-            value_decision_rewrites,
-            value_lint_lines,
-        ) = analyze_value_encoded_decisions_repo(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.decision_ignore_params or config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-            decision_tiers=config.decision_tiers,
-            require_tiers=config.decision_require_tiers,
-            forest=forest,
-        )
-        decision_warnings.extend(value_warnings)
-        decision_lint_lines.extend(value_lint_lines)
-    fingerprint_warnings: list[str] = []
-    fingerprint_matches: list[str] = []
-    fingerprint_synth: list[str] = []
-    fingerprint_synth_registry: JSONObject | None = None
-    fingerprint_provenance: list[JSONObject] = []
-    coherence_witnesses: list[JSONObject] = []
-    rewrite_plans: list[JSONObject] = []
-    exception_obligations: list[JSONObject] = []
-    never_invariants: list[JSONObject] = []
-    handledness_witnesses: list[JSONObject] = []
-    need_exception_obligations = include_exception_obligations or (
-        include_lint_lines and bool(config.never_exceptions)
-    )
-    if need_exception_obligations or include_handledness_witnesses:
-        handledness_witnesses = _collect_handledness_witnesses(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-        )
-    if need_exception_obligations:
-        exception_obligations = _collect_exception_obligations(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            handledness_witnesses=handledness_witnesses,
-            deadness_witnesses=deadness_witnesses,
-            never_exceptions=config.never_exceptions,
-        )
-    if include_never_invariants:
-        never_invariants = _collect_never_invariants(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            forest=forest,
-            deadness_witnesses=deadness_witnesses,
-        )
-    if config.fingerprint_registry is not None and config.fingerprint_index:
-        annotations_by_path = _param_annotations_by_path(
-            file_paths,
-            ignore_params=config.ignore_params,
-        )
-        fingerprint_warnings = _compute_fingerprint_warnings(
-            groups_by_path,
-            annotations_by_path,
-            registry=config.fingerprint_registry,
-            index=config.fingerprint_index,
-            ctor_registry=config.constructor_registry,
-        )
-        fingerprint_matches = _compute_fingerprint_matches(
-            groups_by_path,
-            annotations_by_path,
-            registry=config.fingerprint_registry,
-            index=config.fingerprint_index,
-            ctor_registry=config.constructor_registry,
-        )
-        fingerprint_provenance = _compute_fingerprint_provenance(
-            groups_by_path,
-            annotations_by_path,
-            registry=config.fingerprint_registry,
-            project_root=config.project_root,
-            index=config.fingerprint_index,
-            ctor_registry=config.constructor_registry,
-        )
-        fingerprint_synth, fingerprint_synth_registry = _compute_fingerprint_synth(
-            groups_by_path,
-            annotations_by_path,
-            registry=config.fingerprint_registry,
-            ctor_registry=config.constructor_registry,
-            min_occurrences=config.fingerprint_synth_min_occurrences,
-            version=config.fingerprint_synth_version,
-            existing=config.fingerprint_synth_registry,
-        )
-        if include_coherence_witnesses:
-            coherence_witnesses = _compute_fingerprint_coherence(
-                fingerprint_provenance,
-                synth_version=config.fingerprint_synth_version,
+        if need_exception_obligations or include_handledness_witnesses:
+            handledness_witnesses = _collect_handledness_witnesses(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
             )
-        if include_rewrite_plans:
-            rewrite_plans = _compute_fingerprint_rewrite_plans(
-                fingerprint_provenance,
-                coherence_witnesses,
-                synth_version=config.fingerprint_synth_version,
-                exception_obligations=(
-                    exception_obligations if include_exception_obligations else None
-                ),
+        if need_exception_obligations:
+            exception_obligations = _collect_exception_obligations(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                handledness_witnesses=handledness_witnesses,
+                deadness_witnesses=deadness_witnesses,
+                never_exceptions=config.never_exceptions,
             )
-    context_suggestions: list[str] = []
-    if decision_surfaces:
-        for entry in decision_surfaces:
-            check_deadline()
-            if "(internal callers" in entry:
-                context_suggestions.append(f"Consider contextvar for {entry}")
-    lint_lines: list[str] = []
-    if include_lint_lines:
-        broad_type_lint_lines = _internal_broad_type_lint_lines(
-            file_paths,
-            project_root=config.project_root,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            external_filter=config.external_filter,
-            transparent_decorators=config.transparent_decorators,
-        )
-        lint_lines = _compute_lint_lines(
-            forest=forest,
+        if include_never_invariants:
+            never_invariants = _collect_never_invariants(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                forest=forest,
+                deadness_witnesses=deadness_witnesses,
+            )
+        if config.fingerprint_registry is not None and config.fingerprint_index:
+            annotations_by_path = _param_annotations_by_path(
+                file_paths,
+                ignore_params=config.ignore_params,
+            )
+            fingerprint_warnings = _compute_fingerprint_warnings(
+                groups_by_path,
+                annotations_by_path,
+                registry=config.fingerprint_registry,
+                index=config.fingerprint_index,
+                ctor_registry=config.constructor_registry,
+            )
+            fingerprint_matches = _compute_fingerprint_matches(
+                groups_by_path,
+                annotations_by_path,
+                registry=config.fingerprint_registry,
+                index=config.fingerprint_index,
+                ctor_registry=config.constructor_registry,
+            )
+            fingerprint_provenance = _compute_fingerprint_provenance(
+                groups_by_path,
+                annotations_by_path,
+                registry=config.fingerprint_registry,
+                project_root=config.project_root,
+                index=config.fingerprint_index,
+                ctor_registry=config.constructor_registry,
+            )
+            fingerprint_synth, fingerprint_synth_registry = _compute_fingerprint_synth(
+                groups_by_path,
+                annotations_by_path,
+                registry=config.fingerprint_registry,
+                ctor_registry=config.constructor_registry,
+                min_occurrences=config.fingerprint_synth_min_occurrences,
+                version=config.fingerprint_synth_version,
+                existing=config.fingerprint_synth_registry,
+            )
+            if include_coherence_witnesses:
+                coherence_witnesses = _compute_fingerprint_coherence(
+                    fingerprint_provenance,
+                    synth_version=config.fingerprint_synth_version,
+                )
+            if include_rewrite_plans:
+                rewrite_plans = _compute_fingerprint_rewrite_plans(
+                    fingerprint_provenance,
+                    coherence_witnesses,
+                    synth_version=config.fingerprint_synth_version,
+                    exception_obligations=(
+                        exception_obligations if include_exception_obligations else None
+                    ),
+                )
+        context_suggestions: list[str] = []
+        if decision_surfaces:
+            for entry in decision_surfaces:
+                check_deadline()
+                if "(internal callers" in entry:
+                    context_suggestions.append(f"Consider contextvar for {entry}")
+        lint_lines: list[str] = []
+        if include_lint_lines:
+            broad_type_lint_lines = _internal_broad_type_lint_lines(
+                file_paths,
+                project_root=config.project_root,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                external_filter=config.external_filter,
+                transparent_decorators=config.transparent_decorators,
+            )
+            lint_lines = _compute_lint_lines(
+                forest=forest,
+                groups_by_path=groups_by_path,
+                bundle_sites_by_path=bundle_sites_by_path,
+                type_callsite_evidence=type_callsite_evidence,
+                ambiguity_witnesses=ambiguity_witnesses,
+                exception_obligations=exception_obligations,
+                never_invariants=never_invariants,
+                deadline_obligations=deadline_obligations,
+                decision_lint_lines=decision_lint_lines,
+                broad_type_lint_lines=broad_type_lint_lines,
+                constant_smells=constant_smells,
+                unused_arg_smells=unused_arg_smells,
+            )
+
+        return AnalysisResult(
             groups_by_path=groups_by_path,
+            param_spans_by_path=param_spans_by_path,
             bundle_sites_by_path=bundle_sites_by_path,
+            type_suggestions=type_suggestions,
+            type_ambiguities=type_ambiguities,
             type_callsite_evidence=type_callsite_evidence,
-            ambiguity_witnesses=ambiguity_witnesses,
-            exception_obligations=exception_obligations,
-            never_invariants=never_invariants,
-            deadline_obligations=deadline_obligations,
-            decision_lint_lines=decision_lint_lines,
-            broad_type_lint_lines=broad_type_lint_lines,
             constant_smells=constant_smells,
             unused_arg_smells=unused_arg_smells,
+            forest=forest,
+            lint_lines=lint_lines,
+            deadness_witnesses=deadness_witnesses,
+            decision_surfaces=decision_surfaces,
+            value_decision_surfaces=value_decision_surfaces,
+            decision_warnings=sorted(set(decision_warnings)),
+            fingerprint_warnings=fingerprint_warnings,
+            fingerprint_matches=fingerprint_matches,
+            fingerprint_synth=fingerprint_synth,
+            fingerprint_synth_registry=fingerprint_synth_registry,
+            fingerprint_provenance=fingerprint_provenance,
+            coherence_witnesses=coherence_witnesses,
+            rewrite_plans=rewrite_plans,
+            exception_obligations=exception_obligations,
+            never_invariants=never_invariants,
+            handledness_witnesses=handledness_witnesses,
+            context_suggestions=context_suggestions,
+            invariant_propositions=invariant_propositions,
+            value_decision_rewrites=value_decision_rewrites,
+            ambiguity_witnesses=ambiguity_witnesses,
+            deadline_obligations=deadline_obligations,
+            forest_spec=forest_spec,
         )
-
-    return AnalysisResult(
-        groups_by_path=groups_by_path,
-        param_spans_by_path=param_spans_by_path,
-        bundle_sites_by_path=bundle_sites_by_path,
-        type_suggestions=type_suggestions,
-        type_ambiguities=type_ambiguities,
-        type_callsite_evidence=type_callsite_evidence,
-        constant_smells=constant_smells,
-        unused_arg_smells=unused_arg_smells,
-        lint_lines=lint_lines,
-        deadness_witnesses=deadness_witnesses,
-        decision_surfaces=decision_surfaces,
-        value_decision_surfaces=value_decision_surfaces,
-        decision_warnings=sorted(set(decision_warnings)),
-        fingerprint_warnings=fingerprint_warnings,
-        fingerprint_matches=fingerprint_matches,
-        fingerprint_synth=fingerprint_synth,
-        fingerprint_synth_registry=fingerprint_synth_registry,
-        fingerprint_provenance=fingerprint_provenance,
-        coherence_witnesses=coherence_witnesses,
-        rewrite_plans=rewrite_plans,
-        exception_obligations=exception_obligations,
-        never_invariants=never_invariants,
-        handledness_witnesses=handledness_witnesses,
-        context_suggestions=context_suggestions,
-        invariant_propositions=invariant_propositions,
-        value_decision_rewrites=value_decision_rewrites,
-        ambiguity_witnesses=ambiguity_witnesses,
-        deadline_obligations=deadline_obligations,
-        forest=forest,
-        forest_spec=forest_spec,
-    )
+    finally:
+        reset_forest(forest_token)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -11046,8 +11334,10 @@ def run(argv: list[str] | None = None) -> int:
         or bool(fingerprint_coherence_json)
         or include_rewrite_plans
     )
+    forest = Forest()
     analysis = analyze_paths(
         paths,
+        forest=forest,
         recursive=not args.no_recursive,
         type_audit=args.type_audit or args.type_audit_report,
         type_audit_report=args.type_audit_report,

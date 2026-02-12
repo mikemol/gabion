@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import textwrap
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -34,7 +35,8 @@ def test_method_call_propagates_bundle(tmp_path: Path) -> None:
     file_path.write_text(source)
     config = AuditConfig(project_root=tmp_path)
     analysis = analyze_paths(
-        [file_path],
+        forest=Forest(),
+        paths=[file_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -72,7 +74,8 @@ def test_inherited_method_call_propagates_bundle(tmp_path: Path) -> None:
     file_path.write_text(source)
     config = AuditConfig(project_root=tmp_path)
     analysis = analyze_paths(
-        [file_path],
+        forest=Forest(),
+        paths=[file_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

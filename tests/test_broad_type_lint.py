@@ -36,6 +36,7 @@ def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
     with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
         analysis = da.analyze_paths(
             [target],
+            forest=da.Forest(),
             recursive=True,
             type_audit=False,
             type_audit_report=False,
@@ -80,6 +81,7 @@ def test_internal_broad_type_int_linted(tmp_path: Path) -> None:
     with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
         analysis = da.analyze_paths(
             [target],
+            forest=da.Forest(),
             recursive=True,
             type_audit=False,
             type_audit_report=False,
@@ -126,6 +128,7 @@ def test_internal_node_id_not_linted(tmp_path: Path) -> None:
     with deadline_scope(Deadline.from_timeout_ticks(10_000, 1_000_000)):
         analysis = da.analyze_paths(
             [target],
+            forest=da.Forest(),
             recursive=True,
             type_audit=False,
             type_audit_report=False,

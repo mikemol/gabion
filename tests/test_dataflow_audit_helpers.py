@@ -175,6 +175,7 @@ def test_analyze_decision_surfaces_repo_warnings(tmp_path: Path) -> None:
         external_filter=True,
         decision_tiers={"a": 2},
         require_tiers=True,
+        forest=da.Forest(),
     )
     assert surfaces
     assert any("missing decision tier metadata" in warning for warning in warnings)
@@ -217,6 +218,7 @@ def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
         external_filter=True,
         decision_tiers={"flag": 2},
         require_tiers=True,
+        forest=da.Forest(),
     )
     assert surfaces
     assert rewrites
@@ -233,6 +235,128 @@ def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:
     _write(bad, "def f(:\n")
     result = da._param_annotations_by_path([bad], ignore_params=set())
     assert bad not in result
+
+
+def test_lint_rows_materialize_and_project_from_forest() -> None:
+    da = _load()
+    forest = da.Forest()
+    da._materialize_lint_rows(
+        forest=forest,
+        rows=[
+            {
+                "path": "a.py",
+                "line": 3,
+                "col": 4,
+                "code": "GABION_SAMPLE",
+                "message": "example finding",
+                "source": "x",
+            },
+            {
+                "path": "a.py",
+                "line": 3,
+                "col": 4,
+                "code": "GABION_SAMPLE",
+                "message": "example finding",
+                "source": "y",
+            },
+        ],
+    )
+    projected = da._project_lint_rows_from_forest(forest=forest)
+    assert projected == [
+        {
+            "path": "a.py",
+            "line": 3,
+            "col": 4,
+            "code": "GABION_SAMPLE",
+            "message": "example finding",
+        }
+    ]
+    facets = [
+        alt
+        for alt in forest.alts
+        if alt.kind == "SpecFacet" and alt.evidence.get("spec_name") == "lint_findings"
+    ]
+    assert facets
+
+
+def test_compute_lint_lines_uses_forest_projection() -> None:
+    da = _load()
+    forest = da.Forest()
+    rendered = da._compute_lint_lines(
+        forest=forest,
+        groups_by_path={},
+        bundle_sites_by_path={},
+        type_callsite_evidence=[],
+        ambiguity_witnesses=[],
+        exception_obligations=[],
+        never_invariants=[],
+        deadline_obligations=[],
+        decision_lint_lines=[
+            "a.py:3:4: GABION_SAMPLE example finding",
+            "a.py:3:4: GABION_SAMPLE example finding",
+        ],
+        broad_type_lint_lines=[],
+        constant_smells=[],
+        unused_arg_smells=[],
+    )
+    assert rendered == ["a.py:3:4: GABION_SAMPLE example finding"]
+    finding_nodes = [node for node in forest.nodes if node.kind == "LintFinding"]
+    assert finding_nodes
+
+
+def test_project_report_section_lines_roundtrip() -> None:
+    da = _load()
+    forest = da.Forest()
+    rendered = da._project_report_section_lines(
+        forest=forest,
+        run_id="report_run",
+        section="demo",
+        lines=["alpha", "beta"],
+    )
+    assert rendered == ["alpha", "beta"]
+    section_nodes = [node for node in forest.nodes if node.kind == "ReportSectionLine"]
+    assert section_nodes
+    spec_facets = [
+        alt
+        for alt in forest.alts
+        if alt.kind == "SpecFacet" and alt.evidence.get("spec_name") == "report_section_lines"
+    ]
+    assert spec_facets
+
+
+def test_emit_report_materializes_report_section_specs(tmp_path: Path) -> None:
+    da = _load()
+    sample = tmp_path / "sample.py"
+    _write(sample, "def f(a, b):\n    return a + b\n")
+    analysis = da.analyze_paths(
+        [sample],
+        forest=da.Forest(),
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=10,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_bundle_forest=True,
+        include_lint_lines=False,
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    forest = analysis.forest
+    assert forest is not None
+    report, _ = da.render_report(
+        analysis.groups_by_path,
+        max_components=5,
+        forest=forest,
+        bundle_sites_by_path=analysis.bundle_sites_by_path,
+        type_suggestions=["sample.py:1:1: tighten type"],
+    )
+    assert "Dataflow grammar audit" in report
+    spec_facets = [
+        alt
+        for alt in forest.alts
+        if alt.kind == "SpecFacet" and alt.evidence.get("spec_name") == "report_section_lines"
+    ]
+    assert spec_facets
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path
@@ -412,6 +536,7 @@ def test_render_structure_snapshot_skips_invalid_invariant_scope(tmp_path: Path)
     snapshot = da.render_structure_snapshot(
         groups_by_path,
         project_root=tmp_path,
+        forest=da.Forest(),
         invariant_propositions=[invalid, valid],
     )
     files = snapshot.get("files") or []
@@ -457,7 +582,8 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
         strictness="high",
     )
     analysis = da.analyze_paths(
-        [tmp_path],
+        forest=da.Forest(),
+        paths=[tmp_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

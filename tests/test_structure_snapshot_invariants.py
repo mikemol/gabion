@@ -16,6 +16,7 @@ def _load():
 def test_structure_snapshot_includes_invariants(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
+    path.write_text("")
     groups_by_path = {path: {"f": [set(["a", "b"])]}}
     prop = da.InvariantProposition(
         form="Equal",
@@ -23,9 +24,21 @@ def test_structure_snapshot_includes_invariants(tmp_path: Path) -> None:
         scope="mod.py:f",
         source="assert",
     )
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[path],
+        project_root=tmp_path,
+        include_all_sites=True,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=None,
+    )
     snapshot = da.render_structure_snapshot(
         groups_by_path,
         project_root=tmp_path,
+        forest=forest,
         invariant_propositions=[prop],
     )
     fn_entry = snapshot["files"][0]["functions"][0]

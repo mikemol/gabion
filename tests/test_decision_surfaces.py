@@ -62,13 +62,15 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         strictness="high",
         external_filter=True,
         transparent_decorators=None,
+        forest=da.Forest(),
     )
     assert surfaces == ["mod.py:mod.f decision surface params: b (boundary)"]
     assert warnings == []
     assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
 
     analysis = da.analyze_paths(
-        [path],
+        forest=da.Forest(),
+        paths=[path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -93,6 +95,7 @@ def test_analyze_decision_surfaces_repo(tmp_path: Path) -> None:
         strictness="high",
         external_filter=True,
         transparent_decorators=None,
+        forest=da.Forest(),
     )
     assert value_surfaces == []
     assert value_warnings == []
@@ -118,6 +121,7 @@ def test_analyze_value_encoded_decisions_repo(tmp_path: Path) -> None:
         strictness="high",
         external_filter=True,
         transparent_decorators=None,
+        forest=da.Forest(),
     )
     assert surfaces == [
         "mod.py:mod.f value-encoded decision params: a, b, mask (bitmask, boolean arithmetic, min/max)"
@@ -171,6 +175,7 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
         strictness="high",
         external_filter=True,
         transparent_decorators=None,
+        forest=da.Forest(),
     )
     assert surfaces == [
         "mod.py:mod.f decision surface params: b (internal callers (transitive): 1)"
@@ -179,7 +184,8 @@ def test_decision_surface_internal_caller(tmp_path: Path) -> None:
     assert lint_lines == []
 
     analysis = da.analyze_paths(
-        [path],
+        forest=da.Forest(),
+        paths=[path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -237,6 +243,7 @@ def test_decision_surface_tier_warning_internal(tmp_path: Path) -> None:
         external_filter=True,
         transparent_decorators=None,
         decision_tiers={"user_mode": 3},
+        forest=da.Forest(),
     )
     assert any("tier-3 decision param 'user_mode'" in warning for warning in warnings)
     assert any("GABION_DECISION_TIER" in line for line in lint_lines)
@@ -260,6 +267,7 @@ def test_decision_surface_location_tier_suppresses_lint(tmp_path: Path) -> None:
         external_filter=True,
         transparent_decorators=None,
         decision_tiers={"mod.py:1:7": 1},
+        forest=da.Forest(),
     )
     assert surfaces
     assert warnings == []

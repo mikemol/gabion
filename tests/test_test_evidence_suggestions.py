@@ -66,7 +66,7 @@ def test_graph_decision_surface_suggestion(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence
-def test_heuristic_fallback_when_graph_unavailable() -> None:
+def test_heuristic_fallback_when_graph_unavailable(tmp_path: Path) -> None:
     entry = test_evidence_suggestions.TestEvidenceEntry(
         test_id="tests/test_alias_attribute.py::test_alias_attribute_forwarding",
         file="tests/test_alias_attribute.py",
@@ -76,8 +76,9 @@ def test_heuristic_fallback_when_graph_unavailable() -> None:
     )
     suggestions, summary = test_evidence_suggestions.suggest_evidence(
         [entry],
-        root=Path("."),
-        forest=None,
+        root=tmp_path,
+        paths=[tmp_path],
+        forest=Forest(),
     )
     assert summary.suggested_heuristic == 1
     assert suggestions[0].source == "heuristic"
@@ -262,7 +263,7 @@ def test_skips_mapped_entries() -> None:
     suggestions, summary = test_evidence_suggestions.suggest_evidence(
         [entry],
         root=Path("."),
-        forest=None,
+        forest=Forest(),
     )
     assert suggestions == []
     assert summary.total == 1

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import textwrap
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -32,7 +33,8 @@ def test_direct_rename_preserves_bundle_identity(tmp_path: Path) -> None:
     file_path.write_text(source)
     config = AuditConfig(project_root=tmp_path)
     analysis = analyze_paths(
-        [file_path],
+        forest=Forest(),
+        paths=[file_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -65,7 +67,8 @@ def test_chained_alias_preserves_bundle_identity(tmp_path: Path) -> None:
     file_path.write_text(source)
     config = AuditConfig(project_root=tmp_path)
     analysis = analyze_paths(
-        [file_path],
+        forest=Forest(),
+        paths=[file_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

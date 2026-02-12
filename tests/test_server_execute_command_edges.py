@@ -176,12 +176,16 @@ def test_execute_command_reports_timeout(tmp_path: Path) -> None:
                 "report": str(tmp_path / "report.md"),
                 "analysis_timeout_ticks": 1,
                 "analysis_timeout_tick_ns": 1,
+                "deadline_profile": True,
             }
         ),
     )
     assert result.get("exit_code") == 2
     assert result.get("timeout") is True
     assert "timeout_context" in result
+    timeout_context = result.get("timeout_context")
+    assert isinstance(timeout_context, dict)
+    assert "deadline_profile" in timeout_context
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command

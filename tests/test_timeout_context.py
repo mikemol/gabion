@@ -13,9 +13,12 @@ from gabion.analysis.timeout_context import (
     TimeoutExceeded,
     build_timeout_context_from_stack,
     build_site_index,
+    check_deadline,
+    deadline_profile_scope,
     deadline_scope,
     get_deadline,
     pack_call_stack,
+    render_deadline_profile_markdown,
     set_deadline,
     _frame_site_key,
 )
@@ -78,6 +81,16 @@ def test_timeout_context_payload_includes_metadata() -> None:
     payload = context.as_payload()
     assert payload["forest_spec_id"] == "spec"
     assert payload["forest_signature"] == {"version": 1}
+
+
+def test_timeout_context_payload_includes_deadline_profile() -> None:
+    packed = pack_call_stack([{"path": "a.py", "qual": "mod.fn"}])
+    context = TimeoutContext(
+        call_stack=packed,
+        deadline_profile={"checks_total": 3},
+    )
+    payload = context.as_payload()
+    assert payload["deadline_profile"] == {"checks_total": 3}
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutExceeded.__init__
@@ -200,7 +213,7 @@ def test_build_timeout_context_frame_fallback() -> None:
     frame = inspect.currentframe()
     assert frame is not None
     context = build_timeout_context_from_stack(
-        forest=None,
+        forest=Forest(),
         project_root=Path(__file__).resolve().parents[1],
         allow_frame_fallback=True,
         frames=[frame],
@@ -208,12 +221,64 @@ def test_build_timeout_context_frame_fallback() -> None:
     assert context.call_stack.site_table
 
 
+def test_deadline_profile_scope_collects_heat() -> None:
+    root = Path(__file__).resolve().parents[1]
+    with deadline_profile_scope(project_root=root, enabled=True):
+        with deadline_scope(Deadline.from_timeout_ms(100)):
+            check_deadline()
+            check_deadline()
+            frame = inspect.currentframe()
+            assert frame is not None
+            context = build_timeout_context_from_stack(
+                forest=Forest(),
+                project_root=root,
+                allow_frame_fallback=True,
+                frames=[frame],
+            )
+    profile = context.deadline_profile
+    assert isinstance(profile, dict)
+    assert int(profile.get("checks_total", 0) or 0) >= 2
+    assert isinstance(profile.get("sites", []), list)
+
+
+def test_render_deadline_profile_markdown() -> None:
+    profile = {
+        "checks_total": 2,
+        "total_elapsed_ns": 100,
+        "unattributed_elapsed_ns": 10,
+        "sites": [
+            {
+                "path": "a.py",
+                "qual": "mod.fn",
+                "check_count": 2,
+                "elapsed_between_checks_ns": 90,
+                "max_gap_ns": 70,
+            }
+        ],
+        "edges": [
+            {
+                "from_path": "a.py",
+                "from_qual": "mod.fn",
+                "to_path": "a.py",
+                "to_qual": "mod.fn",
+                "transition_count": 1,
+                "elapsed_ns": 80,
+                "max_gap_ns": 80,
+            }
+        ],
+    }
+    rendered = render_deadline_profile_markdown(profile)
+    assert "Deadline Profile Heat" in rendered
+    assert "Site Heat" in rendered
+    assert "Transition Heat" in rendered
+
+
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
 def test_build_timeout_context_skips_unmatched_frames() -> None:
     frame = inspect.currentframe()
     assert frame is not None
     context = build_timeout_context_from_stack(
-        forest=None,
+        forest=Forest(),
         project_root=Path(__file__).resolve().parents[1] / "missing_root",
         allow_frame_fallback=False,
         frames=[frame],

@@ -17,17 +17,32 @@ def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
     da = _load()
     path_a = tmp_path / "a.py"
     path_b = tmp_path / "b.py"
+    path_a.write_text("")
+    path_b.write_text("")
     groups_by_path = {
         path_b: {"g": [set(["b", "a"]), set(["c"])]},
         path_a: {"f": [set(["d", "c"]), set(["a"])]},
     }
-    snapshot = da.render_structure_snapshot(groups_by_path, project_root=tmp_path)
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[path_a, path_b],
+        project_root=tmp_path,
+        include_all_sites=True,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=None,
+    )
+    snapshot = da.render_structure_snapshot(
+        groups_by_path,
+        project_root=tmp_path,
+        forest=forest,
+    )
     assert snapshot["root"] == str(tmp_path)
     assert "generated_by_forest_spec_id" in snapshot
     assert "generated_by_forest_spec" in snapshot
     assert "forest_signature" in snapshot
-    assert snapshot["forest_signature_partial"] is True
-    assert snapshot["forest_signature_basis"] == "bundles_only"
     files = snapshot["files"]
     assert [entry["path"] for entry in files] == ["a.py", "b.py"]
     fn_entry = files[0]["functions"][0]
@@ -42,6 +57,22 @@ def test_render_structure_snapshot_handles_outside_root(tmp_path: Path) -> None:
     root = tmp_path / "root"
     root.mkdir()
     outside = tmp_path / "outside.py"
+    outside.write_text("")
     groups_by_path = {outside: {"f": [set(["a"])]}}
-    snapshot = da.render_structure_snapshot(groups_by_path, project_root=root)
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[outside],
+        project_root=root,
+        include_all_sites=True,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=None,
+    )
+    snapshot = da.render_structure_snapshot(
+        groups_by_path,
+        project_root=root,
+        forest=forest,
+    )
     assert snapshot["files"][0]["path"] == str(outside)

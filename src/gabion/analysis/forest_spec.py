@@ -32,6 +32,7 @@ def build_forest_spec(
     include_never_invariants: bool,
     include_ambiguities: bool = False,
     include_deadline_obligations: bool = False,
+    include_lint_findings: bool = False,
     include_all_sites: bool = True,
     ignore_params: Iterable[str] = (),
     decision_ignore_params: Iterable[str] = (),
@@ -139,6 +140,8 @@ def build_forest_spec(
         outputs = (
             "SuiteSite",
             "SuiteSiteInFunction",
+            "CallCandidate",
+            "CallResolutionObligation",
             "DeadlineObligation",
             "SpecFacet",
         )
@@ -150,6 +153,17 @@ def build_forest_spec(
                 params={
                     "ignore_params": _sorted_strings(ignore_params),
                 },
+            )
+        )
+
+    if include_lint_findings:
+        outputs = ("LintFinding", "SpecFacet")
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="lint_findings",
+                outputs=outputs,
+                params={},
             )
         )
 
@@ -170,6 +184,7 @@ def default_forest_spec(
     include_never_invariants: bool = False,
     include_ambiguities: bool = False,
     include_deadline_obligations: bool = False,
+    include_lint_findings: bool = False,
 ) -> ForestSpec:
     return build_forest_spec(
         include_bundle_forest=include_bundle_forest,
@@ -178,6 +193,7 @@ def default_forest_spec(
         include_never_invariants=include_never_invariants,
         include_ambiguities=include_ambiguities,
         include_deadline_obligations=include_deadline_obligations,
+        include_lint_findings=include_lint_findings,
         include_all_sites=True,
         ignore_params=(),
         decision_ignore_params=(),

@@ -203,6 +203,42 @@ def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
     assert sarif_path.exists()
 
 
+def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 2,
+            "timeout": True,
+            "timeout_context": {
+                "deadline_profile": {
+                    "checks_total": 3,
+                    "total_elapsed_ns": 1000,
+                    "unattributed_elapsed_ns": 10,
+                    "sites": [],
+                    "edges": [],
+                }
+            },
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=["sample.py", "--root", str(tmp_path)],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 2
+    profile_json = tmp_path / "artifacts" / "out" / "deadline_profile.json"
+    profile_md = tmp_path / "artifacts" / "out" / "deadline_profile.md"
+    assert profile_json.exists()
+    assert profile_md.exists()
+    payload = json.loads(profile_json.read_text())
+    assert payload["checks_total"] == 3
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
 def test_dataflow_audit_emits_structure_tree(capsys) -> None:
     class DummyCtx:

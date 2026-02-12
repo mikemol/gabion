@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,22 @@ class _FakeProc:
     def communicate(self, timeout: float | None = None):
         self.last_timeout = timeout
         return (b"", self.stderr.read())
+
+
+class _TimeoutOnCommunicateProc(_FakeProc):
+    def __init__(self, stdout_bytes: bytes, stderr_bytes: bytes, returncode: int | None) -> None:
+        super().__init__(stdout_bytes, stderr_bytes, returncode)
+        self._communicate_calls = 0
+        self.killed = False
+
+    def communicate(self, timeout: float | None = None):
+        self._communicate_calls += 1
+        if self._communicate_calls == 1:
+            raise subprocess.TimeoutExpired(cmd=["python", "-m", "gabion.server"], timeout=timeout or 0.0)
+        return super().communicate(timeout=timeout)
+
+    def kill(self) -> None:
+        self.killed = True
 
 
 def _extract_rpc_messages(buffer: bytes) -> list[dict]:
@@ -158,7 +175,7 @@ def test_run_command_uses_env_timeout() -> None:
             os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = previous_tick_ns
     assert result == {}
     assert proc.last_timeout is not None
-    assert 1.0 < proc.last_timeout <= 2.0
+    assert 2.0 < proc.last_timeout <= 3.0
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
@@ -181,7 +198,7 @@ def test_run_command_rejects_invalid_env_timeout() -> None:
 
 
 def test_analysis_timeout_slack_floor() -> None:
-    assert _analysis_timeout_slack_ns(10_000_000) == 1_000_000_000
+    assert _analysis_timeout_slack_ns(10_000_000) == 2_000_000_000
 
 
 def test_analysis_timeout_slack_cap() -> None:
@@ -714,3 +731,38 @@ def test_run_command_clamps_zero_tick_ns() -> None:
 def test_remaining_deadline_ns_raises_when_expired() -> None:
     with pytest.raises(NeverThrown):
         _remaining_deadline_ns(0)
+
+
+def test_run_command_uses_unbuffered_stdio() -> None:
+    proc = _make_proc(0, b"")
+    captured: dict[str, object] = {}
+
+    def factory(*_args, **kwargs):
+        captured.update(kwargs)
+        return proc
+
+    result = run_command(
+        CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+        root=Path("."),
+        process_factory=factory,
+    )
+    assert result == {}
+    assert captured.get("bufsize") == 0
+
+
+def test_run_command_handles_shutdown_timeout() -> None:
+    init = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {}})
+    cmd = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {}})
+    shutdown = _rpc_message({"jsonrpc": "2.0", "id": 3, "result": {}})
+    proc = _TimeoutOnCommunicateProc(init + cmd + shutdown, b"", 0)
+
+    def factory(*_args, **_kwargs):
+        return proc
+
+    result = run_command(
+        CommandRequest("gabion.dataflowAudit", [{"paths": ["."]}]),
+        root=Path("."),
+        process_factory=factory,
+    )
+    assert result == {}
+    assert proc.killed is True

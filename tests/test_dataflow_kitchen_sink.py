@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+from gabion.analysis.aspf import Forest
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -151,6 +153,7 @@ def test_kitchen_sink_analysis_outputs(tmp_path: Path) -> None:
     )
     analysis = analyze_paths(
         [tmp_path],
+        forest=Forest(),
         recursive=True,
         type_audit=True,
         type_audit_report=True,

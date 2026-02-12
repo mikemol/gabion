@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -40,7 +41,8 @@ def test_type_flow_suggestions_and_ambiguities(tmp_path: Path) -> None:
         transparent_decorators=None,
     )
     analysis = analyze_paths(
-        [path],
+        forest=Forest(),
+        paths=[path],
         recursive=False,
         type_audit=True,
         type_audit_report=True,

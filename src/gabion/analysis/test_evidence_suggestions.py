@@ -27,6 +27,7 @@ from gabion.analysis.dataflow_audit import (
     _paramset_key,
     _resolve_callee,
 )
+from gabion.invariants import require_not_none
 from gabion.analysis.report_markdown import render_report_markdown
 
 
@@ -135,7 +136,7 @@ def suggest_evidence(
     *,
     root: Path | str = ".",
     paths: Iterable[Path] | None = None,
-    forest: Forest | None = None,
+    forest: Forest,
     config: AuditConfig | None = None,
     max_depth: int = DEFAULT_MAX_DEPTH,
     include_heuristics: bool = True,
@@ -391,13 +392,13 @@ def _graph_suggestions(
     *,
     root: Path,
     paths: Iterable[Path] | None,
-    forest: Forest | None,
+    forest: Forest,
     config: AuditConfig | None,
     max_depth: int,
 ) -> tuple[dict[str, _GraphSuggestion], set[str]]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, forest, config
-    if forest is None or not entries:
+    if not entries:
         return {}, set()
     config = config or AuditConfig(project_root=root)
     project_root = config.project_root or root

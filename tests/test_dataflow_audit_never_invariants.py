@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from gabion.analysis import dataflow_audit
+from gabion.exceptions import NeverThrown
+import pytest
 
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._format_span_fields
@@ -69,13 +71,12 @@ def test_copy_forest_signature_metadata_copies_fields() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root
-def test_render_decision_snapshot_marks_partial_when_missing_forest(tmp_path: Path) -> None:
-    snapshot = dataflow_audit.render_decision_snapshot(
-        decision_surfaces=[],
-        value_decision_surfaces=[],
-        project_root=tmp_path,
-        forest=None,
-        forest_spec=None,
-    )
-    assert snapshot["forest_signature_partial"] is True
-    assert snapshot["forest_signature_basis"] == "missing"
+def test_render_decision_snapshot_requires_forest(tmp_path: Path) -> None:
+    with pytest.raises(NeverThrown):
+        dataflow_audit.render_decision_snapshot(
+            decision_surfaces=[],
+            value_decision_surfaces=[],
+            project_root=tmp_path,
+            forest=None,
+            forest_spec=None,
+        )

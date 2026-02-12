@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import textwrap
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -43,7 +44,8 @@ def test_invariant_emitters_are_applied(tmp_path: Path) -> None:
 
     config = AuditConfig(project_root=tmp_path, invariant_emitters=(_emit,))
     analysis = analyze_paths(
-        [path],
+        forest=Forest(),
+        paths=[path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

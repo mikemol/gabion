@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import textwrap
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -19,7 +20,8 @@ def _analyze(source: str, tmp_path: Path, *, transparent: set[str] | None = None
     file_path.write_text(source)
     config = AuditConfig(project_root=tmp_path, transparent_decorators=transparent)
     analysis = analyze_paths(
-        [file_path],
+        forest=Forest(),
+        paths=[file_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

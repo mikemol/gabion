@@ -21,6 +21,7 @@ def test_report_uses_forest_only_invariant(tmp_path: Path) -> None:
     config = da.AuditConfig(project_root=tmp_path)
     analysis = da.analyze_paths(
         [path],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,

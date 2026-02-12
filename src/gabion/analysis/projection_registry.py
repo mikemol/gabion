@@ -8,7 +8,8 @@ from gabion.analysis.projection_normalize import (
     spec_hash,
 )
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
-from gabion.analysis.timeout_context import Deadline, deadline_scope
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import Deadline, deadline_scope, forest_scope
 from gabion.json_types import JSONValue
 
 
@@ -268,6 +269,67 @@ DEADLINE_OBLIGATIONS_SUMMARY_SPEC = ProjectionSpec(
 )
 
 
+LINT_FINDINGS_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="lint_findings",
+    domain="lint_findings",
+    pipeline=(
+        ProjectionOp(
+            "project",
+            {
+                "fields": [
+                    "path",
+                    "line",
+                    "col",
+                    "code",
+                    "message",
+                ]
+            },
+        ),
+        ProjectionOp(
+            "sort",
+            {
+                "by": [
+                    "path",
+                    "line",
+                    "col",
+                    "code",
+                    "message",
+                ]
+            },
+        ),
+    ),
+)
+
+
+REPORT_SECTION_LINES_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="report_section_lines",
+    domain="report_section_lines",
+    pipeline=(
+        ProjectionOp(
+            "project",
+            {
+                "fields": [
+                    "section",
+                    "line_index",
+                    "text",
+                ]
+            },
+        ),
+        ProjectionOp(
+            "sort",
+            {
+                "by": [
+                    "section",
+                    "line_index",
+                ]
+            },
+        ),
+    ),
+)
+
+
 SUITE_ORDER_SPEC = ProjectionSpec(
     spec_version=1,
     name="suite_order",
@@ -443,6 +505,8 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         AMBIGUITY_SUITE_AGG_SPEC,
         AMBIGUITY_VIRTUAL_SET_SPEC,
         DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
+        LINT_FINDINGS_SPEC,
+        REPORT_SECTION_LINES_SPEC,
         SUITE_ORDER_SPEC,
         CALL_CLUSTER_SUMMARY_SPEC,
         TEST_ANNOTATION_DRIFT_SPEC,
@@ -454,5 +518,6 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
     )
 
 
-with deadline_scope(Deadline.from_timeout_ms(1000)):
-    REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}
+with forest_scope(Forest()):
+    with deadline_scope(Deadline.from_timeout_ms(1000)):
+        REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}

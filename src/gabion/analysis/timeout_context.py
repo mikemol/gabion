@@ -4,7 +4,7 @@ import inspect
 import json
 import time
 from decimal import Decimal, InvalidOperation
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from contextlib import contextmanager
 from pathlib import Path
 from types import FrameType
@@ -31,6 +31,7 @@ class TimeoutContext:
     call_stack: PackedCallStack
     forest_spec_id: str | None = None
     forest_signature: dict[str, JSONValue] | None = None
+    deadline_profile: dict[str, JSONValue] | None = None
 
     def as_payload(self) -> dict[str, JSONValue]:
         payload: dict[str, JSONValue] = {"call_stack": self.call_stack.as_payload()}
@@ -38,6 +39,8 @@ class TimeoutContext:
             payload["forest_spec_id"] = self.forest_spec_id
         if self.forest_signature:
             payload["forest_signature"] = self.forest_signature
+        if self.deadline_profile:
+            payload["deadline_profile"] = self.deadline_profile
         return payload
 
 
@@ -88,6 +91,67 @@ class Deadline:
 
 
 _deadline_var: ContextVar[Deadline | None] = ContextVar("gabion_deadline", default=None)
+_MISSING_FOREST = object()
+_forest_var: ContextVar[Forest | object] = ContextVar(
+    "gabion_forest", default=_MISSING_FOREST
+)
+
+
+@dataclass
+class _DeadlineSiteStats:
+    checks: int = 0
+    elapsed_ns: int = 0
+    max_gap_ns: int = 0
+
+
+@dataclass
+class _DeadlineEdgeStats:
+    transitions: int = 0
+    elapsed_ns: int = 0
+    max_gap_ns: int = 0
+
+
+@dataclass
+class _DeadlineProfileState:
+    started_ns: int
+    last_ns: int
+    project_root: Path | None = None
+    checks_total: int = 0
+    unattributed_elapsed_ns: int = 0
+    last_site: tuple[str, str] | None = None
+    site_stats: dict[tuple[str, str], _DeadlineSiteStats] = field(default_factory=dict)
+    edge_stats: dict[
+        tuple[tuple[str, str], tuple[str, str]],
+        _DeadlineEdgeStats,
+    ] = field(default_factory=dict)
+
+
+_deadline_profile_var: ContextVar[_DeadlineProfileState | None] = ContextVar(
+    "gabion_deadline_profile", default=None
+)
+
+
+def set_deadline_profile(
+    *,
+    project_root: Path | None = None,
+    enabled: bool = True,
+) -> Token[_DeadlineProfileState | None] | None:
+    if not enabled:
+        return None
+    resolved_root = project_root.resolve() if project_root is not None else None
+    now = time.monotonic_ns()
+    state = _DeadlineProfileState(
+        started_ns=now,
+        last_ns=now,
+        project_root=resolved_root,
+    )
+    return _deadline_profile_var.set(state)
+
+
+def reset_deadline_profile(token: Token[_DeadlineProfileState | None] | None) -> None:
+    if token is None:
+        return
+    _deadline_profile_var.reset(token)
 
 
 def set_deadline(deadline: Deadline) -> Token[Deadline | None]:
@@ -107,6 +171,25 @@ def get_deadline() -> Deadline:
     return deadline
 
 
+def set_forest(forest: Forest) -> Token[Forest | object]:
+    if forest is None:
+        never("forest carrier missing")
+    return _forest_var.set(forest)
+
+
+def reset_forest(token: Token[Forest | object]) -> None:
+    _forest_var.reset(token)
+
+
+def get_forest() -> Forest:
+    forest = _forest_var.get()
+    if forest is _MISSING_FOREST:
+        never("forest carrier missing")
+    if not isinstance(forest, Forest):
+        never("invalid forest carrier", carrier_type=type(forest).__name__)
+    return forest
+
+
 @contextmanager
 def deadline_scope(deadline: Deadline):
     if deadline is None:
@@ -118,23 +201,203 @@ def deadline_scope(deadline: Deadline):
         reset_deadline(token)
 
 
+@contextmanager
+def forest_scope(forest: Forest):
+    if forest is None:
+        never("forest carrier missing")
+    token = set_forest(forest)
+    try:
+        yield
+    finally:
+        reset_forest(token)
+
+
+@contextmanager
+def deadline_profile_scope(
+    *,
+    project_root: Path | None = None,
+    enabled: bool = True,
+):
+    token = set_deadline_profile(project_root=project_root, enabled=enabled)
+    try:
+        yield
+    finally:
+        reset_deadline_profile(token)
+
+
+def _profile_site_key(
+    frame: FrameType,
+    *,
+    project_root: Path | None,
+) -> tuple[str, str]:
+    if project_root is None:
+        return _frame_site_key(frame, project_root=None)
+    try:
+        return _frame_site_key(frame, project_root=project_root)
+    except Exception:
+        _, qual = _frame_site_key(frame, project_root=None)
+        return ("<external>", qual)
+
+
+def _record_deadline_check(project_root: Path | None) -> None:
+    state = _deadline_profile_var.get()
+    if state is None:
+        return
+    frame = inspect.currentframe()
+    if frame is None or frame.f_back is None or frame.f_back.f_back is None:
+        return
+    caller_frame = frame.f_back.f_back
+    effective_root = project_root.resolve() if project_root is not None else state.project_root
+    now = time.monotonic_ns()
+    delta = max(0, now - state.last_ns)
+    state.last_ns = now
+    state.checks_total += 1
+    site = _profile_site_key(caller_frame, project_root=effective_root)
+    stats = state.site_stats.setdefault(site, _DeadlineSiteStats())
+    stats.checks += 1
+    stats.elapsed_ns += delta
+    if delta > stats.max_gap_ns:
+        stats.max_gap_ns = delta
+    if state.last_site is None:
+        state.unattributed_elapsed_ns += delta
+    else:
+        edge_key = (state.last_site, site)
+        edge_stats = state.edge_stats.setdefault(edge_key, _DeadlineEdgeStats())
+        edge_stats.transitions += 1
+        edge_stats.elapsed_ns += delta
+        if delta > edge_stats.max_gap_ns:
+            edge_stats.max_gap_ns = delta
+    state.last_site = site
+
+
+def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
+    state = _deadline_profile_var.get()
+    if state is None:
+        return None
+    total_elapsed_ns = max(0, state.last_ns - state.started_ns)
+    site_rows: list[dict[str, JSONValue]] = []
+    for (path, qual), stats in sorted(
+        state.site_stats.items(),
+        key=lambda item: (-item[1].elapsed_ns, item[0][0], item[0][1]),
+    ):
+        site_rows.append(
+            {
+                "path": path,
+                "qual": qual,
+                "check_count": stats.checks,
+                "elapsed_between_checks_ns": stats.elapsed_ns,
+                "max_gap_ns": stats.max_gap_ns,
+            }
+        )
+    edge_rows: list[dict[str, JSONValue]] = []
+    for (source, target), stats in sorted(
+        state.edge_stats.items(),
+        key=lambda item: (
+            -item[1].elapsed_ns,
+            item[0][0][0],
+            item[0][0][1],
+            item[0][1][0],
+            item[0][1][1],
+        ),
+    ):
+        edge_rows.append(
+            {
+                "from_path": source[0],
+                "from_qual": source[1],
+                "to_path": target[0],
+                "to_qual": target[1],
+                "transition_count": stats.transitions,
+                "elapsed_ns": stats.elapsed_ns,
+                "max_gap_ns": stats.max_gap_ns,
+            }
+        )
+    return {
+        "checks_total": state.checks_total,
+        "started_ns": state.started_ns,
+        "last_check_ns": state.last_ns,
+        "total_elapsed_ns": total_elapsed_ns,
+        "unattributed_elapsed_ns": state.unattributed_elapsed_ns,
+        "sites": site_rows,
+        "edges": edge_rows,
+    }
+
+
+def render_deadline_profile_markdown(
+    profile: Mapping[str, JSONValue],
+    *,
+    max_rows: int = 25,
+) -> str:
+    lines: list[str] = ["# Deadline Profile Heat", ""]
+    checks_total = int(profile.get("checks_total", 0) or 0)
+    total_elapsed_ns = int(profile.get("total_elapsed_ns", 0) or 0)
+    unattributed_ns = int(profile.get("unattributed_elapsed_ns", 0) or 0)
+    lines.append(f"- checks_total: `{checks_total}`")
+    lines.append(f"- total_elapsed_ns: `{total_elapsed_ns}`")
+    lines.append(f"- unattributed_elapsed_ns: `{unattributed_ns}`")
+    lines.append("")
+    lines.append("## Site Heat")
+    lines.append("")
+    lines.append("| path | qual | checks | elapsed_ns | max_gap_ns |")
+    lines.append("| --- | --- | ---: | ---: | ---: |")
+    sites = profile.get("sites", [])
+    if isinstance(sites, list):
+        for row in sites[:max_rows]:
+            if not isinstance(row, Mapping):
+                continue
+            lines.append(
+                "| {path} | {qual} | {checks} | {elapsed} | {gap} |".format(
+                    path=str(row.get("path", "") or ""),
+                    qual=str(row.get("qual", "") or ""),
+                    checks=int(row.get("check_count", 0) or 0),
+                    elapsed=int(row.get("elapsed_between_checks_ns", 0) or 0),
+                    gap=int(row.get("max_gap_ns", 0) or 0),
+                )
+            )
+        if len(sites) > max_rows:
+            lines.append(f"| ... | ... | ... | ... | ... |")
+    lines.append("")
+    lines.append("## Transition Heat")
+    lines.append("")
+    lines.append("| from | to | transitions | elapsed_ns | max_gap_ns |")
+    lines.append("| --- | --- | ---: | ---: | ---: |")
+    edges = profile.get("edges", [])
+    if isinstance(edges, list):
+        for row in edges[:max_rows]:
+            if not isinstance(row, Mapping):
+                continue
+            lines.append(
+                "| {source} | {target} | {count} | {elapsed} | {gap} |".format(
+                    source=f"{str(row.get('from_path', '') or '')}:{str(row.get('from_qual', '') or '')}",
+                    target=f"{str(row.get('to_path', '') or '')}:{str(row.get('to_qual', '') or '')}",
+                    count=int(row.get("transition_count", 0) or 0),
+                    elapsed=int(row.get("elapsed_ns", 0) or 0),
+                    gap=int(row.get("max_gap_ns", 0) or 0),
+                )
+            )
+        if len(edges) > max_rows:
+            lines.append(f"| ... | ... | ... | ... | ... |")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def check_deadline(
     deadline: Deadline | None = None,
     *,
-    forest: Forest | None = None,
     project_root: Path | None = None,
     forest_spec_id: str | None = None,
     forest_signature: dict[str, JSONValue] | None = None,
-    allow_frame_fallback: bool = False,
+    allow_frame_fallback: bool = True,
 ) -> None:
     if deadline is None:
         deadline = get_deadline()
+    _record_deadline_check(project_root)
     deadline.check(
         lambda: build_timeout_context_from_stack(
-            forest=forest,
+            forest=get_forest(),
             project_root=project_root,
             forest_spec_id=forest_spec_id,
             forest_signature=forest_signature,
+            deadline_profile=_deadline_profile_snapshot(),
             allow_frame_fallback=allow_frame_fallback,
         )
     )
@@ -178,10 +441,8 @@ def _site_key_payload(
 
 
 def build_site_index(
-    forest: Forest | None,
+    forest: Forest,
 ) -> dict[tuple[str, str], dict[str, JSONValue]]:
-    if forest is None:
-        return {}
     index: dict[tuple[str, str], dict[str, JSONValue]] = {}
     ordered_nodes = sorted(forest.nodes.items(), key=lambda item: item[0].sort_key())
     for node_id, node in ordered_nodes:
@@ -278,10 +539,11 @@ def _site_sort_entry_key(
 
 def build_timeout_context_from_stack(
     *,
-    forest: Forest | None,
+    forest: Forest,
     project_root: Path | None,
     forest_spec_id: str | None = None,
     forest_signature: dict[str, JSONValue] | None = None,
+    deadline_profile: dict[str, JSONValue] | None = None,
     allow_frame_fallback: bool = False,
     frames: Iterable[FrameType] | None = None,
 ) -> TimeoutContext:
@@ -306,4 +568,5 @@ def build_timeout_context_from_stack(
         call_stack=packed,
         forest_spec_id=forest_spec_id,
         forest_signature=forest_signature,
+        deadline_profile=deadline_profile or _deadline_profile_snapshot(),
     )

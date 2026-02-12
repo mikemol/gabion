@@ -131,8 +131,8 @@ def _analysis_timeout_total_ns(payload: dict) -> int | None:
 
 def _analysis_timeout_slack_ns(total_ns: int) -> int:
     slack_ns = total_ns // 3
-    if slack_ns < 1_000_000_000:
-        slack_ns = 1_000_000_000
+    if slack_ns < 2_000_000_000:
+        slack_ns = 2_000_000_000
     if slack_ns > 120_000_000_000:
         slack_ns = 120_000_000_000
     return slack_ns
@@ -153,6 +153,18 @@ def _wait_readable(stream, deadline_ns: int | None) -> None:
     ready, _, _ = select.select([fd], [], [], timeout)
     if not ready:
         raise LspClientError("LSP response timed out")
+
+
+def _read_exact(stream, length: int, deadline_ns: int | None) -> bytes:
+    body = bytearray()
+    while len(body) < length:
+        check_deadline()
+        _wait_readable(stream, deadline_ns)
+        chunk = stream.read(length - len(body))
+        if not chunk:
+            raise LspClientError("LSP stream closed")
+        body.extend(chunk)
+    return bytes(body)
 
 
 def _remaining_deadline_ns(deadline_ns: int) -> int:
@@ -183,8 +195,9 @@ def _read_rpc(stream, deadline_ns: int | None = None) -> JSONObject:
         raise LspClientError("Invalid LSP Content-Length")
     body = rest
     if len(body) < length:
-        _wait_readable(stream, deadline_ns)
-        body += stream.read(length - len(body))
+        body += _read_exact(stream, length - len(body), deadline_ns)
+    elif len(body) > length:
+        body = body[:length]
     message = json.loads(body.decode("utf-8"))
     if not isinstance(message, dict):
         raise LspClientError("Invalid LSP message payload")
@@ -253,6 +266,7 @@ def run_command(
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        bufsize=0,
     )
     assert proc.stdin is not None
     assert proc.stdout is not None
@@ -296,8 +310,12 @@ def run_command(
         _read_response(proc.stdout, shutdown_id, deadline_ns)
         _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
         remaining_ns = deadline_ns - time.monotonic_ns()
-        remaining = max(0.0, remaining_ns / 1_000_000_000)
-        out, err = proc.communicate(timeout=remaining)
+        remaining = max(1.0, remaining_ns / 1_000_000_000)
+        try:
+            out, err = proc.communicate(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, err = proc.communicate(timeout=1.0)
         if response.get("error"):
             raise LspClientError(f"LSP error: {response['error']}")
         if proc.returncode not in (0, None):

@@ -36,7 +36,8 @@ def test_exception_protocol_never_violation(tmp_path: Path) -> None:
         never_exceptions={"NeverRaise"},
     )
     analysis = da.analyze_paths(
-        [tmp_path],
+        forest=da.Forest(),
+        paths=[tmp_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

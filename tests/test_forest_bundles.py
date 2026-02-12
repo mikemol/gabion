@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -26,7 +27,8 @@ def test_bundle_forest_reuses_paramset(tmp_path: Path) -> None:
     )
     config = AuditConfig(project_root=tmp_path, external_filter=False)
     analysis = analyze_paths(
-        [tmp_path],
+        forest=Forest(),
+        paths=[tmp_path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

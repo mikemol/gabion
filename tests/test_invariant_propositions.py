@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import textwrap
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -18,7 +19,8 @@ def _analyze(tmp_path: Path, source: str):
     path = tmp_path / "mod.py"
     path.write_text(source)
     analysis = analyze_paths(
-        [path],
+        forest=Forest(),
+        paths=[path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

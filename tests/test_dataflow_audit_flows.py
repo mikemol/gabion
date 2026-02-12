@@ -83,7 +83,8 @@ def test_flow_analyses_edge_cases(tmp_path: Path) -> None:
         transparent_decorators=None,
     )
     analysis = da.analyze_paths(
-        paths,
+        forest=da.Forest(),
+        paths=paths,
         recursive=True,
         type_audit=True,
         type_audit_report=True,
@@ -145,7 +146,8 @@ def test_analyze_paths_config_default(tmp_path: Path) -> None:
     module_path = tmp_path / "mod.py"
     module_path.write_text("def f(a, b):\n    return a\n")
     analysis = da.analyze_paths(
-        [module_path],
+        forest=da.Forest(),
+        paths=[module_path],
         recursive=False,
         type_audit=False,
         type_audit_report=False,

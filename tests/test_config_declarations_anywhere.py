@@ -4,6 +4,8 @@ from pathlib import Path
 import sys
 import textwrap
 
+from gabion.analysis.aspf import Forest
+
 
 def _write(tmp_path: Path, rel: str, content: str) -> Path:
     path = tmp_path / rel
@@ -54,6 +56,7 @@ def test_config_dataclass_declares_bundle_outside_config_py(tmp_path: Path) -> N
     config = AuditConfig(project_root=tmp_path)
     analysis = analyze_paths(
         [tmp_path / "settings.py", mod_path],
+        forest=Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,

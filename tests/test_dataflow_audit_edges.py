@@ -30,6 +30,7 @@ def _deadline_obligations(tmp_path: Path, source: str, roots: set[str]) -> list[
     )
     result = da.analyze_paths(
         [target],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -187,6 +188,7 @@ def test_ambiguity_witnesses_emit(tmp_path: Path) -> None:
     config = da.AuditConfig(project_root=tmp_path)
     analysis = da.analyze_paths(
         [tmp_path],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -978,6 +980,7 @@ def test_analyze_paths_deadline_includes_forest_spec(tmp_path: Path) -> None:
     with deadline_scope(Deadline.from_timeout_ms(10_000)):
         result = da.analyze_paths(
             [target],
+            forest=da.Forest(),
             recursive=True,
             type_audit=False,
             type_audit_report=False,

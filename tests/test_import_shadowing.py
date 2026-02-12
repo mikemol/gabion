@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import textwrap
+from gabion.analysis.aspf import Forest
 
 
 def _write(tmp_path: Path, rel: str, content: str) -> Path:
@@ -50,7 +51,8 @@ def test_local_definition_overrides_import(tmp_path: Path) -> None:
     )
     config = AuditConfig(project_root=tmp_path)
     analysis = analyze_paths(
-        [a_path, tmp_path / "other.py"],
+        forest=Forest(),
+        paths=[a_path, tmp_path / "other.py"],
         recursive=True,
         type_audit=False,
         type_audit_report=False,

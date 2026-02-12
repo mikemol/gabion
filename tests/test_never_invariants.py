@@ -26,6 +26,7 @@ def test_never_invariants_emit_forest_and_report(tmp_path: Path) -> None:
     config = da.AuditConfig(project_root=tmp_path)
     analysis = da.analyze_paths(
         [path],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -67,6 +68,7 @@ def test_never_invariant_violation(tmp_path: Path) -> None:
     config = da.AuditConfig(project_root=tmp_path)
     analysis = da.analyze_paths(
         [path],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -103,6 +105,7 @@ def test_never_invariant_proven_unreachable(tmp_path: Path) -> None:
     config = da.AuditConfig(project_root=tmp_path)
     analysis = da.analyze_paths(
         [path],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -138,6 +141,7 @@ def test_never_invariant_obligation(tmp_path: Path) -> None:
     config = da.AuditConfig(project_root=tmp_path)
     analysis = da.analyze_paths(
         [path],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -190,6 +194,7 @@ def test_never_invariant_report_order_and_evidence(tmp_path: Path) -> None:
     config = da.AuditConfig(project_root=tmp_path)
     analysis = da.analyze_paths(
         [path],
+        forest=da.Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,

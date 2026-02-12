@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+from gabion.analysis.aspf import Forest
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -29,6 +31,7 @@ def test_report_includes_callsite_evidence_for_undocumented_bundle(tmp_path: Pat
     config = AuditConfig(project_root=tmp_path, external_filter=False)
     analysis = analyze_paths(
         [tmp_path],
+        forest=Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -68,6 +71,7 @@ def test_report_omits_callsite_evidence_for_documented_bundle(tmp_path: Path) ->
     config = AuditConfig(project_root=tmp_path, external_filter=False)
     analysis = analyze_paths(
         [tmp_path],
+        forest=Forest(),
         recursive=True,
         type_audit=False,
         type_audit_report=False,

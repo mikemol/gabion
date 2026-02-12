@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
-from typing import Callable, List, Optional, TypeAlias
+from typing import Callable, List, Mapping, Optional, TypeAlias
 import argparse
 import json
 import os
@@ -13,7 +13,14 @@ import subprocess
 import sys
 
 import typer
-from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_scope,
+    forest_scope,
+    render_deadline_profile_markdown,
+)
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
@@ -52,8 +59,9 @@ def _cli_deadline() -> Deadline:
 
 @contextmanager
 def _cli_deadline_scope():
-    with deadline_scope(_cli_deadline()):
-        yield
+    with forest_scope(Forest()):
+        with deadline_scope(_cli_deadline()):
+            yield
 
 
 @dataclass(frozen=True)
@@ -196,6 +204,30 @@ def _emit_lint_outputs(
             _write_lint_sarif(str(lint_sarif), entries)
 
 
+def _emit_timeout_profile_artifacts(
+    result: Mapping[str, object],
+    *,
+    root: Path,
+) -> None:
+    timeout_context = result.get("timeout_context")
+    if not isinstance(timeout_context, Mapping):
+        return
+    profile = timeout_context.get("deadline_profile")
+    if not isinstance(profile, Mapping):
+        return
+    artifact_dir = root / "artifacts" / "out"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    profile_json_path = artifact_dir / "deadline_profile.json"
+    profile_md_path = artifact_dir / "deadline_profile.md"
+    profile_json_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+    profile_md_path.write_text(
+        render_deadline_profile_markdown(profile) + "\n",
+        encoding="utf-8",
+    )
+    typer.echo(f"Wrote deadline profile JSON: {profile_json_path}")
+    typer.echo(f"Wrote deadline profile markdown: {profile_md_path}")
+
+
 def build_check_payload(
     *,
     paths: Optional[List[Path]],
@@ -297,6 +329,7 @@ def build_check_payload(
         "strictness": strictness,
         "type_audit": True if fail_on_type_ambiguities else None,
         "lint": lint,
+        "deadline_profile": True,
     }
     return payload
 
@@ -377,6 +410,7 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "structure_metrics": str(opts.emit_structure_metrics)
         if opts.emit_structure_metrics
         else None,
+        "deadline_profile": True,
     }
     return payload
 
@@ -693,6 +727,9 @@ def check(
             fail_on_type_ambiguities=fail_on_type_ambiguities,
             lint=lint_enabled,
         )
+        if result.get("timeout") is True:
+            _emit_timeout_profile_artifacts(result, root=Path(root))
+            raise typer.Exit(code=int(result.get("exit_code", 2)))
         lint_lines = result.get("lint_lines", []) or []
         _emit_lint_outputs(
             lint_lines,
@@ -720,6 +757,9 @@ def _dataflow_audit(
         root=Path(opts.root),
         runner=runner,
     )
+    if result.get("timeout") is True:
+        _emit_timeout_profile_artifacts(result, root=Path(opts.root))
+        raise typer.Exit(code=int(result.get("exit_code", 2)))
     lint_lines = result.get("lint_lines", []) or []
     _emit_lint_outputs(
         lint_lines,

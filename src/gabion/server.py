@@ -51,6 +51,7 @@ from gabion.analysis import (
     resolve_baseline_path,
     write_baseline,
 )
+from gabion.analysis.aspf import Forest
 from gabion.analysis import ambiguity_delta
 from gabion.analysis import ambiguity_state
 from gabion.analysis import call_cluster_consolidation
@@ -65,7 +66,13 @@ from gabion.analysis.timeout_context import (
     Deadline,
     TimeoutExceeded,
     check_deadline,
+    forest_scope,
+    reset_forest,
+    set_forest,
+    deadline_profile_scope,
+    reset_deadline_profile,
     reset_deadline,
+    set_deadline_profile,
     set_deadline,
 )
 from gabion.invariants import never
@@ -108,6 +115,34 @@ REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
+
+_SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
+_SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
+_SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
+
+
+def _truthy_flag(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return value != 0
+    text = str(value).strip().lower()
+    return text in {"1", "true", "yes", "on"}
+
+
+def _server_deadline_overhead_ns(total_ns: int) -> int:
+    if total_ns <= 0:
+        return 0
+    overhead = total_ns // _SERVER_DEADLINE_OVERHEAD_DIVISOR
+    if overhead < _SERVER_DEADLINE_OVERHEAD_MIN_NS:
+        overhead = _SERVER_DEADLINE_OVERHEAD_MIN_NS
+    if overhead > _SERVER_DEADLINE_OVERHEAD_MAX_NS:
+        overhead = _SERVER_DEADLINE_OVERHEAD_MAX_NS
+    if overhead >= total_ns:
+        overhead = max(0, total_ns - 1)
+    return overhead
 def _deadline_from_payload(payload: dict) -> Deadline:
     timeout_ticks = payload.get("analysis_timeout_ticks")
     timeout_tick_ns = payload.get("analysis_timeout_tick_ns")
@@ -128,6 +163,12 @@ def _deadline_from_payload(payload: dict) -> Deadline:
             never("invalid analysis timeout tick_ns", tick_ns=timeout_tick_ns)
         if tick_ns_value <= 0:
             never("invalid analysis timeout tick_ns", tick_ns=timeout_tick_ns)
+        total_ns = ticks_value * tick_ns_value
+        overhead_ns = _server_deadline_overhead_ns(total_ns)
+        remaining_ns = max(1, total_ns - overhead_ns)
+        if remaining_ns < tick_ns_value:
+            tick_ns_value = max(1, remaining_ns)
+        ticks_value = max(1, remaining_ns // tick_ns_value)
         return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
     if timeout_ms not in (None, ""):
         try:
@@ -136,7 +177,12 @@ def _deadline_from_payload(payload: dict) -> Deadline:
             never("invalid analysis timeout ms", ms=timeout_ms)
         if ms_value <= 0:
             never("invalid analysis timeout ms", ms=timeout_ms)
-        return Deadline.from_timeout_ms(ms_value)
+        total_ns = ms_value * 1_000_000
+        overhead_ns = _server_deadline_overhead_ns(total_ns)
+        remaining_ns = max(1, total_ns - overhead_ns)
+        tick_ns_value = min(1_000_000, remaining_ns)
+        ticks_value = max(1, remaining_ns // tick_ns_value)
+        return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
     if timeout_seconds not in (None, ""):
         # Deprecated: prefer analysis_timeout_ticks / analysis_timeout_tick_ns.
         try:
@@ -148,7 +194,12 @@ def _deadline_from_payload(payload: dict) -> Deadline:
         ms_value = int(seconds_value * Decimal(1000))
         if ms_value <= 0:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        return Deadline.from_timeout_ms(ms_value)
+        total_ns = ms_value * 1_000_000
+        overhead_ns = _server_deadline_overhead_ns(total_ns)
+        remaining_ns = max(1, total_ns - overhead_ns)
+        tick_ns_value = min(1_000_000, remaining_ns)
+        ticks_value = max(1, remaining_ns // tick_ns_value)
+        return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
     never("missing analysis timeout", payload_keys=sorted(payload.keys()))
 
 
@@ -157,11 +208,19 @@ def _deadline_scope_from_payload(payload: dict | None):
     if payload is None:
         payload = {}
     deadline = _deadline_from_payload(payload)
-    token = set_deadline(deadline)
-    try:
-        yield
-    finally:
-        reset_deadline(token)
+    profile_enabled = _truthy_flag(payload.get("deadline_profile"))
+    root_value = payload.get("root")
+    profile_root = Path(str(root_value)).resolve() if root_value not in (None, "") else None
+    with deadline_profile_scope(
+        project_root=profile_root,
+        enabled=profile_enabled,
+    ):
+        with forest_scope(Forest()):
+            token = set_deadline(deadline)
+            try:
+                yield
+            finally:
+                reset_deadline(token)
 
 
 def _output_dirs(report_root: Path) -> tuple[Path, Path]:
@@ -197,17 +256,20 @@ def _normalize_transparent_decorators(value: object) -> set[str] | None:
 
 
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
-    check_deadline()
-    result = analyze_paths(
-        [Path(path_str)],
-        recursive=True,
-        type_audit=False,
-        type_audit_report=False,
-        type_audit_max=0,
-        include_constant_smells=False,
-        include_unused_arg_smells=False,
-        config=AuditConfig(project_root=project_root),
-    )
+    forest = Forest()
+    with forest_scope(forest):
+        check_deadline()
+        result = analyze_paths(
+            [Path(path_str)],
+            forest=forest,
+            recursive=True,
+            type_audit=False,
+            type_audit_report=False,
+            type_audit_max=0,
+            include_constant_smells=False,
+            include_unused_arg_smells=False,
+            config=AuditConfig(project_root=project_root),
+        )
     diagnostics: list[Diagnostic] = []
     for path, bundles in result.groups_by_path.items():
         check_deadline()
@@ -243,8 +305,16 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
 def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
     if payload is None:
         payload = {}
+    profile_enabled = _truthy_flag(payload.get("deadline_profile"))
+    profile_root_value = payload.get("root") or ls.workspace.root_path or "."
+    profile_token = set_deadline_profile(
+        project_root=Path(str(profile_root_value)),
+        enabled=profile_enabled,
+    )
     deadline = _deadline_from_payload(payload)
     deadline_token = set_deadline(deadline)
+    forest = Forest()
+    forest_token = set_forest(forest)
     try:
         root = payload.get("root") or ls.workspace.root_path or "."
         config_path = payload.get("config")
@@ -445,6 +515,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
         if needs_analysis:
             analysis = analyze_paths(
                 paths,
+                forest=forest,
                 recursive=not no_recursive,
                 type_audit=type_audit or type_audit_report,
                 type_audit_report=type_audit_report,
@@ -477,6 +548,7 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
                 type_callsite_evidence=[],
                 constant_smells=[],
                 unused_arg_smells=[],
+                forest=forest,
             )
 
         response: dict = {
@@ -1107,7 +1179,9 @@ def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
             "timeout_context": exc.context.as_payload(),
         }
     finally:
+        reset_forest(forest_token)
         reset_deadline(deadline_token)
+        reset_deadline_profile(profile_token)
 
 
 @server.command(SYNTHESIS_COMMAND)
