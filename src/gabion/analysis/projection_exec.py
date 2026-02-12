@@ -98,6 +98,53 @@ def apply_spec(
             current = list(counts.values())
             continue
 
+        if op_name == "traverse":
+            field = params_map.get("field")
+            if not isinstance(field, str) or not field.strip():
+                continue
+            field = field.strip()
+            merge = params_map.get("merge", True)
+            if not isinstance(merge, bool):
+                merge = True
+            keep = params_map.get("keep", False)
+            if not isinstance(keep, bool):
+                keep = False
+            prefix = params_map.get("prefix", "")
+            if not isinstance(prefix, str):
+                prefix = ""
+            as_field = params_map.get("as", field)
+            if not isinstance(as_field, str) or not as_field.strip():
+                as_field = field
+            index_field = params_map.get("index")
+            if not isinstance(index_field, str) or not index_field.strip():
+                index_field = ""
+            traversed: Relation = []
+            for row in current:
+                check_deadline()
+                seq = row.get(field)
+                if not isinstance(seq, list):
+                    continue
+                base = dict(row)
+                if not keep:
+                    base.pop(field, None)
+                for idx, element in enumerate(seq):
+                    check_deadline()
+                    out = dict(base)
+                    if index_field:
+                        out[index_field] = idx
+                    if merge and isinstance(element, Mapping):
+                        for key, value in element.items():
+                            check_deadline()
+                            if not isinstance(key, str):
+                                key = str(key)
+                            merged_key = f"{prefix}{key}" if prefix else key
+                            out[merged_key] = value
+                    else:
+                        out[as_field] = element
+                    traversed.append(out)
+            current = traversed
+            continue
+
         if op_name == "sort":
             by = params_map.get("by", [])
             if isinstance(by, Mapping):

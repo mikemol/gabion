@@ -3879,6 +3879,7 @@
         "tests/test_dataflow_audit_coverage_gaps.py::test_never_invariant_lint_and_summary_formats",
         "tests/test_dataflow_audit_never_invariants.py::test_summarize_never_invariants_filters_and_formats",
         "tests/test_projection_exec_edges.py::test_apply_spec_count_by_and_sort_edges",
+        "tests/test_projection_exec_edges.py::test_apply_spec_traverse_flattens_sequences",
         "tests/test_projection_exec_edges.py::test_apply_spec_with_custom_normalizer_handles_invalid_ops",
         "tests/test_projection_spec.py::test_count_by_groups_rows",
         "tests/test_projection_spec.py::test_limit_roundtrip_and_desc_normalization",
@@ -8783,6 +8784,20 @@
       "test_id": "tests/test_ambiguity_helpers.py::test_ambiguity_suite_agg_materializes_spec_facets"
     },
     {
+      "evidence": [],
+      "file": "tests/test_ambiguity_helpers.py",
+      "line": 242,
+      "status": "unmapped",
+      "test_id": "tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_materializes_suite_facets"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_ambiguity_helpers.py",
+      "line": 204,
+      "status": "unmapped",
+      "test_id": "tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_requires_multiple_candidates"
+    },
+    {
       "evidence": [
         {
           "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities",
@@ -8857,7 +8872,7 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 221,
+      "line": 301,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_render_report_includes_ambiguities"
     },
@@ -8875,7 +8890,7 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 205,
+      "line": 285,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_summarize_call_ambiguities_handles_empty_and_invalid_entries"
     },
@@ -31911,6 +31926,47 @@
       "line": 134,
       "status": "mapped",
       "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_count_by_and_sort_edges"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_exec_edges.py",
+      "line": 185,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_traverse_as_field_and_keep"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "params_override",
+            "site": {
+              "path": "projection_exec.py",
+              "qual": "gabion.analysis.projection_exec.apply_spec"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_projection_exec_edges.py",
+      "line": 155,
+      "status": "mapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_traverse_flattens_sequences"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_exec_edges.py",
+      "line": 215,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_traverse_handles_invalid_params"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_projection_exec_edges.py",
+      "line": 245,
+      "status": "unmapped",
+      "test_id": "tests/test_projection_exec_edges.py::test_apply_spec_traverse_skips_when_field_invalid"
     },
     {
       "evidence": [

@@ -82,6 +82,7 @@ from .projection_normalize import spec_hash as projection_spec_hash
 from .projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
     AMBIGUITY_SUITE_AGG_SPEC,
+    AMBIGUITY_VIRTUAL_SET_SPEC,
     DEADLINE_OBLIGATIONS_SUMMARY_SPEC,
     NEVER_INVARIANTS_SPEC,
     SUITE_ORDER_SPEC,
@@ -4194,6 +4195,34 @@ def _ambiguity_suite_row_to_site(
     return function_index.get((path, qual))
 
 
+def _ambiguity_suite_row_to_suite(
+    row: Mapping[str, JSONValue],
+    forest: Forest,
+) -> NodeId:
+    path = str(row.get("suite_path", "") or "")
+    qual = str(row.get("suite_qual", "") or "")
+    suite_kind = str(row.get("suite_kind", "") or "")
+    if not path or not qual or not suite_kind:
+        never(
+            "ambiguity suite row missing suite identity",
+            path=path,
+            qual=qual,
+            suite_kind=suite_kind,
+        )
+    span = _spec_row_span(row)
+    require_not_none(
+        span,
+        reason="ambiguity suite row missing span",
+        strict=True,
+    )
+    return forest.add_suite_site(
+        path,
+        qual,
+        suite_kind,
+        span=span,
+    )
+
+
 def _materialize_ambiguity_suite_agg_spec(
     *,
     forest: Forest,
@@ -4207,6 +4236,33 @@ def _materialize_ambiguity_suite_agg_spec(
         projected=projected,
         forest=forest,
         row_to_site=lambda row: _ambiguity_suite_row_to_site(row, function_index),
+    )
+
+
+def _materialize_ambiguity_virtual_set_spec(
+    *,
+    forest: Forest,
+) -> None:
+    relation, _ = _ambiguity_suite_relation(forest)
+    if not relation:
+        return
+
+    def _count_gt_1(row: Mapping[str, JSONValue], _params: Mapping[str, JSONValue]) -> bool:
+        try:
+            return int(row.get("count", 0) or 0) > 1
+        except (TypeError, ValueError):
+            return False
+
+    projected = apply_spec(
+        AMBIGUITY_VIRTUAL_SET_SPEC,
+        relation,
+        op_registry={"count_gt_1": _count_gt_1},
+    )
+    _materialize_projection_spec_rows(
+        spec=AMBIGUITY_VIRTUAL_SET_SPEC,
+        projected=projected,
+        forest=forest,
+        row_to_site=lambda row: _ambiguity_suite_row_to_suite(row, forest),
     )
 
 
@@ -9945,6 +10001,7 @@ def analyze_paths(
         )
         if forest is not None:
             _materialize_ambiguity_suite_agg_spec(forest=forest)
+            _materialize_ambiguity_virtual_set_spec(forest=forest)
 
     type_suggestions: list[str] = []
     type_ambiguities: list[str] = []

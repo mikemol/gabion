@@ -149,3 +149,105 @@ def test_apply_spec_count_by_and_sort_edges() -> None:
         normalize=normalize,
     )
     assert {row["count"] for row in result} == {1}
+
+
+# gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override
+def test_apply_spec_traverse_flattens_sequences() -> None:
+    rows = [
+        {
+            "suite": "s1",
+            "candidates": [{"qual": "a"}, {"qual": "b"}],
+        }
+    ]
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="traverse",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(
+                "traverse",
+                {
+                    "field": "candidates",
+                    "merge": True,
+                    "prefix": "candidate_",
+                    "index": "candidate_index",
+                },
+            ),
+        ),
+    )
+    result = apply_spec(spec, rows)
+    assert result == [
+        {"suite": "s1", "candidate_index": 0, "candidate_qual": "a"},
+        {"suite": "s1", "candidate_index": 1, "candidate_qual": "b"},
+    ]
+
+
+def test_apply_spec_traverse_as_field_and_keep() -> None:
+    rows = [
+        {
+            "suite": "s2",
+            "candidates": ["x", "y"],
+        }
+    ]
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="traverse",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(
+                "traverse",
+                {
+                    "field": "candidates",
+                    "merge": False,
+                    "as": "candidate",
+                    "keep": True,
+                },
+            ),
+        ),
+    )
+    result = apply_spec(spec, rows)
+    assert result == [
+        {"suite": "s2", "candidates": ["x", "y"], "candidate": "x"},
+        {"suite": "s2", "candidates": ["x", "y"], "candidate": "y"},
+    ]
+
+
+def test_apply_spec_traverse_handles_invalid_params() -> None:
+    rows = [
+        {"items": [{"a": 1}, {1: "b"}], "other": 3},
+        {"items": "not-list"},
+    ]
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="traverse",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(
+                "traverse",
+                {
+                    "field": "items",
+                    "merge": "yes",
+                    "keep": "no",
+                    "prefix": 123,
+                    "as": 456,
+                    "index": 789,
+                },
+            ),
+        ),
+    )
+    result = apply_spec(spec, rows)
+    assert result == [
+        {"other": 3, "a": 1},
+        {"other": 3, "1": "b"},
+    ]
+
+
+def test_apply_spec_traverse_skips_when_field_invalid() -> None:
+    rows = [{"items": [1, 2, 3]}]
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="traverse",
+        domain="tests",
+        pipeline=(ProjectionOp("traverse", {"field": 123}),),
+    )
+    assert apply_spec(spec, rows) == rows

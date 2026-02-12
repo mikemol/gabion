@@ -201,6 +201,86 @@ def test_ambiguity_suite_agg_materializes_spec_facets(tmp_path: Path) -> None:
     )
 
 
+def test_ambiguity_virtual_set_spec_requires_multiple_candidates(tmp_path: Path) -> None:
+    caller = _make_function(tmp_path / "mod.py", "mod.caller")
+    candidate = _make_function(tmp_path / "mod.py", "mod.target")
+    call = da.CallArgs(
+        callee="target",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(1, 0, 1, 1),
+    )
+    entry = da.CallAmbiguity(
+        kind="local_resolution_ambiguous",
+        caller=caller,
+        call=call,
+        callee_key="target",
+        candidates=(candidate,),
+        phase="resolve_local_callee",
+    )
+    forest = da.Forest()
+    da._emit_call_ambiguities(
+        [entry],
+        project_root=tmp_path,
+        forest=forest,
+    )
+    da._materialize_ambiguity_virtual_set_spec(forest=forest)
+    assert not any(
+        alt.kind == "SpecFacet"
+        and alt.evidence.get("spec_name") == "ambiguity_virtual_set"
+        for alt in forest.alts
+    )
+
+
+def test_ambiguity_virtual_set_spec_materializes_suite_facets(tmp_path: Path) -> None:
+    caller = _make_function(tmp_path / "mod.py", "mod.caller")
+    candidate_a = _make_function(tmp_path / "mod.py", "mod.target_a")
+    candidate_b = _make_function(tmp_path / "mod.py", "mod.target_b")
+    call = da.CallArgs(
+        callee="target",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(1, 0, 1, 1),
+    )
+    entry = da.CallAmbiguity(
+        kind="local_resolution_ambiguous",
+        caller=caller,
+        call=call,
+        callee_key="target",
+        candidates=(candidate_a, candidate_b),
+        phase="resolve_local_callee",
+    )
+    forest = da.Forest()
+    da._emit_call_ambiguities(
+        [entry],
+        project_root=tmp_path,
+        forest=forest,
+    )
+    da._materialize_ambiguity_virtual_set_spec(forest=forest)
+    assert any(
+        alt.kind == "SpecFacet"
+        and alt.evidence.get("spec_name") == "ambiguity_virtual_set"
+        and forest.nodes.get(alt.inputs[1], None) is not None
+        and forest.nodes[alt.inputs[1]].kind == "SuiteSite"
+        and forest.nodes[alt.inputs[1]].meta.get("suite_kind") == "call"
+        for alt in forest.alts
+    )
+
+
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_call_ambiguities
 def test_summarize_call_ambiguities_handles_empty_and_invalid_entries() -> None:
     assert da._summarize_call_ambiguities([]) == []
