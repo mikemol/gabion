@@ -82,6 +82,62 @@ def _env_timeout_ticks() -> tuple[int, int]:
     never("missing env timeout configuration")
 
 
+def _analysis_timeout_total_ns(payload: dict) -> int | None:
+    existing_ticks = payload.get("analysis_timeout_ticks")
+    existing_tick_ns = payload.get("analysis_timeout_tick_ns")
+    if existing_ticks not in (None, "") or existing_tick_ns not in (None, ""):
+        if existing_ticks in (None, "") or existing_tick_ns in (None, ""):
+            never(
+                "missing analysis timeout tick_ns",
+                ticks=existing_ticks,
+                tick_ns=existing_tick_ns,
+            )
+        try:
+            ticks_value = int(existing_ticks)
+            tick_ns_value = int(existing_tick_ns)
+        except (TypeError, ValueError):
+            never(
+                "invalid analysis timeout ticks",
+                ticks=existing_ticks,
+                tick_ns=existing_tick_ns,
+            )
+        if ticks_value <= 0 or tick_ns_value <= 0:
+            never(
+                "invalid analysis timeout ticks",
+                ticks=existing_ticks,
+                tick_ns=existing_tick_ns,
+            )
+        return ticks_value * tick_ns_value
+    existing_ms = payload.get("analysis_timeout_ms")
+    if existing_ms not in (None, ""):
+        try:
+            ms_value = int(existing_ms)
+        except (TypeError, ValueError):
+            never("invalid analysis timeout ms", ms=existing_ms)
+        if ms_value <= 0:
+            never("invalid analysis timeout ms", ms=existing_ms)
+        return ms_value * 1_000_000
+    existing_seconds = payload.get("analysis_timeout_seconds")
+    if existing_seconds not in (None, ""):
+        try:
+            seconds_value = Decimal(str(existing_seconds))
+        except (InvalidOperation, ValueError):
+            never("invalid analysis timeout seconds", seconds=existing_seconds)
+        if seconds_value <= 0:
+            never("invalid analysis timeout seconds", seconds=existing_seconds)
+        return int(seconds_value * Decimal(1_000_000_000))
+    return None
+
+
+def _analysis_timeout_slack_ns(total_ns: int) -> int:
+    slack_ns = total_ns // 10
+    if slack_ns < 1_000_000_000:
+        slack_ns = 1_000_000_000
+    if slack_ns > 60_000_000_000:
+        slack_ns = 60_000_000_000
+    return slack_ns
+
+
 def _wait_readable(stream, deadline_ns: int | None) -> None:
     if deadline_ns is None:
         return
@@ -171,7 +227,28 @@ def run_command(
         ticks_value = 1
     if tick_ns_value <= 0:
         tick_ns_value = 1
-    deadline = Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
+
+    command_args = list(request.arguments or [])
+    if command_args and isinstance(command_args[0], dict):
+        payload = dict(command_args[0])
+        command_args[0] = payload
+    else:
+        payload = {}
+        command_args = [payload]
+
+    existing_total_ns = _analysis_timeout_total_ns(payload)
+    if existing_total_ns is None:
+        analysis_target_ns = ticks_value * tick_ns_value
+    else:
+        analysis_target_ns = existing_total_ns
+    slack_ns = _analysis_timeout_slack_ns(analysis_target_ns)
+    base_total_ns = ticks_value * tick_ns_value
+    lsp_total_ns = max(base_total_ns, analysis_target_ns + slack_ns)
+    lsp_ticks = (lsp_total_ns + tick_ns_value - 1) // tick_ns_value
+    if lsp_ticks <= 0:
+        lsp_ticks = 1
+
+    deadline = Deadline.from_timeout_ticks(lsp_ticks, tick_ns_value)
     deadline_ns = deadline.deadline_ns
     proc = process_factory(
         [sys.executable, "-m", "gabion.server"],
@@ -198,69 +275,15 @@ def run_command(
         _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
         cmd_id = 2
-        command_args = list(request.arguments or [])
         remaining_ns = _remaining_deadline_ns(deadline_ns)
-        if command_args and isinstance(command_args[0], dict):
-            payload = dict(command_args[0])
-            command_args[0] = payload
-        else:
-            payload = {}
-            command_args = [payload]
-        existing_ticks = payload.get("analysis_timeout_ticks")
-        existing_tick_ns = payload.get("analysis_timeout_tick_ns")
-        existing_total_ns = None
-        if existing_ticks not in (None, "") or existing_tick_ns not in (None, ""):
-            if existing_ticks in (None, "") or existing_tick_ns in (None, ""):
-                never(
-                    "missing analysis timeout tick_ns",
-                    ticks=existing_ticks,
-                    tick_ns=existing_tick_ns,
-                )
-            try:
-                ticks_value = int(existing_ticks)
-                tick_ns_value = int(existing_tick_ns)
-            except (TypeError, ValueError):
-                never(
-                    "invalid analysis timeout ticks",
-                    ticks=existing_ticks,
-                    tick_ns=existing_tick_ns,
-                )
-            if ticks_value <= 0 or tick_ns_value <= 0:
-                never(
-                    "invalid analysis timeout ticks",
-                    ticks=existing_ticks,
-                    tick_ns=existing_tick_ns,
-                )
-            existing_total_ns = ticks_value * tick_ns_value
-        else:
-            existing_ms = payload.get("analysis_timeout_ms")
-            if existing_ms not in (None, ""):
-                try:
-                    ms_value = int(existing_ms)
-                except (TypeError, ValueError):
-                    never("invalid analysis timeout ms", ms=existing_ms)
-                if ms_value <= 0:
-                    never("invalid analysis timeout ms", ms=existing_ms)
-                existing_total_ns = ms_value * 1_000_000
-            else:
-                existing_seconds = payload.get("analysis_timeout_seconds")
-                if existing_seconds not in (None, ""):
-                    try:
-                        seconds_value = Decimal(str(existing_seconds))
-                    except (InvalidOperation, ValueError):
-                        never(
-                            "invalid analysis timeout seconds", seconds=existing_seconds
-                        )
-                    if seconds_value <= 0:
-                        never(
-                            "invalid analysis timeout seconds", seconds=existing_seconds
-                        )
-                    existing_total_ns = int(seconds_value * Decimal(1_000_000_000))
         if existing_total_ns is None or existing_total_ns > remaining_ns:
-            ticks_value = remaining_ns // tick_ns_value
+            target_ns = analysis_target_ns
+            if target_ns > remaining_ns:
+                target_ns = remaining_ns
+            ticks_value = target_ns // tick_ns_value
             if ticks_value <= 0:
                 ticks_value = 1
-                tick_ns_value = remaining_ns
+                tick_ns_value = target_ns
             payload["analysis_timeout_ticks"] = int(ticks_value)
             payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
         _write_rpc(

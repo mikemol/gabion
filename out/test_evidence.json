@@ -29948,63 +29948,77 @@
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 651,
+      "line": 187,
+      "status": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_analysis_timeout_slack_cap"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 183,
+      "status": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_analysis_timeout_slack_floor"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 660,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_missing_raises"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 604,
+      "line": 613,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_ms_invalid_returns_none"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 557,
+      "line": 566,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_ms_parsing"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 635,
+      "line": 644,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_seconds_invalid_returns_none"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 620,
+      "line": 629,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_seconds_parsing"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 572,
+      "line": 581,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_tick_ns_invalid_falls_back_to_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 588,
+      "line": 597,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_tick_ns_missing_raises"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 542,
+      "line": 551,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_ticks_with_tick_ns"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 705,
+      "line": 714,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_remaining_deadline_ns_raises_when_expired"
     },
@@ -30024,21 +30038,21 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 118,
+      "line": 119,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_allows_blank_stderr"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 686,
+      "line": 695,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_clamps_zero_tick_ns"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 667,
+      "line": 676,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_clamps_zero_timeout_ticks"
     },
@@ -30056,7 +30070,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 183,
+      "line": 192,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_env_timeout_zero_rejected"
     },
@@ -30074,21 +30088,21 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 202,
+      "line": 211,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_injects_analysis_timeout_ticks"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 470,
+      "line": 479,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 418,
+      "line": 427,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_seconds"
     },
@@ -30106,21 +30120,21 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 271,
+      "line": 280,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_ticks"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 358,
+      "line": 367,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 388,
+      "line": 397,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_seconds"
     },
@@ -30138,7 +30152,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 235,
+      "line": 244,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_ticks"
     },
@@ -30158,7 +30172,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 98,
+      "line": 99,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_nonzero_returncode"
     },
@@ -30178,7 +30192,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 108,
+      "line": 109,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_stderr_output"
     },
@@ -30196,14 +30210,14 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 164,
+      "line": 165,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_invalid_env_timeout"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 302,
+      "line": 311,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_missing_analysis_timeout_tick_ns"
     },
@@ -30223,35 +30237,35 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 127,
+      "line": 128,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_non_object_result"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 496,
+      "line": 505,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 444,
+      "line": 453,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_seconds"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 330,
+      "line": 339,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_tick_ns"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 522,
+      "line": 531,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_tick_ns_clamps_to_remaining"
     },
@@ -30269,7 +30283,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 137,
+      "line": 138,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_uses_env_timeout"
     },

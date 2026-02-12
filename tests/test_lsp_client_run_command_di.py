@@ -12,6 +12,7 @@ from gabion.lsp_client import (
     LspClientError,
     run_command,
     _env_timeout_ticks,
+    _analysis_timeout_slack_ns,
     _remaining_deadline_ns,
 )
 from gabion.exceptions import NeverThrown
@@ -157,7 +158,7 @@ def test_run_command_uses_env_timeout() -> None:
             os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = previous_tick_ns
     assert result == {}
     assert proc.last_timeout is not None
-    assert 0 < proc.last_timeout <= 1.0
+    assert 1.0 < proc.last_timeout <= 2.0
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
@@ -177,6 +178,14 @@ def test_run_command_rejects_invalid_env_timeout() -> None:
             os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
         else:
             os.environ["GABION_LSP_TIMEOUT_TICKS"] = previous
+
+
+def test_analysis_timeout_slack_floor() -> None:
+    assert _analysis_timeout_slack_ns(10_000_000) == 1_000_000_000
+
+
+def test_analysis_timeout_slack_cap() -> None:
+    assert _analysis_timeout_slack_ns(1_000_000_000_000) == 60_000_000_000
 
 
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command
