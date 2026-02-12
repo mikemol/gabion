@@ -60,9 +60,9 @@ class Deadline:
         ticks_value = int(ticks)
         tick_ns_value = int(tick_ns)
         if ticks_value < 0:
-            ticks_value = 0
+            never("invalid timeout ticks", ticks=ticks)
         if tick_ns_value <= 0:
-            tick_ns_value = 1
+            never("invalid timeout tick_ns", tick_ns=tick_ns)
         total_ns = ticks_value * tick_ns_value
         return cls(deadline_ns=time.monotonic_ns() + total_ns)
 
@@ -76,9 +76,9 @@ class Deadline:
         try:
             value = Decimal(str(seconds))
         except (InvalidOperation, ValueError):
-            value = Decimal(0)
+            never("invalid timeout seconds", seconds=seconds)
         if value < 0:
-            value = Decimal(0)
+            never("invalid timeout seconds", seconds=seconds)
         millis = int(value * Decimal(1000))
         return cls.from_timeout_ms(millis)
 
@@ -113,6 +113,7 @@ class _DeadlineEdgeStats:
 
 @dataclass
 class _DeadlineProfileState:
+    enabled: bool
     started_ns: int
     last_ns: int
     project_root: Path | None = None
@@ -135,12 +136,11 @@ def set_deadline_profile(
     *,
     project_root: Path | None = None,
     enabled: bool = True,
-) -> Token[_DeadlineProfileState | None] | None:
-    if not enabled:
-        return None
+) -> Token[_DeadlineProfileState | None]:
     resolved_root = project_root.resolve() if project_root is not None else None
     now = time.monotonic_ns()
     state = _DeadlineProfileState(
+        enabled=enabled,
         started_ns=now,
         last_ns=now,
         project_root=resolved_root,
@@ -148,9 +148,7 @@ def set_deadline_profile(
     return _deadline_profile_var.set(state)
 
 
-def reset_deadline_profile(token: Token[_DeadlineProfileState | None] | None) -> None:
-    if token is None:
-        return
+def reset_deadline_profile(token: Token[_DeadlineProfileState | None]) -> None:
     _deadline_profile_var.reset(token)
 
 
@@ -243,6 +241,8 @@ def _record_deadline_check(project_root: Path | None) -> None:
     state = _deadline_profile_var.get()
     if state is None:
         return
+    if not state.enabled:
+        return
     frame = inspect.currentframe()
     if frame is None or frame.f_back is None or frame.f_back.f_back is None:
         return
@@ -273,6 +273,8 @@ def _record_deadline_check(project_root: Path | None) -> None:
 def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
     state = _deadline_profile_var.get()
     if state is None:
+        return None
+    if not state.enabled:
         return None
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []

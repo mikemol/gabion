@@ -114,9 +114,12 @@ def test_deadline_expired_raises() -> None:
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ticks
 def test_deadline_from_timeout_variants() -> None:
-    assert Deadline.from_timeout_ticks(-5, 0).expired() is True
-    assert Deadline.from_timeout(-1).expired() is True
-    assert Deadline.from_timeout("nope").expired() is True
+    with pytest.raises(NeverThrown):
+        Deadline.from_timeout_ticks(-5, 0)
+    with pytest.raises(NeverThrown):
+        Deadline.from_timeout(-1)
+    with pytest.raises(NeverThrown):
+        Deadline.from_timeout("nope")
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_site_index
