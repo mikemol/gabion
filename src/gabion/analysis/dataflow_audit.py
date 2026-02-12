@@ -9506,8 +9506,8 @@ def render_decision_snapshot(
     forest: Forest,
     forest_spec: ForestSpec | None = None,
 ) -> JSONObject:
-    if forest is None:
-        never("decision snapshot requires forest")
+    if not isinstance(forest, Forest):
+        never("decision snapshot requires forest carrier")
     snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,

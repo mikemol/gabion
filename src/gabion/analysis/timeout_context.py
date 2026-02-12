@@ -170,8 +170,6 @@ def get_deadline() -> Deadline:
 
 
 def set_forest(forest: Forest) -> Token[Forest | object]:
-    if forest is None:
-        never("forest carrier missing")
     return _forest_var.set(forest)
 
 
@@ -201,8 +199,6 @@ def deadline_scope(deadline: Deadline):
 
 @contextmanager
 def forest_scope(forest: Forest):
-    if forest is None:
-        never("forest carrier missing")
     token = set_forest(forest)
     try:
         yield
