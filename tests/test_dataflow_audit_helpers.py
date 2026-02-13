@@ -444,6 +444,60 @@ def test_analysis_index_resolved_call_edges_cache_and_transparency(tmp_path: Pat
     assert [edge.callee.name for edge in transparent_edges] == ["open_"]
 
 
+def test_constant_and_deadness_projections_share_constant_details(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(
+        module,
+        "def callee(x):\n"
+        "    return x\n"
+        "\n"
+        "def caller():\n"
+        "    return callee(1)\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    details = da._collect_constant_flow_details(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    assert da._constant_smells_from_details(details) == da.analyze_constant_flow_repo(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    assert da._deadness_witnesses_from_constant_details(
+        details,
+        project_root=tmp_path,
+    ) == da.analyze_deadness_flow_repo(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+
+
 def test_lint_rows_materialize_and_project_from_forest() -> None:
     da = _load()
     forest = da.Forest()
