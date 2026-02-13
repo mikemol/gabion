@@ -3803,7 +3803,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--change-protocol-md",
         type=Path,
-        default=Path("out/docflow_change_protocol.md"),
+        default=Path("artifacts/out/docflow_change_protocol.md"),
         help="Output path for docflow change-protocol markdown.",
     )
     parser.add_argument(
