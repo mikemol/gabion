@@ -23,6 +23,7 @@ import os
 import sys
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 from pathlib import Path
 from typing import Callable, Hashable, Iterable, Iterator, Mapping, TypeVar
 import re
@@ -123,6 +124,18 @@ _PARSE_MODULE_ERROR_TYPES = (
     MemoryError,
     RecursionError,
 )
+
+
+class _ParseModuleStage(StrEnum):
+    PARAM_ANNOTATIONS = "param_annotations"
+    DEADLINE_FUNCTION_FACTS = "deadline_function_facts"
+    CALL_NODES = "call_nodes"
+    SYMBOL_TABLE = "symbol_table"
+    CLASS_INDEX = "class_index"
+    FUNCTION_INDEX = "function_index"
+    CONFIG_FIELDS = "config_fields"
+    DATACLASS_REGISTRY = "dataclass_registry"
+    DATACLASS_CALL_BUNDLES = "dataclass_call_bundles"
 
 
 @dataclass
@@ -1127,9 +1140,8 @@ def _internal_broad_type_lint_lines(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> list[str]:
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
         project_root=project_root,
@@ -1345,12 +1357,13 @@ def _param_defaults(
 def _parse_failure_witness(
     *,
     path: Path,
-    stage: str,
+    stage: str | _ParseModuleStage,
     error: Exception,
 ) -> JSONObject:
+    stage_value = stage.value if isinstance(stage, _ParseModuleStage) else stage
     return {
         "path": str(path),
-        "stage": stage,
+        "stage": stage_value,
         "error_type": type(error).__name__,
         "error": str(error),
     }
@@ -1360,7 +1373,7 @@ def _record_parse_failure_witness(
     *,
     sink: list[JSONObject],
     path: Path,
-    stage: str,
+    stage: str | _ParseModuleStage,
     error: Exception,
 ) -> None:
     sink.append(_parse_failure_witness(path=path, stage=stage, error=error))
@@ -1377,7 +1390,7 @@ def _parse_failure_sink(
 def _parse_module_tree(
     path: Path,
     *,
-    stage: str,
+    stage: _ParseModuleStage,
     parse_failure_witnesses: list[JSONObject],
 ) -> ast.Module | None:
     try:
@@ -1404,7 +1417,7 @@ def _param_annotations_by_path(
         check_deadline()
         tree = _parse_module_tree(
             path,
-            stage="param_annotations",
+            stage=_ParseModuleStage.PARAM_ANNOTATIONS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         if tree is None:
@@ -3171,7 +3184,7 @@ def _collect_deadline_function_facts(
         check_deadline()
         tree = _parse_module_tree(
             path,
-            stage="deadline_function_facts",
+            stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         if tree is None:
@@ -3219,7 +3232,7 @@ def _collect_call_nodes_by_path(
         else:
             tree = _parse_module_tree(
                 path,
-                stage="call_nodes",
+                stage=_ParseModuleStage.CALL_NODES,
                 parse_failure_witnesses=parse_failure_witnesses,
             )
             if tree is None:
@@ -3851,12 +3864,11 @@ def _collect_deadline_obligations(
     extra_facts_by_qual: dict[str, "_DeadlineFunctionFacts"] | None = None,
     extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
     extra_deadline_params: dict[str, set[str]] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> list[JSONObject]:
     check_deadline()
     if not config.deadline_roots:
         return []
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -5629,10 +5641,9 @@ def _build_call_graph(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
     check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -5685,10 +5696,9 @@ def _collect_call_ambiguities(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> list[CallAmbiguity]:
     check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -6108,12 +6118,11 @@ def _populate_bundle_forest(
     ignore_params: set[str] | None = None,
     strictness: str = "high",
     transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> None:
     check_deadline()
     if not groups_by_path:
         return
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     if include_all_sites:
         by_name, by_qual = _build_function_index(
             file_paths,
@@ -7343,7 +7352,7 @@ def _build_symbol_table(
         check_deadline()
         tree = _parse_module_tree(
             path,
-            stage="symbol_table",
+            stage=_ParseModuleStage.SYMBOL_TABLE,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         if tree is None:
@@ -7381,7 +7390,7 @@ def _collect_class_index(
         check_deadline()
         tree = _parse_module_tree(
             path,
-            stage="class_index",
+            stage=_ParseModuleStage.CLASS_INDEX,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         if tree is None:
@@ -7520,7 +7529,7 @@ def _build_function_index(
         check_deadline()
         tree = _parse_module_tree(
             path,
-            stage="function_index",
+            stage=_ParseModuleStage.FUNCTION_INDEX,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         if tree is None:
@@ -7849,11 +7858,10 @@ def _infer_type_flow(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     max_sites_per_param: int = 3,
-    parse_failure_witnesses: list[JSONObject] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -8040,6 +8048,7 @@ def analyze_type_flow_repo_with_map(
     parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
+    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     inferred, suggestions, ambiguities, _ = _infer_type_flow(
         paths,
         project_root=project_root,
@@ -8063,6 +8072,7 @@ def analyze_type_flow_repo_with_evidence(
     max_sites_per_param: int = 3,
     parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
+    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     _, suggestions, ambiguities, evidence = _infer_type_flow(
         paths,
         project_root=project_root,
@@ -8110,6 +8120,7 @@ def analyze_constant_flow_repo(
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
     check_deadline()
+    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     details = _collect_constant_flow_details(
         paths,
         project_root=project_root,
@@ -8165,10 +8176,9 @@ def _collect_constant_flow_details(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
+    parse_failure_witnesses: list[JSONObject],
 ) -> list[ConstantFlowDetail]:
     check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -8348,9 +8358,11 @@ def analyze_deadness_flow_repo(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> list[JSONObject]:
     """Emit deadness witnesses based on constant-only parameter flows."""
     check_deadline()
+    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     details = _collect_constant_flow_details(
         paths,
         project_root=project_root,
@@ -8358,6 +8370,7 @@ def analyze_deadness_flow_repo(
         strictness=strictness,
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     witnesses: list[JSONObject] = []
     for detail in details:
@@ -8729,7 +8742,7 @@ def _iter_config_fields(
     check_deadline()
     tree = _parse_module_tree(
         path,
-        stage="config_fields",
+        stage=_ParseModuleStage.CONFIG_FIELDS,
         parse_failure_witnesses=parse_failure_witnesses,
     )
     if tree is None:
@@ -8820,7 +8833,7 @@ def _collect_dataclass_registry(
         check_deadline()
         tree = _parse_module_tree(
             path,
-            stage="dataclass_registry",
+            stage=_ParseModuleStage.DATACLASS_REGISTRY,
             parse_failure_witnesses=parse_failure_witnesses,
         )
         if tree is None:
@@ -8898,7 +8911,7 @@ def _iter_dataclass_call_bundles(
     bundles: set[tuple[str, ...]] = set()
     tree = _parse_module_tree(
         path,
-        stage="dataclass_call_bundles",
+        stage=_ParseModuleStage.DATACLASS_CALL_BUNDLES,
         parse_failure_witnesses=parse_failure_witnesses,
     )
     if tree is None:
@@ -11197,6 +11210,7 @@ def analyze_paths(
                 strictness=config.strictness,
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
             )
 
         decision_surfaces: list[str] = []
