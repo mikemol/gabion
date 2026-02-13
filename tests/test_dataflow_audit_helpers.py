@@ -592,7 +592,7 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
     assert ("dataclass_registry", str(tmp_path)) in analysis_index.stage_cache_by_key
 
 
-def test_run_indexed_pass_hydrates_index_and_sink(monkeypatch) -> None:
+def test_run_indexed_pass_hydrates_index_and_sink() -> None:
     da = _load()
     sentinel_index = da.AnalysisIndex(
         by_name={},
@@ -607,13 +607,13 @@ def test_run_indexed_pass_hydrates_index_and_sink(monkeypatch) -> None:
         calls += 1
         return sentinel_index
 
-    monkeypatch.setattr(da, "_build_analysis_index", _build_analysis_index)
     result = da._run_indexed_pass(
         [Path("demo.py")],
         project_root=Path("."),
         ignore_params=set(),
         strictness="high",
         external_filter=True,
+        build_index=_build_analysis_index,
         spec=da._IndexedPassSpec(
             pass_id="demo",
             run=lambda context: (
@@ -626,7 +626,7 @@ def test_run_indexed_pass_hydrates_index_and_sink(monkeypatch) -> None:
     assert result == (True, True)
 
 
-def test_run_indexed_pass_reuses_prebuilt_index(monkeypatch) -> None:
+def test_run_indexed_pass_reuses_prebuilt_index() -> None:
     da = _load()
     sentinel_index = da.AnalysisIndex(
         by_name={},
@@ -639,7 +639,6 @@ def test_run_indexed_pass_reuses_prebuilt_index(monkeypatch) -> None:
     def _unexpected_build(*_args, **_kwargs):
         raise AssertionError("unexpected index build")
 
-    monkeypatch.setattr(da, "_build_analysis_index", _unexpected_build)
     result = da._run_indexed_pass(
         [Path("demo.py")],
         project_root=Path("."),
@@ -648,6 +647,7 @@ def test_run_indexed_pass_reuses_prebuilt_index(monkeypatch) -> None:
         external_filter=True,
         parse_failure_witnesses=sink,
         analysis_index=sentinel_index,
+        build_index=_unexpected_build,
         spec=da._IndexedPassSpec(
             pass_id="demo",
             run=lambda context: (

@@ -64,19 +64,15 @@ def test_emit_report_parse_failure_witnesses() -> None:
     ]
 
 
-def test_emit_report_execution_pattern_suggestions_are_non_blocking(
-    monkeypatch,
-) -> None:
+def test_emit_report_execution_pattern_suggestions_are_non_blocking() -> None:
     da = _load()
-    monkeypatch.setattr(
-        da,
-        "_execution_pattern_suggestions",
-        lambda: ["execution_pattern indexed_pass_ingress members=3"],
-    )
     report, violations = da._emit_report(
         {},
         3,
         report=da.ReportCarrier(forest=da.Forest()),
+        execution_pattern_suggestions=[
+            "execution_pattern indexed_pass_ingress members=3"
+        ],
     )
     assert "Execution pattern opportunities" in report
     assert "indexed_pass_ingress" in report
