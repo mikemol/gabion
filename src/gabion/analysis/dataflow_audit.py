@@ -912,6 +912,7 @@ def analyze_decision_surfaces_repo(
     require_tiers: bool = False,
     forest: Forest,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     check_deadline()
     parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
@@ -923,6 +924,7 @@ def analyze_decision_surfaces_repo(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
 
     surfaces: list[str] = []
@@ -1022,6 +1024,7 @@ def analyze_value_encoded_decisions_repo(
     require_tiers: bool = False,
     forest: Forest,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
     check_deadline()
     parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
@@ -1033,6 +1036,7 @@ def analyze_value_encoded_decisions_repo(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
     surfaces: list[str] = []
     warnings: list[str] = []
@@ -1141,6 +1145,7 @@ def _internal_broad_type_lint_lines(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> list[str]:
     by_name, by_qual, transitive_callers = _build_call_graph(
         paths,
@@ -1150,6 +1155,7 @@ def _internal_broad_type_lint_lines(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
     lines: list[str] = []
     for info in by_qual.values():
@@ -3955,29 +3961,26 @@ def _collect_deadline_obligations(
     extra_call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, "_DeadlineArgInfo"]]]] | None = None,
     extra_deadline_params: dict[str, set[str]] | None = None,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> list[JSONObject]:
     check_deadline()
     if not config.deadline_roots:
         return []
-    by_name, by_qual = _build_function_index(
-        paths,
-        project_root,
-        config.ignore_params,
-        config.strictness,
-        config.transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    symbol_table = _build_symbol_table(
-        paths,
-        project_root,
-        external_filter=config.external_filter,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    class_index = _collect_class_index(
-        paths,
-        project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    index = analysis_index
+    if index is None:
+        index = _build_analysis_index(
+            paths,
+            project_root=project_root,
+            ignore_params=config.ignore_params,
+            strictness=config.strictness,
+            external_filter=config.external_filter,
+            transparent_decorators=config.transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    by_name = index.by_name
+    by_qual = index.by_qual
+    symbol_table = index.symbol_table
+    class_index = index.class_index
     _materialize_call_candidates(
         forest=forest,
         by_name=by_name,
@@ -5723,7 +5726,16 @@ def _collect_transitive_callers(
     return transitive
 
 
-def _build_call_graph(
+@dataclass
+class AnalysisIndex:
+    by_name: dict[str, list[FunctionInfo]]
+    by_qual: dict[str, FunctionInfo]
+    symbol_table: SymbolTable
+    class_index: dict[str, ClassInfo]
+    transitive_callers: dict[str, set[str]] | None = None
+
+
+def _build_analysis_index(
     paths: list[Path],
     *,
     project_root: Path | None,
@@ -5732,7 +5744,7 @@ def _build_call_graph(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
-) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
+) -> AnalysisIndex:
     check_deadline()
     by_name, by_qual = _build_function_index(
         paths,
@@ -5753,8 +5765,24 @@ def _build_call_graph(
         project_root,
         parse_failure_witnesses=parse_failure_witnesses,
     )
+    return AnalysisIndex(
+        by_name=by_name,
+        by_qual=by_qual,
+        symbol_table=symbol_table,
+        class_index=class_index,
+    )
+
+
+def _analysis_index_transitive_callers(
+    analysis_index: AnalysisIndex,
+    *,
+    project_root: Path | None,
+) -> dict[str, set[str]]:
+    check_deadline()
+    if analysis_index.transitive_callers is not None:
+        return analysis_index.transitive_callers
     callers_by_qual: dict[str, set[str]] = defaultdict(set)
-    for infos in by_name.values():
+    for infos in analysis_index.by_name.values():
         check_deadline()
         for info in infos:
             check_deadline()
@@ -5765,17 +5793,50 @@ def _build_call_graph(
                 callee = _resolve_callee(
                     call.callee,
                     info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
+                    analysis_index.by_name,
+                    analysis_index.by_qual,
+                    analysis_index.symbol_table,
                     project_root,
-                    class_index,
+                    analysis_index.class_index,
                 )
                 if callee is None:
                     continue
                 callers_by_qual[callee.qual].add(info.qual)
-    transitive_callers = _collect_transitive_callers(callers_by_qual, by_qual)
-    return by_name, by_qual, transitive_callers
+    analysis_index.transitive_callers = _collect_transitive_callers(
+        callers_by_qual,
+        analysis_index.by_qual,
+    )
+    return analysis_index.transitive_callers
+
+
+def _build_call_graph(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
+) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
+    check_deadline()
+    index = analysis_index
+    if index is None:
+        index = _build_analysis_index(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    transitive_callers = _analysis_index_transitive_callers(
+        index,
+        project_root=project_root,
+    )
+    return index.by_name, index.by_qual, transitive_callers
 
 
 def _collect_call_ambiguities(
@@ -5787,27 +5848,20 @@ def _collect_call_ambiguities(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> list[CallAmbiguity]:
     check_deadline()
-    by_name, by_qual = _build_function_index(
-        paths,
-        project_root,
-        ignore_params,
-        strictness,
-        transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    symbol_table = _build_symbol_table(
-        paths,
-        project_root,
-        external_filter=external_filter,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    class_index = _collect_class_index(
-        paths,
-        project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    index = analysis_index
+    if index is None:
+        index = _build_analysis_index(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
     ambiguities: list[CallAmbiguity] = []
 
     def _sink(
@@ -5829,7 +5883,7 @@ def _collect_call_ambiguities(
             )
         )
 
-    for infos in by_name.values():
+    for infos in index.by_name.values():
         check_deadline()
         for info in infos:
             check_deadline()
@@ -5840,11 +5894,11 @@ def _collect_call_ambiguities(
                 _resolve_callee(
                     call.callee,
                     info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
+                    index.by_name,
+                    index.by_qual,
+                    index.symbol_table,
                     project_root,
-                    class_index,
+                    index.class_index,
                     call=call,
                     ambiguity_sink=_sink,
                 )
@@ -6209,22 +6263,26 @@ def _populate_bundle_forest(
     strictness: str = "high",
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> None:
     check_deadline()
     if not groups_by_path:
         return
+    index = analysis_index
     if include_all_sites:
-        by_name, by_qual = _build_function_index(
-            file_paths,
-            project_root,
-            ignore_params or set(),
-            strictness,
-            transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
-        for qual in sorted(by_qual):
+        if index is None:
+            index = _build_analysis_index(
+                file_paths,
+                project_root=project_root,
+                ignore_params=ignore_params or set(),
+                strictness=strictness,
+                external_filter=True,
+                transparent_decorators=transparent_decorators,
+                parse_failure_witnesses=parse_failure_witnesses,
+            )
+        for qual in sorted(index.by_qual):
             check_deadline()
-            info = by_qual[qual]
+            info = index.by_qual[qual]
             if _is_test_path(info.path):
                 continue
             forest.add_site(info.path.name, info.qual)
@@ -6287,12 +6345,15 @@ def _populate_bundle_forest(
             evidence={"qual": qual_name},
         )
 
-    symbol_table = _build_symbol_table(
-        file_paths,
-        project_root,
-        external_filter=True,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    if index is None or not index.symbol_table.external_filter:
+        symbol_table = _build_symbol_table(
+            file_paths,
+            project_root,
+            external_filter=True,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    else:
+        symbol_table = index.symbol_table
     for path in sorted(file_paths):
         check_deadline()
         for bundle in sorted(_iter_documented_bundles(path)):
@@ -7949,28 +8010,25 @@ def _infer_type_flow(
     transparent_decorators: set[str] | None = None,
     max_sites_per_param: int = 3,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
-    by_name, by_qual = _build_function_index(
-        paths,
-        project_root,
-        ignore_params,
-        strictness,
-        transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    symbol_table = _build_symbol_table(
-        paths,
-        project_root,
-        external_filter=external_filter,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    class_index = _collect_class_index(
-        paths,
-        project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    index = analysis_index
+    if index is None:
+        index = _build_analysis_index(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    by_name = index.by_name
+    by_qual = index.by_qual
+    symbol_table = index.symbol_table
+    class_index = index.class_index
     inferred: dict[str, dict[str, str | None]] = {}
     for infos in by_name.values():
         check_deadline()
@@ -8136,6 +8194,7 @@ def analyze_type_flow_repo_with_map(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
     parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
@@ -8147,6 +8206,7 @@ def analyze_type_flow_repo_with_map(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
     return inferred, suggestions, ambiguities
 
@@ -8161,6 +8221,7 @@ def analyze_type_flow_repo_with_evidence(
     transparent_decorators: set[str] | None = None,
     max_sites_per_param: int = 3,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     _, suggestions, ambiguities, evidence = _infer_type_flow(
@@ -8172,6 +8233,7 @@ def analyze_type_flow_repo_with_evidence(
         transparent_decorators=transparent_decorators,
         max_sites_per_param=max_sites_per_param,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
     return suggestions, ambiguities, evidence
 
@@ -8185,6 +8247,7 @@ def analyze_type_flow_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str]]:
     inferred, suggestions, ambiguities = analyze_type_flow_repo_with_map(
         paths,
@@ -8194,6 +8257,7 @@ def analyze_type_flow_repo(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
     return suggestions, ambiguities
 
@@ -8207,6 +8271,7 @@ def analyze_constant_flow_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
     check_deadline()
@@ -8219,6 +8284,7 @@ def analyze_constant_flow_repo(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
     smells: list[str] = []
     for detail in details:
@@ -8267,27 +8333,24 @@ def _collect_constant_flow_details(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> list[ConstantFlowDetail]:
     check_deadline()
-    by_name, by_qual = _build_function_index(
-        paths,
-        project_root,
-        ignore_params,
-        strictness,
-        transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    symbol_table = _build_symbol_table(
-        paths,
-        project_root,
-        external_filter=external_filter,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    class_index = _collect_class_index(
-        paths,
-        project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    index = analysis_index
+    if index is None:
+        index = _build_analysis_index(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    by_name = index.by_name
+    by_qual = index.by_qual
+    symbol_table = index.symbol_table
+    class_index = index.class_index
     const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
     non_const: dict[tuple[str, str], bool] = defaultdict(bool)
     call_counts: dict[tuple[str, str], int] = defaultdict(int)
@@ -8449,6 +8512,7 @@ def analyze_deadness_flow_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> list[JSONObject]:
     """Emit deadness witnesses based on constant-only parameter flows."""
     check_deadline()
@@ -8461,6 +8525,7 @@ def analyze_deadness_flow_repo(
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
     )
     witnesses: list[JSONObject] = []
     for detail in details:
@@ -8649,29 +8714,26 @@ def analyze_unused_arg_flow_repo(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
     check_deadline()
     parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    by_name, by_qual = _build_function_index(
-        paths,
-        project_root,
-        ignore_params,
-        strictness,
-        transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    symbol_table = _build_symbol_table(
-        paths,
-        project_root,
-        external_filter=external_filter,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    class_index = _collect_class_index(
-        paths,
-        project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    index = analysis_index
+    if index is None:
+        index = _build_analysis_index(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    by_name = index.by_name
+    by_qual = index.by_qual
+    symbol_table = index.symbol_table
+    class_index = index.class_index
     smells: set[str] = set()
 
     def _format(
@@ -10425,25 +10487,19 @@ def build_synthesis_plan(
     root = project_root or audit_config.project_root or _infer_root(groups_by_path)
     signature_meta = _partial_forest_signature_metadata(groups_by_path)
     path_list = list(groups_by_path.keys())
-    by_name, by_qual = _build_function_index(
+    analysis_index = _build_analysis_index(
         path_list,
-        root,
-        audit_config.ignore_params,
-        audit_config.strictness,
-        audit_config.transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    symbol_table = _build_symbol_table(
-        path_list,
-        root,
+        project_root=root,
+        ignore_params=audit_config.ignore_params,
+        strictness=audit_config.strictness,
         external_filter=audit_config.external_filter,
+        transparent_decorators=audit_config.transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    class_index = _collect_class_index(
-        path_list,
-        root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    by_name = analysis_index.by_name
+    by_qual = analysis_index.by_qual
+    symbol_table = analysis_index.symbol_table
+    class_index = analysis_index.class_index
     knob_names = _compute_knob_param_names(
         by_name=by_name,
         by_qual=by_qual,
@@ -10585,6 +10641,8 @@ def build_synthesis_plan(
             strictness=audit_config.strictness,
             external_filter=audit_config.external_filter,
             transparent_decorators=audit_config.transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+            analysis_index=analysis_index,
         )
         type_sets: dict[str, set[str]] = defaultdict(set)
         for annots in inferred.values():
@@ -10816,25 +10874,19 @@ def build_refactor_plan(
         payload.update(signature_meta)
         return payload
 
-    by_name, by_qual = _build_function_index(
+    analysis_index = _build_analysis_index(
         file_paths,
-        config.project_root,
-        config.ignore_params,
-        config.strictness,
-        config.transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    symbol_table = _build_symbol_table(
-        file_paths,
-        config.project_root,
+        project_root=config.project_root,
+        ignore_params=config.ignore_params,
+        strictness=config.strictness,
         external_filter=config.external_filter,
+        transparent_decorators=config.transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    class_index = _collect_class_index(
-        file_paths,
-        config.project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    by_name = analysis_index.by_name
+    by_qual = analysis_index.by_qual
+    symbol_table = analysis_index.symbol_table
+    class_index = analysis_index.class_index
     info_by_path_name: dict[tuple[Path, str], FunctionInfo] = {}
     for infos in by_name.values():
         check_deadline()
@@ -11154,6 +11206,7 @@ def analyze_paths(
         forest_spec: ForestSpec | None = None
         ambiguity_witnesses: list[JSONObject] = []
         parse_failure_witnesses: list[JSONObject] = []
+        analysis_index: AnalysisIndex | None = None
 
         def _deadline_check(*, allow_frame_fallback: bool) -> None:
             forest_spec_id = None
@@ -11166,6 +11219,20 @@ def analyze_paths(
                 forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
                 allow_frame_fallback=allow_frame_fallback,
             )
+
+        def _require_analysis_index() -> AnalysisIndex:
+            nonlocal analysis_index
+            if analysis_index is None:
+                analysis_index = _build_analysis_index(
+                    file_paths,
+                    project_root=config.project_root,
+                    ignore_params=config.ignore_params,
+                    strictness=config.strictness,
+                    external_filter=config.external_filter,
+                    transparent_decorators=config.transparent_decorators,
+                    parse_failure_witnesses=parse_failure_witnesses,
+                )
+            return analysis_index
 
         for path in file_paths:
             check_deadline()
@@ -11205,6 +11272,7 @@ def analyze_paths(
                 strictness=config.strictness,
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
             forest_spec = build_forest_spec(
                 include_bundle_forest=True,
@@ -11235,6 +11303,7 @@ def analyze_paths(
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
             ambiguity_witnesses = _emit_call_ambiguities(
                 call_ambiguities,
@@ -11257,6 +11326,7 @@ def analyze_paths(
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
             if type_audit_report:
                 type_suggestions = type_suggestions[:type_audit_max]
@@ -11274,6 +11344,7 @@ def analyze_paths(
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
 
         unused_arg_smells: list[str] = []
@@ -11286,6 +11357,7 @@ def analyze_paths(
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
 
         deadline_obligations: list[JSONObject] = []
@@ -11296,6 +11368,7 @@ def analyze_paths(
                 config=config,
                 forest=forest,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
             _materialize_suite_order_spec(forest=forest)
         deadness_witnesses: list[JSONObject] = []
@@ -11308,6 +11381,7 @@ def analyze_paths(
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
 
         decision_surfaces: list[str] = []
@@ -11326,6 +11400,7 @@ def analyze_paths(
                     require_tiers=config.decision_require_tiers,
                     forest=forest,
                     parse_failure_witnesses=parse_failure_witnesses,
+                    analysis_index=_require_analysis_index(),
                 )
             )
         value_decision_surfaces: list[str] = []
@@ -11347,6 +11422,7 @@ def analyze_paths(
                 require_tiers=config.decision_require_tiers,
                 forest=forest,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
             decision_warnings.extend(value_warnings)
             decision_lint_lines.extend(value_lint_lines)
@@ -11453,6 +11529,7 @@ def analyze_paths(
                 external_filter=config.external_filter,
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
+                analysis_index=_require_analysis_index(),
             )
             lint_lines = _compute_lint_lines(
                 forest=forest,
