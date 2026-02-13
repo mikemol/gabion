@@ -35,7 +35,7 @@ def build(alpha, beta, gamma):
     return Payload(alpha, beta + 1, gamma=make_gamma())
 """
     )
-    bundles = _iter_dataclass_call_bundles(source)
+    bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=[])
     assert ("alpha", "beta", "gamma") in bundles
 
 
@@ -64,12 +64,23 @@ def build(alpha, beta, gamma):
 """
     )
     paths = [root / "models.py", caller]
-    symbol_table = _build_symbol_table(paths, root, external_filter=True)
-    registry = _collect_dataclass_registry(paths, project_root=root)
+    parse_failure_witnesses = []
+    symbol_table = _build_symbol_table(
+        paths,
+        root,
+        external_filter=True,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    registry = _collect_dataclass_registry(
+        paths,
+        project_root=root,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
     bundles = _iter_dataclass_call_bundles(
         caller,
         project_root=root,
         symbol_table=symbol_table,
         dataclass_registry=registry,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     assert ("alpha", "beta", "gamma") in bundles

@@ -289,9 +289,14 @@ def test_resolve_callee_imports_and_self(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
-    symbol_table = da._build_symbol_table(paths, tmp_path, external_filter=True)
-    class_index = da._collect_class_index(paths, tmp_path)
+    symbol_table = da._build_symbol_table(
+        paths, tmp_path, external_filter=True, parse_failure_witnesses=[]
+    )
+    class_index = da._collect_class_index(
+        paths, tmp_path, parse_failure_witnesses=[]
+    )
     caller_info = by_name["caller"][0]
     resolved = da._resolve_callee(
         "ext",
@@ -332,9 +337,14 @@ def test_resolve_callee_external_filtered(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
-    symbol_table = da._build_symbol_table(paths, tmp_path, external_filter=True)
-    class_index = da._collect_class_index(paths, tmp_path)
+    symbol_table = da._build_symbol_table(
+        paths, tmp_path, external_filter=True, parse_failure_witnesses=[]
+    )
+    class_index = da._collect_class_index(
+        paths, tmp_path, parse_failure_witnesses=[]
+    )
     caller_info = by_name["caller"][0]
     resolved = da._resolve_callee(
         "ext.run",
@@ -715,9 +725,14 @@ def test_compute_knob_param_names_non_const_kw(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
-    symbol_table = da._build_symbol_table(paths, tmp_path, external_filter=True)
-    class_index = da._collect_class_index(paths, tmp_path)
+    symbol_table = da._build_symbol_table(
+        paths, tmp_path, external_filter=True, parse_failure_witnesses=[]
+    )
+    class_index = da._collect_class_index(
+        paths, tmp_path, parse_failure_witnesses=[]
+    )
     knob_names = da._compute_knob_param_names(
         by_name=by_name,
         by_qual=by_qual,
@@ -763,13 +778,18 @@ def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
         + "\n"
     )
     paths = [mod_a, mod_b]
-    symbol_table = da._build_symbol_table(paths, root, external_filter=True)
-    registry = da._collect_dataclass_registry(paths, project_root=root)
+    symbol_table = da._build_symbol_table(
+        paths, root, external_filter=True, parse_failure_witnesses=[]
+    )
+    registry = da._collect_dataclass_registry(
+        paths, project_root=root, parse_failure_witnesses=[]
+    )
     bundles = da._iter_dataclass_call_bundles(
         mod_b,
         project_root=root,
         symbol_table=symbol_table,
         dataclass_registry=registry,
+        parse_failure_witnesses=[],
     )
     assert tuple(sorted(("a", "b"))) in bundles
     bundles = da._iter_dataclass_call_bundles(
@@ -777,6 +797,7 @@ def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
         project_root=root,
         symbol_table=None,
         dataclass_registry={"b.Bundle": ["a", "b"]},
+        parse_failure_witnesses=[],
     )
     assert tuple(sorted(("a", "b"))) in bundles
     bundles = da._iter_dataclass_call_bundles(
@@ -784,6 +805,7 @@ def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
         project_root=root,
         symbol_table=None,
         dataclass_registry={"Bundle": ["a", "b"]},
+        parse_failure_witnesses=[],
     )
     assert tuple(sorted(("a", "b"))) in bundles
     table = da.SymbolTable(external_filter=True)
@@ -796,6 +818,7 @@ def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
         project_root=root,
         symbol_table=table,
         dataclass_registry={"pkg.mod.Bundle": ["a", "b"]},
+        parse_failure_witnesses=[],
     )
     assert tuple(sorted(("a", "b"))) in bundles
 

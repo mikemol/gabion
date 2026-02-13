@@ -425,17 +425,20 @@ def test_find_module_level_calls_resolves_symbol_and_literal(tmp_path: Path) -> 
         "    runpy.run_module('pkg.mod')\n",
         encoding="utf-8",
     )
+    parse_failure_witnesses = []
     by_name, by_qual = test_evidence_suggestions._build_function_index(
         [test_file, src_pkg / "mod.py"],
         tmp_path,
         set(),
         "high",
         None,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     symbol_table = test_evidence_suggestions._build_symbol_table(
         [test_file, src_pkg / "mod.py"],
         tmp_path,
         external_filter=True,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     info = by_qual["tests.test_sample.test_alpha"]
     entry = _minimal_entry("tests/test_sample.py::test_alpha", "tests/test_sample.py")

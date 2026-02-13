@@ -1144,6 +1144,7 @@ def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> N
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
     root_span = by_qual["mod.root"].param_spans["deadline"]
     assert any(

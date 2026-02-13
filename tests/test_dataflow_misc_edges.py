@@ -103,5 +103,9 @@ def test_iter_dataclass_call_bundles_captures_assign_fields(tmp_path: Path) -> N
         "def f():\n"
         "    return C(a=1, b=2)\n"
     )
-    bundles = da._iter_dataclass_call_bundles(path, project_root=tmp_path)
+    bundles = da._iter_dataclass_call_bundles(
+        path,
+        project_root=tmp_path,
+        parse_failure_witnesses=[],
+    )
     assert ("a", "b") in bundles

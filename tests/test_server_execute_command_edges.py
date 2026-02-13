@@ -489,6 +489,11 @@ def test_execute_structure_reuse_payload_none() -> None:
         server.execute_structure_reuse(None, None)
 
 
+def test_execute_structure_reuse_payload_non_dict() -> None:
+    with pytest.raises(NeverThrown):
+        server.execute_structure_reuse(None, [])  # type: ignore[arg-type]
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count E:decision_surface/direct::server.py::gabion.server.execute_structure_reuse::payload
 def test_execute_structure_reuse_invalid_snapshot(tmp_path: Path) -> None:
     bad = tmp_path / "bad.json"
@@ -542,6 +547,11 @@ def test_execute_decision_diff_payload_none() -> None:
         server.execute_decision_diff(None, None)
 
 
+def test_execute_decision_diff_payload_non_dict() -> None:
+    with pytest.raises(NeverThrown):
+        server.execute_decision_diff(None, [])  # type: ignore[arg-type]
+
+
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_decision_diff::payload
 def test_execute_decision_diff_invalid_snapshot(tmp_path: Path) -> None:
     bad = tmp_path / "bad.json"
@@ -576,6 +586,11 @@ def test_execute_decision_diff_valid_snapshot(tmp_path: Path) -> None:
 def test_execute_structure_diff_requires_timeout_payload() -> None:
     with pytest.raises(NeverThrown):
         server.execute_structure_diff(None, None)
+
+
+def test_execute_structure_diff_rejects_non_dict_payload() -> None:
+    with pytest.raises(NeverThrown):
+        server.execute_structure_diff(None, [])  # type: ignore[arg-type]
 
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -1572,6 +1587,12 @@ def test_execute_refactor_payload_none(tmp_path: Path) -> None:
         server.execute_refactor(ls, None)
 
 
+def test_execute_refactor_payload_non_dict(tmp_path: Path) -> None:
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(NeverThrown):
+        server.execute_refactor(ls, [])  # type: ignore[arg-type]
+
+
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_synthesis::payload
 def test_execute_synthesis_invalid_payload(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
@@ -1600,6 +1621,12 @@ def test_execute_synthesis_payload_none(tmp_path: Path) -> None:
     ls = _DummyServer(str(tmp_path))
     with pytest.raises(NeverThrown):
         server.execute_synthesis(ls, None)
+
+
+def test_execute_synthesis_payload_non_dict(tmp_path: Path) -> None:
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(NeverThrown):
+        server.execute_synthesis(ls, [])  # type: ignore[arg-type]
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_synthesis::payload

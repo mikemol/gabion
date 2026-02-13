@@ -32,6 +32,6 @@ class Other:
     beta: int
 """
     )
-    bundles = _iter_config_fields(config_path)
+    bundles = _iter_config_fields(config_path, parse_failure_witnesses=[])
     assert bundles["AppConfig"] == {"foo", "bar_fn", "baz"}
     assert bundles["Other"] == {"alpha_fn"}
