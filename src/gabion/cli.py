@@ -44,6 +44,7 @@ _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*
 
 _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_CHECK_REPORT_REL_PATH = Path("artifacts/audit_reports/dataflow_report.md")
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
@@ -55,6 +56,12 @@ def _cli_timeout_ticks() -> tuple[int, int]:
 def _cli_deadline() -> Deadline:
     ticks, tick_ns = _cli_timeout_ticks()
     return Deadline.from_timeout_ticks(ticks, tick_ns)
+
+
+def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
+    if report is not None:
+        return report
+    return root / _DEFAULT_CHECK_REPORT_REL_PATH
 
 
 @contextmanager
@@ -522,9 +529,11 @@ def run_check(
     runner: Runner = run_command,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
+    resolved_report = _resolve_check_report_path(report, root=root)
+    resolved_report.parent.mkdir(parents=True, exist_ok=True)
     payload = build_check_payload(
         paths=paths,
-        report=report,
+        report=resolved_report,
         fail_on_violations=fail_on_violations,
         root=root,
         config=config,

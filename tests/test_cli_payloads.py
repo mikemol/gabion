@@ -272,6 +272,10 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert result["exit_code"] == 0
     assert captured["command"] == cli.DATAFLOW_COMMAND
     assert captured["payload"]["paths"] == [str(tmp_path)]
+    assert captured["payload"]["report"] == str(
+        tmp_path / "artifacts" / "audit_reports" / "dataflow_report.md"
+    )
+    assert (tmp_path / "artifacts" / "audit_reports").is_dir()
     assert captured["payload"]["emit_test_obsolescence"] is False
     assert captured["payload"]["emit_test_obsolescence_state"] is False
     assert captured["payload"]["test_obsolescence_state"] is None
@@ -288,6 +292,54 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["payload"]["emit_ambiguity_state"] is False
     assert captured["payload"]["ambiguity_state"] is None
     assert captured["payload"]["write_ambiguity_baseline"] is False
+    assert captured["root"] == tmp_path
+
+
+def test_run_check_uses_explicit_report_path(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"exit_code": 0}
+
+    explicit_report = tmp_path / "custom.md"
+    result = cli.run_check(
+        paths=[tmp_path],
+        report=explicit_report,
+        fail_on_violations=True,
+        root=tmp_path,
+        config=None,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=None,
+        emit_test_obsolescence=False,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=False,
+        emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
+        emit_call_cluster_consolidation=False,
+        emit_test_annotation_drift=False,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+        exclude=None,
+        ignore_params_csv=None,
+        transparent_decorators_csv=None,
+        allow_external=None,
+        strictness=None,
+        fail_on_type_ambiguities=True,
+        lint=False,
+        runner=runner,
+    )
+    assert result["exit_code"] == 0
+    assert captured["payload"]["report"] == str(explicit_report)
     assert captured["root"] == tmp_path
 
 

@@ -137,7 +137,9 @@ Run the dataflow grammar audit (strict defaults):
 ```
 mise exec -- python -m gabion check
 ```
-`gabion check` enforces violations even without `--report` output.
+`gabion check` writes a Markdown report to
+`artifacts/audit_reports/dataflow_report.md` by default.
+Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to ratchet existing violations and
 `--baseline-write` to generate/update the baseline file.
 
