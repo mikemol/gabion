@@ -71,6 +71,15 @@ def _write_type_conflict_module(path: Path) -> None:
     )
 
 
+def _write_many_functions_module(path: Path, *, count: int = 400) -> None:
+    lines: list[str] = []
+    for index in range(count):
+        lines.append(f"def fn_{index}(value):")
+        lines.append("    return value")
+        lines.append("")
+    path.write_text("\n".join(lines))
+
+
 def _artifact_out_dir(root: Path) -> Path:
     artifact_dir = root / "artifacts" / "out"
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -191,6 +200,75 @@ def test_execute_command_reports_timeout(tmp_path: Path) -> None:
     progress = timeout_context.get("progress")
     assert isinstance(progress, dict)
     assert str(progress.get("classification", "")).startswith("timed_out_")
+
+
+def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "many.py"
+    _write_many_functions_module(module_path, count=800)
+    checkpoint_path = tmp_path / "artifacts" / "audit_reports" / "resume.json"
+    command_payload: dict[str, object] = {
+        "root": str(tmp_path),
+        "paths": [str(module_path)],
+        "report": str(tmp_path / "report.md"),
+        "allow_external": True,
+        "analysis_timeout_ticks": 1,
+        "analysis_timeout_tick_ns": 20_000_000,
+        "deadline_profile": True,
+        "resume_checkpoint": str(checkpoint_path),
+    }
+    defaults = server.dataflow_defaults(tmp_path, None)
+    merged_payload = server.merge_payload(command_payload, defaults)
+    config = server.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(merged_payload.get("exclude", [])),
+        ignore_params=set(merged_payload.get("ignore_params", [])),
+        external_filter=not bool(merged_payload.get("allow_external", False)),
+        strictness=str(merged_payload.get("strictness", "high")),
+        transparent_decorators=server._normalize_transparent_decorators(
+            merged_payload.get("transparent_decorators")
+        ),
+    )
+    file_paths = server.resolve_analysis_paths([module_path], config=config)
+    witness = server._analysis_input_witness(
+        root=tmp_path,
+        file_paths=file_paths,
+        recursive=True,
+        include_invariant_propositions=True,
+        config=config,
+    )
+    server._write_analysis_resume_checkpoint(
+        path=checkpoint_path,
+        input_witness=witness,
+        collection_resume={
+            "format_version": 2,
+            "completed_paths": [],
+            "groups_by_path": {},
+            "param_spans_by_path": {},
+            "bundle_sites_by_path": {},
+            "in_progress_scan_by_path": {
+                str(module_path): {
+                    "phase": "function_scan",
+                }
+            },
+            "invariant_propositions": [],
+        },
+    )
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(ls, command_payload)
+    assert result.get("timeout") is True
+    timeout_context = result.get("timeout_context")
+    assert isinstance(timeout_context, dict)
+    progress = timeout_context.get("progress")
+    assert isinstance(progress, dict)
+    assert progress.get("resume_supported") is True
+    resume = progress.get("resume")
+    assert isinstance(resume, dict)
+    token = resume.get("resume_token")
+    assert isinstance(token, dict)
+    assert token.get("phase") == "analysis_collection"
+    assert token.get("in_progress_files") == 1
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress

@@ -8130,6 +8130,8 @@ def _analyze_file_internal(
     recursive: bool = True,
     *,
     config: AuditConfig | None = None,
+    resume_state: Mapping[str, JSONValue] | None = None,
+    on_progress: Callable[[JSONObject], None] | None = None,
 ) -> tuple[
     dict[str, list[set[str]]],
     dict[str, dict[str, tuple[int, int, int, int]]],
@@ -8145,23 +8147,61 @@ def _analyze_file_internal(
     is_test = _is_test_path(path)
 
     funcs = _collect_functions(tree)
+    fn_keys_in_file: set[str] = set()
+    for function_node in funcs:
+        check_deadline()
+        scopes = _enclosing_scopes(function_node, parents)
+        fn_keys_in_file.add(_function_key(scopes, function_node.name))
     return_aliases = _collect_return_aliases(
         funcs, parents, ignore_params=config.ignore_params
     )
-    fn_param_orders: dict[str, list[str]] = {}
-    fn_param_spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
-    fn_use = {}
-    fn_calls = {}
-    fn_names: dict[str, str] = {}
-    fn_lexical_scopes: dict[str, tuple[str, ...]] = {}
-    fn_class_names: dict[str, str | None] = {}
-    opaque_callees: set[str] = set()
+    (
+        fn_use,
+        fn_calls,
+        fn_param_orders,
+        fn_param_spans,
+        fn_names,
+        fn_lexical_scopes,
+        fn_class_names,
+        opaque_callees,
+    ) = _load_file_scan_resume_state(
+        payload=resume_state,
+        valid_fn_keys=fn_keys_in_file,
+    )
+    scanned_since_emit = 0
+
+    def _emit_scan_progress() -> None:
+        if on_progress is None:
+            return
+        on_progress(
+            _serialize_file_scan_resume_state(
+                fn_use=fn_use,
+                fn_calls=fn_calls,
+                fn_param_orders=fn_param_orders,
+                fn_param_spans=fn_param_spans,
+                fn_names=fn_names,
+                fn_lexical_scopes=fn_lexical_scopes,
+                fn_class_names=fn_class_names,
+                opaque_callees=opaque_callees,
+            )
+        )
+
     for f in funcs:
         check_deadline()
         class_name = _enclosing_class(f, parents)
         scopes = _enclosing_scopes(f, parents)
         lexical_scopes = _enclosing_function_scopes(f, parents)
         fn_key = _function_key(scopes, f.name)
+        if (
+            fn_key in fn_use
+            and fn_key in fn_calls
+            and fn_key in fn_param_orders
+            and fn_key in fn_param_spans
+            and fn_key in fn_names
+            and fn_key in fn_lexical_scopes
+            and fn_key in fn_class_names
+        ):
+            continue
         if not _decorators_transparent(f, config.transparent_decorators):
             opaque_callees.add(fn_key)
         use_map, call_args = _analyze_function(
@@ -8180,6 +8220,12 @@ def _analyze_file_internal(
         fn_names[fn_key] = f.name
         fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
         fn_class_names[fn_key] = class_name
+        scanned_since_emit += 1
+        if scanned_since_emit == 1 or scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL:
+            _emit_scan_progress()
+            scanned_since_emit = 0
+    if scanned_since_emit > 0:
+        _emit_scan_progress()
 
     local_by_name: dict[str, list[str]] = defaultdict(list)
     for key, name in fn_names.items():
@@ -11588,11 +11634,203 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
     return "\n".join(lines)
 
 
-_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 1
+_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
+_FILE_SCAN_PROGRESS_EMIT_INTERVAL = 8
 
 
 def _analysis_collection_resume_path_key(path: Path) -> str:
     return str(path)
+
+
+def _serialize_param_use(value: ParamUse) -> JSONObject:
+    return {
+        "direct_forward": [
+            [callee, slot] for callee, slot in sorted(value.direct_forward)
+        ],
+        "non_forward": bool(value.non_forward),
+        "current_aliases": sorted(value.current_aliases),
+        "forward_sites": [
+            {
+                "callee": callee,
+                "slot": slot,
+                "spans": [list(span) for span in sorted(spans)],
+            }
+            for (callee, slot), spans in sorted(value.forward_sites.items())
+        ],
+    }
+
+
+def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
+    direct_forward: set[tuple[str, str]] = set()
+    raw_direct_forward = payload.get("direct_forward")
+    if isinstance(raw_direct_forward, Sequence):
+        for entry in raw_direct_forward:
+            check_deadline()
+            if not isinstance(entry, Sequence) or len(entry) != 2:
+                continue
+            callee, slot = entry
+            if isinstance(callee, str) and isinstance(slot, str):
+                direct_forward.add((callee, slot))
+    current_aliases: set[str] = set()
+    raw_aliases = payload.get("current_aliases")
+    if isinstance(raw_aliases, Sequence):
+        for alias in raw_aliases:
+            check_deadline()
+            if isinstance(alias, str):
+                current_aliases.add(alias)
+    forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = {}
+    raw_forward_sites = payload.get("forward_sites")
+    if isinstance(raw_forward_sites, Sequence):
+        for raw_entry in raw_forward_sites:
+            check_deadline()
+            if not isinstance(raw_entry, Mapping):
+                continue
+            callee = raw_entry.get("callee")
+            slot = raw_entry.get("slot")
+            raw_spans = raw_entry.get("spans")
+            if not isinstance(callee, str) or not isinstance(slot, str):
+                continue
+            span_set: set[tuple[int, int, int, int]] = set()
+            if isinstance(raw_spans, Sequence):
+                for raw_span in raw_spans:
+                    check_deadline()
+                    if not isinstance(raw_span, Sequence) or len(raw_span) != 4:
+                        continue
+                    try:
+                        span = tuple(int(part) for part in raw_span)
+                    except (TypeError, ValueError):
+                        continue
+                    span_set.add(cast(tuple[int, int, int, int], span))
+            forward_sites[(callee, slot)] = span_set
+    non_forward = bool(payload.get("non_forward"))
+    return ParamUse(
+        direct_forward=direct_forward,
+        non_forward=non_forward,
+        current_aliases=current_aliases,
+        forward_sites=forward_sites,
+    )
+
+
+def _serialize_param_use_map(
+    use_map: Mapping[str, ParamUse],
+) -> JSONObject:
+    payload: JSONObject = {}
+    for param_name in sorted(use_map):
+        check_deadline()
+        payload[param_name] = _serialize_param_use(use_map[param_name])
+    return payload
+
+
+def _deserialize_param_use_map(
+    payload: Mapping[str, JSONValue],
+) -> dict[str, ParamUse]:
+    use_map: dict[str, ParamUse] = {}
+    for param_name, raw_value in payload.items():
+        check_deadline()
+        if not isinstance(param_name, str) or not isinstance(raw_value, Mapping):
+            continue
+        use_map[param_name] = _deserialize_param_use(raw_value)
+    return use_map
+
+
+def _serialize_call_args(call: CallArgs) -> JSONObject:
+    payload: JSONObject = {
+        "callee": call.callee,
+        "pos_map": {key: call.pos_map[key] for key in sorted(call.pos_map)},
+        "kw_map": {key: call.kw_map[key] for key in sorted(call.kw_map)},
+        "const_pos": {key: call.const_pos[key] for key in sorted(call.const_pos)},
+        "const_kw": {key: call.const_kw[key] for key in sorted(call.const_kw)},
+        "non_const_pos": sorted(call.non_const_pos),
+        "non_const_kw": sorted(call.non_const_kw),
+        "star_pos": [[idx, name] for idx, name in call.star_pos],
+        "star_kw": list(call.star_kw),
+        "is_test": call.is_test,
+    }
+    if call.span is not None:
+        payload["span"] = list(call.span)
+    return payload
+
+
+def _deserialize_call_args(payload: Mapping[str, JSONValue]) -> CallArgs | None:
+    callee = payload.get("callee")
+    if not isinstance(callee, str):
+        return None
+
+    def _str_map(value: JSONValue) -> dict[str, str]:
+        if not isinstance(value, Mapping):
+            return {}
+        out: dict[str, str] = {}
+        for key, entry in value.items():
+            check_deadline()
+            if isinstance(key, str) and isinstance(entry, str):
+                out[key] = entry
+        return out
+
+    def _str_set(value: JSONValue) -> set[str]:
+        if not isinstance(value, Sequence):
+            return set()
+        out: set[str] = set()
+        for entry in value:
+            check_deadline()
+            if isinstance(entry, str):
+                out.add(entry)
+        return out
+
+    star_pos: list[tuple[int, str]] = []
+    raw_star_pos = payload.get("star_pos")
+    if isinstance(raw_star_pos, Sequence):
+        for entry in raw_star_pos:
+            check_deadline()
+            if not isinstance(entry, Sequence) or len(entry) != 2:
+                continue
+            idx, param = entry
+            if not isinstance(param, str):
+                continue
+            try:
+                idx_value = int(idx)
+            except (TypeError, ValueError):
+                continue
+            star_pos.append((idx_value, param))
+
+    span: tuple[int, int, int, int] | None = None
+    raw_span = payload.get("span")
+    if isinstance(raw_span, Sequence) and len(raw_span) == 4:
+        try:
+            span_tuple = tuple(int(part) for part in raw_span)
+        except (TypeError, ValueError):
+            span_tuple = None
+        if span_tuple is not None:
+            span = cast(tuple[int, int, int, int], span_tuple)
+
+    return CallArgs(
+        callee=callee,
+        pos_map=_str_map(payload.get("pos_map")),
+        kw_map=_str_map(payload.get("kw_map")),
+        const_pos=_str_map(payload.get("const_pos")),
+        const_kw=_str_map(payload.get("const_kw")),
+        non_const_pos=_str_set(payload.get("non_const_pos")),
+        non_const_kw=_str_set(payload.get("non_const_kw")),
+        star_pos=star_pos,
+        star_kw=sorted(_str_set(payload.get("star_kw"))),
+        is_test=bool(payload.get("is_test")),
+        span=span,
+    )
+
+
+def _serialize_call_args_list(call_args: Sequence[CallArgs]) -> list[JSONObject]:
+    return [_serialize_call_args(call) for call in call_args]
+
+
+def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
+    call_args: list[CallArgs] = []
+    for raw_entry in payload:
+        check_deadline()
+        if not isinstance(raw_entry, Mapping):
+            continue
+        call = _deserialize_call_args(raw_entry)
+        if call is not None:
+            call_args.append(call)
+    return call_args
 
 
 def _serialize_groups_for_resume(
@@ -11758,6 +11996,213 @@ def _deserialize_invariants_for_resume(
     return invariants
 
 
+def _serialize_file_scan_resume_state(
+    *,
+    fn_use: Mapping[str, Mapping[str, ParamUse]],
+    fn_calls: Mapping[str, Sequence[CallArgs]],
+    fn_param_orders: Mapping[str, Sequence[str]],
+    fn_param_spans: Mapping[str, Mapping[str, tuple[int, int, int, int]]],
+    fn_names: Mapping[str, str],
+    fn_lexical_scopes: Mapping[str, Sequence[str]],
+    fn_class_names: Mapping[str, str | None],
+    opaque_callees: set[str],
+) -> JSONObject:
+    fn_use_payload: JSONObject = {}
+    fn_calls_payload: JSONObject = {}
+    fn_param_orders_payload: JSONObject = {}
+    fn_param_spans_payload: JSONObject = {}
+    fn_names_payload: JSONObject = {}
+    fn_lexical_scopes_payload: JSONObject = {}
+    fn_class_names_payload: JSONObject = {}
+    for fn_key in sorted(fn_use):
+        check_deadline()
+        fn_use_payload[fn_key] = _serialize_param_use_map(fn_use[fn_key])
+    for fn_key in sorted(fn_calls):
+        check_deadline()
+        fn_calls_payload[fn_key] = _serialize_call_args_list(fn_calls[fn_key])
+    for fn_key in sorted(fn_param_orders):
+        check_deadline()
+        fn_param_orders_payload[fn_key] = list(fn_param_orders[fn_key])
+    for fn_key in sorted(fn_param_spans):
+        check_deadline()
+        fn_param_spans_payload[fn_key] = _serialize_param_spans_for_resume(
+            {fn_key: dict(fn_param_spans[fn_key])}
+        ).get(fn_key, {})
+    for fn_key in sorted(fn_names):
+        check_deadline()
+        fn_names_payload[fn_key] = fn_names[fn_key]
+    for fn_key in sorted(fn_lexical_scopes):
+        check_deadline()
+        fn_lexical_scopes_payload[fn_key] = list(fn_lexical_scopes[fn_key])
+    for fn_key in sorted(fn_class_names):
+        check_deadline()
+        fn_class_names_payload[fn_key] = fn_class_names[fn_key]
+    return {
+        "phase": "function_scan",
+        "fn_use": fn_use_payload,
+        "fn_calls": fn_calls_payload,
+        "fn_param_orders": fn_param_orders_payload,
+        "fn_param_spans": fn_param_spans_payload,
+        "fn_names": fn_names_payload,
+        "fn_lexical_scopes": fn_lexical_scopes_payload,
+        "fn_class_names": fn_class_names_payload,
+        "opaque_callees": sorted(opaque_callees),
+        "processed_functions": sorted(fn_use.keys()),
+    }
+
+
+def _load_file_scan_resume_state(
+    *,
+    payload: Mapping[str, JSONValue] | None,
+    valid_fn_keys: set[str],
+) -> tuple[
+    dict[str, dict[str, ParamUse]],
+    dict[str, list[CallArgs]],
+    dict[str, list[str]],
+    dict[str, dict[str, tuple[int, int, int, int]]],
+    dict[str, str],
+    dict[str, tuple[str, ...]],
+    dict[str, str | None],
+    set[str],
+]:
+    fn_use: dict[str, dict[str, ParamUse]] = {}
+    fn_calls: dict[str, list[CallArgs]] = {}
+    fn_param_orders: dict[str, list[str]] = {}
+    fn_param_spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
+    fn_names: dict[str, str] = {}
+    fn_lexical_scopes: dict[str, tuple[str, ...]] = {}
+    fn_class_names: dict[str, str | None] = {}
+    opaque_callees: set[str] = set()
+    if not isinstance(payload, Mapping):
+        return (
+            fn_use,
+            fn_calls,
+            fn_param_orders,
+            fn_param_spans,
+            fn_names,
+            fn_lexical_scopes,
+            fn_class_names,
+            opaque_callees,
+        )
+    if payload.get("phase") != "function_scan":
+        return (
+            fn_use,
+            fn_calls,
+            fn_param_orders,
+            fn_param_spans,
+            fn_names,
+            fn_lexical_scopes,
+            fn_class_names,
+            opaque_callees,
+        )
+    raw_use = payload.get("fn_use")
+    raw_calls = payload.get("fn_calls")
+    raw_param_orders = payload.get("fn_param_orders")
+    raw_param_spans = payload.get("fn_param_spans")
+    raw_names = payload.get("fn_names")
+    raw_scopes = payload.get("fn_lexical_scopes")
+    raw_class_names = payload.get("fn_class_names")
+    if not all(
+        isinstance(raw, Mapping)
+        for raw in (
+            raw_use,
+            raw_calls,
+            raw_param_orders,
+            raw_param_spans,
+            raw_names,
+            raw_scopes,
+            raw_class_names,
+        )
+    ):
+        return (
+            fn_use,
+            fn_calls,
+            fn_param_orders,
+            fn_param_spans,
+            fn_names,
+            fn_lexical_scopes,
+            fn_class_names,
+            opaque_callees,
+        )
+    for fn_key, raw_value in raw_use.items():
+        check_deadline()
+        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
+            continue
+        if not isinstance(raw_value, Mapping):
+            continue
+        fn_use[fn_key] = _deserialize_param_use_map(raw_value)
+    for fn_key, raw_value in raw_calls.items():
+        check_deadline()
+        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
+            continue
+        if not isinstance(raw_value, Sequence):
+            continue
+        fn_calls[fn_key] = _deserialize_call_args_list(raw_value)
+    for fn_key, raw_value in raw_param_orders.items():
+        check_deadline()
+        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
+            continue
+        if not isinstance(raw_value, Sequence):
+            continue
+        orders: list[str] = []
+        for entry in raw_value:
+            check_deadline()
+            if isinstance(entry, str):
+                orders.append(entry)
+        fn_param_orders[fn_key] = orders
+    for fn_key, raw_value in raw_param_spans.items():
+        check_deadline()
+        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
+            continue
+        if not isinstance(raw_value, Mapping):
+            continue
+        fn_param_spans[fn_key] = _deserialize_param_spans_for_resume(
+            {fn_key: raw_value}
+        ).get(fn_key, {})
+    for fn_key, raw_value in raw_names.items():
+        check_deadline()
+        if (
+            isinstance(fn_key, str)
+            and fn_key in valid_fn_keys
+            and isinstance(raw_value, str)
+        ):
+            fn_names[fn_key] = raw_value
+    for fn_key, raw_value in raw_scopes.items():
+        check_deadline()
+        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
+            continue
+        if not isinstance(raw_value, Sequence):
+            continue
+        scopes: list[str] = []
+        for entry in raw_value:
+            check_deadline()
+            if isinstance(entry, str):
+                scopes.append(entry)
+        fn_lexical_scopes[fn_key] = tuple(scopes)
+    for fn_key, raw_value in raw_class_names.items():
+        check_deadline()
+        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
+            continue
+        if raw_value is None or isinstance(raw_value, str):
+            fn_class_names[fn_key] = raw_value
+    raw_opaque = payload.get("opaque_callees")
+    if isinstance(raw_opaque, Sequence):
+        for entry in raw_opaque:
+            check_deadline()
+            if isinstance(entry, str) and entry in valid_fn_keys:
+                opaque_callees.add(entry)
+    return (
+        fn_use,
+        fn_calls,
+        fn_param_orders,
+        fn_param_spans,
+        fn_names,
+        fn_lexical_scopes,
+        fn_class_names,
+        opaque_callees,
+    )
+
+
 def _build_analysis_collection_resume_payload(
     *,
     groups_by_path: Mapping[Path, dict[str, list[set[str]]]],
@@ -11765,11 +12210,13 @@ def _build_analysis_collection_resume_payload(
     bundle_sites_by_path: Mapping[Path, dict[str, list[list[JSONObject]]]],
     invariant_propositions: Sequence[InvariantProposition],
     completed_paths: set[Path],
+    in_progress_scan_by_path: Mapping[Path, JSONObject],
 ) -> JSONObject:
     check_deadline()
     groups_payload: JSONObject = {}
     spans_payload: JSONObject = {}
     sites_payload: JSONObject = {}
+    in_progress_scan_payload: JSONObject = {}
     completed_keys = sorted(
         _analysis_collection_resume_path_key(path) for path in completed_paths
     )
@@ -11785,12 +12232,20 @@ def _build_analysis_collection_resume_payload(
         sites_payload[path_key] = _serialize_bundle_sites_for_resume(
             bundle_sites_by_path.get(path, {})
         )
+    for path in sorted(in_progress_scan_by_path, key=_analysis_collection_resume_path_key):
+        check_deadline()
+        path_key = _analysis_collection_resume_path_key(path)
+        in_progress_scan_payload[path_key] = {
+            str(key): in_progress_scan_by_path[path][key]
+            for key in in_progress_scan_by_path[path]
+        }
     return {
         "format_version": _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
         "completed_paths": completed_keys,
         "groups_by_path": groups_payload,
         "param_spans_by_path": spans_payload,
         "bundle_sites_by_path": sites_payload,
+        "in_progress_scan_by_path": in_progress_scan_payload,
         "invariant_propositions": _serialize_invariants_for_resume(
             invariant_propositions
         ),
@@ -11808,12 +12263,14 @@ def _load_analysis_collection_resume_payload(
     dict[Path, dict[str, list[list[JSONObject]]]],
     list[InvariantProposition],
     set[Path],
+    dict[Path, JSONObject],
 ]:
     groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
     param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
     bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = {}
     invariant_propositions: list[InvariantProposition] = []
     completed_paths: set[Path] = set()
+    in_progress_scan_by_path: dict[Path, JSONObject] = {}
     if not isinstance(payload, Mapping):
         return (
             groups_by_path,
@@ -11821,6 +12278,7 @@ def _load_analysis_collection_resume_payload(
             bundle_sites_by_path,
             invariant_propositions,
             completed_paths,
+            in_progress_scan_by_path,
         )
     if payload.get("format_version") != _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION:
         return (
@@ -11829,10 +12287,12 @@ def _load_analysis_collection_resume_payload(
             bundle_sites_by_path,
             invariant_propositions,
             completed_paths,
+            in_progress_scan_by_path,
         )
     groups_payload = payload.get("groups_by_path")
     spans_payload = payload.get("param_spans_by_path")
     sites_payload = payload.get("bundle_sites_by_path")
+    in_progress_scan_payload = payload.get("in_progress_scan_by_path")
     completed_payload = payload.get("completed_paths")
     if not isinstance(groups_payload, Mapping):
         return (
@@ -11841,6 +12301,7 @@ def _load_analysis_collection_resume_payload(
             bundle_sites_by_path,
             invariant_propositions,
             completed_paths,
+            in_progress_scan_by_path,
         )
     if not isinstance(spans_payload, Mapping) or not isinstance(sites_payload, Mapping):
         return (
@@ -11849,7 +12310,12 @@ def _load_analysis_collection_resume_payload(
             bundle_sites_by_path,
             invariant_propositions,
             completed_paths,
+            in_progress_scan_by_path,
         )
+    if in_progress_scan_payload is None:
+        in_progress_scan_payload = {}
+    if not isinstance(in_progress_scan_payload, Mapping):
+        in_progress_scan_payload = {}
     allowed_paths = {
         _analysis_collection_resume_path_key(path): path for path in file_paths
     }
@@ -11876,12 +12342,21 @@ def _load_analysis_collection_resume_payload(
         raw_invariants = payload.get("invariant_propositions")
         if isinstance(raw_invariants, Sequence):
             invariant_propositions = _deserialize_invariants_for_resume(raw_invariants)
+    for raw_path, raw_state in in_progress_scan_payload.items():
+        check_deadline()
+        if not isinstance(raw_path, str) or not isinstance(raw_state, Mapping):
+            continue
+        path = allowed_paths.get(raw_path)
+        if path is None or path in completed_paths:
+            continue
+        in_progress_scan_by_path[path] = {str(key): raw_state[key] for key in raw_state}
     return (
         groups_by_path,
         param_spans_by_path,
         bundle_sites_by_path,
         invariant_propositions,
         completed_paths,
+        in_progress_scan_by_path,
     )
 
 
@@ -12686,6 +13161,7 @@ def analyze_paths(
             bundle_sites_by_path,
             invariant_propositions,
             completed_paths,
+            in_progress_scan_by_path,
         ) = _load_analysis_collection_resume_payload(
             payload=collection_resume,
             file_paths=file_paths,
@@ -12722,17 +13198,41 @@ def analyze_paths(
                 )
             return analysis_index
 
+        def _emit_collection_progress() -> None:
+            if on_collection_progress is None:
+                return
+            on_collection_progress(
+                _build_analysis_collection_resume_payload(
+                    groups_by_path=groups_by_path,
+                    param_spans_by_path=param_spans_by_path,
+                    bundle_sites_by_path=bundle_sites_by_path,
+                    invariant_propositions=invariant_propositions,
+                    completed_paths=completed_paths,
+                    in_progress_scan_by_path=in_progress_scan_by_path,
+                )
+            )
+
         for path in file_paths:
             check_deadline()
             if path in completed_paths:
                 continue
             _deadline_check(allow_frame_fallback=True)
+
+            def _on_file_scan_progress(progress_state: JSONObject) -> None:
+                in_progress_scan_by_path[path] = progress_state
+                _emit_collection_progress()
+
             groups, spans, sites = _analyze_file_internal(
-                path, recursive=recursive, config=config
+                path,
+                recursive=recursive,
+                config=config,
+                resume_state=in_progress_scan_by_path.get(path),
+                on_progress=_on_file_scan_progress,
             )
             groups_by_path[path] = groups
             param_spans_by_path[path] = spans
             bundle_sites_by_path[path] = sites
+            in_progress_scan_by_path.pop(path, None)
             if include_invariant_propositions:
                 invariant_propositions.extend(
                     _collect_invariant_propositions(
@@ -12743,16 +13243,7 @@ def analyze_paths(
                     )
                 )
             completed_paths.add(path)
-            if on_collection_progress is not None:
-                on_collection_progress(
-                    _build_analysis_collection_resume_payload(
-                        groups_by_path=groups_by_path,
-                        param_spans_by_path=param_spans_by_path,
-                        bundle_sites_by_path=bundle_sites_by_path,
-                        invariant_propositions=invariant_propositions,
-                        completed_paths=completed_paths,
-                    )
-                )
+            _emit_collection_progress()
 
         if (
             include_bundle_forest

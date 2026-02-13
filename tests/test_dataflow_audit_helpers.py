@@ -1565,6 +1565,11 @@ def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
         on_collection_progress=snapshots.append,
     )
     assert snapshots
+    assert any(
+        isinstance(snapshot.get("in_progress_scan_by_path"), dict)
+        and bool(snapshot.get("in_progress_scan_by_path"))
+        for snapshot in snapshots
+    )
     resume_payload = snapshots[-1]
     resumed_updates = 0
 

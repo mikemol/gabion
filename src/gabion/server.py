@@ -125,6 +125,7 @@ _SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
 _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
 _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION = 1
+_ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION = 1
 _ANALYSIS_INPUT_WITNESS_FORMAT_VERSION = 2
 _DEFAULT_ANALYSIS_RESUME_CHECKPOINT = Path(
     "artifacts/audit_reports/dataflow_resume_checkpoint.json"
@@ -150,6 +151,110 @@ def _resolve_analysis_resume_checkpoint_path(
         return root / path
     never("invalid analysis resume checkpoint payload", value_type=type(value).__name__)
     return None
+
+
+def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
+    return {
+        "exclude_dirs": sorted(config.exclude_dirs),
+        "ignore_params": sorted(config.ignore_params),
+        "strictness": config.strictness,
+        "external_filter": config.external_filter,
+        "transparent_decorators": sorted(config.transparent_decorators or []),
+    }
+
+
+def _analysis_input_manifest(
+    *,
+    root: Path,
+    file_paths: list[Path],
+    recursive: bool,
+    include_invariant_propositions: bool,
+    config: AuditConfig,
+) -> JSONObject:
+    files: list[JSONObject] = []
+    for path in file_paths:
+        check_deadline()
+        entry: JSONObject = {"path": str(path)}
+        try:
+            stat = path.stat()
+        except OSError:
+            entry["missing"] = True
+        else:
+            entry["size"] = int(stat.st_size)
+            entry["mtime_ns"] = int(stat.st_mtime_ns)
+        files.append(entry)
+    return {
+        "format_version": _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
+        "root": str(root),
+        "recursive": recursive,
+        "include_invariant_propositions": include_invariant_propositions,
+        "config": _analysis_witness_config_payload(config),
+        "files": files,
+    }
+
+
+def _analysis_input_manifest_digest(manifest: JSONObject) -> str:
+    return hashlib.sha1(_canonical_json_text(manifest).encode("utf-8")).hexdigest()
+
+
+def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | None:
+    files = input_witness.get("files")
+    if not isinstance(files, list):
+        return None
+    manifest_files: list[JSONObject] = []
+    for raw_entry in files:
+        if not isinstance(raw_entry, Mapping):
+            return None
+        path_value = raw_entry.get("path")
+        if not isinstance(path_value, str):
+            return None
+        manifest_entry: JSONObject = {"path": path_value}
+        missing_value = raw_entry.get("missing")
+        if isinstance(missing_value, bool):
+            manifest_entry["missing"] = missing_value
+        size_value = raw_entry.get("size")
+        mtime_value = raw_entry.get("mtime_ns")
+        if isinstance(size_value, int) and isinstance(mtime_value, int):
+            manifest_entry["size"] = size_value
+            manifest_entry["mtime_ns"] = mtime_value
+        manifest_files.append(manifest_entry)
+    config = input_witness.get("config")
+    if not isinstance(config, Mapping):
+        return None
+    config_payload: JSONObject = {}
+    for key in (
+        "exclude_dirs",
+        "ignore_params",
+        "strictness",
+        "external_filter",
+        "transparent_decorators",
+    ):
+        value = config.get(key)
+        if isinstance(value, list):
+            config_payload[key] = [str(item) for item in value]
+            continue
+        if isinstance(value, bool | int | str):
+            config_payload[key] = value
+            continue
+        return None
+    root = input_witness.get("root")
+    recursive = input_witness.get("recursive")
+    include_invariant_propositions = input_witness.get("include_invariant_propositions")
+    if not isinstance(root, str):
+        return None
+    if not isinstance(recursive, bool):
+        return None
+    if not isinstance(include_invariant_propositions, bool):
+        return None
+    manifest: JSONObject = {
+        "format_version": _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
+        "root": root,
+        "recursive": recursive,
+        "include_invariant_propositions": include_invariant_propositions,
+        "config": config_payload,
+        "files": manifest_files,
+    }
+    return _analysis_input_manifest_digest(manifest)
 
 
 def _analysis_input_witness(
@@ -275,13 +380,7 @@ def _analysis_input_witness(
         "root": str(root),
         "recursive": recursive,
         "include_invariant_propositions": include_invariant_propositions,
-        "config": {
-            "exclude_dirs": sorted(config.exclude_dirs),
-            "ignore_params": sorted(config.ignore_params),
-            "strictness": config.strictness,
-            "external_filter": config.external_filter,
-            "transparent_decorators": sorted(config.transparent_decorators or []),
-        },
+        "config": _analysis_witness_config_payload(config),
         "ast_intern_table": ast_intern_table,
         "files": files,
     }
@@ -324,6 +423,39 @@ def _load_analysis_resume_checkpoint(
     return collection_resume
 
 
+def _load_analysis_resume_checkpoint_manifest(
+    *,
+    path: Path,
+    manifest_digest: str,
+) -> tuple[JSONObject | None, JSONObject] | None:
+    if not path.exists():
+        return None
+    try:
+        raw_payload = json.loads(path.read_text())
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw_payload, dict):
+        return None
+    if raw_payload.get("format_version") != _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION:
+        return None
+    observed_manifest_digest = raw_payload.get("input_manifest_digest")
+    if not isinstance(observed_manifest_digest, str):
+        witness = raw_payload.get("input_witness")
+        if isinstance(witness, dict):
+            observed_manifest_digest = _analysis_manifest_digest_from_witness(witness)
+    if not isinstance(observed_manifest_digest, str):
+        return None
+    if observed_manifest_digest != manifest_digest:
+        return None
+    collection_resume = raw_payload.get("collection_resume")
+    if not isinstance(collection_resume, dict):
+        return None
+    witness = raw_payload.get("input_witness")
+    if isinstance(witness, dict):
+        return cast(JSONObject, witness), cast(JSONObject, collection_resume)
+    return None, cast(JSONObject, collection_resume)
+
+
 def _write_analysis_resume_checkpoint(
     *,
     path: Path,
@@ -331,12 +463,14 @@ def _write_analysis_resume_checkpoint(
     collection_resume: JSONObject,
 ) -> None:
     witness_digest = input_witness.get("witness_digest")
+    manifest_digest = _analysis_manifest_digest_from_witness(input_witness)
     payload: JSONObject = {
         "format_version": _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
         "input_witness": input_witness,
         "input_witness_digest": (
             witness_digest if isinstance(witness_digest, str) else None
         ),
+        "input_manifest_digest": manifest_digest,
         "collection_resume": collection_resume,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -354,11 +488,23 @@ def _analysis_resume_progress(
         completed = sum(1 for path in completed_paths if isinstance(path, str))
     if completed < 0:
         completed = 0
+    in_progress_scan = collection_resume.get("in_progress_scan_by_path")
+    in_progress = 0
+    if isinstance(in_progress_scan, Mapping):
+        in_progress = sum(
+            1
+            for path, state in in_progress_scan.items()
+            if isinstance(path, str) and isinstance(state, Mapping)
+        )
+    if in_progress < 0:
+        in_progress = 0
     if total_files >= 0:
         completed = min(completed, total_files)
+        in_progress = min(in_progress, max(total_files - completed, 0))
     remaining = max(total_files - completed, 0)
     return {
         "completed_files": completed,
+        "in_progress_files": in_progress,
         "remaining_files": remaining,
         "total_files": total_files,
     }
@@ -574,6 +720,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
     forest_token = set_forest(forest)
     analysis_resume_checkpoint_path: Path | None = None
     analysis_resume_input_witness: JSONObject | None = None
+    analysis_resume_input_manifest_digest: str | None = None
     analysis_resume_total_files = 0
     analysis_resume_reused_files = 0
     try:
@@ -783,23 +930,48 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 root=Path(root),
             )
             if analysis_resume_checkpoint_path is not None:
-                analysis_resume_input_witness = _analysis_input_witness(
+                input_manifest = _analysis_input_manifest(
                     root=Path(root),
                     file_paths=file_paths_for_run,
                     recursive=not no_recursive,
                     include_invariant_propositions=bool(report_path),
                     config=config,
                 )
-                collection_resume = _load_analysis_resume_checkpoint(
-                    path=analysis_resume_checkpoint_path,
-                    input_witness=analysis_resume_input_witness,
+                analysis_resume_input_manifest_digest = _analysis_input_manifest_digest(
+                    input_manifest
                 )
-                if collection_resume is not None:
-                    collection_resume_payload = collection_resume
+                manifest_resume = _load_analysis_resume_checkpoint_manifest(
+                    path=analysis_resume_checkpoint_path,
+                    manifest_digest=analysis_resume_input_manifest_digest,
+                )
+                if manifest_resume is not None:
+                    checkpoint_witness, checkpoint_resume = manifest_resume
+                    if checkpoint_witness is not None:
+                        analysis_resume_input_witness = checkpoint_witness
+                    collection_resume_payload = checkpoint_resume
                     analysis_resume_reused_files = _analysis_resume_progress(
-                        collection_resume=collection_resume,
+                        collection_resume=checkpoint_resume,
                         total_files=analysis_resume_total_files,
                     )["completed_files"]
+                if analysis_resume_input_witness is None:
+                    analysis_resume_input_witness = _analysis_input_witness(
+                        root=Path(root),
+                        file_paths=file_paths_for_run,
+                        recursive=not no_recursive,
+                        include_invariant_propositions=bool(report_path),
+                        config=config,
+                    )
+                if collection_resume_payload is None:
+                    collection_resume = _load_analysis_resume_checkpoint(
+                        path=analysis_resume_checkpoint_path,
+                        input_witness=analysis_resume_input_witness,
+                    )
+                    if collection_resume is not None:
+                        collection_resume_payload = collection_resume
+                        analysis_resume_reused_files = _analysis_resume_progress(
+                            collection_resume=collection_resume,
+                            total_files=analysis_resume_total_files,
+                        )["completed_files"]
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
             if (
@@ -1481,22 +1653,36 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         if not isinstance(progress_payload, dict):
             progress_payload = {}
             timeout_payload["progress"] = progress_payload
-        if (
-            analysis_resume_checkpoint_path is not None
-            and analysis_resume_input_witness is not None
-        ):
-            collection_resume = _load_analysis_resume_checkpoint(
-                path=analysis_resume_checkpoint_path,
-                input_witness=analysis_resume_input_witness,
-            )
+        if analysis_resume_checkpoint_path is not None:
+            collection_resume: JSONObject | None = None
+            resume_input_witness: JSONObject | None = analysis_resume_input_witness
+            if analysis_resume_input_witness is not None:
+                collection_resume = _load_analysis_resume_checkpoint(
+                    path=analysis_resume_checkpoint_path,
+                    input_witness=analysis_resume_input_witness,
+                )
+            elif analysis_resume_input_manifest_digest is not None:
+                manifest_resume = _load_analysis_resume_checkpoint_manifest(
+                    path=analysis_resume_checkpoint_path,
+                    manifest_digest=analysis_resume_input_manifest_digest,
+                )
+                if manifest_resume is not None:
+                    resume_input_witness, collection_resume = manifest_resume
             if collection_resume is not None:
                 resume_progress = _analysis_resume_progress(
                     collection_resume=collection_resume,
                     total_files=analysis_resume_total_files,
                 )
-                resume_supported = resume_progress["completed_files"] > 0
+                resume_supported = (
+                    resume_progress["completed_files"] > 0
+                    or resume_progress.get("in_progress_files", 0) > 0
+                )
                 progress_payload["resume_supported"] = resume_supported
-                witness_digest = analysis_resume_input_witness.get("witness_digest")
+                witness_digest = (
+                    resume_input_witness.get("witness_digest")
+                    if resume_input_witness is not None
+                    else None
+                )
                 if not isinstance(witness_digest, str):
                     witness_digest = None
                 resume_token: JSONObject = {
@@ -1509,10 +1695,10 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 }
                 if witness_digest is not None:
                     resume_token["witness_digest"] = witness_digest
-                progress_payload["resume"] = {
-                    "resume_token": resume_token,
-                    "input_witness": analysis_resume_input_witness,
-                }
+                resume_payload: JSONObject = {"resume_token": resume_token}
+                if resume_input_witness is not None:
+                    resume_payload["input_witness"] = resume_input_witness
+                progress_payload["resume"] = resume_payload
                 classification = progress_payload.get("classification")
                 if (
                     resume_supported
