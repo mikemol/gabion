@@ -95,7 +95,8 @@ jobs:
             --root . \
             --report artifacts/dataflow_grammar/report.md \
             --dot artifacts/dataflow_grammar/dataflow_graph.dot \
-            --type-audit-report
+            --type-audit-report \
+            --fail-on-violations
       - name: Upload dataflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
