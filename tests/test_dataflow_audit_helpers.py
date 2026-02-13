@@ -498,6 +498,44 @@ def test_constant_and_deadness_projections_share_constant_details(
     )
 
 
+def test_caller_param_bindings_for_call_covers_low_strict_star_paths() -> None:
+    da = _load()
+    callee = da.FunctionInfo(
+        name="f",
+        qual="mod.f",
+        path=Path("mod.py"),
+        params=["a", "b", "kw"],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        positional_params=("a", "b"),
+        kwonly_params=("kw",),
+        vararg="rest",
+        kwarg="kwargs",
+    )
+    call = da.CallArgs(
+        callee="f",
+        pos_map={"0": "x"},
+        kw_map={"kw": "k"},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[(2, "sx")],
+        star_kw=["sk"],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
+    strict = da._caller_param_bindings_for_call(call, callee, strictness="high")
+    assert strict == {"a": {"x"}, "kw": {"k"}}
+    low = da._caller_param_bindings_for_call(call, callee, strictness="low")
+    assert low["a"] == {"x"}
+    assert low["kw"] == {"k"}
+    assert low["b"] == {"sx", "sk"}
+    assert low["rest"] == {"sx", "sk"}
+    assert low["kwargs"] == {"sx", "sk"}
+
+
 def test_lint_rows_materialize_and_project_from_forest() -> None:
     da = _load()
     forest = da.Forest()
