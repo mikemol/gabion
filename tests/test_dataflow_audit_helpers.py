@@ -316,6 +316,81 @@ def test_parse_witness_contract_violations_detect_nullable_signature() -> None:
     ]
 
 
+def test_build_call_graph_reuses_prebuilt_analysis_index(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(
+        module,
+        "def callee(x):\n"
+        "    return x\n"
+        "\n"
+        "def caller(x):\n"
+        "    return callee(x)\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    by_name, by_qual, transitive_callers = da._build_call_graph(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    assert by_name is analysis_index.by_name
+    assert by_qual is analysis_index.by_qual
+    assert transitive_callers.get("module.callee") == {"module.caller"}
+
+
+def test_constant_flow_accepts_prebuilt_analysis_index(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(
+        module,
+        "def callee(x):\n"
+        "    return x\n"
+        "\n"
+        "def caller():\n"
+        "    return callee(1)\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    without_index = da.analyze_constant_flow_repo(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    with_index = da.analyze_constant_flow_repo(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    assert with_index == without_index
+    assert any("callee.x only observed constant 1" in line for line in with_index)
+
+
 def test_lint_rows_materialize_and_project_from_forest() -> None:
     da = _load()
     forest = da.Forest()
