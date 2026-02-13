@@ -6106,12 +6106,13 @@ def _run_indexed_pass(
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
     spec: _IndexedPassSpec[_IndexedPassResult],
+    build_index: Callable[..., AnalysisIndex] = _build_analysis_index,
 ) -> _IndexedPassResult:
     check_deadline()
     sink = _parse_failure_sink(parse_failure_witnesses)
     index = analysis_index
     if index is None:
-        index = _build_analysis_index(
+        index = build_index(
             paths,
             project_root=project_root,
             ignore_params=ignore_params,
@@ -10086,6 +10087,7 @@ def _emit_report(
     max_components: int,
     *,
     report: ReportCarrier,
+    execution_pattern_suggestions: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     check_deadline()
     forest = report.forest
@@ -10347,7 +10349,8 @@ def _emit_report(
         lines.extend(_projected("parse_witness_contract_violations", contract_violations))
         lines.append("```")
         violations.extend(contract_violations)
-    execution_pattern_suggestions = _execution_pattern_suggestions()
+    if execution_pattern_suggestions is None:
+        execution_pattern_suggestions = _execution_pattern_suggestions()
     if execution_pattern_suggestions:
         lines.append("Execution pattern opportunities:")
         lines.append("```")
