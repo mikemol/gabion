@@ -592,6 +592,73 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
     assert ("dataclass_registry", str(tmp_path)) in analysis_index.stage_cache_by_key
 
 
+def test_run_indexed_pass_hydrates_index_and_sink(monkeypatch) -> None:
+    da = _load()
+    sentinel_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    calls = 0
+
+    def _build_analysis_index(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        return sentinel_index
+
+    monkeypatch.setattr(da, "_build_analysis_index", _build_analysis_index)
+    result = da._run_indexed_pass(
+        [Path("demo.py")],
+        project_root=Path("."),
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        spec=da._IndexedPassSpec(
+            pass_id="demo",
+            run=lambda context: (
+                context.analysis_index is sentinel_index,
+                context.parse_failure_witnesses == [],
+            ),
+        ),
+    )
+    assert calls == 1
+    assert result == (True, True)
+
+
+def test_run_indexed_pass_reuses_prebuilt_index(monkeypatch) -> None:
+    da = _load()
+    sentinel_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    sink: list[dict[str, object]] = []
+
+    def _unexpected_build(*_args, **_kwargs):
+        raise AssertionError("unexpected index build")
+
+    monkeypatch.setattr(da, "_build_analysis_index", _unexpected_build)
+    result = da._run_indexed_pass(
+        [Path("demo.py")],
+        project_root=Path("."),
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=sink,
+        analysis_index=sentinel_index,
+        spec=da._IndexedPassSpec(
+            pass_id="demo",
+            run=lambda context: (
+                context.analysis_index is sentinel_index,
+                context.parse_failure_witnesses is sink,
+            ),
+        ),
+    )
+    assert result == (True, True)
+
+
 def test_execution_pattern_suggestions_detect_indexed_pass_ingress() -> None:
     da = _load()
     source = (
