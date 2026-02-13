@@ -122,6 +122,23 @@ def test_run_command_raises_on_nonzero_returncode() -> None:
     assert "server failed" in str(exc.value).lower()
 
 
+def test_run_command_rejects_missing_payload_arguments() -> None:
+    created = False
+
+    def factory(*_args, **_kwargs):
+        nonlocal created
+        created = True
+        return _make_proc(0, b"")
+
+    with pytest.raises(NeverThrown):
+        run_command(
+            CommandRequest("gabion.dataflowAudit"),
+            root=Path("."),
+            process_factory=factory,
+        )
+    assert created is False
+
+
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 def test_run_command_raises_on_stderr_output() -> None:
     def factory(*_args, **_kwargs):

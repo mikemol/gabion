@@ -1533,6 +1533,12 @@ def test_execute_command_defaults_payload(tmp_path: Path) -> None:
         server.execute_command(ls, None)
 
 
+def test_execute_command_rejects_non_dict_payload(tmp_path: Path) -> None:
+    ls = _DummyServer(str(tmp_path))
+    with pytest.raises(NeverThrown):
+        server.execute_command(ls, [])  # type: ignore[arg-type]
+
+
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.execute_refactor::ls,payload
 def test_execute_refactor_valid_payload(tmp_path: Path) -> None:
     module_path = tmp_path / "target.py"
