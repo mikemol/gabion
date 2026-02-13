@@ -6032,6 +6032,8 @@ _StageCacheValue = TypeVar("_StageCacheValue")
 _IndexedPassResult = TypeVar("_IndexedPassResult")
 _ResolvedEdgeAcc = TypeVar("_ResolvedEdgeAcc")
 _ResolvedEdgeOut = TypeVar("_ResolvedEdgeOut")
+_ModuleArtifactAcc = TypeVar("_ModuleArtifactAcc")
+_ModuleArtifactOut = TypeVar("_ModuleArtifactOut")
 
 
 @dataclass(frozen=True)
@@ -6061,6 +6063,15 @@ class _ResolvedEdgeReducerSpec(Generic[_ResolvedEdgeAcc, _ResolvedEdgeOut]):
 
 
 @dataclass(frozen=True)
+class _ModuleArtifactSpec(Generic[_ModuleArtifactAcc, _ModuleArtifactOut]):
+    artifact_id: str
+    stage: _ParseModuleStage
+    init: Callable[[], _ModuleArtifactAcc]
+    fold: Callable[[_ModuleArtifactAcc, Path, ast.Module], None]
+    finish: Callable[[_ModuleArtifactAcc], _ModuleArtifactOut]
+
+
+@dataclass(frozen=True)
 class _ResolvedEdgeParamEvent:
     kind: str
     param: str
@@ -6075,6 +6086,49 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
     build: Callable[[ast.Module, Path], _StageCacheValue]
 
 
+def _parse_module_source(path: Path) -> ast.Module:
+    return ast.parse(path.read_text())
+
+
+def _build_module_artifacts(
+    paths: list[Path],
+    *,
+    specs: tuple[_ModuleArtifactSpec[object, object], ...],
+    parse_failure_witnesses: list[JSONObject],
+    parse_module: Callable[[Path], ast.Module] = _parse_module_source,
+) -> tuple[object, ...]:
+    check_deadline()
+    if not specs:
+        return ()
+    parse_cache: dict[Path, ast.Module | Exception] = {}
+    accumulators = [spec.init() for spec in specs]
+    for path in paths:
+        check_deadline()
+        parsed = parse_cache.get(path)
+        if parsed is None:
+            try:
+                parsed = parse_module(path)
+            except _PARSE_MODULE_ERROR_TYPES as exc:
+                parsed = exc
+            parse_cache[path] = parsed
+        if isinstance(parsed, Exception):
+            for spec in specs:
+                check_deadline()
+                _record_parse_failure_witness(
+                    sink=parse_failure_witnesses,
+                    path=path,
+                    stage=spec.stage,
+                    error=parsed,
+                )
+            continue
+        for idx, spec in enumerate(specs):
+            check_deadline()
+            spec.fold(accumulators[idx], path, parsed)
+    return tuple(
+        spec.finish(accumulator) for spec, accumulator in zip(specs, accumulators)
+    )
+
+
 def _build_analysis_index(
     paths: list[Path],
     *,
@@ -6086,25 +6140,38 @@ def _build_analysis_index(
     parse_failure_witnesses: list[JSONObject],
 ) -> AnalysisIndex:
     check_deadline()
-    by_name, by_qual = _build_function_index(
+    raw_function_index, raw_symbol_table, raw_class_index = _build_module_artifacts(
         paths,
-        project_root,
-        ignore_params,
-        strictness,
-        transparent_decorators,
+        specs=(
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _function_index_module_artifact_spec(
+                    project_root=project_root,
+                    ignore_params=ignore_params,
+                    strictness=strictness,
+                    transparent_decorators=transparent_decorators,
+                ),
+            ),
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _symbol_table_module_artifact_spec(
+                    project_root=project_root,
+                    external_filter=external_filter,
+                ),
+            ),
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _class_index_module_artifact_spec(project_root=project_root),
+            ),
+        ),
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    symbol_table = _build_symbol_table(
-        paths,
-        project_root,
-        external_filter=external_filter,
-        parse_failure_witnesses=parse_failure_witnesses,
+    by_name, by_qual = cast(
+        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
+        raw_function_index,
     )
-    class_index = _collect_class_index(
-        paths,
-        project_root,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    symbol_table = cast(SymbolTable, raw_symbol_table)
+    class_index = cast(dict[str, ClassInfo], raw_class_index)
     return AnalysisIndex(
         by_name=by_name,
         by_qual=by_qual,
@@ -8190,6 +8257,52 @@ def _collect_module_exports(
             export_map[name] = f"{module_name}.{name}" if module_name else name
     return export_names, export_map
 
+
+def _accumulate_symbol_table_for_tree(
+    table: SymbolTable,
+    path: Path,
+    tree: ast.Module,
+    *,
+    project_root: Path | None,
+) -> None:
+    check_deadline()
+    module = _module_name(path, project_root)
+    if module:
+        table.internal_roots.add(module.split(".")[0])
+    visitor = ImportVisitor(module, table)
+    visitor.visit(tree)
+    if module:
+        import_map = {
+            local: fqn for (mod, local), fqn in table.imports.items() if mod == module
+        }
+        exports, export_map = _collect_module_exports(
+            tree,
+            module_name=module,
+            import_map=import_map,
+        )
+        table.module_exports[module] = exports
+        table.module_export_map[module] = export_map
+
+
+def _symbol_table_module_artifact_spec(
+    *,
+    project_root: Path | None,
+    external_filter: bool,
+) -> _ModuleArtifactSpec[SymbolTable, SymbolTable]:
+    return _ModuleArtifactSpec[SymbolTable, SymbolTable](
+        artifact_id="symbol_table",
+        stage=_ParseModuleStage.SYMBOL_TABLE,
+        init=lambda: SymbolTable(external_filter=external_filter),
+        fold=lambda table, path, tree: _accumulate_symbol_table_for_tree(
+            table,
+            path,
+            tree,
+            project_root=project_root,
+        ),
+        finish=lambda table: table,
+    )
+
+
 def _build_symbol_table(
     paths: list[Path],
     project_root: Path | None,
@@ -8198,35 +8311,77 @@ def _build_symbol_table(
     parse_failure_witnesses: list[JSONObject],
 ) -> SymbolTable:
     check_deadline()
-    table = SymbolTable(external_filter=external_filter)
-    for path in paths:
+    raw_table, = _build_module_artifacts(
+        paths,
+        specs=(
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _symbol_table_module_artifact_spec(
+                    project_root=project_root,
+                    external_filter=external_filter,
+                ),
+            ),
+        ),
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    return cast(SymbolTable, raw_table)
+
+
+def _accumulate_class_index_for_tree(
+    class_index: dict[str, ClassInfo],
+    path: Path,
+    tree: ast.Module,
+    *,
+    project_root: Path | None,
+) -> None:
+    check_deadline()
+    parents = ParentAnnotator()
+    parents.visit(tree)
+    module = _module_name(path, project_root)
+    for node in ast.walk(tree):
         check_deadline()
-        tree = _parse_module_tree(
-            path,
-            stage=_ParseModuleStage.SYMBOL_TABLE,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
-        if tree is None:
+        if not isinstance(node, ast.ClassDef):
             continue
-        module = _module_name(path, project_root)
-        if module:
-            table.internal_roots.add(module.split(".")[0])
-        visitor = ImportVisitor(module, table)
-        visitor.visit(tree)
-        if module:
-            import_map = {
-                local: fqn
-                for (mod, local), fqn in table.imports.items()
-                if mod == module
-            }
-            exports, export_map = _collect_module_exports(
-                tree,
-                module_name=module,
-                import_map=import_map,
-            )
-            table.module_exports[module] = exports
-            table.module_export_map[module] = export_map
-    return table
+        scopes = _enclosing_class_scopes(node, parents.parents)
+        qual_parts = [module] if module else []
+        qual_parts.extend(scopes)
+        qual_parts.append(node.name)
+        qual = ".".join(qual_parts)
+        bases: list[str] = []
+        for base in node.bases:
+            check_deadline()
+            base_name = _base_identifier(base)
+            if base_name:
+                bases.append(base_name)
+        methods: set[str] = set()
+        for stmt in node.body:
+            check_deadline()
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                methods.add(stmt.name)
+        class_index[qual] = ClassInfo(
+            qual=qual,
+            module=module,
+            bases=bases,
+            methods=methods,
+        )
+
+
+def _class_index_module_artifact_spec(
+    *,
+    project_root: Path | None,
+) -> _ModuleArtifactSpec[dict[str, ClassInfo], dict[str, ClassInfo]]:
+    return _ModuleArtifactSpec[dict[str, ClassInfo], dict[str, ClassInfo]](
+        artifact_id="class_index",
+        stage=_ParseModuleStage.CLASS_INDEX,
+        init=dict,
+        fold=lambda class_index, path, tree: _accumulate_class_index_for_tree(
+            class_index,
+            path,
+            tree,
+            project_root=project_root,
+        ),
+        finish=lambda class_index: class_index,
+    )
 
 
 def _collect_class_index(
@@ -8236,46 +8391,17 @@ def _collect_class_index(
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, ClassInfo]:
     check_deadline()
-    class_index: dict[str, ClassInfo] = {}
-    for path in paths:
-        check_deadline()
-        tree = _parse_module_tree(
-            path,
-            stage=_ParseModuleStage.CLASS_INDEX,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
-        if tree is None:
-            continue
-        parents = ParentAnnotator()
-        parents.visit(tree)
-        module = _module_name(path, project_root)
-        for node in ast.walk(tree):
-            check_deadline()
-            if not isinstance(node, ast.ClassDef):
-                continue
-            scopes = _enclosing_class_scopes(node, parents.parents)
-            qual_parts = [module] if module else []
-            qual_parts.extend(scopes)
-            qual_parts.append(node.name)
-            qual = ".".join(qual_parts)
-            bases: list[str] = []
-            for base in node.bases:
-                check_deadline()
-                base_name = _base_identifier(base)
-                if base_name:
-                    bases.append(base_name)
-            methods: set[str] = set()
-            for stmt in node.body:
-                check_deadline()
-                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    methods.add(stmt.name)
-            class_index[qual] = ClassInfo(
-                qual=qual,
-                module=module,
-                bases=bases,
-                methods=methods,
-            )
-    return class_index
+    raw_class_index, = _build_module_artifacts(
+        paths,
+        specs=(
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _class_index_module_artifact_spec(project_root=project_root),
+            ),
+        ),
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    return cast(dict[str, ClassInfo], raw_class_index)
 
 
 def _resolve_class_candidates(
@@ -8364,6 +8490,128 @@ def _resolve_method_in_hierarchy(
     return None
 
 
+@dataclass
+class _FunctionIndexAccumulator:
+    by_name: dict[str, list[FunctionInfo]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    by_qual: dict[str, FunctionInfo] = field(default_factory=dict)
+
+
+def _accumulate_function_index_for_tree(
+    acc: _FunctionIndexAccumulator,
+    path: Path,
+    tree: ast.Module,
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    transparent_decorators: set[str] | None,
+) -> None:
+    check_deadline()
+    funcs = _collect_functions(tree)
+    if not funcs:
+        return
+    parents = ParentAnnotator()
+    parents.visit(tree)
+    parent_map = parents.parents
+    module = _module_name(path, project_root)
+    return_aliases = _collect_return_aliases(funcs, parent_map, ignore_params=ignore_params)
+    for fn in funcs:
+        check_deadline()
+        class_name = _enclosing_class(fn, parent_map)
+        scopes = _enclosing_scopes(fn, parent_map)
+        lexical_scopes = _enclosing_function_scopes(fn, parent_map)
+        use_map, call_args = _analyze_function(
+            fn,
+            parent_map,
+            is_test=_is_test_path(path),
+            ignore_params=ignore_params,
+            strictness=strictness,
+            class_name=class_name,
+            return_aliases=return_aliases,
+        )
+        unused_params = _unused_params(use_map)
+        value_params, value_reasons = _value_encoded_decision_params(fn, ignore_params)
+        pos_args = [a.arg for a in (fn.args.posonlyargs + fn.args.args)]
+        kwonly_args = [a.arg for a in fn.args.kwonlyargs]
+        if pos_args and pos_args[0] in {"self", "cls"}:
+            pos_args = pos_args[1:]
+        if ignore_params:
+            pos_args = [name for name in pos_args if name not in ignore_params]
+            kwonly_args = [name for name in kwonly_args if name not in ignore_params]
+        vararg = None
+        if fn.args.vararg is not None:
+            candidate = fn.args.vararg.arg
+            if not ignore_params or candidate not in ignore_params:
+                vararg = candidate
+        kwarg = None
+        if fn.args.kwarg is not None:
+            candidate = fn.args.kwarg.arg
+            if not ignore_params or candidate not in ignore_params:
+                kwarg = candidate
+        qual_parts = [module] if module else []
+        if scopes:
+            qual_parts.extend(scopes)
+        qual_parts.append(fn.name)
+        qual = ".".join(qual_parts)
+        info = FunctionInfo(
+            name=fn.name,
+            qual=qual,
+            path=path,
+            params=_param_names(fn, ignore_params),
+            annots=_param_annotations(fn, ignore_params),
+            defaults=_param_defaults(fn, ignore_params),
+            calls=call_args,
+            unused_params=unused_params,
+            transparent=_decorators_transparent(fn, transparent_decorators),
+            class_name=class_name,
+            scope=tuple(scopes),
+            lexical_scope=tuple(lexical_scopes),
+            decision_params=_decision_surface_params(fn, ignore_params),
+            value_decision_params=value_params,
+            value_decision_reasons=value_reasons,
+            positional_params=tuple(pos_args),
+            kwonly_params=tuple(kwonly_args),
+            vararg=vararg,
+            kwarg=kwarg,
+            param_spans=_param_spans(fn, ignore_params),
+            function_span=_node_span(fn),
+        )
+        acc.by_name[fn.name].append(info)
+        acc.by_qual[info.qual] = info
+
+
+def _function_index_module_artifact_spec(
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    transparent_decorators: set[str] | None,
+) -> _ModuleArtifactSpec[
+    _FunctionIndexAccumulator,
+    tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
+]:
+    return _ModuleArtifactSpec[
+        _FunctionIndexAccumulator,
+        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
+    ](
+        artifact_id="function_index",
+        stage=_ParseModuleStage.FUNCTION_INDEX,
+        init=_FunctionIndexAccumulator,
+        fold=lambda acc, path, tree: _accumulate_function_index_for_tree(
+            acc,
+            path,
+            tree,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            transparent_decorators=transparent_decorators,
+        ),
+        finish=lambda acc: (acc.by_name, acc.by_qual),
+    )
+
+
 def _build_function_index(
     paths: list[Path],
     project_root: Path | None,
@@ -8374,95 +8622,25 @@ def _build_function_index(
     parse_failure_witnesses: list[JSONObject],
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]]:
     check_deadline()
-    by_name: dict[str, list[FunctionInfo]] = defaultdict(list)
-    by_qual: dict[str, FunctionInfo] = {}
-    for path in paths:
-        check_deadline()
-        tree = _parse_module_tree(
-            path,
-            stage=_ParseModuleStage.FUNCTION_INDEX,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
-        if tree is None:
-            continue
-        funcs = _collect_functions(tree)
-        if not funcs:
-            continue
-        parents = ParentAnnotator()
-        parents.visit(tree)
-        parent_map = parents.parents
-        module = _module_name(path, project_root)
-        return_aliases = _collect_return_aliases(
-            funcs, parent_map, ignore_params=ignore_params
-        )
-        for fn in funcs:
-            check_deadline()
-            class_name = _enclosing_class(fn, parent_map)
-            scopes = _enclosing_scopes(fn, parent_map)
-            lexical_scopes = _enclosing_function_scopes(fn, parent_map)
-            use_map, call_args = _analyze_function(
-                fn,
-                parent_map,
-                is_test=_is_test_path(path),
-                ignore_params=ignore_params,
-                strictness=strictness,
-                class_name=class_name,
-                return_aliases=return_aliases,
-            )
-            unused_params = _unused_params(use_map)
-            value_params, value_reasons = _value_encoded_decision_params(
-                fn, ignore_params
-            )
-            pos_args = [a.arg for a in (fn.args.posonlyargs + fn.args.args)]
-            kwonly_args = [a.arg for a in fn.args.kwonlyargs]
-            if pos_args and pos_args[0] in {"self", "cls"}:
-                pos_args = pos_args[1:]
-            if ignore_params:
-                pos_args = [name for name in pos_args if name not in ignore_params]
-                kwonly_args = [
-                    name for name in kwonly_args if name not in ignore_params
-                ]
-            vararg = None
-            if fn.args.vararg is not None:
-                candidate = fn.args.vararg.arg
-                if not ignore_params or candidate not in ignore_params:
-                    vararg = candidate
-            kwarg = None
-            if fn.args.kwarg is not None:
-                candidate = fn.args.kwarg.arg
-                if not ignore_params or candidate not in ignore_params:
-                    kwarg = candidate
-            qual_parts = [module] if module else []
-            if scopes:
-                qual_parts.extend(scopes)
-            qual_parts.append(fn.name)
-            qual = ".".join(qual_parts)
-            info = FunctionInfo(
-                name=fn.name,
-                qual=qual,
-                path=path,
-                params=_param_names(fn, ignore_params),
-                annots=_param_annotations(fn, ignore_params),
-                defaults=_param_defaults(fn, ignore_params),
-                calls=call_args,
-                unused_params=unused_params,
-                transparent=_decorators_transparent(fn, transparent_decorators),
-                class_name=class_name,
-                scope=tuple(scopes),
-                lexical_scope=tuple(lexical_scopes),
-                decision_params=_decision_surface_params(fn, ignore_params),
-                value_decision_params=value_params,
-                value_decision_reasons=value_reasons,
-                positional_params=tuple(pos_args),
-                kwonly_params=tuple(kwonly_args),
-                vararg=vararg,
-                kwarg=kwarg,
-                param_spans=_param_spans(fn, ignore_params),
-                function_span=_node_span(fn),
-            )
-            by_name[fn.name].append(info)
-            by_qual[info.qual] = info
-    return by_name, by_qual
+    raw_index, = _build_module_artifacts(
+        paths,
+        specs=(
+            cast(
+                _ModuleArtifactSpec[object, object],
+                _function_index_module_artifact_spec(
+                    project_root=project_root,
+                    ignore_params=ignore_params,
+                    strictness=strictness,
+                    transparent_decorators=transparent_decorators,
+                ),
+            ),
+        ),
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    return cast(
+        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
+        raw_index,
+    )
 
 
 def _resolve_callee(
