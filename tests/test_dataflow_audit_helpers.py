@@ -444,6 +444,70 @@ def test_analysis_index_resolved_call_edges_cache_and_transparency(tmp_path: Pat
     assert [edge.callee.name for edge in transparent_edges] == ["open_"]
 
 
+def test_analysis_index_module_trees_reuses_cached_tree_across_stages(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(module, "def f(x):\n    return x\n")
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    deadline_trees = da._analysis_index_module_trees(
+        analysis_index,
+        [module],
+        stage=da._ParseModuleStage.DEADLINE_FUNCTION_FACTS,
+        parse_failure_witnesses=parse_failures,
+    )
+    call_trees = da._analysis_index_module_trees(
+        analysis_index,
+        [module],
+        stage=da._ParseModuleStage.CALL_NODES,
+        parse_failure_witnesses=parse_failures,
+    )
+    assert parse_failures == []
+    assert deadline_trees[module] is not None
+    assert call_trees[module] is deadline_trees[module]
+
+
+def test_analysis_index_module_trees_replays_parse_failure_by_stage(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    bad = tmp_path / "bad.py"
+    _write(bad, "def f(:\n")
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    deadline_trees = da._analysis_index_module_trees(
+        analysis_index,
+        [bad],
+        stage=da._ParseModuleStage.DEADLINE_FUNCTION_FACTS,
+        parse_failure_witnesses=parse_failures,
+    )
+    call_trees = da._analysis_index_module_trees(
+        analysis_index,
+        [bad],
+        stage=da._ParseModuleStage.CALL_NODES,
+        parse_failure_witnesses=parse_failures,
+    )
+    assert deadline_trees[bad] is None
+    assert call_trees[bad] is None
+    assert [entry["stage"] for entry in parse_failures] == [
+        da._ParseModuleStage.DEADLINE_FUNCTION_FACTS.value,
+        da._ParseModuleStage.CALL_NODES.value,
+    ]
+    assert bad in analysis_index.module_parse_errors_by_path
+
+
 def test_constant_and_deadness_projections_share_constant_details(
     tmp_path: Path,
 ) -> None:
