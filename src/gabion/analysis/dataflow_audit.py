@@ -3273,16 +3273,20 @@ def _collect_deadline_function_facts(
     project_root: Path | None,
     ignore_params: set[str],
     parse_failure_witnesses: list[JSONObject],
+    trees: Mapping[Path, ast.AST | None] | None = None,
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
     facts: dict[str, _DeadlineFunctionFacts] = {}
     for path in paths:
         check_deadline()
-        tree = _parse_module_tree(
-            path,
-            stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
+        if trees is not None and path in trees:
+            tree = trees[path]
+        else:
+            tree = _parse_module_tree(
+                path,
+                stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
+                parse_failure_witnesses=parse_failure_witnesses,
+            )
         if tree is None:
             continue
         parents = ParentAnnotator()
@@ -3316,7 +3320,7 @@ def _collect_deadline_function_facts(
 def _collect_call_nodes_by_path(
     paths: list[Path],
     *,
-    trees: Mapping[Path, ast.AST] | None = None,
+    trees: Mapping[Path, ast.AST | None] | None = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:
     check_deadline()
@@ -3331,8 +3335,8 @@ def _collect_call_nodes_by_path(
                 stage=_ParseModuleStage.CALL_NODES,
                 parse_failure_witnesses=parse_failure_witnesses,
             )
-            if tree is None:
-                continue
+        if tree is None:
+            continue
         span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
         for node in ast.walk(tree):
             check_deadline()
@@ -4043,8 +4047,21 @@ def _collect_deadline_obligations(
         project_root=project_root,
         class_index=class_index,
     )
+    deadline_trees = _analysis_index_module_trees(
+        index,
+        paths,
+        stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    call_node_trees = _analysis_index_module_trees(
+        index,
+        paths,
+        stage=_ParseModuleStage.CALL_NODES,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
     call_nodes_by_path = _collect_call_nodes_by_path(
         paths,
+        trees=call_node_trees,
         parse_failure_witnesses=parse_failure_witnesses,
     )
     facts_by_qual = _collect_deadline_function_facts(
@@ -4052,6 +4069,7 @@ def _collect_deadline_obligations(
         project_root=project_root,
         ignore_params=config.ignore_params,
         parse_failure_witnesses=parse_failure_witnesses,
+        trees=deadline_trees,
     )
     if extra_facts_by_qual:
         facts_by_qual = dict(facts_by_qual)
@@ -5740,6 +5758,8 @@ class AnalysisIndex:
     by_qual: dict[str, FunctionInfo]
     symbol_table: SymbolTable
     class_index: dict[str, ClassInfo]
+    parsed_modules_by_path: dict[Path, ast.Module] = field(default_factory=dict)
+    module_parse_errors_by_path: dict[Path, Exception] = field(default_factory=dict)
     transitive_callers: dict[str, set[str]] | None = None
     resolved_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
     resolved_transparent_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
@@ -5789,6 +5809,48 @@ def _build_analysis_index(
         symbol_table=symbol_table,
         class_index=class_index,
     )
+
+
+def _analysis_index_module_trees(
+    analysis_index: AnalysisIndex,
+    paths: list[Path],
+    *,
+    stage: _ParseModuleStage,
+    parse_failure_witnesses: list[JSONObject],
+) -> dict[Path, ast.Module | None]:
+    check_deadline()
+    trees: dict[Path, ast.Module | None] = {}
+    for path in paths:
+        check_deadline()
+        cached_tree = analysis_index.parsed_modules_by_path.get(path)
+        if cached_tree is not None:
+            trees[path] = cached_tree
+            continue
+        cached_error = analysis_index.module_parse_errors_by_path.get(path)
+        if cached_error is not None:
+            _record_parse_failure_witness(
+                sink=parse_failure_witnesses,
+                path=path,
+                stage=stage,
+                error=cached_error,
+            )
+            trees[path] = None
+            continue
+        try:
+            tree = ast.parse(path.read_text())
+        except _PARSE_MODULE_ERROR_TYPES as exc:
+            analysis_index.module_parse_errors_by_path[path] = exc
+            _record_parse_failure_witness(
+                sink=parse_failure_witnesses,
+                path=path,
+                stage=stage,
+                error=exc,
+            )
+            trees[path] = None
+            continue
+        analysis_index.parsed_modules_by_path[path] = tree
+        trees[path] = tree
+    return trees
 
 
 def _analysis_index_transitive_callers(
