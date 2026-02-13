@@ -241,6 +241,7 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
     server._write_analysis_resume_checkpoint(
         path=checkpoint_path,
         input_witness=witness,
+        input_manifest_digest=None,
         collection_resume={
             "format_version": 2,
             "completed_paths": [],
@@ -269,6 +270,157 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
     assert isinstance(token, dict)
     assert token.get("phase") == "analysis_collection"
     assert token.get("in_progress_files") == 1
+
+
+def test_execute_command_timeout_writes_partial_incremental_report(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "many.py"
+    report_path = tmp_path / "report.md"
+    _write_many_functions_module(module_path, count=800)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": str(report_path),
+                "analysis_timeout_ticks": 1,
+                "analysis_timeout_tick_ns": 1,
+            }
+        ),
+    )
+    assert result.get("timeout") is True
+    assert report_path.exists()
+    report_text = report_path.read_text()
+    assert "Incremental Status" in report_text
+    assert "PENDING (phase:" in report_text
+    progress = (result.get("timeout_context") or {}).get("progress")
+    assert isinstance(progress, dict)
+    obligations = progress.get("incremental_obligations")
+    assert isinstance(obligations, list)
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "progress_report_contract"
+        and entry.get("status") == "SATISFIED"
+        for entry in obligations
+    )
+
+
+def test_execute_command_timeout_marks_stale_section_journal(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "many.py"
+    report_path = tmp_path / "report.md"
+    journal_path = tmp_path / "report_sections.json"
+    _write_many_functions_module(module_path, count=800)
+    journal_path.write_text(
+        json.dumps(
+            {
+                "format_version": 1,
+                "witness_digest": "stale",
+                "sections": {
+                    "components": {
+                        "phase": "forest",
+                        "deps": ["intro"],
+                        "status": "resolved",
+                        "lines": ["### Component 1", "stale"],
+                    }
+                },
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": str(report_path),
+                "analysis_timeout_ticks": 1,
+                "analysis_timeout_tick_ns": 1,
+            }
+        ),
+    )
+    assert result.get("timeout") is True
+    progress = (result.get("timeout_context") or {}).get("progress")
+    assert isinstance(progress, dict)
+    obligations = progress.get("incremental_obligations")
+    assert isinstance(obligations, list)
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "incremental_projection_contract"
+        and entry.get("detail") == "stale_input"
+        for entry in obligations
+    )
+
+
+def test_execute_command_writes_phase_checkpoint_when_incremental_enabled(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    report_path = tmp_path / "report.md"
+    phase_checkpoint_path = tmp_path / "report_phase_checkpoint.json"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+                {
+                    "root": str(tmp_path),
+                    "paths": [str(module_path)],
+                    "report": str(report_path),
+                    "emit_timeout_progress_report": True,
+                    "analysis_timeout_ticks": 5_000,
+                }
+            ),
+        )
+    assert result.get("analysis_state") == "succeeded"
+    assert phase_checkpoint_path.exists()
+    payload = json.loads(phase_checkpoint_path.read_text())
+    phases = payload.get("phases")
+    assert isinstance(phases, dict)
+    assert "collection" in phases
+    assert "forest" in phases
+    assert "edge" in phases
+    assert "post" in phases
+    post_phase = phases["post"]
+    assert isinstance(post_phase, dict)
+    assert post_phase.get("status") == "final"
+
+
+def test_incremental_obligations_require_restart_on_witness_mismatch(
+    tmp_path: Path,
+) -> None:
+    checkpoint_path = tmp_path / "resume.json"
+    checkpoint_path.write_text("{}")
+    obligations = server._incremental_progress_obligations(
+        analysis_state="timed_out_progress_resume",
+        progress_payload={
+            "classification": "timed_out_progress_resume",
+            "resume_supported": True,
+        },
+        resume_checkpoint_path=checkpoint_path,
+        partial_report_written=True,
+        report_requested=True,
+        projection_rows=[
+            {"section_id": "components", "phase": "forest", "deps": ["intro"]},
+        ],
+        sections={"components": ["resolved"]},
+        pending_reasons={"intro": "stale_input"},
+    )
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "resume_contract"
+        and entry.get("kind") == "restart_required_on_witness_mismatch"
+        and entry.get("status") == "VIOLATION"
+        for entry in obligations
+    )
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress
@@ -327,6 +479,7 @@ def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
     server._write_analysis_resume_checkpoint(
         path=checkpoint_path,
         input_witness=witness,
+        input_manifest_digest=None,
         collection_resume=snapshots[-1],
     )
     result = server.execute_command(ls, command_payload)
@@ -811,6 +964,8 @@ def test_execute_command_report_appends_sections(tmp_path: Path) -> None:
     assert "decision_surfaces" in report_text
     assert "Synthesis plan" in report_text
     assert "Refactoring plan" in report_text
+    assert "Resumability obligations:" in report_text
+    assert "Incremental report obligations:" in report_text
     assert refactor_json.exists()
 
 

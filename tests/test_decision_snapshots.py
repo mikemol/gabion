@@ -24,6 +24,7 @@ def test_render_and_diff_decision_snapshots() -> None:
         value_decision_surfaces=[],
         project_root=Path("."),
         forest=forest,
+        groups_by_path={},
     )
     assert "generated_by_forest_spec_id" in baseline
     assert "generated_by_forest_spec" in baseline
@@ -36,6 +37,7 @@ def test_render_and_diff_decision_snapshots() -> None:
         value_decision_surfaces=["c.py:h value-encoded decision params: z (min/max)"],
         project_root=Path("."),
         forest=forest,
+        groups_by_path={},
     )
     diff = da.diff_decision_snapshots(baseline, current)
     assert diff["decision_surfaces"]["added"] == ["b.py:g decision surface params: y"]
@@ -81,6 +83,7 @@ def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
         value_decision_surfaces=[],
         project_root=Path("."),
         forest=forest,
+        groups_by_path={},
         pattern_schema_instances=pattern_schema_instances,
     )
     assert snapshot["pattern_schema_instances"]

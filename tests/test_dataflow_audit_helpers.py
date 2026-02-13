@@ -1596,3 +1596,49 @@ def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
     assert resumed.param_spans_by_path == baseline.param_spans_by_path
     assert resumed.bundle_sites_by_path == baseline.bundle_sites_by_path
     assert resumed.invariant_propositions == baseline.invariant_propositions
+
+
+def test_extract_report_sections_parses_marked_sections() -> None:
+    da = _load()
+    report = "\n".join(
+        [
+            "<!-- report-section:intro -->",
+            "header",
+            "<!-- report-section:components -->",
+            "component-a",
+            "component-b",
+            "<!-- report-section:violations -->",
+            "violation-1",
+        ]
+    )
+    sections = da.extract_report_sections(report)
+    assert sections["intro"] == ["header"]
+    assert sections["components"] == ["component-a", "component-b"]
+    assert sections["violations"] == ["violation-1"]
+
+
+def test_report_projection_specs_rows() -> None:
+    da = _load()
+    rows = da.report_projection_spec_rows()
+    assert rows
+    section_ids = {str(row.get("section_id", "")) for row in rows}
+    assert "intro" in section_ids
+    assert "components" in section_ids
+    components_row = next(
+        row for row in rows if str(row.get("section_id", "")) == "components"
+    )
+    assert components_row["phase"] == "forest"
+    assert "intro" in (components_row.get("deps") or [])
+
+
+def test_report_projection_phase_rank_order() -> None:
+    da = _load()
+    assert da.report_projection_phase_rank("collection") < da.report_projection_phase_rank(
+        "forest"
+    )
+    assert da.report_projection_phase_rank("forest") < da.report_projection_phase_rank(
+        "edge"
+    )
+    assert da.report_projection_phase_rank("edge") < da.report_projection_phase_rank(
+        "post"
+    )

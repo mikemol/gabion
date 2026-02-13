@@ -301,6 +301,36 @@ def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path)
     assert payload["analysis_state"] == "timed_out_progress_resume"
 
 
+def test_render_timeout_progress_markdown_includes_incremental_obligations() -> None:
+    progress = {
+        "classification": "timed_out_progress_resume",
+        "retry_recommended": True,
+        "resume_supported": True,
+        "incremental_obligations": [
+            {
+                "status": "SATISFIED",
+                "contract": "resume_contract",
+                "kind": "classification_matches_resume_support",
+                "detail": "ok",
+            },
+            {
+                "status": "OBLIGATION",
+                "contract": "incremental_projection_contract",
+                "kind": "section_projection_state",
+                "section_id": "components",
+                "detail": "missing_dep_or_not_yet_computed",
+            },
+        ],
+    }
+    rendered = cli._render_timeout_progress_markdown(
+        analysis_state="timed_out_progress_resume",
+        progress=progress,
+    )
+    assert "Incremental Obligations" in rendered
+    assert "resume_contract" in rendered
+    assert "components" in rendered
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
 def test_dataflow_audit_emits_structure_tree(capsys) -> None:
     class DummyCtx:

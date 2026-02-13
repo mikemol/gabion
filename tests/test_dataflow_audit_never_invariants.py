@@ -79,4 +79,5 @@ def test_render_decision_snapshot_requires_forest(tmp_path: Path) -> None:
             project_root=tmp_path,
             forest=None,
             forest_spec=None,
+            groups_by_path={},
         )
