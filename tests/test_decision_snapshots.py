@@ -45,3 +45,50 @@ def test_render_and_diff_decision_snapshots() -> None:
     ]
     assert "baseline_forest_signature" in diff
     assert "current_forest_signature" in diff
+
+
+def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
+    da = _load()
+    forest = da.Forest()
+    site_id = forest.add_site("a.py", "f")
+    paramset_id = forest.add_paramset(["x"])
+    forest.add_alt("DecisionSurface", (site_id, paramset_id))
+    source = (
+        "def one(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_analysis_index(paths, project_root=project_root, "
+        "ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, "
+        "transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses)\n"
+        "\n"
+        "def two(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, "
+        "strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, "
+        "parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "\n"
+        "def three(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, "
+        "strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, "
+        "parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+    )
+    pattern_schema_instances = da._pattern_schema_matches(
+        groups_by_path={Path("mod.py"): {"f": [set(["a", "b"])], "g": [set(["a", "b"])]}},
+        source=source,
+    )
+    snapshot = da.render_decision_snapshot(
+        decision_surfaces=["a.py:f decision surface params: x"],
+        value_decision_surfaces=[],
+        project_root=Path("."),
+        forest=forest,
+        pattern_schema_instances=pattern_schema_instances,
+    )
+    assert snapshot["pattern_schema_instances"]
+    assert snapshot["pattern_schema_residue"]
+    summary = snapshot.get("summary") or {}
+    assert summary.get("pattern_schema_instances") == len(
+        snapshot["pattern_schema_instances"]
+    )
+    assert summary.get("pattern_schema_residue") == len(
+        snapshot["pattern_schema_residue"]
+    )

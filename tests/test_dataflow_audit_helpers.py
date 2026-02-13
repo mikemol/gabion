@@ -1044,6 +1044,42 @@ def test_pattern_schema_suggestions_include_execution_and_dataflow_axes() -> Non
     )
 
 
+def test_pattern_schema_residue_entries_cover_both_axes() -> None:
+    da = _load()
+    source = (
+        "def one(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_analysis_index(paths, project_root=project_root, "
+        "ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, "
+        "transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses)\n"
+        "\n"
+        "def two(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, "
+        "strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, "
+        "parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "\n"
+        "def three(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, "
+        "strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, "
+        "parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+    )
+    groups_by_path = {
+        Path("mod.py"): {
+            "f": [set(["a", "b"])],
+            "g": [set(["a", "b"])],
+        }
+    }
+    instances = da._pattern_schema_matches(groups_by_path=groups_by_path, source=source)
+    residue_entries = da._pattern_schema_residue_entries(instances)
+    assert any(entry.reason == "unreified_metafactory" for entry in residue_entries)
+    assert any(entry.reason == "unreified_protocol" for entry in residue_entries)
+    residue_lines = da._pattern_schema_residue_lines(residue_entries)
+    assert any("reason=unreified_metafactory" in line for line in residue_lines)
+    assert any("reason=unreified_protocol" in line for line in residue_lines)
+
+
 def test_constant_and_deadness_projections_share_constant_details(
     tmp_path: Path,
 ) -> None:
