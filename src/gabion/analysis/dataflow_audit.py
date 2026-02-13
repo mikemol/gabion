@@ -138,6 +138,36 @@ class _ParseModuleStage(StrEnum):
     DATACLASS_CALL_BUNDLES = "dataclass_call_bundles"
 
 
+class _PatternAxis(StrEnum):
+    DATAFLOW = "dataflow"
+    EXECUTION = "execution"
+    DUAL = "dual"
+
+
+@dataclass(frozen=True)
+class PatternSchema:
+    schema_id: str
+    axis: _PatternAxis
+    kind: str
+    signature: JSONObject
+    normalization: JSONObject
+
+
+@dataclass(frozen=True)
+class PatternResidue:
+    schema_id: str
+    reason: str
+    payload: JSONObject
+
+
+@dataclass(frozen=True)
+class PatternInstance:
+    schema: PatternSchema
+    members: tuple[str, ...]
+    suggestion: str
+    residue: tuple[PatternResidue, ...] = ()
+
+
 @dataclass(frozen=True)
 class _ExecutionPatternMatch:
     pattern_id: str
@@ -1660,20 +1690,174 @@ def _detect_execution_pattern_matches(
     return matches
 
 
+def _pattern_schema_id(
+    *,
+    axis: _PatternAxis,
+    kind: str,
+    signature: Mapping[str, JSONValue],
+) -> str:
+    canonical = json.dumps(
+        {
+            "axis": axis.value,
+            "kind": kind,
+            "signature": signature,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+    return f"{axis.value}:{kind}:{digest}"
+
+
+def _execution_pattern_instances(
+    *,
+    source: str | None = None,
+    source_path: Path | None = None,
+) -> list[PatternInstance]:
+    instances: list[PatternInstance] = []
+    for match in _detect_execution_pattern_matches(
+        source=source,
+        source_path=source_path,
+    ):
+        check_deadline()
+        signature: JSONObject = {
+            "pattern_id": match.pattern_id,
+            "members": list(match.members),
+        }
+        schema = PatternSchema(
+            schema_id=_pattern_schema_id(
+                axis=_PatternAxis.EXECUTION,
+                kind=match.pattern_id,
+                signature=signature,
+            ),
+            axis=_PatternAxis.EXECUTION,
+            kind=match.pattern_id,
+            signature=signature,
+            normalization={"members": list(match.members)},
+        )
+        instances.append(
+            PatternInstance(
+                schema=schema,
+                members=match.members,
+                suggestion=(
+                    f"execution_pattern {match.suggestion}"
+                ),
+            )
+        )
+    return instances
+
+
+def _bundle_pattern_instances(
+    *,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None,
+) -> list[PatternInstance]:
+    if not groups_by_path:
+        return []
+    occurrences: dict[tuple[str, ...], list[str]] = defaultdict(list)
+    for path, by_fn in groups_by_path.items():
+        check_deadline()
+        for fn_name, bundles in by_fn.items():
+            check_deadline()
+            for bundle in bundles:
+                check_deadline()
+                key = tuple(sorted(bundle))
+                if len(key) < 2:
+                    continue
+                occurrences[key].append(f"{path.name}:{fn_name}")
+    instances: list[PatternInstance] = []
+    for bundle_key in sorted(occurrences):
+        check_deadline()
+        members = tuple(sorted(set(occurrences[bundle_key])))
+        count = len(members)
+        if count <= 1:
+            continue
+        signature: JSONObject = {
+            "bundle": list(bundle_key),
+            "tier": 2 if count > 1 else 3,
+            "site_count": count,
+        }
+        schema = PatternSchema(
+            schema_id=_pattern_schema_id(
+                axis=_PatternAxis.DATAFLOW,
+                kind="bundle_signature",
+                signature=signature,
+            ),
+            axis=_PatternAxis.DATAFLOW,
+            kind="bundle_signature",
+            signature=signature,
+            normalization={"bundle": list(bundle_key)},
+        )
+        instances.append(
+            PatternInstance(
+                schema=schema,
+                members=members,
+                suggestion=(
+                    "dataflow_pattern "
+                    + f"bundle={','.join(bundle_key)} sites={count}; "
+                    + "candidate=Protocol/dataclass reification"
+                ),
+            )
+        )
+    return instances
+
+
+def _pattern_schema_matches(
+    *,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None = None,
+    source: str | None = None,
+    source_path: Path | None = None,
+) -> list[PatternInstance]:
+    instances = _execution_pattern_instances(
+        source=source,
+        source_path=source_path,
+    )
+    instances.extend(
+        _bundle_pattern_instances(
+            groups_by_path=groups_by_path,
+        )
+    )
+    return sorted(
+        instances,
+        key=lambda entry: (
+            entry.schema.axis.value,
+            entry.schema.kind,
+            entry.schema.schema_id,
+            entry.suggestion,
+        ),
+    )
+
+
+def _pattern_schema_suggestions(
+    *,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None = None,
+    source: str | None = None,
+    source_path: Path | None = None,
+) -> list[str]:
+    suggestions: list[str] = []
+    for instance in _pattern_schema_matches(
+        groups_by_path=groups_by_path,
+        source=source,
+        source_path=source_path,
+    ):
+        check_deadline()
+        suggestions.append(
+            f"pattern_schema axis={instance.schema.axis.value} {instance.suggestion}"
+        )
+    return sorted(set(suggestions))
+
+
 def _execution_pattern_suggestions(
     *,
     source: str | None = None,
     source_path: Path | None = None,
 ) -> list[str]:
     suggestions: list[str] = []
-    for match in _detect_execution_pattern_matches(
+    for instance in _execution_pattern_instances(
         source=source,
         source_path=source_path,
     ):
         check_deadline()
-        suggestions.append(
-            f"{match.kind} {match.suggestion}"
-        )
+        suggestions.append(instance.suggestion)
     return sorted(set(suggestions))
 
 
@@ -10615,7 +10799,9 @@ def _emit_report(
         lines.append("```")
         violations.extend(contract_violations)
     if execution_pattern_suggestions is None:
-        execution_pattern_suggestions = _execution_pattern_suggestions()
+        execution_pattern_suggestions = _pattern_schema_suggestions(
+            groups_by_path=groups_by_path
+        )
     if execution_pattern_suggestions:
         lines.append("Execution pattern opportunities:")
         lines.append("```")
