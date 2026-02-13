@@ -114,6 +114,15 @@ _LITERAL_EVAL_ERROR_TYPES = (
     MemoryError,
     RecursionError,
 )
+_PARSE_MODULE_ERROR_TYPES = (
+    OSError,
+    UnicodeError,
+    SyntaxError,
+    ValueError,
+    TypeError,
+    MemoryError,
+    RecursionError,
+)
 
 
 @dataclass
@@ -372,7 +381,7 @@ class CallAmbiguity:
 def _callee_name(call: ast.Call) -> str:
     try:
         return ast.unparse(call.func)
-    except Exception:
+    except _AST_UNPARSE_ERROR_TYPES:
         return "<call>"
 
 
@@ -1354,6 +1363,33 @@ def _record_parse_failure_witness(
     sink.append(_parse_failure_witness(path=path, stage=stage, error=error))
 
 
+def _parse_failure_sink(
+    parse_failure_witnesses: list[JSONObject] | None,
+) -> list[JSONObject]:
+    if parse_failure_witnesses is None:
+        return []
+    return parse_failure_witnesses
+
+
+def _parse_module_tree(
+    path: Path,
+    *,
+    stage: str,
+    parse_failure_witnesses: list[JSONObject] | None = None,
+) -> ast.Module | None:
+    try:
+        return ast.parse(path.read_text())
+    except _PARSE_MODULE_ERROR_TYPES as exc:
+        if parse_failure_witnesses is not None:
+            _record_parse_failure_witness(
+                sink=parse_failure_witnesses,
+                path=path,
+                stage=stage,
+                error=exc,
+            )
+        return None
+
+
 def _param_annotations_by_path(
     paths: list[Path],
     *,
@@ -1364,15 +1400,12 @@ def _param_annotations_by_path(
     annotations: dict[Path, dict[str, dict[str, str | None]]] = {}
     for path in paths:
         check_deadline()
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception as exc:
-            _record_parse_failure_witness(
-                sink=parse_failure_witnesses,
-                path=path,
-                stage="param_annotations",
-                error=exc,
-            )
+        tree = _parse_module_tree(
+            path,
+            stage="param_annotations",
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is None:
             continue
         parent = ParentAnnotator()
         parent.visit(tree)
@@ -2291,7 +2324,7 @@ def _handler_label(handler: ast.ExceptHandler) -> str:
         return "except:"
     try:
         return f"except {ast.unparse(handler.type)}"
-    except Exception:
+    except _AST_UNPARSE_ERROR_TYPES:
         return "except <unknown>"
 
 
@@ -2569,7 +2602,7 @@ def _dead_env_map(
             continue
         try:
             literal_value = ast.literal_eval(value_str)
-        except Exception:
+        except _LITERAL_EVAL_ERROR_TYPES:
             continue
         dead_env_map.setdefault((path_value, function_value), {})[param] = (
             literal_value,
@@ -2880,7 +2913,7 @@ def _is_deadline_origin_call(expr: ast.AST) -> bool:
         return False
     try:
         name = ast.unparse(expr.func)
-    except Exception:
+    except _AST_UNPARSE_ERROR_TYPES:
         return False
     if name == "Deadline" or name.endswith(".Deadline"):
         return True
@@ -3134,15 +3167,12 @@ def _collect_deadline_function_facts(
     facts: dict[str, _DeadlineFunctionFacts] = {}
     for path in paths:
         check_deadline()
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception as exc:
-            _record_parse_failure_witness(
-                sink=parse_failure_witnesses,
-                path=path,
-                stage="deadline_function_facts",
-                error=exc,
-            )
+        tree = _parse_module_tree(
+            path,
+            stage="deadline_function_facts",
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is None:
             continue
         parents = ParentAnnotator()
         parents.visit(tree)
@@ -3185,15 +3215,12 @@ def _collect_call_nodes_by_path(
         if trees is not None and path in trees:
             tree = trees[path]
         else:
-            try:
-                tree = ast.parse(path.read_text())
-            except Exception as exc:
-                _record_parse_failure_witness(
-                    sink=parse_failure_witnesses,
-                    path=path,
-                    stage="call_nodes",
-                    error=exc,
-                )
+            tree = _parse_module_tree(
+                path,
+                stage="call_nodes",
+                parse_failure_witnesses=parse_failure_witnesses,
+            )
+            if tree is None:
                 continue
         span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
         for node in ast.walk(tree):
@@ -3827,8 +3854,7 @@ def _collect_deadline_obligations(
     check_deadline()
     if not config.deadline_roots:
         return []
-    if parse_failure_witnesses is None:
-        parse_failure_witnesses = []
+    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -5604,8 +5630,7 @@ def _build_call_graph(
     parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
     check_deadline()
-    if parse_failure_witnesses is None:
-        parse_failure_witnesses = []
+    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -5661,8 +5686,7 @@ def _collect_call_ambiguities(
     parse_failure_witnesses: list[JSONObject] | None = None,
 ) -> list[CallAmbiguity]:
     check_deadline()
-    if parse_failure_witnesses is None:
-        parse_failure_witnesses = []
+    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
     by_name, by_qual = _build_function_index(
         paths,
         project_root,
@@ -7229,7 +7253,7 @@ def _base_identifier(node: ast.AST) -> str | None:
     if isinstance(node, ast.Attribute):
         try:
             return ast.unparse(node)
-        except Exception:
+        except _AST_UNPARSE_ERROR_TYPES:
             return None
     if isinstance(node, ast.Subscript):
         return _base_identifier(node.value)
@@ -7314,16 +7338,12 @@ def _build_symbol_table(
     table = SymbolTable(external_filter=external_filter)
     for path in paths:
         check_deadline()
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception as exc:
-            if parse_failure_witnesses is not None:
-                _record_parse_failure_witness(
-                    sink=parse_failure_witnesses,
-                    path=path,
-                    stage="symbol_table",
-                    error=exc,
-                )
+        tree = _parse_module_tree(
+            path,
+            stage="symbol_table",
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is None:
             continue
         module = _module_name(path, project_root)
         if module:
@@ -7356,16 +7376,12 @@ def _collect_class_index(
     class_index: dict[str, ClassInfo] = {}
     for path in paths:
         check_deadline()
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception as exc:
-            if parse_failure_witnesses is not None:
-                _record_parse_failure_witness(
-                    sink=parse_failure_witnesses,
-                    path=path,
-                    stage="class_index",
-                    error=exc,
-                )
+        tree = _parse_module_tree(
+            path,
+            stage="class_index",
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is None:
             continue
         parents = ParentAnnotator()
         parents.visit(tree)
@@ -7498,16 +7514,12 @@ def _build_function_index(
     by_qual: dict[str, FunctionInfo] = {}
     for path in paths:
         check_deadline()
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception as exc:
-            if parse_failure_witnesses is not None:
-                _record_parse_failure_witness(
-                    sink=parse_failure_witnesses,
-                    path=path,
-                    stage="function_index",
-                    error=exc,
-                )
+        tree = _parse_module_tree(
+            path,
+            stage="function_index",
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is None:
             continue
         funcs = _collect_functions(tree)
         if not funcs:
@@ -8708,16 +8720,12 @@ def _iter_config_fields(
 ) -> dict[str, set[str]]:
     """Best-effort extraction of config bundles from dataclasses."""
     check_deadline()
-    try:
-        tree = ast.parse(path.read_text())
-    except Exception as exc:
-        if parse_failure_witnesses is not None:
-            _record_parse_failure_witness(
-                sink=parse_failure_witnesses,
-                path=path,
-                stage="config_fields",
-                error=exc,
-            )
+    tree = _parse_module_tree(
+        path,
+        stage="config_fields",
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    if tree is None:
         return {}
     bundles: dict[str, set[str]] = {}
     for node in ast.walk(tree):
@@ -8803,16 +8811,12 @@ def _collect_dataclass_registry(
     registry: dict[str, list[str]] = {}
     for path in paths:
         check_deadline()
-        try:
-            tree = ast.parse(path.read_text())
-        except Exception as exc:
-            if parse_failure_witnesses is not None:
-                _record_parse_failure_witness(
-                    sink=parse_failure_witnesses,
-                    path=path,
-                    stage="dataclass_registry",
-                    error=exc,
-                )
+        tree = _parse_module_tree(
+            path,
+            stage="dataclass_registry",
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is None:
             continue
         module = _module_name(path, project_root)
         for node in ast.walk(tree):
@@ -8885,16 +8889,12 @@ def _iter_dataclass_call_bundles(
     check_deadline()
     _forbid_adhoc_bundle_discovery("_iter_dataclass_call_bundles")
     bundles: set[tuple[str, ...]] = set()
-    try:
-        tree = ast.parse(path.read_text())
-    except Exception as exc:
-        if parse_failure_witnesses is not None:
-            _record_parse_failure_witness(
-                sink=parse_failure_witnesses,
-                path=path,
-                stage="dataclass_call_bundles",
-                error=exc,
-            )
+    tree = _parse_module_tree(
+        path,
+        stage="dataclass_call_bundles",
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    if tree is None:
         return bundles
     module = _module_name(path, project_root)
     local_dataclasses: dict[str, list[str]] = {}
@@ -10903,7 +10903,7 @@ def _resolve_synth_registry_path(path: str | None, root: Path) -> Path | None:
         )
         try:
             stamp = marker.read_text().strip()
-        except Exception:
+        except OSError:
             return None
         return (marker.parent / stamp / "fingerprint_synth.json").resolve()
     candidate = Path(value)
@@ -11670,7 +11670,7 @@ def run(argv: list[str] | None = None) -> int:
                 if resolved is not None:
                     try:
                         payload = json.loads(resolved.read_text())
-                    except Exception:
+                    except (OSError, UnicodeError, json.JSONDecodeError):
                         payload = None
                 else:
                     payload = None
