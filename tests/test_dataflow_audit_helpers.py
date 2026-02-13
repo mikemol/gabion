@@ -508,6 +508,90 @@ def test_analysis_index_module_trees_replays_parse_failure_by_stage(
     assert bad in analysis_index.module_parse_errors_by_path
 
 
+def test_analysis_index_stage_cache_factory_reuses_builder(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(module, "def f(x):\n    return x\n")
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    build_calls = 0
+
+    def _build(tree: ast.Module, _path: Path) -> int:
+        nonlocal build_calls
+        build_calls += 1
+        return len(list(ast.walk(tree)))
+
+    spec = da._StageCacheSpec[int](
+        stage=da._ParseModuleStage.CALL_NODES,
+        cache_key=("demo-stage-cache",),
+        build=_build,
+    )
+    first = da._analysis_index_stage_cache(
+        analysis_index,
+        [module],
+        spec=spec,
+        parse_failure_witnesses=parse_failures,
+    )
+    second = da._analysis_index_stage_cache(
+        analysis_index,
+        [module],
+        spec=spec,
+        parse_failure_witnesses=parse_failures,
+    )
+    assert parse_failures == []
+    assert first[module] == second[module]
+    assert build_calls == 1
+
+
+def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(
+        module,
+        "from dataclasses import dataclass\n"
+        "\n"
+        "@dataclass\n"
+        "class AppConfig:\n"
+        "    timeout_fn: str\n"
+        "\n"
+        "@dataclass\n"
+        "class Payload:\n"
+        "    value: int\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da.AnalysisIndex(
+        by_name={},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    bundles = da._collect_config_bundles(
+        [module],
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    registry = da._collect_dataclass_registry(
+        [module],
+        project_root=tmp_path,
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    assert parse_failures == []
+    assert module in bundles
+    assert "AppConfig" in bundles[module]
+    assert "module.AppConfig" in registry
+    assert "module.Payload" in registry
+    assert ("config_fields",) in analysis_index.stage_cache_by_key
+    assert ("dataclass_registry", str(tmp_path)) in analysis_index.stage_cache_by_key
+
+
 def test_constant_and_deadness_projections_share_constant_details(
     tmp_path: Path,
 ) -> None:
