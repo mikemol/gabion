@@ -169,6 +169,18 @@ class PatternInstance:
 
 
 @dataclass(frozen=True)
+class _FunctionSuiteKey:
+    path: str
+    qual: str
+
+
+@dataclass(frozen=True)
+class _ReportSectionKey:
+    run_id: str
+    section: str
+
+
+@dataclass(frozen=True)
 class _ExecutionPatternMatch:
     pattern_id: str
     kind: str
@@ -481,6 +493,11 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
                 continue
             out.append(path)
     return sorted(out)
+
+
+def resolve_analysis_paths(paths: Iterable[str | Path], *, config: AuditConfig) -> list[Path]:
+    check_deadline()
+    return _iter_paths([str(path) for path in paths], config)
 
 
 def _collect_functions(tree: ast.AST):
@@ -1160,6 +1177,7 @@ def analyze_decision_surfaces_repo(
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1211,6 +1229,7 @@ def analyze_value_encoded_decisions_repo(
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1284,6 +1303,7 @@ def _internal_broad_type_lint_lines(
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
 ) -> list[str]:
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1533,13 +1553,22 @@ def _annotation_allows_none(annotation: ast.AST | None) -> bool:
 
 
 def _parameter_default_map(node: ast.FunctionDef) -> dict[str, ast.expr | None]:
+    check_deadline()
     mapping: dict[str, ast.expr | None] = {}
     positional = list(node.args.posonlyargs) + list(node.args.args)
     defaults = list(node.args.defaults)
     if defaults:
+        defaults_checked = False
         for arg_node, default in zip(positional[-len(defaults) :], defaults):
+            if not defaults_checked:
+                check_deadline()
+                defaults_checked = True
             mapping[arg_node.arg] = default
+    kw_defaults_checked = False
     for arg_node, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+        if not kw_defaults_checked:
+            check_deadline()
+            kw_defaults_checked = True
         mapping[arg_node.arg] = default
     return mapping
 
@@ -1631,17 +1660,6 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
     return tuple(params)
 
 
-def _calls_function_name(node: ast.FunctionDef, target: str) -> bool:
-    check_deadline()
-    for child in ast.walk(node):
-        check_deadline()
-        if not isinstance(child, ast.Call):
-            continue
-        if isinstance(child.func, ast.Name) and child.func.id == target:
-            return True
-    return False
-
-
 def _detect_execution_pattern_matches(
     *,
     source: str | None = None,
@@ -1666,10 +1684,18 @@ def _detect_execution_pattern_matches(
         param_names = _function_param_names(node)
         if not _INDEXED_PASS_INGRESS_CORE_PARAMS.issubset(set(param_names)):
             continue
-        if not (
-            _calls_function_name(node, "_build_analysis_index")
-            or _calls_function_name(node, "_build_call_graph")
-        ):
+        calls_index_ingress = False
+        for index, child in enumerate(ast.walk(node), start=1):
+            if index % 64 == 0:
+                check_deadline()
+            if not isinstance(child, ast.Call):
+                continue
+            if not isinstance(child.func, ast.Name):
+                continue
+            if child.func.id in {"_build_analysis_index", "_build_call_graph"}:
+                calls_index_ingress = True
+                break
+        if not calls_index_ingress:
             continue
         indexed_members.append(node.name)
     if len(indexed_members) >= 3:
@@ -1759,7 +1785,7 @@ def _execution_pattern_instances(
 
 def _bundle_pattern_instances(
     *,
-    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
 ) -> list[PatternInstance]:
     if not groups_by_path:
         return []
@@ -1825,14 +1851,19 @@ def _bundle_pattern_instances(
 
 def _pattern_schema_matches(
     *,
-    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None = None,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    include_execution: bool = True,
     source: str | None = None,
     source_path: Path | None = None,
 ) -> list[PatternInstance]:
-    instances = _execution_pattern_instances(
-        source=source,
-        source_path=source_path,
-    )
+    instances: list[PatternInstance] = []
+    if include_execution:
+        instances.extend(
+            _execution_pattern_instances(
+                source=source,
+                source_path=source_path,
+            )
+        )
     instances.extend(
         _bundle_pattern_instances(
             groups_by_path=groups_by_path,
@@ -1851,12 +1882,14 @@ def _pattern_schema_matches(
 
 def _pattern_schema_suggestions(
     *,
-    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None = None,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    include_execution: bool = True,
     source: str | None = None,
     source_path: Path | None = None,
 ) -> list[str]:
     instances = _pattern_schema_matches(
         groups_by_path=groups_by_path,
+        include_execution=include_execution,
         source=source,
         source_path=source_path,
     )
@@ -3936,8 +3969,12 @@ def _collect_call_edges(
     return edges
 
 
-def _function_suite_id(path: str, qual: str) -> NodeId:
-    return NodeId("SuiteSite", (path, qual, "function"))
+def _function_suite_key(path: str, qual: str) -> _FunctionSuiteKey:
+    return _FunctionSuiteKey(path=path, qual=qual)
+
+
+def _function_suite_id(key: _FunctionSuiteKey) -> NodeId:
+    return NodeId("SuiteSite", (key.path, key.qual, "function"))
 
 
 def _suite_caller_function_id(
@@ -3952,7 +3989,7 @@ def _suite_caller_function_id(
             path=path,
             qual=qual,
         )
-    return _function_suite_id(path, qual)
+    return _function_suite_id(_function_suite_key(path, qual))
 
 
 def _node_to_function_suite_id(
@@ -3967,7 +4004,7 @@ def _node_to_function_suite_id(
         qual = str(node.meta.get("qual", "") or "")
         if not path or not qual:
             never("function site missing identity", path=path, qual=qual)
-        return _function_suite_id(path, qual)
+        return _function_suite_id(_function_suite_key(path, qual))
     if node.kind == "SuiteSite":
         suite_kind = str(node.meta.get("suite_kind", "") or "")
         if suite_kind not in {"function", "function_body"}:
@@ -3976,7 +4013,7 @@ def _node_to_function_suite_id(
         qual = str(node.meta.get("qual", "") or "")
         if not path or not qual:
             never("function suite missing identity", path=path, qual=qual)
-        return _function_suite_id(path, qual)
+        return _function_suite_id(_function_suite_key(path, qual))
     return None
 
 
@@ -3991,7 +4028,7 @@ def _obligation_candidate_suite_ids(
         check_deadline()
         if _is_test_path(info.path):
             continue
-        candidates.add(_function_suite_id(info.path.name, info.qual))
+        candidates.add(_function_suite_id(_function_suite_key(info.path.name, info.qual)))
     return candidates
 
 
@@ -4143,7 +4180,11 @@ def _materialize_call_candidates(
     check_deadline()
     seen: set[tuple[NodeId, NodeId]] = set()
     obligation_seen: set[NodeId] = set()
+    seen_loop_checked = False
     for alt in forest.alts:
+        if not seen_loop_checked:
+            check_deadline()
+            seen_loop_checked = True
         if alt.kind != "CallCandidate" or len(alt.inputs) < 2:
             if alt.kind == "CallResolutionObligation" and alt.inputs:
                 obligation_seen.add(alt.inputs[0])
@@ -4896,7 +4937,7 @@ def _collect_deadline_obligations(
         info = by_qual.get(qual)
         if info is None:
             continue
-        root_site_ids.add(_function_suite_id(info.path.name, qual))
+        root_site_ids.add(_function_suite_id(_function_suite_key(info.path.name, qual)))
 
     reachable_from_roots = _reachable_from_roots(edges, root_site_ids)
     resolved_call_suites: set[NodeId] = set()
@@ -6121,8 +6162,7 @@ def _project_lint_rows_from_forest(*, forest: Forest) -> list[dict[str, JSONValu
 def _materialize_report_section_lines(
     *,
     forest: Forest,
-    run_id: str,
-    section: str,
+    section_key: _ReportSectionKey,
     lines: Iterable[str],
 ) -> None:
     check_deadline()
@@ -6132,10 +6172,10 @@ def _materialize_report_section_lines(
         text_value = str(text)
         line_node = forest.add_node(
             "ReportSectionLine",
-            (run_id, section, idx, text_value),
+            (section_key.run_id, section_key.section, idx, text_value),
             meta={
-                "run_id": run_id,
-                "section": section,
+                "run_id": section_key.run_id,
+                "section": section_key.section,
                 "line_index": idx,
                 "text": text_value,
             },
@@ -6144,8 +6184,8 @@ def _materialize_report_section_lines(
             "ReportSectionLine",
             (report_file, line_node),
             evidence={
-                "run_id": run_id,
-                "section": section,
+                "run_id": section_key.run_id,
+                "section": section_key.section,
             },
         )
 
@@ -6153,8 +6193,7 @@ def _materialize_report_section_lines(
 def _report_section_line_relation(
     *,
     forest: Forest,
-    run_id: str,
-    section: str,
+    section_key: _ReportSectionKey,
 ) -> list[dict[str, JSONValue]]:
     check_deadline()
     relation: list[dict[str, JSONValue]] = []
@@ -6162,9 +6201,9 @@ def _report_section_line_relation(
         check_deadline()
         if alt.kind != "ReportSectionLine" or len(alt.inputs) < 2:
             continue
-        if str(alt.evidence.get("run_id", "") or "") != run_id:
+        if str(alt.evidence.get("run_id", "") or "") != section_key.run_id:
             continue
-        if str(alt.evidence.get("section", "") or "") != section:
+        if str(alt.evidence.get("section", "") or "") != section_key.section:
             continue
         node_id = alt.inputs[1]
         if node_id.kind != "ReportSectionLine":
@@ -6174,7 +6213,10 @@ def _report_section_line_relation(
             continue
         node_run_id = str(node.meta.get("run_id", "") or "")
         node_section = str(node.meta.get("section", "") or "")
-        if node_run_id != run_id or node_section != section:
+        if (
+            node_run_id != section_key.run_id
+            or node_section != section_key.section
+        ):
             continue
         try:
             line_index = int(node.meta.get("line_index", 0) or 0)
@@ -6182,7 +6224,7 @@ def _report_section_line_relation(
             continue
         relation.append(
             {
-                "section": section,
+                "section": section_key.section,
                 "line_index": line_index,
                 "text": str(node.meta.get("text", "") or ""),
             }
@@ -6193,21 +6235,18 @@ def _report_section_line_relation(
 def _project_report_section_lines(
     *,
     forest: Forest,
-    run_id: str,
-    section: str,
+    section_key: _ReportSectionKey,
     lines: Iterable[str],
 ) -> list[str]:
     check_deadline()
     _materialize_report_section_lines(
         forest=forest,
-        run_id=run_id,
-        section=section,
+        section_key=section_key,
         lines=lines,
     )
     relation = _report_section_line_relation(
         forest=forest,
-        run_id=run_id,
-        section=section,
+        section_key=section_key,
     )
     if not relation:
         return []
@@ -6936,6 +6975,7 @@ def _collect_call_ambiguities(
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
 ) -> list[CallAmbiguity]:
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -9312,6 +9352,7 @@ def analyze_type_flow_repo_with_map(
     analysis_index: AnalysisIndex | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -9349,6 +9390,7 @@ def analyze_type_flow_repo_with_evidence(
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -9904,6 +9946,7 @@ def analyze_unused_arg_flow_repo(
     analysis_index: AnalysisIndex | None = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -10693,8 +10736,7 @@ def _emit_report(
     def _projected(section_id: str, values: Iterable[str]) -> list[str]:
         return _project_report_section_lines(
             forest=forest,
-            run_id=report_run_id,
-            section=section_id,
+            section_key=_ReportSectionKey(run_id=report_run_id, section=section_id),
             lines=values,
         )
 
@@ -10898,6 +10940,7 @@ def _emit_report(
         violations.extend(contract_violations)
     pattern_instances = _pattern_schema_matches(
         groups_by_path=groups_by_path,
+        include_execution=False,
     )
     if execution_pattern_suggestions is None:
         execution_pattern_suggestions = _pattern_schema_suggestions_from_instances(
@@ -11163,7 +11206,10 @@ def render_decision_snapshot(
         never("decision snapshot requires forest carrier")
     instances = pattern_schema_instances
     if instances is None:
-        instances = _pattern_schema_matches(groups_by_path=groups_by_path)
+        instances = _pattern_schema_matches(
+            groups_by_path=groups_by_path or {},
+            include_execution=False,
+        )
     schema_instances, schema_residue = _pattern_schema_snapshot_entries(instances)
     snapshot: JSONObject = {
         "format_version": 1,
@@ -11540,6 +11586,303 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
         lines.append("    ...")
         lines.append("")
     return "\n".join(lines)
+
+
+_ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 1
+
+
+def _analysis_collection_resume_path_key(path: Path) -> str:
+    return str(path)
+
+
+def _serialize_groups_for_resume(
+    groups: dict[str, list[set[str]]],
+) -> dict[str, list[list[str]]]:
+    payload: dict[str, list[list[str]]] = {}
+    for fn_name in sorted(groups):
+        check_deadline()
+        bundles = groups[fn_name]
+        normalized = [sorted(str(param) for param in bundle) for bundle in bundles]
+        normalized.sort(key=lambda bundle: (len(bundle), bundle))
+        payload[fn_name] = normalized
+    return payload
+
+
+def _deserialize_groups_for_resume(
+    payload: Mapping[str, JSONValue],
+) -> dict[str, list[set[str]]]:
+    groups: dict[str, list[set[str]]] = {}
+    for fn_name, bundles in payload.items():
+        check_deadline()
+        if not isinstance(fn_name, str) or not isinstance(bundles, list):
+            continue
+        normalized: list[set[str]] = []
+        for bundle in bundles:
+            check_deadline()
+            if not isinstance(bundle, list):
+                continue
+            normalized.append({str(param) for param in bundle})
+        groups[fn_name] = normalized
+    return groups
+
+
+def _serialize_param_spans_for_resume(
+    spans: dict[str, dict[str, tuple[int, int, int, int]]],
+) -> dict[str, dict[str, list[int]]]:
+    payload: dict[str, dict[str, list[int]]] = {}
+    for fn_name in sorted(spans):
+        check_deadline()
+        param_spans = spans[fn_name]
+        payload[fn_name] = {}
+        for param_name in sorted(param_spans):
+            check_deadline()
+            span = param_spans[param_name]
+            payload[fn_name][param_name] = [int(part) for part in span]
+    return payload
+
+
+def _deserialize_param_spans_for_resume(
+    payload: Mapping[str, JSONValue],
+) -> dict[str, dict[str, tuple[int, int, int, int]]]:
+    spans: dict[str, dict[str, tuple[int, int, int, int]]] = {}
+    for fn_name, raw_map in payload.items():
+        check_deadline()
+        if not isinstance(fn_name, str) or not isinstance(raw_map, Mapping):
+            continue
+        fn_spans: dict[str, tuple[int, int, int, int]] = {}
+        for param_name, raw_span in raw_map.items():
+            check_deadline()
+            if not isinstance(param_name, str) or not isinstance(raw_span, (list, tuple)):
+                continue
+            if len(raw_span) != 4:
+                continue
+            try:
+                span = tuple(int(part) for part in raw_span)
+            except (TypeError, ValueError):
+                continue
+            fn_spans[param_name] = cast(tuple[int, int, int, int], span)
+        spans[fn_name] = fn_spans
+    return spans
+
+
+def _serialize_bundle_sites_for_resume(
+    bundle_sites: dict[str, list[list[JSONObject]]],
+) -> dict[str, list[list[JSONObject]]]:
+    payload: dict[str, list[list[JSONObject]]] = {}
+    for fn_name in sorted(bundle_sites):
+        check_deadline()
+        fn_sites = bundle_sites[fn_name]
+        encoded_fn_sites: list[list[JSONObject]] = []
+        for bundle in fn_sites:
+            check_deadline()
+            encoded_bundle: list[JSONObject] = []
+            if not isinstance(bundle, list):
+                continue
+            for site in bundle:
+                check_deadline()
+                if isinstance(site, dict):
+                    encoded_bundle.append({str(key): site[key] for key in site})
+            encoded_fn_sites.append(encoded_bundle)
+        payload[fn_name] = encoded_fn_sites
+    return payload
+
+
+def _deserialize_bundle_sites_for_resume(
+    payload: Mapping[str, JSONValue],
+) -> dict[str, list[list[JSONObject]]]:
+    bundle_sites: dict[str, list[list[JSONObject]]] = {}
+    for fn_name, raw_sites in payload.items():
+        check_deadline()
+        if not isinstance(fn_name, str) or not isinstance(raw_sites, list):
+            continue
+        fn_sites: list[list[JSONObject]] = []
+        for raw_bundle in raw_sites:
+            check_deadline()
+            if not isinstance(raw_bundle, list):
+                continue
+            bundle: list[JSONObject] = []
+            for site in raw_bundle:
+                check_deadline()
+                if isinstance(site, Mapping):
+                    bundle.append({str(key): site[key] for key in site})
+            fn_sites.append(bundle)
+        bundle_sites[fn_name] = fn_sites
+    return bundle_sites
+
+
+def _serialize_invariants_for_resume(
+    invariants: Sequence[InvariantProposition],
+) -> list[JSONObject]:
+    payload: list[JSONObject] = []
+    for proposition in sorted(
+        invariants,
+        key=lambda proposition: (
+            proposition.form,
+            proposition.terms,
+            proposition.scope or "",
+            proposition.source or "",
+        ),
+    ):
+        check_deadline()
+        payload.append(proposition.as_dict())
+    return payload
+
+
+def _deserialize_invariants_for_resume(
+    payload: Sequence[JSONValue],
+) -> list[InvariantProposition]:
+    invariants: list[InvariantProposition] = []
+    for entry in payload:
+        check_deadline()
+        if not isinstance(entry, Mapping):
+            continue
+        form = entry.get("form")
+        terms = entry.get("terms")
+        if not isinstance(form, str) or not isinstance(terms, (list, tuple)):
+            continue
+        normalized_terms: list[str] = []
+        for term in terms:
+            check_deadline()
+            if isinstance(term, str):
+                normalized_terms.append(term)
+        scope = entry.get("scope")
+        source = entry.get("source")
+        invariants.append(
+            InvariantProposition(
+                form=form,
+                terms=tuple(normalized_terms),
+                scope=scope if isinstance(scope, str) else None,
+                source=source if isinstance(source, str) else None,
+            )
+        )
+    return invariants
+
+
+def _build_analysis_collection_resume_payload(
+    *,
+    groups_by_path: Mapping[Path, dict[str, list[set[str]]]],
+    param_spans_by_path: Mapping[Path, dict[str, dict[str, tuple[int, int, int, int]]]],
+    bundle_sites_by_path: Mapping[Path, dict[str, list[list[JSONObject]]]],
+    invariant_propositions: Sequence[InvariantProposition],
+    completed_paths: set[Path],
+) -> JSONObject:
+    check_deadline()
+    groups_payload: JSONObject = {}
+    spans_payload: JSONObject = {}
+    sites_payload: JSONObject = {}
+    completed_keys = sorted(
+        _analysis_collection_resume_path_key(path) for path in completed_paths
+    )
+    for path_key in completed_keys:
+        check_deadline()
+        path = Path(path_key)
+        groups_payload[path_key] = _serialize_groups_for_resume(
+            groups_by_path.get(path, {})
+        )
+        spans_payload[path_key] = _serialize_param_spans_for_resume(
+            param_spans_by_path.get(path, {})
+        )
+        sites_payload[path_key] = _serialize_bundle_sites_for_resume(
+            bundle_sites_by_path.get(path, {})
+        )
+    return {
+        "format_version": _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
+        "completed_paths": completed_keys,
+        "groups_by_path": groups_payload,
+        "param_spans_by_path": spans_payload,
+        "bundle_sites_by_path": sites_payload,
+        "invariant_propositions": _serialize_invariants_for_resume(
+            invariant_propositions
+        ),
+    }
+
+
+def _load_analysis_collection_resume_payload(
+    *,
+    payload: Mapping[str, JSONValue] | None,
+    file_paths: Sequence[Path],
+    include_invariant_propositions: bool,
+) -> tuple[
+    dict[Path, dict[str, list[set[str]]]],
+    dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]],
+    dict[Path, dict[str, list[list[JSONObject]]]],
+    list[InvariantProposition],
+    set[Path],
+]:
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+    param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
+    bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = {}
+    invariant_propositions: list[InvariantProposition] = []
+    completed_paths: set[Path] = set()
+    if not isinstance(payload, Mapping):
+        return (
+            groups_by_path,
+            param_spans_by_path,
+            bundle_sites_by_path,
+            invariant_propositions,
+            completed_paths,
+        )
+    if payload.get("format_version") != _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION:
+        return (
+            groups_by_path,
+            param_spans_by_path,
+            bundle_sites_by_path,
+            invariant_propositions,
+            completed_paths,
+        )
+    groups_payload = payload.get("groups_by_path")
+    spans_payload = payload.get("param_spans_by_path")
+    sites_payload = payload.get("bundle_sites_by_path")
+    completed_payload = payload.get("completed_paths")
+    if not isinstance(groups_payload, Mapping):
+        return (
+            groups_by_path,
+            param_spans_by_path,
+            bundle_sites_by_path,
+            invariant_propositions,
+            completed_paths,
+        )
+    if not isinstance(spans_payload, Mapping) or not isinstance(sites_payload, Mapping):
+        return (
+            groups_by_path,
+            param_spans_by_path,
+            bundle_sites_by_path,
+            invariant_propositions,
+            completed_paths,
+        )
+    allowed_paths = {
+        _analysis_collection_resume_path_key(path): path for path in file_paths
+    }
+    if isinstance(completed_payload, Sequence):
+        for raw_path in completed_payload:
+            check_deadline()
+            if not isinstance(raw_path, str):
+                continue
+            path = allowed_paths.get(raw_path)
+            if path is None:
+                continue
+            raw_groups = groups_payload.get(raw_path)
+            raw_spans = spans_payload.get(raw_path)
+            raw_sites = sites_payload.get(raw_path)
+            if not isinstance(raw_groups, Mapping):
+                continue
+            if not isinstance(raw_spans, Mapping) or not isinstance(raw_sites, Mapping):
+                continue
+            groups_by_path[path] = _deserialize_groups_for_resume(raw_groups)
+            param_spans_by_path[path] = _deserialize_param_spans_for_resume(raw_spans)
+            bundle_sites_by_path[path] = _deserialize_bundle_sites_for_resume(raw_sites)
+            completed_paths.add(path)
+    if include_invariant_propositions:
+        raw_invariants = payload.get("invariant_propositions")
+        if isinstance(raw_invariants, Sequence):
+            invariant_propositions = _deserialize_invariants_for_resume(raw_invariants)
+    return (
+        groups_by_path,
+        param_spans_by_path,
+        bundle_sites_by_path,
+        invariant_propositions,
+        completed_paths,
+    )
 
 
 def _bundle_counts(
@@ -12324,17 +12667,30 @@ def analyze_paths(
     include_bundle_forest: bool = False,
     include_deadline_obligations: bool = False,
     config: AuditConfig | None = None,
+    file_paths_override: list[Path] | None = None,
+    collection_resume: JSONObject | None = None,
+    on_collection_progress: Callable[[JSONObject], None] | None = None,
 ) -> AnalysisResult:
     check_deadline()
     forest_token = set_forest(forest)
     try:
         if config is None:
             config = AuditConfig()
-        file_paths = _iter_paths([str(p) for p in paths], config)
-        groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
-        param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
-        bundle_sites_by_path: dict[Path, dict[str, list[list[JSONObject]]]] = {}
-        invariant_propositions: list[InvariantProposition] = []
+        if file_paths_override is None:
+            file_paths = resolve_analysis_paths(paths, config=config)
+        else:
+            file_paths = sorted(file_paths_override)
+        (
+            groups_by_path,
+            param_spans_by_path,
+            bundle_sites_by_path,
+            invariant_propositions,
+            completed_paths,
+        ) = _load_analysis_collection_resume_payload(
+            payload=collection_resume,
+            file_paths=file_paths,
+            include_invariant_propositions=include_invariant_propositions,
+        )
         forest_spec: ForestSpec | None = None
         ambiguity_witnesses: list[JSONObject] = []
         parse_failure_witnesses: list[JSONObject] = []
@@ -12368,6 +12724,8 @@ def analyze_paths(
 
         for path in file_paths:
             check_deadline()
+            if path in completed_paths:
+                continue
             _deadline_check(allow_frame_fallback=True)
             groups, spans, sites = _analyze_file_internal(
                 path, recursive=recursive, config=config
@@ -12382,6 +12740,17 @@ def analyze_paths(
                         ignore_params=config.ignore_params,
                         project_root=config.project_root,
                         emitters=config.invariant_emitters,
+                    )
+                )
+            completed_paths.add(path)
+            if on_collection_progress is not None:
+                on_collection_progress(
+                    _build_analysis_collection_resume_payload(
+                        groups_by_path=groups_by_path,
+                        param_spans_by_path=param_spans_by_path,
+                        bundle_sites_by_path=bundle_sites_by_path,
+                        invariant_propositions=invariant_propositions,
+                        completed_paths=completed_paths,
                     )
                 )
 

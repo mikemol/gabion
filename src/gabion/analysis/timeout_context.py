@@ -18,6 +18,10 @@ from gabion.invariants import never
 from gabion.json_types import JSONValue
 
 
+_TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
+_TIMEOUT_PROGRESS_SITE_FLOOR = 4
+
+
 @dataclass(frozen=True)
 class PackedCallStack:
     site_table: list[dict[str, JSONValue]]
@@ -33,6 +37,7 @@ class TimeoutContext:
     forest_spec_id: str | None = None
     forest_signature: dict[str, JSONValue] | None = None
     deadline_profile: dict[str, JSONValue] | None = None
+    progress: dict[str, JSONValue] | None = None
 
     def as_payload(self) -> dict[str, JSONValue]:
         payload: dict[str, JSONValue] = {"call_stack": self.call_stack.as_payload()}
@@ -42,6 +47,8 @@ class TimeoutContext:
             payload["forest_signature"] = self.forest_signature
         if self.deadline_profile:
             payload["deadline_profile"] = self.deadline_profile
+        if self.progress:
+            payload["progress"] = self.progress
         return payload
 
 
@@ -321,6 +328,41 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
     }
 
 
+def _timeout_progress_snapshot(
+    *,
+    forest: Forest,
+    deadline_profile: Mapping[str, JSONValue] | None,
+) -> dict[str, JSONValue]:
+    checks_total = 0
+    site_count = 0
+    if isinstance(deadline_profile, Mapping):
+        checks_total = int(deadline_profile.get("checks_total", 0) or 0)
+        sites = deadline_profile.get("sites")
+        if isinstance(sites, list):
+            site_count = len(sites)
+    forest_nodes = len(forest.nodes)
+    forest_alts = len(forest.alts)
+    progressed = (
+        (forest_nodes + forest_alts) > 0
+        or checks_total >= _TIMEOUT_PROGRESS_CHECKS_FLOOR
+        or site_count >= _TIMEOUT_PROGRESS_SITE_FLOOR
+    )
+    classification = (
+        "timed_out_progress_resume"
+        if progressed
+        else "timed_out_no_progress"
+    )
+    return {
+        "classification": classification,
+        "retry_recommended": progressed,
+        "resume_supported": False,
+        "checks_total": checks_total,
+        "site_count": site_count,
+        "forest_nodes": forest_nodes,
+        "forest_alts": forest_alts,
+    }
+
+
 def render_deadline_profile_markdown(
     profile: Mapping[str, JSONValue],
     *,
@@ -563,9 +605,14 @@ def build_timeout_context_from_stack(
         elif allow_frame_fallback:
             sites.append(_site_key_payload(path=key[0], qual=key[1]))
     packed = pack_call_stack(reversed(sites))
+    profile_payload = deadline_profile or _deadline_profile_snapshot()
     return TimeoutContext(
         call_stack=packed,
         forest_spec_id=forest_spec_id,
         forest_signature=forest_signature,
-        deadline_profile=deadline_profile or _deadline_profile_snapshot(),
+        deadline_profile=profile_payload,
+        progress=_timeout_progress_snapshot(
+            forest=forest,
+            deadline_profile=profile_payload,
+        ),
     )

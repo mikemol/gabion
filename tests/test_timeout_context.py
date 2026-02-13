@@ -93,6 +93,16 @@ def test_timeout_context_payload_includes_deadline_profile() -> None:
     assert payload["deadline_profile"] == {"checks_total": 3}
 
 
+def test_timeout_context_payload_includes_progress() -> None:
+    packed = pack_call_stack([{"path": "a.py", "qual": "mod.fn"}])
+    context = TimeoutContext(
+        call_stack=packed,
+        progress={"classification": "timed_out_progress_resume"},
+    )
+    payload = context.as_payload()
+    assert payload["progress"] == {"classification": "timed_out_progress_resume"}
+
+
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.TimeoutExceeded.__init__
 def test_timeout_exceeded_carries_context() -> None:
     packed = pack_call_stack([{"path": "a.py", "qual": "mod.fn"}])
@@ -222,6 +232,38 @@ def test_build_timeout_context_frame_fallback() -> None:
         frames=[frame],
     )
     assert context.call_stack.site_table
+
+
+def test_build_timeout_context_progress_classification_no_progress() -> None:
+    frame = inspect.currentframe()
+    assert frame is not None
+    context = build_timeout_context_from_stack(
+        forest=Forest(),
+        project_root=None,
+        frames=[frame],
+        deadline_profile={"checks_total": 0, "sites": []},
+    )
+    progress = context.as_payload().get("progress")
+    assert isinstance(progress, dict)
+    assert progress.get("classification") == "timed_out_no_progress"
+    assert progress.get("retry_recommended") is False
+
+
+def test_build_timeout_context_progress_classification_with_progress() -> None:
+    frame = inspect.currentframe()
+    assert frame is not None
+    forest = Forest()
+    forest.add_node("Param", ("x",), {"name": "x"})
+    context = build_timeout_context_from_stack(
+        forest=forest,
+        project_root=None,
+        frames=[frame],
+        deadline_profile={"checks_total": 0, "sites": []},
+    )
+    progress = context.as_payload().get("progress")
+    assert isinstance(progress, dict)
+    assert progress.get("classification") == "timed_out_progress_resume"
+    assert progress.get("retry_recommended") is True
 
 
 def test_deadline_profile_scope_collects_heat() -> None:

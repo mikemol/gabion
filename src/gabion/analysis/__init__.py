@@ -26,6 +26,7 @@ from .dataflow_audit import (
     render_protocol_stubs,
     render_reuse_lemma_stubs,
     render_synthesis_section,
+    resolve_analysis_paths,
     resolve_baseline_path,
     write_baseline,
 )
@@ -85,6 +86,7 @@ __all__ = [
     "render_protocol_stubs",
     "render_reuse_lemma_stubs",
     "render_synthesis_section",
+    "resolve_analysis_paths",
     "resolve_baseline_path",
     "write_baseline",
     "PrimeRegistry",

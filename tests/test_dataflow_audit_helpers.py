@@ -1244,8 +1244,7 @@ def test_project_report_section_lines_roundtrip() -> None:
     forest = da.Forest()
     rendered = da._project_report_section_lines(
         forest=forest,
-        run_id="report_run",
-        section="demo",
+        section_key=da._ReportSectionKey(run_id="report_run", section="demo"),
         lines=["alpha", "beta"],
     )
     assert rendered == ["alpha", "beta"]
@@ -1535,3 +1534,60 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
     assert any(entry["status"] == "UNKNOWN" for entry in obligations)
     assert any(entry["status"] == "HANDLED" for entry in obligations)
     assert analysis.handledness_witnesses
+
+
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload::file_paths,include_invariant_propositions,payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::collection_resume,file_paths_override,on_collection_progress
+def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
+    da = _load()
+    first = tmp_path / "first.py"
+    second = tmp_path / "second.py"
+    _write(first, "def a(x):\n    return x\n")
+    _write(second, "def b(y):\n    return y\n")
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=False,
+        strictness="high",
+    )
+    snapshots: list[dict[str, object]] = []
+    baseline = da.analyze_paths(
+        forest=da.Forest(),
+        paths=[tmp_path],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_invariant_propositions=True,
+        config=config,
+        on_collection_progress=snapshots.append,
+    )
+    assert snapshots
+    resume_payload = snapshots[-1]
+    resumed_updates = 0
+
+    def _capture(_: dict[str, object]) -> None:
+        nonlocal resumed_updates
+        resumed_updates += 1
+
+    resumed = da.analyze_paths(
+        forest=da.Forest(),
+        paths=[tmp_path],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_invariant_propositions=True,
+        config=config,
+        collection_resume=resume_payload,
+        on_collection_progress=_capture,
+    )
+    assert resumed_updates == 0
+    assert resumed.groups_by_path == baseline.groups_by_path
+    assert resumed.param_spans_by_path == baseline.param_spans_by_path
+    assert resumed.bundle_sites_by_path == baseline.bundle_sites_by_path
+    assert resumed.invariant_propositions == baseline.invariant_propositions

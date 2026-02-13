@@ -4,7 +4,7 @@ import json
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
@@ -50,6 +50,7 @@ from gabion.analysis import (
     render_refactor_plan,
     render_report,
     render_synthesis_section,
+    resolve_analysis_paths,
     resolve_baseline_path,
     write_baseline,
 )
@@ -121,6 +122,127 @@ DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 _SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
 _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
+_ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION = 1
+_DEFAULT_ANALYSIS_RESUME_CHECKPOINT = Path(
+    "artifacts/audit_reports/dataflow_resume_checkpoint.json"
+)
+
+
+def _resolve_analysis_resume_checkpoint_path(
+    value: object,
+    *,
+    root: Path,
+) -> Path | None:
+    if value is False:
+        return None
+    if value is None or value is True:
+        return root / _DEFAULT_ANALYSIS_RESUME_CHECKPOINT
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        path = Path(text)
+        if path.is_absolute():
+            return path
+        return root / path
+    never("invalid analysis resume checkpoint payload", value_type=type(value).__name__)
+    return None
+
+
+def _analysis_input_witness(
+    *,
+    root: Path,
+    file_paths: list[Path],
+    recursive: bool,
+    include_invariant_propositions: bool,
+    config: AuditConfig,
+) -> JSONObject:
+    files: list[JSONObject] = []
+    for path in file_paths:
+        check_deadline()
+        entry: JSONObject = {"path": str(path)}
+        try:
+            stat = path.stat()
+        except OSError:
+            entry["missing"] = True
+        else:
+            entry["size"] = int(stat.st_size)
+            entry["mtime_ns"] = int(stat.st_mtime_ns)
+        files.append(entry)
+    return {
+        "format_version": 1,
+        "root": str(root),
+        "recursive": recursive,
+        "include_invariant_propositions": include_invariant_propositions,
+        "config": {
+            "exclude_dirs": sorted(config.exclude_dirs),
+            "ignore_params": sorted(config.ignore_params),
+            "strictness": config.strictness,
+            "external_filter": config.external_filter,
+            "transparent_decorators": sorted(config.transparent_decorators or []),
+        },
+        "files": files,
+    }
+
+
+def _load_analysis_resume_checkpoint(
+    *,
+    path: Path,
+    input_witness: JSONObject,
+) -> JSONObject | None:
+    if not path.exists():
+        return None
+    try:
+        raw_payload = json.loads(path.read_text())
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw_payload, dict):
+        return None
+    if raw_payload.get("format_version") != _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION:
+        return None
+    witness = raw_payload.get("input_witness")
+    if not isinstance(witness, dict) or witness != input_witness:
+        return None
+    collection_resume = raw_payload.get("collection_resume")
+    if not isinstance(collection_resume, dict):
+        return None
+    return collection_resume
+
+
+def _write_analysis_resume_checkpoint(
+    *,
+    path: Path,
+    input_witness: JSONObject,
+    collection_resume: JSONObject,
+) -> None:
+    payload: JSONObject = {
+        "format_version": _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
+        "input_witness": input_witness,
+        "collection_resume": collection_resume,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _analysis_resume_progress(
+    *,
+    collection_resume: Mapping[str, JSONValue],
+    total_files: int,
+) -> dict[str, int]:
+    completed_paths = collection_resume.get("completed_paths")
+    completed = 0
+    if isinstance(completed_paths, list):
+        completed = sum(1 for path in completed_paths if isinstance(path, str))
+    if completed < 0:
+        completed = 0
+    if total_files >= 0:
+        completed = min(completed, total_files)
+    remaining = max(total_files - completed, 0)
+    return {
+        "completed_files": completed,
+        "remaining_files": remaining,
+        "total_files": total_files,
+    }
 
 
 def _require_payload(payload: object, *, command: str) -> dict[str, object]:
@@ -331,6 +453,10 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
     deadline_token = set_deadline(deadline)
     forest = Forest()
     forest_token = set_forest(forest)
+    analysis_resume_checkpoint_path: Path | None = None
+    analysis_resume_input_witness: JSONObject | None = None
+    analysis_resume_total_files = 0
+    analysis_resume_reused_files = 0
     try:
         root = payload.get("root") or ls.workspace.root_path or "."
         config_path = payload.get("config")
@@ -528,6 +654,46 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             or bool(emit_test_evidence_suggestions)
             or bool(include_ambiguities)
         )
+        file_paths_for_run: list[Path] | None = None
+        collection_resume_payload: JSONObject | None = None
+        if needs_analysis:
+            file_paths_for_run = resolve_analysis_paths(paths, config=config)
+            analysis_resume_total_files = len(file_paths_for_run)
+            analysis_resume_checkpoint_path = _resolve_analysis_resume_checkpoint_path(
+                payload.get("resume_checkpoint"),
+                root=Path(root),
+            )
+            if analysis_resume_checkpoint_path is not None:
+                analysis_resume_input_witness = _analysis_input_witness(
+                    root=Path(root),
+                    file_paths=file_paths_for_run,
+                    recursive=not no_recursive,
+                    include_invariant_propositions=bool(report_path),
+                    config=config,
+                )
+                collection_resume = _load_analysis_resume_checkpoint(
+                    path=analysis_resume_checkpoint_path,
+                    input_witness=analysis_resume_input_witness,
+                )
+                if collection_resume is not None:
+                    collection_resume_payload = collection_resume
+                    analysis_resume_reused_files = _analysis_resume_progress(
+                        collection_resume=collection_resume,
+                        total_files=analysis_resume_total_files,
+                    )["completed_files"]
+
+        def _persist_collection_resume(progress_payload: JSONObject) -> None:
+            if (
+                analysis_resume_checkpoint_path is None
+                or analysis_resume_input_witness is None
+            ):
+                return
+            _write_analysis_resume_checkpoint(
+                path=analysis_resume_checkpoint_path,
+                input_witness=analysis_resume_input_witness,
+                collection_resume=progress_payload,
+            )
+
         if needs_analysis:
             analysis = analyze_paths(
                 paths,
@@ -553,6 +719,9 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 include_ambiguities=include_ambiguities,
                 include_bundle_forest=True,
                 config=config,
+                file_paths_override=file_paths_for_run,
+                collection_resume=collection_resume_payload,
+                on_collection_progress=_persist_collection_resume,
             )
         else:
             analysis = AnalysisResult(
@@ -566,6 +735,14 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 unused_arg_smells=[],
                 forest=forest,
             )
+        if (
+            analysis_resume_checkpoint_path is not None
+            and analysis_resume_checkpoint_path.exists()
+        ):
+            try:
+                analysis_resume_checkpoint_path.unlink()
+            except OSError:
+                pass
 
         response: dict = {
             "type_suggestions": analysis.type_suggestions,
@@ -594,6 +771,15 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             ],
             "context_suggestions": analysis.context_suggestions,
         }
+        if analysis_resume_checkpoint_path is not None:
+            response["analysis_resume"] = {
+                "checkpoint_path": str(analysis_resume_checkpoint_path),
+                "reused_files": analysis_resume_reused_files,
+                "total_files": analysis_resume_total_files,
+                "remaining_files": max(
+                    analysis_resume_total_files - analysis_resume_reused_files, 0
+                ),
+            }
         if lint:
             response["lint_lines"] = analysis.lint_lines
 
@@ -1168,12 +1354,50 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 response["exit_code"] = 0
             else:
                 response["exit_code"] = 1 if (fail_on_violations and effective_violations) else 0
+        response["analysis_state"] = "succeeded"
         return response
     except TimeoutExceeded as exc:
+        timeout_payload = exc.context.as_payload()
+        progress_payload = timeout_payload.get("progress")
+        if not isinstance(progress_payload, dict):
+            progress_payload = {}
+            timeout_payload["progress"] = progress_payload
+        if (
+            analysis_resume_checkpoint_path is not None
+            and analysis_resume_input_witness is not None
+        ):
+            collection_resume = _load_analysis_resume_checkpoint(
+                path=analysis_resume_checkpoint_path,
+                input_witness=analysis_resume_input_witness,
+            )
+            if collection_resume is not None:
+                resume_progress = _analysis_resume_progress(
+                    collection_resume=collection_resume,
+                    total_files=analysis_resume_total_files,
+                )
+                resume_supported = resume_progress["completed_files"] > 0
+                progress_payload["resume_supported"] = resume_supported
+                progress_payload["resume"] = {
+                    "checkpoint_path": str(analysis_resume_checkpoint_path),
+                    "input_witness": analysis_resume_input_witness,
+                    **resume_progress,
+                }
+                classification = progress_payload.get("classification")
+                if (
+                    resume_supported
+                    and isinstance(classification, str)
+                    and classification == "timed_out_no_progress"
+                ):
+                    progress_payload["classification"] = "timed_out_progress_resume"
+        analysis_state = "timed_out_no_progress"
+        classification = progress_payload.get("classification")
+        if isinstance(classification, str) and classification:
+            analysis_state = classification
         return {
             "exit_code": 2,
             "timeout": True,
-            "timeout_context": exc.context.as_payload(),
+            "analysis_state": analysis_state,
+            "timeout_context": timeout_payload,
         }
     finally:
         reset_forest(forest_token)

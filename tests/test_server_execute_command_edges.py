@@ -99,6 +99,7 @@ def test_execute_command_dash_outputs(tmp_path: Path) -> None:
     assert "synthesis_plan" in result
     assert "synthesis_protocols" in result
     assert "refactor_plan" in result
+    assert result.get("analysis_state") == "succeeded"
 
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -182,10 +183,81 @@ def test_execute_command_reports_timeout(tmp_path: Path) -> None:
     )
     assert result.get("exit_code") == 2
     assert result.get("timeout") is True
+    assert str(result.get("analysis_state", "")).startswith("timed_out_")
     assert "timeout_context" in result
     timeout_context = result.get("timeout_context")
     assert isinstance(timeout_context, dict)
     assert "deadline_profile" in timeout_context
+    progress = timeout_context.get("progress")
+    assert isinstance(progress, dict)
+    assert str(progress.get("classification", "")).startswith("timed_out_")
+
+
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress
+def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+    command_payload = _with_timeout(
+        {
+            "root": str(tmp_path),
+            "paths": [str(module_path)],
+            "dot": "-",
+            "resume_checkpoint": str(
+                tmp_path / "artifacts" / "audit_reports" / "resume-checkpoint.json"
+            ),
+            "allow_external": True,
+            "exclude": [],
+            "ignore_params": [],
+            "strictness": "high",
+            "transparent_decorators": [],
+        }
+    )
+    config = server.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=False,
+        strictness="high",
+        transparent_decorators=set(),
+    )
+    file_paths = server.resolve_analysis_paths([module_path], config=config)
+    snapshots: list[dict[str, object]] = []
+    server.analyze_paths(
+        paths=[module_path],
+        forest=server.Forest(),
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_bundle_forest=True,
+        config=config,
+        file_paths_override=file_paths,
+        on_collection_progress=snapshots.append,
+    )
+    assert snapshots
+    checkpoint_path = Path(str(command_payload["resume_checkpoint"]))
+    witness = server._analysis_input_witness(
+        root=tmp_path,
+        file_paths=file_paths,
+        recursive=True,
+        include_invariant_propositions=False,
+        config=config,
+    )
+    server._write_analysis_resume_checkpoint(
+        path=checkpoint_path,
+        input_witness=witness,
+        collection_resume=snapshots[-1],
+    )
+    result = server.execute_command(ls, command_payload)
+    assert result.get("exit_code") == 0
+    resume = result.get("analysis_resume")
+    assert isinstance(resume, dict)
+    assert resume.get("reused_files") == 1
+    assert resume.get("total_files") == 1
+    assert not checkpoint_path.exists()
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
