@@ -260,6 +260,39 @@ def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
     assert not checkpoint_path.exists()
 
 
+def test_analysis_input_witness_interns_ast_normal_forms(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    config = server.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=False,
+        strictness="high",
+        transparent_decorators=set(),
+    )
+    file_paths = server.resolve_analysis_paths([module_path], config=config)
+    witness = server._analysis_input_witness(
+        root=tmp_path,
+        file_paths=file_paths,
+        recursive=True,
+        include_invariant_propositions=False,
+        config=config,
+    )
+    assert witness.get("format_version") == 2
+    assert isinstance(witness.get("witness_digest"), str)
+    table = witness.get("ast_intern_table")
+    assert isinstance(table, dict)
+    files = witness.get("files")
+    assert isinstance(files, list)
+    assert files
+    file_entry = files[0]
+    assert isinstance(file_entry, dict)
+    ast_ref = file_entry.get("ast_ref")
+    assert isinstance(ast_ref, str)
+    assert ast_ref in table
+
+
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
 def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"

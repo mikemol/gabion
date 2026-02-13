@@ -194,6 +194,24 @@ def test_dataflow_payload_baseline_and_transparent() -> None:
     assert payload["fail_on_type_ambiguities"] is True
 
 
+# gabion:evidence E:function_site::cli.py::gabion.cli.build_dataflow_payload
+def test_dataflow_payload_resume_checkpoint_and_timeout_flags() -> None:
+    opts = cli.parse_dataflow_args(
+        [
+            ".",
+            "--resume-checkpoint",
+            "resume.json",
+            "--emit-timeout-progress-report",
+            "--resume-on-timeout",
+            "2",
+        ]
+    )
+    payload = cli.build_dataflow_payload(opts)
+    assert payload["resume_checkpoint"] == "resume.json"
+    assert opts.emit_timeout_progress_report is True
+    assert opts.resume_on_timeout == 2
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path
 def test_refactor_protocol_payload(tmp_path: Path) -> None:
     payload = cli.build_refactor_payload(

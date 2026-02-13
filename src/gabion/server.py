@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import ast
+import hashlib
 import json
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Mapping, cast
 from urllib.parse import unquote, urlparse
 
 from pygls.lsp.server import LanguageServer
@@ -123,6 +125,7 @@ _SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
 _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
 _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION = 1
+_ANALYSIS_INPUT_WITNESS_FORMAT_VERSION = 2
 _DEFAULT_ANALYSIS_RESUME_CHECKPOINT = Path(
     "artifacts/audit_reports/dataflow_resume_checkpoint.json"
 )
@@ -157,6 +160,81 @@ def _analysis_input_witness(
     include_invariant_propositions: bool,
     config: AuditConfig,
 ) -> JSONObject:
+    def _normalize_scalar(value: object) -> JSONValue:
+        if value is None or isinstance(value, (bool, int, str)):
+            return value
+        if isinstance(value, float):
+            return {"_py": "float", "value": repr(value)}
+        if isinstance(value, bytes):
+            return {"_py": "bytes", "hex": value.hex()}
+        if isinstance(value, complex):
+            return {
+                "_py": "complex",
+                "real": repr(value.real),
+                "imag": repr(value.imag),
+            }
+        if value is Ellipsis:
+            return {"_py": "ellipsis"}
+        return {"_py": type(value).__name__, "repr": repr(value)}
+
+    def _normalize_ast_value(value: object) -> JSONValue:
+        check_deadline()
+        if isinstance(value, ast.AST):
+            fields: JSONObject = {}
+            for name, raw_field in ast.iter_fields(value):
+                check_deadline()
+                fields[name] = _normalize_ast_value(raw_field)
+            attrs: JSONObject = {}
+            for name in getattr(value, "_attributes", ()):
+                check_deadline()
+                attrs[name] = _normalize_scalar(getattr(value, name, None))
+            payload: JSONObject = {
+                "_py": "ast",
+                "node": type(value).__name__,
+                "fields": fields,
+            }
+            if attrs:
+                payload["attrs"] = attrs
+            return payload
+        if isinstance(value, list):
+            return [_normalize_ast_value(item) for item in value]
+        if isinstance(value, tuple):
+            return {
+                "_py": "tuple",
+                "items": [_normalize_ast_value(item) for item in value],
+            }
+        if isinstance(value, dict):
+            normalized: JSONObject = {}
+            for key in sorted(value, key=lambda item: str(item)):
+                check_deadline()
+                normalized[str(key)] = _normalize_ast_value(value[key])
+            return normalized
+        if isinstance(value, set):
+            items = [_normalize_ast_value(item) for item in value]
+            items.sort(key=_canonical_json_text)
+            return {"_py": "set", "items": items}
+        if isinstance(value, frozenset):
+            items = [_normalize_ast_value(item) for item in value]
+            items.sort(key=_canonical_json_text)
+            return {"_py": "frozenset", "items": items}
+        return _normalize_scalar(value)
+
+    ast_intern_table: JSONObject = {}
+
+    def _intern_ast(normalized_tree: JSONValue) -> str:
+        witness_text = _canonical_json_text(normalized_tree)
+        witness_key = hashlib.sha1(witness_text.encode("utf-8")).hexdigest()
+        if witness_key not in ast_intern_table:
+            if (
+                not isinstance(
+                    normalized_tree, (dict, list, str, int, float, bool)
+                )
+                and normalized_tree is not None
+            ):
+                never("invalid normalized ast witness payload")
+            ast_intern_table[witness_key] = cast(JSONValue, normalized_tree)
+        return witness_key
+
     files: list[JSONObject] = []
     for path in file_paths:
         check_deadline()
@@ -168,9 +246,32 @@ def _analysis_input_witness(
         else:
             entry["size"] = int(stat.st_size)
             entry["mtime_ns"] = int(stat.st_mtime_ns)
+            try:
+                source = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                entry["parse_error"] = {
+                    "kind": type(exc).__name__,
+                    "message": str(exc),
+                }
+            else:
+                try:
+                    tree = ast.parse(source, filename=str(path))
+                except SyntaxError as exc:
+                    entry["parse_error"] = {
+                        "kind": type(exc).__name__,
+                        "message": str(exc),
+                        "lineno": int(exc.lineno or 0),
+                        "offset": int(exc.offset or 0),
+                        "end_lineno": int(exc.end_lineno or 0),
+                        "end_offset": int(exc.end_offset or 0),
+                        "text": (exc.text or "").rstrip("\n"),
+                    }
+                else:
+                    normalized_tree = _normalize_ast_value(tree)
+                    entry["ast_ref"] = _intern_ast(normalized_tree)
         files.append(entry)
-    return {
-        "format_version": 1,
+    witness: JSONObject = {
+        "format_version": _ANALYSIS_INPUT_WITNESS_FORMAT_VERSION,
         "root": str(root),
         "recursive": recursive,
         "include_invariant_propositions": include_invariant_propositions,
@@ -181,8 +282,17 @@ def _analysis_input_witness(
             "external_filter": config.external_filter,
             "transparent_decorators": sorted(config.transparent_decorators or []),
         },
+        "ast_intern_table": ast_intern_table,
         "files": files,
     }
+    witness["witness_digest"] = hashlib.sha1(
+        _canonical_json_text(witness).encode("utf-8")
+    ).hexdigest()
+    return witness
+
+
+def _canonical_json_text(payload: object) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
 def _load_analysis_resume_checkpoint(
@@ -200,6 +310,11 @@ def _load_analysis_resume_checkpoint(
         return None
     if raw_payload.get("format_version") != _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION:
         return None
+    expected_digest = input_witness.get("witness_digest")
+    if isinstance(expected_digest, str):
+        observed_digest = raw_payload.get("input_witness_digest")
+        if isinstance(observed_digest, str) and observed_digest != expected_digest:
+            return None
     witness = raw_payload.get("input_witness")
     if not isinstance(witness, dict) or witness != input_witness:
         return None
@@ -215,9 +330,13 @@ def _write_analysis_resume_checkpoint(
     input_witness: JSONObject,
     collection_resume: JSONObject,
 ) -> None:
+    witness_digest = input_witness.get("witness_digest")
     payload: JSONObject = {
         "format_version": _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
         "input_witness": input_witness,
+        "input_witness_digest": (
+            witness_digest if isinstance(witness_digest, str) else None
+        ),
         "collection_resume": collection_resume,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1377,10 +1496,22 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 )
                 resume_supported = resume_progress["completed_files"] > 0
                 progress_payload["resume_supported"] = resume_supported
-                progress_payload["resume"] = {
+                witness_digest = analysis_resume_input_witness.get("witness_digest")
+                if not isinstance(witness_digest, str):
+                    witness_digest = None
+                resume_token: JSONObject = {
+                    "phase": "analysis_collection",
                     "checkpoint_path": str(analysis_resume_checkpoint_path),
-                    "input_witness": analysis_resume_input_witness,
+                    "carrier_refs": {
+                        "collection_resume": True,
+                    },
                     **resume_progress,
+                }
+                if witness_digest is not None:
+                    resume_token["witness_digest"] = witness_digest
+                progress_payload["resume"] = {
+                    "resume_token": resume_token,
+                    "input_witness": analysis_resume_input_witness,
                 }
                 classification = progress_payload.get("classification")
                 if (

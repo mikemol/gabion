@@ -45,6 +45,9 @@ _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*
 _DEFAULT_TIMEOUT_TICKS = 100
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_CHECK_REPORT_REL_PATH = Path("artifacts/audit_reports/dataflow_report.md")
+_DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH = Path(
+    "artifacts/audit_reports/timeout_progress.md"
+)
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
@@ -231,6 +234,76 @@ def _emit_timeout_profile_artifacts(
     typer.echo(f"Wrote deadline profile markdown: {profile_md_path}")
 
 
+def _render_timeout_progress_markdown(
+    *,
+    analysis_state: str | None,
+    progress: Mapping[str, object],
+) -> str:
+    lines = ["# Timeout Progress", ""]
+    if analysis_state:
+        lines.append(f"- `analysis_state`: `{analysis_state}`")
+    classification = progress.get("classification")
+    if isinstance(classification, str):
+        lines.append(f"- `classification`: `{classification}`")
+    retry_recommended = progress.get("retry_recommended")
+    if isinstance(retry_recommended, bool):
+        lines.append(f"- `retry_recommended`: `{retry_recommended}`")
+    resume_supported = progress.get("resume_supported")
+    if isinstance(resume_supported, bool):
+        lines.append(f"- `resume_supported`: `{resume_supported}`")
+    resume = progress.get("resume")
+    if isinstance(resume, Mapping):
+        token = resume.get("resume_token")
+        if isinstance(token, Mapping):
+            lines.append("")
+            lines.append("## Resume Token")
+            lines.append("")
+            for key in (
+                "phase",
+                "checkpoint_path",
+                "completed_files",
+                "remaining_files",
+                "total_files",
+                "witness_digest",
+            ):
+                value = token.get(key)
+                if value is None:
+                    continue
+                lines.append(f"- `{key}`: `{value}`")
+    return "\n".join(lines)
+
+
+def _emit_timeout_progress_artifacts(
+    result: Mapping[str, object],
+    *,
+    root: Path,
+) -> None:
+    timeout_context = result.get("timeout_context")
+    if not isinstance(timeout_context, Mapping):
+        return
+    progress = timeout_context.get("progress")
+    if not isinstance(progress, Mapping):
+        return
+    progress_md_path = root / _DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH
+    progress_json_path = progress_md_path.with_suffix(".json")
+    progress_md_path.parent.mkdir(parents=True, exist_ok=True)
+    payload: JSONObject = {
+        "analysis_state": str(result.get("analysis_state", "")),
+        "progress": {str(key): progress[key] for key in progress},
+    }
+    progress_json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    progress_md_path.write_text(
+        _render_timeout_progress_markdown(
+            analysis_state=str(result.get("analysis_state", "")),
+            progress=progress,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    typer.echo(f"Wrote timeout progress JSON: {progress_json_path}")
+    typer.echo(f"Wrote timeout progress markdown: {progress_md_path}")
+
+
 def build_check_payload(
     *,
     paths: Optional[List[Path]],
@@ -264,6 +337,7 @@ def build_check_payload(
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
     lint: bool,
+    resume_checkpoint: Optional[Path] = None,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     if not paths:
@@ -332,6 +406,7 @@ def build_check_payload(
         "strictness": strictness,
         "type_audit": True if fail_on_type_ambiguities else None,
         "lint": lint,
+        "resume_checkpoint": str(resume_checkpoint) if resume_checkpoint else None,
         "deadline_profile": True,
     }
     return payload
@@ -370,6 +445,9 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "transparent_decorators": transparent_list,
         "allow_external": opts.allow_external,
         "strictness": opts.strictness,
+        "resume_checkpoint": str(opts.resume_checkpoint)
+        if opts.resume_checkpoint
+        else None,
         "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
         "synthesis_report": opts.synthesis_report,
         "synthesis_max_tier": opts.synthesis_max_tier,
@@ -526,6 +604,7 @@ def run_check(
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
     lint: bool,
+    resume_checkpoint: Optional[Path] = None,
     runner: Runner = run_command,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
@@ -563,6 +642,7 @@ def run_check(
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
         lint=lint,
+        resume_checkpoint=resume_checkpoint,
     )
     return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
 
@@ -684,6 +764,22 @@ def check(
         None, "--allow-external/--no-allow-external"
     ),
     strictness: Optional[str] = typer.Option(None, "--strictness"),
+    resume_checkpoint: Optional[Path] = typer.Option(
+        None,
+        "--resume-checkpoint",
+        help="Checkpoint path for resumable timeout runs.",
+    ),
+    emit_timeout_progress_report: bool = typer.Option(
+        False,
+        "--emit-timeout-progress-report/--no-emit-timeout-progress-report",
+        help="Write timeout progress report artifacts on timeout.",
+    ),
+    resume_on_timeout: int = typer.Option(
+        0,
+        "--resume-on-timeout",
+        min=0,
+        help="Retry count when timeout reports timed_out_progress_resume.",
+    ),
     fail_on_type_ambiguities: bool = typer.Option(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
@@ -699,41 +795,57 @@ def check(
     """Run the dataflow grammar audit with strict defaults."""
     with _cli_deadline_scope():
         lint_enabled = lint or bool(lint_jsonl or lint_sarif)
-        result = run_check(
-            paths=paths,
-            report=report,
-            fail_on_violations=fail_on_violations,
-            root=root,
-            config=config,
-            baseline=baseline,
-            baseline_write=baseline_write,
-            decision_snapshot=decision_snapshot,
-            emit_test_obsolescence=emit_test_obsolescence,
-            emit_test_obsolescence_state=emit_test_obsolescence_state,
-            test_obsolescence_state=test_obsolescence_state,
-            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-            emit_test_evidence_suggestions=emit_test_evidence_suggestions,
-            emit_call_clusters=emit_call_clusters,
-            emit_call_cluster_consolidation=emit_call_cluster_consolidation,
-            emit_test_annotation_drift=emit_test_annotation_drift,
-            test_annotation_drift_state=test_annotation_drift_state,
-            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-            write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-            write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-            emit_ambiguity_delta=emit_ambiguity_delta,
-            emit_ambiguity_state=emit_ambiguity_state,
-            ambiguity_state=ambiguity_state,
-            write_ambiguity_baseline=write_ambiguity_baseline,
-            exclude=exclude,
-            ignore_params_csv=ignore_params_csv,
-            transparent_decorators_csv=transparent_decorators_csv,
-            allow_external=allow_external,
-            strictness=strictness,
-            fail_on_type_ambiguities=fail_on_type_ambiguities,
-            lint=lint_enabled,
-        )
-        if result.get("timeout") is True:
+        attempt = 0
+        result: JSONObject = {}
+        while True:
+            result = run_check(
+                paths=paths,
+                report=report,
+                fail_on_violations=fail_on_violations,
+                root=root,
+                config=config,
+                baseline=baseline,
+                baseline_write=baseline_write,
+                decision_snapshot=decision_snapshot,
+                emit_test_obsolescence=emit_test_obsolescence,
+                emit_test_obsolescence_state=emit_test_obsolescence_state,
+                test_obsolescence_state=test_obsolescence_state,
+                emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+                emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+                emit_call_clusters=emit_call_clusters,
+                emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+                emit_test_annotation_drift=emit_test_annotation_drift,
+                test_annotation_drift_state=test_annotation_drift_state,
+                emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+                write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+                write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+                emit_ambiguity_delta=emit_ambiguity_delta,
+                emit_ambiguity_state=emit_ambiguity_state,
+                ambiguity_state=ambiguity_state,
+                write_ambiguity_baseline=write_ambiguity_baseline,
+                exclude=exclude,
+                ignore_params_csv=ignore_params_csv,
+                transparent_decorators_csv=transparent_decorators_csv,
+                allow_external=allow_external,
+                strictness=strictness,
+                fail_on_type_ambiguities=fail_on_type_ambiguities,
+                lint=lint_enabled,
+                resume_checkpoint=resume_checkpoint,
+            )
+            if result.get("timeout") is not True:
+                break
             _emit_timeout_profile_artifacts(result, root=Path(root))
+            if emit_timeout_progress_report:
+                _emit_timeout_progress_artifacts(result, root=Path(root))
+            if (
+                attempt < resume_on_timeout
+                and str(result.get("analysis_state", "")) == "timed_out_progress_resume"
+            ):
+                attempt += 1
+                typer.echo(
+                    f"Retrying after timeout with progress ({attempt}/{resume_on_timeout})..."
+                )
+                continue
             raise typer.Exit(code=int(result.get("exit_code", 2)))
         lint_lines = result.get("lint_lines", []) or []
         _emit_lint_outputs(
@@ -756,14 +868,29 @@ def _dataflow_audit(
     opts = parse_dataflow_args(argv)
     payload = build_dataflow_payload(opts)
     runner = request.runner or run_command
-    result = dispatch_command(
-        command=DATAFLOW_COMMAND,
-        payload=payload,
-        root=Path(opts.root),
-        runner=runner,
-    )
-    if result.get("timeout") is True:
+    attempt = 0
+    result: JSONObject = {}
+    while True:
+        result = dispatch_command(
+            command=DATAFLOW_COMMAND,
+            payload=payload,
+            root=Path(opts.root),
+            runner=runner,
+        )
+        if result.get("timeout") is not True:
+            break
         _emit_timeout_profile_artifacts(result, root=Path(opts.root))
+        if opts.emit_timeout_progress_report:
+            _emit_timeout_progress_artifacts(result, root=Path(opts.root))
+        if (
+            attempt < max(int(opts.resume_on_timeout), 0)
+            and str(result.get("analysis_state", "")) == "timed_out_progress_resume"
+        ):
+            attempt += 1
+            typer.echo(
+                f"Retrying after timeout with progress ({attempt}/{opts.resume_on_timeout})..."
+            )
+            continue
         raise typer.Exit(code=int(result.get("exit_code", 2)))
     lint_lines = result.get("lint_lines", []) or []
     _emit_lint_outputs(
@@ -895,6 +1022,22 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument("--strictness", choices=["high", "low"], default=None)
+    parser.add_argument(
+        "--resume-checkpoint",
+        default=None,
+        help="Checkpoint path for resumable timeout runs.",
+    )
+    parser.add_argument(
+        "--emit-timeout-progress-report",
+        action="store_true",
+        help="Write timeout progress report artifacts on timeout.",
+    )
+    parser.add_argument(
+        "--resume-on-timeout",
+        type=int,
+        default=0,
+        help="Retry count when timeout returns timed_out_progress_resume.",
+    )
     parser.add_argument("--no-recursive", action="store_true")
     parser.add_argument("--dot", default=None, help="Write DOT graph to file or '-' for stdout.")
     parser.add_argument(

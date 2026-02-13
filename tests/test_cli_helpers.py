@@ -237,6 +237,70 @@ def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
     assert payload["checks_total"] == 3
 
 
+def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    calls = {"count": 0}
+
+    def runner(*_args, **_kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return {
+                "exit_code": 2,
+                "timeout": True,
+                "analysis_state": "timed_out_progress_resume",
+                "timeout_context": {
+                    "deadline_profile": {
+                        "checks_total": 5,
+                        "total_elapsed_ns": 1000,
+                        "unattributed_elapsed_ns": 10,
+                        "sites": [],
+                        "edges": [],
+                    },
+                    "progress": {
+                        "classification": "timed_out_progress_resume",
+                        "retry_recommended": True,
+                        "resume_supported": True,
+                        "resume": {
+                            "resume_token": {
+                                "phase": "analysis_collection",
+                                "checkpoint_path": "resume.json",
+                                "completed_files": 1,
+                                "remaining_files": 0,
+                                "total_files": 1,
+                                "witness_digest": "abc",
+                            }
+                        },
+                    },
+                },
+            }
+        return {"exit_code": 0}
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=[
+            "sample.py",
+            "--root",
+            str(tmp_path),
+            "--emit-timeout-progress-report",
+            "--resume-on-timeout",
+            "1",
+        ],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    assert calls["count"] == 2
+    progress_json = tmp_path / "artifacts" / "audit_reports" / "timeout_progress.json"
+    progress_md = tmp_path / "artifacts" / "audit_reports" / "timeout_progress.md"
+    assert progress_json.exists()
+    assert progress_md.exists()
+    payload = json.loads(progress_json.read_text())
+    assert payload["analysis_state"] == "timed_out_progress_resume"
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
 def test_dataflow_audit_emits_structure_tree(capsys) -> None:
     class DummyCtx:
