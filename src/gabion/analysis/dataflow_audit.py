@@ -3808,6 +3808,60 @@ def _bind_call_args(
     return mapping
 
 
+def _caller_param_bindings_for_call(
+    call: CallArgs,
+    callee: FunctionInfo,
+    *,
+    strictness: str,
+) -> dict[str, set[str]]:
+    check_deadline()
+    pos_params = (
+        list(callee.positional_params)
+        if callee.positional_params
+        else list(callee.params)
+    )
+    kwonly_params = set(callee.kwonly_params or ())
+    named_params = set(pos_params) | kwonly_params
+    mapping: dict[str, set[str]] = defaultdict(set)
+    mapped_params: set[str] = set()
+    for pos_idx, caller_param in call.pos_map.items():
+        check_deadline()
+        idx = int(pos_idx)
+        if idx < len(pos_params):
+            callee_param = pos_params[idx]
+        elif callee.vararg is not None:
+            callee_param = callee.vararg
+        else:
+            continue
+        mapped_params.add(callee_param)
+        mapping[callee_param].add(caller_param)
+    for kw_name, caller_param in call.kw_map.items():
+        check_deadline()
+        if kw_name in named_params:
+            mapped_params.add(kw_name)
+            mapping[kw_name].add(caller_param)
+        elif callee.kwarg is not None:
+            mapped_params.add(callee.kwarg)
+            mapping[callee.kwarg].add(caller_param)
+    if strictness == "low":
+        remaining = [p for p in sorted(named_params) if p not in mapped_params]
+        if callee.vararg is not None and callee.vararg not in mapped_params:
+            remaining.append(callee.vararg)
+        if callee.kwarg is not None and callee.kwarg not in mapped_params:
+            remaining.append(callee.kwarg)
+        if len(call.star_pos) == 1:
+            _, star_param = call.star_pos[0]
+            for param in remaining:
+                check_deadline()
+                mapping[param].add(star_param)
+        if len(call.star_kw) == 1:
+            star_param = call.star_kw[0]
+            for param in remaining:
+                check_deadline()
+                mapping[param].add(star_param)
+    return mapping
+
+
 def _classify_deadline_expr(
     expr: ast.AST,
     *,
@@ -4021,56 +4075,6 @@ def _collect_deadline_obligations(
         check_deadline()
         deadline_params.pop(helper, None)
 
-    def _callee_to_caller_params(
-        call: CallArgs, callee: FunctionInfo
-    ) -> dict[str, set[str]]:
-        check_deadline()
-        pos_params = (
-            list(callee.positional_params)
-            if callee.positional_params
-            else list(callee.params)
-        )
-        kwonly_params = set(callee.kwonly_params or ())
-        named_params = set(pos_params) | kwonly_params
-        mapping: dict[str, set[str]] = defaultdict(set)
-        mapped_params: set[str] = set()
-        for pos_idx, caller_param in call.pos_map.items():
-            check_deadline()
-            idx = int(pos_idx)
-            if idx < len(pos_params):
-                callee_param = pos_params[idx]
-            elif callee.vararg is not None:
-                callee_param = callee.vararg
-            else:
-                continue
-            mapped_params.add(callee_param)
-            mapping[callee_param].add(caller_param)
-        for kw_name, caller_param in call.kw_map.items():
-            check_deadline()
-            if kw_name in named_params:
-                mapped_params.add(kw_name)
-                mapping[kw_name].add(caller_param)
-            elif callee.kwarg is not None:
-                mapped_params.add(callee.kwarg)
-                mapping[callee.kwarg].add(caller_param)
-        if config.strictness == "low":
-            remaining = [p for p in sorted(named_params) if p not in mapped_params]
-            if callee.vararg is not None and callee.vararg not in mapped_params:
-                remaining.append(callee.vararg)
-            if callee.kwarg is not None and callee.kwarg not in mapped_params:
-                remaining.append(callee.kwarg)
-            if len(call.star_pos) == 1:
-                _, star_param = call.star_pos[0]
-                for param in remaining:
-                    check_deadline()
-                    mapping[param].add(star_param)
-            if len(call.star_kw) == 1:
-                star_param = call.star_kw[0]
-                for param in remaining:
-                    check_deadline()
-                    mapping[param].add(star_param)
-        return mapping
-
     changed = True
     while changed:
         check_deadline()
@@ -4097,7 +4101,11 @@ def _collect_deadline_obligations(
                         continue
                     for callee in resolution.candidates:
                         check_deadline()
-                        mapping = _callee_to_caller_params(call, callee)
+                        mapping = _caller_param_bindings_for_call(
+                            call,
+                            callee,
+                            strictness=config.strictness,
+                        )
                         for callee_param in deadline_params.get(callee.qual, set()):
                             check_deadline()
                             for caller_param in mapping.get(callee_param, set()):
@@ -8114,50 +8122,11 @@ def _infer_type_flow(
             check_deadline()
             callee = edge.callee
             call = edge.call
-            pos_params = (
-                list(callee.positional_params)
-                if callee.positional_params
-                else list(callee.params)
+            callee_to_caller = _caller_param_bindings_for_call(
+                call,
+                callee,
+                strictness=strictness,
             )
-            kwonly_params = set(callee.kwonly_params or ())
-            named_params = set(pos_params) | kwonly_params
-            mapped_params: set[str] = set()
-            callee_to_caller: dict[str, set[str]] = defaultdict(set)
-            for pos_idx, caller_param in call.pos_map.items():
-                check_deadline()
-                idx = int(pos_idx)
-                if idx < len(pos_params):
-                    callee_param = pos_params[idx]
-                elif callee.vararg is not None:
-                    callee_param = callee.vararg
-                else:
-                    continue
-                mapped_params.add(callee_param)
-                callee_to_caller[callee_param].add(caller_param)
-            for kw_name, caller_param in call.kw_map.items():
-                check_deadline()
-                if kw_name in named_params:
-                    mapped_params.add(kw_name)
-                    callee_to_caller[kw_name].add(caller_param)
-                elif callee.kwarg is not None:
-                    mapped_params.add(callee.kwarg)
-                    callee_to_caller[callee.kwarg].add(caller_param)
-            if strictness == "low":
-                remaining = [p for p in sorted(named_params) if p not in mapped_params]
-                if callee.vararg is not None and callee.vararg not in mapped_params:
-                    remaining.append(callee.vararg)
-                if callee.kwarg is not None and callee.kwarg not in mapped_params:
-                    remaining.append(callee.kwarg)
-                if len(call.star_pos) == 1:
-                    _, star_param = call.star_pos[0]
-                    for param in remaining:
-                        check_deadline()
-                        callee_to_caller[param].add(star_param)
-                if len(call.star_kw) == 1:
-                    star_param = call.star_kw[0]
-                    for param in remaining:
-                        check_deadline()
-                        callee_to_caller[param].add(star_param)
             for callee_param, callers in callee_to_caller.items():
                 check_deadline()
                 annot = _get_annot(callee, callee_param)
