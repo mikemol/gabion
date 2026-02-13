@@ -509,6 +509,126 @@ def test_analysis_index_module_trees_replays_parse_failure_by_stage(
     assert bad in analysis_index.module_parse_errors_by_path
 
 
+def test_build_module_artifacts_parses_each_path_once_across_specs(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(module, "def f(x):\n    return x\n")
+    parse_failures: list[dict[str, object]] = []
+    parse_calls = 0
+
+    def _parse_module(path: Path) -> ast.Module:
+        nonlocal parse_calls
+        parse_calls += 1
+        return ast.parse(path.read_text())
+
+    specs = (
+        da._ModuleArtifactSpec[list[str], tuple[str, ...]](
+            artifact_id="first",
+            stage=da._ParseModuleStage.FUNCTION_INDEX,
+            init=list,
+            fold=lambda acc, path, _tree: acc.append(f"first:{path.name}"),
+            finish=tuple,
+        ),
+        da._ModuleArtifactSpec[list[str], tuple[str, ...]](
+            artifact_id="second",
+            stage=da._ParseModuleStage.SYMBOL_TABLE,
+            init=list,
+            fold=lambda acc, path, _tree: acc.append(f"second:{path.name}"),
+            finish=tuple,
+        ),
+    )
+    first, second = da._build_module_artifacts(
+        [module],
+        specs=specs,
+        parse_failure_witnesses=parse_failures,
+        parse_module=_parse_module,
+    )
+    assert parse_failures == []
+    assert parse_calls == 1
+    assert first == ("first:module.py",)
+    assert second == ("second:module.py",)
+
+
+def test_build_analysis_index_module_artifact_parse_stages(tmp_path: Path) -> None:
+    da = _load()
+    bad = tmp_path / "bad.py"
+    _write(bad, "def f(:\n")
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [bad],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    assert analysis_index.by_name == {}
+    assert analysis_index.by_qual == {}
+    assert analysis_index.class_index == {}
+    assert [entry["stage"] for entry in parse_failures] == [
+        da._ParseModuleStage.FUNCTION_INDEX.value,
+        da._ParseModuleStage.SYMBOL_TABLE.value,
+        da._ParseModuleStage.CLASS_INDEX.value,
+    ]
+
+
+def test_build_analysis_index_module_artifact_parity(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(
+        module,
+        "from collections import defaultdict as dd\n"
+        "\n"
+        "class Box:\n"
+        "    def value(self, x):\n"
+        "        return x\n"
+        "\n"
+        "def f(x):\n"
+        "    return Box().value(x)\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    by_name, by_qual = da._build_function_index(
+        [module],
+        tmp_path,
+        set(),
+        "high",
+        None,
+        parse_failure_witnesses=[],
+    )
+    symbol_table = da._build_symbol_table(
+        [module],
+        tmp_path,
+        external_filter=True,
+        parse_failure_witnesses=[],
+    )
+    class_index = da._collect_class_index(
+        [module],
+        tmp_path,
+        parse_failure_witnesses=[],
+    )
+    assert parse_failures == []
+    assert analysis_index.by_name == by_name
+    assert analysis_index.by_qual == by_qual
+    assert analysis_index.class_index == class_index
+    assert analysis_index.symbol_table.imports == symbol_table.imports
+    assert analysis_index.symbol_table.internal_roots == symbol_table.internal_roots
+    assert analysis_index.symbol_table.module_exports == symbol_table.module_exports
+    assert (
+        analysis_index.symbol_table.module_export_map
+        == symbol_table.module_export_map
+    )
+
+
 def test_analysis_index_stage_cache_factory_reuses_builder(tmp_path: Path) -> None:
     da = _load()
     module = tmp_path / "module.py"
