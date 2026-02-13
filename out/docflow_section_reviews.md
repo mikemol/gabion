@@ -33,4 +33,4 @@ Summary:
 - in/README.md::in_readme -> glossary.md#contract status=stale_dep dep=42/1 self=1
 - in/README.md::in_readme -> CONTRIBUTING.md#contributing_contract status=stale_dep dep=84/1 self=1
 - in/in-31.md::in_in_31 -> in/in-30.md#in_in_30 status=stale_dep dep=2/4 self=3
-- in/in-32.md::in_in_32 -> in/in-30.md#in_in_30 status=stale_dep dep=1/4 self=4
+- in/in-32.md::in_in_32 -> in/in-30.md#in_in_30 status=stale_dep dep=1/4 self=5
