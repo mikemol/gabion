@@ -1003,6 +1003,47 @@ def test_execution_pattern_suggestions_detect_indexed_pass_ingress() -> None:
     assert any("indexed_pass_ingress" in line for line in suggestions)
 
 
+def test_pattern_schema_suggestions_include_execution_and_dataflow_axes() -> None:
+    da = _load()
+    source = (
+        "def one(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_analysis_index(paths, project_root=project_root, "
+        "ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, "
+        "transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses)\n"
+        "\n"
+        "def two(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, "
+        "strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, "
+        "parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+        "\n"
+        "def three(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, "
+        "strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, "
+        "parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+    )
+    groups_by_path = {
+        Path("mod.py"): {
+            "f": [set(["a", "b"])],
+            "g": [set(["a", "b"])],
+        }
+    }
+    suggestions = da._pattern_schema_suggestions(
+        groups_by_path=groups_by_path,
+        source=source,
+    )
+    assert any(
+        "pattern_schema axis=execution" in line and "indexed_pass_ingress" in line
+        for line in suggestions
+    )
+    assert any(
+        "pattern_schema axis=dataflow" in line and "bundle=a,b" in line
+        for line in suggestions
+    )
+
+
 def test_constant_and_deadness_projections_share_constant_details(
     tmp_path: Path,
 ) -> None:
