@@ -25,7 +25,7 @@ from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
-from typing import Callable, Hashable, Iterable, Iterator, Mapping, TypeVar
+from typing import Callable, Generic, Hashable, Iterable, Iterator, Mapping, TypeVar, cast
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -3274,8 +3274,36 @@ def _collect_deadline_function_facts(
     ignore_params: set[str],
     parse_failure_witnesses: list[JSONObject],
     trees: Mapping[Path, ast.AST | None] | None = None,
+    analysis_index: AnalysisIndex | None = None,
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
+    if analysis_index is not None and trees is None:
+        facts_by_path = _analysis_index_stage_cache(
+            analysis_index,
+            paths,
+            spec=_StageCacheSpec(
+                stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
+                cache_key=(
+                    "deadline_function_facts",
+                    str(project_root) if project_root is not None else "",
+                    tuple(sorted(ignore_params)),
+                ),
+                build=lambda tree, path: _deadline_function_facts_for_tree(
+                    path,
+                    tree,
+                    project_root=project_root,
+                    ignore_params=ignore_params,
+                ),
+            ),
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        facts: dict[str, _DeadlineFunctionFacts] = {}
+        for entry in facts_by_path.values():
+            check_deadline()
+            if entry is None:
+                continue
+            facts.update(entry)
+        return facts
     facts: dict[str, _DeadlineFunctionFacts] = {}
     for path in paths:
         check_deadline()
@@ -3289,31 +3317,51 @@ def _collect_deadline_function_facts(
             )
         if tree is None:
             continue
-        parents = ParentAnnotator()
-        parents.visit(tree)
-        module = _module_name(path, project_root)
-        for fn in _collect_functions(tree):
-            check_deadline()
-            scopes = _enclosing_scopes(fn, parents.parents)
-            qual_parts = [module] if module else []
-            if scopes:
-                qual_parts.extend(scopes)
-            qual_parts.append(fn.name)
-            qual = ".".join(qual_parts)
-            params = set(_param_names(fn, ignore_params))
-            collector = _DeadlineFunctionCollector(fn, params)
-            collector.visit(fn)
-            local_info = _collect_deadline_local_info(collector.assignments, params)
-            facts[qual] = _DeadlineFunctionFacts(
-                path=path,
-                qual=qual,
-                span=_node_span(fn),
-                loop=collector.loop,
-                check_params=set(collector.check_params),
-                ambient_check=collector.ambient_check,
-                loop_sites=list(collector.loop_sites),
-                local_info=local_info,
+        facts.update(
+            _deadline_function_facts_for_tree(
+                path,
+                tree,
+                project_root=project_root,
+                ignore_params=ignore_params,
             )
+        )
+    return facts
+
+
+def _deadline_function_facts_for_tree(
+    path: Path,
+    tree: ast.AST,
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+) -> dict[str, _DeadlineFunctionFacts]:
+    check_deadline()
+    parents = ParentAnnotator()
+    parents.visit(tree)
+    module = _module_name(path, project_root)
+    facts: dict[str, _DeadlineFunctionFacts] = {}
+    for fn in _collect_functions(tree):
+        check_deadline()
+        scopes = _enclosing_scopes(fn, parents.parents)
+        qual_parts = [module] if module else []
+        if scopes:
+            qual_parts.extend(scopes)
+        qual_parts.append(fn.name)
+        qual = ".".join(qual_parts)
+        params = set(_param_names(fn, ignore_params))
+        collector = _DeadlineFunctionCollector(fn, params)
+        collector.visit(fn)
+        local_info = _collect_deadline_local_info(collector.assignments, params)
+        facts[qual] = _DeadlineFunctionFacts(
+            path=path,
+            qual=qual,
+            span=_node_span(fn),
+            loop=collector.loop,
+            check_params=set(collector.check_params),
+            ambient_check=collector.ambient_check,
+            loop_sites=list(collector.loop_sites),
+            local_info=local_info,
+        )
     return facts
 
 
@@ -3322,8 +3370,25 @@ def _collect_call_nodes_by_path(
     *,
     trees: Mapping[Path, ast.AST | None] | None = None,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]:
     check_deadline()
+    if analysis_index is not None and trees is None:
+        cached_by_path = _analysis_index_stage_cache(
+            analysis_index,
+            paths,
+            spec=_StageCacheSpec(
+                stage=_ParseModuleStage.CALL_NODES,
+                cache_key=("call_nodes",),
+                build=lambda tree, _path: _call_nodes_for_tree(tree),
+            ),
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        return {
+            path: nodes
+            for path, nodes in cached_by_path.items()
+            if nodes is not None
+        }
     call_nodes: dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]] = {}
     for path in paths:
         check_deadline()
@@ -3337,17 +3402,24 @@ def _collect_call_nodes_by_path(
             )
         if tree is None:
             continue
-        span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
-        for node in ast.walk(tree):
-            check_deadline()
-            if not isinstance(node, ast.Call):
-                continue
-            span = _node_span(node)
-            if span is None:
-                continue
-            span_map[span].append(node)
-        call_nodes[path] = span_map
+        call_nodes[path] = _call_nodes_for_tree(tree)
     return call_nodes
+
+
+def _call_nodes_for_tree(
+    tree: ast.AST,
+) -> dict[tuple[int, int, int, int], list[ast.Call]]:
+    check_deadline()
+    span_map: dict[tuple[int, int, int, int], list[ast.Call]] = defaultdict(list)
+    for node in ast.walk(tree):
+        check_deadline()
+        if not isinstance(node, ast.Call):
+            continue
+        span = _node_span(node)
+        if span is None:
+            continue
+        span_map[span].append(node)
+    return span_map
 
 
 def _collect_call_edges(
@@ -4047,29 +4119,17 @@ def _collect_deadline_obligations(
         project_root=project_root,
         class_index=class_index,
     )
-    deadline_trees = _analysis_index_module_trees(
-        index,
-        paths,
-        stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
-    call_node_trees = _analysis_index_module_trees(
-        index,
-        paths,
-        stage=_ParseModuleStage.CALL_NODES,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
     call_nodes_by_path = _collect_call_nodes_by_path(
         paths,
-        trees=call_node_trees,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=index,
     )
     facts_by_qual = _collect_deadline_function_facts(
         paths,
         project_root=project_root,
         ignore_params=config.ignore_params,
         parse_failure_witnesses=parse_failure_witnesses,
-        trees=deadline_trees,
+        analysis_index=index,
     )
     if extra_facts_by_qual:
         facts_by_qual = dict(facts_by_qual)
@@ -5760,6 +5820,7 @@ class AnalysisIndex:
     class_index: dict[str, ClassInfo]
     parsed_modules_by_path: dict[Path, ast.Module] = field(default_factory=dict)
     module_parse_errors_by_path: dict[Path, Exception] = field(default_factory=dict)
+    stage_cache_by_key: dict[Hashable, dict[Path, object]] = field(default_factory=dict)
     transitive_callers: dict[str, set[str]] | None = None
     resolved_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
     resolved_transparent_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
@@ -5771,6 +5832,16 @@ class _ResolvedCallEdge:
     caller: FunctionInfo
     call: CallArgs
     callee: FunctionInfo
+
+
+_StageCacheValue = TypeVar("_StageCacheValue")
+
+
+@dataclass(frozen=True)
+class _StageCacheSpec(Generic[_StageCacheValue]):
+    stage: _ParseModuleStage
+    cache_key: Hashable
+    build: Callable[[ast.Module, Path], _StageCacheValue]
 
 
 def _build_analysis_index(
@@ -5851,6 +5922,34 @@ def _analysis_index_module_trees(
         analysis_index.parsed_modules_by_path[path] = tree
         trees[path] = tree
     return trees
+
+
+def _analysis_index_stage_cache(
+    analysis_index: AnalysisIndex,
+    paths: list[Path],
+    *,
+    spec: _StageCacheSpec[_StageCacheValue],
+    parse_failure_witnesses: list[JSONObject],
+) -> dict[Path, _StageCacheValue | None]:
+    check_deadline()
+    trees = _analysis_index_module_trees(
+        analysis_index,
+        paths,
+        stage=spec.stage,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    cache = analysis_index.stage_cache_by_key.setdefault(spec.cache_key, {})
+    results: dict[Path, _StageCacheValue | None] = {}
+    for path in paths:
+        check_deadline()
+        tree = trees.get(path)
+        if tree is None:
+            results[path] = None
+            continue
+        if path not in cache:
+            cache[path] = spec.build(tree, path)
+        results[path] = cast(_StageCacheValue, cache[path])
+    return results
 
 
 def _analysis_index_transitive_callers(
@@ -6452,6 +6551,7 @@ def _populate_bundle_forest(
     config_bundles_by_path = _collect_config_bundles(
         file_paths,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=index,
     )
     for path in sorted(config_bundles_by_path):
         check_deadline()
@@ -6469,6 +6569,7 @@ def _populate_bundle_forest(
         file_paths,
         project_root=project_root,
         parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=index,
     )
     for qual_name in sorted(dataclass_registry):
         check_deadline()
@@ -8966,15 +9067,17 @@ def analyze_unused_arg_flow_repo(
 def _iter_config_fields(
     path: Path,
     *,
+    tree: ast.AST | None = None,
     parse_failure_witnesses: list[JSONObject],
 ) -> dict[str, set[str]]:
     """Best-effort extraction of config bundles from dataclasses."""
     check_deadline()
-    tree = _parse_module_tree(
-        path,
-        stage=_ParseModuleStage.CONFIG_FIELDS,
-        parse_failure_witnesses=parse_failure_witnesses,
-    )
+    if tree is None:
+        tree = _parse_module_tree(
+            path,
+            stage=_ParseModuleStage.CONFIG_FIELDS,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
     if tree is None:
         return {}
     bundles: dict[str, set[str]] = {}
@@ -9009,10 +9112,31 @@ def _collect_config_bundles(
     paths: list[Path],
     *,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> dict[Path, dict[str, set[str]]]:
     check_deadline()
     _forbid_adhoc_bundle_discovery("_collect_config_bundles")
     bundles_by_path: dict[Path, dict[str, set[str]]] = {}
+    if analysis_index is not None:
+        config_fields_by_path = _analysis_index_stage_cache(
+            analysis_index,
+            paths,
+            spec=_StageCacheSpec(
+                stage=_ParseModuleStage.CONFIG_FIELDS,
+                cache_key=("config_fields",),
+                build=lambda tree, path: _iter_config_fields(
+                    path,
+                    tree=tree,
+                    parse_failure_witnesses=parse_failure_witnesses,
+                ),
+            ),
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        for path, bundles in config_fields_by_path.items():
+            check_deadline()
+            if bundles:
+                bundles_by_path[path] = bundles
+        return bundles_by_path
     for path in paths:
         check_deadline()
         bundles = _iter_config_fields(
@@ -9056,9 +9180,34 @@ def _collect_dataclass_registry(
     *,
     project_root: Path | None,
     parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
 ) -> dict[str, list[str]]:
     check_deadline()
     registry: dict[str, list[str]] = {}
+    if analysis_index is not None:
+        registry_by_path = _analysis_index_stage_cache(
+            analysis_index,
+            paths,
+            spec=_StageCacheSpec(
+                stage=_ParseModuleStage.DATACLASS_REGISTRY,
+                cache_key=(
+                    "dataclass_registry",
+                    str(project_root) if project_root is not None else "",
+                ),
+                build=lambda tree, path: _dataclass_registry_for_tree(
+                    path,
+                    tree,
+                    project_root=project_root,
+                ),
+            ),
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        for entries in registry_by_path.values():
+            check_deadline()
+            if entries is None:
+                continue
+            registry.update(entries)
+        return registry
     for path in paths:
         check_deadline()
         tree = _parse_module_tree(
@@ -9068,33 +9217,45 @@ def _collect_dataclass_registry(
         )
         if tree is None:
             continue
-        module = _module_name(path, project_root)
-        for node in ast.walk(tree):
+        registry.update(_dataclass_registry_for_tree(path, tree, project_root=project_root))
+    return registry
+
+
+def _dataclass_registry_for_tree(
+    path: Path,
+    tree: ast.AST,
+    *,
+    project_root: Path | None,
+) -> dict[str, list[str]]:
+    check_deadline()
+    registry: dict[str, list[str]] = {}
+    module = _module_name(path, project_root)
+    for node in ast.walk(tree):
+        check_deadline()
+        if not isinstance(node, ast.ClassDef):
+            continue
+        decorators = {
+            ast.unparse(dec) if hasattr(ast, "unparse") else ""
+            for dec in node.decorator_list
+        }
+        if not any("dataclass" in dec for dec in decorators):
+            continue
+        fields: list[str] = []
+        for stmt in node.body:
             check_deadline()
-            if not isinstance(node, ast.ClassDef):
-                continue
-            decorators = {
-                ast.unparse(dec) if hasattr(ast, "unparse") else ""
-                for dec in node.decorator_list
-            }
-            if not any("dataclass" in dec for dec in decorators):
-                continue
-            fields: list[str] = []
-            for stmt in node.body:
-                check_deadline()
-                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                    fields.append(stmt.target.id)
-                elif isinstance(stmt, ast.Assign):
-                    for target in stmt.targets:
-                        check_deadline()
-                        if isinstance(target, ast.Name):
-                            fields.append(target.id)
-            if not fields:
-                continue
-            if module:
-                registry[f"{module}.{node.name}"] = fields
-            else:  # pragma: no cover - module name is always non-empty for file paths
-                registry[node.name] = fields
+            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                fields.append(stmt.target.id)
+            elif isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    check_deadline()
+                    if isinstance(target, ast.Name):
+                        fields.append(target.id)
+        if not fields:
+            continue
+        if module:
+            registry[f"{module}.{node.name}"] = fields
+        else:  # pragma: no cover - module name is always non-empty for file paths
+            registry[node.name] = fields
     return registry
 
 
