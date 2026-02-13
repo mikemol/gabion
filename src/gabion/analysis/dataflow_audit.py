@@ -8344,6 +8344,24 @@ def analyze_constant_flow_repo(
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
     )
+    return _constant_smells_from_details(details)
+
+
+@dataclass(frozen=True)
+class ConstantFlowDetail:
+    path: Path
+    qual: str
+    name: str
+    param: str
+    value: str
+    count: int
+    sites: tuple[str, ...] = ()
+
+
+def _constant_smells_from_details(
+    details: Iterable[ConstantFlowDetail],
+) -> list[str]:
+    check_deadline()
     smells: list[str] = []
     for detail in details:
         check_deadline()
@@ -8358,15 +8376,47 @@ def analyze_constant_flow_repo(
     return sorted(smells)
 
 
-@dataclass(frozen=True)
-class ConstantFlowDetail:
-    path: Path
-    qual: str
-    name: str
-    param: str
-    value: str
-    count: int
-    sites: tuple[str, ...] = ()
+def _deadness_witnesses_from_constant_details(
+    details: Iterable[ConstantFlowDetail],
+    *,
+    project_root: Path | None,
+) -> list[JSONObject]:
+    check_deadline()
+    witnesses: list[JSONObject] = []
+    for detail in details:
+        check_deadline()
+        path_value = _normalize_snapshot_path(detail.path, project_root)
+        predicate = f"{detail.param} != {detail.value}"
+        core = [
+            f"observed constant {detail.value} across {detail.count} non-test call(s)"
+        ]
+        deadness_id = f"deadness:{path_value}:{detail.name}:{detail.param}:{detail.value}"
+        witnesses.append(
+            {
+                "deadness_id": deadness_id,
+                "path": path_value,
+                "function": detail.name,
+                "bundle": [detail.param],
+                "environment": {detail.param: detail.value},
+                "predicate": predicate,
+                "core": core,
+                "result": "UNREACHABLE",
+                "call_sites": list(detail.sites[:10]),
+                "projection": (
+                    f"{detail.name}.{detail.param} constant {detail.value} across "
+                    f"{detail.count} non-test call(s)"
+                ),
+            }
+        )
+    return sorted(
+        witnesses,
+        key=lambda entry: (
+            str(entry.get("path", "")),
+            str(entry.get("function", "")),
+            ",".join(entry.get("bundle", [])),
+            str(entry.get("predicate", "")),
+        ),
+    )
 
 
 def _format_call_site(caller: FunctionInfo, call: CallArgs) -> str:
@@ -8571,40 +8621,9 @@ def analyze_deadness_flow_repo(
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
     )
-    witnesses: list[JSONObject] = []
-    for detail in details:
-        check_deadline()
-        path_value = _normalize_snapshot_path(detail.path, project_root)
-        predicate = f"{detail.param} != {detail.value}"
-        core = [
-            f"observed constant {detail.value} across {detail.count} non-test call(s)"
-        ]
-        deadness_id = f"deadness:{path_value}:{detail.name}:{detail.param}:{detail.value}"
-        witnesses.append(
-            {
-                "deadness_id": deadness_id,
-                "path": path_value,
-                "function": detail.name,
-                "bundle": [detail.param],
-                "environment": {detail.param: detail.value},
-                "predicate": predicate,
-                "core": core,
-                "result": "UNREACHABLE",
-                "call_sites": list(detail.sites[:10]),
-                "projection": (
-                    f"{detail.name}.{detail.param} constant {detail.value} across "
-                    f"{detail.count} non-test call(s)"
-                ),
-            }
-        )
-    return sorted(
-        witnesses,
-        key=lambda entry: (
-            str(entry.get("path", "")),
-            str(entry.get("function", "")),
-            ",".join(entry.get("bundle", [])),
-            str(entry.get("predicate", "")),
-        ),
+    return _deadness_witnesses_from_constant_details(
+        details,
+        project_root=project_root,
     )
 
 
@@ -11364,8 +11383,9 @@ def analyze_paths(
                 type_callsite_evidence = type_callsite_evidence[:type_audit_max]
 
         constant_smells: list[str] = []
-        if include_constant_smells:
-            constant_smells = analyze_constant_flow_repo(
+        deadness_witnesses: list[JSONObject] = []
+        if include_constant_smells or include_deadness_witnesses:
+            constant_details = _collect_constant_flow_details(
                 file_paths,
                 project_root=config.project_root,
                 ignore_params=config.ignore_params,
@@ -11375,6 +11395,13 @@ def analyze_paths(
                 parse_failure_witnesses=parse_failure_witnesses,
                 analysis_index=_require_analysis_index(),
             )
+            if include_constant_smells:
+                constant_smells = _constant_smells_from_details(constant_details)
+            if include_deadness_witnesses:
+                deadness_witnesses = _deadness_witnesses_from_constant_details(
+                    constant_details,
+                    project_root=config.project_root,
+                )
 
         unused_arg_smells: list[str] = []
         if include_unused_arg_smells:
@@ -11400,19 +11427,6 @@ def analyze_paths(
                 analysis_index=_require_analysis_index(),
             )
             _materialize_suite_order_spec(forest=forest)
-        deadness_witnesses: list[JSONObject] = []
-        if include_deadness_witnesses:
-            deadness_witnesses = analyze_deadness_flow_repo(
-                file_paths,
-                project_root=config.project_root,
-                ignore_params=config.ignore_params,
-                strictness=config.strictness,
-                external_filter=config.external_filter,
-                transparent_decorators=config.transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
-                analysis_index=_require_analysis_index(),
-            )
-
         decision_surfaces: list[str] = []
         decision_warnings: list[str] = []
         decision_lint_lines: list[str] = []
