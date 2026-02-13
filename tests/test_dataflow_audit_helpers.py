@@ -244,6 +244,78 @@ def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:
     assert parse_failures[0]["stage"] == "param_annotations"
 
 
+def test_parse_failure_stage_taxonomy_is_canonical(tmp_path: Path) -> None:
+    da = _load()
+    bad = tmp_path / "bad.py"
+    _write(bad, "def f(:\n")
+    parse_failures: list[dict[str, object]] = []
+    da._param_annotations_by_path(
+        [bad],
+        ignore_params=set(),
+        parse_failure_witnesses=parse_failures,
+    )
+    da._collect_deadline_function_facts(
+        [bad],
+        project_root=tmp_path,
+        ignore_params=set(),
+        parse_failure_witnesses=parse_failures,
+    )
+    da._collect_call_nodes_by_path(
+        [bad],
+        parse_failure_witnesses=parse_failures,
+    )
+    da._build_symbol_table(
+        [bad],
+        tmp_path,
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    da._collect_class_index(
+        [bad],
+        tmp_path,
+        parse_failure_witnesses=parse_failures,
+    )
+    da._build_function_index(
+        [bad],
+        tmp_path,
+        set(),
+        "high",
+        None,
+        parse_failure_witnesses=parse_failures,
+    )
+    da._iter_config_fields(bad, parse_failure_witnesses=parse_failures)
+    da._collect_dataclass_registry(
+        [bad],
+        project_root=tmp_path,
+        parse_failure_witnesses=parse_failures,
+    )
+    da._iter_dataclass_call_bundles(
+        bad,
+        project_root=tmp_path,
+        parse_failure_witnesses=parse_failures,
+    )
+    seen = {str(entry["stage"]) for entry in parse_failures}
+    expected = {stage.value for stage in da._ParseModuleStage}
+    assert seen == expected
+
+
+def test_parse_witness_contract_violations_detect_nullable_signature() -> None:
+    da = _load()
+    source = (
+        "def _build_call_graph(*, parse_failure_witnesses: list[dict] | None = None):\n"
+        "    return {}\n"
+    )
+    violations = da._parse_witness_contract_violations(
+        source=source,
+        source_path=Path("virtual_dataflow_audit.py"),
+        target_helpers=frozenset({"_build_call_graph"}),
+    )
+    assert violations == [
+        "virtual_dataflow_audit.py:_build_call_graph parse_sink_contract parse_failure_witnesses must be total list[JSONObject]",
+        "virtual_dataflow_audit.py:_build_call_graph parse_sink_contract parse_failure_witnesses must not default to None",
+    ]
+
+
 def test_lint_rows_materialize_and_project_from_forest() -> None:
     da = _load()
     forest = da.Forest()
