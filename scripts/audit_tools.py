@@ -3767,7 +3767,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--compliance-md",
         type=Path,
-        default=Path("out/docflow_compliance.md"),
+        default=Path("artifacts/audit_reports/docflow_compliance.md"),
         help="Output path for docflow compliance markdown.",
     )
     parser.add_argument(
@@ -3779,7 +3779,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--canonicality-md",
         type=Path,
-        default=Path("artifacts/out/docflow_canonicality.md"),
+        default=Path("artifacts/audit_reports/docflow_canonicality.md"),
         help="Output path for docflow canonicality markdown.",
     )
     parser.add_argument(
@@ -3791,7 +3791,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--cycles-md",
         type=Path,
-        default=Path("out/docflow_cycles.md"),
+        default=Path("artifacts/audit_reports/docflow_cycles.md"),
         help="Output path for docflow dependency cycle markdown.",
     )
     parser.add_argument(
@@ -3803,7 +3803,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--change-protocol-md",
         type=Path,
-        default=Path("artifacts/out/docflow_change_protocol.md"),
+        default=Path("artifacts/audit_reports/docflow_change_protocol.md"),
         help="Output path for docflow change-protocol markdown.",
     )
     parser.add_argument(
@@ -3815,7 +3815,7 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--section-reviews-md",
         type=Path,
-        default=Path("out/docflow_section_reviews.md"),
+        default=Path("artifacts/audit_reports/docflow_section_reviews.md"),
         help="Output path for docflow anchor review markdown.",
     )
     parser.set_defaults(func=_docflow_command)
