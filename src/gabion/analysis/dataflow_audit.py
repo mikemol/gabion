@@ -138,6 +138,21 @@ class _ParseModuleStage(StrEnum):
     DATACLASS_CALL_BUNDLES = "dataclass_call_bundles"
 
 
+@dataclass(frozen=True)
+class _ExecutionPatternMatch:
+    pattern_id: str
+    kind: str
+    members: tuple[str, ...]
+    suggestion: str
+
+
+@dataclass(frozen=True)
+class _ExecutionPatternRule:
+    pattern_id: str
+    kind: str
+    description: str
+
+
 @dataclass
 class ParamUse:
     direct_forward: set[tuple[str, str]]
@@ -1481,6 +1496,115 @@ def _parse_witness_contract_violations(
                 f"{module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must not default to None"
             )
     return violations
+
+
+_INDEXED_PASS_INGRESS_RULE = _ExecutionPatternRule(
+    pattern_id="indexed_pass_ingress",
+    kind="execution_pattern",
+    description=(
+        "Functions sharing the indexed-pass ingress contract should be reified "
+        "behind a typed pass metafactory."
+    ),
+)
+_INDEXED_PASS_INGRESS_CORE_PARAMS = frozenset(
+    {
+        "paths",
+        "project_root",
+        "ignore_params",
+        "strictness",
+        "external_filter",
+        "transparent_decorators",
+        "parse_failure_witnesses",
+        "analysis_index",
+    }
+)
+_EXECUTION_PATTERN_RULES: tuple[_ExecutionPatternRule, ...] = (
+    _INDEXED_PASS_INGRESS_RULE,
+)
+
+
+def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
+    params: list[str] = []
+    params.extend(arg.arg for arg in node.args.posonlyargs)
+    params.extend(arg.arg for arg in node.args.args)
+    params.extend(arg.arg for arg in node.args.kwonlyargs)
+    return tuple(params)
+
+
+def _calls_function_name(node: ast.FunctionDef, target: str) -> bool:
+    check_deadline()
+    for child in ast.walk(node):
+        check_deadline()
+        if not isinstance(child, ast.Call):
+            continue
+        if isinstance(child.func, ast.Name) and child.func.id == target:
+            return True
+    return False
+
+
+def _detect_execution_pattern_matches(
+    *,
+    source: str | None = None,
+    source_path: Path | None = None,
+) -> list[_ExecutionPatternMatch]:
+    module_path = source_path or Path(__file__)
+    if source is None:
+        try:
+            source = module_path.read_text()
+        except OSError:
+            return []
+    try:
+        tree = ast.parse(source)
+    except _PARSE_MODULE_ERROR_TYPES:
+        return []
+    matches: list[_ExecutionPatternMatch] = []
+    indexed_members: list[str] = []
+    for node in tree.body:
+        check_deadline()
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        param_names = _function_param_names(node)
+        if not _INDEXED_PASS_INGRESS_CORE_PARAMS.issubset(set(param_names)):
+            continue
+        if not (
+            _calls_function_name(node, "_build_analysis_index")
+            or _calls_function_name(node, "_build_call_graph")
+        ):
+            continue
+        indexed_members.append(node.name)
+    if len(indexed_members) >= 3:
+        members = tuple(sorted(indexed_members))
+        matches.append(
+            _ExecutionPatternMatch(
+                pattern_id=_INDEXED_PASS_INGRESS_RULE.pattern_id,
+                kind=_INDEXED_PASS_INGRESS_RULE.kind,
+                members=members,
+                suggestion=(
+                    f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(members)} "
+                    + ", ".join(members[:8])
+                    + (" ..." if len(members) > 8 else "")
+                    + "; candidate=IndexedPassSpec[T] metafactory"
+                ),
+            )
+        )
+    return matches
+
+
+def _execution_pattern_suggestions(
+    *,
+    source: str | None = None,
+    source_path: Path | None = None,
+) -> list[str]:
+    suggestions: list[str] = []
+    for match in _detect_execution_pattern_matches(
+        source=source,
+        source_path=source_path,
+    ):
+        check_deadline()
+        suggestions.append(
+            f"{match.kind} {match.suggestion}"
+        )
+    return sorted(set(suggestions))
 
 
 def _parse_module_tree(
@@ -10039,6 +10163,14 @@ def _emit_report(
         lines.extend(_projected("parse_witness_contract_violations", contract_violations))
         lines.append("```")
         violations.extend(contract_violations)
+    execution_pattern_suggestions = _execution_pattern_suggestions()
+    if execution_pattern_suggestions:
+        lines.append("Execution pattern opportunities:")
+        lines.append("```")
+        lines.extend(
+            _projected("execution_pattern_suggestions", execution_pattern_suggestions)
+        )
+        lines.append("```")
     if decision_surfaces:
         lines.append("Decision surface candidates (direct param use in conditionals):")
         lines.append("```")
