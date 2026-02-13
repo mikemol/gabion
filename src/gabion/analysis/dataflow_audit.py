@@ -100,6 +100,22 @@ from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
 from gabion.synthesis.schedule import topological_schedule
 
+
+_AST_UNPARSE_ERROR_TYPES = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    RecursionError,
+)
+_LITERAL_EVAL_ERROR_TYPES = (
+    SyntaxError,
+    ValueError,
+    TypeError,
+    MemoryError,
+    RecursionError,
+)
+
+
 @dataclass
 class ParamUse:
     direct_forward: set[tuple[str, str]]
@@ -1262,7 +1278,7 @@ def _param_annotations(
         else:
             try:
                 annots[name] = ast.unparse(arg.annotation)
-            except Exception:
+            except _AST_UNPARSE_ERROR_TYPES:
                 annots[name] = None
     if fn.args.vararg:
         vararg = fn.args.vararg
@@ -1271,7 +1287,7 @@ def _param_annotations(
         else:
             try:
                 annots[vararg.arg] = ast.unparse(vararg.annotation)
-            except Exception:  # pragma: no cover - defensive against malformed AST nodes
+            except _AST_UNPARSE_ERROR_TYPES:  # pragma: no cover - defensive against malformed AST nodes
                 annots[vararg.arg] = None  # pragma: no cover
     if fn.args.kwarg:
         kwarg = fn.args.kwarg
@@ -1280,7 +1296,7 @@ def _param_annotations(
         else:
             try:
                 annots[kwarg.arg] = ast.unparse(kwarg.annotation)
-            except Exception:  # pragma: no cover - defensive against malformed AST nodes
+            except _AST_UNPARSE_ERROR_TYPES:  # pragma: no cover - defensive against malformed AST nodes
                 annots[kwarg.arg] = None  # pragma: no cover
     if names and names[0] in {"self", "cls"}:
         annots.pop(names[0], None)
@@ -6581,13 +6597,13 @@ def _const_repr(node: ast.AST) -> str | None:
     ) and isinstance(node.operand, ast.Constant):
         try:
             return ast.unparse(node)
-        except Exception:
+        except _AST_UNPARSE_ERROR_TYPES:
             return None
     if isinstance(node, ast.Attribute):
         if node.attr.isupper():
             try:
                 return ast.unparse(node)
-            except Exception:
+            except _AST_UNPARSE_ERROR_TYPES:
                 return None
         return None
     return None
@@ -6596,7 +6612,7 @@ def _const_repr(node: ast.AST) -> str | None:
 def _type_from_const_repr(value: str) -> str | None:
     try:
         literal = ast.literal_eval(value)
-    except Exception:
+    except _LITERAL_EVAL_ERROR_TYPES:
         return None
     if literal is None:
         return "None"
@@ -8760,7 +8776,7 @@ def _iter_documented_bundles(path: Path) -> set[tuple[str, ...]]:
     bundles: set[tuple[str, ...]] = set()
     try:
         text = path.read_text()
-    except Exception:
+    except (OSError, UnicodeError):
         return bundles
     for line in text.splitlines():
         check_deadline()

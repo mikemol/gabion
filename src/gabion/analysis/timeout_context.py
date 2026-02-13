@@ -13,6 +13,7 @@ from typing import Callable, Iterable, Mapping
 from contextvars import ContextVar, Token
 
 from gabion.analysis.aspf import Forest
+from gabion.exceptions import NeverThrown
 from gabion.invariants import never
 from gabion.json_types import JSONValue
 
@@ -228,7 +229,7 @@ def _profile_site_key(
         return _frame_site_key(frame, project_root=None)
     try:
         return _frame_site_key(frame, project_root=project_root)
-    except Exception:
+    except NeverThrown:
         _, qual = _frame_site_key(frame, project_root=None)
         return ("<external>", qual)
 
