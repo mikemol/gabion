@@ -145,6 +145,7 @@ def test_emit_report_includes_value_rewrites(tmp_path: Path) -> None:
         groups_by_path=groups_by_path,
         file_paths=[path],
         project_root=tmp_path,
+        parse_failure_witnesses=[],
     )
     report, _ = da._emit_report(
         groups_by_path,
@@ -216,6 +217,7 @@ def test_emit_report_includes_decision_surfaces(tmp_path: Path) -> None:
         groups_by_path=groups_by_path,
         file_paths=[path],
         project_root=tmp_path,
+        parse_failure_witnesses=[],
     )
     report, _ = da._emit_report(
         groups_by_path,

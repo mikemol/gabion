@@ -25,6 +25,7 @@ def _forest_for_groups(
         groups_by_path=groups_by_path,
         file_paths=sorted(groups_by_path),
         project_root=project_root,
+        parse_failure_witnesses=[],
     )
     return forest
 

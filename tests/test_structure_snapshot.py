@@ -33,6 +33,7 @@ def test_render_structure_snapshot_orders_entries(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
     snapshot = da.render_structure_snapshot(
         groups_by_path,
@@ -69,6 +70,7 @@ def test_render_structure_snapshot_handles_outside_root(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
     snapshot = da.render_structure_snapshot(
         groups_by_path,

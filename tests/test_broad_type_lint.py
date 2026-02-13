@@ -184,5 +184,6 @@ def test_internal_broad_type_skips_tests(tmp_path: Path) -> None:
             ignore_params=set(),
             strictness="high",
             external_filter=True,
+            parse_failure_witnesses=[],
         )
     assert lines == []

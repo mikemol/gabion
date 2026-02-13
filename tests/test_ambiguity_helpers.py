@@ -42,6 +42,7 @@ def test_collect_call_ambiguities_skips_test_calls(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         external_filter=False,
+        parse_failure_witnesses=[],
     )
     assert ambiguities == []
 
@@ -71,6 +72,7 @@ def test_collect_call_ambiguities_skips_test_calls_in_tests_dir(
         ignore_params=set(),
         strictness="high",
         external_filter=False,
+        parse_failure_witnesses=[],
     )
     assert ambiguities == []
 

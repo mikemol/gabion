@@ -577,6 +577,7 @@ def test_populate_bundle_forest_dedupes(tmp_path: Path) -> None:
         groups_by_path=groups_by_path,
         file_paths=[path],
         project_root=tmp_path,
+        parse_failure_witnesses=[],
     )
     assert any(alt.kind == "SignatureBundle" for alt in forest.alts)
 

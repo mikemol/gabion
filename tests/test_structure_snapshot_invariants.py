@@ -34,6 +34,7 @@ def test_structure_snapshot_includes_invariants(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
     snapshot = da.render_structure_snapshot(
         groups_by_path,

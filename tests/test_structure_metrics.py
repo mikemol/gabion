@@ -33,6 +33,7 @@ def test_compute_structure_metrics_counts(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=None,
+        parse_failure_witnesses=[],
     )
     metrics = da.compute_structure_metrics(groups_by_path, forest=forest)
     assert metrics["files"] == 2

@@ -605,6 +605,7 @@ def test_emit_report_tier2_violation(tmp_path: Path) -> None:
         groups_by_path=groups_by_path,
         file_paths=[target],
         project_root=tmp_path,
+        parse_failure_witnesses=[],
     )
     report, violations = da._emit_report(
         groups_by_path,
@@ -960,6 +961,7 @@ def test_populate_bundle_forest_skips_test_sites(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=set(),
+        parse_failure_witnesses=[],
     )
     assert all(node.kind != "FunctionSite" for node in forest.nodes.values())
 
@@ -977,6 +979,7 @@ def test_populate_bundle_forest_empty_groups(tmp_path: Path) -> None:
         ignore_params=set(),
         strictness="high",
         transparent_decorators=set(),
+        parse_failure_witnesses=[],
     )
     assert forest.nodes == {}
 

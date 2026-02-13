@@ -629,6 +629,7 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
         extra_facts_by_qual=extra_facts,
         extra_call_infos=extra_call_infos,
         extra_deadline_params=extra_deadline_params,
+        parse_failure_witnesses=[],
     )
     kinds = {entry.get("kind") for entry in obligations}
     assert "default_param" in kinds
@@ -716,6 +717,7 @@ def test_deadline_obligations_include_call_resolution_requirement(tmp_path: Path
         project_root=tmp_path,
         config=config,
         forest=forest,
+        parse_failure_witnesses=[],
     )
     hits = [entry for entry in obligations if entry.get("kind") == "call_resolution_required"]
     assert hits
@@ -773,6 +775,7 @@ def test_call_resolution_obligation_is_discharged_by_call_candidate(
         project_root=tmp_path,
         config=config,
         forest=forest,
+        parse_failure_witnesses=[],
     )
     assert not any(
         entry.get("kind") == "call_resolution_required" for entry in obligations
@@ -840,6 +843,7 @@ def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> 
         project_root=tmp_path,
         config=config,
         forest=forest,
+        parse_failure_witnesses=[],
     )
     call_candidate_targets = [
         forest.nodes[alt.inputs[1]]
@@ -1137,6 +1141,7 @@ def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> N
         forest=da.Forest(),
         extra_call_infos=extra_call_infos,
         extra_facts_by_qual=extra_facts,
+        parse_failure_witnesses=[],
     )
     _, by_qual = da._build_function_index(
         [target],
@@ -1226,6 +1231,7 @@ def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> Non
             forest=da.Forest(),
             extra_call_infos=extra_call_infos,
             extra_facts_by_qual=extra_facts,
+            parse_failure_witnesses=[],
         )
 
 
@@ -1258,6 +1264,7 @@ def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> Non
         project_root=tmp_path,
         config=config,
         forest=da.Forest(),
+        parse_failure_witnesses=[],
     )
     assert obligations is not None
 
@@ -1290,6 +1297,7 @@ def test_deadline_obligations_emit_suite_sites(tmp_path: Path) -> None:
         project_root=tmp_path,
         config=config,
         forest=forest,
+        parse_failure_witnesses=[],
     )
     assert obligations
     assert any(node.kind == "SuiteSite" for node in forest.nodes.values())
@@ -1323,6 +1331,7 @@ def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
         project_root=tmp_path,
         config=config,
         forest=da.Forest(),
+        parse_failure_witnesses=[],
     )
     assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
@@ -1353,6 +1362,7 @@ def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
         project_root=tmp_path,
         config=config,
         forest=da.Forest(),
+        parse_failure_witnesses=[],
     )
     assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
 
@@ -1385,6 +1395,7 @@ def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
         project_root=tmp_path,
         config=config,
         forest=da.Forest(),
+        parse_failure_witnesses=[],
     )
     assert not any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
@@ -1417,6 +1428,7 @@ def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
         project_root=tmp_path,
         config=config,
         forest=da.Forest(),
+        parse_failure_witnesses=[],
     )
     assert not any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
 
@@ -1448,6 +1460,7 @@ def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
         config=config,
         forest=da.Forest(),
         extra_facts_by_qual={"mod.recur": None},
+        parse_failure_witnesses=[],
     )
     assert obligations is not None
 
@@ -1486,6 +1499,7 @@ def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
         config=config,
         forest=da.Forest(),
         extra_facts_by_qual=facts,
+        parse_failure_witnesses=[],
     )
     assert obligations is not None
 
@@ -1518,5 +1532,6 @@ def test_deadline_loop_requires_check_in_body(tmp_path: Path) -> None:
         project_root=tmp_path,
         config=config,
         forest=da.Forest(),
+        parse_failure_witnesses=[],
     )
     assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
