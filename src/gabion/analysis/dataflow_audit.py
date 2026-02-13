@@ -915,33 +915,23 @@ def _value_encoded_decision_params(
     return flagged, reasons
 
 
-def analyze_decision_surfaces_repo(
-    paths: list[Path],
+def _analyze_decision_surfaces_indexed(
+    context: _IndexedPassContext,
     *,
-    project_root: Path | None,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    decision_tiers: dict[str, int] | None = None,
-    require_tiers: bool = False,
+    decision_tiers: dict[str, int] | None,
+    require_tiers: bool,
     forest: Forest,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    by_name, by_qual, transitive_callers = _build_call_graph(
-        paths,
-        project_root=project_root,
-        ignore_params=ignore_params,
-        strictness=strictness,
-        external_filter=external_filter,
-        transparent_decorators=transparent_decorators,
-        parse_failure_witnesses=parse_failure_witnesses,
-        analysis_index=analysis_index,
+    _, by_qual, transitive_callers = _build_call_graph(
+        context.paths,
+        project_root=context.project_root,
+        ignore_params=context.ignore_params,
+        strictness=context.strictness,
+        external_filter=context.external_filter,
+        transparent_decorators=context.transparent_decorators,
+        parse_failure_witnesses=context.parse_failure_witnesses,
+        analysis_index=context.analysis_index,
     )
-
     surfaces: list[str] = []
     warnings: list[str] = []
     lint_lines: list[str] = []
@@ -980,13 +970,13 @@ def analyze_decision_surfaces_repo(
                 info,
                 param,
                 tier_map=tier_map,
-                project_root=project_root,
+                project_root=context.project_root,
             )
             if caller_count == 0 and tier is None:
                 lint = _decision_param_lint_line(
                     info,
                     param,
-                    project_root=project_root,
+                    project_root=context.project_root,
                     code="GABION_DECISION_SURFACE",
                     message=f"decision surface param '{param}' ({boundary})",
                 )
@@ -1003,7 +993,7 @@ def analyze_decision_surfaces_repo(
                     lint = _decision_param_lint_line(
                         info,
                         param,
-                        project_root=project_root,
+                        project_root=context.project_root,
                         code="GABION_DECISION_TIER",
                         message=message,
                     )
@@ -1018,7 +1008,7 @@ def analyze_decision_surfaces_repo(
                 lint = _decision_param_lint_line(
                     info,
                     param,
-                    project_root=project_root,
+                    project_root=context.project_root,
                     code="GABION_DECISION_TIER",
                     message=message,
                 )
@@ -1027,7 +1017,7 @@ def analyze_decision_surfaces_repo(
     return sorted(surfaces), sorted(set(warnings)), sorted(set(lint_lines))
 
 
-def analyze_value_encoded_decisions_repo(
+def analyze_decision_surfaces_repo(
     paths: list[Path],
     *,
     project_root: Path | None,
@@ -1040,10 +1030,8 @@ def analyze_value_encoded_decisions_repo(
     forest: Forest,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
-) -> tuple[list[str], list[str], list[str], list[str]]:
-    check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    by_name, by_qual, transitive_callers = _build_call_graph(
+) -> tuple[list[str], list[str], list[str]]:
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -1052,6 +1040,34 @@ def analyze_value_encoded_decisions_repo(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="decision_surfaces",
+            run=lambda context: _analyze_decision_surfaces_indexed(
+                context,
+                decision_tiers=decision_tiers,
+                require_tiers=require_tiers,
+                forest=forest,
+            ),
+        ),
+    )
+
+
+def _analyze_value_encoded_decisions_indexed(
+    context: _IndexedPassContext,
+    *,
+    decision_tiers: dict[str, int] | None,
+    require_tiers: bool,
+    forest: Forest,
+) -> tuple[list[str], list[str], list[str], list[str]]:
+    _, by_qual, transitive_callers = _build_call_graph(
+        context.paths,
+        project_root=context.project_root,
+        ignore_params=context.ignore_params,
+        strictness=context.strictness,
+        external_filter=context.external_filter,
+        transparent_decorators=context.transparent_decorators,
+        parse_failure_witnesses=context.parse_failure_witnesses,
+        analysis_index=context.analysis_index,
     )
     surfaces: list[str] = []
     warnings: list[str] = []
@@ -1099,13 +1115,13 @@ def analyze_value_encoded_decisions_repo(
                 info,
                 param,
                 tier_map=tier_map,
-                project_root=project_root,
+                project_root=context.project_root,
             )
             if tier is None:
                 lint = _decision_param_lint_line(
                     info,
                     param,
-                    project_root=project_root,
+                    project_root=context.project_root,
                     code="GABION_VALUE_DECISION_SURFACE",
                     message=f"value-encoded decision param '{param}' ({boundary}; {reasons})",
                 )
@@ -1122,7 +1138,7 @@ def analyze_value_encoded_decisions_repo(
                     lint = _decision_param_lint_line(
                         info,
                         param,
-                        project_root=project_root,
+                        project_root=context.project_root,
                         code="GABION_VALUE_DECISION_TIER",
                         message=message,
                     )
@@ -1137,7 +1153,7 @@ def analyze_value_encoded_decisions_repo(
                 lint = _decision_param_lint_line(
                     info,
                     param,
-                    project_root=project_root,
+                    project_root=context.project_root,
                     code="GABION_VALUE_DECISION_TIER",
                     message=message,
                 )
@@ -1151,7 +1167,7 @@ def analyze_value_encoded_decisions_repo(
     )
 
 
-def _internal_broad_type_lint_lines(
+def analyze_value_encoded_decisions_repo(
     paths: list[Path],
     *,
     project_root: Path | None,
@@ -1159,10 +1175,13 @@ def _internal_broad_type_lint_lines(
     strictness: str,
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject],
+    decision_tiers: dict[str, int] | None = None,
+    require_tiers: bool = False,
+    forest: Forest,
+    parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
-) -> list[str]:
-    by_name, by_qual, transitive_callers = _build_call_graph(
+) -> tuple[list[str], list[str], list[str], list[str]]:
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -1171,6 +1190,30 @@ def _internal_broad_type_lint_lines(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="value_encoded_decisions",
+            run=lambda context: _analyze_value_encoded_decisions_indexed(
+                context,
+                decision_tiers=decision_tiers,
+                require_tiers=require_tiers,
+                forest=forest,
+            ),
+        ),
+    )
+
+
+def _internal_broad_type_lint_lines_indexed(
+    context: _IndexedPassContext,
+) -> list[str]:
+    _, by_qual, transitive_callers = _build_call_graph(
+        context.paths,
+        project_root=context.project_root,
+        ignore_params=context.ignore_params,
+        strictness=context.strictness,
+        external_filter=context.external_filter,
+        transparent_decorators=context.transparent_decorators,
+        parse_failure_witnesses=context.parse_failure_witnesses,
+        analysis_index=context.analysis_index,
     )
     lines: list[str] = []
     for info in by_qual.values():
@@ -1191,13 +1234,40 @@ def _internal_broad_type_lint_lines(
             lint = _decision_param_lint_line(
                 info,
                 param,
-                project_root=project_root,
+                project_root=context.project_root,
                 code="GABION_BROAD_TYPE",
                 message=message,
             )
             if lint is not None:
                 lines.append(lint)
     return sorted(set(lines))
+
+
+def _internal_broad_type_lint_lines(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
+) -> list[str]:
+    return _run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="internal_broad_type_lint_lines",
+            run=_internal_broad_type_lint_lines_indexed,
+        ),
+    )
 
 
 def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
@@ -5959,6 +6029,25 @@ class _ResolvedCallEdge:
 
 
 _StageCacheValue = TypeVar("_StageCacheValue")
+_IndexedPassResult = TypeVar("_IndexedPassResult")
+
+
+@dataclass(frozen=True)
+class _IndexedPassContext:
+    paths: list[Path]
+    project_root: Path | None
+    ignore_params: set[str]
+    strictness: str
+    external_filter: bool
+    transparent_decorators: set[str] | None
+    parse_failure_witnesses: list[JSONObject]
+    analysis_index: AnalysisIndex
+
+
+@dataclass(frozen=True)
+class _IndexedPassSpec(Generic[_IndexedPassResult]):
+    pass_id: str
+    run: Callable[[_IndexedPassContext], _IndexedPassResult]
 
 
 @dataclass(frozen=True)
@@ -6004,6 +6093,44 @@ def _build_analysis_index(
         symbol_table=symbol_table,
         class_index=class_index,
     )
+
+
+def _run_indexed_pass(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
+    spec: _IndexedPassSpec[_IndexedPassResult],
+) -> _IndexedPassResult:
+    check_deadline()
+    sink = _parse_failure_sink(parse_failure_witnesses)
+    index = analysis_index
+    if index is None:
+        index = _build_analysis_index(
+            paths,
+            project_root=project_root,
+            ignore_params=ignore_params,
+            strictness=strictness,
+            external_filter=external_filter,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=sink,
+        )
+    context = _IndexedPassContext(
+        paths=paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=sink,
+        analysis_index=index,
+    )
+    return spec.run(context)
 
 
 def _analysis_index_module_trees(
@@ -6196,29 +6323,9 @@ def _build_call_graph(
     return index.by_name, index.by_qual, transitive_callers
 
 
-def _collect_call_ambiguities(
-    paths: list[Path],
-    *,
-    project_root: Path | None,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject],
-    analysis_index: AnalysisIndex | None = None,
+def _collect_call_ambiguities_indexed(
+    context: _IndexedPassContext,
 ) -> list[CallAmbiguity]:
-    check_deadline()
-    index = analysis_index
-    if index is None:
-        index = _build_analysis_index(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
     ambiguities: list[CallAmbiguity] = []
 
     def _sink(
@@ -6240,7 +6347,7 @@ def _collect_call_ambiguities(
             )
         )
 
-    for infos in index.by_name.values():
+    for infos in context.analysis_index.by_name.values():
         check_deadline()
         for info in infos:
             check_deadline()
@@ -6251,15 +6358,42 @@ def _collect_call_ambiguities(
                 _resolve_callee(
                     call.callee,
                     info,
-                    index.by_name,
-                    index.by_qual,
-                    index.symbol_table,
-                    project_root,
-                    index.class_index,
+                    context.analysis_index.by_name,
+                    context.analysis_index.by_qual,
+                    context.analysis_index.symbol_table,
+                    context.project_root,
+                    context.analysis_index.class_index,
                     call=call,
                     ambiguity_sink=_sink,
                 )
     return _dedupe_call_ambiguities(ambiguities)
+
+
+def _collect_call_ambiguities(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
+) -> list[CallAmbiguity]:
+    return _run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="collect_call_ambiguities",
+            run=_collect_call_ambiguities_indexed,
+        ),
+    )
 
 
 def _dedupe_call_ambiguities(
@@ -8511,8 +8645,7 @@ def analyze_type_flow_repo_with_map(
     analysis_index: AnalysisIndex | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    inferred, suggestions, ambiguities, _ = _infer_type_flow(
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -8521,8 +8654,20 @@ def analyze_type_flow_repo_with_map(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="type_flow_with_map",
+            run=lambda context: _infer_type_flow(
+                context.paths,
+                project_root=context.project_root,
+                ignore_params=context.ignore_params,
+                strictness=context.strictness,
+                external_filter=context.external_filter,
+                transparent_decorators=context.transparent_decorators,
+                parse_failure_witnesses=context.parse_failure_witnesses,
+                analysis_index=context.analysis_index,
+            )[:3],
+        ),
     )
-    return inferred, suggestions, ambiguities
 
 
 def analyze_type_flow_repo_with_evidence(
@@ -8537,19 +8682,30 @@ def analyze_type_flow_repo_with_evidence(
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    _, suggestions, ambiguities, evidence = _infer_type_flow(
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
         strictness=strictness,
         external_filter=external_filter,
         transparent_decorators=transparent_decorators,
-        max_sites_per_param=max_sites_per_param,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="type_flow_with_evidence",
+            run=lambda context: _infer_type_flow(
+                context.paths,
+                project_root=context.project_root,
+                ignore_params=context.ignore_params,
+                strictness=context.strictness,
+                external_filter=context.external_filter,
+                transparent_decorators=context.transparent_decorators,
+                max_sites_per_param=max_sites_per_param,
+                parse_failure_witnesses=context.parse_failure_witnesses,
+                analysis_index=context.analysis_index,
+            )[1:],
+        ),
     )
-    return suggestions, ambiguities, evidence
 
 
 def analyze_type_flow_repo(
@@ -8588,9 +8744,7 @@ def analyze_constant_flow_repo(
     analysis_index: AnalysisIndex | None = None,
 ) -> list[str]:
     """Detect parameters that only receive a single constant value (non-test)."""
-    check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    details = _collect_constant_flow_details(
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -8599,8 +8753,22 @@ def analyze_constant_flow_repo(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="constant_flow",
+            run=lambda context: _constant_smells_from_details(
+                _collect_constant_flow_details(
+                    context.paths,
+                    project_root=context.project_root,
+                    ignore_params=context.ignore_params,
+                    strictness=context.strictness,
+                    external_filter=context.external_filter,
+                    transparent_decorators=context.transparent_decorators,
+                    parse_failure_witnesses=context.parse_failure_witnesses,
+                    analysis_index=context.analysis_index,
+                )
+            ),
+        ),
     )
-    return _constant_smells_from_details(details)
 
 
 @dataclass(frozen=True)
@@ -8865,9 +9033,7 @@ def analyze_deadness_flow_repo(
     analysis_index: AnalysisIndex | None = None,
 ) -> list[JSONObject]:
     """Emit deadness witnesses based on constant-only parameter flows."""
-    check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    details = _collect_constant_flow_details(
+    return _run_indexed_pass(
         paths,
         project_root=project_root,
         ignore_params=ignore_params,
@@ -8876,10 +9042,22 @@ def analyze_deadness_flow_repo(
         transparent_decorators=transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=analysis_index,
-    )
-    return _deadness_witnesses_from_constant_details(
-        details,
-        project_root=project_root,
+        spec=_IndexedPassSpec(
+            pass_id="deadness_flow",
+            run=lambda context: _deadness_witnesses_from_constant_details(
+                _collect_constant_flow_details(
+                    context.paths,
+                    project_root=context.project_root,
+                    ignore_params=context.ignore_params,
+                    strictness=context.strictness,
+                    external_filter=context.external_filter,
+                    transparent_decorators=context.transparent_decorators,
+                    parse_failure_witnesses=context.parse_failure_witnesses,
+                    analysis_index=context.analysis_index,
+                ),
+                project_root=context.project_root,
+            ),
+        ),
     )
 
 
@@ -9023,34 +9201,12 @@ def _compute_knob_param_names(
     return knob_names
 
 
-def analyze_unused_arg_flow_repo(
-    paths: list[Path],
-    *,
-    project_root: Path | None,
-    ignore_params: set[str],
-    strictness: str,
-    external_filter: bool,
-    transparent_decorators: set[str] | None = None,
-    parse_failure_witnesses: list[JSONObject] | None = None,
-    analysis_index: AnalysisIndex | None = None,
+def _analyze_unused_arg_flow_indexed(
+    context: _IndexedPassContext,
 ) -> list[str]:
-    """Detect non-constant arguments passed into unused callee parameters."""
-    check_deadline()
-    parse_failure_witnesses = _parse_failure_sink(parse_failure_witnesses)
-    index = analysis_index
-    if index is None:
-        index = _build_analysis_index(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
     resolved_edges = _analysis_index_resolved_call_edges(
-        index,
-        project_root=project_root,
+        context.analysis_index,
+        project_root=context.project_root,
         require_transparent=True,
     )
     smells: set[str] = set()
@@ -9158,7 +9314,7 @@ def analyze_unused_arg_flow_repo(
                         call=call,
                     )
                 )
-        if strictness == "low":
+        if context.strictness == "low":
             if len(call.star_pos) == 1:
                 for idx, param in remaining:
                     check_deadline()
@@ -9186,6 +9342,34 @@ def analyze_unused_arg_flow_repo(
                             )
                         )
     return sorted(smells)
+
+
+def analyze_unused_arg_flow_repo(
+    paths: list[Path],
+    *,
+    project_root: Path | None,
+    ignore_params: set[str],
+    strictness: str,
+    external_filter: bool,
+    transparent_decorators: set[str] | None = None,
+    parse_failure_witnesses: list[JSONObject] | None = None,
+    analysis_index: AnalysisIndex | None = None,
+) -> list[str]:
+    """Detect non-constant arguments passed into unused callee parameters."""
+    return _run_indexed_pass(
+        paths,
+        project_root=project_root,
+        ignore_params=ignore_params,
+        strictness=strictness,
+        external_filter=external_filter,
+        transparent_decorators=transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+        spec=_IndexedPassSpec(
+            pass_id="unused_arg_flow",
+            run=_analyze_unused_arg_flow_indexed,
+        ),
+    )
 
 
 def _iter_config_fields(
