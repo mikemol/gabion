@@ -229,6 +229,79 @@ def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
     assert any("GABION_VALUE_DECISION_SURFACE" in line for line in lint_lines)
 
 
+def test_decision_surface_metafactory_parity(tmp_path: Path) -> None:
+    da = _load()
+    module_path = tmp_path / "module.py"
+    _write(
+        module_path,
+        "def direct(a):\n"
+        "    if a:\n"
+        "        return 1\n"
+        "    return 0\n"
+        "\n"
+        "def value(flag):\n"
+        "    return (flag == 1) * 2\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=parse_failures,
+    )
+    context = da._IndexedPassContext(
+        paths=[module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    direct_helper = da._analyze_decision_surface_indexed(
+        context,
+        spec=da._DIRECT_DECISION_SURFACE_SPEC,
+        decision_tiers=None,
+        require_tiers=False,
+        forest=da.Forest(),
+    )
+    value_helper = da._analyze_decision_surface_indexed(
+        context,
+        spec=da._VALUE_DECISION_SURFACE_SPEC,
+        decision_tiers=None,
+        require_tiers=False,
+        forest=da.Forest(),
+    )
+    assert direct_helper[2] == []
+    assert value_helper[2]
+
+    direct_repo = da.analyze_decision_surfaces_repo(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        forest=da.Forest(),
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    value_repo = da.analyze_value_encoded_decisions_repo(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        forest=da.Forest(),
+        parse_failure_witnesses=parse_failures,
+        analysis_index=analysis_index,
+    )
+    assert direct_repo == (direct_helper[0], direct_helper[1], direct_helper[3])
+    assert value_repo == value_helper
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_annotations::fn,ignore_params
 def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:
     da = _load()
