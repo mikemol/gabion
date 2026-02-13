@@ -5733,6 +5733,16 @@ class AnalysisIndex:
     symbol_table: SymbolTable
     class_index: dict[str, ClassInfo]
     transitive_callers: dict[str, set[str]] | None = None
+    resolved_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
+    resolved_transparent_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
+    resolved_transparent_edges_by_caller: dict[str, tuple["_ResolvedCallEdge", ...]] | None = None
+
+
+@dataclass(frozen=True)
+class _ResolvedCallEdge:
+    caller: FunctionInfo
+    call: CallArgs
+    callee: FunctionInfo
 
 
 def _build_analysis_index(
@@ -5782,6 +5792,34 @@ def _analysis_index_transitive_callers(
     if analysis_index.transitive_callers is not None:
         return analysis_index.transitive_callers
     callers_by_qual: dict[str, set[str]] = defaultdict(set)
+    for edge in _analysis_index_resolved_call_edges(
+        analysis_index,
+        project_root=project_root,
+        require_transparent=False,
+    ):
+        check_deadline()
+        callers_by_qual[edge.callee.qual].add(edge.caller.qual)
+    analysis_index.transitive_callers = _collect_transitive_callers(
+        callers_by_qual,
+        analysis_index.by_qual,
+    )
+    return analysis_index.transitive_callers
+
+
+def _analysis_index_resolved_call_edges(
+    analysis_index: AnalysisIndex,
+    *,
+    project_root: Path | None,
+    require_transparent: bool,
+) -> tuple[_ResolvedCallEdge, ...]:
+    check_deadline()
+    if require_transparent:
+        cached_edges = analysis_index.resolved_transparent_call_edges
+    else:
+        cached_edges = analysis_index.resolved_call_edges
+    if cached_edges is not None:
+        return cached_edges
+    edges: list[_ResolvedCallEdge] = []
     for infos in analysis_index.by_name.values():
         check_deadline()
         for info in infos:
@@ -5801,12 +5839,38 @@ def _analysis_index_transitive_callers(
                 )
                 if callee is None:
                     continue
-                callers_by_qual[callee.qual].add(info.qual)
-    analysis_index.transitive_callers = _collect_transitive_callers(
-        callers_by_qual,
-        analysis_index.by_qual,
-    )
-    return analysis_index.transitive_callers
+                if require_transparent and not callee.transparent:
+                    continue
+                edges.append(_ResolvedCallEdge(caller=info, call=call, callee=callee))
+    frozen_edges = tuple(edges)
+    if require_transparent:
+        analysis_index.resolved_transparent_call_edges = frozen_edges
+    else:
+        analysis_index.resolved_call_edges = frozen_edges
+    return frozen_edges
+
+
+def _analysis_index_resolved_call_edges_by_caller(
+    analysis_index: AnalysisIndex,
+    *,
+    project_root: Path | None,
+    require_transparent: bool,
+) -> dict[str, tuple[_ResolvedCallEdge, ...]]:
+    check_deadline()
+    if require_transparent and analysis_index.resolved_transparent_edges_by_caller is not None:
+        return analysis_index.resolved_transparent_edges_by_caller
+    grouped: dict[str, list[_ResolvedCallEdge]] = defaultdict(list)
+    for edge in _analysis_index_resolved_call_edges(
+        analysis_index,
+        project_root=project_root,
+        require_transparent=require_transparent,
+    ):
+        check_deadline()
+        grouped[edge.caller.qual].append(edge)
+    frozen_grouped = {qual: tuple(edges) for qual, edges in grouped.items()}
+    if require_transparent:
+        analysis_index.resolved_transparent_edges_by_caller = frozen_grouped
+    return frozen_grouped
 
 
 def _build_call_graph(
@@ -8027,8 +8091,11 @@ def _infer_type_flow(
         )
     by_name = index.by_name
     by_qual = index.by_qual
-    symbol_table = index.symbol_table
-    class_index = index.class_index
+    resolved_edges_by_caller = _analysis_index_resolved_call_edges_by_caller(
+        index,
+        project_root=project_root,
+        require_transparent=True,
+    )
     inferred: dict[str, dict[str, str | None]] = {}
     for infos in by_name.values():
         check_deadline()
@@ -8043,19 +8110,10 @@ def _infer_type_flow(
         check_deadline()
         downstream: dict[str, set[str]] = defaultdict(set)
         sites: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
-        for call in info.calls:
+        for edge in resolved_edges_by_caller.get(info.qual, ()):
             check_deadline()
-            callee = _resolve_callee(
-                call.callee,
-                info,
-                by_name,
-                by_qual,
-                symbol_table,
-                project_root,
-                class_index,
-            )
-            if callee is None or not callee.transparent:
-                continue
+            callee = edge.callee
+            call = edge.call
             pos_params = (
                 list(callee.positional_params)
                 if callee.positional_params
@@ -8347,10 +8405,12 @@ def _collect_constant_flow_details(
             transparent_decorators=transparent_decorators,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-    by_name = index.by_name
     by_qual = index.by_qual
-    symbol_table = index.symbol_table
-    class_index = index.class_index
+    resolved_edges = _analysis_index_resolved_call_edges(
+        index,
+        project_root=project_root,
+        require_transparent=True,
+    )
     const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
     non_const: dict[tuple[str, str], bool] = defaultdict(bool)
     call_counts: dict[tuple[str, str], int] = defaultdict(int)
@@ -8359,117 +8419,101 @@ def _collect_constant_flow_details(
     def _record_site(key: tuple[str, str], caller: FunctionInfo, call: CallArgs) -> None:
         call_sites[key].add(_format_call_site(caller, call))
 
-    for infos in by_name.values():
+    for edge in resolved_edges:
         check_deadline()
-        for info in infos:
+        info = edge.caller
+        call = edge.call
+        callee = edge.callee
+        pos_params = (
+            list(callee.positional_params)
+            if callee.positional_params
+            else list(callee.params)
+        )
+        kwonly_params = set(callee.kwonly_params or ())
+        named_params = set(pos_params) | kwonly_params
+        mapped_params = set()
+        for idx_str in call.pos_map:
             check_deadline()
-            for call in info.calls:
-                check_deadline()
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
-                )
-                if callee is None:
-                    continue
-                if not callee.transparent:
-                    continue
-                pos_params = (
-                    list(callee.positional_params)
-                    if callee.positional_params
-                    else list(callee.params)
-                )
-                kwonly_params = set(callee.kwonly_params or ())
-                named_params = set(pos_params) | kwonly_params
-                mapped_params = set()
-                for idx_str in call.pos_map:
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx < len(pos_params):
-                        mapped_params.add(pos_params[idx])
-                    elif callee.vararg is not None:
-                        mapped_params.add(callee.vararg)
-                for kw in call.kw_map:
-                    check_deadline()
-                    if kw in named_params:
-                        mapped_params.add(kw)
-                remaining = [p for p in named_params if p not in mapped_params]
+            idx = int(idx_str)
+            if idx < len(pos_params):
+                mapped_params.add(pos_params[idx])
+            elif callee.vararg is not None:
+                mapped_params.add(callee.vararg)
+        for kw in call.kw_map:
+            check_deadline()
+            if kw in named_params:
+                mapped_params.add(kw)
+        remaining = [p for p in named_params if p not in mapped_params]
 
-                for idx_str, value in call.const_pos.items():
+        for idx_str, value in call.const_pos.items():
+            check_deadline()
+            idx = int(idx_str)
+            if idx < len(pos_params):
+                key = (callee.qual, pos_params[idx])
+                const_values[key].add(value)
+                call_counts[key] += 1
+                _record_site(key, info, call)
+            elif callee.vararg is not None:
+                non_const[(callee.qual, callee.vararg)] = True
+        for idx_str in call.pos_map:
+            check_deadline()
+            idx = int(idx_str)
+            if idx < len(pos_params):
+                key = (callee.qual, pos_params[idx])
+                non_const[key] = True
+                call_counts[key] += 1
+            elif callee.vararg is not None:
+                non_const[(callee.qual, callee.vararg)] = True
+        for idx_str in call.non_const_pos:
+            check_deadline()
+            idx = int(idx_str)
+            if idx < len(pos_params):
+                key = (callee.qual, pos_params[idx])
+                non_const[key] = True
+                call_counts[key] += 1
+            elif callee.vararg is not None:
+                non_const[(callee.qual, callee.vararg)] = True
+        if strictness == "low":
+            if len(call.star_pos) == 1:
+                for param in remaining:
                     check_deadline()
-                    idx = int(idx_str)
-                    if idx < len(pos_params):
-                        key = (callee.qual, pos_params[idx])
-                        const_values[key].add(value)
-                        call_counts[key] += 1
-                        _record_site(key, info, call)
-                    elif callee.vararg is not None:
-                        non_const[(callee.qual, callee.vararg)] = True
-                for idx_str in call.pos_map:
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx < len(pos_params):
-                        key = (callee.qual, pos_params[idx])
-                        non_const[key] = True
-                        call_counts[key] += 1
-                    elif callee.vararg is not None:
-                        non_const[(callee.qual, callee.vararg)] = True
-                for idx_str in call.non_const_pos:
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx < len(pos_params):
-                        key = (callee.qual, pos_params[idx])
-                        non_const[key] = True
-                        call_counts[key] += 1
-                    elif callee.vararg is not None:
-                        non_const[(callee.qual, callee.vararg)] = True
-                if strictness == "low":
-                    if len(call.star_pos) == 1:
-                        for param in remaining:
-                            check_deadline()
-                            key = (callee.qual, param)
-                            non_const[key] = True
-                            call_counts[key] += 1
-                        if callee.vararg is not None:
-                            non_const[(callee.qual, callee.vararg)] = True
-
-                for kw, value in call.const_kw.items():
-                    check_deadline()
-                    if kw not in named_params:
-                        continue
-                    key = (callee.qual, kw)
-                    const_values[key].add(value)
-                    call_counts[key] += 1
-                    _record_site(key, info, call)
-                for kw in call.kw_map:
-                    check_deadline()
-                    if kw not in named_params:
-                        continue
-                    key = (callee.qual, kw)
+                    key = (callee.qual, param)
                     non_const[key] = True
                     call_counts[key] += 1
-                for kw in call.non_const_kw:
+                if callee.vararg is not None:
+                    non_const[(callee.qual, callee.vararg)] = True
+
+        for kw, value in call.const_kw.items():
+            check_deadline()
+            if kw not in named_params:
+                continue
+            key = (callee.qual, kw)
+            const_values[key].add(value)
+            call_counts[key] += 1
+            _record_site(key, info, call)
+        for kw in call.kw_map:
+            check_deadline()
+            if kw not in named_params:
+                continue
+            key = (callee.qual, kw)
+            non_const[key] = True
+            call_counts[key] += 1
+        for kw in call.non_const_kw:
+            check_deadline()
+            if kw not in named_params:
+                continue
+            key = (callee.qual, kw)
+            non_const[key] = True
+            call_counts[key] += 1
+        if strictness == "low":
+            if len(call.star_kw) == 1:
+                for param in remaining:
                     check_deadline()
-                    if kw not in named_params:
-                        continue
-                    key = (callee.qual, kw)
+                    key = (callee.qual, param)
                     non_const[key] = True
                     call_counts[key] += 1
-                if strictness == "low":
-                    if len(call.star_kw) == 1:
-                        for param in remaining:
-                            check_deadline()
-                            key = (callee.qual, param)
-                            non_const[key] = True
-                            call_counts[key] += 1
-                        if callee.kwarg is not None:
-                            non_const[(callee.qual, callee.kwarg)] = True
+                if callee.kwarg is not None:
+                    non_const[(callee.qual, callee.kwarg)] = True
 
     details: list[ConstantFlowDetail] = []
     for key, values in const_values.items():
@@ -8572,121 +8616,120 @@ def _compute_knob_param_names(
     project_root: Path | None,
     class_index: dict[str, ClassInfo],
     strictness: str,
+    analysis_index: AnalysisIndex | None = None,
 ) -> set[str]:
     check_deadline()
+    index = analysis_index
+    if index is None:
+        index = AnalysisIndex(
+            by_name=by_name,
+            by_qual=by_qual,
+            symbol_table=symbol_table,
+            class_index=class_index,
+        )
+    resolved_edges = _analysis_index_resolved_call_edges(
+        index,
+        project_root=project_root,
+        require_transparent=True,
+    )
     const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
     non_const: dict[tuple[str, str], bool] = defaultdict(bool)
     explicit_passed: dict[tuple[str, str], bool] = defaultdict(bool)
     call_counts: dict[str, int] = defaultdict(int)
-    for infos in by_name.values():
+    for edge in resolved_edges:
         check_deadline()
-        for info in infos:
+        call = edge.call
+        callee = edge.callee
+        call_counts[callee.qual] += 1
+        pos_params = (
+            list(callee.positional_params)
+            if callee.positional_params
+            else list(callee.params)
+        )
+        kwonly_params = set(callee.kwonly_params or ())
+        named_params = set(pos_params) | kwonly_params
+        remaining = set(named_params)
+        if callee.vararg is not None:
+            remaining.add(callee.vararg)
+        if callee.kwarg is not None:
+            remaining.add(callee.kwarg)
+        for idx_str, value in call.const_pos.items():
             check_deadline()
-            for call in info.calls:
-                check_deadline()
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
-                )
-                if callee is None or not callee.transparent:
-                    continue
-                call_counts[callee.qual] += 1
-                pos_params = (
-                    list(callee.positional_params)
-                    if callee.positional_params
-                    else list(callee.params)
-                )
-                kwonly_params = set(callee.kwonly_params or ())
-                named_params = set(pos_params) | kwonly_params
-                remaining = set(named_params)
-                if callee.vararg is not None:
-                    remaining.add(callee.vararg)
-                if callee.kwarg is not None:
-                    remaining.add(callee.kwarg)
-                for idx_str, value in call.const_pos.items():
+            idx = int(idx_str)
+            if idx < len(pos_params):
+                param = pos_params[idx]
+                const_values[(callee.qual, param)].add(value)
+                explicit_passed[(callee.qual, param)] = True
+                remaining.discard(param)
+            elif callee.vararg is not None:
+                non_const[(callee.qual, callee.vararg)] = True
+                explicit_passed[(callee.qual, callee.vararg)] = True
+                remaining.discard(callee.vararg)
+        for idx_str in call.pos_map:
+            check_deadline()
+            idx = int(idx_str)
+            if idx < len(pos_params):
+                param = pos_params[idx]
+                non_const[(callee.qual, param)] = True
+                explicit_passed[(callee.qual, param)] = True
+                remaining.discard(param)
+            elif callee.vararg is not None:
+                non_const[(callee.qual, callee.vararg)] = True
+                explicit_passed[(callee.qual, callee.vararg)] = True
+                remaining.discard(callee.vararg)
+        for idx_str in call.non_const_pos:
+            check_deadline()
+            idx = int(idx_str)
+            if idx < len(pos_params):
+                param = pos_params[idx]
+                non_const[(callee.qual, param)] = True
+                explicit_passed[(callee.qual, param)] = True
+                remaining.discard(param)
+            elif callee.vararg is not None:
+                non_const[(callee.qual, callee.vararg)] = True
+                explicit_passed[(callee.qual, callee.vararg)] = True
+                remaining.discard(callee.vararg)
+        for kw, value in call.const_kw.items():
+            check_deadline()
+            if kw in named_params:
+                const_values[(callee.qual, kw)].add(value)
+                explicit_passed[(callee.qual, kw)] = True
+                remaining.discard(kw)
+            elif callee.kwarg is not None:
+                non_const[(callee.qual, callee.kwarg)] = True
+                explicit_passed[(callee.qual, callee.kwarg)] = True
+                remaining.discard(callee.kwarg)
+        for kw in call.kw_map:
+            check_deadline()
+            if kw in named_params:
+                non_const[(callee.qual, kw)] = True
+                explicit_passed[(callee.qual, kw)] = True
+                remaining.discard(kw)
+            elif callee.kwarg is not None:
+                non_const[(callee.qual, callee.kwarg)] = True
+                explicit_passed[(callee.qual, callee.kwarg)] = True
+                remaining.discard(callee.kwarg)
+        for kw in call.non_const_kw:
+            check_deadline()
+            if kw in named_params:
+                non_const[(callee.qual, kw)] = True
+                explicit_passed[(callee.qual, kw)] = True
+                remaining.discard(kw)
+            elif callee.kwarg is not None:
+                non_const[(callee.qual, callee.kwarg)] = True
+                explicit_passed[(callee.qual, callee.kwarg)] = True
+                remaining.discard(callee.kwarg)
+        if strictness == "low":
+            if len(call.star_pos) == 1:
+                for param in remaining:
                     check_deadline()
-                    idx = int(idx_str)
-                    if idx < len(pos_params):
-                        param = pos_params[idx]
-                        const_values[(callee.qual, param)].add(value)
-                        explicit_passed[(callee.qual, param)] = True
-                        remaining.discard(param)
-                    elif callee.vararg is not None:
-                        non_const[(callee.qual, callee.vararg)] = True
-                        explicit_passed[(callee.qual, callee.vararg)] = True
-                        remaining.discard(callee.vararg)
-                for idx_str in call.pos_map:
+                    non_const[(callee.qual, param)] = True
+                    explicit_passed[(callee.qual, param)] = True
+            if len(call.star_kw) == 1:
+                for param in remaining:
                     check_deadline()
-                    idx = int(idx_str)
-                    if idx < len(pos_params):
-                        param = pos_params[idx]
-                        non_const[(callee.qual, param)] = True
-                        explicit_passed[(callee.qual, param)] = True
-                        remaining.discard(param)
-                    elif callee.vararg is not None:
-                        non_const[(callee.qual, callee.vararg)] = True
-                        explicit_passed[(callee.qual, callee.vararg)] = True
-                        remaining.discard(callee.vararg)
-                for idx_str in call.non_const_pos:
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx < len(pos_params):
-                        param = pos_params[idx]
-                        non_const[(callee.qual, param)] = True
-                        explicit_passed[(callee.qual, param)] = True
-                        remaining.discard(param)
-                    elif callee.vararg is not None:
-                        non_const[(callee.qual, callee.vararg)] = True
-                        explicit_passed[(callee.qual, callee.vararg)] = True
-                        remaining.discard(callee.vararg)
-                for kw, value in call.const_kw.items():
-                    check_deadline()
-                    if kw in named_params:
-                        const_values[(callee.qual, kw)].add(value)
-                        explicit_passed[(callee.qual, kw)] = True
-                        remaining.discard(kw)
-                    elif callee.kwarg is not None:
-                        non_const[(callee.qual, callee.kwarg)] = True
-                        explicit_passed[(callee.qual, callee.kwarg)] = True
-                        remaining.discard(callee.kwarg)
-                for kw in call.kw_map:
-                    check_deadline()
-                    if kw in named_params:
-                        non_const[(callee.qual, kw)] = True
-                        explicit_passed[(callee.qual, kw)] = True
-                        remaining.discard(kw)
-                    elif callee.kwarg is not None:
-                        non_const[(callee.qual, callee.kwarg)] = True
-                        explicit_passed[(callee.qual, callee.kwarg)] = True
-                        remaining.discard(callee.kwarg)
-                for kw in call.non_const_kw:
-                    check_deadline()
-                    if kw in named_params:
-                        non_const[(callee.qual, kw)] = True
-                        explicit_passed[(callee.qual, kw)] = True
-                        remaining.discard(kw)
-                    elif callee.kwarg is not None:
-                        non_const[(callee.qual, callee.kwarg)] = True
-                        explicit_passed[(callee.qual, callee.kwarg)] = True
-                        remaining.discard(callee.kwarg)
-                if strictness == "low":
-                    if len(call.star_pos) == 1:
-                        for param in remaining:
-                            check_deadline()
-                            non_const[(callee.qual, param)] = True
-                            explicit_passed[(callee.qual, param)] = True
-                    if len(call.star_kw) == 1:
-                        for param in remaining:
-                            check_deadline()
-                            non_const[(callee.qual, param)] = True
-                            explicit_passed[(callee.qual, param)] = True
+                    non_const[(callee.qual, param)] = True
+                    explicit_passed[(callee.qual, param)] = True
     knob_names: set[str] = set()
     for key, values in const_values.items():
         check_deadline()
@@ -8730,10 +8773,11 @@ def analyze_unused_arg_flow_repo(
             transparent_decorators=transparent_decorators,
             parse_failure_witnesses=parse_failure_witnesses,
         )
-    by_name = index.by_name
-    by_qual = index.by_qual
-    symbol_table = index.symbol_table
-    class_index = index.class_index
+    resolved_edges = _analysis_index_resolved_call_edges(
+        index,
+        project_root=project_root,
+        require_transparent=True,
+    )
     smells: set[str] = set()
 
     def _format(
@@ -8754,134 +8798,118 @@ def analyze_unused_arg_flow_repo(
             f"to unused {callee_info.path.name}:{callee_info.name}.{callee_param}"
         )
 
-    for infos in by_name.values():
+    for edge in resolved_edges:
         check_deadline()
-        for info in infos:
+        info = edge.caller
+        call = edge.call
+        callee = edge.callee
+        if not callee.unused_params:
+            continue
+        callee_params = callee.params
+        mapped_params = set()
+        for idx_str in call.pos_map:
             check_deadline()
-            for call in info.calls:
-                check_deadline()
-                if call.is_test:
-                    continue
-                callee = _resolve_callee(
-                    call.callee,
-                    info,
-                    by_name,
-                    by_qual,
-                    symbol_table,
-                    project_root,
-                    class_index,
-                )
-                if callee is None:
-                    continue
-                if not callee.transparent:
-                    continue
-                if not callee.unused_params:
-                    continue
-                callee_params = callee.params
-                mapped_params = set()
-                for idx_str in call.pos_map:
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    mapped_params.add(callee_params[idx])
-                for kw in call.kw_map:
-                    check_deadline()
-                    if kw in callee_params:
-                        mapped_params.add(kw)
-                remaining = [
-                    (idx, name)
-                    for idx, name in enumerate(callee_params)
-                    if name not in mapped_params
-                ]
+            idx = int(idx_str)
+            if idx >= len(callee_params):
+                continue
+            mapped_params.add(callee_params[idx])
+        for kw in call.kw_map:
+            check_deadline()
+            if kw in callee_params:
+                mapped_params.add(kw)
+        remaining = [
+            (idx, name)
+            for idx, name in enumerate(callee_params)
+            if name not in mapped_params
+        ]
 
-                for idx_str, caller_param in call.pos_map.items():
+        for idx_str, caller_param in call.pos_map.items():
+            check_deadline()
+            idx = int(idx_str)
+            if idx >= len(callee_params):
+                continue
+            callee_param = callee_params[idx]
+            if callee_param in callee.unused_params:
+                smells.add(
+                    _format(
+                        info,
+                        callee,
+                        callee_param,
+                        f"param {caller_param}",
+                        call=call,
+                    )
+                )
+        for idx_str in call.non_const_pos:
+            check_deadline()
+            idx = int(idx_str)
+            if idx >= len(callee_params):
+                continue
+            callee_param = callee_params[idx]
+            if callee_param in callee.unused_params:
+                smells.add(
+                    _format(
+                        info,
+                        callee,
+                        callee_param,
+                        f"non-constant arg at position {idx}",
+                        call=call,
+                    )
+                )
+        for kw, caller_param in call.kw_map.items():
+            check_deadline()
+            if kw not in callee_params:
+                continue
+            if kw in callee.unused_params:
+                smells.add(
+                    _format(
+                        info,
+                        callee,
+                        kw,
+                        f"param {caller_param}",
+                        call=call,
+                    )
+                )
+        for kw in call.non_const_kw:
+            check_deadline()
+            if kw not in callee_params:
+                continue
+            if kw in callee.unused_params:
+                smells.add(
+                    _format(
+                        info,
+                        callee,
+                        kw,
+                        f"non-constant kw '{kw}'",
+                        call=call,
+                    )
+                )
+        if strictness == "low":
+            if len(call.star_pos) == 1:
+                for idx, param in remaining:
                     check_deadline()
-                    idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    callee_param = callee_params[idx]
-                    if callee_param in callee.unused_params:
+                    if param in callee.unused_params:
                         smells.add(
                             _format(
                                 info,
                                 callee,
-                                callee_param,
-                                f"param {caller_param}",
-                                call=call,
-                            )
-                        )
-                for idx_str in call.non_const_pos:
-                    check_deadline()
-                    idx = int(idx_str)
-                    if idx >= len(callee_params):
-                        continue
-                    callee_param = callee_params[idx]
-                    if callee_param in callee.unused_params:
-                        smells.add(
-                            _format(
-                                info,
-                                callee,
-                                callee_param,
+                                param,
                                 f"non-constant arg at position {idx}",
                                 call=call,
                             )
                         )
-                for kw, caller_param in call.kw_map.items():
+            if len(call.star_kw) == 1:
+                for _, param in remaining:
                     check_deadline()
-                    if kw not in callee_params:
-                        continue
-                    if kw in callee.unused_params:
+                    if param in callee.unused_params:
                         smells.add(
                             _format(
                                 info,
                                 callee,
-                                kw,
-                                f"param {caller_param}",
+                                param,
+                                f"non-constant kw '{param}'",
                                 call=call,
                             )
                         )
-                for kw in call.non_const_kw:
-                    check_deadline()
-                    if kw not in callee_params:
-                        continue
-                    if kw in callee.unused_params:
-                        smells.add(
-                            _format(
-                                info,
-                                callee,
-                                kw,
-                                f"non-constant kw '{kw}'",
-                                call=call,
-                            )
-                        )
-                if strictness == "low":
-                    if len(call.star_pos) == 1:
-                        for idx, param in remaining:
-                            check_deadline()
-                            if param in callee.unused_params:
-                                smells.add(
-                                    _format(
-                                        info,
-                                        callee,
-                                        param,
-                                        f"non-constant arg at position {idx}",
-                                        call=call,
-                                    )
-                                )
-                    if len(call.star_kw) == 1:
-                        for _, param in remaining:
-                            check_deadline()
-                            if param in callee.unused_params:
-                                smells.add(
-                                    _format(
-                                        info,
-                                        callee,
-                                        param,
-                                        f"non-constant kw '{param}'",
-                                        call=call,
-                                    )
-                                )
     return sorted(smells)
 
 
@@ -10507,6 +10535,7 @@ def build_synthesis_plan(
         project_root=root,
         class_index=class_index,
         strictness=audit_config.strictness,
+        analysis_index=analysis_index,
     )
     counts = _bundle_counts(groups_by_path)
     counts = _merge_counts_by_knobs(counts, knob_names)
