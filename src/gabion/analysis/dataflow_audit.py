@@ -1387,6 +1387,96 @@ def _parse_failure_sink(
     return parse_failure_witnesses
 
 
+_NON_NULL_PARSE_WITNESS_HELPERS = frozenset(
+    {
+        "_internal_broad_type_lint_lines",
+        "_collect_deadline_obligations",
+        "_build_call_graph",
+        "_collect_call_ambiguities",
+        "_populate_bundle_forest",
+        "_infer_type_flow",
+        "_collect_constant_flow_details",
+    }
+)
+
+
+def _annotation_allows_none(annotation: ast.AST | None) -> bool:
+    if annotation is None:
+        return True
+    try:
+        text = ast.unparse(annotation)
+    except _AST_UNPARSE_ERROR_TYPES:
+        return True
+    normalized = text.replace(" ", "")
+    return "None" in normalized or "Optional[" in normalized
+
+
+def _parameter_default_map(node: ast.FunctionDef) -> dict[str, ast.expr | None]:
+    mapping: dict[str, ast.expr | None] = {}
+    positional = list(node.args.posonlyargs) + list(node.args.args)
+    defaults = list(node.args.defaults)
+    if defaults:
+        for arg_node, default in zip(positional[-len(defaults) :], defaults):
+            mapping[arg_node.arg] = default
+    for arg_node, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+        mapping[arg_node.arg] = default
+    return mapping
+
+
+def _parse_witness_contract_violations(
+    *,
+    source: str | None = None,
+    source_path: Path | None = None,
+    target_helpers: frozenset[str] | None = None,
+) -> list[str]:
+    helpers = (
+        _NON_NULL_PARSE_WITNESS_HELPERS if target_helpers is None else target_helpers
+    )
+    module_path = source_path or Path(__file__)
+    if source is None:
+        try:
+            source = module_path.read_text()
+        except OSError as exc:
+            return [f"{module_path} parse_sink_contract read_error: {type(exc).__name__}"]
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError, TypeError, MemoryError, RecursionError) as exc:
+        return [f"{module_path} parse_sink_contract parse_error: {type(exc).__name__}"]
+    functions = {
+        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+    violations: list[str] = []
+    for helper_name in sorted(helpers):
+        check_deadline()
+        node = functions.get(helper_name)
+        if node is None:
+            violations.append(
+                f"{module_path}:{helper_name} parse_sink_contract missing helper definition"
+            )
+            continue
+        params = list(node.args.posonlyargs) + list(node.args.args) + list(node.args.kwonlyargs)
+        param_node = next(
+            (candidate for candidate in params if candidate.arg == "parse_failure_witnesses"),
+            None,
+        )
+        if param_node is None:
+            violations.append(
+                f"{module_path}:{helper_name} parse_sink_contract missing parse_failure_witnesses"
+            )
+            continue
+        if _annotation_allows_none(param_node.annotation):
+            violations.append(
+                f"{module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must be total list[JSONObject]"
+            )
+        default_map = _parameter_default_map(node)
+        default_node = default_map.get("parse_failure_witnesses")
+        if isinstance(default_node, ast.Constant) and default_node.value is None:
+            violations.append(
+                f"{module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must not default to None"
+            )
+    return violations
+
+
 def _parse_module_tree(
     path: Path,
     *,
@@ -9641,6 +9731,13 @@ def _emit_report(
             lines.extend(_projected("parse_failure_witnesses", summary))
             lines.append("```")
         violations.extend(_parse_failure_violation_lines(parse_failure_witnesses))
+    contract_violations = _parse_witness_contract_violations()
+    if contract_violations:
+        lines.append("Parse witness contract violations:")
+        lines.append("```")
+        lines.extend(_projected("parse_witness_contract_violations", contract_violations))
+        lines.append("```")
+        violations.extend(contract_violations)
     if decision_surfaces:
         lines.append("Decision surface candidates (direct param use in conditionals):")
         lines.append("```")
@@ -10899,7 +10996,7 @@ def _compute_violations(
         max_components,
         report=report,
     )
-    return violations
+    return sorted(set(violations))
 
 
 def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
