@@ -25,7 +25,7 @@ from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
-from typing import Callable, Generic, Hashable, Iterable, Iterator, Mapping, TypeVar, cast
+from typing import Callable, Generic, Hashable, Iterable, Iterator, Mapping, Sequence, TypeVar, cast
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -1742,6 +1742,16 @@ def _execution_pattern_instances(
                 suggestion=(
                     f"execution_pattern {match.suggestion}"
                 ),
+                residue=(
+                    PatternResidue(
+                        schema_id=schema.schema_id,
+                        reason="unreified_metafactory",
+                        payload={
+                            "candidate": "IndexedPassSpec[T]",
+                            "members": list(match.members),
+                        },
+                    ),
+                ),
             )
         )
     return instances
@@ -1796,6 +1806,18 @@ def _bundle_pattern_instances(
                     + f"bundle={','.join(bundle_key)} sites={count}; "
                     + "candidate=Protocol/dataclass reification"
                 ),
+                residue=(
+                    PatternResidue(
+                        schema_id=schema.schema_id,
+                        reason="unreified_protocol",
+                        payload={
+                            "candidate": "Protocol/dataclass reification",
+                            "bundle": list(bundle_key),
+                            "site_count": count,
+                            "tier": 2 if count > 1 else 3,
+                        },
+                    ),
+                ),
             )
         )
     return instances
@@ -1833,17 +1855,93 @@ def _pattern_schema_suggestions(
     source: str | None = None,
     source_path: Path | None = None,
 ) -> list[str]:
-    suggestions: list[str] = []
-    for instance in _pattern_schema_matches(
+    instances = _pattern_schema_matches(
         groups_by_path=groups_by_path,
         source=source,
         source_path=source_path,
-    ):
+    )
+    return _pattern_schema_suggestions_from_instances(instances)
+
+
+def _pattern_schema_suggestions_from_instances(
+    instances: Sequence[PatternInstance],
+) -> list[str]:
+    suggestions: list[str] = []
+    for instance in instances:
         check_deadline()
         suggestions.append(
             f"pattern_schema axis={instance.schema.axis.value} {instance.suggestion}"
         )
     return sorted(set(suggestions))
+
+
+def _pattern_schema_residue_entries(
+    instances: Sequence[PatternInstance],
+) -> list[PatternResidue]:
+    entries: list[PatternResidue] = []
+    for instance in instances:
+        check_deadline()
+        entries.extend(instance.residue)
+    return sorted(
+        entries,
+        key=lambda entry: (
+            entry.schema_id,
+            entry.reason,
+            json.dumps(entry.payload, sort_keys=True, separators=(",", ":")),
+        ),
+    )
+
+
+def _pattern_schema_residue_lines(entries: Sequence[PatternResidue]) -> list[str]:
+    lines: list[str] = []
+    for entry in entries:
+        check_deadline()
+        payload = json.dumps(entry.payload, sort_keys=True)
+        lines.append(
+            f"schema_id={entry.schema_id} reason={entry.reason} payload={payload}"
+        )
+    return lines
+
+
+def _pattern_schema_snapshot_entries(
+    instances: Sequence[PatternInstance],
+) -> tuple[list[JSONObject], list[JSONObject]]:
+    serialized_instances: list[JSONObject] = []
+    for instance in instances:
+        check_deadline()
+        serialized_instances.append(
+            {
+                "schema": {
+                    "schema_id": instance.schema.schema_id,
+                    "axis": instance.schema.axis.value,
+                    "kind": instance.schema.kind,
+                    "signature": instance.schema.signature,
+                    "normalization": instance.schema.normalization,
+                },
+                "members": list(instance.members),
+                "suggestion": instance.suggestion,
+                "residue": [
+                    {
+                        "schema_id": residue.schema_id,
+                        "reason": residue.reason,
+                        "payload": residue.payload,
+                    }
+                    for residue in instance.residue
+                ],
+            }
+        )
+    residues = _pattern_schema_residue_entries(instances)
+    serialized_residue: list[JSONObject] = []
+    for entry in residues:
+        check_deadline()
+        serialized_residue.append(
+            {
+                "schema_id": entry.schema_id,
+                "reason": entry.reason,
+                "payload": entry.payload,
+            }
+        )
+    return serialized_instances, serialized_residue
 
 
 def _execution_pattern_suggestions(
@@ -10798,15 +10896,29 @@ def _emit_report(
         lines.extend(_projected("parse_witness_contract_violations", contract_violations))
         lines.append("```")
         violations.extend(contract_violations)
+    pattern_instances = _pattern_schema_matches(
+        groups_by_path=groups_by_path,
+    )
     if execution_pattern_suggestions is None:
-        execution_pattern_suggestions = _pattern_schema_suggestions(
-            groups_by_path=groups_by_path
+        execution_pattern_suggestions = _pattern_schema_suggestions_from_instances(
+            pattern_instances
         )
     if execution_pattern_suggestions:
         lines.append("Execution pattern opportunities:")
         lines.append("```")
         lines.extend(
             _projected("execution_pattern_suggestions", execution_pattern_suggestions)
+        )
+        lines.append("```")
+    pattern_residue = _pattern_schema_residue_entries(pattern_instances)
+    if pattern_residue:
+        lines.append("Pattern schema residue (non-blocking):")
+        lines.append("```")
+        lines.extend(
+            _projected(
+                "pattern_schema_residue",
+                _pattern_schema_residue_lines(pattern_residue),
+            )
         )
         lines.append("```")
     if decision_surfaces:
@@ -11044,17 +11156,27 @@ def render_decision_snapshot(
     project_root: Path | None = None,
     forest: Forest,
     forest_spec: ForestSpec | None = None,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None = None,
+    pattern_schema_instances: list[PatternInstance] | None = None,
 ) -> JSONObject:
     if not isinstance(forest, Forest):
         never("decision snapshot requires forest carrier")
+    instances = pattern_schema_instances
+    if instances is None:
+        instances = _pattern_schema_matches(groups_by_path=groups_by_path)
+    schema_instances, schema_residue = _pattern_schema_snapshot_entries(instances)
     snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
         "decision_surfaces": sorted(decision_surfaces),
         "value_decision_surfaces": sorted(value_decision_surfaces),
+        "pattern_schema_instances": schema_instances,
+        "pattern_schema_residue": schema_residue,
         "summary": {
             "decision_surfaces": len(decision_surfaces),
             "value_decision_surfaces": len(value_decision_surfaces),
+            "pattern_schema_instances": len(schema_instances),
+            "pattern_schema_residue": len(schema_residue),
         },
     }
     snapshot["forest"] = forest.to_json()
@@ -13093,6 +13215,7 @@ def run(argv: list[str] | None = None) -> int:
             project_root=config.project_root,
             forest=analysis.forest,
             forest_spec=analysis.forest_spec,
+            groups_by_path=analysis.groups_by_path,
         )
         payload_json = json.dumps(snapshot, indent=2, sort_keys=True)
         if decision_snapshot_path.strip() == "-":
