@@ -391,6 +391,59 @@ def test_constant_flow_accepts_prebuilt_analysis_index(tmp_path: Path) -> None:
     assert any("callee.x only observed constant 1" in line for line in with_index)
 
 
+def test_analysis_index_resolved_call_edges_cache_and_transparency(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(
+        module,
+        "def deny(fn):\n"
+        "    return fn\n"
+        "\n"
+        "@deny\n"
+        "def blocked(x):\n"
+        "    return x\n"
+        "\n"
+        "def open_(x):\n"
+        "    return x\n"
+        "\n"
+        "def caller(x):\n"
+        "    blocked(x)\n"
+        "    open_(x)\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators={"allow"},
+        parse_failure_witnesses=parse_failures,
+    )
+    all_edges = da._analysis_index_resolved_call_edges(
+        analysis_index,
+        project_root=tmp_path,
+        require_transparent=False,
+    )
+    assert da._analysis_index_resolved_call_edges(
+        analysis_index,
+        project_root=tmp_path,
+        require_transparent=False,
+    ) is all_edges
+    transparent_edges = da._analysis_index_resolved_call_edges(
+        analysis_index,
+        project_root=tmp_path,
+        require_transparent=True,
+    )
+    assert da._analysis_index_resolved_call_edges(
+        analysis_index,
+        project_root=tmp_path,
+        require_transparent=True,
+    ) is transparent_edges
+    assert sorted(edge.callee.name for edge in all_edges) == ["blocked", "open_"]
+    assert [edge.callee.name for edge in transparent_edges] == ["open_"]
+
+
 def test_lint_rows_materialize_and_project_from_forest() -> None:
     da = _load()
     forest = da.Forest()
