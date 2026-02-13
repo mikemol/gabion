@@ -25,7 +25,7 @@ from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
-from typing import Callable, Generic, Hashable, Iterable, Iterator, Mapping, Sequence, TypeVar, cast
+from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, cast
 import re
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -78,6 +78,8 @@ from .forest_spec import (
     forest_spec_metadata,
 )
 from .timeout_context import (
+    Deadline,
+    TimeoutExceeded,
     build_timeout_context_from_stack,
     check_deadline,
     reset_forest,
@@ -138,6 +140,9 @@ class _ParseModuleStage(StrEnum):
     DATACLASS_CALL_BUNDLES = "dataclass_call_bundles"
 
 
+ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
+
+
 class _PatternAxis(StrEnum):
     DATAFLOW = "dataflow"
     EXECUTION = "execution"
@@ -170,12 +175,14 @@ class PatternInstance:
 
 @dataclass(frozen=True)
 class _FunctionSuiteKey:
+    # dataflow-bundle: path, qual
     path: str
     qual: str
 
 
 @dataclass(frozen=True)
 class _ReportSectionKey:
+    # dataflow-bundle: run_id, section
     run_id: str
     section: str
 
@@ -398,6 +405,8 @@ class ReportCarrier:
     value_decision_rewrites: list[str] = field(default_factory=list)
     deadline_obligations: list[JSONObject] = field(default_factory=list)
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
+    resumability_obligations: list[JSONObject] = field(default_factory=list)
+    incremental_report_obligations: list[JSONObject] = field(default_factory=list)
 
     @classmethod
     def from_analysis_result(
@@ -436,6 +445,172 @@ class ReportCarrier:
             deadline_obligations=analysis.deadline_obligations,
             parse_failure_witnesses=analysis.parse_failure_witnesses,
         )
+
+
+_ReportSectionValue = TypeVar("_ReportSectionValue")
+
+
+@dataclass(frozen=True)
+class ReportProjectionSpec(Generic[_ReportSectionValue]):
+    section_id: str
+    phase: ReportProjectionPhase
+    deps: tuple[str, ...]
+    build: Callable[
+        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
+        _ReportSectionValue,
+    ]
+    render: Callable[[_ReportSectionValue], list[str]]
+    violation_extract: Callable[[_ReportSectionValue], list[str]]
+
+
+def _report_section_identity_render(lines: list[str]) -> list[str]:
+    return lines
+
+
+def _report_section_no_violations(_lines: list[str]) -> list[str]:
+    return []
+
+
+def _report_section_text(
+    report: ReportCarrier,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    *,
+    section_id: str,
+) -> list[str]:
+    rendered, _ = _emit_report(
+        groups_by_path,
+        max_components=10,
+        report=report,
+    )
+    return extract_report_sections(rendered).get(section_id, [])
+
+
+def _report_section_spec(
+    *,
+    section_id: str,
+    phase: ReportProjectionPhase,
+    deps: tuple[str, ...] = (),
+) -> ReportProjectionSpec[list[str]]:
+    return ReportProjectionSpec[list[str]](
+        section_id=section_id,
+        phase=phase,
+        deps=deps,
+        build=lambda report, groups_by_path, _section_id=section_id: _report_section_text(
+            report,
+            groups_by_path,
+            section_id=_section_id,
+        ),
+        render=_report_section_identity_render,
+        violation_extract=_report_section_no_violations,
+    )
+
+
+_REPORT_PROJECTION_SPECS: tuple[ReportProjectionSpec[list[str]], ...] = (
+    _report_section_spec(section_id="intro", phase="collection"),
+    _report_section_spec(section_id="components", phase="forest", deps=("intro",)),
+    _report_section_spec(section_id="violations", phase="post", deps=("components",)),
+    _report_section_spec(section_id="type_flow", phase="edge", deps=("components",)),
+    _report_section_spec(section_id="constant_smells", phase="edge", deps=("type_flow",)),
+    _report_section_spec(section_id="unused_arg_smells", phase="edge", deps=("type_flow",)),
+    _report_section_spec(section_id="deadline_summary", phase="post", deps=("components",)),
+    _report_section_spec(
+        section_id="resumability_obligations",
+        phase="post",
+        deps=("components",),
+    ),
+    _report_section_spec(
+        section_id="incremental_report_obligations",
+        phase="post",
+        deps=("components",),
+    ),
+    _report_section_spec(
+        section_id="parse_failure_witnesses",
+        phase="post",
+        deps=("components",),
+    ),
+    _report_section_spec(
+        section_id="execution_pattern_suggestions",
+        phase="post",
+        deps=("components",),
+    ),
+    _report_section_spec(section_id="pattern_schema_residue", phase="post", deps=("components",)),
+    _report_section_spec(section_id="decision_surfaces", phase="post", deps=("components",)),
+    _report_section_spec(
+        section_id="value_decision_surfaces",
+        phase="post",
+        deps=("decision_surfaces",),
+    ),
+    _report_section_spec(
+        section_id="fingerprint_warnings",
+        phase="post",
+        deps=("components",),
+    ),
+    _report_section_spec(section_id="fingerprint_matches", phase="post", deps=("components",)),
+    _report_section_spec(
+        section_id="fingerprint_synthesis",
+        phase="post",
+        deps=("components",),
+    ),
+    _report_section_spec(
+        section_id="context_suggestions",
+        phase="post",
+        deps=("decision_surfaces",),
+    ),
+    _report_section_spec(section_id="schema_surfaces", phase="post", deps=("components",)),
+)
+
+_REPORT_PROJECTION_PHASE_RANKS: dict[ReportProjectionPhase, int] = {
+    "collection": 0,
+    "forest": 1,
+    "edge": 2,
+    "post": 3,
+}
+
+
+def report_projection_phase_rank(phase: ReportProjectionPhase) -> int:
+    return _REPORT_PROJECTION_PHASE_RANKS[phase]
+
+
+def report_projection_specs() -> tuple[ReportProjectionSpec[list[str]], ...]:
+    return _REPORT_PROJECTION_SPECS
+
+
+def report_projection_spec_rows() -> list[JSONObject]:
+    rows: list[JSONObject] = []
+    for spec in _REPORT_PROJECTION_SPECS:
+        rows.append(
+            {
+                "section_id": spec.section_id,
+                "phase": spec.phase,
+                "deps": list(spec.deps),
+            }
+        )
+    return rows
+
+
+def project_report_sections(
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    report: ReportCarrier,
+    *,
+    max_phase: ReportProjectionPhase | None = None,
+) -> dict[str, list[str]]:
+    rendered, _ = _emit_report(
+        groups_by_path,
+        max_components=10,
+        report=report,
+    )
+    extracted = extract_report_sections(rendered)
+    selected: dict[str, list[str]] = {}
+    max_rank: int | None = None
+    if max_phase is not None:
+        max_rank = report_projection_phase_rank(max_phase)
+    for spec in _REPORT_PROJECTION_SPECS:
+        if max_rank is not None and report_projection_phase_rank(spec.phase) > max_rank:
+            continue
+        lines = extracted.get(spec.section_id, [])
+        if lines:
+            selected[spec.section_id] = lines
+    return selected
 
 
 @dataclass(frozen=True)
@@ -1176,8 +1351,9 @@ def analyze_decision_surfaces_repo(
     forest: Forest,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
+    deadline: Deadline | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    check_deadline()
+    check_deadline(deadline)
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1228,8 +1404,9 @@ def analyze_value_encoded_decisions_repo(
     forest: Forest,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
+    deadline: Deadline | None = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
-    check_deadline()
+    check_deadline(deadline)
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1302,8 +1479,9 @@ def _internal_broad_type_lint_lines(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
+    deadline: Deadline | None = None,
 ) -> list[str]:
-    check_deadline()
+    check_deadline(deadline)
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1552,8 +1730,12 @@ def _annotation_allows_none(annotation: ast.AST | None) -> bool:
     return "None" in normalized or "Optional[" in normalized
 
 
-def _parameter_default_map(node: ast.FunctionDef) -> dict[str, ast.expr | None]:
-    check_deadline()
+def _parameter_default_map(
+    node: ast.FunctionDef,
+    *,
+    deadline: Deadline | None = None,
+) -> dict[str, ast.expr | None]:
+    check_deadline(deadline)
     mapping: dict[str, ast.expr | None] = {}
     positional = list(node.args.posonlyargs) + list(node.args.args)
     defaults = list(node.args.defaults)
@@ -1561,13 +1743,13 @@ def _parameter_default_map(node: ast.FunctionDef) -> dict[str, ast.expr | None]:
         defaults_checked = False
         for arg_node, default in zip(positional[-len(defaults) :], defaults):
             if not defaults_checked:
-                check_deadline()
+                check_deadline(deadline)
                 defaults_checked = True
             mapping[arg_node.arg] = default
     kw_defaults_checked = False
     for arg_node, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
         if not kw_defaults_checked:
-            check_deadline()
+            check_deadline(deadline)
             kw_defaults_checked = True
         mapping[arg_node.arg] = default
     return mapping
@@ -4176,8 +4358,9 @@ def _materialize_call_candidates(
     symbol_table: SymbolTable,
     project_root: Path | None,
     class_index: dict[str, ClassInfo],
+    deadline: Deadline | None = None,
 ) -> None:
-    check_deadline()
+    check_deadline(deadline)
     seen: set[tuple[NodeId, NodeId]] = set()
     obligation_seen: set[NodeId] = set()
     seen_loop_checked = False
@@ -6900,17 +7083,11 @@ def _build_call_graph(
     analysis_index: AnalysisIndex | None = None,
 ) -> tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo], dict[str, set[str]]]:
     check_deadline()
-    index = analysis_index
-    if index is None:
-        index = _build_analysis_index(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
+    index = require_not_none(
+        analysis_index,
+        reason="_build_call_graph requires prebuilt analysis_index",
+        strict=True,
+    )
     transitive_callers = _analysis_index_transitive_callers(
         index,
         project_root=project_root,
@@ -6974,8 +7151,9 @@ def _collect_call_ambiguities(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
+    deadline: Deadline | None = None,
 ) -> list[CallAmbiguity]:
-    check_deadline()
+    check_deadline(deadline)
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -7630,6 +7808,82 @@ def _parse_failure_violation_lines(entries: list[JSONObject]) -> list[str]:
         else:
             lines.append(f"{path} parse_failure stage={stage} {error_type}")
     return lines
+
+
+def _summarize_runtime_obligations(
+    entries: list[JSONObject],
+    *,
+    max_entries: int = 50,
+) -> list[str]:
+    check_deadline()
+    if not entries:
+        return []
+    lines: list[str] = []
+    ordered = sorted(
+        entries,
+        key=lambda entry: (
+            str(entry.get("status", "")),
+            str(entry.get("contract", "")),
+            str(entry.get("kind", "")),
+            str(entry.get("section_id", "")),
+            str(entry.get("detail", "")),
+        ),
+    )
+    for entry in ordered[:max_entries]:
+        check_deadline()
+        status = str(entry.get("status", "OBLIGATION"))
+        contract = str(entry.get("contract", "runtime_contract"))
+        kind = str(entry.get("kind", "unknown"))
+        section_id = entry.get("section_id")
+        phase = entry.get("phase")
+        detail = str(entry.get("detail", "")).strip()
+        section_part = ""
+        if isinstance(section_id, str) and section_id:
+            section_part = f" section={section_id}"
+        phase_part = ""
+        if isinstance(phase, str) and phase:
+            phase_part = f" phase={phase}"
+        line = f"{status} {contract} {kind}{section_part}{phase_part}".strip()
+        if detail:
+            line = f"{line} detail={detail}"
+        lines.append(line)
+    if len(ordered) > max_entries:
+        lines.append(f"... {len(ordered) - max_entries} more")
+    return lines
+
+
+def _runtime_obligation_violation_lines(entries: list[JSONObject]) -> list[str]:
+    check_deadline()
+    violations: list[str] = []
+    for entry in sorted(
+        entries,
+        key=lambda item: (
+            str(item.get("contract", "")),
+            str(item.get("kind", "")),
+            str(item.get("section_id", "")),
+            str(item.get("phase", "")),
+            str(item.get("detail", "")),
+        ),
+    ):
+        check_deadline()
+        if str(entry.get("status", "")).upper() != "VIOLATION":
+            continue
+        contract = str(entry.get("contract", "runtime_contract"))
+        kind = str(entry.get("kind", "unknown"))
+        section_id = entry.get("section_id")
+        phase = entry.get("phase")
+        detail = str(entry.get("detail", "")).strip()
+        section_part = (
+            f" section={section_id}"
+            if isinstance(section_id, str) and section_id
+            else ""
+        )
+        phase_part = f" phase={phase}" if isinstance(phase, str) and phase else ""
+        text = f"{contract} {kind}{section_part}{phase_part}".strip()
+        if detail:
+            text = f"{text} detail={detail}"
+        violations.append(text)
+    return violations
 
 
 def _compute_fingerprint_synth(
@@ -9260,17 +9514,11 @@ def _infer_type_flow(
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening + evidence."""
     check_deadline()
-    index = analysis_index
-    if index is None:
-        index = _build_analysis_index(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
+    index = require_not_none(
+        analysis_index,
+        reason="_infer_type_flow requires prebuilt analysis_index",
+        strict=True,
+    )
     by_name = index.by_name
     by_qual = index.by_qual
     resolved_edges_by_caller = _analysis_index_resolved_call_edges_by_caller(
@@ -9396,9 +9644,10 @@ def analyze_type_flow_repo_with_map(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
+    deadline: Deadline | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
-    check_deadline()
+    check_deadline(deadline)
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -9435,8 +9684,9 @@ def analyze_type_flow_repo_with_evidence(
     max_sites_per_param: int = 3,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
+    deadline: Deadline | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    check_deadline()
+    check_deadline(deadline)
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -9653,17 +9903,11 @@ def _collect_constant_flow_details(
     analysis_index: AnalysisIndex | None = None,
 ) -> list[ConstantFlowDetail]:
     check_deadline()
-    index = analysis_index
-    if index is None:
-        index = _build_analysis_index(
-            paths,
-            project_root=project_root,
-            ignore_params=ignore_params,
-            strictness=strictness,
-            external_filter=external_filter,
-            transparent_decorators=transparent_decorators,
-            parse_failure_witnesses=parse_failure_witnesses,
-        )
+    index = require_not_none(
+        analysis_index,
+        reason="_collect_constant_flow_details requires prebuilt analysis_index",
+        strict=True,
+    )
     by_qual = index.by_qual
     def _fold(acc: _ConstantFlowFoldAccumulator, edge: _ResolvedCallEdge) -> None:
         for event in _iter_resolved_edge_param_events(
@@ -9990,9 +10234,10 @@ def analyze_unused_arg_flow_repo(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
+    deadline: Deadline | None = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
-    check_deadline()
+    check_deadline(deadline)
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -10718,6 +10963,44 @@ def _render_component_callsite_evidence(
     return lines
 
 
+_REPORT_SECTION_MARKER_PREFIX = "<!-- report-section:"
+_REPORT_SECTION_MARKER_SUFFIX = "-->"
+
+
+def _report_section_marker(section_id: str) -> str:
+    return f"{_REPORT_SECTION_MARKER_PREFIX}{section_id}{_REPORT_SECTION_MARKER_SUFFIX}"
+
+
+def _parse_report_section_marker(line: str) -> str | None:
+    text = line.strip()
+    if not text.startswith(_REPORT_SECTION_MARKER_PREFIX):
+        return None
+    if not text.endswith(_REPORT_SECTION_MARKER_SUFFIX):
+        return None
+    section_id = text[
+        len(_REPORT_SECTION_MARKER_PREFIX) : -len(_REPORT_SECTION_MARKER_SUFFIX)
+    ].strip()
+    if not section_id:
+        return None
+    return section_id
+
+
+def extract_report_sections(markdown: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    active_section_id: str | None = None
+    for raw_line in markdown.splitlines():
+        check_deadline()
+        section_id = _parse_report_section_marker(raw_line)
+        if section_id is not None:
+            active_section_id = section_id
+            sections.setdefault(section_id, [])
+            continue
+        if active_section_id is None:
+            continue
+        sections[active_section_id].append(raw_line)
+    return sections
+
+
 def _emit_report(
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
     max_components: int,
@@ -10752,6 +11035,8 @@ def _emit_report(
     value_decision_rewrites = report.value_decision_rewrites
     deadline_obligations = report.deadline_obligations
     parse_failure_witnesses = report.parse_failure_witnesses
+    resumability_obligations = report.resumability_obligations
+    incremental_report_obligations = report.incremental_report_obligations
     has_bundles = _has_bundles(groups_by_path)
     if groups_by_path:
         common = os.path.commonpath([str(p) for p in groups_by_path])
@@ -10773,6 +11058,7 @@ def _emit_report(
         else {}
     )
     lines = [
+        _report_section_marker("intro"),
         "<!-- dataflow-grammar -->",
         "Dataflow grammar audit (observed forwarding bundles).",
         "",
@@ -10786,7 +11072,11 @@ def _emit_report(
             lines=values,
         )
 
+    def _start_section(section_id: str) -> None:
+        lines.append(_report_section_marker(section_id))
+
     violations: list[str] = []
+    _start_section("components")
     if not components:
         lines.append("No bundle components detected.")
     else:
@@ -10863,11 +11153,13 @@ def _emit_report(
             )
         violations.extend(deadline_violations)
     if violations:
+        _start_section("violations")
         lines.append("Violations:")
         lines.append("```")
         lines.extend(_projected("violations", violations))
         lines.append("```")
     if type_suggestions or type_ambiguities:
+        _start_section("type_flow")
         lines.append("Type-flow audit:")
         if type_suggestions or type_ambiguities:
             type_mermaid = _render_type_mermaid(type_suggestions or [], type_ambiguities or [])
@@ -10888,11 +11180,13 @@ def _emit_report(
             lines.extend(_projected("type_callsite_evidence", type_callsite_evidence))
             lines.append("```")
     if constant_smells:
+        _start_section("constant_smells")
         lines.append("Constant-propagation smells (non-test call sites):")
         lines.append("```")
         lines.extend(_projected("constant_smells", constant_smells))
         lines.append("```")
     if unused_arg_smells:
+        _start_section("unused_arg_smells")
         lines.append("Unused-argument smells (non-test call sites):")
         lines.append("```")
         lines.extend(_projected("unused_arg_smells", unused_arg_smells))
@@ -10900,6 +11194,7 @@ def _emit_report(
     if deadness_witnesses:
         summary = _summarize_deadness_witnesses(deadness_witnesses)
         if summary:
+            _start_section("deadness_summary")
             lines.append("Deadness evidence:")
             lines.append("```")
             lines.extend(_projected("deadness_summary", summary))
@@ -10907,6 +11202,7 @@ def _emit_report(
     if coherence_witnesses:
         summary = _summarize_coherence_witnesses(coherence_witnesses)
         if summary:
+            _start_section("coherence_summary")
             lines.append("Coherence evidence:")
             lines.append("```")
             lines.extend(_projected("coherence_summary", summary))
@@ -10914,6 +11210,7 @@ def _emit_report(
     if rewrite_plans:
         summary = _summarize_rewrite_plans(rewrite_plans)
         if summary:
+            _start_section("rewrite_plans_summary")
             lines.append("Rewrite plans:")
             lines.append("```")
             lines.extend(_projected("rewrite_plans_summary", summary))
@@ -10921,6 +11218,7 @@ def _emit_report(
     if never_invariants:
         summary = _summarize_never_invariants(never_invariants)
         if summary:
+            _start_section("never_invariants_summary")
             lines.append("Never invariants:")
             lines.append("```")
             lines.extend(_projected("never_invariants_summary", summary))
@@ -10928,6 +11226,7 @@ def _emit_report(
     if ambiguity_witnesses:
         summary = _summarize_call_ambiguities(ambiguity_witnesses)
         if summary:
+            _start_section("ambiguity_summary")
             lines.append("Ambiguities:")
             lines.append("```")
             lines.extend(_projected("ambiguity_summary", summary))
@@ -10935,18 +11234,21 @@ def _emit_report(
     if exception_obligations:
         summary = _summarize_exception_obligations(exception_obligations)
         if summary:
+            _start_section("exception_obligations_summary")
             lines.append("Exception obligations:")
             lines.append("```")
             lines.extend(_projected("exception_obligations_summary", summary))
             lines.append("```")
         protocol_evidence = _exception_protocol_evidence(exception_obligations)
         if protocol_evidence:
+            _start_section("exception_protocol_evidence")
             lines.append("Exception protocol evidence:")
             lines.append("```")
             lines.extend(_projected("exception_protocol_evidence", protocol_evidence))
             lines.append("```")
         protocol_warnings = _exception_protocol_warnings(exception_obligations)
         if protocol_warnings:
+            _start_section("exception_protocol_warnings")
             lines.append("Exception protocol violations:")
             lines.append("```")
             lines.extend(_projected("exception_protocol_warnings", protocol_warnings))
@@ -10955,6 +11257,7 @@ def _emit_report(
     if handledness_witnesses:
         summary = _summarize_handledness_witnesses(handledness_witnesses)
         if summary:
+            _start_section("handledness_summary")
             lines.append("Handledness evidence:")
             lines.append("```")
             lines.extend(_projected("handledness_summary", summary))
@@ -10965,13 +11268,35 @@ def _emit_report(
             forest=forest,
         )
         if summary:
+            _start_section("deadline_summary")
             lines.append("Deadline propagation:")
             lines.append("```")
             lines.extend(_projected("deadline_summary", summary))
             lines.append("```")
+    if resumability_obligations:
+        summary = _summarize_runtime_obligations(resumability_obligations)
+        if summary:
+            _start_section("resumability_obligations")
+            lines.append("Resumability obligations:")
+            lines.append("```")
+            lines.extend(_projected("resumability_obligations", summary))
+            lines.append("```")
+        violations.extend(_runtime_obligation_violation_lines(resumability_obligations))
+    if incremental_report_obligations:
+        summary = _summarize_runtime_obligations(incremental_report_obligations)
+        if summary:
+            _start_section("incremental_report_obligations")
+            lines.append("Incremental report obligations:")
+            lines.append("```")
+            lines.extend(_projected("incremental_report_obligations", summary))
+            lines.append("```")
+        violations.extend(
+            _runtime_obligation_violation_lines(incremental_report_obligations)
+        )
     if parse_failure_witnesses:
         summary = _summarize_parse_failure_witnesses(parse_failure_witnesses)
         if summary:
+            _start_section("parse_failure_witnesses")
             lines.append("Parse failure witnesses:")
             lines.append("```")
             lines.extend(_projected("parse_failure_witnesses", summary))
@@ -10979,6 +11304,7 @@ def _emit_report(
         violations.extend(_parse_failure_violation_lines(parse_failure_witnesses))
     contract_violations = _parse_witness_contract_violations()
     if contract_violations:
+        _start_section("parse_witness_contract_violations")
         lines.append("Parse witness contract violations:")
         lines.append("```")
         lines.extend(_projected("parse_witness_contract_violations", contract_violations))
@@ -10993,6 +11319,7 @@ def _emit_report(
             pattern_instances
         )
     if execution_pattern_suggestions:
+        _start_section("execution_pattern_suggestions")
         lines.append("Execution pattern opportunities:")
         lines.append("```")
         lines.extend(
@@ -11001,6 +11328,7 @@ def _emit_report(
         lines.append("```")
     pattern_residue = _pattern_schema_residue_entries(pattern_instances)
     if pattern_residue:
+        _start_section("pattern_schema_residue")
         lines.append("Pattern schema residue (non-blocking):")
         lines.append("```")
         lines.extend(
@@ -11011,38 +11339,45 @@ def _emit_report(
         )
         lines.append("```")
     if decision_surfaces:
+        _start_section("decision_surfaces")
         lines.append("Decision surface candidates (direct param use in conditionals):")
         lines.append("```")
         lines.extend(_projected("decision_surfaces", decision_surfaces))
         lines.append("```")
     if value_decision_surfaces:
+        _start_section("value_decision_surfaces")
         lines.append("Value-encoded decision surface candidates (branchless control):")
         lines.append("```")
         lines.extend(_projected("value_decision_surfaces", value_decision_surfaces))
         lines.append("```")
     if value_decision_rewrites:
+        _start_section("value_decision_rewrites")
         lines.append("Value-encoded decision rebranch suggestions:")
         lines.append("```")
         lines.extend(_projected("value_decision_rewrites", value_decision_rewrites))
         lines.append("```")
     if decision_warnings:
+        _start_section("decision_warnings")
         lines.append("Decision tier warnings:")
         lines.append("```")
         lines.extend(_projected("decision_warnings", decision_warnings))
         lines.append("```")
         violations.extend(decision_warnings)
     if fingerprint_warnings:
+        _start_section("fingerprint_warnings")
         lines.append("Fingerprint warnings:")
         lines.append("```")
         lines.extend(_projected("fingerprint_warnings", fingerprint_warnings))
         lines.append("```")
         violations.extend(fingerprint_warnings)
     if fingerprint_matches:
+        _start_section("fingerprint_matches")
         lines.append("Fingerprint matches:")
         lines.append("```")
         lines.extend(_projected("fingerprint_matches", fingerprint_matches))
         lines.append("```")
     if fingerprint_synth:
+        _start_section("fingerprint_synthesis")
         lines.append("Fingerprint synthesis:")
         lines.append("```")
         lines.extend(_projected("fingerprint_synthesis", fingerprint_synth))
@@ -11050,11 +11385,13 @@ def _emit_report(
     if fingerprint_provenance:
         provenance_summary = _summarize_fingerprint_provenance(fingerprint_provenance)
         if provenance_summary:
+            _start_section("fingerprint_provenance_summary")
             lines.append("Packed derivation view (ASPF provenance):")
             lines.append("```")
             lines.extend(_projected("fingerprint_provenance_summary", provenance_summary))
             lines.append("```")
     if invariant_propositions:
+        _start_section("invariant_propositions")
         lines.append("Invariant propositions:")
         lines.append("```")
         lines.extend(
@@ -11065,12 +11402,14 @@ def _emit_report(
         )
         lines.append("```")
     if context_suggestions:
+        _start_section("context_suggestions")
         lines.append("Contextvar/ambient rewrite suggestions:")
         lines.append("```")
         lines.extend(_projected("context_suggestions", context_suggestions))
         lines.append("```")
     schema_surfaces = find_anonymous_schema_surfaces(file_paths, project_root=root)
     if schema_surfaces:
+        _start_section("schema_surfaces")
         lines.append("Anonymous schema surfaces (dict[str, object] payloads):")
         lines.append("```")
         schema_lines = [surface.format() for surface in schema_surfaces[:50]]
@@ -11245,7 +11584,7 @@ def render_decision_snapshot(
     project_root: Path | None = None,
     forest: Forest,
     forest_spec: ForestSpec | None = None,
-    groups_by_path: dict[Path, dict[str, list[set[str]]]] | None = None,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
     pattern_schema_instances: list[PatternInstance] | None = None,
 ) -> JSONObject:
     if not isinstance(forest, Forest):
@@ -11253,7 +11592,7 @@ def render_decision_snapshot(
     instances = pattern_schema_instances
     if instances is None:
         instances = _pattern_schema_matches(
-            groups_by_path=groups_by_path or {},
+            groups_by_path=groups_by_path,
             include_execution=False,
         )
     schema_instances, schema_residue = _pattern_schema_snapshot_entries(instances)
@@ -12252,6 +12591,25 @@ def _build_analysis_collection_resume_payload(
     }
 
 
+def build_analysis_collection_resume_seed(
+    *,
+    in_progress_paths: Sequence[Path] = (),
+) -> JSONObject:
+    """Build an empty collection-resume payload seeded with pending paths."""
+    check_deadline()
+    in_progress_scan_by_path: dict[Path, JSONObject] = {
+        path: {"phase": "scan_pending"} for path in in_progress_paths
+    }
+    return _build_analysis_collection_resume_payload(
+        groups_by_path={},
+        param_spans_by_path={},
+        bundle_sites_by_path={},
+        invariant_propositions=[],
+        completed_paths=set(),
+        in_progress_scan_by_path=in_progress_scan_by_path,
+    )
+
+
 def _load_analysis_collection_resume_payload(
     *,
     payload: Mapping[str, JSONValue] | None,
@@ -13145,6 +13503,11 @@ def analyze_paths(
     file_paths_override: list[Path] | None = None,
     collection_resume: JSONObject | None = None,
     on_collection_progress: Callable[[JSONObject], None] | None = None,
+    on_phase_progress: Callable[
+        [ReportProjectionPhase, dict[Path, dict[str, list[set[str]]]], ReportCarrier],
+        None,
+    ]
+    | None = None,
 ) -> AnalysisResult:
     check_deadline()
     forest_token = set_forest(forest)
@@ -13212,10 +13575,26 @@ def analyze_paths(
                 )
             )
 
+        def _emit_phase_progress(
+            phase: ReportProjectionPhase,
+            *,
+            report_carrier: ReportCarrier,
+        ) -> None:
+            if on_phase_progress is None:
+                return
+            on_phase_progress(
+                phase,
+                groups_by_path,
+                report_carrier,
+            )
+
         for path in file_paths:
             check_deadline()
             if path in completed_paths:
                 continue
+            if path not in in_progress_scan_by_path:
+                in_progress_scan_by_path[path] = {"phase": "scan_pending"}
+                _emit_collection_progress()
             _deadline_check(allow_frame_fallback=True)
 
             def _on_file_scan_progress(progress_state: JSONObject) -> None:
@@ -13244,6 +13623,16 @@ def analyze_paths(
                 )
             completed_paths.add(path)
             _emit_collection_progress()
+
+        _emit_phase_progress(
+            "collection",
+            report_carrier=ReportCarrier(
+                forest=forest,
+                bundle_sites_by_path=bundle_sites_by_path,
+                invariant_propositions=invariant_propositions,
+                parse_failure_witnesses=parse_failure_witnesses,
+            ),
+        )
 
         if (
             include_bundle_forest
@@ -13305,6 +13694,17 @@ def analyze_paths(
             _materialize_ambiguity_suite_agg_spec(forest=forest)
             _materialize_ambiguity_virtual_set_spec(forest=forest)
 
+        _emit_phase_progress(
+            "forest",
+            report_carrier=ReportCarrier(
+                forest=forest,
+                bundle_sites_by_path=bundle_sites_by_path,
+                ambiguity_witnesses=ambiguity_witnesses,
+                invariant_propositions=invariant_propositions,
+                parse_failure_witnesses=parse_failure_witnesses,
+            ),
+        )
+
         type_suggestions: list[str] = []
         type_ambiguities: list[str] = []
         type_callsite_evidence: list[str] = []
@@ -13359,6 +13759,23 @@ def analyze_paths(
                 parse_failure_witnesses=parse_failure_witnesses,
                 analysis_index=_require_analysis_index(),
             )
+
+        _emit_phase_progress(
+            "edge",
+            report_carrier=ReportCarrier(
+                forest=forest,
+                bundle_sites_by_path=bundle_sites_by_path,
+                type_suggestions=type_suggestions,
+                type_ambiguities=type_ambiguities,
+                type_callsite_evidence=type_callsite_evidence,
+                constant_smells=constant_smells,
+                unused_arg_smells=unused_arg_smells,
+                deadness_witnesses=deadness_witnesses,
+                ambiguity_witnesses=ambiguity_witnesses,
+                invariant_propositions=invariant_propositions,
+                parse_failure_witnesses=parse_failure_witnesses,
+            ),
+        )
 
         deadline_obligations: list[JSONObject] = []
         if include_deadline_obligations:
@@ -13533,6 +13950,38 @@ def analyze_paths(
                 unused_arg_smells=unused_arg_smells,
             )
 
+        _emit_phase_progress(
+            "post",
+            report_carrier=ReportCarrier(
+                forest=forest,
+                bundle_sites_by_path=bundle_sites_by_path,
+                type_suggestions=type_suggestions,
+                type_ambiguities=type_ambiguities,
+                type_callsite_evidence=type_callsite_evidence,
+                constant_smells=constant_smells,
+                unused_arg_smells=unused_arg_smells,
+                deadness_witnesses=deadness_witnesses,
+                coherence_witnesses=coherence_witnesses,
+                rewrite_plans=rewrite_plans,
+                exception_obligations=exception_obligations,
+                never_invariants=never_invariants,
+                ambiguity_witnesses=ambiguity_witnesses,
+                handledness_witnesses=handledness_witnesses,
+                decision_surfaces=decision_surfaces,
+                value_decision_surfaces=value_decision_surfaces,
+                decision_warnings=decision_warnings,
+                fingerprint_warnings=fingerprint_warnings,
+                fingerprint_matches=fingerprint_matches,
+                fingerprint_synth=fingerprint_synth,
+                fingerprint_provenance=fingerprint_provenance,
+                context_suggestions=context_suggestions,
+                invariant_propositions=invariant_propositions,
+                value_decision_rewrites=value_decision_rewrites,
+                deadline_obligations=deadline_obligations,
+                parse_failure_witnesses=parse_failure_witnesses,
+            ),
+        )
+
         return AnalysisResult(
             groups_by_path=groups_by_path,
             param_spans_by_path=param_spans_by_path,
@@ -13566,6 +14015,11 @@ def analyze_paths(
             parse_failure_witnesses=parse_failure_witnesses,
             forest_spec=forest_spec,
         )
+    except TimeoutExceeded:
+        emit_collection_progress = locals().get("_emit_collection_progress")
+        if callable(emit_collection_progress):
+            emit_collection_progress()
+        raise
     finally:
         reset_forest(forest_token)
 

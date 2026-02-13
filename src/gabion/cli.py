@@ -270,6 +270,23 @@ def _render_timeout_progress_markdown(
                 if value is None:
                     continue
                 lines.append(f"- `{key}`: `{value}`")
+    obligations = progress.get("incremental_obligations")
+    if isinstance(obligations, list) and obligations:
+        lines.append("")
+        lines.append("## Incremental Obligations")
+        lines.append("")
+        for entry in obligations:
+            if not isinstance(entry, Mapping):
+                continue
+            status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+            contract = str(entry.get("contract", "") or "")
+            kind = str(entry.get("kind", "") or "")
+            detail = str(entry.get("detail", "") or "")
+            section_id = str(entry.get("section_id", "") or "")
+            section_suffix = f" section={section_id}" if section_id else ""
+            lines.append(
+                f"- `{status}` `{contract}` `{kind}`{section_suffix}: {detail}"
+            )
     return "\n".join(lines)
 
 
