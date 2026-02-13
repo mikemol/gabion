@@ -277,25 +277,32 @@ def test_execute_command_timeout_writes_partial_incremental_report(
 ) -> None:
     module_path = tmp_path / "many.py"
     report_path = tmp_path / "report.md"
+    phase_checkpoint_path = tmp_path / "report_phase_checkpoint.json"
     _write_many_functions_module(module_path, count=800)
     ls = _DummyServer(str(tmp_path))
     result = server.execute_command(
         ls,
         _with_timeout(
-            {
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "report": str(report_path),
-                "analysis_timeout_ticks": 1,
-                "analysis_timeout_tick_ns": 1,
-            }
-        ),
-    )
+                {
+                    "root": str(tmp_path),
+                    "paths": [str(module_path)],
+                    "report": str(report_path),
+                    "resume_checkpoint": str(tmp_path / "resume.json"),
+                    "analysis_timeout_ticks": 5_000,
+                    "analysis_timeout_tick_ns": 1_000,
+                }
+            ),
+        )
     assert result.get("timeout") is True
     assert report_path.exists()
     report_text = report_path.read_text()
     assert "Incremental Status" in report_text
     assert "PENDING (phase:" in report_text
+    assert phase_checkpoint_path.exists()
+    phase_payload = json.loads(phase_checkpoint_path.read_text())
+    phases = phase_payload.get("phases")
+    assert isinstance(phases, dict)
+    collection_phase = phases.get("collection")
     progress = (result.get("timeout_context") or {}).get("progress")
     assert isinstance(progress, dict)
     obligations = progress.get("incremental_obligations")
@@ -306,6 +313,25 @@ def test_execute_command_timeout_writes_partial_incremental_report(
         and entry.get("status") == "SATISFIED"
         for entry in obligations
     )
+    if isinstance(collection_phase, dict):
+        assert (
+            "Collection progress checkpoint (provisional)." in report_text
+            or "Collection bootstrap checkpoint (provisional)." in report_text
+        )
+        assert "## Section `intro`\nPENDING" not in report_text
+        if collection_phase.get("status") == "checkpointed":
+            assert int(collection_phase.get("in_progress_files", 0)) >= 1
+            assert int(collection_phase.get("total_files", 0)) >= 1
+        else:
+            assert collection_phase.get("status") == "bootstrap"
+    else:
+        assert any(
+            isinstance(entry, dict)
+            and entry.get("contract") == "resume_contract"
+            and entry.get("kind") == "no_projection_progress"
+            and entry.get("status") == "VIOLATION"
+            for entry in obligations
+        )
 
 
 def test_execute_command_timeout_marks_stale_section_journal(
@@ -355,7 +381,7 @@ def test_execute_command_timeout_marks_stale_section_journal(
     assert any(
         isinstance(entry, dict)
         and entry.get("contract") == "incremental_projection_contract"
-        and entry.get("detail") == "stale_input"
+        and entry.get("detail") in {"stale_input", "policy"}
         for entry in obligations
     )
 
@@ -421,6 +447,53 @@ def test_incremental_obligations_require_restart_on_witness_mismatch(
         and entry.get("status") == "VIOLATION"
         for entry in obligations
     )
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "resume_contract"
+        and entry.get("kind") == "no_projection_progress"
+        and entry.get("status") == "SATISFIED"
+        for entry in obligations
+    )
+
+
+def test_incremental_obligations_flag_no_projection_progress() -> None:
+    obligations = server._incremental_progress_obligations(
+        analysis_state="timed_out_progress_resume",
+        progress_payload={
+            "classification": "timed_out_progress_resume",
+            "resume_supported": True,
+        },
+        resume_checkpoint_path=None,
+        partial_report_written=True,
+        report_requested=True,
+        projection_rows=[
+            {"section_id": "intro", "phase": "collection", "deps": []},
+            {"section_id": "components", "phase": "forest", "deps": ["intro"]},
+        ],
+        sections={},
+        pending_reasons={"intro": "policy", "components": "missing_dep"},
+    )
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "resume_contract"
+        and entry.get("kind") == "no_projection_progress"
+        and entry.get("status") == "VIOLATION"
+        for entry in obligations
+    )
+
+
+def test_collection_progress_intro_lines_include_resume_counts() -> None:
+    lines = server._collection_progress_intro_lines(
+        collection_resume={
+            "completed_paths": ["a.py"],
+            "in_progress_scan_by_path": {"b.py": {"phase": "scan_pending"}},
+        },
+        total_files=3,
+    )
+    assert "Collection progress checkpoint (provisional)." in lines
+    assert "- `completed_files`: `1`" in lines
+    assert "- `in_progress_files`: `1`" in lines
+    assert "- `remaining_files`: `2`" in lines
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress

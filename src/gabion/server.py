@@ -733,6 +733,135 @@ def _write_report_phase_checkpoint(
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
+def _write_bootstrap_incremental_artifacts(
+    *,
+    report_output_path: Path | None,
+    report_section_journal_path: Path | None,
+    report_phase_checkpoint_path: Path | None,
+    witness_digest: str | None,
+    root: Path,
+    paths_requested: int,
+    projection_rows: Sequence[Mapping[str, JSONValue]],
+    phase_checkpoint_state: JSONObject,
+) -> None:
+    if report_output_path is None or not projection_rows:
+        return
+    existing_reason: str | None = None
+    if report_section_journal_path is not None and report_section_journal_path.exists():
+        try:
+            existing_payload = json.loads(report_section_journal_path.read_text())
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            existing_reason = "policy"
+        else:
+            if not isinstance(existing_payload, dict):
+                existing_reason = "policy"
+            elif (
+                existing_payload.get("format_version")
+                != _REPORT_SECTION_JOURNAL_FORMAT_VERSION
+            ):
+                existing_reason = "policy"
+            else:
+                expected_digest = existing_payload.get("witness_digest")
+                if isinstance(expected_digest, str) and expected_digest:
+                    if not isinstance(witness_digest, str) or expected_digest != witness_digest:
+                        existing_reason = "stale_input"
+    intro_lines = [
+        "Collection bootstrap checkpoint (provisional).",
+        f"- `root`: `{root}`",
+        f"- `paths_requested`: `{paths_requested}`",
+    ]
+    sections: dict[str, list[str]] = {"intro": intro_lines}
+    report_lines = [
+        "<!-- dataflow-grammar -->",
+        "Dataflow grammar audit (observed forwarding bundles).",
+        "",
+        "## Incremental Status",
+        "",
+        "- `analysis_state`: `analysis_bootstrap_in_progress`",
+        "",
+        "## Section `intro`",
+        *intro_lines,
+        "",
+    ]
+    rows_payload: list[JSONObject] = []
+    sections_payload: JSONObject = {
+        "intro": {
+            "phase": "collection",
+            "deps": [],
+            "status": "resolved",
+            "lines": intro_lines,
+        }
+    }
+    rows_payload.append(
+        {
+            "section_id": "intro",
+            "phase": "collection",
+            "deps": [],
+            "status": "resolved",
+        }
+    )
+    for row in projection_rows:
+        section_id = str(row.get("section_id", "") or "")
+        if not section_id or section_id == "intro":
+            continue
+        phase = str(row.get("phase", "") or "")
+        deps_raw = row.get("deps")
+        deps: list[str] = []
+        if isinstance(deps_raw, list):
+            deps = [str(dep) for dep in deps_raw if isinstance(dep, str)]
+        dep_text = ", ".join(deps) if deps else "none"
+        reason = existing_reason or (
+            "missing_dep" if any(dep not in sections for dep in deps) else "policy"
+        )
+        report_lines.append(f"## Section `{section_id}`")
+        report_lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
+        report_lines.append("")
+        sections_payload[section_id] = {
+            "phase": phase,
+            "deps": deps,
+            "status": "pending",
+            "lines": [],
+            "reason": reason,
+        }
+        rows_payload.append(
+            {
+                "section_id": section_id,
+                "phase": phase,
+                "deps": deps,
+                "status": "pending",
+            }
+        )
+    report_output_path.parent.mkdir(parents=True, exist_ok=True)
+    report_output_path.write_text("\n".join(report_lines).rstrip() + "\n")
+    if report_section_journal_path is not None:
+        report_section_journal_path.parent.mkdir(parents=True, exist_ok=True)
+        report_section_journal_path.write_text(
+            json.dumps(
+                {
+                    "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
+                    "witness_digest": witness_digest,
+                    "sections": sections_payload,
+                    "projection_rows": rows_payload,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
+    phase_checkpoint_state["collection"] = {
+        "status": "bootstrap",
+        "completed_files": 0,
+        "in_progress_files": 0,
+        "remaining_files": 0,
+        "section_ids": sorted(sections),
+    }
+    _write_report_phase_checkpoint(
+        path=report_phase_checkpoint_path,
+        witness_digest=witness_digest,
+        phases=phase_checkpoint_state,
+    )
+
+
 def _render_incremental_report(
     *,
     analysis_state: str,
@@ -762,14 +891,6 @@ def _render_incremental_report(
     lines.append("")
 
     pending_reasons: dict[str, str] = {}
-    current_phase_rank: int | None = None
-    if isinstance(completed_phase, str) and completed_phase:
-        try:
-            current_phase_rank = report_projection_phase_rank(
-                cast(Literal["collection", "forest", "edge", "post"], completed_phase)
-            )
-        except KeyError:
-            current_phase_rank = None
     for row in projection_rows:
         check_deadline()
         section_id = str(row.get("section_id", "") or "")
@@ -790,28 +911,49 @@ def _render_incremental_report(
                 lines.append("")
             continue
         dep_text = ", ".join(deps) if deps else "none"
-        reason = "missing_dep"
         if any(dep not in sections for dep in deps):
             reason = "missing_dep"
         else:
+            reason = "policy"
             section_phase = str(row.get("phase", "") or "")
             try:
-                phase_rank = report_projection_phase_rank(
+                report_projection_phase_rank(
                     cast(Literal["collection", "forest", "edge", "post"], section_phase)
                 )
             except KeyError:
-                phase_rank = None
-            if (
-                current_phase_rank is not None
-                and phase_rank is not None
-                and phase_rank <= current_phase_rank
-            ):
                 reason = "policy"
         pending_reasons[section_id] = reason
         lines.append(f"## Section `{section_id}`")
         lines.append(f"PENDING (phase: {phase}; deps: {dep_text})")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n", pending_reasons
+
+
+def _collection_progress_intro_lines(
+    *,
+    collection_resume: Mapping[str, JSONValue],
+    total_files: int,
+) -> list[str]:
+    progress = _analysis_resume_progress(
+        collection_resume=collection_resume,
+        total_files=total_files,
+    )
+    lines = [
+        "Collection progress checkpoint (provisional).",
+        f"- `completed_files`: `{progress['completed_files']}`",
+        f"- `in_progress_files`: `{progress['in_progress_files']}`",
+        f"- `remaining_files`: `{progress['remaining_files']}`",
+        f"- `total_files`: `{progress['total_files']}`",
+    ]
+    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
+    if isinstance(raw_in_progress, Mapping):
+        in_progress_paths = sorted(
+            str(path) for path in raw_in_progress if isinstance(path, str)
+        )
+        if in_progress_paths:
+            sample = ", ".join(in_progress_paths[:3])
+            lines.append(f"- `in_progress_path_sample`: `{sample}`")
+    return lines
 
 
 def _incremental_progress_obligations(
@@ -891,6 +1033,26 @@ def _incremental_progress_obligations(
             "detail": restart_detail,
         }
     )
+    if report_requested and is_timeout_state:
+        projection_count = sum(
+            1
+            for row in projection_rows
+            if isinstance(row, Mapping)
+            and isinstance(row.get("section_id"), str)
+            and str(row.get("section_id") or "")
+        )
+        resolved_count = len(sections)
+        obligations.append(
+            {
+                "status": "SATISFIED" if resolved_count > 0 else "VIOLATION",
+                "contract": "resume_contract",
+                "kind": "no_projection_progress",
+                "detail": (
+                    f"resolved_sections={resolved_count} "
+                    f"projected_sections={projection_count}"
+                ),
+            }
+        )
 
     if report_requested and is_timeout_state:
         obligations.append(
@@ -1207,6 +1369,18 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         report_projection_spec_rows() if report_output_path else []
     )
     phase_checkpoint_state: JSONObject = {}
+    raw_initial_paths = payload.get("paths")
+    initial_paths_count = len(raw_initial_paths) if isinstance(raw_initial_paths, list) else 1
+    _write_bootstrap_incremental_artifacts(
+        report_output_path=report_output_path,
+        report_section_journal_path=report_section_journal_path,
+        report_phase_checkpoint_path=report_phase_checkpoint_path,
+        witness_digest=report_section_witness_digest,
+        root=initial_root,
+        paths_requested=initial_paths_count,
+        projection_rows=projection_rows,
+        phase_checkpoint_state=phase_checkpoint_state,
+    )
     try:
         root = payload.get("root") or ls.workspace.root_path or "."
         config_path = payload.get("config")
@@ -1523,22 +1697,29 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 )
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
-            if (
-                analysis_resume_checkpoint_path is None
-                or analysis_resume_input_manifest_digest is None
-            ):
-                return
-            _write_analysis_resume_checkpoint(
-                path=analysis_resume_checkpoint_path,
-                input_witness=analysis_resume_input_witness,
-                input_manifest_digest=analysis_resume_input_manifest_digest,
+            collection_progress = _analysis_resume_progress(
                 collection_resume=progress_payload,
+                total_files=analysis_resume_total_files,
             )
+            if (
+                analysis_resume_checkpoint_path is not None
+                and analysis_resume_input_manifest_digest is not None
+            ):
+                _write_analysis_resume_checkpoint(
+                    path=analysis_resume_checkpoint_path,
+                    input_witness=analysis_resume_input_witness,
+                    input_manifest_digest=analysis_resume_input_manifest_digest,
+                    collection_resume=progress_payload,
+                )
             if not report_output_path or not projection_rows:
                 return
             sections, journal_reason = _load_report_section_journal(
                 path=report_section_journal_path,
                 witness_digest=report_section_witness_digest,
+            )
+            sections["intro"] = _collection_progress_intro_lines(
+                collection_resume=progress_payload,
+                total_files=analysis_resume_total_files,
             )
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state="analysis_collection_in_progress",
@@ -1547,6 +1728,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 sections=sections,
                 completed_phase="collection",
             )
+            pending_reasons.pop("intro", None)
             if journal_reason in {"stale_input", "policy"}:
                 for row in projection_rows:
                     check_deadline()
@@ -1565,9 +1747,10 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             )
             phase_checkpoint_state["collection"] = {
                 "status": "checkpointed",
-                "completed_files": progress_payload.get("completed_files", 0),
-                "in_progress_files": progress_payload.get("in_progress_files", 0),
-                "remaining_files": progress_payload.get("remaining_files", 0),
+                "completed_files": collection_progress["completed_files"],
+                "in_progress_files": collection_progress["in_progress_files"],
+                "remaining_files": collection_progress["remaining_files"],
+                "total_files": collection_progress["total_files"],
                 "section_ids": sorted(sections),
             }
             _write_report_phase_checkpoint(
@@ -1626,6 +1809,15 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 witness_digest=report_section_witness_digest,
                 phases=phase_checkpoint_state,
             )
+
+        if needs_analysis and file_paths_for_run is not None:
+            bootstrap_collection_resume = collection_resume_payload
+            if bootstrap_collection_resume is None:
+                seed_paths = file_paths_for_run[:1] if file_paths_for_run else []
+                bootstrap_collection_resume = build_analysis_collection_resume_seed(
+                    in_progress_paths=seed_paths
+                )
+            _persist_collection_resume(bootstrap_collection_resume)
 
         if needs_analysis:
             analysis = analyze_paths(
@@ -2358,6 +2550,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             if not isinstance(progress_payload, dict):
                 progress_payload = {}
                 timeout_payload["progress"] = progress_payload
+            timeout_collection_resume_payload: JSONObject | None = None
             if analysis_resume_checkpoint_path is not None:
                 collection_resume: JSONObject | None = None
                 resume_input_witness: JSONObject | None = analysis_resume_input_witness
@@ -2374,10 +2567,21 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     if manifest_resume is not None:
                         resume_input_witness, collection_resume = manifest_resume
                 if collection_resume is not None:
+                    timeout_collection_resume_payload = collection_resume
                     resume_progress = _analysis_resume_progress(
                         collection_resume=collection_resume,
                         total_files=analysis_resume_total_files,
                     )
+                    progress_payload["completed_files"] = resume_progress[
+                        "completed_files"
+                    ]
+                    progress_payload["in_progress_files"] = resume_progress[
+                        "in_progress_files"
+                    ]
+                    progress_payload["remaining_files"] = resume_progress[
+                        "remaining_files"
+                    ]
+                    progress_payload["total_files"] = resume_progress["total_files"]
                     resume_supported = (
                         resume_progress["completed_files"] > 0
                         or resume_progress.get("in_progress_files", 0) > 0
@@ -2434,6 +2638,20 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     path=report_section_journal_path,
                     witness_digest=report_section_witness_digest,
                 )
+                if (
+                    timeout_collection_resume_payload is not None
+                    and "intro" not in resolved_sections
+                ):
+                    resolved_sections["intro"] = _collection_progress_intro_lines(
+                        collection_resume=timeout_collection_resume_payload,
+                        total_files=analysis_resume_total_files,
+                    )
+                if "intro" not in resolved_sections:
+                    resolved_sections["intro"] = [
+                        "Collection bootstrap checkpoint (provisional).",
+                        f"- `root`: `{initial_root}`",
+                        f"- `paths_requested`: `{initial_paths_count}`",
+                    ]
                 completed_phase = _latest_report_phase(phase_checkpoint_state)
                 partial_report, pending_reasons = _render_incremental_report(
                     analysis_state=analysis_state,
