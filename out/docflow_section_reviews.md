@@ -24,8 +24,8 @@ doc_section_reviews:
 
 Docflow anchor review report
 Summary:
-- ok: 215
-- stale_dep: 8
+- ok: 216
+- stale_dep: 18
 - in/AGENTS.md::in_agents -> POLICY_SEED.md#policy_seed status=stale_dep dep=38/1 self=1
 - in/CONTRIBUTING.md::in_contributing -> POLICY_SEED.md#policy_seed status=stale_dep dep=38/1 self=1
 - in/CONTRIBUTING.md::in_contributing -> glossary.md#contract status=stale_dep dep=42/1 self=1
@@ -34,3 +34,13 @@ Summary:
 - in/README.md::in_readme -> CONTRIBUTING.md#contributing_contract status=stale_dep dep=84/1 self=1
 - in/in-31.md::in_in_31 -> in/in-30.md#in_in_30 status=stale_dep dep=2/4 self=3
 - in/in-32.md::in_in_32 -> in/in-30.md#in_in_30 status=stale_dep dep=1/4 self=5
+- in/in-33.md::in_in_33 -> POLICY_SEED.md#policy_seed status=stale_dep dep=38/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#contract status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#bundle status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#decision_bundle status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#decision_protocol status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#decision_surface status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#hash_consing status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#aspf status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> glossary.md#forest status=stale_dep dep=43/1 self=1
+- in/in-33.md::in_in_33 -> in/in-30.md#in_in_30 status=stale_dep dep=24/4 self=1
