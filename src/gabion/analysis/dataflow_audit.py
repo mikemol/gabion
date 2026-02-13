@@ -6030,6 +6030,8 @@ class _ResolvedCallEdge:
 
 _StageCacheValue = TypeVar("_StageCacheValue")
 _IndexedPassResult = TypeVar("_IndexedPassResult")
+_ResolvedEdgeAcc = TypeVar("_ResolvedEdgeAcc")
+_ResolvedEdgeOut = TypeVar("_ResolvedEdgeOut")
 
 
 @dataclass(frozen=True)
@@ -6048,6 +6050,22 @@ class _IndexedPassContext:
 class _IndexedPassSpec(Generic[_IndexedPassResult]):
     pass_id: str
     run: Callable[[_IndexedPassContext], _IndexedPassResult]
+
+
+@dataclass(frozen=True)
+class _ResolvedEdgeReducerSpec(Generic[_ResolvedEdgeAcc, _ResolvedEdgeOut]):
+    reducer_id: str
+    init: Callable[[], _ResolvedEdgeAcc]
+    fold: Callable[[_ResolvedEdgeAcc, _ResolvedCallEdge], None]
+    finish: Callable[[_ResolvedEdgeAcc], _ResolvedEdgeOut]
+
+
+@dataclass(frozen=True)
+class _ResolvedEdgeParamEvent:
+    kind: str
+    param: str
+    value: str | None
+    countable: bool
 
 
 @dataclass(frozen=True)
@@ -6292,6 +6310,194 @@ def _analysis_index_resolved_call_edges_by_caller(
     if require_transparent:
         analysis_index.resolved_transparent_edges_by_caller = frozen_grouped
     return frozen_grouped
+
+
+def _reduce_resolved_call_edges(
+    analysis_index: AnalysisIndex,
+    *,
+    project_root: Path | None,
+    require_transparent: bool,
+    spec: _ResolvedEdgeReducerSpec[_ResolvedEdgeAcc, _ResolvedEdgeOut],
+) -> _ResolvedEdgeOut:
+    check_deadline()
+    acc = spec.init()
+    for edge in _analysis_index_resolved_call_edges(
+        analysis_index,
+        project_root=project_root,
+        require_transparent=require_transparent,
+    ):
+        check_deadline()
+        spec.fold(acc, edge)
+    return spec.finish(acc)
+
+
+def _iter_resolved_edge_param_events(
+    edge: _ResolvedCallEdge,
+    *,
+    strictness: str,
+    include_variadics_in_low_star: bool,
+) -> Iterator[_ResolvedEdgeParamEvent]:
+    check_deadline()
+    call = edge.call
+    callee = edge.callee
+    pos_params = (
+        list(callee.positional_params)
+        if callee.positional_params
+        else list(callee.params)
+    )
+    kwonly_params = set(callee.kwonly_params or ())
+    named_params = set(pos_params) | kwonly_params
+    mapped_params: set[str] = set()
+
+    for idx_str in call.pos_map:
+        check_deadline()
+        idx = int(idx_str)
+        if idx < len(pos_params):
+            param = pos_params[idx]
+            mapped_params.add(param)
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=param,
+                value=None,
+                countable=True,
+            )
+        elif callee.vararg is not None:
+            mapped_params.add(callee.vararg)
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.vararg,
+                value=None,
+                countable=False,
+            )
+    for kw in call.kw_map:
+        check_deadline()
+        if kw in named_params:
+            mapped_params.add(kw)
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=kw,
+                value=None,
+                countable=True,
+            )
+        elif callee.kwarg is not None:
+            mapped_params.add(callee.kwarg)
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.kwarg,
+                value=None,
+                countable=False,
+            )
+
+    for idx_str, value in call.const_pos.items():
+        check_deadline()
+        idx = int(idx_str)
+        if idx < len(pos_params):
+            yield _ResolvedEdgeParamEvent(
+                kind="const",
+                param=pos_params[idx],
+                value=value,
+                countable=True,
+            )
+        elif callee.vararg is not None:
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.vararg,
+                value=None,
+                countable=False,
+            )
+    for idx_str in call.non_const_pos:
+        check_deadline()
+        idx = int(idx_str)
+        if idx < len(pos_params):
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=pos_params[idx],
+                value=None,
+                countable=True,
+            )
+        elif callee.vararg is not None:
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.vararg,
+                value=None,
+                countable=False,
+            )
+    for kw, value in call.const_kw.items():
+        check_deadline()
+        if kw in named_params:
+            yield _ResolvedEdgeParamEvent(
+                kind="const",
+                param=kw,
+                value=value,
+                countable=True,
+            )
+        elif callee.kwarg is not None:
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.kwarg,
+                value=None,
+                countable=False,
+            )
+    for kw in call.non_const_kw:
+        check_deadline()
+        if kw in named_params:
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=kw,
+                value=None,
+                countable=True,
+            )
+        elif callee.kwarg is not None:
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.kwarg,
+                value=None,
+                countable=False,
+            )
+
+    if strictness != "low":
+        return
+
+    remaining = [p for p in named_params if p not in mapped_params]
+    if include_variadics_in_low_star:
+        if callee.vararg is not None and callee.vararg not in mapped_params:
+            remaining.append(callee.vararg)
+        if callee.kwarg is not None and callee.kwarg not in mapped_params:
+            remaining.append(callee.kwarg)
+
+    if len(call.star_pos) == 1:
+        for param in remaining:
+            check_deadline()
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=param,
+                value=None,
+                countable=param in named_params,
+            )
+        if not include_variadics_in_low_star and callee.vararg is not None:
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.vararg,
+                value=None,
+                countable=False,
+            )
+
+    if len(call.star_kw) == 1:
+        for param in remaining:
+            check_deadline()
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=param,
+                value=None,
+                countable=param in named_params,
+            )
+        if not include_variadics_in_low_star and callee.kwarg is not None:
+            yield _ResolvedEdgeParamEvent(
+                kind="non_const",
+                param=callee.kwarg,
+                value=None,
+                countable=False,
+            )
 
 
 def _build_call_graph(
@@ -8857,6 +9063,36 @@ def _format_call_site(caller: FunctionInfo, call: CallArgs) -> str:
     return f"{caller.path.name}:{line + 1}:{col + 1}:{caller_name}"
 
 
+@dataclass
+class _ConstantFlowFoldAccumulator:
+    const_values: dict[tuple[str, str], set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+    non_const: dict[tuple[str, str], bool] = field(
+        default_factory=lambda: defaultdict(bool)
+    )
+    call_counts: dict[tuple[str, str], int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+    call_sites: dict[tuple[str, str], set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+
+
+@dataclass
+class _KnobFlowFoldAccumulator:
+    const_values: dict[tuple[str, str], set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+    non_const: dict[tuple[str, str], bool] = field(
+        default_factory=lambda: defaultdict(bool)
+    )
+    explicit_passed: dict[tuple[str, str], bool] = field(
+        default_factory=lambda: defaultdict(bool)
+    )
+    call_counts: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+
+
 def _collect_constant_flow_details(
     paths: list[Path],
     *,
@@ -8881,119 +9117,44 @@ def _collect_constant_flow_details(
             parse_failure_witnesses=parse_failure_witnesses,
         )
     by_qual = index.by_qual
-    resolved_edges = _analysis_index_resolved_call_edges(
+    def _fold(acc: _ConstantFlowFoldAccumulator, edge: _ResolvedCallEdge) -> None:
+        for event in _iter_resolved_edge_param_events(
+            edge,
+            strictness=strictness,
+            include_variadics_in_low_star=False,
+        ):
+            check_deadline()
+            key = (edge.callee.qual, event.param)
+            if event.kind == "const":
+                if event.value is None:
+                    continue
+                acc.const_values[key].add(event.value)
+                if event.countable:
+                    acc.call_counts[key] += 1
+                    acc.call_sites[key].add(_format_call_site(edge.caller, edge.call))
+                continue
+            acc.non_const[key] = True
+            if event.countable:
+                acc.call_counts[key] += 1
+
+    folded = _reduce_resolved_call_edges(
         index,
         project_root=project_root,
         require_transparent=True,
+        spec=_ResolvedEdgeReducerSpec[
+            _ConstantFlowFoldAccumulator, _ConstantFlowFoldAccumulator
+        ](
+            reducer_id="constant_flow",
+            init=_ConstantFlowFoldAccumulator,
+            fold=_fold,
+            finish=lambda acc: acc,
+        ),
     )
-    const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
-    non_const: dict[tuple[str, str], bool] = defaultdict(bool)
-    call_counts: dict[tuple[str, str], int] = defaultdict(int)
-    call_sites: dict[tuple[str, str], set[str]] = defaultdict(set)
-
-    def _record_site(key: tuple[str, str], caller: FunctionInfo, call: CallArgs) -> None:
-        call_sites[key].add(_format_call_site(caller, call))
-
-    for edge in resolved_edges:
-        check_deadline()
-        info = edge.caller
-        call = edge.call
-        callee = edge.callee
-        pos_params = (
-            list(callee.positional_params)
-            if callee.positional_params
-            else list(callee.params)
-        )
-        kwonly_params = set(callee.kwonly_params or ())
-        named_params = set(pos_params) | kwonly_params
-        mapped_params = set()
-        for idx_str in call.pos_map:
-            check_deadline()
-            idx = int(idx_str)
-            if idx < len(pos_params):
-                mapped_params.add(pos_params[idx])
-            elif callee.vararg is not None:
-                mapped_params.add(callee.vararg)
-        for kw in call.kw_map:
-            check_deadline()
-            if kw in named_params:
-                mapped_params.add(kw)
-        remaining = [p for p in named_params if p not in mapped_params]
-
-        for idx_str, value in call.const_pos.items():
-            check_deadline()
-            idx = int(idx_str)
-            if idx < len(pos_params):
-                key = (callee.qual, pos_params[idx])
-                const_values[key].add(value)
-                call_counts[key] += 1
-                _record_site(key, info, call)
-            elif callee.vararg is not None:
-                non_const[(callee.qual, callee.vararg)] = True
-        for idx_str in call.pos_map:
-            check_deadline()
-            idx = int(idx_str)
-            if idx < len(pos_params):
-                key = (callee.qual, pos_params[idx])
-                non_const[key] = True
-                call_counts[key] += 1
-            elif callee.vararg is not None:
-                non_const[(callee.qual, callee.vararg)] = True
-        for idx_str in call.non_const_pos:
-            check_deadline()
-            idx = int(idx_str)
-            if idx < len(pos_params):
-                key = (callee.qual, pos_params[idx])
-                non_const[key] = True
-                call_counts[key] += 1
-            elif callee.vararg is not None:
-                non_const[(callee.qual, callee.vararg)] = True
-        if strictness == "low":
-            if len(call.star_pos) == 1:
-                for param in remaining:
-                    check_deadline()
-                    key = (callee.qual, param)
-                    non_const[key] = True
-                    call_counts[key] += 1
-                if callee.vararg is not None:
-                    non_const[(callee.qual, callee.vararg)] = True
-
-        for kw, value in call.const_kw.items():
-            check_deadline()
-            if kw not in named_params:
-                continue
-            key = (callee.qual, kw)
-            const_values[key].add(value)
-            call_counts[key] += 1
-            _record_site(key, info, call)
-        for kw in call.kw_map:
-            check_deadline()
-            if kw not in named_params:
-                continue
-            key = (callee.qual, kw)
-            non_const[key] = True
-            call_counts[key] += 1
-        for kw in call.non_const_kw:
-            check_deadline()
-            if kw not in named_params:
-                continue
-            key = (callee.qual, kw)
-            non_const[key] = True
-            call_counts[key] += 1
-        if strictness == "low":
-            if len(call.star_kw) == 1:
-                for param in remaining:
-                    check_deadline()
-                    key = (callee.qual, param)
-                    non_const[key] = True
-                    call_counts[key] += 1
-                if callee.kwarg is not None:
-                    non_const[(callee.qual, callee.kwarg)] = True
 
     details: list[ConstantFlowDetail] = []
-    for key, values in const_values.items():
+    for key, values in folded.const_values.items():
         check_deadline()
-        if non_const.get(key):
+        if folded.non_const.get(key):
             continue
         if len(values) != 1:
             continue
@@ -9007,7 +9168,7 @@ def _collect_constant_flow_details(
             if info is not None
             else qual.split(".")[-1]
         )
-        count = call_counts.get(key, 0)
+        count = folded.call_counts.get(key, 0)
         details.append(
             ConstantFlowDetail(
                 path=path,
@@ -9016,7 +9177,7 @@ def _collect_constant_flow_details(
                 param=param,
                 value=next(iter(values)),
                 count=count,
-                sites=tuple(sorted(call_sites.get(key, set()))),
+                sites=tuple(sorted(folded.call_sites.get(key, set()))),
             )
         )
     return sorted(details, key=lambda entry: (str(entry.path), entry.name, entry.param))
@@ -9081,123 +9242,49 @@ def _compute_knob_param_names(
             symbol_table=symbol_table,
             class_index=class_index,
         )
-    resolved_edges = _analysis_index_resolved_call_edges(
+    def _fold(acc: _KnobFlowFoldAccumulator, edge: _ResolvedCallEdge) -> None:
+        acc.call_counts[edge.callee.qual] += 1
+        for event in _iter_resolved_edge_param_events(
+            edge,
+            strictness=strictness,
+            include_variadics_in_low_star=True,
+        ):
+            check_deadline()
+            key = (edge.callee.qual, event.param)
+            if event.kind == "const":
+                if event.value is not None:
+                    acc.const_values[key].add(event.value)
+            else:
+                acc.non_const[key] = True
+            acc.explicit_passed[key] = True
+
+    folded = _reduce_resolved_call_edges(
         index,
         project_root=project_root,
         require_transparent=True,
+        spec=_ResolvedEdgeReducerSpec[
+            _KnobFlowFoldAccumulator, _KnobFlowFoldAccumulator
+        ](
+            reducer_id="knob_flow",
+            init=_KnobFlowFoldAccumulator,
+            fold=_fold,
+            finish=lambda acc: acc,
+        ),
     )
-    const_values: dict[tuple[str, str], set[str]] = defaultdict(set)
-    non_const: dict[tuple[str, str], bool] = defaultdict(bool)
-    explicit_passed: dict[tuple[str, str], bool] = defaultdict(bool)
-    call_counts: dict[str, int] = defaultdict(int)
-    for edge in resolved_edges:
-        check_deadline()
-        call = edge.call
-        callee = edge.callee
-        call_counts[callee.qual] += 1
-        pos_params = (
-            list(callee.positional_params)
-            if callee.positional_params
-            else list(callee.params)
-        )
-        kwonly_params = set(callee.kwonly_params or ())
-        named_params = set(pos_params) | kwonly_params
-        remaining = set(named_params)
-        if callee.vararg is not None:
-            remaining.add(callee.vararg)
-        if callee.kwarg is not None:
-            remaining.add(callee.kwarg)
-        for idx_str, value in call.const_pos.items():
-            check_deadline()
-            idx = int(idx_str)
-            if idx < len(pos_params):
-                param = pos_params[idx]
-                const_values[(callee.qual, param)].add(value)
-                explicit_passed[(callee.qual, param)] = True
-                remaining.discard(param)
-            elif callee.vararg is not None:
-                non_const[(callee.qual, callee.vararg)] = True
-                explicit_passed[(callee.qual, callee.vararg)] = True
-                remaining.discard(callee.vararg)
-        for idx_str in call.pos_map:
-            check_deadline()
-            idx = int(idx_str)
-            if idx < len(pos_params):
-                param = pos_params[idx]
-                non_const[(callee.qual, param)] = True
-                explicit_passed[(callee.qual, param)] = True
-                remaining.discard(param)
-            elif callee.vararg is not None:
-                non_const[(callee.qual, callee.vararg)] = True
-                explicit_passed[(callee.qual, callee.vararg)] = True
-                remaining.discard(callee.vararg)
-        for idx_str in call.non_const_pos:
-            check_deadline()
-            idx = int(idx_str)
-            if idx < len(pos_params):
-                param = pos_params[idx]
-                non_const[(callee.qual, param)] = True
-                explicit_passed[(callee.qual, param)] = True
-                remaining.discard(param)
-            elif callee.vararg is not None:
-                non_const[(callee.qual, callee.vararg)] = True
-                explicit_passed[(callee.qual, callee.vararg)] = True
-                remaining.discard(callee.vararg)
-        for kw, value in call.const_kw.items():
-            check_deadline()
-            if kw in named_params:
-                const_values[(callee.qual, kw)].add(value)
-                explicit_passed[(callee.qual, kw)] = True
-                remaining.discard(kw)
-            elif callee.kwarg is not None:
-                non_const[(callee.qual, callee.kwarg)] = True
-                explicit_passed[(callee.qual, callee.kwarg)] = True
-                remaining.discard(callee.kwarg)
-        for kw in call.kw_map:
-            check_deadline()
-            if kw in named_params:
-                non_const[(callee.qual, kw)] = True
-                explicit_passed[(callee.qual, kw)] = True
-                remaining.discard(kw)
-            elif callee.kwarg is not None:
-                non_const[(callee.qual, callee.kwarg)] = True
-                explicit_passed[(callee.qual, callee.kwarg)] = True
-                remaining.discard(callee.kwarg)
-        for kw in call.non_const_kw:
-            check_deadline()
-            if kw in named_params:
-                non_const[(callee.qual, kw)] = True
-                explicit_passed[(callee.qual, kw)] = True
-                remaining.discard(kw)
-            elif callee.kwarg is not None:
-                non_const[(callee.qual, callee.kwarg)] = True
-                explicit_passed[(callee.qual, callee.kwarg)] = True
-                remaining.discard(callee.kwarg)
-        if strictness == "low":
-            if len(call.star_pos) == 1:
-                for param in remaining:
-                    check_deadline()
-                    non_const[(callee.qual, param)] = True
-                    explicit_passed[(callee.qual, param)] = True
-            if len(call.star_kw) == 1:
-                for param in remaining:
-                    check_deadline()
-                    non_const[(callee.qual, param)] = True
-                    explicit_passed[(callee.qual, param)] = True
     knob_names: set[str] = set()
-    for key, values in const_values.items():
+    for key, values in folded.const_values.items():
         check_deadline()
-        if non_const.get(key):
+        if folded.non_const.get(key):
             continue
         if len(values) == 1:
             knob_names.add(key[1])
     for qual, info in by_qual.items():
         check_deadline()
-        if call_counts.get(qual, 0) == 0:
+        if folded.call_counts.get(qual, 0) == 0:
             continue
         for param in info.defaults:
             check_deadline()
-            if not explicit_passed.get((qual, param), False):
+            if not folded.explicit_passed.get((qual, param), False):
                 knob_names.add(param)
     return knob_names
 

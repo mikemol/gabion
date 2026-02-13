@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 import ast
 import sys
@@ -657,6 +658,128 @@ def test_run_indexed_pass_reuses_prebuilt_index() -> None:
         ),
     )
     assert result == (True, True)
+
+
+def test_reduce_resolved_call_edges_respects_transparency_filter(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "module.py"
+    _write(
+        module,
+        "def deny(fn):\n"
+        "    return fn\n"
+        "\n"
+        "@deny\n"
+        "def blocked(x):\n"
+        "    return x\n"
+        "\n"
+        "def open_(x):\n"
+        "    return x\n"
+        "\n"
+        "def caller(x):\n"
+        "    blocked(x)\n"
+        "    open_(x)\n",
+    )
+    parse_failures: list[dict[str, object]] = []
+    analysis_index = da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators={"allow"},
+        parse_failure_witnesses=parse_failures,
+    )
+
+    def _spec() -> object:
+        def _fold(acc: dict[str, int], _edge) -> None:
+            acc["count"] += 1
+
+        return da._ResolvedEdgeReducerSpec[dict[str, int], int](
+            reducer_id="count_edges",
+            init=lambda: {"count": 0},
+            fold=_fold,
+            finish=lambda acc: acc["count"],
+        )
+
+    all_count = da._reduce_resolved_call_edges(
+        analysis_index,
+        project_root=tmp_path,
+        require_transparent=False,
+        spec=_spec(),
+    )
+    transparent_count = da._reduce_resolved_call_edges(
+        analysis_index,
+        project_root=tmp_path,
+        require_transparent=True,
+        spec=_spec(),
+    )
+    assert all_count == 2
+    assert transparent_count == 1
+
+
+def test_iter_resolved_edge_param_events_low_strict_variadic_modes() -> None:
+    da = _load()
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="mod.caller",
+        path=Path("mod.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+    )
+    callee = da.FunctionInfo(
+        name="f",
+        qual="mod.f",
+        path=Path("mod.py"),
+        params=["a", "b", "kw"],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        positional_params=("a", "b"),
+        kwonly_params=("kw",),
+        vararg="rest",
+        kwarg="kwargs",
+    )
+    call = da.CallArgs(
+        callee="f",
+        pos_map={"0": "x"},
+        kw_map={"kw": "k"},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[(2, "sx")],
+        star_kw=["sk"],
+        is_test=False,
+        span=(0, 0, 0, 1),
+    )
+    edge = da._ResolvedCallEdge(caller=caller, call=call, callee=callee)
+    named_only = list(
+        da._iter_resolved_edge_param_events(
+            edge,
+            strictness="low",
+            include_variadics_in_low_star=False,
+        )
+    )
+    with_variadics = list(
+        da._iter_resolved_edge_param_events(
+            edge,
+            strictness="low",
+            include_variadics_in_low_star=True,
+        )
+    )
+
+    named_counts = Counter(event.param for event in named_only)
+    variadic_counts = Counter(event.param for event in with_variadics)
+    assert named_counts == {"a": 1, "kw": 1, "b": 2, "rest": 1, "kwargs": 1}
+    assert variadic_counts == {"a": 1, "kw": 1, "b": 2, "rest": 2, "kwargs": 2}
+    assert all(event.kind == "non_const" for event in named_only)
+    assert all(event.kind == "non_const" for event in with_variadics)
+    assert all(not event.countable for event in named_only if event.param in {"rest", "kwargs"})
+    assert all(
+        not event.countable for event in with_variadics if event.param in {"rest", "kwargs"}
+    )
 
 
 def test_execution_pattern_suggestions_detect_indexed_pass_ingress() -> None:
