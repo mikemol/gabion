@@ -915,13 +915,88 @@ def _value_encoded_decision_params(
     return flagged, reasons
 
 
-def _analyze_decision_surfaces_indexed(
+@dataclass(frozen=True)
+class _DecisionSurfaceSpec:
+    pass_id: str
+    alt_kind: str
+    surface_label: str
+    params: Callable[[FunctionInfo], set[str]]
+    descriptor: Callable[[FunctionInfo, str], str]
+    alt_evidence: Callable[[str, str], JSONObject]
+    surface_lint_code: str
+    surface_lint_message: Callable[[str, str, str], str]
+    emit_surface_lint: Callable[[int, int | None], bool]
+    tier_lint_code: str
+    tier_missing_message: Callable[[str, str], str]
+    tier_internal_message: Callable[[str, int, str, str], str]
+    rewrite_line: Callable[[FunctionInfo, list[str], str], str] | None = None
+
+
+_DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
+    pass_id="decision_surfaces",
+    alt_kind="DecisionSurface",
+    surface_label="decision surface params",
+    params=lambda info: info.decision_params,
+    descriptor=lambda _info, boundary: boundary,
+    alt_evidence=lambda boundary, _descriptor: {
+        "meta": boundary,
+        "boundary": boundary,
+    },
+    surface_lint_code="GABION_DECISION_SURFACE",
+    surface_lint_message=lambda param, boundary, _descriptor: (
+        f"decision surface param '{param}' ({boundary})"
+    ),
+    emit_surface_lint=lambda caller_count, tier: caller_count == 0 and tier is None,
+    tier_lint_code="GABION_DECISION_TIER",
+    tier_missing_message=lambda param, _descriptor: (
+        f"decision param '{param}' missing decision tier metadata"
+    ),
+    tier_internal_message=lambda param, tier, boundary, _descriptor: (
+        f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
+    ),
+)
+
+
+_VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
+    pass_id="value_encoded_decisions",
+    alt_kind="ValueDecisionSurface",
+    surface_label="value-encoded decision params",
+    params=lambda info: info.value_decision_params,
+    descriptor=lambda info, _boundary: ", ".join(sorted(info.value_decision_reasons))
+    or "heuristic",
+    alt_evidence=lambda boundary, descriptor: {
+        "meta": descriptor,
+        "boundary": boundary,
+        "reasons": descriptor,
+    },
+    surface_lint_code="GABION_VALUE_DECISION_SURFACE",
+    surface_lint_message=lambda param, boundary, descriptor: (
+        f"value-encoded decision param '{param}' ({boundary}; {descriptor})"
+    ),
+    emit_surface_lint=lambda _caller_count, tier: tier is None,
+    tier_lint_code="GABION_VALUE_DECISION_TIER",
+    tier_missing_message=lambda param, descriptor: (
+        f"value-encoded decision param '{param}' missing decision tier metadata ({descriptor})"
+    ),
+    tier_internal_message=lambda param, tier, boundary, descriptor: (
+        f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {descriptor})"
+    ),
+    rewrite_line=lambda info, params, descriptor: (
+        f"{info.path.name}:{info.qual} consider rebranching value-encoded decision params: "
+        + ", ".join(params)
+        + f" ({descriptor})"
+    ),
+)
+
+
+def _analyze_decision_surface_indexed(
     context: _IndexedPassContext,
     *,
+    spec: _DecisionSurfaceSpec,
     decision_tiers: dict[str, int] | None,
     require_tiers: bool,
     forest: Forest,
-) -> tuple[list[str], list[str], list[str]]:
+) -> tuple[list[str], list[str], list[str], list[str]]:
     _, by_qual, transitive_callers = _build_call_graph(
         context.paths,
         project_root=context.project_root,
@@ -934,13 +1009,15 @@ def _analyze_decision_surfaces_indexed(
     )
     surfaces: list[str] = []
     warnings: list[str] = []
+    rewrites: list[str] = []
     lint_lines: list[str] = []
     tier_map = decision_tiers or {}
     for info in by_qual.values():
         check_deadline()
         if _is_test_path(info.path):
             continue
-        if not info.decision_params:
+        params = sorted(spec.params(info))
+        if not params:
             continue
         caller_count = len(transitive_callers.get(info.qual, set()))
         boundary = (
@@ -948,22 +1025,21 @@ def _analyze_decision_surfaces_indexed(
             if caller_count == 0
             else f"internal callers (transitive): {caller_count}"
         )
-        params = sorted(info.decision_params)
+        descriptor = spec.descriptor(info, boundary)
         site_id = forest.add_site(info.path.name, info.qual)
         paramset_id = forest.add_paramset(params)
         forest.add_alt(
-            "DecisionSurface",
+            spec.alt_kind,
             (site_id, paramset_id),
-            evidence={
-                "meta": boundary,
-                "boundary": boundary,
-            },
+            evidence=spec.alt_evidence(boundary, descriptor),
         )
         surfaces.append(
-            f"{info.path.name}:{info.qual} decision surface params: "
+            f"{info.path.name}:{info.qual} {spec.surface_label}: "
             + ", ".join(params)
-            + f" ({boundary})"
+            + f" ({descriptor})"
         )
+        if spec.rewrite_line is not None:
+            rewrites.append(spec.rewrite_line(info, params, descriptor))
         for param in params:
             check_deadline()
             tier = _decision_tier_for(
@@ -972,13 +1048,13 @@ def _analyze_decision_surfaces_indexed(
                 tier_map=tier_map,
                 project_root=context.project_root,
             )
-            if caller_count == 0 and tier is None:
+            if spec.emit_surface_lint(caller_count, tier):
                 lint = _decision_param_lint_line(
                     info,
                     param,
                     project_root=context.project_root,
-                    code="GABION_DECISION_SURFACE",
-                    message=f"decision surface param '{param}' ({boundary})",
+                    code=spec.surface_lint_code,
+                    message=spec.surface_lint_message(param, boundary, descriptor),
                 )
                 if lint is not None:
                     lint_lines.append(lint)
@@ -986,35 +1062,58 @@ def _analyze_decision_surfaces_indexed(
                 continue
             if tier is None:
                 if require_tiers:
-                    message = (
-                        f"decision param '{param}' missing decision tier metadata"
-                    )
+                    message = spec.tier_missing_message(param, descriptor)
                     warnings.append(f"{info.path.name}:{info.qual} {message}")
                     lint = _decision_param_lint_line(
                         info,
                         param,
                         project_root=context.project_root,
-                        code="GABION_DECISION_TIER",
+                        code=spec.tier_lint_code,
                         message=message,
                     )
                     if lint is not None:
                         lint_lines.append(lint)
                 continue
-            elif tier in {2, 3} and caller_count > 0:
-                message = (
-                    f"tier-{tier} decision param '{param}' used below boundary ({boundary})"
-                )
+            if tier in {2, 3} and caller_count > 0:
+                message = spec.tier_internal_message(param, tier, boundary, descriptor)
                 warnings.append(f"{info.path.name}:{info.qual} {message}")
                 lint = _decision_param_lint_line(
                     info,
                     param,
                     project_root=context.project_root,
-                    code="GABION_DECISION_TIER",
+                    code=spec.tier_lint_code,
                     message=message,
                 )
                 if lint is not None:
                     lint_lines.append(lint)
-    return sorted(surfaces), sorted(set(warnings)), sorted(set(lint_lines))
+    return (
+        sorted(surfaces),
+        sorted(set(warnings)),
+        sorted(rewrites),
+        sorted(set(lint_lines)),
+    )
+
+
+def _analyze_decision_surfaces_indexed(
+    context: _IndexedPassContext,
+    *,
+    decision_tiers: dict[str, int] | None,
+    require_tiers: bool,
+    forest: Forest,
+) -> tuple[list[str], list[str], list[str]]:
+    surfaces, warnings, rewrites, lint_lines = _analyze_decision_surface_indexed(
+        context,
+        spec=_DIRECT_DECISION_SURFACE_SPEC,
+        decision_tiers=decision_tiers,
+        require_tiers=require_tiers,
+        forest=forest,
+    )
+    if rewrites:
+        never(
+            "decision_surfaces rewrites must be empty",
+            pass_id=_DIRECT_DECISION_SURFACE_SPEC.pass_id,
+        )
+    return surfaces, warnings, lint_lines
 
 
 def analyze_decision_surfaces_repo(
@@ -1059,111 +1158,12 @@ def _analyze_value_encoded_decisions_indexed(
     require_tiers: bool,
     forest: Forest,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
-    _, by_qual, transitive_callers = _build_call_graph(
-        context.paths,
-        project_root=context.project_root,
-        ignore_params=context.ignore_params,
-        strictness=context.strictness,
-        external_filter=context.external_filter,
-        transparent_decorators=context.transparent_decorators,
-        parse_failure_witnesses=context.parse_failure_witnesses,
-        analysis_index=context.analysis_index,
-    )
-    surfaces: list[str] = []
-    warnings: list[str] = []
-    rewrites: list[str] = []
-    lint_lines: list[str] = []
-    tier_map = decision_tiers or {}
-    for info in by_qual.values():
-        check_deadline()
-        if _is_test_path(info.path):
-            continue
-        if not info.value_decision_params:
-            continue
-        reasons = ", ".join(sorted(info.value_decision_reasons)) or "heuristic"
-        caller_count = len(transitive_callers.get(info.qual, set()))
-        boundary = (
-            "boundary"
-            if caller_count == 0
-            else f"internal callers (transitive): {caller_count}"
-        )
-        params = sorted(info.value_decision_params)
-        site_id = forest.add_site(info.path.name, info.qual)
-        paramset_id = forest.add_paramset(params)
-        forest.add_alt(
-            "ValueDecisionSurface",
-            (site_id, paramset_id),
-            evidence={
-                "meta": reasons,
-                "boundary": boundary,
-                "reasons": reasons,
-            },
-        )
-        surfaces.append(
-            f"{info.path.name}:{info.qual} value-encoded decision params: "
-            + ", ".join(params)
-            + f" ({reasons})"
-        )
-        rewrites.append(
-            f"{info.path.name}:{info.qual} consider rebranching value-encoded decision params: "
-            + ", ".join(params)
-            + f" ({reasons})"
-        )
-        for param in params:
-            check_deadline()
-            tier = _decision_tier_for(
-                info,
-                param,
-                tier_map=tier_map,
-                project_root=context.project_root,
-            )
-            if tier is None:
-                lint = _decision_param_lint_line(
-                    info,
-                    param,
-                    project_root=context.project_root,
-                    code="GABION_VALUE_DECISION_SURFACE",
-                    message=f"value-encoded decision param '{param}' ({boundary}; {reasons})",
-                )
-                if lint is not None:
-                    lint_lines.append(lint)
-            if not tier_map:
-                continue
-            if tier is None:
-                if require_tiers:
-                    message = (
-                        f"value-encoded decision param '{param}' missing decision tier metadata ({reasons})"
-                    )
-                    warnings.append(f"{info.path.name}:{info.qual} {message}")
-                    lint = _decision_param_lint_line(
-                        info,
-                        param,
-                        project_root=context.project_root,
-                        code="GABION_VALUE_DECISION_TIER",
-                        message=message,
-                    )
-                    if lint is not None:
-                        lint_lines.append(lint)
-                continue
-            elif tier in {2, 3} and caller_count > 0:
-                message = (
-                    f"tier-{tier} value-encoded decision param '{param}' used below boundary ({boundary}; {reasons})"
-                )
-                warnings.append(f"{info.path.name}:{info.qual} {message}")
-                lint = _decision_param_lint_line(
-                    info,
-                    param,
-                    project_root=context.project_root,
-                    code="GABION_VALUE_DECISION_TIER",
-                    message=message,
-                )
-                if lint is not None:
-                    lint_lines.append(lint)
-    return (
-        sorted(surfaces),
-        sorted(set(warnings)),
-        sorted(set(rewrites)),
-        sorted(set(lint_lines)),
+    return _analyze_decision_surface_indexed(
+        context,
+        spec=_VALUE_DECISION_SURFACE_SPEC,
+        decision_tiers=decision_tiers,
+        require_tiers=require_tiers,
+        forest=forest,
     )
 
 
