@@ -10,6 +10,7 @@ from typing import Callable, Iterable, Mapping, Sequence
 
 from gabion.analysis import evidence_keys
 from gabion.analysis.aspf import Alt, Forest, NodeId
+from gabion.analysis.json_types import JSONObject
 from gabion.analysis.dataflow_audit import (
     AuditConfig,
     ClassInfo,
@@ -324,19 +325,26 @@ def collect_call_footprints(
     path_list = _iter_paths([str(p) for p in (paths or [root_path])], config)
     if not path_list:
         return {}
+    parse_failure_witnesses: list[JSONObject] = []
     by_name, by_qual = _build_function_index(
         path_list,
         project_root,
         config.ignore_params,
         config.strictness,
         config.transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     symbol_table = _build_symbol_table(
         path_list,
         project_root,
         external_filter=config.external_filter,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
-    class_index = _collect_class_index(path_list, project_root)
+    class_index = _collect_class_index(
+        path_list,
+        project_root,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
     test_index = _build_test_index(by_qual, project_root)
     cache: dict[str, tuple[FunctionInfo, ...]] = {}
     node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]] = {}
@@ -405,19 +413,26 @@ def _graph_suggestions(
     path_list = _iter_paths([str(p) for p in (paths or [root])], config)
     if not path_list:
         return {}, set()
+    parse_failure_witnesses: list[JSONObject] = []
     by_name, by_qual = _build_function_index(
         path_list,
         project_root,
         config.ignore_params,
         config.strictness,
         config.transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
     symbol_table = _build_symbol_table(
         path_list,
         project_root,
         external_filter=config.external_filter,
+        parse_failure_witnesses=parse_failure_witnesses,
     )
-    class_index = _collect_class_index(path_list, project_root)
+    class_index = _collect_class_index(
+        path_list,
+        project_root,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
     test_index = _build_test_index(by_qual, project_root)
     site_index, evidence_by_site = _build_forest_evidence_index(forest)
     resolved: set[str] = set()
