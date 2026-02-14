@@ -98,9 +98,11 @@ from .projection_registry import (
     NEVER_INVARIANTS_SPEC,
     REPORT_SECTION_LINES_SPEC,
     SUITE_ORDER_SPEC,
+    WL_REFINEMENT_SPEC,
     spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
+from .wl_refinement import emit_wl_refinement_facets
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
@@ -166,6 +168,7 @@ class _ParseModuleStage(StrEnum):
     PARAM_ANNOTATIONS = "param_annotations"
     DEADLINE_FUNCTION_FACTS = "deadline_function_facts"
     CALL_NODES = "call_nodes"
+    SUITE_CONTAINMENT = "suite_containment"
     SYMBOL_TABLE = "symbol_table"
     CLASS_INDEX = "class_index"
     FUNCTION_INDEX = "function_index"
@@ -8323,6 +8326,270 @@ def _collect_bundle_evidence_lines(
     return evidence_lines
 
 
+def _suite_span_from_statements(
+    statements: Sequence[ast.stmt],
+) -> tuple[int, int, int, int] | None:
+    check_deadline()
+    if not statements:
+        return None
+    first_span = _node_span(statements[0])
+    if first_span is None:
+        return None
+    last_span = first_span
+    for stmt in statements[1:]:
+        check_deadline()
+        candidate = _node_span(stmt)
+        if candidate is not None:
+            last_span = candidate
+    return (first_span[0], first_span[1], last_span[2], last_span[3])
+
+
+def _materialize_statement_suite_contains(
+    *,
+    forest: Forest,
+    path_name: str,
+    qual: str,
+    statements: Sequence[ast.stmt],
+    parent_suite: NodeId,
+) -> None:
+    check_deadline()
+
+    def _emit_body_suite(
+        suite_kind: str,
+        body: Sequence[ast.stmt],
+    ) -> NodeId | None:
+        check_deadline()
+        span = _suite_span_from_statements(body)
+        if span is None:
+            return None
+        return forest.add_suite_site(
+            path_name,
+            qual,
+            suite_kind,
+            span=span,
+            parent=parent_suite,
+        )
+
+    for stmt in statements:
+        check_deadline()
+        if isinstance(stmt, ast.If):
+            if_suite = _emit_body_suite("if_body", stmt.body)
+            if if_suite is not None:
+                _materialize_statement_suite_contains(
+                    forest=forest,
+                    path_name=path_name,
+                    qual=qual,
+                    statements=stmt.body,
+                    parent_suite=if_suite,
+                )
+            if stmt.orelse:
+                else_suite = _emit_body_suite("if_else", stmt.orelse)
+                if else_suite is not None:
+                    _materialize_statement_suite_contains(
+                        forest=forest,
+                        path_name=path_name,
+                        qual=qual,
+                        statements=stmt.orelse,
+                        parent_suite=else_suite,
+                    )
+            continue
+        if isinstance(stmt, ast.For):
+            for_suite = _emit_body_suite("for_body", stmt.body)
+            if for_suite is not None:
+                _materialize_statement_suite_contains(
+                    forest=forest,
+                    path_name=path_name,
+                    qual=qual,
+                    statements=stmt.body,
+                    parent_suite=for_suite,
+                )
+            if stmt.orelse:
+                for_else_suite = _emit_body_suite("for_else", stmt.orelse)
+                if for_else_suite is not None:
+                    _materialize_statement_suite_contains(
+                        forest=forest,
+                        path_name=path_name,
+                        qual=qual,
+                        statements=stmt.orelse,
+                        parent_suite=for_else_suite,
+                    )
+            continue
+        if isinstance(stmt, ast.AsyncFor):
+            async_for_suite = _emit_body_suite("async_for_body", stmt.body)
+            if async_for_suite is not None:
+                _materialize_statement_suite_contains(
+                    forest=forest,
+                    path_name=path_name,
+                    qual=qual,
+                    statements=stmt.body,
+                    parent_suite=async_for_suite,
+                )
+            if stmt.orelse:
+                async_for_else_suite = _emit_body_suite("async_for_else", stmt.orelse)
+                if async_for_else_suite is not None:
+                    _materialize_statement_suite_contains(
+                        forest=forest,
+                        path_name=path_name,
+                        qual=qual,
+                        statements=stmt.orelse,
+                        parent_suite=async_for_else_suite,
+                    )
+            continue
+        if isinstance(stmt, ast.While):
+            while_suite = _emit_body_suite("while_body", stmt.body)
+            if while_suite is not None:
+                _materialize_statement_suite_contains(
+                    forest=forest,
+                    path_name=path_name,
+                    qual=qual,
+                    statements=stmt.body,
+                    parent_suite=while_suite,
+                )
+            if stmt.orelse:
+                while_else_suite = _emit_body_suite("while_else", stmt.orelse)
+                if while_else_suite is not None:
+                    _materialize_statement_suite_contains(
+                        forest=forest,
+                        path_name=path_name,
+                        qual=qual,
+                        statements=stmt.orelse,
+                        parent_suite=while_else_suite,
+                    )
+            continue
+        if isinstance(stmt, ast.Try):
+            try_body_suite = _emit_body_suite("try_body", stmt.body)
+            if try_body_suite is not None:
+                _materialize_statement_suite_contains(
+                    forest=forest,
+                    path_name=path_name,
+                    qual=qual,
+                    statements=stmt.body,
+                    parent_suite=try_body_suite,
+                )
+            for handler in stmt.handlers:
+                check_deadline()
+                except_suite = _emit_body_suite("except_body", handler.body)
+                if except_suite is not None:
+                    _materialize_statement_suite_contains(
+                        forest=forest,
+                        path_name=path_name,
+                        qual=qual,
+                        statements=handler.body,
+                        parent_suite=except_suite,
+                    )
+            if stmt.orelse:
+                try_else_suite = _emit_body_suite("try_else", stmt.orelse)
+                if try_else_suite is not None:
+                    _materialize_statement_suite_contains(
+                        forest=forest,
+                        path_name=path_name,
+                        qual=qual,
+                        statements=stmt.orelse,
+                        parent_suite=try_else_suite,
+                    )
+            if stmt.finalbody:
+                try_finally_suite = _emit_body_suite("try_finally", stmt.finalbody)
+                if try_finally_suite is not None:
+                    _materialize_statement_suite_contains(
+                        forest=forest,
+                        path_name=path_name,
+                        qual=qual,
+                        statements=stmt.finalbody,
+                        parent_suite=try_finally_suite,
+                    )
+
+
+def _materialize_structured_suite_sites_for_tree(
+    *,
+    forest: Forest,
+    path: Path,
+    tree: ast.Module,
+    project_root: Path | None,
+) -> None:
+    check_deadline()
+    parent_annotator = ParentAnnotator()
+    parent_annotator.visit(tree)
+    parent_map = parent_annotator.parents
+    module = _module_name(path, project_root)
+    path_name = path.name
+    for fn in _collect_functions(tree):
+        check_deadline()
+        scopes = _enclosing_scopes(fn, parent_map)
+        qual_parts = [module] if module else []
+        if scopes:
+            qual_parts.extend(scopes)
+        qual_parts.append(fn.name)
+        qual = ".".join(qual_parts)
+        function_span = _node_span(fn)
+        function_suite = forest.add_suite_site(
+            path_name,
+            qual,
+            "function",
+            span=function_span,
+        )
+        parent_suite = function_suite
+        if function_span is not None:
+            parent_suite = forest.add_suite_site(
+                path_name,
+                qual,
+                "function_body",
+                span=function_span,
+                parent=function_suite,
+            )
+        _materialize_statement_suite_contains(
+            forest=forest,
+            path_name=path_name,
+            qual=qual,
+            statements=fn.body,
+            parent_suite=parent_suite,
+        )
+
+
+def _materialize_structured_suite_sites(
+    *,
+    forest: Forest,
+    file_paths: list[Path],
+    project_root: Path | None,
+    parse_failure_witnesses: list[JSONObject],
+    analysis_index: AnalysisIndex | None = None,
+) -> None:
+    check_deadline()
+    if analysis_index is not None:
+        trees = _analysis_index_module_trees(
+            analysis_index,
+            file_paths,
+            stage=_ParseModuleStage.SUITE_CONTAINMENT,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    else:
+        trees = {}
+        for path in _iter_monotonic_paths(
+            file_paths,
+            source="_materialize_structured_suite_sites.file_paths",
+        ):
+            check_deadline()
+            tree = _parse_module_tree(
+                path,
+                stage=_ParseModuleStage.SUITE_CONTAINMENT,
+                parse_failure_witnesses=parse_failure_witnesses,
+            )
+            trees[path] = tree
+    for path in _iter_monotonic_paths(
+        trees,
+        source="_materialize_structured_suite_sites.trees",
+    ):
+        check_deadline()
+        tree = trees[path]
+        if tree is None:
+            continue
+        _materialize_structured_suite_sites_for_tree(
+            forest=forest,
+            path=path,
+            tree=tree,
+            project_root=project_root,
+        )
+
+
 def _populate_bundle_forest(
     forest: Forest,
     *,
@@ -8360,6 +8627,13 @@ def _populate_bundle_forest(
             if _is_test_path(info.path):
                 continue
             forest.add_site(info.path.name, info.qual)
+        _materialize_structured_suite_sites(
+            forest=forest,
+            file_paths=file_paths,
+            project_root=project_root,
+            parse_failure_witnesses=parse_failure_witnesses,
+            analysis_index=index,
+        )
     seen: set[tuple[str, tuple[NodeId, ...], tuple[tuple[str, str], ...]]] = set()
 
     def _add_alt(
@@ -14811,6 +15085,7 @@ def analyze_paths(
     include_exception_obligations: bool = False,
     include_handledness_witnesses: bool = False,
     include_never_invariants: bool = False,
+    include_wl_refinement: bool = False,
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_invariant_propositions: bool = False,
@@ -15000,6 +15275,7 @@ def analyze_paths(
             or include_value_decision_surfaces
             or include_lint_lines
             or include_never_invariants
+            or include_wl_refinement
             or include_deadline_obligations
             or include_ambiguities
         ):
@@ -15021,6 +15297,7 @@ def analyze_paths(
                 include_decision_surfaces=include_decision_surfaces,
                 include_value_decision_surfaces=include_value_decision_surfaces,
                 include_never_invariants=include_never_invariants,
+                include_wl_refinement=include_wl_refinement,
                 include_ambiguities=include_ambiguities,
                 include_deadline_obligations=include_deadline_obligations,
                 include_lint_findings=include_lint_lines,
@@ -15035,6 +15312,12 @@ def analyze_paths(
                 external_filter=config.external_filter,
             )
             _deadline_check(allow_frame_fallback=False)
+            if include_wl_refinement:
+                emit_wl_refinement_facets(
+                    forest=forest,
+                    spec=WL_REFINEMENT_SPEC,
+                )
+                _emit_forest_phase_progress()
 
         _emit_forest_phase_progress()
 
@@ -15520,6 +15803,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Include type-flow audit summary in the markdown report.",
     )
     parser.add_argument(
+        "--wl-refinement",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Emit WL refinement facets over SuiteSite containment.",
+    )
+    parser.add_argument(
         "--fail-on-type-ambiguities",
         action="store_true",
         help="Exit non-zero if type ambiguities are detected.",
@@ -15763,6 +16052,7 @@ def run(argv: list[str] | None = None) -> int:
         fingerprint_handledness_json
     )
     include_never_invariants = bool(args.report)
+    include_wl_refinement = bool(args.wl_refinement)
     include_ambiguities = bool(args.report) or bool(args.lint)
     include_coherence = (
         bool(args.report)
@@ -15785,6 +16075,7 @@ def run(argv: list[str] | None = None) -> int:
         include_exception_obligations=include_exception_obligations,
         include_handledness_witnesses=include_handledness_witnesses,
         include_never_invariants=include_never_invariants,
+        include_wl_refinement=include_wl_refinement,
         include_deadline_obligations=bool(args.report) or bool(args.lint),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,

@@ -422,6 +422,7 @@ def _analysis_input_manifest(
     file_paths: list[Path],
     recursive: bool,
     include_invariant_propositions: bool,
+    include_wl_refinement: bool,
     config: AuditConfig,
 ) -> JSONObject:
     files: list[JSONObject] = []
@@ -441,6 +442,7 @@ def _analysis_input_manifest(
         "root": str(root),
         "recursive": recursive,
         "include_invariant_propositions": include_invariant_propositions,
+        "include_wl_refinement": include_wl_refinement,
         "config": _analysis_witness_config_payload(config),
         "files": files,
     }
@@ -496,17 +498,21 @@ def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | N
     root = input_witness.get("root")
     recursive = input_witness.get("recursive")
     include_invariant_propositions = input_witness.get("include_invariant_propositions")
+    include_wl_refinement = input_witness.get("include_wl_refinement")
     if not isinstance(root, str):
         return None
     if not isinstance(recursive, bool):
         return None
     if not isinstance(include_invariant_propositions, bool):
         return None
+    if not isinstance(include_wl_refinement, bool):
+        return None
     manifest: JSONObject = {
         "format_version": _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
         "root": root,
         "recursive": recursive,
         "include_invariant_propositions": include_invariant_propositions,
+        "include_wl_refinement": include_wl_refinement,
         "config": config_payload,
         "files": manifest_files,
     }
@@ -519,6 +525,7 @@ def _analysis_input_witness(
     file_paths: list[Path],
     recursive: bool,
     include_invariant_propositions: bool,
+    include_wl_refinement: bool,
     config: AuditConfig,
 ) -> JSONObject:
     def _normalize_scalar(value: object) -> JSONValue:
@@ -636,6 +643,7 @@ def _analysis_input_witness(
         "root": str(root),
         "recursive": recursive,
         "include_invariant_propositions": include_invariant_propositions,
+        "include_wl_refinement": include_wl_refinement,
         "config": _analysis_witness_config_payload(config),
         "ast_intern_table": ast_intern_table,
         "files": files,
@@ -2418,6 +2426,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             fingerprint_handledness_json
         )
         include_never_invariants = bool(report_path)
+        include_wl_refinement = _truthy_flag(payload.get("include_wl_refinement"))
         include_ambiguities = bool(report_path) or lint or emit_ambiguity_state
         if (emit_ambiguity_delta or write_ambiguity_baseline) and not ambiguity_state_path:
             include_ambiguities = True
@@ -2466,6 +2475,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     file_paths=file_paths_for_run,
                     recursive=not no_recursive,
                     include_invariant_propositions=bool(report_path),
+                    include_wl_refinement=include_wl_refinement,
                     config=config,
                 )
                 analysis_resume_input_manifest_digest = _analysis_input_manifest_digest(
@@ -2507,6 +2517,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         file_paths=file_paths_for_run,
                         recursive=not no_recursive,
                         include_invariant_propositions=bool(report_path),
+                        include_wl_refinement=include_wl_refinement,
                         config=config,
                     )
                 if (
@@ -2529,6 +2540,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     file_paths=file_paths_for_run,
                     recursive=not no_recursive,
                     include_invariant_propositions=bool(report_path),
+                    include_wl_refinement=include_wl_refinement,
                     config=config,
                 )
                 analysis_resume_input_manifest_digest = _analysis_input_manifest_digest(
@@ -2787,6 +2799,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 include_exception_obligations=include_exception_obligations,
                 include_handledness_witnesses=include_handledness_witnesses,
                 include_never_invariants=include_never_invariants,
+                include_wl_refinement=include_wl_refinement,
                 include_deadline_obligations=bool(report_path) or lint,
                 include_decision_surfaces=include_decisions,
                 include_value_decision_surfaces=include_decisions,

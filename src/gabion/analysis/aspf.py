@@ -117,6 +117,8 @@ class Forest:
         qual: str,
         suite_kind: str,
         span: tuple[int, int, int, int] | None = None,
+        *,
+        parent: NodeId | None = None,
     ) -> NodeId:
         file_id = self.add_file_site(path)
         key: NodeKey = (path, qual, suite_kind)
@@ -144,7 +146,21 @@ class Forest:
                 (suite_id, file_id),
                 evidence={"suite_kind": suite_kind},
             )
+            if parent is not None:
+                self.add_suite_contains(
+                    parent,
+                    suite_id,
+                    evidence={"suite_kind": suite_kind},
+                )
         return suite_id
+
+    def add_suite_contains(
+        self,
+        parent: NodeId,
+        child: NodeId,
+        evidence: dict[str, object] | None = None,
+    ) -> Alt:
+        return self.add_alt("SuiteContains", (parent, child), evidence=evidence)
 
     def add_spec_site(
         self,

@@ -30,6 +30,7 @@ def build_forest_spec(
     include_decision_surfaces: bool,
     include_value_decision_surfaces: bool,
     include_never_invariants: bool,
+    include_wl_refinement: bool = False,
     include_ambiguities: bool = False,
     include_deadline_obligations: bool = False,
     include_lint_findings: bool = False,
@@ -167,6 +168,17 @@ def build_forest_spec(
             )
         )
 
+    if include_wl_refinement:
+        outputs = ("SuiteContains", "WLLabel", "SpecFacet", "NeverInvariantSink")
+        declared_outputs.update(outputs)
+        collectors.append(
+            ForestCollectorSpec(
+                name="wl_refinement",
+                outputs=outputs,
+                params={},
+            )
+        )
+
     return ForestSpec(
         spec_version=1,
         name="forest_v1",
@@ -182,6 +194,7 @@ def default_forest_spec(
     include_decision_surfaces: bool = False,
     include_value_decision_surfaces: bool = False,
     include_never_invariants: bool = False,
+    include_wl_refinement: bool = False,
     include_ambiguities: bool = False,
     include_deadline_obligations: bool = False,
     include_lint_findings: bool = False,
@@ -191,6 +204,7 @@ def default_forest_spec(
         include_decision_surfaces=include_decision_surfaces,
         include_value_decision_surfaces=include_value_decision_surfaces,
         include_never_invariants=include_never_invariants,
+        include_wl_refinement=include_wl_refinement,
         include_ambiguities=include_ambiguities,
         include_deadline_obligations=include_deadline_obligations,
         include_lint_findings=include_lint_findings,

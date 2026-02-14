@@ -478,6 +478,24 @@ AMBIGUITY_STATE_SPEC = ProjectionSpec(
 )
 
 
+WL_REFINEMENT_SPEC = ProjectionSpec(
+    spec_version=1,
+    name="wl_refinement",
+    domain="wl_refinement",
+    params={
+        "target_kind": "SuiteSite",
+        "edge_alt_kinds": ["SuiteContains"],
+        "direction": "undirected",
+        "seed_fields": ["suite_kind"],
+        "steps": 2,
+        "stabilize_early": True,
+        "emit_steps": "final",
+        "label_namespace": "wl",
+        "require_injective_on_scope": False,
+    },
+)
+
+
 def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
     spec_json = spec_canonical_json(spec)
     spec_id = spec_json
@@ -528,6 +546,7 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
         AMBIGUITY_BASELINE_SPEC,
         AMBIGUITY_DELTA_SPEC,
         AMBIGUITY_STATE_SPEC,
+        WL_REFINEMENT_SPEC,
     )
 
 
