@@ -1616,6 +1616,52 @@ def test_build_collection_resume_rejects_path_order_regression() -> None:
         )
 
 
+def test_iter_monotonic_paths_rejects_path_order_regression() -> None:
+    da = _load()
+    with pytest.raises(NeverThrown):
+        da._iter_monotonic_paths(
+            [Path("b.py"), Path("a.py")],
+            source="test",
+        )
+
+
+def test_iter_monotonic_paths_accepts_monotonic_order() -> None:
+    da = _load()
+    ordered = da._iter_monotonic_paths(
+        [Path("a.py"), Path("b.py")],
+        source="test",
+    )
+    assert ordered == [Path("a.py"), Path("b.py")]
+
+
+def test_analyze_paths_rejects_unsorted_file_paths_override(tmp_path: Path) -> None:
+    da = _load()
+    first = tmp_path / "a.py"
+    second = tmp_path / "b.py"
+    _write(first, "def a(x):\n    return x\n")
+    _write(second, "def b(y):\n    return y\n")
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=False,
+        strictness="high",
+    )
+    with pytest.raises(NeverThrown):
+        da.analyze_paths(
+            forest=da.Forest(),
+            paths=[tmp_path],
+            recursive=True,
+            type_audit=False,
+            type_audit_report=False,
+            type_audit_max=0,
+            include_constant_smells=False,
+            include_unused_arg_smells=False,
+            config=config,
+            file_paths_override=[second, first],
+        )
+
+
 def test_extract_report_sections_parses_marked_sections() -> None:
     da = _load()
     report = "\n".join(
