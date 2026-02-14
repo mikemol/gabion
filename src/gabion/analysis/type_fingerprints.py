@@ -6,6 +6,7 @@ import math
 
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 def _split_top_level(value: str, sep: str) -> list[str]:
     check_deadline()
@@ -61,8 +62,9 @@ def canonical_type_key(hint: str) -> str:
         return ""
     union_parts = _split_top_level(raw, "|")
     if len(union_parts) > 1:
-        normalized = sorted(
-            part for part in (canonical_type_key(p) for p in union_parts) if part
+        normalized = ordered_or_sorted(
+            (part for part in (canonical_type_key(p) for p in union_parts) if part),
+            source="canonical_type_key.union_parts",
         )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Optional[") and raw.endswith("]"):
@@ -70,13 +72,17 @@ def canonical_type_key(hint: str) -> str:
         parts = _split_top_level(inner, ",")
         normalized = [canonical_type_key(p) for p in parts]
         normalized.append("None")
-        normalized = sorted({item for item in normalized if item})
+        normalized = ordered_or_sorted(
+            {item for item in normalized if item},
+            source="canonical_type_key.optional_parts",
+        )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
         parts = _split_top_level(inner, ",")
-        normalized = sorted(
-            part for part in (canonical_type_key(p) for p in parts) if part
+        normalized = ordered_or_sorted(
+            (part for part in (canonical_type_key(p) for p in parts) if part),
+            source="canonical_type_key.union_bracket_parts",
         )
         return f"Union[{', '.join(normalized)}]"
     if "[" in raw and raw.endswith("]"):
@@ -211,10 +217,16 @@ def canonical_type_key_with_constructor(
         return ""
     union_parts = _split_top_level(raw, "|")
     if len(union_parts) > 1:
-        normalized = sorted(
-            part
-            for part in (canonical_type_key_with_constructor(p, ctor_registry) for p in union_parts)
-            if part
+        normalized = ordered_or_sorted(
+            (
+                part
+                for part in (
+                    canonical_type_key_with_constructor(p, ctor_registry)
+                    for p in union_parts
+                )
+                if part
+            ),
+            source="canonical_type_key_with_constructor.union_parts",
         )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Optional[") and raw.endswith("]"):
@@ -224,15 +236,24 @@ def canonical_type_key_with_constructor(
             canonical_type_key_with_constructor(p, ctor_registry) for p in parts
         ]
         normalized.append("None")
-        normalized = sorted({item for item in normalized if item})
+        normalized = ordered_or_sorted(
+            {item for item in normalized if item},
+            source="canonical_type_key_with_constructor.optional_parts",
+        )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
         parts = _split_top_level(inner, ",")
-        normalized = sorted(
-            part
-            for part in (canonical_type_key_with_constructor(p, ctor_registry) for p in parts)
-            if part
+        normalized = ordered_or_sorted(
+            (
+                part
+                for part in (
+                    canonical_type_key_with_constructor(p, ctor_registry)
+                    for p in parts
+                )
+                if part
+            ),
+            source="canonical_type_key_with_constructor.union_bracket_parts",
         )
         return f"Union[{', '.join(normalized)}]"
     if "[" in raw and raw.endswith("]"):
@@ -461,7 +482,11 @@ def build_synth_registry(
         counts[fingerprint] = counts.get(fingerprint, 0) + 1
     synth_registry = SynthRegistry(registry=registry, version=version)
     candidates = [fp for fp, count in counts.items() if count >= min_occurrences]
-    for fingerprint in sorted(candidates, key=_fingerprint_sort_key):
+    for fingerprint in ordered_or_sorted(
+        candidates,
+        source="build_synth_registry.candidates",
+        key=_fingerprint_sort_key,
+    ):
         check_deadline()
         synth_registry.get_or_assign(fingerprint)
     return synth_registry
@@ -490,7 +515,10 @@ def synth_registry_payload(
 ) -> JSONObject:
     check_deadline()
     entries: list[JSONObject] = []
-    for prime, tail in sorted(synth_registry.tails.items()):
+    for prime, tail in ordered_or_sorted(
+        synth_registry.tails.items(),
+        source="synth_registry_payload.tails",
+    ):
         check_deadline()
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
             tail.base.product, registry
@@ -523,8 +551,14 @@ def synth_registry_payload(
                         "mask": tail.synth.mask,
                     },
                 },
-                "base_keys": sorted(base_keys),
-                "ctor_keys": sorted(ctor_keys),
+                "base_keys": ordered_or_sorted(
+                    base_keys,
+                    source="synth_registry_payload.base_keys",
+                ),
+                "ctor_keys": ordered_or_sorted(
+                    ctor_keys,
+                    source="synth_registry_payload.ctor_keys",
+                ),
                 "remainder": {
                     "base": base_remaining,
                     "ctor": ctor_remaining,
@@ -532,10 +566,18 @@ def synth_registry_payload(
             }
         )
     primes_payload = {
-        key: int(value) for key, value in sorted(registry.primes.items())
+        key: int(value)
+        for key, value in ordered_or_sorted(
+            registry.primes.items(),
+            source="synth_registry_payload.registry.primes",
+        )
     }
     bit_positions_payload = {
-        key: int(value) for key, value in sorted(registry.bit_positions.items())
+        key: int(value)
+        for key, value in ordered_or_sorted(
+            registry.bit_positions.items(),
+            source="synth_registry_payload.registry.bit_positions",
+        )
     }
     return {
         "version": synth_registry.version,
@@ -670,7 +712,10 @@ def _apply_registry_payload(
 
     # Older payloads may omit bit positions; assign deterministically for any
     # primes without a bit position so mask carriers remain usable.
-    for key in sorted(registry.primes):
+    for key in ordered_or_sorted(
+        registry.primes,
+        source="_apply_registry_payload.registry.primes",
+    ):
         check_deadline()
         if key not in registry.bit_positions:
             registry.bit_positions[key] = registry.next_bit
@@ -732,7 +777,10 @@ def bundle_fingerprint_setlike(types: Iterable[str], registry: PrimeRegistry) ->
             continue
         keys.add(key)
     product = 1
-    for key in sorted(keys):
+    for key in ordered_or_sorted(
+        keys,
+        source="bundle_fingerprint_setlike.keys",
+    ):
         check_deadline()
         product *= registry.get_or_assign(key)
     return product
@@ -795,14 +843,23 @@ def build_fingerprint_registry(
             _collect_base_atoms(hint, atoms)
             base_keys.update(atom for atom in atoms if atom)
             _collect_constructors(hint, constructor_keys)
-    for constructor in sorted(constructor_keys):
+    for constructor in ordered_or_sorted(
+        constructor_keys,
+        source="build_fingerprint_registry.constructor_keys",
+    ):
         check_deadline()
         ctor_registry.get_or_assign(constructor)
-    for key in sorted(base_keys):
+    for key in ordered_or_sorted(
+        base_keys,
+        source="build_fingerprint_registry.base_keys",
+    ):
         check_deadline()
         registry.get_or_assign(key)
     index: dict[Fingerprint, set[str]] = {}
-    for name in sorted(spec_entries):
+    for name in ordered_or_sorted(
+        spec_entries,
+        source="build_fingerprint_registry.spec_entries",
+    ):
         check_deadline()
         types = spec_entries[name]
         if not types:
@@ -825,7 +882,11 @@ def fingerprint_to_type_keys_with_remainder(
     keys: list[str] = []
     if remaining <= 1:
         return keys, remaining
-    for key, prime in sorted(registry.primes.items(), key=lambda item: item[1]):
+    for key, prime in ordered_or_sorted(
+        registry.primes.items(),
+        source="fingerprint_to_type_keys_with_remainder.registry.primes",
+        key=lambda item: item[1],
+    ):
         check_deadline()
         while remaining % prime == 0:
             check_deadline()
