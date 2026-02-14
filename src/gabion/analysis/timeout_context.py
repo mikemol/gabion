@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import time
 from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass, field
@@ -16,11 +17,12 @@ from gabion.analysis.aspf import Forest
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
 from gabion.json_types import JSONValue
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
 _TIMEOUT_PROGRESS_SITE_FLOOR = 4
+_ENFORCE_PACK_CALL_STACK_FALLBACK_ENV = "GABION_ENFORCE_PACK_CALL_STACK_FALLBACK"
 
 
 @dataclass(frozen=True)
@@ -587,6 +589,7 @@ def build_site_index(
 def pack_call_stack(
     sites: Iterable[_CallSite | Mapping[str, object]],
 ) -> PackedCallStack:
+    strict_fallback = _strict_pack_call_stack_fallback_mode()
     normalized: list[_CallSite] = []
     for site in sites:
         payload = site if isinstance(site, _CallSite) else _normalize_site_payload(site)
@@ -597,7 +600,9 @@ def pack_call_stack(
     ordered_unique = ordered_or_sorted(
         unique.items(),
         source="pack_call_stack.site_table",
+        policy=OrderPolicy.CHECK if strict_fallback else None,
         key=_site_sort_entry_key,
+        on_unsorted=_fail_pack_call_stack_fallback if strict_fallback else None,
     )
     site_table: list[_CallSite] = []
     index: dict[tuple[str, tuple[object, ...]], int] = {}
@@ -669,6 +674,18 @@ def _site_sort_entry_key(
 ) -> tuple[str, tuple[str, ...]]:
     (kind, _), site = entry
     return (kind, tuple(_render_sort_value(part) for part in site.key))
+
+
+def _strict_pack_call_stack_fallback_mode() -> bool:
+    value = os.environ.get(_ENFORCE_PACK_CALL_STACK_FALLBACK_ENV, "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _fail_pack_call_stack_fallback(payload: dict[str, object]) -> None:
+    never(
+        "pack_call_stack.site_table fallback forbidden: "
+        f"{payload.get('previous_key')} -> {payload.get('current_key')}"
+    )
 
 
 def build_timeout_context_from_stack(

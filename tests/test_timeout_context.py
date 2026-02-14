@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import os
 from contextvars import Context
 from pathlib import Path
 
@@ -173,6 +174,24 @@ def test_pack_call_stack_accepts_list_key_part() -> None:
     assert packed.as_payload()["site_table"] == [
         {"kind": "FunctionSite", "key": [["file"], "mod.fn"]}
     ]
+
+
+def test_pack_call_stack_can_fail_on_fallback_when_enabled() -> None:
+    previous = os.environ.get("GABION_ENFORCE_PACK_CALL_STACK_FALLBACK")
+    try:
+        os.environ["GABION_ENFORCE_PACK_CALL_STACK_FALLBACK"] = "1"
+        with pytest.raises(NeverThrown, match="pack_call_stack\\.site_table fallback forbidden"):
+            pack_call_stack(
+                [
+                    {"path": "b.py", "qual": "mod.b"},
+                    {"path": "a.py", "qual": "mod.a"},
+                ]
+            )
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ENFORCE_PACK_CALL_STACK_FALLBACK", None)
+        else:
+            os.environ["GABION_ENFORCE_PACK_CALL_STACK_FALLBACK"] = previous
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context._frame_site_key
