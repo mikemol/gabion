@@ -1778,6 +1778,35 @@ def test_report_projection_specs_rows() -> None:
     )
     assert components_row["phase"] == "forest"
     assert "intro" in (components_row.get("deps") or [])
+    assert components_row["has_preview"] is True
+    type_flow_row = next(
+        row for row in rows if str(row.get("section_id", "")) == "type_flow"
+    )
+    assert type_flow_row["has_preview"] is True
+    deadline_summary_row = next(
+        row for row in rows if str(row.get("section_id", "")) == "deadline_summary"
+    )
+    assert deadline_summary_row["has_preview"] is True
+
+
+def test_project_report_sections_preview_only() -> None:
+    da = _load()
+    sections = da.project_report_sections(
+        {},
+        da.ReportCarrier(
+            forest=da.Forest(),
+            parse_failure_witnesses=[],
+        ),
+        max_phase="post",
+        include_previews=True,
+        preview_only=True,
+    )
+    assert "components" in sections
+    assert "violations" in sections
+    assert "type_flow" in sections
+    assert "deadline_summary" in sections
+    assert sections["components"][0].startswith("Component preview")
+    assert sections["violations"][0].startswith("Violations preview")
 
 
 def test_report_projection_phase_rank_order() -> None:
