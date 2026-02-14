@@ -7,6 +7,8 @@ import sys
 
 import pytest
 
+from gabion.exceptions import NeverThrown
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -1596,6 +1598,22 @@ def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
     assert resumed.param_spans_by_path == baseline.param_spans_by_path
     assert resumed.bundle_sites_by_path == baseline.bundle_sites_by_path
     assert resumed.invariant_propositions == baseline.invariant_propositions
+
+
+def test_build_collection_resume_rejects_path_order_regression() -> None:
+    da = _load()
+    with pytest.raises(NeverThrown):
+        da._build_analysis_collection_resume_payload(
+            groups_by_path={},
+            param_spans_by_path={},
+            bundle_sites_by_path={},
+            invariant_propositions=[],
+            completed_paths=set(),
+            in_progress_scan_by_path={
+                Path("b.py"): {"phase": "scan_pending"},
+                Path("a.py"): {"phase": "scan_pending"},
+            },
+        )
 
 
 def test_extract_report_sections_parses_marked_sections() -> None:

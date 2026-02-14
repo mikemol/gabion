@@ -574,6 +574,32 @@ def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
         )
 
 
+def test_externalize_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
+    with pytest.raises(NeverThrown):
+        server._externalize_collection_resume_states(
+            path=tmp_path / "resume.json",
+            collection_resume={
+                "in_progress_scan_by_path": {
+                    "b.py": {"phase": "scan_pending"},
+                    "a.py": {"phase": "scan_pending"},
+                }
+            },
+        )
+
+
+def test_inflate_resume_states_reject_path_order_regression(tmp_path: Path) -> None:
+    with pytest.raises(NeverThrown):
+        server._inflate_collection_resume_states(
+            path=tmp_path / "resume.json",
+            collection_resume={
+                "in_progress_scan_by_path": {
+                    "b.py": {"phase": "scan_pending"},
+                    "a.py": {"phase": "scan_pending"},
+                }
+            },
+        )
+
+
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress
 def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
