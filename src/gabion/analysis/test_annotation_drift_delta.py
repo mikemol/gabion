@@ -1,19 +1,25 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from gabion.analysis.baseline_io import (
+    attach_spec_metadata,
+    load_json,
+    parse_spec_metadata,
+    parse_version,
+    write_json,
+)
+from gabion.analysis.delta_tools import coerce_int, count_delta, format_delta
 from gabion.analysis.projection_registry import (
     TEST_ANNOTATION_DRIFT_BASELINE_SPEC,
     TEST_ANNOTATION_DRIFT_DELTA_SPEC,
-    spec_metadata_lines,
-    spec_metadata_payload,
+    spec_metadata_lines_from_payload,
 )
-from gabion.analysis.report_markdown import render_report_markdown
-from gabion.json_types import JSONValue
+from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
+from gabion.json_types import JSONValue
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -38,27 +44,17 @@ def build_baseline_payload(
         "version": BASELINE_VERSION,
         "summary": _normalize_summary(summary),
     }
-    payload.update(spec_metadata_payload(TEST_ANNOTATION_DRIFT_BASELINE_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=TEST_ANNOTATION_DRIFT_BASELINE_SPEC)
 
 
 def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> AnnotationDriftBaseline:
-    version = payload.get("version", BASELINE_VERSION)
-    try:
-        version_value = int(version) if version is not None else BASELINE_VERSION
-    except (TypeError, ValueError):
-        version_value = -1
-    if version_value != BASELINE_VERSION:
-        raise ValueError(
-            "Unsupported annotation drift baseline "
-            f"version={version!r}; expected {BASELINE_VERSION}"
-        )
+    parse_version(
+        payload,
+        expected=BASELINE_VERSION,
+        error_context="annotation drift baseline",
+    )
     summary = _normalize_summary(payload.get("summary", {}))
-    spec_id = str(payload.get("generated_by_spec_id", "") or "")
-    spec_payload = payload.get("generated_by_spec", {})
-    spec: dict[str, JSONValue] = {}
-    if isinstance(spec_payload, Mapping):
-        spec = {str(key): spec_payload[key] for key in spec_payload}
+    spec_id, spec = parse_spec_metadata(payload)
     return AnnotationDriftBaseline(
         summary=summary,
         generated_by_spec_id=spec_id,
@@ -67,16 +63,11 @@ def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> AnnotationDriftB
 
 
 def load_baseline(path: str) -> AnnotationDriftBaseline:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError("Annotation drift baseline must be a JSON object.")
-    return parse_baseline_payload(payload)
+    return parse_baseline_payload(load_json(path))
 
 
 def write_baseline(path: str, payload: Mapping[str, JSONValue]) -> None:
-    Path(path).write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    write_json(path, payload)
 
 
 def build_delta_payload(
@@ -86,25 +77,13 @@ def build_delta_payload(
     baseline_path: str | None = None,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: baseline, current
-    summary_keys = sorted(set(baseline.summary) | set(current.summary))
-    baseline_counts = {key: baseline.summary.get(key, 0) for key in summary_keys}
-    current_counts = {key: current.summary.get(key, 0) for key in summary_keys}
-    delta_counts = {
-        key: current_counts.get(key, 0) - baseline_counts.get(key, 0)
-        for key in summary_keys
-    }
     payload: dict[str, JSONValue] = {
         "version": DELTA_VERSION,
-        "summary": {
-            "baseline": baseline_counts,
-            "current": current_counts,
-            "delta": delta_counts,
-        },
+        "summary": count_delta(baseline.summary, current.summary),
     }
     if baseline_path:
         payload["baseline"] = {"path": baseline_path}
-    payload.update(spec_metadata_payload(TEST_ANNOTATION_DRIFT_DELTA_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=TEST_ANNOTATION_DRIFT_DELTA_SPEC)
 
 
 def render_markdown(payload: Mapping[str, JSONValue]) -> str:
@@ -114,36 +93,21 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     current = summary.get("current", {}) if isinstance(summary, Mapping) else {}
     delta = summary.get("delta", {}) if isinstance(summary, Mapping) else {}
     keys = sorted({*baseline.keys(), *current.keys(), *delta.keys()})
-    lines: list[str] = []
-    lines.extend(spec_metadata_lines(TEST_ANNOTATION_DRIFT_DELTA_SPEC))
-    lines.append("Summary:")
-    lines.append("```")
-    for key in keys:
-        before = baseline.get(key, 0)
-        after = current.get(key, 0)
-        change = delta.get(key, after - before)
-        lines.append(f"- {key}: {before} -> {after} ({_format_delta_value(change)})")
-    lines.append("```")
-    return render_report_markdown("out_test_annotation_drift_delta", lines)
-
-
-def _format_delta_value(delta: object) -> str:
-    try:
-        value = int(delta)
-    except (TypeError, ValueError):
-        value = 0
-    sign = "+" if value > 0 else ""
-    return f"{sign}{value}"
+    doc = ReportDoc("out_test_annotation_drift_delta")
+    doc.lines(spec_metadata_lines_from_payload(payload))
+    doc.section("Summary")
+    rows = [
+        f"- {key}: {baseline.get(key, 0)} -> {current.get(key, 0)} "
+        f"({format_delta(delta.get(key, current.get(key, 0) - baseline.get(key, 0)))})"
+        for key in keys
+    ]
+    doc.codeblock("\n".join(rows))
+    return doc.emit()
 
 
 def _normalize_summary(summary: Mapping[str, object]) -> dict[str, int]:
     check_deadline()
     normalized: dict[str, int] = {}
     for key, raw in summary.items():
-        name = str(key)
-        try:
-            value = int(raw) if raw is not None else 0
-        except (TypeError, ValueError):
-            value = 0
-        normalized[name] = value
+        normalized[str(key)] = coerce_int(raw, 0)
     return normalized

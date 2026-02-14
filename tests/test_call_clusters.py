@@ -13,18 +13,12 @@ def test_call_clusters_payload_and_render(tmp_path: Path) -> None:
     src_dir = tmp_path / "src" / "pkg"
     src_dir.mkdir(parents=True)
     (src_dir / "__init__.py").write_text("")
-    (src_dir / "core.py").write_text(
-        "def helper(x):\n"
-        "    return x\n"
-    )
+    (src_dir / "core.py").write_text("def helper(x):\n    return x\n")
 
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_core.py").write_text(
-        "from pkg.core import helper\n"
-        "\n"
-        "def test_helper():\n"
-        "    assert helper(1) == 1\n"
+        "from pkg.core import helper\n\ndef test_helper():\n    assert helper(1) == 1\n"
     )
 
     out_dir = tmp_path / "out"
@@ -66,10 +60,7 @@ def test_call_clusters_payload_and_render(tmp_path: Path) -> None:
 def test_call_clusters_payload_handles_empty_targets(tmp_path: Path) -> None:
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
-    (tests_dir / "test_empty.py").write_text(
-        "def test_empty():\n"
-        "    assert True\n"
-    )
+    (tests_dir / "test_empty.py").write_text("def test_empty():\n    assert True\n")
 
     out_dir = tmp_path / "out"
     out_dir.mkdir()
@@ -101,20 +92,16 @@ def test_call_clusters_payload_handles_empty_targets(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
-def test_call_clusters_payload_projection_skips_unknown_identity(tmp_path: Path) -> None:
+def test_call_clusters_payload_projection_skips_unknown_identity(
+    tmp_path: Path,
+) -> None:
     src_dir = tmp_path / "src"
     src_dir.mkdir()
-    (src_dir / "mod.py").write_text(
-        "def helper(x):\n"
-        "    return x\n"
-    )
+    (src_dir / "mod.py").write_text("def helper(x):\n    return x\n")
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_mod.py").write_text(
-        "from mod import helper\n"
-        "\n"
-        "def test_helper():\n"
-        "    helper(1)\n"
+        "from mod import helper\n\ndef test_helper():\n    helper(1)\n"
     )
 
     out_dir = tmp_path / "out"
@@ -177,3 +164,16 @@ def test_call_clusters_write_creates_file(tmp_path: Path) -> None:
     output_path = tmp_path / "nested" / "call_clusters.json"
     call_clusters.write_call_clusters(payload, output_path=output_path)
     assert output_path.read_text(encoding="utf-8").strip().startswith("{")
+
+
+# gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown
+def test_call_clusters_render_uses_payload_spec_metadata() -> None:
+    payload = {
+        "summary": {"clusters": 0, "tests": 0},
+        "clusters": [],
+        "generated_by_spec_id": "custom-spec-id",
+        "generated_by_spec": {"name": "custom", "spec_version": 99},
+    }
+    markdown = call_clusters.render_markdown(payload)
+    assert "generated_by_spec_id: custom-spec-id" in markdown
+    assert 'generated_by_spec: {"name":"custom","spec_version":99}' in markdown

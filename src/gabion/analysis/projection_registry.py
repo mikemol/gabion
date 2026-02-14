@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterable
+import json
+from typing import Iterable, Mapping
 
 from gabion.analysis.projection_normalize import (
     normalize_spec,
@@ -480,6 +481,18 @@ AMBIGUITY_STATE_SPEC = ProjectionSpec(
 def spec_metadata_lines(spec: ProjectionSpec) -> list[str]:
     spec_json = spec_canonical_json(spec)
     spec_id = spec_json
+    return [
+        f"generated_by_spec_id: {spec_id}",
+        f"generated_by_spec: {spec_json}",
+    ]
+
+
+def spec_metadata_lines_from_payload(payload: Mapping[str, JSONValue]) -> list[str]:
+    spec_id = str(payload.get("generated_by_spec_id", "") or "")
+    spec_payload = payload.get("generated_by_spec", {})
+    if not isinstance(spec_payload, Mapping):
+        spec_payload = {}
+    spec_json = json.dumps(spec_payload, sort_keys=True, separators=(",", ":"))
     return [
         f"generated_by_spec_id: {spec_id}",
         f"generated_by_spec: {spec_json}",

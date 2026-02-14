@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_evidence_suggestions
+from gabion.analysis.baseline_io import write_json
 from gabion.analysis.dataflow_audit import AuditConfig
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
     CALL_CLUSTER_SUMMARY_SPEC,
-    spec_metadata_lines,
+    spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
 from gabion.analysis.projection_spec import ProjectionSpec
-from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import ordered_or_sorted
@@ -133,33 +133,31 @@ def render_markdown(
     check_deadline(allow_frame_fallback=True)
     summary = payload.get("summary", {})
     clusters = payload.get("clusters", [])
-    lines: list[str] = []
-    lines.extend(spec_metadata_lines(CALL_CLUSTER_SUMMARY_SPEC))
-    lines.append("Summary:")
-    lines.append("```")
-    lines.append(json.dumps(summary, sort_keys=True))
-    lines.append("```")
-    lines.append("")
+    doc = ReportDoc("out_call_clusters")
+    doc.lines(spec_metadata_lines_from_payload(payload))
+    doc.section("Summary")
+    doc.codeblock(summary)
+    doc.line()
     if not isinstance(clusters, list) or not clusters:
-        lines.append("No call clusters found.")
-        return render_report_markdown("out_call_clusters", lines)
-    lines.append("Call clusters:")
+        doc.line("No call clusters found.")
+        return doc.emit()
+    doc.section("Call clusters")
     for entry in clusters:
         check_deadline()
         if not isinstance(entry, Mapping):
             continue
         display = str(entry.get("display", "") or "")
         count = entry.get("count", 0)
-        lines.append("")
-        lines.append(f"Cluster: {display} (count: {count})")
+        doc.line()
+        doc.line(f"Cluster: {display} (count: {count})")
         tests = entry.get("tests", [])
         if isinstance(tests, list) and tests:
-            lines.append("```")
+            rendered_tests: list[str] = []
             for test_id in tests:
                 check_deadline()
-                lines.append(str(test_id))
-            lines.append("```")
-    return render_report_markdown("out_call_clusters", lines)
+                rendered_tests.append(str(test_id))
+            doc.codeblock("\n".join(rendered_tests))
+    return doc.emit()
 
 
 def write_call_clusters(
@@ -168,7 +166,4 @@ def write_call_clusters(
     output_path: Path,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    write_json(output_path, payload)

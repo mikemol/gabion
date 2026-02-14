@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
 
+from gabion.analysis.baseline_io import (
+    attach_spec_metadata,
+    load_json,
+    parse_spec_metadata,
+    parse_version,
+    write_json,
+)
+from gabion.analysis.delta_tools import coerce_int, count_delta, format_delta
 from gabion.analysis.projection_registry import (
     AMBIGUITY_BASELINE_SPEC,
     AMBIGUITY_DELTA_SPEC,
-    spec_metadata_lines,
-    spec_metadata_payload,
+    spec_metadata_lines_from_payload,
 )
-from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import ordered_or_sorted
@@ -44,38 +50,27 @@ def build_baseline_payload(
             "by_kind": counts,
         },
     }
-    payload.update(spec_metadata_payload(AMBIGUITY_BASELINE_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=AMBIGUITY_BASELINE_SPEC)
 
 
 def parse_baseline_payload(
     payload: Mapping[str, JSONValue],
 ) -> AmbiguityBaseline:
     check_deadline(allow_frame_fallback=True)
-    version = payload.get("version", BASELINE_VERSION)
-    try:
-        version_value = int(version) if version is not None else BASELINE_VERSION
-    except (TypeError, ValueError):
-        version_value = -1
-    if version_value != BASELINE_VERSION:
-        raise ValueError(
-            f"Unsupported ambiguity baseline version={version!r}; expected {BASELINE_VERSION}"
-        )
+    parse_version(
+        payload, expected=BASELINE_VERSION, error_context="ambiguity baseline"
+    )
     summary = payload.get("summary", {})
     total = 0
     by_kind: dict[str, int] = {}
     if isinstance(summary, Mapping):
-        total = _coerce_int(summary.get("total"), 0)
+        total = coerce_int(summary.get("total"), 0)
         by_kind_payload = summary.get("by_kind", {})
         if isinstance(by_kind_payload, Mapping):
             for key, raw in by_kind_payload.items():
                 check_deadline()
-                by_kind[str(key)] = _coerce_int(raw, 0)
-    spec_id = str(payload.get("generated_by_spec_id", "") or "")
-    spec_payload = payload.get("generated_by_spec", {})
-    spec: dict[str, JSONValue] = {}
-    if isinstance(spec_payload, Mapping):
-        spec = {str(key): spec_payload[key] for key in spec_payload}
+                by_kind[str(key)] = coerce_int(raw, 0)
+    spec_id, spec = parse_spec_metadata(payload)
     return AmbiguityBaseline(
         total=total,
         by_kind=by_kind,
@@ -85,16 +80,11 @@ def parse_baseline_payload(
 
 
 def load_baseline(path: str) -> AmbiguityBaseline:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError("Ambiguity baseline must be a JSON object.")
-    return parse_baseline_payload(payload)
+    return parse_baseline_payload(load_json(path))
 
 
 def write_baseline(path: str, payload: Mapping[str, JSONValue]) -> None:
-    Path(path).write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    write_json(path, payload)
 
 
 def build_delta_payload(
@@ -104,16 +94,7 @@ def build_delta_payload(
     baseline_path: str | None = None,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: baseline, current
-    kinds = ordered_or_sorted(
-        set(baseline.by_kind) | set(current.by_kind),
-        source="build_delta_payload.kinds",
-    )
-    baseline_counts = {kind: baseline.by_kind.get(kind, 0) for kind in kinds}
-    current_counts = {kind: current.by_kind.get(kind, 0) for kind in kinds}
-    delta_counts = {
-        kind: current_counts.get(kind, 0) - baseline_counts.get(kind, 0)
-        for kind in kinds
-    }
+    by_kind = count_delta(baseline.by_kind, current.by_kind)
     payload: dict[str, JSONValue] = {
         "version": DELTA_VERSION,
         "summary": {
@@ -122,17 +103,12 @@ def build_delta_payload(
                 "current": current.total,
                 "delta": current.total - baseline.total,
             },
-            "by_kind": {
-                "baseline": baseline_counts,
-                "current": current_counts,
-                "delta": delta_counts,
-            },
+            "by_kind": by_kind,
         },
     }
     if baseline_path:
         payload["baseline"] = {"path": baseline_path}
-    payload.update(spec_metadata_payload(AMBIGUITY_DELTA_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=AMBIGUITY_DELTA_SPEC)
 
 
 def render_markdown(
@@ -142,23 +118,22 @@ def render_markdown(
     summary = payload.get("summary", {})
     total = summary.get("total", {}) if isinstance(summary, Mapping) else {}
     by_kind = summary.get("by_kind", {}) if isinstance(summary, Mapping) else {}
-    lines: list[str] = []
-    lines.extend(spec_metadata_lines(AMBIGUITY_DELTA_SPEC))
-    lines.append("Summary:")
-    lines.append("```")
-    baseline_total = _coerce_int(
-        total.get("baseline") if isinstance(total, Mapping) else None, 0
+    doc = ReportDoc("out_ambiguity_delta")
+    doc.lines(spec_metadata_lines_from_payload(payload))
+    doc.section("Summary")
+    baseline_total = coerce_int(
+        total.get("baseline") if isinstance(total, Mapping) else None
     )
-    current_total = _coerce_int(
-        total.get("current") if isinstance(total, Mapping) else None, 0
+    current_total = coerce_int(
+        total.get("current") if isinstance(total, Mapping) else None
     )
-    delta_total = _coerce_int(
+    delta_total = coerce_int(
         total.get("delta") if isinstance(total, Mapping) else None,
         current_total - baseline_total,
     )
-    lines.append(
-        f"- total: {baseline_total} -> {current_total} ({_format_delta_value(delta_total)})"
-    )
+    rows = [
+        f"- total: {baseline_total} -> {current_total} ({format_delta(delta_total)})"
+    ]
     if isinstance(by_kind, Mapping):
         baseline = by_kind.get("baseline", {})
         current = by_kind.get("current", {})
@@ -172,11 +147,9 @@ def render_markdown(
             before = baseline.get(kind, 0)
             after = current.get(kind, 0)
             change = delta.get(kind, after - before)
-            lines.append(
-                f"- {kind}: {before} -> {after} ({_format_delta_value(change)})"
-            )
-    lines.append("```")
-    return render_report_markdown("out_ambiguity_delta", lines)
+            rows.append(f"- {kind}: {before} -> {after} ({format_delta(change)})")
+    doc.codeblock("\n".join(rows))
+    return doc.emit()
 
 
 def _count_by_kind(
@@ -189,16 +162,3 @@ def _count_by_kind(
         kind = str(entry.get("kind", "") or "unknown")
         counts[kind] = counts.get(kind, 0) + 1
     return counts
-
-
-def _coerce_int(value: object, default: int) -> int:
-    try:
-        return int(value) if value is not None else default
-    except (TypeError, ValueError):
-        return default
-
-
-def _format_delta_value(delta: object) -> str:
-    value = _coerce_int(delta, 0)
-    sign = "+" if value > 0 else ""
-    return f"{sign}{value}"
