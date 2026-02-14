@@ -1428,6 +1428,49 @@ def _collection_progress_intro_lines(
     return lines
 
 
+def _collection_components_preview_lines(
+    *,
+    collection_resume: Mapping[str, JSONValue],
+) -> list[str]:
+    check_deadline()
+    raw_groups = collection_resume.get("groups_by_path")
+    if not isinstance(raw_groups, Mapping):
+        return [
+            "Component preview (provisional).",
+            "- `paths_with_groups`: `0`",
+            "- `functions_with_groups`: `0`",
+            "- `bundle_alternatives`: `0`",
+        ]
+    path_count = 0
+    function_count = 0
+    bundle_alternatives = 0
+    for raw_path, raw_path_groups in raw_groups.items():
+        check_deadline()
+        if not isinstance(raw_path, str) or not isinstance(raw_path_groups, Mapping):
+            continue
+        path_count += 1
+        for raw_qual, raw_bundles in raw_path_groups.items():
+            check_deadline()
+            if not isinstance(raw_qual, str):
+                continue
+            if not isinstance(raw_bundles, Sequence) or isinstance(
+                raw_bundles, (str, bytes)
+            ):
+                continue
+            function_count += 1
+            bundle_alternatives += sum(
+                1
+                for bundle in raw_bundles
+                if isinstance(bundle, Sequence) and not isinstance(bundle, (str, bytes))
+            )
+    return [
+        "Component preview (provisional).",
+        f"- `paths_with_groups`: `{path_count}`",
+        f"- `functions_with_groups`: `{function_count}`",
+        f"- `bundle_alternatives`: `{bundle_alternatives}`",
+    ]
+
+
 def _incremental_progress_obligations(
     *,
     analysis_state: str,
@@ -1909,6 +1952,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         report_projection_spec_rows() if report_output_path else []
     )
     phase_checkpoint_state: JSONObject = {}
+    last_collection_resume_payload: JSONObject | None = None
     raw_initial_paths = payload.get("paths")
     initial_paths_count = len(raw_initial_paths) if isinstance(raw_initial_paths, list) else 1
     _write_bootstrap_incremental_artifacts(
@@ -2248,7 +2292,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     path=report_phase_checkpoint_path,
                     witness_digest=report_section_witness_digest,
                 )
-        last_collection_resume_payload: JSONObject | None = collection_resume_payload
+        last_collection_resume_payload = collection_resume_payload
         semantic_progress_cumulative: JSONObject | None = None
         if isinstance(collection_resume_payload, Mapping):
             raw_semantic_progress = collection_resume_payload.get("semantic_progress")
@@ -2257,7 +2301,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     str(key): raw_semantic_progress[key]
                     for key in raw_semantic_progress
                 }
-        last_collection_intro_signature: tuple[str, int, int, int] | None = None
+        last_collection_intro_signature: tuple[int, int, int] | None = None
         phase_progress_signatures: dict[str, tuple[int, ...]] = {}
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
@@ -2280,9 +2324,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 collection_resume=persisted_progress_payload,
                 total_files=analysis_resume_total_files,
             )
-            semantic_witness_digest = semantic_progress.get("current_witness_digest")
             collection_intro_signature = (
-                str(semantic_witness_digest) if semantic_witness_digest is not None else "",
                 collection_progress["completed_files"],
                 collection_progress["in_progress_files"],
                 collection_progress["remaining_files"],
@@ -2309,6 +2351,9 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             sections["intro"] = _collection_progress_intro_lines(
                 collection_resume=persisted_progress_payload,
                 total_files=analysis_resume_total_files,
+            )
+            sections["components"] = _collection_components_preview_lines(
+                collection_resume=persisted_progress_payload,
             )
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state="analysis_collection_in_progress",
@@ -3183,10 +3228,28 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 progress_payload = {}
                 timeout_payload["progress"] = progress_payload
             timeout_collection_resume_payload: JSONObject | None = None
+            if (
+                analysis_resume_checkpoint_path is not None
+                and analysis_resume_input_manifest_digest is not None
+                and isinstance(last_collection_resume_payload, Mapping)
+            ):
+                latest_collection_resume_payload: JSONObject = {
+                    str(key): last_collection_resume_payload[key]
+                    for key in last_collection_resume_payload
+                }
+                _write_analysis_resume_checkpoint(
+                    path=analysis_resume_checkpoint_path,
+                    input_witness=analysis_resume_input_witness,
+                    input_manifest_digest=analysis_resume_input_manifest_digest,
+                    collection_resume=latest_collection_resume_payload,
+                )
+                timeout_collection_resume_payload = latest_collection_resume_payload
             if analysis_resume_checkpoint_path is not None:
                 collection_resume: JSONObject | None = None
                 resume_input_witness: JSONObject | None = analysis_resume_input_witness
-                if analysis_resume_input_witness is not None:
+                if timeout_collection_resume_payload is not None:
+                    collection_resume = timeout_collection_resume_payload
+                elif analysis_resume_input_witness is not None:
                     collection_resume = _load_analysis_resume_checkpoint(
                         path=analysis_resume_checkpoint_path,
                         input_witness=analysis_resume_input_witness,
@@ -3295,6 +3358,13 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     resolved_sections["intro"] = _collection_progress_intro_lines(
                         collection_resume=timeout_collection_resume_payload,
                         total_files=analysis_resume_total_files,
+                    )
+                if (
+                    timeout_collection_resume_payload is not None
+                    and "components" not in resolved_sections
+                ):
+                    resolved_sections["components"] = _collection_components_preview_lines(
+                        collection_resume=timeout_collection_resume_payload,
                     )
                 if "intro" not in resolved_sections:
                     resolved_sections["intro"] = [

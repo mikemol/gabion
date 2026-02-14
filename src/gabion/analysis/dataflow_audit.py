@@ -7771,6 +7771,8 @@ def _populate_bundle_forest(
     check_deadline()
     if not groups_by_path:
         return
+    if on_progress is not None:
+        on_progress()
     index = analysis_index
     if include_all_sites:
         if index is None:
@@ -7810,7 +7812,11 @@ def _populate_bundle_forest(
         if on_progress is None:
             return
         progress_since_emit += 1
-        if not force and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL:
+        if (
+            not force
+            and progress_since_emit != 1
+            and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL
+        ):
             return
         progress_since_emit = 0
         on_progress()
@@ -8705,44 +8711,48 @@ def _analyze_file_internal(
             )
         )
 
-    for f in funcs:
-        check_deadline()
-        class_name = _enclosing_class(f, parents)
-        scopes = _enclosing_scopes(f, parents)
-        lexical_scopes = _enclosing_function_scopes(f, parents)
-        fn_key = _function_key(scopes, f.name)
-        if (
-            fn_key in fn_use
-            and fn_key in fn_calls
-            and fn_key in fn_param_orders
-            and fn_key in fn_param_spans
-            and fn_key in fn_names
-            and fn_key in fn_lexical_scopes
-            and fn_key in fn_class_names
-        ):
-            continue
-        if not _decorators_transparent(f, config.transparent_decorators):
-            opaque_callees.add(fn_key)
-        use_map, call_args = _analyze_function(
-            f,
-            parents,
-            is_test=is_test,
-            ignore_params=config.ignore_params,
-            strictness=config.strictness,
-            class_name=class_name,
-            return_aliases=return_aliases,
-        )
-        fn_use[fn_key] = use_map
-        fn_calls[fn_key] = call_args
-        fn_param_orders[fn_key] = _param_names(f, config.ignore_params)
-        fn_param_spans[fn_key] = _param_spans(f, config.ignore_params)
-        fn_names[fn_key] = f.name
-        fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
-        fn_class_names[fn_key] = class_name
-        scanned_since_emit += 1
-        if scanned_since_emit == 1 or scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL:
-            _emit_scan_progress()
-            scanned_since_emit = 0
+    try:
+        for f in funcs:
+            check_deadline()
+            class_name = _enclosing_class(f, parents)
+            scopes = _enclosing_scopes(f, parents)
+            lexical_scopes = _enclosing_function_scopes(f, parents)
+            fn_key = _function_key(scopes, f.name)
+            if (
+                fn_key in fn_use
+                and fn_key in fn_calls
+                and fn_key in fn_param_orders
+                and fn_key in fn_param_spans
+                and fn_key in fn_names
+                and fn_key in fn_lexical_scopes
+                and fn_key in fn_class_names
+            ):
+                continue
+            if not _decorators_transparent(f, config.transparent_decorators):
+                opaque_callees.add(fn_key)
+            use_map, call_args = _analyze_function(
+                f,
+                parents,
+                is_test=is_test,
+                ignore_params=config.ignore_params,
+                strictness=config.strictness,
+                class_name=class_name,
+                return_aliases=return_aliases,
+            )
+            fn_use[fn_key] = use_map
+            fn_calls[fn_key] = call_args
+            fn_param_orders[fn_key] = _param_names(f, config.ignore_params)
+            fn_param_spans[fn_key] = _param_spans(f, config.ignore_params)
+            fn_names[fn_key] = f.name
+            fn_lexical_scopes[fn_key] = tuple(lexical_scopes)
+            fn_class_names[fn_key] = class_name
+            scanned_since_emit += 1
+            if scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL:
+                _emit_scan_progress()
+                scanned_since_emit = 0
+    except TimeoutExceeded:
+        _emit_scan_progress()
+        raise
     if scanned_since_emit > 0:
         _emit_scan_progress()
 
@@ -12251,8 +12261,9 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
 
 
 _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
-_FILE_SCAN_PROGRESS_EMIT_INTERVAL = 8
-_BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL = 128
+_FILE_SCAN_PROGRESS_EMIT_INTERVAL = 32
+_BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL = 64
+_COLLECTION_PROGRESS_EMIT_INTERVAL = 8
 
 
 def _analysis_collection_resume_path_key(path: Path) -> str:
@@ -13876,9 +13887,19 @@ def analyze_paths(
                 )
             return analysis_index
 
-        def _emit_collection_progress() -> None:
+        collection_progress_since_emit = 0
+
+        def _emit_collection_progress(*, force: bool = False) -> None:
+            nonlocal collection_progress_since_emit
             if on_collection_progress is None:
                 return
+            collection_progress_since_emit += 1
+            if (
+                not force
+                and collection_progress_since_emit < _COLLECTION_PROGRESS_EMIT_INTERVAL
+            ):
+                return
+            collection_progress_since_emit = 0
             on_collection_progress(
                 _build_analysis_collection_resume_payload(
                     groups_by_path=groups_by_path,
@@ -13909,7 +13930,7 @@ def analyze_paths(
                 continue
             if path not in in_progress_scan_by_path:
                 in_progress_scan_by_path[path] = {"phase": "scan_pending"}
-                _emit_collection_progress()
+                _emit_collection_progress(force=True)
             _deadline_check(allow_frame_fallback=True)
 
             def _on_file_scan_progress(progress_state: JSONObject) -> None:
@@ -13937,7 +13958,7 @@ def analyze_paths(
                     )
                 )
             completed_paths.add(path)
-            _emit_collection_progress()
+            _emit_collection_progress(force=True)
 
         _emit_phase_progress(
             "collection",
@@ -13948,6 +13969,18 @@ def analyze_paths(
                 parse_failure_witnesses=parse_failure_witnesses,
             ),
         )
+
+        def _emit_forest_phase_progress() -> None:
+            _emit_phase_progress(
+                "forest",
+                report_carrier=ReportCarrier(
+                    forest=forest,
+                    bundle_sites_by_path=bundle_sites_by_path,
+                    ambiguity_witnesses=ambiguity_witnesses,
+                    invariant_propositions=invariant_propositions,
+                    parse_failure_witnesses=parse_failure_witnesses,
+                ),
+            )
 
         if (
             include_bundle_forest
@@ -13969,6 +14002,7 @@ def analyze_paths(
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
                 analysis_index=_require_analysis_index(),
+                on_progress=_emit_forest_phase_progress,
             )
             forest_spec = build_forest_spec(
                 include_bundle_forest=True,
@@ -13989,18 +14023,6 @@ def analyze_paths(
                 external_filter=config.external_filter,
             )
             _deadline_check(allow_frame_fallback=False)
-
-        def _emit_forest_phase_progress() -> None:
-            _emit_phase_progress(
-                "forest",
-                report_carrier=ReportCarrier(
-                    forest=forest,
-                    bundle_sites_by_path=bundle_sites_by_path,
-                    ambiguity_witnesses=ambiguity_witnesses,
-                    invariant_propositions=invariant_propositions,
-                    parse_failure_witnesses=parse_failure_witnesses,
-                ),
-            )
 
         _emit_forest_phase_progress()
 
@@ -14351,7 +14373,7 @@ def analyze_paths(
     except TimeoutExceeded:
         emit_collection_progress = locals().get("_emit_collection_progress")
         if callable(emit_collection_progress):
-            emit_collection_progress()
+            emit_collection_progress(force=True)
         raise
     finally:
         reset_forest(forest_token)
