@@ -14089,6 +14089,7 @@ def analyze_paths(
                 type_ambiguities = type_ambiguities[:type_audit_max]
                 # Trim evidence opportunistically so reports remain reviewable.
                 type_callsite_evidence = type_callsite_evidence[:type_audit_max]
+            _emit_edge_phase_progress()
 
         if include_constant_smells or include_deadness_witnesses:
             constant_details = _collect_constant_flow_details(
@@ -14108,6 +14109,7 @@ def analyze_paths(
                     constant_details,
                     project_root=config.project_root,
                 )
+            _emit_edge_phase_progress()
 
         if include_unused_arg_smells:
             unused_arg_smells = analyze_unused_arg_flow_repo(
@@ -14120,6 +14122,7 @@ def analyze_paths(
                 parse_failure_witnesses=parse_failure_witnesses,
                 analysis_index=_require_analysis_index(),
             )
+            _emit_edge_phase_progress()
 
         _emit_edge_phase_progress()
 
@@ -14185,6 +14188,7 @@ def analyze_paths(
                 analysis_index=_require_analysis_index(),
             )
             _materialize_suite_order_spec(forest=forest)
+            _emit_post_phase_progress()
 
         if include_decision_surfaces:
             decision_surfaces, decision_warnings, decision_lint_lines = (
@@ -14202,6 +14206,7 @@ def analyze_paths(
                     analysis_index=_require_analysis_index(),
                 )
             )
+            _emit_post_phase_progress()
 
         if include_value_decision_surfaces:
             (
@@ -14224,6 +14229,7 @@ def analyze_paths(
             )
             decision_warnings.extend(value_warnings)
             decision_lint_lines.extend(value_lint_lines)
+            _emit_post_phase_progress()
 
         need_exception_obligations = include_exception_obligations or (
             include_lint_lines and bool(config.never_exceptions)
@@ -14243,6 +14249,7 @@ def analyze_paths(
                 deadness_witnesses=deadness_witnesses,
                 never_exceptions=config.never_exceptions,
             )
+            _emit_post_phase_progress()
         if include_never_invariants:
             never_invariants = _collect_never_invariants(
                 file_paths,
@@ -14251,6 +14258,7 @@ def analyze_paths(
                 forest=forest,
                 deadness_witnesses=deadness_witnesses,
             )
+            _emit_post_phase_progress()
         if config.fingerprint_registry is not None and config.fingerprint_index:
             annotations_by_path = _param_annotations_by_path(
                 file_paths,
@@ -14302,12 +14310,14 @@ def analyze_paths(
                         exception_obligations if include_exception_obligations else None
                     ),
                 )
+            _emit_post_phase_progress()
 
         if decision_surfaces:
             for entry in decision_surfaces:
                 check_deadline()
                 if "(internal callers" in entry:
                     context_suggestions.append(f"Consider contextvar for {entry}")
+            _emit_post_phase_progress()
 
         if include_lint_lines:
             broad_type_lint_lines = _internal_broad_type_lint_lines(
@@ -14334,6 +14344,7 @@ def analyze_paths(
                 constant_smells=constant_smells,
                 unused_arg_smells=unused_arg_smells,
             )
+            _emit_post_phase_progress()
 
         _emit_post_phase_progress()
 
@@ -14374,6 +14385,15 @@ def analyze_paths(
         emit_collection_progress = locals().get("_emit_collection_progress")
         if callable(emit_collection_progress):
             emit_collection_progress(force=True)
+        emit_forest_phase_progress = locals().get("_emit_forest_phase_progress")
+        if callable(emit_forest_phase_progress):
+            emit_forest_phase_progress()
+        emit_edge_phase_progress = locals().get("_emit_edge_phase_progress")
+        if callable(emit_edge_phase_progress):
+            emit_edge_phase_progress()
+        emit_post_phase_progress = locals().get("_emit_post_phase_progress")
+        if callable(emit_post_phase_progress):
+            emit_post_phase_progress()
         raise
     finally:
         reset_forest(forest_token)
