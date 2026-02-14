@@ -11,7 +11,12 @@ from gabion.analysis.baseline_io import (
     parse_version,
     write_json,
 )
-from gabion.analysis.delta_tools import coerce_int, count_delta, format_delta
+from gabion.analysis.delta_tools import (
+    coerce_int,
+    count_delta,
+    format_delta,
+    format_transition,
+)
 from gabion.analysis.projection_registry import TEST_ANNOTATION_DRIFT_DELTA_SPEC
 from gabion.analysis.report_doc import ReportDoc
 
@@ -51,11 +56,12 @@ def test_baseline_io_load_json_rejects_non_object(tmp_path: Path) -> None:
         load_json(path)
 
 
-# gabion:evidence E:function_site::delta_tools.py::gabion.analysis.delta_tools.coerce_int E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_delta E:function_site::delta_tools.py::gabion.analysis.delta_tools.count_delta
+# gabion:evidence E:function_site::delta_tools.py::gabion.analysis.delta_tools.coerce_int E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_delta E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_transition E:function_site::delta_tools.py::gabion.analysis.delta_tools.count_delta
 def test_delta_tools_helpers() -> None:
     assert coerce_int("nope", 7) == 7
     assert format_delta(3) == "+3"
     assert format_delta(-2) == "-2"
+    assert format_transition(1, 4, None) == "1 -> 4 (+3)"
     delta = count_delta({"a": 1, "b": "bad"}, {"a": 2, "c": "5"})
     assert delta["baseline"]["a"] == 1
     assert delta["baseline"]["b"] == 0

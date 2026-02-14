@@ -167,7 +167,7 @@ def test_load_baseline_rejects_non_object(tmp_path: Path) -> None:
         test_obsolescence_delta.load_baseline(str(path))
 
 
-# gabion:evidence E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._format_delta E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._normalize_summary_counts E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._section_list
+# gabion:evidence E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_transition E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._normalize_summary_counts E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._section_list
 def test_helpers_cover_edge_cases() -> None:
     assert test_obsolescence_delta._normalize_summary_counts("nope") == {
         "redundant_by_evidence": 0,
@@ -178,7 +178,7 @@ def test_helpers_cover_edge_cases() -> None:
     assert test_obsolescence_delta._tests_from_candidates(["bad", {"test_id": " ", "class": "x"}]) == []
     assert test_obsolescence_delta._section_list("nope", "added") == []
     assert test_obsolescence_delta._section_list({"added": "nope"}, "added") == []
-    assert test_obsolescence_delta._format_delta(1, 2, None) == "1 -> 2 (+1)"
+    assert test_obsolescence_delta.format_transition(1, 2, None) == "1 -> 2 (+1)"
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
