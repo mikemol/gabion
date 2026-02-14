@@ -39,6 +39,7 @@ from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.analysis.aspf import Alt, Forest, Node, NodeId
 from gabion.analysis import evidence_keys
 from gabion.invariants import never, require_not_none
+from gabion.order_contract import ordered_or_sorted
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -10472,7 +10473,11 @@ def _dataclass_registry_for_tree(
 
 def _bundle_name_registry(root: Path) -> dict[tuple[str, ...], set[str]]:
     check_deadline()
-    file_paths = sorted(root.rglob("*.py"))
+    file_paths = ordered_or_sorted(
+        root.rglob("*.py"),
+        source="_bundle_name_registry.file_paths",
+        key=lambda path: str(path),
+    )
     parse_failure_witnesses: list[JSONObject] = []
     config_bundles_by_path = _collect_config_bundles(
         file_paths,
@@ -12814,7 +12819,11 @@ def _collect_declared_bundles(root: Path) -> set[tuple[str, ...]]:
     check_deadline()
     _forbid_adhoc_bundle_discovery("_collect_declared_bundles")
     declared: set[tuple[str, ...]] = set()
-    file_paths = sorted(root.rglob("*.py"))
+    file_paths = ordered_or_sorted(
+        root.rglob("*.py"),
+        source="_collect_declared_bundles.file_paths",
+        key=lambda path: str(path),
+    )
     parse_failure_witnesses: list[JSONObject] = []
     bundles_by_path = _collect_config_bundles(
         file_paths,

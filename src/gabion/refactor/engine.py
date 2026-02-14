@@ -6,6 +6,7 @@ import libcst as cst
 
 from gabion.refactor.model import FieldSpec, RefactorPlan, RefactorRequest, TextEdit
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 class RefactorEngine:
@@ -488,7 +489,11 @@ def _rewrite_call_sites_in_project(
     scan_root = project_root / "src"
     if not scan_root.exists():
         scan_root = project_root
-    for path in sorted(scan_root.rglob("*.py")):
+    for path in ordered_or_sorted(
+        scan_root.rglob("*.py"),
+        source="_rewrite_call_sites_in_project.scan_root",
+        key=lambda item: str(item),
+    ):
         check_deadline()
         if path == target_path:
             continue

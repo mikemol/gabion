@@ -12,6 +12,7 @@ from typing import Iterable
 
 from gabion.analysis import evidence_keys
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 EVIDENCE_TAG = "gabion:evidence"
 _TAG_RE = re.compile(r"#\s*gabion:evidence\s+(?P<ids>.+)")
@@ -165,7 +166,11 @@ def _collect_test_files(
     files: list[Path] = []
     for path in paths:
         if path.is_dir():
-            for candidate in sorted(path.rglob("test_*.py")):
+            for candidate in ordered_or_sorted(
+                path.rglob("test_*.py"),
+                source="_collect_test_files.candidates",
+                key=lambda item: str(item),
+            ):
                 if _should_exclude(candidate, root, exclude):
                     continue
                 files.append(candidate)
