@@ -560,6 +560,52 @@ def test_collection_progress_intro_lines_include_resume_counts() -> None:
     assert "- `substantive_progress`: `True`" in lines
 
 
+def test_collection_semantic_progress_treats_completed_path_as_non_regression() -> None:
+    progress = server._collection_semantic_progress(
+        previous_collection_resume={
+            "completed_paths": [],
+            "in_progress_scan_by_path": {
+                "a.py": {
+                    "phase": "function_scan",
+                    "processed_functions": ["f1", "f2"],
+                }
+            },
+        },
+        collection_resume={
+            "completed_paths": ["a.py"],
+            "in_progress_scan_by_path": {},
+        },
+        total_files=1,
+    )
+    assert progress["regressed_processed_functions_count"] == 0
+    assert progress["completed_files_delta"] == 1
+    assert progress["monotonic_progress"] is True
+    assert progress["substantive_progress"] is True
+
+
+def test_collection_semantic_progress_flags_state_loss_regression() -> None:
+    progress = server._collection_semantic_progress(
+        previous_collection_resume={
+            "completed_paths": [],
+            "in_progress_scan_by_path": {
+                "a.py": {
+                    "phase": "function_scan",
+                    "processed_functions": ["f1", "f2"],
+                }
+            },
+        },
+        collection_resume={
+            "completed_paths": [],
+            "in_progress_scan_by_path": {},
+        },
+        total_files=1,
+    )
+    assert progress["regressed_processed_functions_count"] == 2
+    assert progress["completed_files_delta"] == 0
+    assert progress["monotonic_progress"] is False
+    assert progress["substantive_progress"] is False
+
+
 def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
     with pytest.raises(NeverThrown):
         server._collection_progress_intro_lines(

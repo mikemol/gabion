@@ -711,6 +711,19 @@ def _analysis_resume_progress(
     }
 
 
+def _completed_path_set(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> set[str]:
+    if not isinstance(collection_resume, Mapping):
+        return set()
+    raw_completed_paths = collection_resume.get("completed_paths")
+    if not isinstance(raw_completed_paths, Sequence) or isinstance(
+        raw_completed_paths, (str, bytes)
+    ):
+        return set()
+    return {path for path in raw_completed_paths if isinstance(path, str)}
+
+
 def _in_progress_scan_states(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> dict[str, Mapping[str, JSONValue]]:
@@ -809,6 +822,7 @@ def _collection_semantic_progress(
 ) -> JSONObject:
     previous_states = _in_progress_scan_states(previous_collection_resume)
     current_states = _in_progress_scan_states(collection_resume)
+    current_completed_paths = _completed_path_set(collection_resume)
     prev_progress = (
         _analysis_resume_progress(
             collection_resume=previous_collection_resume,
@@ -839,6 +853,15 @@ def _collection_semantic_progress(
         nonlocal changed_in_progress_paths
         previous_state = previous_states.get(path_key)
         current_state = current_states.get(path_key)
+        if (
+            previous_state is not None
+            and current_state is None
+            and path_key in current_completed_paths
+        ):
+            # Moving a path from in-progress to completed is monotonic progress,
+            # not a semantic regression in processed functions.
+            changed_in_progress_paths += 1
+            return
         previous_keys = (
             _state_processed_functions(previous_state) if previous_state is not None else set()
         )
