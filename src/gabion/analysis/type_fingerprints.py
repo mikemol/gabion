@@ -6,7 +6,7 @@ import math
 
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 def _split_top_level(value: str, sep: str) -> list[str]:
     check_deadline()
@@ -65,6 +65,7 @@ def canonical_type_key(hint: str) -> str:
         normalized = ordered_or_sorted(
             (part for part in (canonical_type_key(p) for p in union_parts) if part),
             source="canonical_type_key.union_parts",
+            policy=OrderPolicy.SORT,
         )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Optional[") and raw.endswith("]"):
@@ -75,6 +76,7 @@ def canonical_type_key(hint: str) -> str:
         normalized = ordered_or_sorted(
             {item for item in normalized if item},
             source="canonical_type_key.optional_parts",
+            policy=OrderPolicy.SORT,
         )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Union[") and raw.endswith("]"):
@@ -83,6 +85,7 @@ def canonical_type_key(hint: str) -> str:
         normalized = ordered_or_sorted(
             (part for part in (canonical_type_key(p) for p in parts) if part),
             source="canonical_type_key.union_bracket_parts",
+            policy=OrderPolicy.SORT,
         )
         return f"Union[{', '.join(normalized)}]"
     if "[" in raw and raw.endswith("]"):
@@ -227,6 +230,7 @@ def canonical_type_key_with_constructor(
                 if part
             ),
             source="canonical_type_key_with_constructor.union_parts",
+            policy=OrderPolicy.SORT,
         )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Optional[") and raw.endswith("]"):
@@ -239,6 +243,7 @@ def canonical_type_key_with_constructor(
         normalized = ordered_or_sorted(
             {item for item in normalized if item},
             source="canonical_type_key_with_constructor.optional_parts",
+            policy=OrderPolicy.SORT,
         )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Union[") and raw.endswith("]"):
@@ -254,6 +259,7 @@ def canonical_type_key_with_constructor(
                 if part
             ),
             source="canonical_type_key_with_constructor.union_bracket_parts",
+            policy=OrderPolicy.SORT,
         )
         return f"Union[{', '.join(normalized)}]"
     if "[" in raw and raw.endswith("]"):
@@ -486,6 +492,7 @@ def build_synth_registry(
         candidates,
         source="build_synth_registry.candidates",
         key=_fingerprint_sort_key,
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         synth_registry.get_or_assign(fingerprint)
@@ -518,6 +525,7 @@ def synth_registry_payload(
     for prime, tail in ordered_or_sorted(
         synth_registry.tails.items(),
         source="synth_registry_payload.tails",
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
@@ -554,10 +562,12 @@ def synth_registry_payload(
                 "base_keys": ordered_or_sorted(
                     base_keys,
                     source="synth_registry_payload.base_keys",
+                    policy=OrderPolicy.SORT,
                 ),
                 "ctor_keys": ordered_or_sorted(
                     ctor_keys,
                     source="synth_registry_payload.ctor_keys",
+                    policy=OrderPolicy.SORT,
                 ),
                 "remainder": {
                     "base": base_remaining,
@@ -570,6 +580,7 @@ def synth_registry_payload(
         for key, value in ordered_or_sorted(
             registry.primes.items(),
             source="synth_registry_payload.registry.primes",
+            policy=OrderPolicy.SORT,
         )
     }
     bit_positions_payload = {
@@ -577,6 +588,7 @@ def synth_registry_payload(
         for key, value in ordered_or_sorted(
             registry.bit_positions.items(),
             source="synth_registry_payload.registry.bit_positions",
+            policy=OrderPolicy.SORT,
         )
     }
     return {
@@ -715,6 +727,7 @@ def _apply_registry_payload(
     for key in ordered_or_sorted(
         registry.primes,
         source="_apply_registry_payload.registry.primes",
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         if key not in registry.bit_positions:
@@ -780,6 +793,7 @@ def bundle_fingerprint_setlike(types: Iterable[str], registry: PrimeRegistry) ->
     for key in ordered_or_sorted(
         keys,
         source="bundle_fingerprint_setlike.keys",
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         product *= registry.get_or_assign(key)
@@ -846,12 +860,14 @@ def build_fingerprint_registry(
     for constructor in ordered_or_sorted(
         constructor_keys,
         source="build_fingerprint_registry.constructor_keys",
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         ctor_registry.get_or_assign(constructor)
     for key in ordered_or_sorted(
         base_keys,
         source="build_fingerprint_registry.base_keys",
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         registry.get_or_assign(key)
@@ -859,6 +875,7 @@ def build_fingerprint_registry(
     for name in ordered_or_sorted(
         spec_entries,
         source="build_fingerprint_registry.spec_entries",
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         types = spec_entries[name]
@@ -886,6 +903,7 @@ def fingerprint_to_type_keys_with_remainder(
         registry.primes.items(),
         source="fingerprint_to_type_keys_with_remainder.registry.primes",
         key=lambda item: item[1],
+        policy=OrderPolicy.SORT,
     ):
         check_deadline()
         while remaining % prime == 0:

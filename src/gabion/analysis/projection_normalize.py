@@ -10,7 +10,7 @@ from gabion.analysis.projection_spec import (
 )
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 
 def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -124,6 +124,7 @@ def _normalize_predicates(values: Iterable[str]) -> list[str]:
     return ordered_or_sorted(
         cleaned,
         source="_normalize_predicates.cleaned",
+        policy=OrderPolicy.SORT,
     )
 
 
@@ -154,6 +155,7 @@ def _normalize_group_fields(value: JSONValue) -> list[str]:
     return ordered_or_sorted(
         fields,
         source="_normalize_group_fields.fields",
+        policy=OrderPolicy.SORT,
     )
 
 
@@ -209,6 +211,7 @@ def _normalize_value(value: JSONValue) -> JSONValue:
         ordered_keys = ordered_or_sorted(
             value,
             source="_normalize_value.dict_keys",
+            policy=OrderPolicy.SORT,
         )
         return {str(k): _normalize_value(value[k]) for k in ordered_keys}
     if isinstance(value, list):
