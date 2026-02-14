@@ -619,6 +619,235 @@ def _preview_deadline_summary_section(
     return lines
 
 
+def _make_list_section_preview(
+    *,
+    title: str,
+    count_label: str,
+    values: Callable[[ReportCarrier], Sequence[str]],
+    sample_label: str | None = None,
+    extra_count_labels: tuple[tuple[str, Callable[[ReportCarrier], int]], ...] = (),
+) -> Callable[[ReportCarrier, dict[Path, dict[str, list[set[str]]]]], list[str]]:
+    def _preview(
+        report: ReportCarrier,
+        _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+    ) -> list[str]:
+        check_deadline()
+        series = values(report)
+        lines = [
+            f"{title} preview (provisional).",
+            f"- `{count_label}`: `{len(series)}`",
+        ]
+        for label, getter in extra_count_labels:
+            check_deadline()
+            lines.append(f"- `{label}`: `{getter(report)}`")
+        if sample_label and series:
+            lines.append(f"- `{sample_label}`: `{series[0]}`")
+        return lines
+
+    return _preview
+
+
+_preview_constant_smells_section = _make_list_section_preview(
+    title="Constant-propagation smells",
+    count_label="constant_smells",
+    values=lambda report: report.constant_smells,
+    sample_label="sample_constant_smell",
+)
+
+_preview_unused_arg_smells_section = _make_list_section_preview(
+    title="Unused-argument smells",
+    count_label="unused_arg_smells",
+    values=lambda report: report.unused_arg_smells,
+    sample_label="sample_unused_arg_smell",
+)
+
+
+def _preview_runtime_obligations_section(
+    *,
+    title: str,
+    obligations: list[JSONObject],
+) -> list[str]:
+    check_deadline()
+    violated = 0
+    satisfied = 0
+    pending = 0
+    for entry in obligations:
+        check_deadline()
+        status = entry.get("status")
+        if status == "VIOLATION":
+            violated += 1
+        elif status == "SATISFIED":
+            satisfied += 1
+        else:
+            pending += 1
+    lines = [
+        f"{title} preview (provisional).",
+        f"- `obligations`: `{len(obligations)}`",
+        f"- `violations`: `{violated}`",
+        f"- `satisfied`: `{satisfied}`",
+        f"- `pending`: `{pending}`",
+    ]
+    for entry in obligations:
+        check_deadline()
+        if entry.get("status") != "VIOLATION":
+            continue
+        contract = str(entry.get("contract", "runtime_contract"))
+        kind = str(entry.get("kind", "unknown"))
+        detail = str(entry.get("detail", ""))
+        lines.append(f"- `sample_violation`: `{contract}/{kind} {detail}`")
+        break
+    return lines
+
+
+def _preview_resumability_obligations_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    return _preview_runtime_obligations_section(
+        title="Resumability obligations",
+        obligations=report.resumability_obligations,
+    )
+
+
+def _preview_incremental_report_obligations_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    return _preview_runtime_obligations_section(
+        title="Incremental report obligations",
+        obligations=report.incremental_report_obligations,
+    )
+
+
+def _preview_parse_failure_witnesses_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    stage_counts: dict[str, int] = defaultdict(int)
+    for witness in report.parse_failure_witnesses:
+        check_deadline()
+        stage = witness.get("stage")
+        if isinstance(stage, str) and stage:
+            stage_counts[stage] += 1
+            continue
+        stage_counts["unknown"] += 1
+    lines = [
+        "Parse failure witnesses preview (provisional).",
+        f"- `parse_failure_witnesses`: `{len(report.parse_failure_witnesses)}`",
+    ]
+    for stage, count in ordered_or_sorted(
+        stage_counts.items(),
+        source="_preview_parse_failure_witnesses_section.stage_counts",
+        key=lambda item: item[0],
+    ):
+        check_deadline()
+        lines.append(f"- `stage[{stage}]`: `{count}`")
+    return lines
+
+
+def _preview_execution_pattern_suggestions_section(
+    report: ReportCarrier,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    function_count = sum(len(groups) for groups in groups_by_path.values())
+    lines = [
+        "Execution pattern opportunities preview (provisional).",
+        f"- `paths_with_groups`: `{len(groups_by_path)}`",
+        f"- `functions_with_groups`: `{function_count}`",
+        f"- `decision_surfaces_seen`: `{len(report.decision_surfaces)}`",
+        (
+            "- `note`: `full execution-pattern synthesis is materialized in post-phase "
+            "projection`"
+        ),
+    ]
+    return lines
+
+
+def _preview_pattern_schema_residue_section(
+    report: ReportCarrier,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    bundle_alternatives = 0
+    for groups in groups_by_path.values():
+        check_deadline()
+        for bundles in groups.values():
+            check_deadline()
+            bundle_alternatives += len(bundles)
+    lines = [
+        "Pattern schema residue preview (provisional).",
+        f"- `paths_with_groups`: `{len(groups_by_path)}`",
+        f"- `bundle_alternatives`: `{bundle_alternatives}`",
+        f"- `decision_surfaces_seen`: `{len(report.decision_surfaces)}`",
+        f"- `value_decision_surfaces_seen`: `{len(report.value_decision_surfaces)}`",
+    ]
+    return lines
+
+
+_preview_decision_surfaces_section = _make_list_section_preview(
+    title="Decision surfaces",
+    count_label="decision_surfaces",
+    values=lambda report: report.decision_surfaces,
+    sample_label="sample_decision_surface",
+    extra_count_labels=(("decision_warnings", lambda report: len(report.decision_warnings)),),
+)
+
+_preview_value_decision_surfaces_section = _make_list_section_preview(
+    title="Value-encoded decision surfaces",
+    count_label="value_decision_surfaces",
+    values=lambda report: report.value_decision_surfaces,
+    sample_label="sample_value_decision_surface",
+    extra_count_labels=(
+        ("value_decision_rewrites", lambda report: len(report.value_decision_rewrites)),
+    ),
+)
+
+_preview_fingerprint_warnings_section = _make_list_section_preview(
+    title="Fingerprint warnings",
+    count_label="fingerprint_warnings",
+    values=lambda report: report.fingerprint_warnings,
+    sample_label="sample_fingerprint_warning",
+)
+
+_preview_fingerprint_matches_section = _make_list_section_preview(
+    title="Fingerprint matches",
+    count_label="fingerprint_matches",
+    values=lambda report: report.fingerprint_matches,
+    sample_label="sample_fingerprint_match",
+)
+
+_preview_fingerprint_synthesis_section = _make_list_section_preview(
+    title="Fingerprint synthesis",
+    count_label="fingerprint_synth",
+    values=lambda report: report.fingerprint_synth,
+    sample_label="sample_fingerprint_synth",
+    extra_count_labels=(
+        ("fingerprint_provenance", lambda report: len(report.fingerprint_provenance)),
+    ),
+)
+
+_preview_context_suggestions_section = _make_list_section_preview(
+    title="Context suggestions",
+    count_label="context_suggestions",
+    values=lambda report: report.context_suggestions,
+    sample_label="sample_context_suggestion",
+)
+
+
+def _preview_schema_surfaces_section(
+    _report: ReportCarrier,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    return [
+        "Schema surfaces preview (provisional).",
+        f"- `paths_with_groups`: `{len(groups_by_path)}`",
+        "- `note`: `full schema-surface discovery is materialized in post-phase projection`",
+    ]
+
+
 def _report_section_text(
     report: ReportCarrier,
     groups_by_path: dict[Path, dict[str, list[set[str]]]],
@@ -678,8 +907,18 @@ _REPORT_PROJECTION_SPECS: tuple[ReportProjectionSpec[list[str]], ...] = (
         deps=("components",),
         preview_build=_preview_type_flow_section,
     ),
-    _report_section_spec(section_id="constant_smells", phase="edge", deps=("type_flow",)),
-    _report_section_spec(section_id="unused_arg_smells", phase="edge", deps=("type_flow",)),
+    _report_section_spec(
+        section_id="constant_smells",
+        phase="edge",
+        deps=("type_flow",),
+        preview_build=_preview_constant_smells_section,
+    ),
+    _report_section_spec(
+        section_id="unused_arg_smells",
+        phase="edge",
+        deps=("type_flow",),
+        preview_build=_preview_unused_arg_smells_section,
+    ),
     _report_section_spec(
         section_id="deadline_summary",
         phase="post",
@@ -690,46 +929,74 @@ _REPORT_PROJECTION_SPECS: tuple[ReportProjectionSpec[list[str]], ...] = (
         section_id="resumability_obligations",
         phase="post",
         deps=("components",),
+        preview_build=_preview_resumability_obligations_section,
     ),
     _report_section_spec(
         section_id="incremental_report_obligations",
         phase="post",
         deps=("components",),
+        preview_build=_preview_incremental_report_obligations_section,
     ),
     _report_section_spec(
         section_id="parse_failure_witnesses",
         phase="post",
         deps=("components",),
+        preview_build=_preview_parse_failure_witnesses_section,
     ),
     _report_section_spec(
         section_id="execution_pattern_suggestions",
         phase="post",
         deps=("components",),
+        preview_build=_preview_execution_pattern_suggestions_section,
     ),
-    _report_section_spec(section_id="pattern_schema_residue", phase="post", deps=("components",)),
-    _report_section_spec(section_id="decision_surfaces", phase="post", deps=("components",)),
+    _report_section_spec(
+        section_id="pattern_schema_residue",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_pattern_schema_residue_section,
+    ),
+    _report_section_spec(
+        section_id="decision_surfaces",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_decision_surfaces_section,
+    ),
     _report_section_spec(
         section_id="value_decision_surfaces",
         phase="post",
         deps=("decision_surfaces",),
+        preview_build=_preview_value_decision_surfaces_section,
     ),
     _report_section_spec(
         section_id="fingerprint_warnings",
         phase="post",
         deps=("components",),
+        preview_build=_preview_fingerprint_warnings_section,
     ),
-    _report_section_spec(section_id="fingerprint_matches", phase="post", deps=("components",)),
+    _report_section_spec(
+        section_id="fingerprint_matches",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_fingerprint_matches_section,
+    ),
     _report_section_spec(
         section_id="fingerprint_synthesis",
         phase="post",
         deps=("components",),
+        preview_build=_preview_fingerprint_synthesis_section,
     ),
     _report_section_spec(
         section_id="context_suggestions",
         phase="post",
         deps=("decision_surfaces",),
+        preview_build=_preview_context_suggestions_section,
     ),
-    _report_section_spec(section_id="schema_surfaces", phase="post", deps=("components",)),
+    _report_section_spec(
+        section_id="schema_surfaces",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_schema_surfaces_section,
+    ),
 )
 
 _REPORT_PROJECTION_PHASE_RANKS: dict[ReportProjectionPhase, int] = {

@@ -2720,8 +2720,9 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             available_sections = project_report_sections(
                 groups_by_path,
                 report_carrier,
-                max_phase=phase,
+                max_phase="post",
                 include_previews=True,
+                preview_only=True,
             )
             sections, journal_reason = _ensure_report_sections_cache()
             sections.update(available_sections)

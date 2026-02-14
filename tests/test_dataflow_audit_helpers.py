@@ -1787,6 +1787,10 @@ def test_report_projection_specs_rows() -> None:
         row for row in rows if str(row.get("section_id", "")) == "deadline_summary"
     )
     assert deadline_summary_row["has_preview"] is True
+    fingerprint_warnings_row = next(
+        row for row in rows if str(row.get("section_id", "")) == "fingerprint_warnings"
+    )
+    assert fingerprint_warnings_row["has_preview"] is True
 
 
 def test_project_report_sections_preview_only() -> None:
@@ -1805,8 +1809,15 @@ def test_project_report_sections_preview_only() -> None:
     assert "violations" in sections
     assert "type_flow" in sections
     assert "deadline_summary" in sections
+    assert "constant_smells" in sections
+    assert "unused_arg_smells" in sections
+    assert "parse_failure_witnesses" in sections
+    assert "fingerprint_warnings" in sections
     assert sections["components"][0].startswith("Component preview")
     assert sections["violations"][0].startswith("Violations preview")
+    assert sections["constant_smells"][0].startswith(
+        "Constant-propagation smells preview"
+    )
 
 
 def test_report_projection_phase_rank_order() -> None:
