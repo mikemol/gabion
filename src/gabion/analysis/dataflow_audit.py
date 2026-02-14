@@ -1351,9 +1351,8 @@ def analyze_decision_surfaces_repo(
     forest: Forest,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
-    deadline: Deadline | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    check_deadline(deadline)
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1404,9 +1403,8 @@ def analyze_value_encoded_decisions_repo(
     forest: Forest,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
-    deadline: Deadline | None = None,
 ) -> tuple[list[str], list[str], list[str], list[str]]:
-    check_deadline(deadline)
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1479,9 +1477,8 @@ def _internal_broad_type_lint_lines(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
-    deadline: Deadline | None = None,
 ) -> list[str]:
-    check_deadline(deadline)
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -1732,10 +1729,8 @@ def _annotation_allows_none(annotation: ast.AST | None) -> bool:
 
 def _parameter_default_map(
     node: ast.FunctionDef,
-    *,
-    deadline: Deadline | None = None,
 ) -> dict[str, ast.expr | None]:
-    check_deadline(deadline)
+    check_deadline()
     mapping: dict[str, ast.expr | None] = {}
     positional = list(node.args.posonlyargs) + list(node.args.args)
     defaults = list(node.args.defaults)
@@ -1743,13 +1738,13 @@ def _parameter_default_map(
         defaults_checked = False
         for arg_node, default in zip(positional[-len(defaults) :], defaults):
             if not defaults_checked:
-                check_deadline(deadline)
+                check_deadline()
                 defaults_checked = True
             mapping[arg_node.arg] = default
     kw_defaults_checked = False
     for arg_node, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
         if not kw_defaults_checked:
-            check_deadline(deadline)
+            check_deadline()
             kw_defaults_checked = True
         mapping[arg_node.arg] = default
     return mapping
@@ -4358,9 +4353,8 @@ def _materialize_call_candidates(
     symbol_table: SymbolTable,
     project_root: Path | None,
     class_index: dict[str, ClassInfo],
-    deadline: Deadline | None = None,
 ) -> None:
-    check_deadline(deadline)
+    check_deadline()
     seen: set[tuple[NodeId, NodeId]] = set()
     obligation_seen: set[NodeId] = set()
     seen_loop_checked = False
@@ -7151,9 +7145,8 @@ def _collect_call_ambiguities(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
-    deadline: Deadline | None = None,
 ) -> list[CallAmbiguity]:
-    check_deadline(deadline)
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -7529,6 +7522,7 @@ def _populate_bundle_forest(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
+    on_progress: Callable[[], None] | None = None,
 ) -> None:
     check_deadline()
     if not groups_by_path:
@@ -7565,6 +7559,18 @@ def _populate_bundle_forest(
         seen.add(key)
         forest.add_alt(kind, inputs, evidence)
 
+    progress_since_emit = 0
+
+    def _emit_progress(*, force: bool = False) -> None:
+        nonlocal progress_since_emit
+        if on_progress is None:
+            return
+        progress_since_emit += 1
+        if not force and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL:
+            return
+        progress_since_emit = 0
+        on_progress()
+
     for path in sorted(groups_by_path):
         check_deadline()
         groups = groups_by_path[path]
@@ -7579,6 +7585,7 @@ def _populate_bundle_forest(
                     (site_id, paramset_id),
                     evidence={"path": path.name, "qual": fn_name},
                 )
+        _emit_progress()
 
     config_bundles_by_path = _collect_config_bundles(
         file_paths,
@@ -7596,6 +7603,7 @@ def _populate_bundle_forest(
                 (paramset_id,),
                 evidence={"path": path.name, "name": name},
             )
+        _emit_progress()
 
     dataclass_registry = _collect_dataclass_registry(
         file_paths,
@@ -7611,6 +7619,8 @@ def _populate_bundle_forest(
             (paramset_id,),
             evidence={"qual": qual_name},
         )
+    if dataclass_registry:
+        _emit_progress()
 
     if index is None or not index.symbol_table.external_filter:
         symbol_table = _build_symbol_table(
@@ -7643,6 +7653,8 @@ def _populate_bundle_forest(
                 (paramset_id,),
                 evidence={"path": path.name},
             )
+        _emit_progress()
+    _emit_progress(force=True)
 
 
 # dataflow-bundle: decision_lint_lines, broad_type_lint_lines
@@ -9644,10 +9656,9 @@ def analyze_type_flow_repo_with_map(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
-    deadline: Deadline | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], list[str], list[str]]:
     """Repo-wide fixed-point pass for downstream type tightening."""
-    check_deadline(deadline)
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -9684,9 +9695,8 @@ def analyze_type_flow_repo_with_evidence(
     max_sites_per_param: int = 3,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
-    deadline: Deadline | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    check_deadline(deadline)
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -10234,10 +10244,9 @@ def analyze_unused_arg_flow_repo(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject] | None = None,
     analysis_index: AnalysisIndex | None = None,
-    deadline: Deadline | None = None,
 ) -> list[str]:
     """Detect non-constant arguments passed into unused callee parameters."""
-    check_deadline(deadline)
+    check_deadline()
     return _run_indexed_pass(
         paths,
         project_root=project_root,
@@ -11975,6 +11984,7 @@ def render_reuse_lemma_stubs(reuse: JSONObject) -> str:
 
 _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 8
+_BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL = 128
 
 
 def _analysis_collection_resume_path_key(path: Path) -> str:
@@ -13674,6 +13684,21 @@ def analyze_paths(
                 external_filter=config.external_filter,
             )
             _deadline_check(allow_frame_fallback=False)
+
+        def _emit_forest_phase_progress() -> None:
+            _emit_phase_progress(
+                "forest",
+                report_carrier=ReportCarrier(
+                    forest=forest,
+                    bundle_sites_by_path=bundle_sites_by_path,
+                    ambiguity_witnesses=ambiguity_witnesses,
+                    invariant_propositions=invariant_propositions,
+                    parse_failure_witnesses=parse_failure_witnesses,
+                ),
+            )
+
+        _emit_forest_phase_progress()
+
         if include_ambiguities:
             _deadline_check(allow_frame_fallback=False)
             call_ambiguities = _collect_call_ambiguities(
@@ -13693,21 +13718,33 @@ def analyze_paths(
             )
             _materialize_ambiguity_suite_agg_spec(forest=forest)
             _materialize_ambiguity_virtual_set_spec(forest=forest)
-
-        _emit_phase_progress(
-            "forest",
-            report_carrier=ReportCarrier(
-                forest=forest,
-                bundle_sites_by_path=bundle_sites_by_path,
-                ambiguity_witnesses=ambiguity_witnesses,
-                invariant_propositions=invariant_propositions,
-                parse_failure_witnesses=parse_failure_witnesses,
-            ),
-        )
+            _emit_forest_phase_progress()
 
         type_suggestions: list[str] = []
         type_ambiguities: list[str] = []
         type_callsite_evidence: list[str] = []
+        constant_smells: list[str] = []
+        deadness_witnesses: list[JSONObject] = []
+        unused_arg_smells: list[str] = []
+
+        def _emit_edge_phase_progress() -> None:
+            _emit_phase_progress(
+                "edge",
+                report_carrier=ReportCarrier(
+                    forest=forest,
+                    bundle_sites_by_path=bundle_sites_by_path,
+                    type_suggestions=type_suggestions,
+                    type_ambiguities=type_ambiguities,
+                    type_callsite_evidence=type_callsite_evidence,
+                    constant_smells=constant_smells,
+                    unused_arg_smells=unused_arg_smells,
+                    deadness_witnesses=deadness_witnesses,
+                    ambiguity_witnesses=ambiguity_witnesses,
+                    invariant_propositions=invariant_propositions,
+                    parse_failure_witnesses=parse_failure_witnesses,
+                ),
+            )
+
         if type_audit or type_audit_report:
             _deadline_check(allow_frame_fallback=False)
             type_suggestions, type_ambiguities, type_callsite_evidence = analyze_type_flow_repo_with_evidence(
@@ -13726,8 +13763,6 @@ def analyze_paths(
                 # Trim evidence opportunistically so reports remain reviewable.
                 type_callsite_evidence = type_callsite_evidence[:type_audit_max]
 
-        constant_smells: list[str] = []
-        deadness_witnesses: list[JSONObject] = []
         if include_constant_smells or include_deadness_witnesses:
             constant_details = _collect_constant_flow_details(
                 file_paths,
@@ -13747,7 +13782,6 @@ def analyze_paths(
                     project_root=config.project_root,
                 )
 
-        unused_arg_smells: list[str] = []
         if include_unused_arg_smells:
             unused_arg_smells = analyze_unused_arg_flow_repo(
                 file_paths,
@@ -13760,24 +13794,60 @@ def analyze_paths(
                 analysis_index=_require_analysis_index(),
             )
 
-        _emit_phase_progress(
-            "edge",
-            report_carrier=ReportCarrier(
-                forest=forest,
-                bundle_sites_by_path=bundle_sites_by_path,
-                type_suggestions=type_suggestions,
-                type_ambiguities=type_ambiguities,
-                type_callsite_evidence=type_callsite_evidence,
-                constant_smells=constant_smells,
-                unused_arg_smells=unused_arg_smells,
-                deadness_witnesses=deadness_witnesses,
-                ambiguity_witnesses=ambiguity_witnesses,
-                invariant_propositions=invariant_propositions,
-                parse_failure_witnesses=parse_failure_witnesses,
-            ),
-        )
+        _emit_edge_phase_progress()
 
         deadline_obligations: list[JSONObject] = []
+        decision_surfaces: list[str] = []
+        decision_warnings: list[str] = []
+        decision_lint_lines: list[str] = []
+        value_decision_surfaces: list[str] = []
+        value_decision_rewrites: list[str] = []
+        fingerprint_warnings: list[str] = []
+        fingerprint_matches: list[str] = []
+        fingerprint_synth: list[str] = []
+        fingerprint_synth_registry: JSONObject | None = None
+        fingerprint_provenance: list[JSONObject] = []
+        coherence_witnesses: list[JSONObject] = []
+        rewrite_plans: list[JSONObject] = []
+        exception_obligations: list[JSONObject] = []
+        never_invariants: list[JSONObject] = []
+        handledness_witnesses: list[JSONObject] = []
+        context_suggestions: list[str] = []
+        lint_lines: list[str] = []
+
+        def _emit_post_phase_progress() -> None:
+            _emit_phase_progress(
+                "post",
+                report_carrier=ReportCarrier(
+                    forest=forest,
+                    bundle_sites_by_path=bundle_sites_by_path,
+                    type_suggestions=type_suggestions,
+                    type_ambiguities=type_ambiguities,
+                    type_callsite_evidence=type_callsite_evidence,
+                    constant_smells=constant_smells,
+                    unused_arg_smells=unused_arg_smells,
+                    deadness_witnesses=deadness_witnesses,
+                    coherence_witnesses=coherence_witnesses,
+                    rewrite_plans=rewrite_plans,
+                    exception_obligations=exception_obligations,
+                    never_invariants=never_invariants,
+                    ambiguity_witnesses=ambiguity_witnesses,
+                    handledness_witnesses=handledness_witnesses,
+                    decision_surfaces=decision_surfaces,
+                    value_decision_surfaces=value_decision_surfaces,
+                    decision_warnings=decision_warnings,
+                    fingerprint_warnings=fingerprint_warnings,
+                    fingerprint_matches=fingerprint_matches,
+                    fingerprint_synth=fingerprint_synth,
+                    fingerprint_provenance=fingerprint_provenance,
+                    context_suggestions=context_suggestions,
+                    invariant_propositions=invariant_propositions,
+                    value_decision_rewrites=value_decision_rewrites,
+                    deadline_obligations=deadline_obligations,
+                    parse_failure_witnesses=parse_failure_witnesses,
+                ),
+            )
+
         if include_deadline_obligations:
             deadline_obligations = _collect_deadline_obligations(
                 file_paths,
@@ -13788,9 +13858,7 @@ def analyze_paths(
                 analysis_index=_require_analysis_index(),
             )
             _materialize_suite_order_spec(forest=forest)
-        decision_surfaces: list[str] = []
-        decision_warnings: list[str] = []
-        decision_lint_lines: list[str] = []
+
         if include_decision_surfaces:
             decision_surfaces, decision_warnings, decision_lint_lines = (
                 analyze_decision_surfaces_repo(
@@ -13807,8 +13875,7 @@ def analyze_paths(
                     analysis_index=_require_analysis_index(),
                 )
             )
-        value_decision_surfaces: list[str] = []
-        value_decision_rewrites: list[str] = []
+
         if include_value_decision_surfaces:
             (
                 value_decision_surfaces,
@@ -13830,16 +13897,7 @@ def analyze_paths(
             )
             decision_warnings.extend(value_warnings)
             decision_lint_lines.extend(value_lint_lines)
-        fingerprint_warnings: list[str] = []
-        fingerprint_matches: list[str] = []
-        fingerprint_synth: list[str] = []
-        fingerprint_synth_registry: JSONObject | None = None
-        fingerprint_provenance: list[JSONObject] = []
-        coherence_witnesses: list[JSONObject] = []
-        rewrite_plans: list[JSONObject] = []
-        exception_obligations: list[JSONObject] = []
-        never_invariants: list[JSONObject] = []
-        handledness_witnesses: list[JSONObject] = []
+
         need_exception_obligations = include_exception_obligations or (
             include_lint_lines and bool(config.never_exceptions)
         )
@@ -13917,13 +13975,13 @@ def analyze_paths(
                         exception_obligations if include_exception_obligations else None
                     ),
                 )
-        context_suggestions: list[str] = []
+
         if decision_surfaces:
             for entry in decision_surfaces:
                 check_deadline()
                 if "(internal callers" in entry:
                     context_suggestions.append(f"Consider contextvar for {entry}")
-        lint_lines: list[str] = []
+
         if include_lint_lines:
             broad_type_lint_lines = _internal_broad_type_lint_lines(
                 file_paths,
@@ -13950,37 +14008,7 @@ def analyze_paths(
                 unused_arg_smells=unused_arg_smells,
             )
 
-        _emit_phase_progress(
-            "post",
-            report_carrier=ReportCarrier(
-                forest=forest,
-                bundle_sites_by_path=bundle_sites_by_path,
-                type_suggestions=type_suggestions,
-                type_ambiguities=type_ambiguities,
-                type_callsite_evidence=type_callsite_evidence,
-                constant_smells=constant_smells,
-                unused_arg_smells=unused_arg_smells,
-                deadness_witnesses=deadness_witnesses,
-                coherence_witnesses=coherence_witnesses,
-                rewrite_plans=rewrite_plans,
-                exception_obligations=exception_obligations,
-                never_invariants=never_invariants,
-                ambiguity_witnesses=ambiguity_witnesses,
-                handledness_witnesses=handledness_witnesses,
-                decision_surfaces=decision_surfaces,
-                value_decision_surfaces=value_decision_surfaces,
-                decision_warnings=decision_warnings,
-                fingerprint_warnings=fingerprint_warnings,
-                fingerprint_matches=fingerprint_matches,
-                fingerprint_synth=fingerprint_synth,
-                fingerprint_provenance=fingerprint_provenance,
-                context_suggestions=context_suggestions,
-                invariant_propositions=invariant_propositions,
-                value_decision_rewrites=value_decision_rewrites,
-                deadline_obligations=deadline_obligations,
-                parse_failure_witnesses=parse_failure_witnesses,
-            ),
-        )
+        _emit_post_phase_progress()
 
         return AnalysisResult(
             groups_by_path=groups_by_path,

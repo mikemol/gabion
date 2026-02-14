@@ -130,6 +130,9 @@ _SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
 _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
 _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION = 1
+_ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION = 1
+_ANALYSIS_RESUME_INLINE_STATE_MAX_BYTES = 64_000
+_ANALYSIS_RESUME_CHUNK_DIR_SUFFIX = ".chunks"
 _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION = 1
 _ANALYSIS_INPUT_WITNESS_FORMAT_VERSION = 2
 _DEFAULT_ANALYSIS_RESUME_CHECKPOINT = Path(
@@ -176,6 +179,135 @@ def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
     }
 
 
+def _analysis_resume_checkpoint_chunks_dir(path: Path) -> Path:
+    return path.with_name(f"{path.name}{_ANALYSIS_RESUME_CHUNK_DIR_SUFFIX}")
+
+
+def _analysis_resume_state_chunk_name(path_key: str) -> str:
+    return f"{hashlib.sha1(path_key.encode('utf-8')).hexdigest()}.json"
+
+
+def _externalize_collection_resume_states(
+    *,
+    path: Path,
+    collection_resume: JSONObject,
+) -> JSONObject:
+    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
+    if not isinstance(raw_in_progress, Mapping):
+        return {str(key): collection_resume[key] for key in collection_resume}
+    chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
+    chunks_dir.mkdir(parents=True, exist_ok=True)
+    used_chunk_names: set[str] = set()
+    in_progress_payload: JSONObject = {}
+    for raw_path, raw_state in raw_in_progress.items():
+        check_deadline()
+        if not isinstance(raw_path, str):
+            continue
+        if not isinstance(raw_state, Mapping):
+            in_progress_payload[raw_path] = cast(JSONValue, raw_state)
+            continue
+        state_payload: JSONObject = {str(key): raw_state[key] for key in raw_state}
+        state_text = _canonical_json_text(state_payload)
+        if len(state_text.encode("utf-8")) <= _ANALYSIS_RESUME_INLINE_STATE_MAX_BYTES:
+            in_progress_payload[raw_path] = state_payload
+            continue
+        chunk_name = _analysis_resume_state_chunk_name(raw_path)
+        chunk_path = chunks_dir / chunk_name
+        chunk_payload: JSONObject = {
+            "format_version": _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
+            "path": raw_path,
+            "state": state_payload,
+        }
+        chunk_path.write_text(_canonical_json_text(chunk_payload) + "\n")
+        used_chunk_names.add(chunk_name)
+        summary: JSONObject = {
+            "phase": (
+                state_payload.get("phase")
+                if isinstance(state_payload.get("phase"), str)
+                else "function_scan"
+            ),
+            "state_ref": chunk_name,
+        }
+        raw_processed = state_payload.get("processed_functions")
+        if isinstance(raw_processed, Sequence):
+            processed_functions = {
+                entry for entry in raw_processed if isinstance(entry, str)
+            }
+            summary["processed_functions_count"] = len(processed_functions)
+            summary["processed_functions_digest"] = hashlib.sha1(
+                _canonical_json_text(sorted(processed_functions)).encode("utf-8")
+            ).hexdigest()
+        else:
+            raw_processed_digest = state_payload.get("processed_functions_digest")
+            if isinstance(raw_processed_digest, str) and raw_processed_digest:
+                summary["processed_functions_digest"] = raw_processed_digest
+        raw_fn_names = state_payload.get("fn_names")
+        if isinstance(raw_fn_names, Mapping):
+            summary["function_count"] = sum(
+                1 for key in raw_fn_names if isinstance(key, str)
+            )
+        in_progress_payload[raw_path] = summary
+    for stale in chunks_dir.glob("*.json"):
+        check_deadline()
+        if stale.name in used_chunk_names:
+            continue
+        try:
+            stale.unlink()
+        except OSError:
+            continue
+    if not used_chunk_names:
+        try:
+            chunks_dir.rmdir()
+        except OSError:
+            pass
+    payload: JSONObject = {str(key): collection_resume[key] for key in collection_resume}
+    payload["in_progress_scan_by_path"] = in_progress_payload
+    return payload
+
+
+def _inflate_collection_resume_states(
+    *,
+    path: Path,
+    collection_resume: JSONObject,
+) -> JSONObject:
+    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
+    if not isinstance(raw_in_progress, Mapping):
+        return {str(key): collection_resume[key] for key in collection_resume}
+    chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
+    in_progress_payload: JSONObject = {}
+    for raw_path, raw_state in raw_in_progress.items():
+        check_deadline()
+        if not isinstance(raw_path, str):
+            continue
+        if not isinstance(raw_state, Mapping):
+            in_progress_payload[raw_path] = cast(JSONValue, raw_state)
+            continue
+        state_ref = raw_state.get("state_ref")
+        if isinstance(state_ref, str) and state_ref:
+            chunk_path = chunks_dir / state_ref
+            try:
+                chunk_data = json.loads(chunk_path.read_text())
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                in_progress_payload[raw_path] = {str(key): raw_state[key] for key in raw_state}
+                continue
+            if (
+                isinstance(chunk_data, Mapping)
+                and chunk_data.get("format_version")
+                == _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION
+                and chunk_data.get("path") == raw_path
+            ):
+                state_payload = chunk_data.get("state")
+                if isinstance(state_payload, Mapping):
+                    in_progress_payload[raw_path] = {
+                        str(key): state_payload[key] for key in state_payload
+                    }
+                    continue
+        in_progress_payload[raw_path] = {str(key): raw_state[key] for key in raw_state}
+    payload: JSONObject = {str(key): collection_resume[key] for key in collection_resume}
+    payload["in_progress_scan_by_path"] = in_progress_payload
+    return payload
+
+
 def _analysis_input_manifest(
     *,
     root: Path,
@@ -211,11 +343,13 @@ def _analysis_input_manifest_digest(manifest: JSONObject) -> str:
 
 
 def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | None:
+    check_deadline()
     files = input_witness.get("files")
     if not isinstance(files, list):
         return None
     manifest_files: list[JSONObject] = []
     for raw_entry in files:
+        check_deadline()
         if not isinstance(raw_entry, Mapping):
             return None
         path_value = raw_entry.get("path")
@@ -242,6 +376,7 @@ def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | N
         "external_filter",
         "transparent_decorators",
     ):
+        check_deadline()
         value = config.get(key)
         if isinstance(value, list):
             config_payload[key] = [str(item) for item in value]
@@ -433,7 +568,10 @@ def _load_analysis_resume_checkpoint(
     collection_resume = raw_payload.get("collection_resume")
     if not isinstance(collection_resume, dict):
         return None
-    return collection_resume
+    return _inflate_collection_resume_states(
+        path=path,
+        collection_resume=cast(JSONObject, collection_resume),
+    )
 
 
 def _load_analysis_resume_checkpoint_manifest(
@@ -463,10 +601,14 @@ def _load_analysis_resume_checkpoint_manifest(
     collection_resume = raw_payload.get("collection_resume")
     if not isinstance(collection_resume, dict):
         return None
+    inflated_collection_resume = _inflate_collection_resume_states(
+        path=path,
+        collection_resume=cast(JSONObject, collection_resume),
+    )
     witness = raw_payload.get("input_witness")
     if isinstance(witness, dict):
-        return cast(JSONObject, witness), cast(JSONObject, collection_resume)
-    return None, cast(JSONObject, collection_resume)
+        return cast(JSONObject, witness), inflated_collection_resume
+    return None, inflated_collection_resume
 
 
 def _write_analysis_resume_checkpoint(
@@ -484,6 +626,10 @@ def _write_analysis_resume_checkpoint(
         manifest_digest = _analysis_manifest_digest_from_witness(input_witness)
     if manifest_digest is None:
         never("analysis resume checkpoint missing input manifest digest")
+    externalized_collection_resume = _externalize_collection_resume_states(
+        path=path,
+        collection_resume=collection_resume,
+    )
     payload: JSONObject = {
         "format_version": _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
         "input_witness": input_witness,
@@ -491,10 +637,29 @@ def _write_analysis_resume_checkpoint(
             witness_digest if isinstance(witness_digest, str) else None
         ),
         "input_manifest_digest": manifest_digest,
-        "collection_resume": collection_resume,
+        "collection_resume": externalized_collection_resume,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _clear_analysis_resume_checkpoint(path: Path) -> None:
+    try:
+        path.unlink()
+    except OSError:
+        pass
+    chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
+    if chunks_dir.exists():
+        for chunk_path in chunks_dir.glob("*.json"):
+            check_deadline()
+            try:
+                chunk_path.unlink()
+            except OSError:
+                continue
+        try:
+            chunks_dir.rmdir()
+        except OSError:
+            pass
 
 
 def _analysis_resume_progress(
@@ -527,6 +692,220 @@ def _analysis_resume_progress(
         "in_progress_files": in_progress,
         "remaining_files": remaining,
         "total_files": total_files,
+    }
+
+
+def _in_progress_scan_states(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> dict[str, Mapping[str, JSONValue]]:
+    states: dict[str, Mapping[str, JSONValue]] = {}
+    if not isinstance(collection_resume, Mapping):
+        return states
+    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
+    if not isinstance(raw_in_progress, Mapping):
+        return states
+    previous_path: str | None = None
+    for raw_path, raw_state in raw_in_progress.items():
+        check_deadline()
+        if not isinstance(raw_path, str):
+            continue
+        if previous_path is not None and previous_path > raw_path:
+            never(
+                "in_progress_scan_by_path path order regression",
+                previous_path=previous_path,
+                current_path=raw_path,
+            )
+        previous_path = raw_path
+        if not isinstance(raw_state, Mapping):
+            continue
+        states[raw_path] = cast(Mapping[str, JSONValue], raw_state)
+    return states
+
+
+def _state_processed_functions(state: Mapping[str, JSONValue]) -> set[str]:
+    raw_processed = state.get("processed_functions")
+    if not isinstance(raw_processed, Sequence) or isinstance(raw_processed, (str, bytes)):
+        return set()
+    return {entry for entry in raw_processed if isinstance(entry, str)}
+
+
+def _state_processed_count(state: Mapping[str, JSONValue]) -> int:
+    processed_functions = _state_processed_functions(state)
+    if processed_functions:
+        return len(processed_functions)
+    raw_count = state.get("processed_functions_count")
+    if isinstance(raw_count, int):
+        return max(0, raw_count)
+    return 0
+
+
+def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
+    processed_functions = _state_processed_functions(state)
+    if processed_functions:
+        return hashlib.sha1(
+            _canonical_json_text(sorted(processed_functions)).encode("utf-8")
+        ).hexdigest()
+    raw_digest = state.get("processed_functions_digest")
+    if isinstance(raw_digest, str) and raw_digest:
+        return raw_digest
+    return hashlib.sha1(
+        _canonical_json_text({"count": _state_processed_count(state)}).encode("utf-8")
+    ).hexdigest()
+
+
+def _collection_semantic_witness(
+    *,
+    collection_resume: Mapping[str, JSONValue],
+) -> JSONObject:
+    states = _in_progress_scan_states(collection_resume)
+    state_rows: list[JSONObject] = []
+    processed_total = 0
+    for path_key in sorted(states):
+        check_deadline()
+        state = states[path_key]
+        phase = state.get("phase")
+        phase_text = phase if isinstance(phase, str) and phase else "unknown"
+        processed_count = _state_processed_count(state)
+        processed_total += processed_count
+        state_rows.append(
+            {
+                "path": path_key,
+                "phase": phase_text,
+                "processed_functions_count": processed_count,
+                "processed_functions_digest": _state_processed_digest(state),
+            }
+        )
+    digest = hashlib.sha1(
+        _canonical_json_text({"in_progress": state_rows}).encode("utf-8")
+    ).hexdigest()
+    return {
+        "witness_digest": digest,
+        "in_progress_paths": len(state_rows),
+        "processed_functions_total": processed_total,
+    }
+
+
+def _collection_semantic_progress(
+    *,
+    previous_collection_resume: Mapping[str, JSONValue] | None,
+    collection_resume: Mapping[str, JSONValue],
+    total_files: int,
+    cumulative: Mapping[str, JSONValue] | None = None,
+) -> JSONObject:
+    previous_states = _in_progress_scan_states(previous_collection_resume)
+    current_states = _in_progress_scan_states(collection_resume)
+    prev_progress = (
+        _analysis_resume_progress(
+            collection_resume=previous_collection_resume,
+            total_files=total_files,
+        )
+        if isinstance(previous_collection_resume, Mapping)
+        else {
+            "completed_files": 0,
+            "in_progress_files": 0,
+            "remaining_files": max(total_files, 0),
+            "total_files": total_files,
+        }
+    )
+    current_progress = _analysis_resume_progress(
+        collection_resume=collection_resume,
+        total_files=total_files,
+    )
+    added_processed = 0
+    regressed_processed = 0
+    unchanged_in_progress_paths = 0
+    changed_in_progress_paths = 0
+    seen_paths: set[str] = set()
+
+    def _accumulate_progress(path_key: str) -> None:
+        nonlocal added_processed
+        nonlocal regressed_processed
+        nonlocal unchanged_in_progress_paths
+        nonlocal changed_in_progress_paths
+        previous_state = previous_states.get(path_key)
+        current_state = current_states.get(path_key)
+        previous_keys = (
+            _state_processed_functions(previous_state) if previous_state is not None else set()
+        )
+        current_keys = (
+            _state_processed_functions(current_state) if current_state is not None else set()
+        )
+        if previous_keys or current_keys:
+            added = current_keys - previous_keys
+            regressed = previous_keys - current_keys
+            added_count = len(added)
+            regressed_count = len(regressed)
+        else:
+            previous_count = (
+                _state_processed_count(previous_state) if previous_state is not None else 0
+            )
+            current_count = (
+                _state_processed_count(current_state) if current_state is not None else 0
+            )
+            added_count = max(0, current_count - previous_count)
+            regressed_count = max(0, previous_count - current_count)
+        added_processed += added_count
+        regressed_processed += regressed_count
+        if added_count == 0 and regressed_count == 0:
+            unchanged_in_progress_paths += 1
+        else:
+            changed_in_progress_paths += 1
+
+    for path_key in previous_states:
+        check_deadline()
+        if path_key in seen_paths:
+            continue
+        seen_paths.add(path_key)
+        _accumulate_progress(path_key)
+    for path_key in current_states:
+        check_deadline()
+        if path_key in seen_paths:
+            continue
+        seen_paths.add(path_key)
+        _accumulate_progress(path_key)
+    completed_delta = max(
+        0, current_progress["completed_files"] - prev_progress["completed_files"]
+    )
+    completed_regressed = max(
+        0, prev_progress["completed_files"] - current_progress["completed_files"]
+    )
+    cumulative_new = added_processed
+    cumulative_completed_delta = completed_delta
+    cumulative_regressed = regressed_processed + completed_regressed
+    if isinstance(cumulative, Mapping):
+        raw_cumulative_new = cumulative.get("cumulative_new_processed_functions")
+        raw_cumulative_completed = cumulative.get("cumulative_completed_files_delta")
+        raw_cumulative_regressed = cumulative.get("cumulative_regressed_functions")
+        if isinstance(raw_cumulative_new, int):
+            cumulative_new += max(0, raw_cumulative_new)
+        if isinstance(raw_cumulative_completed, int):
+            cumulative_completed_delta += max(0, raw_cumulative_completed)
+        if isinstance(raw_cumulative_regressed, int):
+            cumulative_regressed += max(0, raw_cumulative_regressed)
+    current_witness = _collection_semantic_witness(collection_resume=collection_resume)
+    previous_witness = (
+        _collection_semantic_witness(collection_resume=previous_collection_resume)
+        if isinstance(previous_collection_resume, Mapping)
+        else {"witness_digest": None}
+    )
+    substantive_progress = (
+        (cumulative_new > 0 or cumulative_completed_delta > 0)
+        and cumulative_regressed == 0
+    )
+    return {
+        "current_witness_digest": current_witness.get("witness_digest"),
+        "previous_witness_digest": previous_witness.get("witness_digest"),
+        "new_processed_functions_count": added_processed,
+        "regressed_processed_functions_count": regressed_processed,
+        "completed_files_delta": completed_delta,
+        "completed_files_regressed": completed_regressed,
+        "changed_in_progress_paths": changed_in_progress_paths,
+        "unchanged_in_progress_paths": unchanged_in_progress_paths,
+        "cumulative_new_processed_functions": cumulative_new,
+        "cumulative_completed_files_delta": cumulative_completed_delta,
+        "cumulative_regressed_functions": cumulative_regressed,
+        "monotonic_progress": cumulative_regressed == 0,
+        "substantive_progress": substantive_progress,
     }
 
 
@@ -686,6 +1065,7 @@ def _load_report_phase_checkpoint(
     path: Path | None,
     witness_digest: str | None,
 ) -> JSONObject:
+    check_deadline()
     if path is None or not path.exists():
         return {}
     try:
@@ -705,6 +1085,7 @@ def _load_report_phase_checkpoint(
         return {}
     phases: JSONObject = {}
     for phase_name, raw_entry in raw_phases.items():
+        check_deadline()
         if not isinstance(phase_name, str) or not isinstance(raw_entry, Mapping):
             continue
         phases[phase_name] = {str(key): raw_entry[key] for key in raw_entry}
@@ -934,6 +1315,7 @@ def _collection_progress_intro_lines(
     collection_resume: Mapping[str, JSONValue],
     total_files: int,
 ) -> list[str]:
+    check_deadline()
     progress = _analysis_resume_progress(
         collection_resume=collection_resume,
         total_files=total_files,
@@ -945,14 +1327,66 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
-    raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    if isinstance(raw_in_progress, Mapping):
-        in_progress_paths = sorted(
-            str(path) for path in raw_in_progress if isinstance(path, str)
+    semantic_progress = collection_resume.get("semantic_progress")
+    if isinstance(semantic_progress, Mapping):
+        semantic_witness_digest = semantic_progress.get("current_witness_digest")
+        if isinstance(semantic_witness_digest, str) and semantic_witness_digest:
+            lines.append(f"- `semantic_witness_digest`: `{semantic_witness_digest}`")
+        new_processed_functions = semantic_progress.get("new_processed_functions_count")
+        if isinstance(new_processed_functions, int):
+            lines.append(f"- `new_processed_functions`: `{new_processed_functions}`")
+        regressed_processed_functions = semantic_progress.get(
+            "regressed_processed_functions_count"
         )
-        if in_progress_paths:
-            sample = ", ".join(in_progress_paths[:3])
-            lines.append(f"- `in_progress_path_sample`: `{sample}`")
+        if isinstance(regressed_processed_functions, int):
+            lines.append(
+                f"- `regressed_processed_functions`: `{regressed_processed_functions}`"
+            )
+        completed_delta = semantic_progress.get("completed_files_delta")
+        if isinstance(completed_delta, int):
+            lines.append(f"- `completed_files_delta`: `{completed_delta}`")
+        substantive_progress = semantic_progress.get("substantive_progress")
+        if isinstance(substantive_progress, bool):
+            lines.append(f"- `substantive_progress`: `{substantive_progress}`")
+    in_progress_states = _in_progress_scan_states(collection_resume)
+    if in_progress_states:
+        in_progress_paths = list(in_progress_states)
+        sample = ", ".join(in_progress_paths[:3])
+        lines.append(f"- `in_progress_path_sample`: `{sample}`")
+        detail_entries: list[str] = []
+        for raw_path, state_mapping in in_progress_states.items():
+            check_deadline()
+            phase = state_mapping.get("phase")
+            phase_text = phase if isinstance(phase, str) and phase else "unknown"
+            processed_count = state_mapping.get("processed_functions_count")
+            if not isinstance(processed_count, int):
+                raw_processed = state_mapping.get("processed_functions")
+                if isinstance(raw_processed, Sequence):
+                    processed_count = sum(
+                        1 for entry in raw_processed if isinstance(entry, str)
+                    )
+                else:
+                    processed_count = 0
+            function_count = state_mapping.get("function_count")
+            if not isinstance(function_count, int):
+                raw_fn_names = state_mapping.get("fn_names")
+                if isinstance(raw_fn_names, Mapping):
+                    function_count = sum(
+                        1 for key in raw_fn_names if isinstance(key, str)
+                    )
+                else:
+                    function_count = 0
+            detail_entries.append(
+                (
+                    f"{raw_path} "
+                    f"(phase={phase_text}, processed_functions={processed_count}, "
+                    f"function_count={function_count})"
+                )
+            )
+            if len(detail_entries) >= 3:
+                break
+        for detail in detail_entries:
+            lines.append(f"- `in_progress_detail`: `{detail}`")
     return lines
 
 
@@ -967,6 +1401,7 @@ def _incremental_progress_obligations(
     sections: Mapping[str, list[str]],
     pending_reasons: Mapping[str, str],
 ) -> list[JSONObject]:
+    check_deadline()
     obligations: list[JSONObject] = []
     classification = (
         str(progress_payload.get("classification", "") or "")
@@ -978,6 +1413,20 @@ def _incremental_progress_obligations(
         if isinstance(progress_payload, Mapping)
         else False
     )
+    semantic_progress = (
+        progress_payload.get("semantic_progress")
+        if isinstance(progress_payload, Mapping)
+        else None
+    )
+    semantic_monotonic_progress: bool | None = None
+    semantic_substantive_progress: bool | None = None
+    if isinstance(semantic_progress, Mapping):
+        raw_monotonic = semantic_progress.get("monotonic_progress")
+        raw_substantive = semantic_progress.get("substantive_progress")
+        if isinstance(raw_monotonic, bool):
+            semantic_monotonic_progress = raw_monotonic
+        if isinstance(raw_substantive, bool):
+            semantic_substantive_progress = raw_substantive
     is_timeout_state = analysis_state.startswith("timed_out_")
     if is_timeout_state:
         expected_progress = analysis_state == "timed_out_progress_resume"
@@ -997,9 +1446,39 @@ def _incremental_progress_obligations(
             ),
         }
     )
+    if semantic_monotonic_progress is not None:
+        obligations.append(
+            {
+                "status": "SATISFIED" if semantic_monotonic_progress else "VIOLATION",
+                "contract": "resume_contract",
+                "kind": "progress_monotonicity",
+                "detail": (
+                    "semantic progress is monotonic"
+                    if semantic_monotonic_progress
+                    else "semantic progress regression detected"
+                ),
+            }
+        )
+    if is_timeout_state and semantic_substantive_progress is not None:
+        expected_substantive_progress = analysis_state == "timed_out_progress_resume"
+        obligations.append(
+            {
+                "status": (
+                    "SATISFIED"
+                    if semantic_substantive_progress == expected_substantive_progress
+                    else "VIOLATION"
+                ),
+                "contract": "resume_contract",
+                "kind": "substantive_progress_required",
+                "detail": (
+                    f"analysis_state={analysis_state} "
+                    f"substantive_progress={semantic_substantive_progress}"
+                ),
+            }
+        )
 
     checkpoint_ok = True
-    if resume_supported:
+    if resume_supported and is_timeout_state:
         checkpoint_ok = bool(resume_checkpoint_path and resume_checkpoint_path.exists())
     obligations.append(
         {
@@ -1099,9 +1578,11 @@ def _incremental_progress_obligations(
 def _split_incremental_obligations(
     obligations: Sequence[Mapping[str, JSONValue]],
 ) -> tuple[list[JSONObject], list[JSONObject]]:
+    check_deadline()
     resumability: list[JSONObject] = []
     incremental: list[JSONObject] = []
     for raw_entry in obligations:
+        check_deadline()
         if not isinstance(raw_entry, Mapping):
             continue
         entry: JSONObject = {str(key): raw_entry[key] for key in raw_entry}
@@ -1115,11 +1596,13 @@ def _split_incremental_obligations(
 
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
+    check_deadline()
     if not isinstance(phases, Mapping):
         return None
     best_phase: str | None = None
     best_rank = -1
     for phase_name in phases:
+        check_deadline()
         if not isinstance(phase_name, str):
             continue
         try:
@@ -1695,12 +2178,48 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     path=report_phase_checkpoint_path,
                     witness_digest=report_section_witness_digest,
                 )
+        last_collection_resume_payload: JSONObject | None = collection_resume_payload
+        semantic_progress_cumulative: JSONObject | None = None
+        if isinstance(collection_resume_payload, Mapping):
+            raw_semantic_progress = collection_resume_payload.get("semantic_progress")
+            if isinstance(raw_semantic_progress, Mapping):
+                semantic_progress_cumulative = {
+                    str(key): raw_semantic_progress[key]
+                    for key in raw_semantic_progress
+                }
+        last_collection_intro_signature: tuple[str, int, int, int] | None = None
+        phase_progress_signatures: dict[str, tuple[int, ...]] = {}
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
-            collection_progress = _analysis_resume_progress(
+            nonlocal last_collection_resume_payload
+            nonlocal semantic_progress_cumulative
+            nonlocal last_collection_intro_signature
+            semantic_progress = _collection_semantic_progress(
+                previous_collection_resume=last_collection_resume_payload,
                 collection_resume=progress_payload,
                 total_files=analysis_resume_total_files,
+                cumulative=semantic_progress_cumulative,
             )
+            semantic_progress_cumulative = semantic_progress
+            persisted_progress_payload: JSONObject = {
+                str(key): progress_payload[key] for key in progress_payload
+            }
+            persisted_progress_payload["semantic_progress"] = semantic_progress
+            last_collection_resume_payload = persisted_progress_payload
+            collection_progress = _analysis_resume_progress(
+                collection_resume=persisted_progress_payload,
+                total_files=analysis_resume_total_files,
+            )
+            semantic_witness_digest = semantic_progress.get("current_witness_digest")
+            collection_intro_signature = (
+                str(semantic_witness_digest) if semantic_witness_digest is not None else "",
+                collection_progress["completed_files"],
+                collection_progress["in_progress_files"],
+                collection_progress["remaining_files"],
+            )
+            if collection_intro_signature == last_collection_intro_signature:
+                return
+            last_collection_intro_signature = collection_intro_signature
             if (
                 analysis_resume_checkpoint_path is not None
                 and analysis_resume_input_manifest_digest is not None
@@ -1709,7 +2228,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     path=analysis_resume_checkpoint_path,
                     input_witness=analysis_resume_input_witness,
                     input_manifest_digest=analysis_resume_input_manifest_digest,
-                    collection_resume=progress_payload,
+                    collection_resume=persisted_progress_payload,
                 )
             if not report_output_path or not projection_rows:
                 return
@@ -1718,12 +2237,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 witness_digest=report_section_witness_digest,
             )
             sections["intro"] = _collection_progress_intro_lines(
-                collection_resume=progress_payload,
+                collection_resume=persisted_progress_payload,
                 total_files=analysis_resume_total_files,
             )
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state="analysis_collection_in_progress",
-                progress_payload=progress_payload,
+                progress_payload=persisted_progress_payload,
                 projection_rows=projection_rows,
                 sections=sections,
                 completed_phase="collection",
@@ -1759,6 +2278,44 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 phases=phase_checkpoint_state,
             )
 
+        def _projection_phase_signature(
+            phase: Literal["collection", "forest", "edge", "post"],
+            groups_by_path: Mapping[Path, dict[str, list[set[str]]]],
+            report_carrier: ReportCarrier,
+        ) -> tuple[int, ...]:
+            check_deadline()
+            return (
+                len(groups_by_path),
+                len(report_carrier.forest.nodes),
+                len(report_carrier.forest.alts),
+                len(report_carrier.bundle_sites_by_path),
+                len(report_carrier.type_suggestions),
+                len(report_carrier.type_ambiguities),
+                len(report_carrier.type_callsite_evidence),
+                len(report_carrier.constant_smells),
+                len(report_carrier.unused_arg_smells),
+                len(report_carrier.deadness_witnesses),
+                len(report_carrier.coherence_witnesses),
+                len(report_carrier.rewrite_plans),
+                len(report_carrier.exception_obligations),
+                len(report_carrier.never_invariants),
+                len(report_carrier.ambiguity_witnesses),
+                len(report_carrier.handledness_witnesses),
+                len(report_carrier.decision_surfaces),
+                len(report_carrier.value_decision_surfaces),
+                len(report_carrier.decision_warnings),
+                len(report_carrier.fingerprint_warnings),
+                len(report_carrier.fingerprint_matches),
+                len(report_carrier.fingerprint_synth),
+                len(report_carrier.fingerprint_provenance),
+                len(report_carrier.context_suggestions),
+                len(report_carrier.invariant_propositions),
+                len(report_carrier.value_decision_rewrites),
+                len(report_carrier.deadline_obligations),
+                len(report_carrier.parse_failure_witnesses),
+                report_projection_phase_rank(phase),
+            )
+
         def _persist_projection_phase(
             phase: Literal["collection", "forest", "edge", "post"],
             groups_by_path: dict[Path, dict[str, list[set[str]]]],
@@ -1766,6 +2323,14 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         ) -> None:
             if not report_output_path or not projection_rows:
                 return
+            phase_signature = _projection_phase_signature(
+                phase,
+                groups_by_path,
+                report_carrier,
+            )
+            if phase_progress_signatures.get(phase) == phase_signature:
+                return
+            phase_progress_signatures[phase] = phase_signature
             available_sections = project_report_sections(
                 groups_by_path,
                 report_carrier,
@@ -1869,10 +2434,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             analysis_resume_checkpoint_path is not None
             and analysis_resume_checkpoint_path.exists()
         ):
-            try:
-                analysis_resume_checkpoint_path.unlink()
-            except OSError:
-                pass
+            _clear_analysis_resume_checkpoint(analysis_resume_checkpoint_path)
 
         response: dict = {
             "type_suggestions": analysis.type_suggestions,
@@ -2587,6 +3149,17 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         or resume_progress.get("in_progress_files", 0) > 0
                     )
                     progress_payload["resume_supported"] = resume_supported
+                    semantic_substantive_progress: bool | None = None
+                    semantic_progress = collection_resume.get("semantic_progress")
+                    if isinstance(semantic_progress, Mapping):
+                        progress_payload["semantic_progress"] = {
+                            str(key): semantic_progress[key] for key in semantic_progress
+                        }
+                        raw_semantic_substantive = semantic_progress.get(
+                            "substantive_progress"
+                        )
+                        if isinstance(raw_semantic_substantive, bool):
+                            semantic_substantive_progress = raw_semantic_substantive
                     witness_digest = (
                         resume_input_witness.get("witness_digest")
                         if resume_input_witness is not None
@@ -2613,10 +3186,17 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         resume_supported
                         and isinstance(classification, str)
                         and classification == "timed_out_no_progress"
+                        and (
+                            semantic_substantive_progress is None
+                            or semantic_substantive_progress
+                        )
                     ):
                         progress_payload["classification"] = "timed_out_progress_resume"
                     elif (
-                        not resume_supported
+                        (
+                            not resume_supported
+                            or semantic_substantive_progress is False
+                        )
                         and isinstance(classification, str)
                         and classification == "timed_out_progress_resume"
                     ):

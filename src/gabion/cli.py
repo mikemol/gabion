@@ -815,6 +815,7 @@ def check(
         attempt = 0
         result: JSONObject = {}
         while True:
+            check_deadline()
             result = run_check(
                 paths=paths,
                 report=report,
@@ -888,6 +889,7 @@ def _dataflow_audit(
     attempt = 0
     result: JSONObject = {}
     while True:
+        check_deadline()
         result = dispatch_command(
             command=DATAFLOW_COMMAND,
             payload=payload,

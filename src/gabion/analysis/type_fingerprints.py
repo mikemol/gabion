@@ -123,6 +123,7 @@ class PrimeRegistry:
     next_bit: int = 0
 
     def get_or_assign(self, key: str) -> int:
+        check_deadline()
         if not key:
             raise ValueError("Type key must be non-empty.")
         existing = self.primes.get(key)
@@ -190,6 +191,7 @@ class TypeConstructorRegistry:
     constructors: dict[str, int] = field(default_factory=dict)
 
     def get_or_assign(self, constructor: str) -> int:
+        check_deadline()
         key = _normalize_base(constructor)
         prime = self.constructors.get(key)
         if prime is not None:
@@ -425,6 +427,7 @@ class SynthRegistry:
     tails: dict[int, Fingerprint] = field(default_factory=dict)
 
     def get_or_assign(self, fingerprint: Fingerprint) -> int:
+        check_deadline()
         existing = self.primes.get(fingerprint)
         if existing is not None:
             return existing
