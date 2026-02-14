@@ -302,7 +302,10 @@ class SymbolTable:
         candidates = self.star_imports.get(current_module, set())
         if not candidates:
             return None
-        for module in sorted(candidates):
+        for module in ordered_or_sorted(
+            candidates,
+            source="SymbolTable.resolve_star.candidates",
+        ):
             check_deadline()
             exports = self.module_exports.get(module)
             if exports is None or name not in exports:
@@ -688,7 +691,10 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
                     # large env/vendor trees like `.venv/`.
                     dirnames[:] = [d for d in dirnames if d not in config.exclude_dirs]
                 dirnames.sort()
-                for filename in sorted(filenames):
+                for filename in ordered_or_sorted(
+                    filenames,
+                    source="_iter_paths.filenames",
+                ):
                     check_deadline()
                     if not filename.endswith(".py"):
                         continue
@@ -700,7 +706,10 @@ def _iter_paths(paths: Iterable[str], config: AuditConfig) -> list[Path]:
             if config.is_ignored_path(path):
                 continue
             out.append(path)
-    return sorted(out)
+    return ordered_or_sorted(
+        out,
+        source="_iter_paths.out",
+    )
 
 
 def resolve_analysis_paths(paths: Iterable[str | Path], *, config: AuditConfig) -> list[Path]:
@@ -1217,7 +1226,12 @@ _VALUE_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     alt_kind="ValueDecisionSurface",
     surface_label="value-encoded decision params",
     params=lambda info: info.value_decision_params,
-    descriptor=lambda info, _boundary: ", ".join(sorted(info.value_decision_reasons))
+    descriptor=lambda info, _boundary: ", ".join(
+        ordered_or_sorted(
+            info.value_decision_reasons,
+            source="_VALUE_DECISION_SURFACE_SPEC.descriptor",
+        )
+    )
     or "heuristic",
     alt_evidence=lambda boundary, descriptor: {
         "meta": descriptor,
@@ -1271,7 +1285,10 @@ def _analyze_decision_surface_indexed(
         check_deadline()
         if _is_test_path(info.path):
             continue
-        params = sorted(spec.params(info))
+        params = ordered_or_sorted(
+            spec.params(info),
+            source=f"_analyze_decision_surface_indexed.{spec.pass_id}.params",
+        )
         if not params:
             continue
         caller_count = len(transitive_callers.get(info.qual, set()))
@@ -1342,10 +1359,22 @@ def _analyze_decision_surface_indexed(
                 if lint is not None:
                     lint_lines.append(lint)
     return (
-        sorted(surfaces),
-        sorted(set(warnings)),
-        sorted(rewrites),
-        sorted(set(lint_lines)),
+        ordered_or_sorted(
+            surfaces,
+            source="_analyze_decision_surface_indexed.surfaces",
+        ),
+        ordered_or_sorted(
+            set(warnings),
+            source="_analyze_decision_surface_indexed.warnings",
+        ),
+        ordered_or_sorted(
+            rewrites,
+            source="_analyze_decision_surface_indexed.rewrites",
+        ),
+        ordered_or_sorted(
+            set(lint_lines),
+            source="_analyze_decision_surface_indexed.lint_lines",
+        ),
     )
 
 
@@ -1497,7 +1526,10 @@ def _internal_broad_type_lint_lines_indexed(
             )
             if lint is not None:
                 lines.append(lint)
-    return sorted(set(lines))
+    return ordered_or_sorted(
+        set(lines),
+        source="_internal_broad_type_lint_lines_indexed.lines",
+    )
 
 
 def _internal_broad_type_lint_lines(
@@ -1806,7 +1838,10 @@ def _parse_witness_contract_violations(
         node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
     }
     violations: list[str] = []
-    for helper_name in sorted(helpers):
+    for helper_name in ordered_or_sorted(
+        helpers,
+        source="_parse_witness_contract_violations.helpers",
+    ):
         check_deadline()
         node = functions.get(helper_name)
         if node is None:
@@ -1891,7 +1926,10 @@ def _raw_sorted_contract_violations(
     )
     strict_forbid = os.environ.get(_FORBID_RAW_SORTED_ENV) == "1"
     violations: list[str] = []
-    for path in sorted(counts):
+    for path in ordered_or_sorted(
+        counts,
+        source="_raw_sorted_contract_violations.counts",
+    ):
         check_deadline()
         baseline = _RAW_SORTED_BASELINE_COUNTS.get(path)
         current = len(counts[path])
@@ -1986,7 +2024,12 @@ def _detect_execution_pattern_matches(
             continue
         indexed_members.append(node.name)
     if len(indexed_members) >= 3:
-        members = tuple(sorted(indexed_members))
+        members = tuple(
+            ordered_or_sorted(
+                indexed_members,
+                source="_detect_execution_pattern_matches.indexed_members",
+            )
+        )
         matches.append(
             _ExecutionPatternMatch(
                 pattern_id=_INDEXED_PASS_INGRESS_RULE.pattern_id,
@@ -2083,14 +2126,27 @@ def _bundle_pattern_instances(
             check_deadline()
             for bundle in bundles:
                 check_deadline()
-                key = tuple(sorted(bundle))
+                key = tuple(
+                    ordered_or_sorted(
+                        bundle,
+                        source="_bundle_pattern_instances.bundle",
+                    )
+                )
                 if len(key) < 2:
                     continue
                 occurrences[key].append(f"{path.name}:{fn_name}")
     instances: list[PatternInstance] = []
-    for bundle_key in sorted(occurrences):
+    for bundle_key in ordered_or_sorted(
+        occurrences,
+        source="_bundle_pattern_instances.occurrences",
+    ):
         check_deadline()
-        members = tuple(sorted(set(occurrences[bundle_key])))
+        members = tuple(
+            ordered_or_sorted(
+                set(occurrences[bundle_key]),
+                source="_bundle_pattern_instances.members",
+            )
+        )
         count = len(members)
         if count <= 1:
             continue
@@ -2156,8 +2212,9 @@ def _pattern_schema_matches(
             groups_by_path=groups_by_path,
         )
     )
-    return sorted(
+    return ordered_or_sorted(
         instances,
+        source="_pattern_schema_matches.instances",
         key=lambda entry: (
             entry.schema.axis.value,
             entry.schema.kind,
@@ -2192,7 +2249,10 @@ def _pattern_schema_suggestions_from_instances(
         suggestions.append(
             f"pattern_schema axis={instance.schema.axis.value} {instance.suggestion}"
         )
-    return sorted(set(suggestions))
+    return ordered_or_sorted(
+        set(suggestions),
+        source="_pattern_schema_suggestions_from_instances.suggestions",
+    )
 
 
 def _pattern_schema_residue_entries(
@@ -2202,8 +2262,9 @@ def _pattern_schema_residue_entries(
     for instance in instances:
         check_deadline()
         entries.extend(instance.residue)
-    return sorted(
+    return ordered_or_sorted(
         entries,
+        source="_pattern_schema_residue_entries.entries",
         key=lambda entry: (
             entry.schema_id,
             entry.reason,
@@ -2276,7 +2337,10 @@ def _execution_pattern_suggestions(
     ):
         check_deadline()
         suggestions.append(instance.suggestion)
-    return sorted(set(suggestions))
+    return ordered_or_sorted(
+        set(suggestions),
+        source="_execution_pattern_suggestions.suggestions",
+    )
 
 
 def _parse_module_tree(
