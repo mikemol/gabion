@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from gabion.analysis.aspf import Forest
 from gabion.analysis.forest_signature import (
     build_forest_signature,
@@ -7,6 +9,7 @@ from gabion.analysis.forest_signature import (
     _path_name,
     _normalize_key,
 )
+from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature
@@ -29,6 +32,16 @@ def test_forest_signature_from_groups() -> None:
     signature = build_forest_signature_from_groups(groups_by_path)
     assert signature["nodes"]["count"] > 0
     assert signature["alts"]["count"] > 0
+
+
+def test_forest_signature_from_groups_rejects_path_order_regression() -> None:
+    with pytest.raises(NeverThrown):
+        build_forest_signature_from_groups(
+            {
+                "b.py": {"g": [set(["c"])]},
+                "a.py": {"f": [set(["a", "b"])]},
+            }
+        )
 
 
 # gabion:evidence E:function_site::forest_signature.py::gabion.analysis.forest_signature._normalize_key

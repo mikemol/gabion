@@ -3,6 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+import pytest
+
+from gabion.exceptions import NeverThrown
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -72,9 +76,40 @@ def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> No
     syntax_error = tmp_path / "broken.py"
     syntax_error.write_text("def f(x: dict[str, object]) -> None\n    return None\n")
 
+    ordered_paths = sorted(
+        [test_prefixed, nested, dotfile, missing, syntax_error],
+        key=lambda path: str(path),
+    )
     assert sa.find_anonymous_schema_surfaces(
-        [test_prefixed, nested, dotfile, missing, syntax_error], project_root=tmp_path
+        ordered_paths,
+        project_root=tmp_path,
     ) == []
+
+
+def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
+    tmp_path: Path,
+) -> None:
+    sa = _load()
+    first = tmp_path / "a.py"
+    second = tmp_path / "b.py"
+    first.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
+    second.write_text("def b(payload: dict[str, object]) -> None:\n    return None\n")
+    with pytest.raises(NeverThrown):
+        sa.find_anonymous_schema_surfaces(
+            [second, first],
+            project_root=tmp_path,
+        )
+
+
+def test_find_anonymous_schema_surfaces_rejects_duplicate_paths(tmp_path: Path) -> None:
+    sa = _load()
+    path = tmp_path / "a.py"
+    path.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
+    with pytest.raises(NeverThrown):
+        sa.find_anonymous_schema_surfaces(
+            [path, path],
+            project_root=tmp_path,
+        )
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._suggest_type_name::name E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._singularize_token::token
