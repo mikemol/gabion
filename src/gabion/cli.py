@@ -355,6 +355,8 @@ def build_check_payload(
     fail_on_type_ambiguities: bool,
     lint: bool,
     resume_checkpoint: Optional[Path] = None,
+    emit_timeout_progress_report: bool = False,
+    resume_on_timeout: int = 0,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     if not paths:
@@ -428,6 +430,8 @@ def build_check_payload(
         "type_audit": True if fail_on_type_ambiguities else None,
         "lint": lint,
         "resume_checkpoint": str(resume_checkpoint) if resume_checkpoint else None,
+        "emit_timeout_progress_report": bool(emit_timeout_progress_report),
+        "resume_on_timeout": max(int(resume_on_timeout), 0),
         "deadline_profile": True,
     }
     return payload
@@ -473,6 +477,8 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "resume_checkpoint": str(opts.resume_checkpoint)
         if opts.resume_checkpoint
         else None,
+        "emit_timeout_progress_report": bool(opts.emit_timeout_progress_report),
+        "resume_on_timeout": max(int(opts.resume_on_timeout), 0),
         "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
         "synthesis_report": opts.synthesis_report,
         "synthesis_max_tier": opts.synthesis_max_tier,
@@ -630,6 +636,8 @@ def run_check(
     fail_on_type_ambiguities: bool,
     lint: bool,
     resume_checkpoint: Optional[Path] = None,
+    emit_timeout_progress_report: bool = False,
+    resume_on_timeout: int = 0,
     runner: Runner = run_command,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
@@ -668,6 +676,8 @@ def run_check(
         fail_on_type_ambiguities=fail_on_type_ambiguities,
         lint=lint,
         resume_checkpoint=resume_checkpoint,
+        emit_timeout_progress_report=emit_timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
     )
     return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
 
@@ -857,6 +867,8 @@ def check(
                 fail_on_type_ambiguities=fail_on_type_ambiguities,
                 lint=lint_enabled,
                 resume_checkpoint=resume_checkpoint,
+                emit_timeout_progress_report=emit_timeout_progress_report,
+                resume_on_timeout=resume_on_timeout,
             )
         if result.get("timeout") is not True:
             break

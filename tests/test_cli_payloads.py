@@ -66,6 +66,8 @@ def test_check_builds_payload() -> None:
     assert payload["exclude"] is None
     assert payload["ignore_params"] is None
     assert payload["transparent_decorators"] is None
+    assert payload["emit_timeout_progress_report"] is False
+    assert payload["resume_on_timeout"] == 0
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
@@ -211,6 +213,8 @@ def test_dataflow_payload_resume_checkpoint_and_timeout_flags() -> None:
     )
     payload = cli.build_dataflow_payload(opts)
     assert payload["resume_checkpoint"] == "resume.json"
+    assert payload["emit_timeout_progress_report"] is True
+    assert payload["resume_on_timeout"] == 2
     assert opts.emit_timeout_progress_report is True
     assert opts.resume_on_timeout == 2
 
