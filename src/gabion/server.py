@@ -1777,6 +1777,25 @@ def _normalize_transparent_decorators(value: object) -> set[str] | None:
     return set(items)
 
 
+def _normalize_name_set(value: object) -> set[str] | None:
+    check_deadline()
+    if value is None:
+        return None
+    items: list[str] = []
+    if isinstance(value, str):
+        items = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            check_deadline()
+            if isinstance(item, str):
+                items.extend([part.strip() for part in item.split(",") if part.strip()])
+            else:
+                never("name set contains non-string entry", value_type=type(item).__name__)
+    else:
+        never("invalid name set payload", value_type=type(value).__name__)
+    return set(items)
+
+
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
     forest = Forest()
     with forest_scope(forest):
@@ -1970,15 +1989,28 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         type_audit_max = payload.get("type_audit_max", 50)
         fail_on_type_ambiguities = payload.get("fail_on_type_ambiguities", False)
         lint = bool(payload.get("lint", False))
-        exclude_dirs = set(payload.get("exclude", []))
-        ignore_params = set(payload.get("ignore_params", []))
+        exclude_payload = payload.get("exclude")
+        exclude_dirs = _normalize_name_set(exclude_payload)
+        if exclude_dirs is None:
+            exclude_dirs = _normalize_name_set(defaults.get("exclude"))
+        if exclude_dirs is None:
+            exclude_dirs = set()
+        ignore_params_payload = payload.get("ignore_params")
+        ignore_params = _normalize_name_set(ignore_params_payload)
+        if ignore_params is None:
+            ignore_params = _normalize_name_set(defaults.get("ignore_params"))
+        if ignore_params is None:
+            ignore_params = set()
         decision_ignore_params = set(ignore_params)
         decision_ignore_params.update(decision_ignore_list(decision_section))
         allow_external = payload.get("allow_external", False)
         strictness = payload.get("strictness", "high")
-        transparent_decorators = _normalize_transparent_decorators(
-            payload.get("transparent_decorators")
-        )
+        transparent_payload = payload.get("transparent_decorators")
+        transparent_decorators = _normalize_transparent_decorators(transparent_payload)
+        if transparent_decorators is None and transparent_payload is None:
+            transparent_decorators = _normalize_transparent_decorators(
+                defaults.get("transparent_decorators")
+            )
         baseline_path = resolve_baseline_path(payload.get("baseline"), Path(root))
         baseline_write = bool(payload.get("baseline_write", False)) and baseline_path is not None
         synthesis_plan_path = payload.get("synthesis_plan")

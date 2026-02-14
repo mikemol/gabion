@@ -381,9 +381,13 @@ def build_check_payload(
         raise typer.BadParameter(
             "Use --emit-ambiguity-state or --ambiguity-state, not both."
         )
-    exclude_dirs = _split_csv_entries(exclude) if exclude else []
-    ignore_list = _split_csv(ignore_params_csv) if ignore_params_csv else []
-    transparent_list = _split_csv(transparent_decorators_csv) if transparent_decorators_csv else []
+    exclude_dirs = _split_csv_entries(exclude) if exclude is not None else None
+    ignore_list = _split_csv(ignore_params_csv) if ignore_params_csv is not None else None
+    transparent_list = (
+        _split_csv(transparent_decorators_csv)
+        if transparent_decorators_csv is not None
+        else None
+    )
     baseline_write_value = bool(baseline is not None and baseline_write)
     root = root or Path(".")
     payload = {
@@ -435,9 +439,13 @@ def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
 
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    exclude_dirs = _split_csv_entries(opts.exclude) if opts.exclude else []
-    ignore_list = _split_csv(opts.ignore_params) if opts.ignore_params else []
-    transparent_list = _split_csv(opts.transparent_decorators) if opts.transparent_decorators else []
+    exclude_dirs = _split_csv_entries(opts.exclude) if opts.exclude is not None else None
+    ignore_list = _split_csv(opts.ignore_params) if opts.ignore_params is not None else None
+    transparent_list = (
+        _split_csv(opts.transparent_decorators)
+        if opts.transparent_decorators is not None
+        else None
+    )
     payload: JSONObject = {
         "paths": [str(p) for p in opts.paths],
         "root": str(opts.root),

@@ -63,6 +63,9 @@ def test_check_builds_payload() -> None:
     assert payload["emit_ambiguity_state"] is False
     assert payload["ambiguity_state"] is None
     assert payload["write_ambiguity_baseline"] is False
+    assert payload["exclude"] is None
+    assert payload["ignore_params"] is None
+    assert payload["transparent_decorators"] is None
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
