@@ -482,11 +482,73 @@ def test_incremental_obligations_flag_no_projection_progress() -> None:
     )
 
 
+def test_incremental_obligations_require_substantive_progress_for_resume() -> None:
+    obligations = server._incremental_progress_obligations(
+        analysis_state="timed_out_progress_resume",
+        progress_payload={
+            "classification": "timed_out_progress_resume",
+            "resume_supported": True,
+            "semantic_progress": {
+                "substantive_progress": False,
+                "monotonic_progress": True,
+            },
+        },
+        resume_checkpoint_path=None,
+        partial_report_written=True,
+        report_requested=True,
+        projection_rows=[
+            {"section_id": "intro", "phase": "collection", "deps": []},
+        ],
+        sections={"intro": ["Collection progress checkpoint (provisional)."]},
+        pending_reasons={},
+    )
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "resume_contract"
+        and entry.get("kind") == "substantive_progress_required"
+        and entry.get("status") == "VIOLATION"
+        for entry in obligations
+    )
+
+
+def test_incremental_obligations_flag_semantic_progress_regression() -> None:
+    obligations = server._incremental_progress_obligations(
+        analysis_state="timed_out_no_progress",
+        progress_payload={
+            "classification": "timed_out_no_progress",
+            "resume_supported": False,
+            "semantic_progress": {
+                "substantive_progress": False,
+                "monotonic_progress": False,
+            },
+        },
+        resume_checkpoint_path=None,
+        partial_report_written=True,
+        report_requested=False,
+        projection_rows=[],
+        sections={},
+        pending_reasons={},
+    )
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("contract") == "resume_contract"
+        and entry.get("kind") == "progress_monotonicity"
+        and entry.get("status") == "VIOLATION"
+        for entry in obligations
+    )
+
+
 def test_collection_progress_intro_lines_include_resume_counts() -> None:
     lines = server._collection_progress_intro_lines(
         collection_resume={
             "completed_paths": ["a.py"],
             "in_progress_scan_by_path": {"b.py": {"phase": "scan_pending"}},
+            "semantic_progress": {
+                "new_processed_functions_count": 3,
+                "regressed_processed_functions_count": 0,
+                "completed_files_delta": 1,
+                "substantive_progress": True,
+            },
         },
         total_files=3,
     )
@@ -494,6 +556,22 @@ def test_collection_progress_intro_lines_include_resume_counts() -> None:
     assert "- `completed_files`: `1`" in lines
     assert "- `in_progress_files`: `1`" in lines
     assert "- `remaining_files`: `2`" in lines
+    assert "- `new_processed_functions`: `3`" in lines
+    assert "- `substantive_progress`: `True`" in lines
+
+
+def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
+    with pytest.raises(NeverThrown):
+        server._collection_progress_intro_lines(
+            collection_resume={
+                "completed_paths": [],
+                "in_progress_scan_by_path": {
+                    "b.py": {"phase": "scan_pending"},
+                    "a.py": {"phase": "scan_pending"},
+                },
+            },
+            total_files=2,
+        )
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress
