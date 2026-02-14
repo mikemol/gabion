@@ -887,7 +887,7 @@ def _report_section_spec(
     )
 
 
-_REPORT_PROJECTION_SPECS: tuple[ReportProjectionSpec[list[str]], ...] = (
+_REPORT_PROJECTION_DECLARED_SPECS: tuple[ReportProjectionSpec[list[str]], ...] = (
     _report_section_spec(section_id="intro", phase="collection"),
     _report_section_spec(
         section_id="components",
@@ -1009,6 +1009,80 @@ _REPORT_PROJECTION_PHASE_RANKS: dict[ReportProjectionPhase, int] = {
 
 def report_projection_phase_rank(phase: ReportProjectionPhase) -> int:
     return _REPORT_PROJECTION_PHASE_RANKS[phase]
+
+
+def _topologically_order_report_projection_specs(
+    specs: tuple[ReportProjectionSpec[list[str]], ...],
+) -> tuple[ReportProjectionSpec[list[str]], ...]:
+    by_id: dict[str, ReportProjectionSpec[list[str]]] = {}
+    declaration_index: dict[str, int] = {}
+    for idx, spec in enumerate(specs):
+        if spec.section_id in by_id:
+            never(
+                "duplicate report projection section_id",
+                section_id=spec.section_id,
+            )
+        by_id[spec.section_id] = spec
+        declaration_index[spec.section_id] = idx
+    edges: dict[str, set[str]] = {spec.section_id: set() for spec in specs}
+    indegree: dict[str, int] = {spec.section_id: 0 for spec in specs}
+    for spec in specs:
+        for dep in spec.deps:
+            if dep not in by_id:
+                never(
+                    "report projection dependency missing",
+                    section_id=spec.section_id,
+                    missing_dep=dep,
+                )
+            if dep == spec.section_id:
+                never(
+                    "report projection self dependency",
+                    section_id=spec.section_id,
+                )
+            if spec.section_id in edges[dep]:
+                continue
+            edges[dep].add(spec.section_id)
+            indegree[spec.section_id] += 1
+
+    def _order_key(section_id: str) -> tuple[int, int, str]:
+        spec = by_id[section_id]
+        return (
+            report_projection_phase_rank(spec.phase),
+            declaration_index[section_id],
+            section_id,
+        )
+
+    ready: list[str] = [
+        section_id for section_id, degree in indegree.items() if degree == 0
+    ]
+    ready.sort(key=_order_key)
+    ordered: list[ReportProjectionSpec[list[str]]] = []
+    while ready:
+        section_id = ready.pop(0)
+        ordered.append(by_id[section_id])
+        for dependent in sorted(edges[section_id], key=_order_key):
+            indegree[dependent] -= 1
+            if indegree[dependent] == 0:
+                ready.append(dependent)
+        ready.sort(key=_order_key)
+
+    if len(ordered) != len(specs):
+        unresolved = [
+            section_id
+            for section_id, degree in indegree.items()
+            if degree > 0
+        ]
+        never(
+            "report projection dependency cycle",
+            unresolved=unresolved,
+        )
+
+    return tuple(ordered)
+
+
+_REPORT_PROJECTION_SPECS = _topologically_order_report_projection_specs(
+    _REPORT_PROJECTION_DECLARED_SPECS
+)
 
 
 def report_projection_specs() -> tuple[ReportProjectionSpec[list[str]], ...]:

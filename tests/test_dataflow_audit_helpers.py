@@ -1793,6 +1793,24 @@ def test_report_projection_specs_rows() -> None:
     assert fingerprint_warnings_row["has_preview"] is True
 
 
+def test_report_projection_specs_are_topologically_ordered() -> None:
+    da = _load()
+    rows = da.report_projection_spec_rows()
+    index_by_section = {
+        str(row.get("section_id", "")): idx for idx, row in enumerate(rows)
+    }
+    for idx, row in enumerate(rows):
+        section_id = str(row.get("section_id", ""))
+        deps = row.get("deps", [])
+        if not isinstance(deps, list):
+            continue
+        for dep in deps:
+            if not isinstance(dep, str):
+                continue
+            assert dep in index_by_section, (section_id, dep)
+            assert index_by_section[dep] < idx, (section_id, dep)
+
+
 def test_project_report_sections_preview_only() -> None:
     da = _load()
     sections = da.project_report_sections(
