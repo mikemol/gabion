@@ -2186,6 +2186,24 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
     enable_phase_projection_checkpoints = False
     phase_checkpoint_state: JSONObject = {}
     last_collection_resume_payload: JSONObject | None = None
+    report_sections_cache: dict[str, list[str]] | None = None
+    report_sections_cache_reason: str | None = None
+    report_sections_cache_loaded = False
+
+    def _ensure_report_sections_cache() -> tuple[dict[str, list[str]], str | None]:
+        nonlocal report_sections_cache
+        nonlocal report_sections_cache_reason
+        nonlocal report_sections_cache_loaded
+        if not report_sections_cache_loaded:
+            report_sections_cache, report_sections_cache_reason = _load_report_section_journal(
+                path=report_section_journal_path,
+                witness_digest=report_section_witness_digest,
+            )
+            report_sections_cache_loaded = True
+        if report_sections_cache is None:
+            report_sections_cache = {}
+        return report_sections_cache, report_sections_cache_reason
+
     raw_initial_paths = payload.get("paths")
     initial_paths_count = len(raw_initial_paths) if isinstance(raw_initial_paths, list) else 1
     _write_bootstrap_incremental_artifacts(
@@ -2541,6 +2559,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             nonlocal last_collection_resume_payload
             nonlocal semantic_progress_cumulative
             nonlocal last_collection_intro_signature
+            nonlocal report_sections_cache_reason
             semantic_progress = _collection_semantic_progress(
                 previous_collection_resume=last_collection_resume_payload,
                 collection_resume=progress_payload,
@@ -2578,10 +2597,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 )
             if not report_output_path or not projection_rows:
                 return
-            sections, journal_reason = _load_report_section_journal(
-                path=report_section_journal_path,
-                witness_digest=report_section_witness_digest,
-            )
+            sections, journal_reason = _ensure_report_sections_cache()
             sections["intro"] = _collection_progress_intro_lines(
                 collection_resume=persisted_progress_payload,
                 total_files=analysis_resume_total_files,
@@ -2632,6 +2648,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 sections=sections,
                 pending_reasons=pending_reasons,
             )
+            report_sections_cache_reason = None
             phase_checkpoint_state["collection"] = {
                 "status": "checkpointed",
                 "completed_files": collection_progress["completed_files"],
@@ -2689,6 +2706,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             groups_by_path: dict[Path, dict[str, list[set[str]]]],
             report_carrier: ReportCarrier,
         ) -> None:
+            nonlocal report_sections_cache_reason
             if not report_output_path or not projection_rows:
                 return
             phase_signature = _projection_phase_signature(
@@ -2705,10 +2723,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 max_phase=phase,
                 include_previews=True,
             )
-            sections, journal_reason = _load_report_section_journal(
-                path=report_section_journal_path,
-                witness_digest=report_section_witness_digest,
-            )
+            sections, journal_reason = _ensure_report_sections_cache()
             sections.update(available_sections)
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state=f"analysis_{phase}_in_progress",
@@ -2733,6 +2748,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 sections=sections,
                 pending_reasons=pending_reasons,
             )
+            report_sections_cache_reason = None
             phase_checkpoint_state[phase] = {
                 "status": "checkpointed",
                 "section_ids": sorted(sections),
@@ -3601,10 +3617,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         path=report_phase_checkpoint_path,
                         witness_digest=report_section_witness_digest,
                     )
-                resolved_sections, journal_reason = _load_report_section_journal(
-                    path=report_section_journal_path,
-                    witness_digest=report_section_witness_digest,
-                )
+                resolved_sections, journal_reason = _ensure_report_sections_cache()
                 if (
                     timeout_collection_resume_payload is not None
                     and "intro" not in resolved_sections
@@ -3671,6 +3684,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     sections=resolved_sections,
                     pending_reasons=pending_reasons,
                 )
+                report_sections_cache_reason = None
                 phase_checkpoint_state["timeout"] = {
                     "status": "timed_out",
                     "analysis_state": analysis_state,
