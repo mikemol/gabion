@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from gabion.analysis.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 def normalize_bundle_key(bundle: object) -> str:
     """Canonicalize a bundle payload into a stable join key.
@@ -15,7 +16,12 @@ def normalize_bundle_key(bundle: object) -> str:
     if not isinstance(bundle, (list, tuple, set)):
         return ""
     values = {item.strip() for item in bundle if isinstance(item, str) and item.strip()}
-    return ",".join(sorted(values))
+    return ",".join(
+        ordered_or_sorted(
+            values,
+            source="normalize_bundle_key.values",
+        )
+    )
 
 
 def normalize_string_list(value: object) -> list[str]:
@@ -39,7 +45,10 @@ def normalize_string_list(value: object) -> list[str]:
     for item in raw:
         check_deadline()
         parts.extend([part.strip() for part in item.split(",") if part.strip()])
-    return sorted(set(parts))
+    return ordered_or_sorted(
+        set(parts),
+        source="normalize_string_list.parts",
+    )
 
 
 @dataclass(frozen=True)

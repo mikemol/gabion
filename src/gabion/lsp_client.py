@@ -16,6 +16,7 @@ from gabion.json_types import JSONObject
 from gabion import server
 from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
 from gabion.invariants import never
+from gabion.order_contract import ordered_or_sorted
 
 
 class LspClientError(RuntimeError):
@@ -156,7 +157,13 @@ def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
         if seconds_value <= 0:
             never("invalid analysis timeout seconds", seconds=existing_seconds)
         return int(seconds_value * Decimal(1_000_000_000))
-    never("missing analysis timeout", payload_keys=sorted(str(key) for key in payload.keys()))
+    never(
+        "missing analysis timeout",
+        payload_keys=ordered_or_sorted(
+            (str(key) for key in payload.keys()),
+            source="_analysis_timeout_ns.payload_keys",
+        ),
+    )
 
 
 def _analysis_timeout_slack_ns(total_ns: int) -> int:

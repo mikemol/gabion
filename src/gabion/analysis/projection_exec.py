@@ -7,6 +7,7 @@ from gabion.analysis.projection_normalize import normalize_spec
 from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 Relation = list[dict[str, JSONValue]]
 
@@ -166,8 +167,9 @@ def apply_spec(
                 sort_keys.append((field, order_norm))
             for field, order in reversed(sort_keys):
                 check_deadline()
-                current = sorted(
+                current = ordered_or_sorted(
                     current,
+                    source=f"apply_spec.sort[{field}]",
                     key=lambda row, name=field: _sort_value(row.get(name)),
                     reverse=order == "desc",
                 )

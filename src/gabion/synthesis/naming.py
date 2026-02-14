@@ -5,6 +5,7 @@ from typing import Iterable
 
 from gabion.synthesis.model import NamingContext
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 def _camelize(value: str) -> str:
@@ -30,7 +31,10 @@ def suggest_name(fields: Iterable[str], context: NamingContext | None = None) ->
     else:
         frequency = context.frequency
         anchor = max(
-            sorted(field_list),
+            ordered_or_sorted(
+                field_list,
+                source="suggest_name.field_list",
+            ),
             key=lambda name: (frequency.get(name, 0), len(name)),
         )
         base = _camelize(anchor) or context.fallback_prefix

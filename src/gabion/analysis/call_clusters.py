@@ -17,6 +17,7 @@ from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.analysis.report_markdown import render_report_markdown
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
+from gabion.order_contract import ordered_or_sorted
 
 CALL_CLUSTER_VERSION = 1
 
@@ -71,7 +72,10 @@ def build_call_clusters_payload(
     cluster_rows: list[dict[str, JSONValue]] = []
     for cluster in clusters.values():
         check_deadline()
-        tests = sorted({str(test_id) for test_id in cluster["tests"]})
+        tests = ordered_or_sorted(
+            {str(test_id) for test_id in cluster["tests"]},
+            source="build_call_clusters_payload.cluster.tests",
+        )
         cluster["tests"] = tests
         count = len(tests)
         cluster["count"] = count

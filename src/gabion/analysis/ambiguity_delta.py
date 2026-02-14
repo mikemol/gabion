@@ -14,6 +14,7 @@ from gabion.analysis.projection_registry import (
 from gabion.analysis.report_markdown import render_report_markdown
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
+from gabion.order_contract import ordered_or_sorted
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -103,7 +104,10 @@ def build_delta_payload(
     baseline_path: str | None = None,
 ) -> dict[str, JSONValue]:
     # dataflow-bundle: baseline, current
-    kinds = sorted(set(baseline.by_kind) | set(current.by_kind))
+    kinds = ordered_or_sorted(
+        set(baseline.by_kind) | set(current.by_kind),
+        source="build_delta_payload.kinds",
+    )
     baseline_counts = {kind: baseline.by_kind.get(kind, 0) for kind in kinds}
     current_counts = {kind: current.by_kind.get(kind, 0) for kind in kinds}
     delta_counts = {
@@ -159,7 +163,10 @@ def render_markdown(
         baseline = by_kind.get("baseline", {})
         current = by_kind.get("current", {})
         delta = by_kind.get("delta", {})
-        kinds = sorted({*baseline.keys(), *current.keys(), *delta.keys()})
+        kinds = ordered_or_sorted(
+            {*baseline.keys(), *current.keys(), *delta.keys()},
+            source="render_markdown.by_kind.kinds",
+        )
         for kind in kinds:
             check_deadline()
             before = baseline.get(kind, 0)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable, List, Set
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 def _jaccard(left: Set[str], right: Set[str]) -> float:
@@ -21,7 +22,15 @@ def merge_bundles(
     while changed:
         check_deadline()
         changed = False
-        merged.sort(key=lambda b: (len(b), sorted(b)))
+        merged.sort(
+            key=lambda b: (
+                len(b),
+                ordered_or_sorted(
+                    b,
+                    source="merge_bundles.iteration.sort_key",
+                ),
+            )
+        )
         result: List[Set[str]] = []
         while merged:
             check_deadline()
@@ -40,5 +49,13 @@ def merge_bundles(
             else:
                 result.append(current)
         merged = result
-    merged.sort(key=lambda b: (len(b), sorted(b)))
+    merged.sort(
+        key=lambda b: (
+            len(b),
+            ordered_or_sorted(
+                b,
+                source="merge_bundles.final.sort_key",
+            ),
+        )
+    )
     return merged

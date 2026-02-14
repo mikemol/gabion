@@ -16,6 +16,7 @@ from gabion.analysis.aspf import Forest
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
 from gabion.json_types import JSONValue
+from gabion.order_contract import ordered_or_sorted
 
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
@@ -282,8 +283,9 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
         return None
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []
-    for (path, qual), stats in sorted(
+    for (path, qual), stats in ordered_or_sorted(
         state.site_stats.items(),
+        source="_deadline_profile_snapshot.site_rows",
         key=lambda item: (-item[1].elapsed_ns, item[0][0], item[0][1]),
     ):
         site_rows.append(
@@ -296,8 +298,9 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
             }
         )
     edge_rows: list[dict[str, JSONValue]] = []
-    for (source, target), stats in sorted(
+    for (source, target), stats in ordered_or_sorted(
         state.edge_stats.items(),
+        source="_deadline_profile_snapshot.edge_rows",
         key=lambda item: (
             -item[1].elapsed_ns,
             item[0][0][0],
@@ -485,7 +488,11 @@ def build_site_index(
     forest: Forest,
 ) -> dict[tuple[str, str], dict[str, JSONValue]]:
     index: dict[tuple[str, str], dict[str, JSONValue]] = {}
-    ordered_nodes = sorted(forest.nodes.items(), key=lambda item: item[0].sort_key())
+    ordered_nodes = ordered_or_sorted(
+        forest.nodes.items(),
+        source="build_site_index.ordered_nodes",
+        key=lambda item: item[0].sort_key(),
+    )
     for node_id, node in ordered_nodes:
         if node_id.kind != "FunctionSite":
             continue
@@ -513,7 +520,11 @@ def pack_call_stack(sites: Iterable[Mapping[str, JSONValue]]) -> PackedCallStack
         unique.setdefault((str(entry["kind"]), frozen), list(entry["key"]))
     site_table = [
         {"kind": kind, "key": list(key)}
-        for (kind, _), key in sorted(unique.items(), key=_site_sort_entry_key)
+        for (kind, _), key in ordered_or_sorted(
+            unique.items(),
+            source="pack_call_stack.site_table",
+            key=_site_sort_entry_key,
+        )
     ]
     index = {
         (entry["kind"], _freeze_key(entry["key"])): idx
@@ -552,7 +563,11 @@ def _normalize_site_payload(
 
 def _freeze_value(value: JSONValue) -> object:
     if isinstance(value, dict):
-        items = tuple((key, _freeze_value(value[key])) for key in sorted(value))
+        ordered_keys = ordered_or_sorted(
+            value,
+            source="_freeze_value.dict_keys",
+        )
+        items = tuple((key, _freeze_value(value[key])) for key in ordered_keys)
         return ("dict", items)
     if isinstance(value, list):
         return ("list", tuple(_freeze_value(item) for item in value))

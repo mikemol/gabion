@@ -3,11 +3,15 @@ from __future__ import annotations
 import json
 from typing import Callable, Iterable, Mapping, Sequence
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 def normalize_params(values: Iterable[str]) -> list[str]:
     cleaned = {str(value).strip() for value in values if str(value).strip()}
-    return sorted(cleaned)
+    return ordered_or_sorted(
+        cleaned,
+        source="normalize_params.cleaned",
+    )
 
 
 def normalize_param_string(value: str) -> str:
@@ -93,7 +97,11 @@ def normalize_targets(targets: Iterable[object]) -> list[dict[str, str]]:
             continue
         path, qual = parts
         cleaned[(path, qual)] = {"path": path, "qual": qual}
-    return [cleaned[key] for key in sorted(cleaned)]
+    ordered_keys = ordered_or_sorted(
+        cleaned,
+        source="normalize_targets.cleaned_keys",
+    )
+    return [cleaned[key] for key in ordered_keys]
 
 
 def make_paramset_key(params: Iterable[str]) -> dict[str, object]:

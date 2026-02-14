@@ -12,6 +12,7 @@ from gabion.synthesis.model import (
 )
 from gabion.synthesis.naming import suggest_name
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 @dataclass
@@ -72,7 +73,10 @@ class Synthesizer:
     ) -> List[FieldSpec]:
         check_deadline()
         fields: List[FieldSpec] = []
-        for name in sorted(bundle):
+        for name in ordered_or_sorted(
+            bundle,
+            source="Synthesizer._build_fields.bundle",
+        ):
             check_deadline()
             type_hint = field_types.get(name)
             fields.append(FieldSpec(name=name, type_hint=type_hint, source_params={name}))

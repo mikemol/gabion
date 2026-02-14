@@ -10,6 +10,7 @@ from gabion.analysis.projection_spec import (
 )
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 def normalize_spec(spec: ProjectionSpec) -> dict[str, JSONValue]:
@@ -120,7 +121,10 @@ def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
 
 def _normalize_predicates(values: Iterable[str]) -> list[str]:
     cleaned = {value.strip() for value in values if value and value.strip()}
-    return sorted(cleaned)
+    return ordered_or_sorted(
+        cleaned,
+        source="_normalize_predicates.cleaned",
+    )
 
 
 def _normalize_fields(value: JSONValue) -> list[str]:
@@ -147,7 +151,10 @@ def _normalize_fields(value: JSONValue) -> list[str]:
 
 def _normalize_group_fields(value: JSONValue) -> list[str]:
     fields = _normalize_fields(value)
-    return sorted(fields)
+    return ordered_or_sorted(
+        fields,
+        source="_normalize_group_fields.fields",
+    )
 
 
 def _normalize_sort_by(value: JSONValue) -> list[dict[str, JSONValue]]:
@@ -199,7 +206,11 @@ def _normalize_limit(value: JSONValue) -> int | None:
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
     if isinstance(value, dict):
-        return {str(k): _normalize_value(value[k]) for k in sorted(value)}
+        ordered_keys = ordered_or_sorted(
+            value,
+            source="_normalize_value.dict_keys",
+        )
+        return {str(k): _normalize_value(value[k]) for k in ordered_keys}
     if isinstance(value, list):
         return [_normalize_value(entry) for entry in value]
     return value

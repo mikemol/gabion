@@ -15,6 +15,7 @@ from gabion.analysis.projection_registry import (
 from gabion.analysis.report_markdown import render_report_markdown
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
+from gabion.order_contract import ordered_or_sorted
 
 CONSOLIDATION_VERSION = 1
 
@@ -95,7 +96,10 @@ def build_call_cluster_consolidation_payload(
             }
             clusters[cluster_identity] = cluster
         cluster["tests"].add(entry.test_id)
-        replace_tokens = sorted({token for _, token in call_footprints})
+        replace_tokens = ordered_or_sorted(
+            {token for _, token in call_footprints},
+            source="build_call_cluster_consolidation_payload.replace_tokens",
+        )
         plan.append(
             ConsolidationEntry(
                 test_id=entry.test_id,
@@ -111,7 +115,12 @@ def build_call_cluster_consolidation_payload(
     cluster_summaries: list[ClusterSummary] = []
     for cluster in clusters.values():
         check_deadline()
-        tests = tuple(sorted({str(test_id) for test_id in cluster["tests"]}))
+        tests = tuple(
+            ordered_or_sorted(
+                {str(test_id) for test_id in cluster["tests"]},
+                source="build_call_cluster_consolidation_payload.cluster.tests",
+            )
+        )
         cluster_summaries.append(
             ClusterSummary(
                 identity=str(cluster["identity"]),
@@ -147,8 +156,9 @@ def build_call_cluster_consolidation_payload(
         )
 
     ordered_plan = apply_spec(CALL_CLUSTER_CONSOLIDATION_SPEC, relation)
-    ordered_clusters = sorted(
+    ordered_clusters = ordered_or_sorted(
         eligible.values(),
+        source="build_call_cluster_consolidation_payload.ordered_clusters",
         key=lambda item: (-item.count, item.display, item.identity),
     )
 
