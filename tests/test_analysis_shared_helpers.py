@@ -35,6 +35,12 @@ def test_baseline_io_helpers_roundtrip(tmp_path: Path) -> None:
 def test_baseline_io_parse_version_rejects_bad_version() -> None:
     with pytest.raises(ValueError):
         parse_version({"version": "bad"}, expected=1, error_context="unit-test")
+    assert parse_version(
+        {"schema_version": 2},
+        expected=(1, 2),
+        field="schema_version",
+        error_context="unit-test",
+    ) == 2
 
 
 # gabion:evidence E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json
@@ -60,11 +66,27 @@ def test_delta_tools_helpers() -> None:
 # gabion:evidence E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.emit
 def test_report_doc_emit_renders_markdown() -> None:
     doc = ReportDoc("unit_report")
+    doc.header(2, "Overview")
     doc.section("Summary")
     doc.bullets(["one", "two"])
     doc.codeblock({"k": 1})
+    doc.table(["name", "count"], [["alpha", 1], ["beta", 2]])
     rendered = doc.emit()
     assert "doc_id: unit_report" in rendered
+    assert "## Overview" in rendered
     assert "Summary:" in rendered
     assert "- one" in rendered
-    assert '{"k": 1}' in rendered
+    assert '"k": 1' in rendered
+    assert "| name | count |" in rendered
+    assert "| alpha | 1 |" in rendered
+
+
+# gabion:evidence E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.header E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.table
+def test_report_doc_guards_invalid_table_or_header() -> None:
+    doc = ReportDoc("unit_report")
+    with pytest.raises(RuntimeError):
+        doc.header(7, "bad")
+    with pytest.raises(RuntimeError):
+        doc.table([], [])
+    with pytest.raises(RuntimeError):
+        doc.table(["one"], [["a", "b"]])

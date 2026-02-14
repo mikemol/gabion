@@ -213,6 +213,11 @@ def test_risk_info_from_payload_variants() -> None:
 
 # gabion:evidence E:function_site::test_obsolescence.py::gabion.analysis.test_obsolescence.load_test_evidence
 def test_load_test_evidence_errors(tmp_path: Path) -> None:
+    bad_payload = tmp_path / "bad_payload.json"
+    bad_payload.write_text(json.dumps([1, 2, 3]))
+    with pytest.raises(ValueError):
+        test_obsolescence.load_test_evidence(str(bad_payload))
+
     bad_schema = tmp_path / "bad.json"
     bad_schema.write_text(json.dumps({"schema_version": 3, "tests": []}))
     with pytest.raises(ValueError):

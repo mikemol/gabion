@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from gabion.analysis import test_evidence, test_evidence_suggestions
 from gabion.analysis.aspf import Forest
 from gabion.analysis.dataflow_audit import AuditConfig
@@ -290,3 +292,11 @@ def test_load_test_evidence_payload(tmp_path: Path) -> None:
     path.write_text(json.dumps(payload))
     entries = test_evidence_suggestions.load_test_evidence(str(path))
     assert entries[0].test_id.endswith("test_policy_check.py::test_policy_check_runs")
+
+
+# gabion:evidence E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence
+def test_load_test_evidence_payload_rejects_non_object(tmp_path: Path) -> None:
+    path = tmp_path / "test_evidence.json"
+    path.write_text(json.dumps([1, 2, 3]))
+    with pytest.raises(ValueError):
+        test_evidence_suggestions.load_test_evidence(str(path))
