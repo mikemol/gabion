@@ -6,6 +6,7 @@ from typing import Iterable
 from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
 
 
 @dataclass(frozen=True)
@@ -62,8 +63,17 @@ def build_forest_signature_from_groups(
 ) -> dict[str, JSONValue]:
     check_deadline()
     forest = Forest()
-    for path in sorted(groups_by_path, key=lambda item: str(item)):
+    previous_path_key: str | None = None
+    for path in groups_by_path:
         check_deadline()
+        path_key = str(path)
+        if previous_path_key is not None and previous_path_key > path_key:
+            never(
+                "groups_by_path path order regression",
+                previous_path=previous_path_key,
+                current_path=path_key,
+            )
+        previous_path_key = path_key
         groups = groups_by_path[path]
         path_name = _path_name(path)
         for fn_name in sorted(groups):

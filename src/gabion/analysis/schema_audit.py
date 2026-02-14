@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Iterable
 from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
 
 
 _DOC_ROLE_RE = re.compile(r"^test_")
@@ -203,8 +204,24 @@ def find_anonymous_schema_surfaces(
     """
     check_deadline()
     surfaces: list[AnonymousSchemaSurface] = []
-    for path in sorted(set(paths)):
+    previous_path_text: str | None = None
+    seen_paths: set[Path] = set()
+    for path in paths:
         check_deadline()
+        path_text = str(path)
+        if previous_path_text is not None and previous_path_text > path_text:
+            never(
+                "schema audit path order regression",
+                previous_path=previous_path_text,
+                current_path=path_text,
+            )
+        previous_path_text = path_text
+        if path in seen_paths:
+            never(
+                "schema audit duplicate path input",
+                path=path_text,
+            )
+        seen_paths.add(path)
         if "tests" in path.parts:
             continue
         if path.name.startswith("."):
