@@ -236,6 +236,7 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
         file_paths=file_paths,
         recursive=True,
         include_invariant_propositions=True,
+        include_wl_refinement=False,
         config=config,
     )
     server._write_analysis_resume_checkpoint(
@@ -784,6 +785,7 @@ def test_execute_command_reuses_collection_checkpoint(tmp_path: Path) -> None:
         file_paths=file_paths,
         recursive=True,
         include_invariant_propositions=False,
+        include_wl_refinement=False,
         config=config,
     )
     server._write_analysis_resume_checkpoint(
@@ -818,6 +820,7 @@ def test_analysis_input_witness_interns_ast_normal_forms(tmp_path: Path) -> None
         file_paths=file_paths,
         recursive=True,
         include_invariant_propositions=False,
+        include_wl_refinement=False,
         config=config,
     )
     assert witness.get("format_version") == 2

@@ -48,3 +48,20 @@ def test_add_suite_site_records_file_site() -> None:
     assert any(
         alt.kind == "SuiteSiteInFile" and alt.inputs[0] == suite for alt in forest.alts
     )
+
+
+def test_add_suite_site_parent_emits_suite_contains() -> None:
+    forest = Forest()
+    parent = forest.add_suite_site("mod.py", "mod.fn", "function")
+    child = forest.add_suite_site(
+        "mod.py",
+        "mod.fn",
+        "if_body",
+        span=(2, 4, 3, 8),
+        parent=parent,
+    )
+
+    assert any(
+        alt.kind == "SuiteContains" and alt.inputs == (parent, child)
+        for alt in forest.alts
+    )
