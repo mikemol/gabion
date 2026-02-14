@@ -54,8 +54,11 @@ jobs:
           mkdir -p artifacts/audit_reports
           .venv/bin/python -m gabion check \
             --report artifacts/audit_reports/dataflow_report.md \
+            --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
+            --resume-on-timeout 5 \
+            --emit-timeout-progress-report \
             --baseline baselines/dataflow_baseline.txt \
-            || (cat artifacts/audit_reports/dataflow_report.md; exit 1)
+            || (cat artifacts/audit_reports/dataflow_report.md; [ -f artifacts/audit_reports/timeout_progress.md ] && cat artifacts/audit_reports/timeout_progress.md; exit 1)
       - name: Docflow audit
         run: .venv/bin/python scripts/docflow_audit.py --root . --fail-on-violations
       - name: Test evidence index
@@ -96,4 +99,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: dataflow-report
-          path: artifacts/audit_reports/dataflow_report.md
+          path: |
+            artifacts/audit_reports/dataflow_report.md
+            artifacts/audit_reports/timeout_progress.md
+            artifacts/audit_reports/timeout_progress.json
+            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
