@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import inspect
-import json
-import os
 import time
 from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass, field
@@ -22,7 +20,6 @@ from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
 _TIMEOUT_PROGRESS_SITE_FLOOR = 4
-_ENFORCE_PACK_CALL_STACK_FALLBACK_ENV = "GABION_ENFORCE_PACK_CALL_STACK_FALLBACK"
 
 
 @dataclass(frozen=True)
@@ -81,6 +78,12 @@ class _CallSite:
 
     def frozen_key(self) -> tuple[object, ...]:
         return _freeze_key(self.key)
+
+
+@dataclass(frozen=True)
+class _InternedCallSite:
+    order: int
+    site: _CallSite
 
 
 class TimeoutExceeded(TimeoutError):
@@ -589,25 +592,25 @@ def build_site_index(
 def pack_call_stack(
     sites: Iterable[_CallSite | Mapping[str, object]],
 ) -> PackedCallStack:
-    strict_fallback = _strict_pack_call_stack_fallback_mode()
     normalized: list[_CallSite] = []
     for site in sites:
         payload = site if isinstance(site, _CallSite) else _normalize_site_payload(site)
         normalized.append(payload)
-    unique: dict[tuple[str, tuple[object, ...]], _CallSite] = {}
+    unique: dict[tuple[str, tuple[object, ...]], _InternedCallSite] = {}
     for entry in normalized:
-        unique.setdefault((entry.kind, entry.frozen_key()), entry)
+        key = (entry.kind, entry.frozen_key())
+        if key not in unique:
+            unique[key] = _InternedCallSite(order=len(unique), site=entry)
     ordered_unique = ordered_or_sorted(
         unique.items(),
         source="pack_call_stack.site_table",
-        policy=OrderPolicy.CHECK if strict_fallback else None,
-        key=_site_sort_entry_key,
-        on_unsorted=_fail_pack_call_stack_fallback if strict_fallback else None,
+        policy=OrderPolicy.ENFORCE,
+        key=lambda item: item[1].order,
     )
     site_table: list[_CallSite] = []
     index: dict[tuple[str, tuple[object, ...]], int] = {}
-    for idx, ((kind, frozen_key), site) in enumerate(ordered_unique):
-        site_table.append(site)
+    for idx, ((kind, frozen_key), interned) in enumerate(ordered_unique):
+        site_table.append(interned.site)
         index[(kind, frozen_key)] = idx
     stack = [
         index[(entry.kind, entry.frozen_key())]
@@ -659,33 +662,6 @@ def _freeze_value(value: object) -> object:
 
 def _freeze_key(key: Iterable[object]) -> tuple[object, ...]:
     return tuple(_freeze_value(part) for part in key)
-
-
-def _render_sort_value(value: object) -> str:
-    if isinstance(value, _FileSite):
-        return json.dumps(value.as_payload(), sort_keys=True)
-    if isinstance(value, tuple):
-        return json.dumps([_site_part_to_payload(part) for part in value])
-    return str(value)
-
-
-def _site_sort_entry_key(
-    entry: tuple[tuple[str, tuple[object, ...]], _CallSite]
-) -> tuple[str, tuple[str, ...]]:
-    (kind, _), site = entry
-    return (kind, tuple(_render_sort_value(part) for part in site.key))
-
-
-def _strict_pack_call_stack_fallback_mode() -> bool:
-    value = os.environ.get(_ENFORCE_PACK_CALL_STACK_FALLBACK_ENV, "")
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _fail_pack_call_stack_fallback(payload: dict[str, object]) -> None:
-    never(
-        "pack_call_stack.site_table fallback forbidden: "
-        f"{payload.get('previous_key')} -> {payload.get('current_key')}"
-    )
 
 
 def build_timeout_context_from_stack(
