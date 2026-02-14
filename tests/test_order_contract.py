@@ -5,7 +5,13 @@ import os
 import pytest
 
 from gabion.exceptions import NeverThrown
-from gabion.order_contract import OrderPolicy, order_policy, ordered_or_sorted
+from gabion.order_contract import (
+    OrderPolicy,
+    get_order_telemetry_events,
+    order_policy,
+    order_telemetry,
+    ordered_or_sorted,
+)
 
 
 def test_ordered_or_sorted_sorts_by_default() -> None:
@@ -70,3 +76,30 @@ def test_ordered_or_sorted_enforce_policy_raises_on_regression() -> None:
     with order_policy(OrderPolicy.ENFORCE):
         with pytest.raises(NeverThrown):
             ordered_or_sorted(["b", "a"], source="test")
+
+
+def test_ordered_or_sorted_check_records_context_telemetry() -> None:
+    with order_policy(OrderPolicy.CHECK):
+        with order_telemetry() as events:
+            ordered_or_sorted(["b", "a"], source="test")
+    assert len(events) == 1
+    assert events[0]["action"] == "fallback_sort"
+    assert events[0]["source"] == "test"
+
+
+def test_ordered_or_sorted_check_records_global_telemetry_env() -> None:
+    previous = os.environ.get("GABION_ORDER_TELEMETRY")
+    get_order_telemetry_events(clear=True)
+    try:
+        os.environ["GABION_ORDER_TELEMETRY"] = "1"
+        with order_policy(OrderPolicy.CHECK):
+            ordered_or_sorted(["b", "a"], source="test-global")
+        events = get_order_telemetry_events(clear=True)
+        assert len(events) == 1
+        assert events[0]["source"] == "test-global"
+    finally:
+        get_order_telemetry_events(clear=True)
+        if previous is None:
+            os.environ.pop("GABION_ORDER_TELEMETRY", None)
+        else:
+            os.environ["GABION_ORDER_TELEMETRY"] = previous

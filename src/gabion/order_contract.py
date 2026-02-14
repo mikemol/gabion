@@ -4,7 +4,7 @@ import os
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from enum import Enum
-from typing import Any, Callable, Iterator, TypeVar
+from typing import Any, Callable, Iterable, Iterator, TypeVar
 
 from gabion.invariants import never
 
@@ -13,10 +13,16 @@ T = TypeVar("T")
 
 _CALLER_SORTED_ENV = "GABION_CALLER_SORTED"
 _ORDER_POLICY_ENV = "GABION_ORDER_POLICY"
+_ORDER_TELEMETRY_ENV = "GABION_ORDER_TELEMETRY"
 _ORDER_POLICY_CONTEXT: ContextVar["OrderPolicy | None"] = ContextVar(
     "gabion_order_policy",
     default=None,
 )
+_ORDER_TELEMETRY_CONTEXT: ContextVar[list[dict[str, object]] | None] = ContextVar(
+    "gabion_order_telemetry",
+    default=None,
+)
+_ORDER_TELEMETRY_GLOBAL: list[dict[str, object]] = []
 
 
 class OrderPolicy(str, Enum):
@@ -75,6 +81,7 @@ def ordered_or_sorted(
         "policy": resolved_policy.value,
     }
     if resolved_policy is OrderPolicy.CHECK:
+        _record_order_telemetry(payload)
         if on_unsorted is not None:
             on_unsorted(payload)
         return sorted(items, key=key, reverse=reverse)
@@ -106,6 +113,13 @@ def get_order_policy() -> OrderPolicy:
     return _resolve_policy(policy=None, require_sorted=None)
 
 
+def get_order_telemetry_events(*, clear: bool = False) -> list[dict[str, object]]:
+    events = [dict(entry) for entry in _ORDER_TELEMETRY_GLOBAL]
+    if clear:
+        _ORDER_TELEMETRY_GLOBAL.clear()
+    return events
+
+
 def set_order_policy(policy: OrderPolicy | str) -> Token[OrderPolicy | None]:
     return _ORDER_POLICY_CONTEXT.set(_normalize_policy(policy))
 
@@ -121,6 +135,16 @@ def order_policy(policy: OrderPolicy | str) -> Iterator[None]:
         yield
     finally:
         reset_order_policy(token)
+
+
+@contextmanager
+def order_telemetry() -> Iterator[list[dict[str, object]]]:
+    events: list[dict[str, object]] = []
+    token = _ORDER_TELEMETRY_CONTEXT.set(events)
+    try:
+        yield events
+    finally:
+        _ORDER_TELEMETRY_CONTEXT.reset(token)
 
 
 def _order_policy_from_env() -> OrderPolicy | None:
@@ -139,6 +163,10 @@ def _order_policy_from_env() -> OrderPolicy | None:
 
 def _caller_sorted_mode_enabled() -> bool:
     return os.environ.get(_CALLER_SORTED_ENV) == "1"
+
+
+def _order_telemetry_enabled() -> bool:
+    return os.environ.get(_ORDER_TELEMETRY_ENV) == "1"
 
 
 def _normalize_policy(policy: OrderPolicy | str) -> OrderPolicy:
@@ -191,3 +219,13 @@ def _raise_order_violation(payload: dict[str, object], *, reason: str) -> None:
         else "caller-ordered invariant violated"
     )
     never(message, **payload)
+
+
+def _record_order_telemetry(payload: dict[str, object]) -> None:
+    event = dict(payload)
+    event["action"] = "fallback_sort"
+    sink = _ORDER_TELEMETRY_CONTEXT.get()
+    if sink is not None:
+        sink.append(event)
+    if _order_telemetry_enabled():
+        _ORDER_TELEMETRY_GLOBAL.append(event)
