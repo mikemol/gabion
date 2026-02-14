@@ -19,6 +19,20 @@ def format_delta(value: object) -> str:
     return f"{sign}{normalized}"
 
 
+def format_transition(
+    baseline: object,
+    current: object,
+    delta: object | None = None,
+) -> str:
+    base = coerce_int(baseline, 0)
+    curr = coerce_int(current, 0)
+    if delta is None:
+        delta_value = curr - base
+    else:
+        delta_value = coerce_int(delta, curr - base)
+    return f"{base} -> {curr} ({format_delta(delta_value)})"
+
+
 def count_delta(
     baseline: Mapping[str, object],
     current: Mapping[str, object],

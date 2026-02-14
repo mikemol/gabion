@@ -88,6 +88,7 @@ from .timeout_context import (
 )
 from .projection_exec import apply_spec
 from .projection_normalize import spec_hash as projection_spec_hash
+from .baseline_io import load_json
 from .projection_registry import (
     AMBIGUITY_SUMMARY_SPEC,
     AMBIGUITY_SUITE_AGG_SPEC,
@@ -12284,12 +12285,12 @@ def _normalize_snapshot_path(path: Path, root: Path | None) -> str:
 
 def load_structure_snapshot(path: Path) -> JSONObject:
     try:
-        data = json.loads(path.read_text())
+        data = load_json(path)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid snapshot JSON: {path}") from exc
-    if not isinstance(data, dict):
-        raise ValueError(f"Snapshot must be a JSON object: {path}")
-    return data
+    except ValueError as exc:
+        raise ValueError(f"Snapshot must be a JSON object: {path}") from exc
+    return {str(key): data[key] for key in data}
 
 
 def compute_structure_metrics(
@@ -12469,12 +12470,12 @@ def render_decision_snapshot(
 
 def load_decision_snapshot(path: Path) -> JSONObject:
     try:
-        data = json.loads(path.read_text())
+        data = load_json(path)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid decision snapshot JSON: {path}") from exc
-    if not isinstance(data, dict):
-        raise ValueError(f"Decision snapshot must be a JSON object: {path}")
-    return data
+    except ValueError as exc:
+        raise ValueError(f"Decision snapshot must be a JSON object: {path}") from exc
+    return {str(key): data[key] for key in data}
 
 
 def diff_decision_snapshots(
@@ -15682,8 +15683,8 @@ def run(argv: list[str] | None = None) -> int:
                 )
                 if resolved is not None:
                     try:
-                        payload = json.loads(resolved.read_text())
-                    except (OSError, UnicodeError, json.JSONDecodeError):
+                        payload = load_json(resolved)
+                    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
                         payload = None
                 else:
                     payload = None

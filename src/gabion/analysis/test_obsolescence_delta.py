@@ -13,6 +13,7 @@ from gabion.analysis.baseline_io import (
     write_json,
 )
 from gabion.analysis.delta_tools import coerce_int, format_delta
+from gabion.analysis.delta_tools import format_transition
 from gabion.analysis.projection_registry import (
     TEST_OBSOLESCENCE_BASELINE_SPEC,
     TEST_OBSOLESCENCE_DELTA_SPEC,
@@ -277,9 +278,9 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
 
     for key in _class_keys():
         doc.line(
-            f"- {key}: {_format_delta(baseline_counts.get(key, 0), current_counts.get(key, 0), delta_counts.get(key, 0))}"
+            f"- {key}: {format_transition(baseline_counts.get(key, 0), current_counts.get(key, 0), delta_counts.get(key, 0))}"
         )
-    opaque_line = _format_delta(
+    opaque_line = format_transition(
         opaque.get("baseline", 0),
         opaque.get("current", 0),
         opaque.get("delta", 0),
@@ -568,13 +569,3 @@ def _class_keys() -> list[str]:
         "obsolete_candidate",
         "unmapped",
     ]
-
-
-def _format_delta(baseline: object, current: object, delta: object) -> str:
-    base = coerce_int(baseline, 0)
-    curr = coerce_int(current, 0)
-    if delta is None:
-        delta_value = curr - base
-    else:
-        delta_value = coerce_int(delta, curr - base)
-    return f"{base} -> {curr} ({format_delta(delta_value)})"
