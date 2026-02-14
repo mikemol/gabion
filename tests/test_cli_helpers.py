@@ -4,6 +4,7 @@ from pathlib import Path
 import io
 import json
 import os
+import time
 
 import pytest
 import typer
@@ -299,6 +300,48 @@ def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path)
     assert progress_md.exists()
     payload = json.loads(progress_json.read_text())
     assert payload["analysis_state"] == "timed_out_progress_resume"
+
+
+def test_dataflow_audit_retry_uses_fresh_cli_budget(tmp_path: Path) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    calls = {"count": 0}
+
+    def runner(*_args, **_kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            time.sleep(0.06)
+            return {
+                "exit_code": 2,
+                "timeout": True,
+                "analysis_state": "timed_out_progress_resume",
+            }
+        return {"exit_code": 0}
+
+    prior_timeout_ms = os.environ.get("GABION_LSP_TIMEOUT_MS")
+    os.environ["GABION_LSP_TIMEOUT_MS"] = "50"
+    try:
+        request = cli.DataflowAuditRequest(
+            ctx=DummyCtx(),
+            args=[
+                "sample.py",
+                "--root",
+                str(tmp_path),
+                "--resume-on-timeout",
+                "1",
+            ],
+            runner=runner,
+        )
+        with pytest.raises(typer.Exit) as exc:
+            cli._dataflow_audit(request)
+    finally:
+        if prior_timeout_ms is None:
+            os.environ.pop("GABION_LSP_TIMEOUT_MS", None)
+        else:
+            os.environ["GABION_LSP_TIMEOUT_MS"] = prior_timeout_ms
+    assert exc.value.exit_code == 0
+    assert calls["count"] == 2
 
 
 def test_render_timeout_progress_markdown_includes_incremental_obligations() -> None:
