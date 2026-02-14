@@ -33,7 +33,7 @@ def test_pack_call_stack_orders_and_indexes() -> None:
         {"path": "b.py", "qual": "mod.b"},
     ]
     packed = pack_call_stack(sites)
-    assert packed.site_table == [
+    assert packed.as_payload()["site_table"] == [
         {
             "kind": "FunctionSite",
             "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.a"],
@@ -43,7 +43,7 @@ def test_pack_call_stack_orders_and_indexes() -> None:
             "key": [{"kind": "FileSite", "key": ["b.py"]}, "mod.b"],
         },
     ]
-    assert packed.stack == [1, 0, 1]
+    assert packed.stack == (1, 0, 1)
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
@@ -63,7 +63,7 @@ def test_build_timeout_context_from_stack_uses_forest() -> None:
         return inner(), qual
 
     context, qual = outer()
-    sites = context.call_stack.site_table
+    sites = context.call_stack.as_payload()["site_table"]
     assert {
         "kind": "FunctionSite",
         "key": [{"kind": "FileSite", "key": [path_name]}, qual],
@@ -150,14 +150,15 @@ def test_pack_call_stack_keeps_span() -> None:
             {"kind": "FunctionSite", "key": ["b.py", "mod.other"]},
         ]
     )
+    site_table = packed.as_payload()["site_table"]
     assert {
         "kind": "FunctionSite",
         "key": [{"kind": "FileSite", "key": ["a.py"]}, "mod.fn", 1, 2, 3, 4],
-    } in packed.site_table
+    } in site_table
     assert {
         "kind": "FunctionSite",
         "key": [{"kind": "FileSite", "key": ["b.py"]}, "mod.other"],
-    } in packed.site_table
+    } in site_table
 
 
 def test_pack_call_stack_rejects_invalid_entries() -> None:
@@ -169,7 +170,7 @@ def test_pack_call_stack_accepts_list_key_part() -> None:
     packed = pack_call_stack(
         [{"kind": "FunctionSite", "key": [["file"], "mod.fn"]}]
     )
-    assert packed.site_table == [
+    assert packed.as_payload()["site_table"] == [
         {"kind": "FunctionSite", "key": [["file"], "mod.fn"]}
     ]
 
@@ -328,4 +329,4 @@ def test_build_timeout_context_skips_unmatched_frames() -> None:
         allow_frame_fallback=False,
         frames=[frame],
     )
-    assert context.call_stack.site_table == []
+    assert context.call_stack.site_table == ()

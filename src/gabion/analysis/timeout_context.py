@@ -25,11 +25,14 @@ _TIMEOUT_PROGRESS_SITE_FLOOR = 4
 
 @dataclass(frozen=True)
 class PackedCallStack:
-    site_table: list[dict[str, JSONValue]]
-    stack: list[int]
+    site_table: tuple["_CallSite", ...]
+    stack: tuple[int, ...]
 
     def as_payload(self) -> dict[str, JSONValue]:
-        return {"site_table": self.site_table, "stack": self.stack}
+        return {
+            "site_table": [entry.as_payload() for entry in self.site_table],
+            "stack": [value for value in self.stack],
+        }
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,31 @@ class TimeoutContext:
         if self.progress:
             payload["progress"] = self.progress
         return payload
+
+
+@dataclass(frozen=True)
+class _FileSite:
+    path: str
+
+    def as_payload(self) -> dict[str, JSONValue]:
+        # Keep canonical key order ("key" then "kind") so caller-order checks
+        # can hold without fallback sorting.
+        return {"key": [self.path], "kind": "FileSite"}
+
+
+@dataclass(frozen=True)
+class _CallSite:
+    kind: str
+    key: tuple[object, ...]
+
+    def as_payload(self) -> dict[str, JSONValue]:
+        return {
+            "kind": self.kind,
+            "key": [_site_part_to_payload(part) for part in self.key],
+        }
+
+    def frozen_key(self) -> tuple[object, ...]:
+        return _freeze_key(self.key)
 
 
 class TimeoutExceeded(TimeoutError):
@@ -477,17 +505,64 @@ def _site_key_payload(
     qual: str,
     span: list[int] | None = None,
 ) -> dict[str, JSONValue]:
-    file_payload: JSONValue = {"kind": "FileSite", "key": [path]}
-    key: list[JSONValue] = [file_payload, qual]
+    return _function_site(path=path, qual=qual, span=span).as_payload()
+
+
+def _site_key(
+    *,
+    path: str,
+    qual: str,
+    span: list[int] | None = None,
+) -> tuple[object, ...]:
+    key: list[object] = [_FileSite(path), qual]
     if span and len(span) == 4:
         key.extend(span)
-    return {"kind": "FunctionSite", "key": key}
+    return tuple(key)
+
+
+def _function_site(
+    *,
+    path: str,
+    qual: str,
+    span: list[int] | None = None,
+) -> _CallSite:
+    return _CallSite(kind="FunctionSite", key=_site_key(path=path, qual=qual, span=span))
+
+
+def _site_part_from_payload(value: object) -> object:
+    if isinstance(value, _FileSite):
+        return value
+    if isinstance(value, Mapping):
+        kind = str(value.get("kind", "") or "")
+        key_payload = value.get("key")
+        if kind == "FileSite" and isinstance(key_payload, list) and len(key_payload) == 1:
+            path = key_payload[0]
+            if isinstance(path, str):
+                return _FileSite(path)
+        never("invalid site key mapping payload", payload_kind=kind)
+    if isinstance(value, list):
+        return tuple(_site_part_from_payload(part) for part in value)
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    never("invalid site key payload value", value_type=type(value).__name__)
+    return value  # pragma: no cover - never() raises
+
+
+def _site_part_to_payload(value: object) -> JSONValue:
+    if isinstance(value, _FileSite):
+        return value.as_payload()
+    if isinstance(value, tuple):
+        return [_site_part_to_payload(part) for part in value]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    never("invalid site key value", value_type=type(value).__name__)
+    return None  # pragma: no cover - never() raises
 
 
 def build_site_index(
     forest: Forest,
-) -> dict[tuple[str, str], dict[str, JSONValue]]:
-    index: dict[tuple[str, str], dict[str, JSONValue]] = {}
+) -> dict[tuple[str, str], _CallSite]:
+    index: dict[tuple[str, str], _CallSite] = {}
     ordered_nodes = ordered_or_sorted(
         forest.nodes.items(),
         source="build_site_index.ordered_nodes",
@@ -504,42 +579,44 @@ def build_site_index(
         span_list = list(span) if isinstance(span, list) else None
         index.setdefault(
             (path, qual),
-            _site_key_payload(path=path, qual=qual, span=span_list),
+            _function_site(path=path, qual=qual, span=span_list),
         )
     return index
 
 
-def pack_call_stack(sites: Iterable[Mapping[str, JSONValue]]) -> PackedCallStack:
-    normalized: list[dict[str, JSONValue]] = []
+def pack_call_stack(
+    sites: Iterable[_CallSite | Mapping[str, object]],
+) -> PackedCallStack:
+    normalized: list[_CallSite] = []
     for site in sites:
-        payload = _normalize_site_payload(site)
+        payload = site if isinstance(site, _CallSite) else _normalize_site_payload(site)
         normalized.append(payload)
-    unique: dict[tuple[str, tuple[object, ...]], list[JSONValue]] = {}
+    unique: dict[tuple[str, tuple[object, ...]], _CallSite] = {}
     for entry in normalized:
-        frozen = _freeze_key(entry["key"])
-        unique.setdefault((str(entry["kind"]), frozen), list(entry["key"]))
-    site_table = [
-        {"kind": kind, "key": list(key)}
-        for (kind, _), key in ordered_or_sorted(
-            unique.items(),
-            source="pack_call_stack.site_table",
-            key=_site_sort_entry_key,
-        )
-    ]
-    index = {
-        (entry["kind"], _freeze_key(entry["key"])): idx
-        for idx, entry in enumerate(site_table)
-    }
+        unique.setdefault((entry.kind, entry.frozen_key()), entry)
+    ordered_unique = ordered_or_sorted(
+        unique.items(),
+        source="pack_call_stack.site_table",
+        key=_site_sort_entry_key,
+    )
+    site_table: list[_CallSite] = []
+    index: dict[tuple[str, tuple[object, ...]], int] = {}
+    for idx, ((kind, frozen_key), site) in enumerate(ordered_unique):
+        site_table.append(site)
+        index[(kind, frozen_key)] = idx
     stack = [
-        index[(entry["kind"], _freeze_key(entry["key"]))]
+        index[(entry.kind, entry.frozen_key())]
         for entry in normalized
     ]
-    return PackedCallStack(site_table=site_table, stack=stack)
+    return PackedCallStack(
+        site_table=tuple(site_table),
+        stack=tuple(stack),
+    )
 
 
 def _normalize_site_payload(
-    site: Mapping[str, JSONValue],
-) -> dict[str, JSONValue]:
+    site: Mapping[str, object],
+) -> _CallSite:
     kind = str(site.get("kind", "") or "FunctionSite")
     key_payload = site.get("key")
     if isinstance(key_payload, list) and key_payload:
@@ -549,48 +626,49 @@ def _normalize_site_payload(
             and isinstance(key[0], str)
             and isinstance(key[1], str)
         ):
-            file_payload: JSONValue = {"kind": "FileSite", "key": [key[0]]}
-            key = [file_payload, key[1], *key[2:]]
-        return {"kind": kind, "key": key}
+            key = [_FileSite(key[0]), key[1], *key[2:]]
+        key_tuple = tuple(_site_part_from_payload(value) for value in key)
+        return _CallSite(
+            kind=kind,
+            key=key_tuple,
+        )
     path = str(site.get("path", "") or "")
     qual = str(site.get("qual", "") or "")
     if not path or not qual:
         never("site payload missing path/qual", site=dict(site))
     span = site.get("span")
     span_list = list(span) if isinstance(span, list) else None
-    return _site_key_payload(path=path, qual=qual, span=span_list)
+    return _function_site(path=path, qual=qual, span=span_list)
 
 
-def _freeze_value(value: JSONValue) -> object:
-    if isinstance(value, dict):
-        ordered_keys = ordered_or_sorted(
-            value,
-            source="_freeze_value.dict_keys",
-        )
-        items = tuple((key, _freeze_value(value[key])) for key in ordered_keys)
-        return ("dict", items)
-    if isinstance(value, list):
-        return ("list", tuple(_freeze_value(item) for item in value))
-    return ("atom", value)
+def _freeze_value(value: object) -> object:
+    if isinstance(value, _FileSite):
+        return ("FileSite", value.path)
+    if isinstance(value, tuple):
+        return ("tuple", tuple(_freeze_value(item) for item in value))
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return ("atom", value)
+    never("invalid site key value for freezing", value_type=type(value).__name__)
+    return value  # pragma: no cover - never() raises
 
 
-def _freeze_key(key: Iterable[JSONValue]) -> tuple[object, ...]:
+def _freeze_key(key: Iterable[object]) -> tuple[object, ...]:
     return tuple(_freeze_value(part) for part in key)
 
 
-def _render_sort_value(value: JSONValue) -> str:
-    if isinstance(value, dict):
-        return json.dumps(value, sort_keys=True)
-    if isinstance(value, list):
-        return json.dumps(value)
+def _render_sort_value(value: object) -> str:
+    if isinstance(value, _FileSite):
+        return json.dumps(value.as_payload(), sort_keys=True)
+    if isinstance(value, tuple):
+        return json.dumps([_site_part_to_payload(part) for part in value])
     return str(value)
 
 
 def _site_sort_entry_key(
-    entry: tuple[tuple[str, tuple[object, ...]], list[JSONValue]]
+    entry: tuple[tuple[str, tuple[object, ...]], _CallSite]
 ) -> tuple[str, tuple[str, ...]]:
-    (kind, _), key = entry
-    return (kind, tuple(_render_sort_value(part) for part in key))
+    (kind, _), site = entry
+    return (kind, tuple(_render_sort_value(part) for part in site.key))
 
 
 def build_timeout_context_from_stack(
@@ -605,7 +683,7 @@ def build_timeout_context_from_stack(
 ) -> TimeoutContext:
     site_index = build_site_index(forest)
     frame_list = list(frames) if frames is not None else [frame.frame for frame in inspect.stack()]
-    sites: list[dict[str, JSONValue]] = []
+    sites: list[_CallSite] = []
     resolved_root = project_root.resolve() if project_root is not None else None
     for frame in frame_list:
         if resolved_root is not None:
@@ -618,7 +696,7 @@ def build_timeout_context_from_stack(
         if key in site_index:
             sites.append(site_index[key])
         elif allow_frame_fallback:
-            sites.append(_site_key_payload(path=key[0], qual=key[1]))
+            sites.append(_function_site(path=key[0], qual=key[1]))
     packed = pack_call_stack(reversed(sites))
     profile_payload = deadline_profile or _deadline_profile_snapshot()
     return TimeoutContext(
