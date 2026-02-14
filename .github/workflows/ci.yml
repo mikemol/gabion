@@ -104,3 +104,5 @@ jobs:
             artifacts/audit_reports/timeout_progress.md
             artifacts/audit_reports/timeout_progress.json
             artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
+            artifacts/out/deadline_profile.json
+            artifacts/out/deadline_profile.md
