@@ -2,13 +2,13 @@ from __future__ import annotations
 from gabion.analysis.timeout_context import check_deadline
 
 import ast
-import json
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping, Sequence
 
 from gabion.analysis import evidence_keys
+from gabion.analysis.baseline_io import load_json, parse_version
 from gabion.analysis.aspf import Alt, Forest, NodeId
 from gabion.analysis.json_types import JSONObject
 from gabion.analysis.dataflow_audit import (
@@ -97,12 +97,13 @@ class _GraphSuggestion:
 
 def load_test_evidence(path: str) -> list[TestEvidenceEntry]:
     check_deadline()
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    schema_version = payload.get("schema_version")
-    if schema_version not in {1, 2}:
-        raise ValueError(
-            f"Unsupported test evidence schema_version={schema_version!r}; expected 1 or 2"
-        )
+    payload = load_json(path)
+    parse_version(
+        payload,
+        expected=(1, 2),
+        field="schema_version",
+        error_context="test evidence",
+    )
     tests = payload.get("tests", [])
     if not isinstance(tests, list):
         raise ValueError("test evidence payload is missing tests list")

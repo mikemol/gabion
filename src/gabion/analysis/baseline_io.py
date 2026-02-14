@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Mapping
+from typing import Iterable, Mapping
 
 from gabion.analysis.projection_registry import spec_metadata_payload
 from gabion.analysis.projection_spec import ProjectionSpec
@@ -26,18 +26,31 @@ def write_json(path: str | Path, payload: Mapping[str, JSONValue]) -> None:
 def parse_version(
     payload: Mapping[str, JSONValue],
     *,
-    expected: int,
+    expected: int | Iterable[int],
     field: str = "version",
     error_context: str = "baseline",
+    default: int | None = None,
 ) -> int:
-    raw = payload.get(field, expected)
+    if isinstance(expected, int):
+        allowed = (expected,)
+    else:
+        allowed = tuple(int(value) for value in expected)
+        if not allowed:
+            raise ValueError("parse_version expected requires at least one allowed value")
+    default_value = default if default is not None else allowed[0]
+    raw = payload.get(field, default_value)
     try:
-        value = int(raw) if raw is not None else expected
+        value = int(raw) if raw is not None else default_value
     except (TypeError, ValueError):
         value = -1
-    if value != expected:
+    if value not in allowed:
+        expected_display = (
+            str(allowed[0])
+            if len(allowed) == 1
+            else ", ".join(str(entry) for entry in allowed)
+        )
         raise ValueError(
-            f"Unsupported {error_context} version={raw!r}; expected {expected}"
+            f"Unsupported {error_context} {field}={raw!r}; expected {expected_display}"
         )
     return value
 

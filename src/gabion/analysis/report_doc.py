@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Iterable, Sequence
 
+from gabion.invariants import never
 from gabion.analysis.report_markdown import render_report_markdown
 
 
@@ -22,6 +23,14 @@ class ReportDoc:
     def section(self, title: str) -> None:
         self._lines.append(f"{title}:")
 
+    def header(self, level: int, title: str) -> None:
+        if level < 1 or level > 6:
+            never(
+                "report header level out of range",
+                level=level,
+            )
+        self._lines.append(f"{'#' * level} {title}")
+
     def bullets(self, items: Iterable[str]) -> None:
         for item in items:
             self._lines.append(f"- {item}")
@@ -30,11 +39,27 @@ class ReportDoc:
         if isinstance(content, str):
             rendered = content
         else:
-            rendered = json.dumps(content, sort_keys=True)
+            rendered = json.dumps(content, indent=2, sort_keys=True)
         fence = f"```{language}" if language else "```"
         self._lines.append(fence)
         self._lines.extend(rendered.splitlines() or [""])
         self._lines.append("```")
+
+    def table(self, headers: Sequence[str], rows: Iterable[Sequence[object]]) -> None:
+        header_cells = [str(entry) for entry in headers]
+        if not header_cells:
+            never("report table requires at least one header")
+        self._lines.append("| " + " | ".join(header_cells) + " |")
+        self._lines.append("| " + " | ".join("---" for _ in header_cells) + " |")
+        for row in rows:
+            row_cells = [str(entry) for entry in row]
+            if len(row_cells) != len(header_cells):
+                never(
+                    "report table row length mismatch",
+                    expected=len(header_cells),
+                    actual=len(row_cells),
+                )
+            self._lines.append("| " + " | ".join(row_cells) + " |")
 
     def emit(self) -> str:
         return render_report_markdown(

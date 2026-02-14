@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping
 
 from gabion.analysis import evidence_keys
+from gabion.analysis.baseline_io import (
+    attach_spec_metadata,
+    load_json,
+    parse_version,
+)
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
     TEST_OBSOLESCENCE_SUMMARY_SPEC,
     spec_metadata_lines_from_payload,
-    spec_metadata_payload,
 )
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
@@ -47,12 +50,13 @@ def load_test_evidence(
     path: str,
 ) -> tuple[dict[str, list[EvidenceRef]], dict[str, str]]:
     check_deadline()
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    schema_version = payload.get("schema_version")
-    if schema_version not in {1, 2}:
-        raise ValueError(
-            f"Unsupported test evidence schema_version={schema_version!r}; expected 1 or 2"
-        )
+    payload = load_json(path)
+    parse_version(
+        payload,
+        expected=(1, 2),
+        field="schema_version",
+        error_context="test evidence",
+    )
     tests = payload.get("tests", [])
     if not isinstance(tests, list):
         raise ValueError("test evidence payload is missing tests list")
@@ -85,21 +89,17 @@ def load_risk_registry(path: str) -> dict[str, RiskInfo]:
     registry_path = Path(path)
     if not registry_path.exists():
         return {}
-    payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError(
-            f"Evidence risk registry must be a JSON object: {path}"
-        )
+    payload = load_json(path)
     return _parse_risk_registry_payload(payload)
 
 
 def _parse_risk_registry_payload(payload: Mapping[str, object]) -> dict[str, RiskInfo]:
     check_deadline()
-    version = payload.get("version", 1)
-    if version != 1:
-        raise ValueError(
-            f"Unsupported evidence risk registry version={version!r}; expected 1"
-        )
+    parse_version(
+        payload,
+        expected=1,
+        error_context="evidence risk registry",
+    )
     evidence = payload.get("evidence", {})
     if not isinstance(evidence, Mapping):
         return {}
@@ -340,8 +340,7 @@ def render_json_payload(
         "summary": summary_counts,
         "candidates": candidates,
     }
-    payload.update(spec_metadata_payload(TEST_OBSOLESCENCE_SUMMARY_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_SUMMARY_SPEC)
 
 
 def _summarize_candidates(
