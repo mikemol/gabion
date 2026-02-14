@@ -7486,7 +7486,10 @@ def _collect_bundle_evidence_lines(
     check_deadline()
     if not groups_by_path or not _has_bundles(groups_by_path):
         return []
-    file_paths = sorted(groups_by_path)
+    file_paths = _iter_monotonic_paths(
+        groups_by_path,
+        source="_collect_bundle_evidence_lines.groups_by_path",
+    )
     projection = _bundle_projection_from_forest(forest, file_paths=file_paths)
     components = _connected_components(projection.nodes, projection.adj)
     bundle_site_index = _bundle_site_index(groups_by_path, bundle_sites_by_path)
@@ -7571,7 +7574,10 @@ def _populate_bundle_forest(
         progress_since_emit = 0
         on_progress()
 
-    for path in sorted(groups_by_path):
+    for path in _iter_monotonic_paths(
+        groups_by_path,
+        source="_populate_bundle_forest.groups_by_path",
+    ):
         check_deadline()
         groups = groups_by_path[path]
         for fn_name in sorted(groups):
@@ -7592,7 +7598,10 @@ def _populate_bundle_forest(
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
     )
-    for path in sorted(config_bundles_by_path):
+    for path in _iter_monotonic_paths(
+        config_bundles_by_path,
+        source="_populate_bundle_forest.config_bundles_by_path",
+    ):
         check_deadline()
         bundles = config_bundles_by_path[path]
         for name in sorted(bundles):
@@ -7631,7 +7640,10 @@ def _populate_bundle_forest(
         )
     else:
         symbol_table = index.symbol_table
-    for path in sorted(file_paths):
+    for path in _iter_monotonic_paths(
+        file_paths,
+        source="_populate_bundle_forest.file_paths",
+    ):
         check_deadline()
         for bundle in sorted(_iter_documented_bundles(path)):
             check_deadline()
@@ -11991,6 +12003,28 @@ def _analysis_collection_resume_path_key(path: Path) -> str:
     return str(path)
 
 
+def _iter_monotonic_paths(
+    paths: Iterable[Path],
+    *,
+    source: str,
+) -> list[Path]:
+    ordered: list[Path] = []
+    previous_path_key: str | None = None
+    for path in paths:
+        check_deadline()
+        path_key = _analysis_collection_resume_path_key(path)
+        if previous_path_key is not None and previous_path_key > path_key:
+            never(
+                "path order regression",
+                source=source,
+                previous_path=previous_path_key,
+                current_path=path_key,
+            )
+        previous_path_key = path_key
+        ordered.append(path)
+    return ordered
+
+
 def _serialize_param_use(value: ParamUse) -> JSONObject:
     return {
         "direct_forward": [
@@ -13535,7 +13569,10 @@ def analyze_paths(
         if file_paths_override is None:
             file_paths = resolve_analysis_paths(paths, config=config)
         else:
-            file_paths = sorted(file_paths_override)
+            file_paths = _iter_monotonic_paths(
+                file_paths_override,
+                source="analyze_paths.file_paths_override",
+            )
         (
             groups_by_path,
             param_spans_by_path,
