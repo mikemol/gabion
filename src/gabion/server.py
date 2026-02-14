@@ -199,10 +199,18 @@ def _externalize_collection_resume_states(
     chunks_dir.mkdir(parents=True, exist_ok=True)
     used_chunk_names: set[str] = set()
     in_progress_payload: JSONObject = {}
+    previous_path: str | None = None
     for raw_path, raw_state in raw_in_progress.items():
         check_deadline()
         if not isinstance(raw_path, str):
             continue
+        if previous_path is not None and previous_path > raw_path:
+            never(
+                "in_progress_scan_by_path path order regression",
+                previous_path=previous_path,
+                current_path=raw_path,
+            )
+        previous_path = raw_path
         if not isinstance(raw_state, Mapping):
             in_progress_payload[raw_path] = cast(JSONValue, raw_state)
             continue
@@ -275,10 +283,18 @@ def _inflate_collection_resume_states(
         return {str(key): collection_resume[key] for key in collection_resume}
     chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
     in_progress_payload: JSONObject = {}
+    previous_path: str | None = None
     for raw_path, raw_state in raw_in_progress.items():
         check_deadline()
         if not isinstance(raw_path, str):
             continue
+        if previous_path is not None and previous_path > raw_path:
+            never(
+                "in_progress_scan_by_path path order regression",
+                previous_path=previous_path,
+                current_path=raw_path,
+            )
+        previous_path = raw_path
         if not isinstance(raw_state, Mapping):
             in_progress_payload[raw_path] = cast(JSONValue, raw_state)
             continue
@@ -760,9 +776,8 @@ def _collection_semantic_witness(
     states = _in_progress_scan_states(collection_resume)
     state_rows: list[JSONObject] = []
     processed_total = 0
-    for path_key in sorted(states):
+    for path_key, state in states.items():
         check_deadline()
-        state = states[path_key]
         phase = state.get("phase")
         phase_text = phase if isinstance(phase, str) and phase else "unknown"
         processed_count = _state_processed_count(state)

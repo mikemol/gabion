@@ -12581,9 +12581,17 @@ def _build_analysis_collection_resume_payload(
         sites_payload[path_key] = _serialize_bundle_sites_for_resume(
             bundle_sites_by_path.get(path, {})
         )
-    for path in sorted(in_progress_scan_by_path, key=_analysis_collection_resume_path_key):
+    previous_path_key: str | None = None
+    for path in in_progress_scan_by_path:
         check_deadline()
         path_key = _analysis_collection_resume_path_key(path)
+        if previous_path_key is not None and previous_path_key > path_key:
+            never(
+                "in_progress_scan_by_path path order regression",
+                previous_path=previous_path_key,
+                current_path=path_key,
+            )
+        previous_path_key = path_key
         in_progress_scan_payload[path_key] = {
             str(key): in_progress_scan_by_path[path][key]
             for key in in_progress_scan_by_path[path]
