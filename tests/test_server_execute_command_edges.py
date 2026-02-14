@@ -402,7 +402,7 @@ def test_execute_command_writes_phase_checkpoint_when_incremental_enabled(
                     "paths": [str(module_path)],
                     "report": str(report_path),
                     "emit_timeout_progress_report": True,
-                    "analysis_timeout_ticks": 5_000,
+                    "analysis_timeout_ticks": 50_000,
                 }
             ),
         )
@@ -606,6 +606,32 @@ def test_collection_semantic_progress_flags_state_loss_regression() -> None:
     assert progress["substantive_progress"] is False
 
 
+def test_collection_semantic_progress_tracks_analysis_index_hydration() -> None:
+    progress = server._collection_semantic_progress(
+        previous_collection_resume={
+            "completed_paths": ["a.py"],
+            "in_progress_scan_by_path": {},
+            "analysis_index_resume": {
+                "hydrated_paths": ["a.py"],
+                "hydrated_paths_count": 1,
+            },
+        },
+        collection_resume={
+            "completed_paths": ["a.py"],
+            "in_progress_scan_by_path": {},
+            "analysis_index_resume": {
+                "hydrated_paths": ["a.py", "b.py"],
+                "hydrated_paths_count": 2,
+            },
+        },
+        total_files=2,
+    )
+    assert progress["hydrated_paths_delta"] == 1
+    assert progress["hydrated_paths_regressed"] == 0
+    assert progress["monotonic_progress"] is True
+    assert progress["substantive_progress"] is True
+
+
 def test_collection_progress_intro_lines_reject_path_order_regression() -> None:
     with pytest.raises(NeverThrown):
         server._collection_progress_intro_lines(
@@ -644,6 +670,67 @@ def test_inflate_resume_states_reject_path_order_regression(tmp_path: Path) -> N
                 }
             },
         )
+
+
+def test_externalize_and_inflate_analysis_index_resume_state_ref(
+    tmp_path: Path,
+) -> None:
+    payload = {
+        "in_progress_scan_by_path": {},
+        "analysis_index_resume": {
+            "format_version": 1,
+            "phase": "analysis_index_hydration",
+            "hydrated_paths": ["a.py"],
+            "hydrated_paths_count": 1,
+            "function_count": 1,
+            "class_count": 0,
+            "functions_by_qual": {
+                "m.a": {
+                    "name": "a",
+                    "qual": "m.a",
+                    "path": "a.py",
+                    "params": [],
+                    "annots": {},
+                    "calls": [],
+                    "unused_params": [],
+                    "defaults": [],
+                    "transparent": True,
+                    "scope": [],
+                    "lexical_scope": [],
+                    "decision_params": [],
+                    "value_decision_params": [],
+                    "value_decision_reasons": [],
+                    "positional_params": [],
+                    "kwonly_params": [],
+                    "param_spans": {},
+                    "padding": "x" * 70000,
+                }
+            },
+            "symbol_table": {
+                "imports": [],
+                "internal_roots": [],
+                "external_filter": True,
+                "star_imports": {},
+                "module_exports": {},
+                "module_export_map": {},
+            },
+            "class_index": {},
+        },
+    }
+    externalized = server._externalize_collection_resume_states(
+        path=tmp_path / "resume.json",
+        collection_resume=payload,
+    )
+    raw_analysis_index_resume = externalized.get("analysis_index_resume")
+    assert isinstance(raw_analysis_index_resume, dict)
+    assert isinstance(raw_analysis_index_resume.get("state_ref"), str)
+    inflated = server._inflate_collection_resume_states(
+        path=tmp_path / "resume.json",
+        collection_resume=externalized,
+    )
+    inflated_resume = inflated.get("analysis_index_resume")
+    assert isinstance(inflated_resume, dict)
+    assert inflated_resume.get("hydrated_paths_count") == 1
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress

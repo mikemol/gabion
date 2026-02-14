@@ -1604,6 +1604,87 @@ def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
     assert resumed.invariant_propositions == baseline.invariant_propositions
 
 
+def test_collection_resume_roundtrip_preserves_analysis_index_resume_payload() -> None:
+    da = _load()
+    payload = da._build_analysis_collection_resume_payload(
+        groups_by_path={},
+        param_spans_by_path={},
+        bundle_sites_by_path={},
+        invariant_propositions=[],
+        completed_paths=set(),
+        in_progress_scan_by_path={},
+        analysis_index_resume={
+            "format_version": 1,
+            "phase": "analysis_index_hydration",
+            "hydrated_paths": ["a.py"],
+            "hydrated_paths_count": 1,
+            "function_count": 1,
+            "class_count": 0,
+            "functions_by_qual": {},
+            "symbol_table": {},
+            "class_index": {},
+        },
+    )
+    (
+        _groups_by_path,
+        _param_spans_by_path,
+        _bundle_sites_by_path,
+        _invariant_propositions,
+        _completed_paths,
+        _in_progress_scan_by_path,
+        analysis_index_resume,
+    ) = da._load_analysis_collection_resume_payload(
+        payload=payload,
+        file_paths=[],
+        include_invariant_propositions=False,
+    )
+    assert isinstance(analysis_index_resume, dict)
+    assert analysis_index_resume.get("hydrated_paths_count") == 1
+
+
+def test_build_analysis_index_resumes_hydrated_payload(tmp_path: Path) -> None:
+    da = _load()
+    module_path = tmp_path / "sample.py"
+    _write(
+        module_path,
+        "class C:\n"
+        "    def f(self, x: int) -> int:\n"
+        "        return x\n",
+    )
+    parse_failure_witnesses: list[dict[str, object]] = []
+    progress_payloads: list[dict[str, object]] = []
+    baseline = da._build_analysis_index(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=False,
+        transparent_decorators=set(),
+        parse_failure_witnesses=parse_failure_witnesses,
+        on_progress=progress_payloads.append,
+    )
+    assert progress_payloads
+    resume_payload = progress_payloads[-1]
+    assert resume_payload.get("hydrated_paths_count") == 1
+    resumed_progress_payloads: list[dict[str, object]] = []
+    resumed = da._build_analysis_index(
+        [module_path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=False,
+        transparent_decorators=set(),
+        parse_failure_witnesses=[],
+        resume_payload=resume_payload,
+        on_progress=resumed_progress_payloads.append,
+    )
+    assert resumed_progress_payloads
+    assert resumed_progress_payloads[-1].get("hydrated_paths_count") == 1
+    assert baseline.by_qual.keys() == resumed.by_qual.keys()
+    assert baseline.symbol_table.imports == resumed.symbol_table.imports
+    assert baseline.class_index.keys() == resumed.class_index.keys()
+
+
 def test_build_collection_resume_rejects_path_order_regression() -> None:
     da = _load()
     with pytest.raises(NeverThrown):
