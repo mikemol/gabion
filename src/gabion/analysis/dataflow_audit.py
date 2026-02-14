@@ -497,6 +497,10 @@ class ReportProjectionSpec(Generic[_ReportSectionValue]):
     ]
     render: Callable[[_ReportSectionValue], list[str]]
     violation_extract: Callable[[_ReportSectionValue], list[str]]
+    preview_build: Callable[
+        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
+        _ReportSectionValue | None,
+    ] | None = None
 
 
 def _report_section_identity_render(lines: list[str]) -> list[str]:
@@ -505,6 +509,114 @@ def _report_section_identity_render(lines: list[str]) -> list[str]:
 
 def _report_section_no_violations(_lines: list[str]) -> list[str]:
     return []
+
+
+def _preview_components_section(
+    report: ReportCarrier,
+    groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    path_count = len(groups_by_path)
+    function_count = sum(len(groups) for groups in groups_by_path.values())
+    bundle_alternatives = 0
+    for groups in groups_by_path.values():
+        check_deadline()
+        for bundles in groups.values():
+            check_deadline()
+            bundle_alternatives += len(bundles)
+    lines = [
+        "Component preview (provisional).",
+        f"- `paths_with_groups`: `{path_count}`",
+        f"- `functions_with_groups`: `{function_count}`",
+        f"- `bundle_alternatives`: `{bundle_alternatives}`",
+    ]
+    if report.forest.nodes:
+        file_paths = ordered_or_sorted(
+            groups_by_path,
+            source="_preview_components_section.file_paths",
+        )
+        projection = _bundle_projection_from_forest(report.forest, file_paths=file_paths)
+        components = _connected_components(projection.nodes, projection.adj)
+        lines.append(f"- `component_count`: `{len(components)}`")
+    return lines
+
+
+def _known_violation_lines(
+    report: ReportCarrier,
+) -> list[str]:
+    check_deadline()
+    lines: list[str] = []
+    lines.extend(_runtime_obligation_violation_lines(report.resumability_obligations))
+    lines.extend(
+        _runtime_obligation_violation_lines(report.incremental_report_obligations)
+    )
+    lines.extend(_parse_failure_violation_lines(report.parse_failure_witnesses))
+    lines.extend(report.decision_warnings)
+    lines.extend(report.fingerprint_warnings)
+    seen: set[str] = set()
+    unique: list[str] = []
+    for line in lines:
+        check_deadline()
+        if line in seen:
+            continue
+        seen.add(line)
+        unique.append(line)
+    return unique
+
+
+def _preview_violations_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    known = _known_violation_lines(report)
+    lines = [
+        "Violations preview (provisional).",
+        f"- `known_violations`: `{len(known)}`",
+    ]
+    if not known:
+        lines.append("- none observed yet")
+        return lines
+    lines.append("Top known violations:")
+    for line in known[:10]:
+        check_deadline()
+        lines.append(f"- {line}")
+    return lines
+
+
+def _preview_type_flow_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    lines = [
+        "Type-flow audit preview (provisional).",
+        f"- `type_suggestions`: `{len(report.type_suggestions)}`",
+        f"- `type_ambiguities`: `{len(report.type_ambiguities)}`",
+        f"- `type_callsite_evidence`: `{len(report.type_callsite_evidence)}`",
+    ]
+    if report.type_ambiguities:
+        lines.append(f"- `sample_type_ambiguity`: `{report.type_ambiguities[0]}`")
+    return lines
+
+
+def _preview_deadline_summary_section(
+    report: ReportCarrier,
+    _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+) -> list[str]:
+    check_deadline()
+    if not report.deadline_obligations:
+        return [
+            "Deadline propagation preview (provisional).",
+            "- no deadline obligations yet",
+        ]
+    summary = _summarize_deadline_obligations(
+        report.deadline_obligations,
+        forest=report.forest,
+    )
+    lines = ["Deadline propagation preview (provisional)."]
+    lines.extend(summary[:20])
+    return lines
 
 
 def _report_section_text(
@@ -526,6 +638,10 @@ def _report_section_spec(
     section_id: str,
     phase: ReportProjectionPhase,
     deps: tuple[str, ...] = (),
+    preview_build: Callable[
+        [ReportCarrier, dict[Path, dict[str, list[set[str]]]]],
+        list[str] | None,
+    ] | None = None,
 ) -> ReportProjectionSpec[list[str]]:
     return ReportProjectionSpec[list[str]](
         section_id=section_id,
@@ -538,17 +654,38 @@ def _report_section_spec(
         ),
         render=_report_section_identity_render,
         violation_extract=_report_section_no_violations,
+        preview_build=preview_build,
     )
 
 
 _REPORT_PROJECTION_SPECS: tuple[ReportProjectionSpec[list[str]], ...] = (
     _report_section_spec(section_id="intro", phase="collection"),
-    _report_section_spec(section_id="components", phase="forest", deps=("intro",)),
-    _report_section_spec(section_id="violations", phase="post", deps=("components",)),
-    _report_section_spec(section_id="type_flow", phase="edge", deps=("components",)),
+    _report_section_spec(
+        section_id="components",
+        phase="forest",
+        deps=("intro",),
+        preview_build=_preview_components_section,
+    ),
+    _report_section_spec(
+        section_id="violations",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_violations_section,
+    ),
+    _report_section_spec(
+        section_id="type_flow",
+        phase="edge",
+        deps=("components",),
+        preview_build=_preview_type_flow_section,
+    ),
     _report_section_spec(section_id="constant_smells", phase="edge", deps=("type_flow",)),
     _report_section_spec(section_id="unused_arg_smells", phase="edge", deps=("type_flow",)),
-    _report_section_spec(section_id="deadline_summary", phase="post", deps=("components",)),
+    _report_section_spec(
+        section_id="deadline_summary",
+        phase="post",
+        deps=("components",),
+        preview_build=_preview_deadline_summary_section,
+    ),
     _report_section_spec(
         section_id="resumability_obligations",
         phase="post",
@@ -619,6 +756,7 @@ def report_projection_spec_rows() -> list[JSONObject]:
                 "section_id": spec.section_id,
                 "phase": spec.phase,
                 "deps": list(spec.deps),
+                "has_preview": spec.preview_build is not None,
             }
         )
     return rows
@@ -629,13 +767,17 @@ def project_report_sections(
     report: ReportCarrier,
     *,
     max_phase: ReportProjectionPhase | None = None,
+    include_previews: bool = False,
+    preview_only: bool = False,
 ) -> dict[str, list[str]]:
-    rendered, _ = _emit_report(
-        groups_by_path,
-        max_components=10,
-        report=report,
-    )
-    extracted = extract_report_sections(rendered)
+    extracted: dict[str, list[str]] = {}
+    if not preview_only:
+        rendered, _ = _emit_report(
+            groups_by_path,
+            max_components=10,
+            report=report,
+        )
+        extracted = extract_report_sections(rendered)
     selected: dict[str, list[str]] = {}
     max_rank: int | None = None
     if max_phase is not None:
@@ -644,6 +786,10 @@ def project_report_sections(
         if max_rank is not None and report_projection_phase_rank(spec.phase) > max_rank:
             continue
         lines = extracted.get(spec.section_id, [])
+        if not lines and include_previews and spec.preview_build is not None:
+            preview = spec.preview_build(report, groups_by_path)
+            if preview:
+                lines = spec.render(preview)
         if lines:
             selected[spec.section_id] = lines
     return selected

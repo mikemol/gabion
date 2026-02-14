@@ -1669,6 +1669,40 @@ def _collection_components_preview_lines(
     ]
 
 
+def _groups_by_path_from_collection_resume(
+    collection_resume: Mapping[str, JSONValue],
+) -> dict[Path, dict[str, list[set[str]]]]:
+    check_deadline()
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+    raw_groups = collection_resume.get("groups_by_path")
+    if not isinstance(raw_groups, Mapping):
+        return groups_by_path
+    for raw_path, raw_path_groups in raw_groups.items():
+        check_deadline()
+        if not isinstance(raw_path, str) or not isinstance(raw_path_groups, Mapping):
+            continue
+        path_groups: dict[str, list[set[str]]] = {}
+        for raw_qual, raw_bundles in raw_path_groups.items():
+            check_deadline()
+            if not isinstance(raw_qual, str):
+                continue
+            if not isinstance(raw_bundles, Sequence) or isinstance(
+                raw_bundles, (str, bytes)
+            ):
+                continue
+            bundles: list[set[str]] = []
+            for raw_bundle in raw_bundles:
+                check_deadline()
+                if not isinstance(raw_bundle, Sequence) or isinstance(
+                    raw_bundle, (str, bytes)
+                ):
+                    continue
+                bundles.append({entry for entry in raw_bundle if isinstance(entry, str)})
+            path_groups[raw_qual] = bundles
+        groups_by_path[Path(raw_path)] = path_groups
+    return groups_by_path
+
+
 def _incremental_progress_obligations(
     *,
     analysis_state: str,
@@ -2149,6 +2183,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
     projection_rows: list[JSONObject] = (
         report_projection_spec_rows() if report_output_path else []
     )
+    enable_phase_projection_checkpoints = False
     phase_checkpoint_state: JSONObject = {}
     last_collection_resume_payload: JSONObject | None = None
     raw_initial_paths = payload.get("paths")
@@ -2551,8 +2586,27 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 collection_resume=persisted_progress_payload,
                 total_files=analysis_resume_total_files,
             )
-            sections["components"] = _collection_components_preview_lines(
-                collection_resume=persisted_progress_payload,
+            if enable_phase_projection_checkpoints:
+                preview_groups_by_path = _groups_by_path_from_collection_resume(
+                    persisted_progress_payload
+                )
+                preview_report = ReportCarrier(
+                    forest=forest,
+                    parse_failure_witnesses=[],
+                )
+                preview_sections = project_report_sections(
+                    preview_groups_by_path,
+                    preview_report,
+                    max_phase="post",
+                    include_previews=True,
+                    preview_only=True,
+                )
+                sections.update(preview_sections)
+            sections.setdefault(
+                "components",
+                _collection_components_preview_lines(
+                    collection_resume=persisted_progress_payload,
+                ),
             )
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state="analysis_collection_in_progress",
@@ -2649,6 +2703,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 groups_by_path,
                 report_carrier,
                 max_phase=phase,
+                include_previews=True,
             )
             sections, journal_reason = _load_report_section_journal(
                 path=report_section_journal_path,
@@ -3565,6 +3620,27 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     resolved_sections["components"] = _collection_components_preview_lines(
                         collection_resume=timeout_collection_resume_payload,
                     )
+                if (
+                    enable_phase_projection_checkpoints
+                    and timeout_collection_resume_payload is not None
+                ):
+                    preview_groups_by_path = _groups_by_path_from_collection_resume(
+                        timeout_collection_resume_payload
+                    )
+                    preview_report = ReportCarrier(
+                        forest=forest,
+                        parse_failure_witnesses=[],
+                    )
+                    preview_sections = project_report_sections(
+                        preview_groups_by_path,
+                        preview_report,
+                        max_phase="post",
+                        include_previews=True,
+                        preview_only=True,
+                    )
+                    for section_id, section_lines in preview_sections.items():
+                        check_deadline()
+                        resolved_sections.setdefault(section_id, section_lines)
                 if "intro" not in resolved_sections:
                     resolved_sections["intro"] = [
                         "Collection bootstrap checkpoint (provisional).",
