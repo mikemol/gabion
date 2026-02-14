@@ -14,9 +14,38 @@ T = TypeVar("T")
 _CALLER_SORTED_ENV = "GABION_CALLER_SORTED"
 _ORDER_POLICY_ENV = "GABION_ORDER_POLICY"
 _ORDER_TELEMETRY_ENV = "GABION_ORDER_TELEMETRY"
+_ORDER_CANONICAL_ALLOWLIST_ENV = "GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"
+_CANONICAL_SORT_SOURCE_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "_normalize_predicates.cleaned",
+        "_normalize_group_fields.fields",
+        "_normalize_value.dict_keys",
+        "apply_spec.sort[",
+        "canonical_type_key.",
+        "canonical_type_key_with_constructor.",
+        "build_synth_registry.candidates",
+        "synth_registry_payload.tails",
+        "synth_registry_payload.base_keys",
+        "synth_registry_payload.ctor_keys",
+        "synth_registry_payload.registry.primes",
+        "synth_registry_payload.registry.bit_positions",
+        "_apply_registry_payload.registry.primes",
+        "bundle_fingerprint_setlike.keys",
+        "build_fingerprint_registry.constructor_keys",
+        "build_fingerprint_registry.base_keys",
+        "build_fingerprint_registry.spec_entries",
+        "fingerprint_to_type_keys_with_remainder.registry.primes",
+    }
+)
 _ORDER_POLICY_CONTEXT: ContextVar["OrderPolicy | None"] = ContextVar(
     "gabion_order_policy",
     default=None,
+)
+_ORDER_CANONICAL_SOURCE_ALLOWLIST_CONTEXT: ContextVar[frozenset[str] | None] = (
+    ContextVar(
+        "gabion_order_canonical_source_allowlist",
+        default=None,
+    )
 )
 _ORDER_TELEMETRY_CONTEXT: ContextVar[list[dict[str, object]] | None] = ContextVar(
     "gabion_order_telemetry",
@@ -64,6 +93,11 @@ def ordered_or_sorted(
         require_sorted=require_sorted,
     )
     if resolved_policy is OrderPolicy.SORT:
+        _validate_canonical_sort_allowlist(
+            source=source,
+            policy=policy,
+            require_sorted=require_sorted,
+        )
         return sorted(items, key=key, reverse=reverse)
     if resolved_policy is OrderPolicy.TRUST:
         return items
@@ -138,6 +172,18 @@ def order_policy(policy: OrderPolicy | str) -> Iterator[None]:
 
 
 @contextmanager
+def canonical_sort_allowlist(*source_prefixes: str) -> Iterator[None]:
+    cleaned = frozenset(
+        prefix.strip() for prefix in source_prefixes if isinstance(prefix, str) and prefix.strip()
+    )
+    token = _ORDER_CANONICAL_SOURCE_ALLOWLIST_CONTEXT.set(cleaned)
+    try:
+        yield
+    finally:
+        _ORDER_CANONICAL_SOURCE_ALLOWLIST_CONTEXT.reset(token)
+
+
+@contextmanager
 def order_telemetry() -> Iterator[list[dict[str, object]]]:
     events: list[dict[str, object]] = []
     token = _ORDER_TELEMETRY_CONTEXT.set(events)
@@ -167,6 +213,49 @@ def _caller_sorted_mode_enabled() -> bool:
 
 def _order_telemetry_enabled() -> bool:
     return os.environ.get(_ORDER_TELEMETRY_ENV) == "1"
+
+
+def _canonical_allowlist_enforced() -> bool:
+    raw = os.environ.get(_ORDER_CANONICAL_ALLOWLIST_ENV)
+    if raw is None:
+        return False
+    value = raw.strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _validate_canonical_sort_allowlist(
+    *,
+    source: str,
+    policy: OrderPolicy | str | None,
+    require_sorted: bool | None,
+) -> None:
+    if not _canonical_allowlist_enforced():
+        return
+    if not _explicit_sort_requested(policy=policy, require_sorted=require_sorted):
+        return
+    allowlist = set(_CANONICAL_SORT_SOURCE_ALLOWLIST)
+    scoped_allowlist = _ORDER_CANONICAL_SOURCE_ALLOWLIST_CONTEXT.get()
+    if scoped_allowlist:
+        allowlist.update(scoped_allowlist)
+    if any(source == prefix or source.startswith(prefix) for prefix in allowlist):
+        return
+    never(
+        "canonical sort source not allowlisted",
+        source=source,
+        allowlisted=sorted(allowlist),
+    )
+
+
+def _explicit_sort_requested(
+    *,
+    policy: OrderPolicy | str | None,
+    require_sorted: bool | None,
+) -> bool:
+    if require_sorted is False:
+        return True
+    if policy is None:
+        return False
+    return _normalize_policy(policy) is OrderPolicy.SORT
 
 
 def _normalize_policy(policy: OrderPolicy | str) -> OrderPolicy:

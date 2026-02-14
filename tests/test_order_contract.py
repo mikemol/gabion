@@ -7,6 +7,7 @@ import pytest
 from gabion.exceptions import NeverThrown
 from gabion.order_contract import (
     OrderPolicy,
+    canonical_sort_allowlist,
     get_order_telemetry_events,
     order_policy,
     order_telemetry,
@@ -103,3 +104,55 @@ def test_ordered_or_sorted_check_records_global_telemetry_env() -> None:
             os.environ.pop("GABION_ORDER_TELEMETRY", None)
         else:
             os.environ["GABION_ORDER_TELEMETRY"] = previous
+
+
+def test_ordered_or_sorted_enforces_canonical_sort_allowlist() -> None:
+    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+    try:
+        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
+        with pytest.raises(NeverThrown):
+            ordered_or_sorted(
+                ["b", "a"],
+                source="non_canonical_source",
+                policy=OrderPolicy.SORT,
+            )
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
+        else:
+            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+
+
+def test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source() -> None:
+    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+    try:
+        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
+        ordered = ordered_or_sorted(
+            ["b", "a"],
+            source="canonical_type_key.union_parts",
+            policy=OrderPolicy.SORT,
+        )
+        assert ordered == ["a", "b"]
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
+        else:
+            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+
+
+def test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope() -> None:
+    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+    try:
+        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
+        with canonical_sort_allowlist("scoped_sort_prefix"):
+            ordered = ordered_or_sorted(
+                ["b", "a"],
+                source="scoped_sort_prefix.dynamic",
+                policy=OrderPolicy.SORT,
+            )
+        assert ordered == ["a", "b"]
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
+        else:
+            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
