@@ -6877,43 +6877,115 @@ def _build_analysis_index(
     external_filter: bool,
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
+    resume_payload: Mapping[str, JSONValue] | None = None,
+    on_progress: Callable[[JSONObject], None] | None = None,
 ) -> AnalysisIndex:
     check_deadline()
-    raw_function_index, raw_symbol_table, raw_class_index = _build_module_artifacts(
+    ordered_paths = _iter_monotonic_paths(
         paths,
-        specs=(
-            cast(
-                _ModuleArtifactSpec[object, object],
-                _function_index_module_artifact_spec(
-                    project_root=project_root,
-                    ignore_params=ignore_params,
-                    strictness=strictness,
-                    transparent_decorators=transparent_decorators,
-                ),
-            ),
-            cast(
-                _ModuleArtifactSpec[object, object],
-                _symbol_table_module_artifact_spec(
-                    project_root=project_root,
-                    external_filter=external_filter,
-                ),
-            ),
-            cast(
-                _ModuleArtifactSpec[object, object],
-                _class_index_module_artifact_spec(project_root=project_root),
-            ),
-        ),
-        parse_failure_witnesses=parse_failure_witnesses,
+        source="_build_analysis_index.paths",
     )
-    by_name, by_qual = cast(
-        tuple[dict[str, list[FunctionInfo]], dict[str, FunctionInfo]],
-        raw_function_index,
+    (
+        hydrated_paths,
+        by_qual,
+        symbol_table,
+        class_index,
+    ) = _load_analysis_index_resume_payload(
+        payload=resume_payload,
+        file_paths=ordered_paths,
     )
-    symbol_table = cast(SymbolTable, raw_symbol_table)
-    class_index = cast(dict[str, ClassInfo], raw_class_index)
+    symbol_table.external_filter = external_filter
+    function_index_acc = _FunctionIndexAccumulator(
+        by_name=defaultdict(list),
+        by_qual={},
+    )
+    for qual in ordered_or_sorted(
+        by_qual,
+        source="_build_analysis_index.resume.by_qual",
+    ):
+        check_deadline()
+        info = by_qual[qual]
+        function_index_acc.by_qual[qual] = info
+        function_index_acc.by_name[info.name].append(info)
+    progress_since_emit = 0
+
+    def _emit_index_progress(*, force: bool = False) -> None:
+        nonlocal progress_since_emit
+        if on_progress is None:
+            return
+        progress_since_emit += 1
+        if (
+            not force
+            and progress_since_emit < _ANALYSIS_INDEX_PROGRESS_EMIT_INTERVAL
+        ):
+            return
+        progress_since_emit = 0
+        on_progress(
+            _serialize_analysis_index_resume_payload(
+                hydrated_paths=hydrated_paths,
+                by_qual=function_index_acc.by_qual,
+                symbol_table=symbol_table,
+                class_index=class_index,
+            )
+        )
+
+    try:
+        for path in ordered_paths:
+            check_deadline()
+            if path in hydrated_paths:
+                continue
+            try:
+                tree = _parse_module_source(path)
+            except _PARSE_MODULE_ERROR_TYPES as exc:
+                _record_parse_failure_witness(
+                    sink=parse_failure_witnesses,
+                    path=path,
+                    stage=_ParseModuleStage.FUNCTION_INDEX,
+                    error=exc,
+                )
+                _record_parse_failure_witness(
+                    sink=parse_failure_witnesses,
+                    path=path,
+                    stage=_ParseModuleStage.SYMBOL_TABLE,
+                    error=exc,
+                )
+                _record_parse_failure_witness(
+                    sink=parse_failure_witnesses,
+                    path=path,
+                    stage=_ParseModuleStage.CLASS_INDEX,
+                    error=exc,
+                )
+                continue
+            _accumulate_function_index_for_tree(
+                function_index_acc,
+                path,
+                tree,
+                project_root=project_root,
+                ignore_params=ignore_params,
+                strictness=strictness,
+                transparent_decorators=transparent_decorators,
+            )
+            _accumulate_symbol_table_for_tree(
+                symbol_table,
+                path,
+                tree,
+                project_root=project_root,
+            )
+            _accumulate_class_index_for_tree(
+                class_index,
+                path,
+                tree,
+                project_root=project_root,
+            )
+            hydrated_paths.add(path)
+            _emit_index_progress()
+    except TimeoutExceeded:
+        _emit_index_progress(force=True)
+        raise
+    _emit_index_progress(force=True)
     return AnalysisIndex(
-        by_name=by_name,
-        by_qual=by_qual,
+        by_name=dict(function_index_acc.by_name),
+        by_qual=function_index_acc.by_qual,
         symbol_table=symbol_table,
         class_index=class_index,
     )
@@ -12264,6 +12336,7 @@ _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION = 2
 _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 32
 _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL = 64
 _COLLECTION_PROGRESS_EMIT_INTERVAL = 8
+_ANALYSIS_INDEX_PROGRESS_EMIT_INTERVAL = 4
 
 
 def _analysis_collection_resume_path_key(path: Path) -> str:
@@ -12481,6 +12554,412 @@ def _deserialize_call_args_list(payload: Sequence[JSONValue]) -> list[CallArgs]:
         if call is not None:
             call_args.append(call)
     return call_args
+
+
+def _serialize_function_info_for_resume(info: FunctionInfo) -> JSONObject:
+    payload: JSONObject = {
+        "name": info.name,
+        "qual": info.qual,
+        "path": str(info.path),
+        "params": list(info.params),
+        "annots": {param: info.annots[param] for param in sorted(info.annots)},
+        "calls": _serialize_call_args_list(info.calls),
+        "unused_params": sorted(info.unused_params),
+        "defaults": sorted(info.defaults),
+        "transparent": bool(info.transparent),
+        "class_name": info.class_name,
+        "scope": list(info.scope),
+        "lexical_scope": list(info.lexical_scope),
+        "decision_params": sorted(info.decision_params),
+        "value_decision_params": sorted(info.value_decision_params),
+        "value_decision_reasons": sorted(info.value_decision_reasons),
+        "positional_params": list(info.positional_params),
+        "kwonly_params": list(info.kwonly_params),
+        "vararg": info.vararg,
+        "kwarg": info.kwarg,
+        "param_spans": {
+            param: [int(value) for value in info.param_spans[param]]
+            for param in sorted(info.param_spans)
+        },
+    }
+    if info.function_span is not None:
+        payload["function_span"] = [int(value) for value in info.function_span]
+    return payload
+
+
+def _deserialize_function_info_for_resume(
+    payload: Mapping[str, JSONValue],
+    *,
+    allowed_paths: Mapping[str, Path],
+) -> FunctionInfo | None:
+    name = payload.get("name")
+    qual = payload.get("qual")
+    path_key = payload.get("path")
+    if (
+        not isinstance(name, str)
+        or not isinstance(qual, str)
+        or not isinstance(path_key, str)
+    ):
+        return None
+    path = allowed_paths.get(path_key)
+    if path is None:
+        return None
+    raw_params = payload.get("params")
+    if not isinstance(raw_params, Sequence) or isinstance(raw_params, (str, bytes)):
+        return None
+    params = [entry for entry in raw_params if isinstance(entry, str)]
+    raw_annots = payload.get("annots")
+    annots: dict[str, str | None] = {}
+    if isinstance(raw_annots, Mapping):
+        for param, annot in raw_annots.items():
+            check_deadline()
+            if not isinstance(param, str):
+                continue
+            if annot is None or isinstance(annot, str):
+                annots[param] = annot
+    raw_calls = payload.get("calls")
+    calls = (
+        _deserialize_call_args_list(raw_calls)
+        if isinstance(raw_calls, Sequence)
+        else []
+    )
+    raw_unused_params = payload.get("unused_params")
+    unused_params = (
+        {entry for entry in raw_unused_params if isinstance(entry, str)}
+        if isinstance(raw_unused_params, Sequence)
+        else set()
+    )
+    raw_defaults = payload.get("defaults")
+    defaults = (
+        {entry for entry in raw_defaults if isinstance(entry, str)}
+        if isinstance(raw_defaults, Sequence)
+        else set()
+    )
+    class_name = payload.get("class_name")
+    if class_name is not None and not isinstance(class_name, str):
+        class_name = None
+    raw_scope = payload.get("scope")
+    scope = (
+        tuple(entry for entry in raw_scope if isinstance(entry, str))
+        if isinstance(raw_scope, Sequence)
+        else ()
+    )
+    raw_lexical_scope = payload.get("lexical_scope")
+    lexical_scope = (
+        tuple(entry for entry in raw_lexical_scope if isinstance(entry, str))
+        if isinstance(raw_lexical_scope, Sequence)
+        else ()
+    )
+    raw_decision_params = payload.get("decision_params")
+    decision_params = (
+        {entry for entry in raw_decision_params if isinstance(entry, str)}
+        if isinstance(raw_decision_params, Sequence)
+        else set()
+    )
+    raw_value_decision_params = payload.get("value_decision_params")
+    value_decision_params = (
+        {entry for entry in raw_value_decision_params if isinstance(entry, str)}
+        if isinstance(raw_value_decision_params, Sequence)
+        else set()
+    )
+    raw_value_decision_reasons = payload.get("value_decision_reasons")
+    value_decision_reasons = (
+        {entry for entry in raw_value_decision_reasons if isinstance(entry, str)}
+        if isinstance(raw_value_decision_reasons, Sequence)
+        else set()
+    )
+    raw_positional_params = payload.get("positional_params")
+    positional_params = (
+        tuple(entry for entry in raw_positional_params if isinstance(entry, str))
+        if isinstance(raw_positional_params, Sequence)
+        else ()
+    )
+    raw_kwonly_params = payload.get("kwonly_params")
+    kwonly_params = (
+        tuple(entry for entry in raw_kwonly_params if isinstance(entry, str))
+        if isinstance(raw_kwonly_params, Sequence)
+        else ()
+    )
+    raw_vararg = payload.get("vararg")
+    vararg = raw_vararg if isinstance(raw_vararg, str) else None
+    raw_kwarg = payload.get("kwarg")
+    kwarg = raw_kwarg if isinstance(raw_kwarg, str) else None
+    param_spans: dict[str, tuple[int, int, int, int]] = {}
+    raw_param_spans = payload.get("param_spans")
+    if isinstance(raw_param_spans, Mapping):
+        for param, raw_span in raw_param_spans.items():
+            check_deadline()
+            if not isinstance(param, str):
+                continue
+            if not isinstance(raw_span, Sequence) or len(raw_span) != 4:
+                continue
+            try:
+                span = tuple(int(value) for value in raw_span)
+            except (TypeError, ValueError):
+                continue
+            param_spans[param] = cast(tuple[int, int, int, int], span)
+    function_span: tuple[int, int, int, int] | None = None
+    raw_function_span = payload.get("function_span")
+    if isinstance(raw_function_span, Sequence) and len(raw_function_span) == 4:
+        try:
+            span = tuple(int(value) for value in raw_function_span)
+        except (TypeError, ValueError):
+            span = None
+        if span is not None:
+            function_span = cast(tuple[int, int, int, int], span)
+    return FunctionInfo(
+        name=name,
+        qual=qual,
+        path=path,
+        params=params,
+        annots=annots,
+        calls=calls,
+        unused_params=unused_params,
+        defaults=defaults,
+        transparent=bool(payload.get("transparent", True)),
+        class_name=cast(str | None, class_name),
+        scope=scope,
+        lexical_scope=lexical_scope,
+        decision_params=decision_params,
+        value_decision_params=value_decision_params,
+        value_decision_reasons=value_decision_reasons,
+        positional_params=positional_params,
+        kwonly_params=kwonly_params,
+        vararg=vararg,
+        kwarg=kwarg,
+        param_spans=param_spans,
+        function_span=function_span,
+    )
+
+
+def _serialize_class_info_for_resume(info: ClassInfo) -> JSONObject:
+    return {
+        "qual": info.qual,
+        "module": info.module,
+        "bases": list(info.bases),
+        "methods": sorted(info.methods),
+    }
+
+
+def _deserialize_class_info_for_resume(
+    payload: Mapping[str, JSONValue],
+) -> ClassInfo | None:
+    qual = payload.get("qual")
+    module = payload.get("module")
+    if not isinstance(qual, str) or not isinstance(module, str):
+        return None
+    raw_bases = payload.get("bases")
+    bases = (
+        [entry for entry in raw_bases if isinstance(entry, str)]
+        if isinstance(raw_bases, Sequence)
+        else []
+    )
+    raw_methods = payload.get("methods")
+    methods = (
+        {entry for entry in raw_methods if isinstance(entry, str)}
+        if isinstance(raw_methods, Sequence)
+        else set()
+    )
+    return ClassInfo(
+        qual=qual,
+        module=module,
+        bases=bases,
+        methods=methods,
+    )
+
+
+def _serialize_symbol_table_for_resume(table: SymbolTable) -> JSONObject:
+    return {
+        "imports": [
+            [module, name, fqn]
+            for (module, name), fqn in ordered_or_sorted(
+                table.imports.items(),
+                source="_serialize_symbol_table_for_resume.imports",
+            )
+        ],
+        "internal_roots": ordered_or_sorted(
+            table.internal_roots,
+            source="_serialize_symbol_table_for_resume.internal_roots",
+        ),
+        "external_filter": bool(table.external_filter),
+        "star_imports": {
+            module: ordered_or_sorted(
+                names,
+                source=f"_serialize_symbol_table_for_resume.star_imports.{module}",
+            )
+            for module, names in ordered_or_sorted(
+                table.star_imports.items(),
+                source="_serialize_symbol_table_for_resume.star_imports",
+            )
+        },
+        "module_exports": {
+            module: ordered_or_sorted(
+                names,
+                source=f"_serialize_symbol_table_for_resume.module_exports.{module}",
+            )
+            for module, names in ordered_or_sorted(
+                table.module_exports.items(),
+                source="_serialize_symbol_table_for_resume.module_exports",
+            )
+        },
+        "module_export_map": {
+            module: {
+                name: mapping[name]
+                for name in ordered_or_sorted(
+                    mapping,
+                    source=(
+                        "_serialize_symbol_table_for_resume.module_export_map."
+                        f"{module}"
+                    ),
+                )
+            }
+            for module, mapping in ordered_or_sorted(
+                table.module_export_map.items(),
+                source="_serialize_symbol_table_for_resume.module_export_map",
+            )
+        },
+    }
+
+
+def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> SymbolTable:
+    table = SymbolTable(external_filter=bool(payload.get("external_filter", True)))
+    raw_imports = payload.get("imports")
+    if isinstance(raw_imports, Sequence):
+        for entry in raw_imports:
+            check_deadline()
+            if not isinstance(entry, Sequence) or len(entry) != 3:
+                continue
+            module, name, fqn = entry
+            if (
+                isinstance(module, str)
+                and isinstance(name, str)
+                and isinstance(fqn, str)
+            ):
+                table.imports[(module, name)] = fqn
+    raw_internal_roots = payload.get("internal_roots")
+    if isinstance(raw_internal_roots, Sequence):
+        for entry in raw_internal_roots:
+            check_deadline()
+            if isinstance(entry, str):
+                table.internal_roots.add(entry)
+    raw_star_imports = payload.get("star_imports")
+    if isinstance(raw_star_imports, Mapping):
+        for module, raw_names in raw_star_imports.items():
+            check_deadline()
+            if not isinstance(module, str) or not isinstance(raw_names, Sequence):
+                continue
+            names = {name for name in raw_names if isinstance(name, str)}
+            table.star_imports[module] = names
+    raw_module_exports = payload.get("module_exports")
+    if isinstance(raw_module_exports, Mapping):
+        for module, raw_names in raw_module_exports.items():
+            check_deadline()
+            if not isinstance(module, str) or not isinstance(raw_names, Sequence):
+                continue
+            names = {name for name in raw_names if isinstance(name, str)}
+            table.module_exports[module] = names
+    raw_module_export_map = payload.get("module_export_map")
+    if isinstance(raw_module_export_map, Mapping):
+        for module, raw_mapping in raw_module_export_map.items():
+            check_deadline()
+            if not isinstance(module, str) or not isinstance(raw_mapping, Mapping):
+                continue
+            mapping: dict[str, str] = {}
+            for name, mapped in raw_mapping.items():
+                check_deadline()
+                if isinstance(name, str) and isinstance(mapped, str):
+                    mapping[name] = mapped
+            table.module_export_map[module] = mapping
+    return table
+
+
+def _serialize_analysis_index_resume_payload(
+    *,
+    hydrated_paths: set[Path],
+    by_qual: Mapping[str, FunctionInfo],
+    symbol_table: SymbolTable,
+    class_index: Mapping[str, ClassInfo],
+) -> JSONObject:
+    hydrated_path_keys = sorted(
+        _analysis_collection_resume_path_key(path) for path in hydrated_paths
+    )
+    return {
+        "format_version": 1,
+        "phase": "analysis_index_hydration",
+        "hydrated_paths": hydrated_path_keys,
+        "hydrated_paths_count": len(hydrated_path_keys),
+        "function_count": len(by_qual),
+        "class_count": len(class_index),
+        "functions_by_qual": {
+            qual: _serialize_function_info_for_resume(info)
+            for qual, info in ordered_or_sorted(
+                by_qual.items(),
+                source="_serialize_analysis_index_resume_payload.functions_by_qual",
+            )
+        },
+        "symbol_table": _serialize_symbol_table_for_resume(symbol_table),
+        "class_index": {
+            qual: _serialize_class_info_for_resume(class_info)
+            for qual, class_info in ordered_or_sorted(
+                class_index.items(),
+                source="_serialize_analysis_index_resume_payload.class_index",
+            )
+        },
+    }
+
+
+def _load_analysis_index_resume_payload(
+    *,
+    payload: Mapping[str, JSONValue] | None,
+    file_paths: Sequence[Path],
+) -> tuple[set[Path], dict[str, FunctionInfo], SymbolTable, dict[str, ClassInfo]]:
+    hydrated_paths: set[Path] = set()
+    by_qual: dict[str, FunctionInfo] = {}
+    symbol_table = SymbolTable()
+    class_index: dict[str, ClassInfo] = {}
+    if not isinstance(payload, Mapping):
+        return hydrated_paths, by_qual, symbol_table, class_index
+    if payload.get("format_version") != 1:
+        return hydrated_paths, by_qual, symbol_table, class_index
+    allowed_paths = {
+        _analysis_collection_resume_path_key(path): path for path in file_paths
+    }
+    raw_hydrated_paths = payload.get("hydrated_paths")
+    if isinstance(raw_hydrated_paths, Sequence):
+        for raw_path in raw_hydrated_paths:
+            check_deadline()
+            if not isinstance(raw_path, str):
+                continue
+            path = allowed_paths.get(raw_path)
+            if path is not None:
+                hydrated_paths.add(path)
+    raw_functions = payload.get("functions_by_qual")
+    if isinstance(raw_functions, Mapping):
+        for qual, raw_info in raw_functions.items():
+            check_deadline()
+            if not isinstance(qual, str) or not isinstance(raw_info, Mapping):
+                continue
+            info = _deserialize_function_info_for_resume(
+                raw_info,
+                allowed_paths=allowed_paths,
+            )
+            if info is None:
+                continue
+            by_qual[qual] = info
+    raw_symbol_table = payload.get("symbol_table")
+    if isinstance(raw_symbol_table, Mapping):
+        symbol_table = _deserialize_symbol_table_for_resume(raw_symbol_table)
+    raw_class_index = payload.get("class_index")
+    if isinstance(raw_class_index, Mapping):
+        for qual, raw_class in raw_class_index.items():
+            check_deadline()
+            if not isinstance(qual, str) or not isinstance(raw_class, Mapping):
+                continue
+            class_info = _deserialize_class_info_for_resume(raw_class)
+            if class_info is None:
+                continue
+            class_index[qual] = class_info
+    return hydrated_paths, by_qual, symbol_table, class_index
 
 
 def _serialize_groups_for_resume(
@@ -12861,6 +13340,7 @@ def _build_analysis_collection_resume_payload(
     invariant_propositions: Sequence[InvariantProposition],
     completed_paths: set[Path],
     in_progress_scan_by_path: Mapping[Path, JSONObject],
+    analysis_index_resume: Mapping[str, JSONValue] | None = None,
 ) -> JSONObject:
     check_deadline()
     groups_payload: JSONObject = {}
@@ -12897,7 +13377,7 @@ def _build_analysis_collection_resume_payload(
             str(key): in_progress_scan_by_path[path][key]
             for key in in_progress_scan_by_path[path]
         }
-    return {
+    payload: JSONObject = {
         "format_version": _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION,
         "completed_paths": completed_keys,
         "groups_by_path": groups_payload,
@@ -12908,6 +13388,11 @@ def _build_analysis_collection_resume_payload(
             invariant_propositions
         ),
     }
+    if isinstance(analysis_index_resume, Mapping):
+        payload["analysis_index_resume"] = {
+            str(key): analysis_index_resume[key] for key in analysis_index_resume
+        }
+    return payload
 
 
 def build_analysis_collection_resume_seed(
@@ -12926,6 +13411,7 @@ def build_analysis_collection_resume_seed(
         invariant_propositions=[],
         completed_paths=set(),
         in_progress_scan_by_path=in_progress_scan_by_path,
+        analysis_index_resume=None,
     )
 
 
@@ -12941,6 +13427,7 @@ def _load_analysis_collection_resume_payload(
     list[InvariantProposition],
     set[Path],
     dict[Path, JSONObject],
+    JSONObject | None,
 ]:
     groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
     param_spans_by_path: dict[Path, dict[str, dict[str, tuple[int, int, int, int]]]] = {}
@@ -12948,6 +13435,7 @@ def _load_analysis_collection_resume_payload(
     invariant_propositions: list[InvariantProposition] = []
     completed_paths: set[Path] = set()
     in_progress_scan_by_path: dict[Path, JSONObject] = {}
+    analysis_index_resume: JSONObject | None = None
     if not isinstance(payload, Mapping):
         return (
             groups_by_path,
@@ -12956,6 +13444,7 @@ def _load_analysis_collection_resume_payload(
             invariant_propositions,
             completed_paths,
             in_progress_scan_by_path,
+            analysis_index_resume,
         )
     if payload.get("format_version") != _ANALYSIS_COLLECTION_RESUME_FORMAT_VERSION:
         return (
@@ -12965,6 +13454,7 @@ def _load_analysis_collection_resume_payload(
             invariant_propositions,
             completed_paths,
             in_progress_scan_by_path,
+            analysis_index_resume,
         )
     groups_payload = payload.get("groups_by_path")
     spans_payload = payload.get("param_spans_by_path")
@@ -12979,6 +13469,7 @@ def _load_analysis_collection_resume_payload(
             invariant_propositions,
             completed_paths,
             in_progress_scan_by_path,
+            analysis_index_resume,
         )
     if not isinstance(spans_payload, Mapping) or not isinstance(sites_payload, Mapping):
         return (
@@ -12988,6 +13479,7 @@ def _load_analysis_collection_resume_payload(
             invariant_propositions,
             completed_paths,
             in_progress_scan_by_path,
+            analysis_index_resume,
         )
     if in_progress_scan_payload is None:
         in_progress_scan_payload = {}
@@ -13027,6 +13519,12 @@ def _load_analysis_collection_resume_payload(
         if path is None or path in completed_paths:
             continue
         in_progress_scan_by_path[path] = {str(key): raw_state[key] for key in raw_state}
+    raw_analysis_index_resume = payload.get("analysis_index_resume")
+    if isinstance(raw_analysis_index_resume, Mapping):
+        analysis_index_resume = {
+            str(key): raw_analysis_index_resume[key]
+            for key in raw_analysis_index_resume
+        }
     return (
         groups_by_path,
         param_spans_by_path,
@@ -13034,6 +13532,7 @@ def _load_analysis_collection_resume_payload(
         invariant_propositions,
         completed_paths,
         in_progress_scan_by_path,
+        analysis_index_resume,
     )
 
 
@@ -13851,6 +14350,7 @@ def analyze_paths(
             invariant_propositions,
             completed_paths,
             in_progress_scan_by_path,
+            analysis_index_resume_payload,
         ) = _load_analysis_collection_resume_payload(
             payload=collection_resume,
             file_paths=file_paths,
@@ -13875,7 +14375,15 @@ def analyze_paths(
 
         def _require_analysis_index() -> AnalysisIndex:
             nonlocal analysis_index
+            nonlocal analysis_index_resume_payload
             if analysis_index is None:
+                def _on_analysis_index_progress(progress_payload: JSONObject) -> None:
+                    nonlocal analysis_index_resume_payload
+                    analysis_index_resume_payload = {
+                        str(key): progress_payload[key] for key in progress_payload
+                    }
+                    _emit_collection_progress(force=True)
+
                 analysis_index = _build_analysis_index(
                     file_paths,
                     project_root=config.project_root,
@@ -13884,6 +14392,12 @@ def analyze_paths(
                     external_filter=config.external_filter,
                     transparent_decorators=config.transparent_decorators,
                     parse_failure_witnesses=parse_failure_witnesses,
+                    resume_payload=analysis_index_resume_payload,
+                    on_progress=(
+                        _on_analysis_index_progress
+                        if on_collection_progress is not None
+                        else None
+                    ),
                 )
             return analysis_index
 
@@ -13908,6 +14422,7 @@ def analyze_paths(
                     invariant_propositions=invariant_propositions,
                     completed_paths=completed_paths,
                     in_progress_scan_by_path=in_progress_scan_by_path,
+                    analysis_index_resume=analysis_index_resume_payload,
                 )
             )
 

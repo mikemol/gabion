@@ -187,14 +187,24 @@ def _analysis_resume_state_chunk_name(path_key: str) -> str:
     return f"{hashlib.sha1(path_key.encode('utf-8')).hexdigest()}.json"
 
 
+def _analysis_resume_named_chunk_name(label: str) -> str:
+    return f"{hashlib.sha1(label.encode('utf-8')).hexdigest()}.json"
+
+
 def _externalize_collection_resume_states(
     *,
     path: Path,
     collection_resume: JSONObject,
 ) -> JSONObject:
     raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    if not isinstance(raw_in_progress, Mapping):
+    raw_analysis_index_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(raw_in_progress, Mapping) and not isinstance(
+        raw_analysis_index_resume,
+        Mapping,
+    ):
         return {str(key): collection_resume[key] for key in collection_resume}
+    if not isinstance(raw_in_progress, Mapping):
+        raw_in_progress = {}
     chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
     chunks_dir.mkdir(parents=True, exist_ok=True)
     used_chunk_names: set[str] = set()
@@ -255,6 +265,44 @@ def _externalize_collection_resume_states(
                 1 for key in raw_fn_names if isinstance(key, str)
             )
         in_progress_payload[raw_path] = summary
+    analysis_index_resume_payload: JSONValue | None = None
+    if isinstance(raw_analysis_index_resume, Mapping):
+        state_payload: JSONObject = {
+            str(key): raw_analysis_index_resume[key] for key in raw_analysis_index_resume
+        }
+        state_text = _canonical_json_text(state_payload)
+        if len(state_text.encode("utf-8")) <= _ANALYSIS_RESUME_INLINE_STATE_MAX_BYTES:
+            analysis_index_resume_payload = state_payload
+        else:
+            chunk_name = _analysis_resume_named_chunk_name("analysis_index_resume")
+            chunk_path = chunks_dir / chunk_name
+            chunk_payload: JSONObject = {
+                "format_version": _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
+                "path": "analysis_index_resume",
+                "state": state_payload,
+            }
+            chunk_path.write_text(_canonical_json_text(chunk_payload) + "\n")
+            used_chunk_names.add(chunk_name)
+            summary: JSONObject = {
+                "phase": (
+                    state_payload.get("phase")
+                    if isinstance(state_payload.get("phase"), str)
+                    else "analysis_index_hydration"
+                ),
+                "state_ref": chunk_name,
+            }
+            hydrated_paths = state_payload.get("hydrated_paths")
+            if isinstance(hydrated_paths, Sequence):
+                summary["hydrated_paths_count"] = sum(
+                    1 for entry in hydrated_paths if isinstance(entry, str)
+                )
+            function_count = state_payload.get("function_count")
+            if isinstance(function_count, int):
+                summary["function_count"] = function_count
+            class_count = state_payload.get("class_count")
+            if isinstance(class_count, int):
+                summary["class_count"] = class_count
+            analysis_index_resume_payload = summary
     for stale in chunks_dir.glob("*.json"):
         check_deadline()
         if stale.name in used_chunk_names:
@@ -270,6 +318,8 @@ def _externalize_collection_resume_states(
             pass
     payload: JSONObject = {str(key): collection_resume[key] for key in collection_resume}
     payload["in_progress_scan_by_path"] = in_progress_payload
+    if analysis_index_resume_payload is not None:
+        payload["analysis_index_resume"] = analysis_index_resume_payload
     return payload
 
 
@@ -279,8 +329,14 @@ def _inflate_collection_resume_states(
     collection_resume: JSONObject,
 ) -> JSONObject:
     raw_in_progress = collection_resume.get("in_progress_scan_by_path")
-    if not isinstance(raw_in_progress, Mapping):
+    raw_analysis_index_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(raw_in_progress, Mapping) and not isinstance(
+        raw_analysis_index_resume,
+        Mapping,
+    ):
         return {str(key): collection_resume[key] for key in collection_resume}
+    if not isinstance(raw_in_progress, Mapping):
+        raw_in_progress = {}
     chunks_dir = _analysis_resume_checkpoint_chunks_dir(path)
     in_progress_payload: JSONObject = {}
     previous_path: str | None = None
@@ -319,8 +375,44 @@ def _inflate_collection_resume_states(
                     }
                     continue
         in_progress_payload[raw_path] = {str(key): raw_state[key] for key in raw_state}
+    analysis_index_resume_payload: JSONValue | None = None
+    if isinstance(raw_analysis_index_resume, Mapping):
+        state_ref = raw_analysis_index_resume.get("state_ref")
+        if isinstance(state_ref, str) and state_ref:
+            chunk_path = chunks_dir / state_ref
+            try:
+                chunk_data = json.loads(chunk_path.read_text())
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                analysis_index_resume_payload = {
+                    str(key): raw_analysis_index_resume[key]
+                    for key in raw_analysis_index_resume
+                }
+            else:
+                if (
+                    isinstance(chunk_data, Mapping)
+                    and chunk_data.get("format_version")
+                    == _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION
+                    and chunk_data.get("path") == "analysis_index_resume"
+                ):
+                    state_payload = chunk_data.get("state")
+                    if isinstance(state_payload, Mapping):
+                        analysis_index_resume_payload = {
+                            str(key): state_payload[key] for key in state_payload
+                        }
+                if analysis_index_resume_payload is None:
+                    analysis_index_resume_payload = {
+                        str(key): raw_analysis_index_resume[key]
+                        for key in raw_analysis_index_resume
+                    }
+        else:
+            analysis_index_resume_payload = {
+                str(key): raw_analysis_index_resume[key]
+                for key in raw_analysis_index_resume
+            }
     payload: JSONObject = {str(key): collection_resume[key] for key in collection_resume}
     payload["in_progress_scan_by_path"] = in_progress_payload
+    if analysis_index_resume_payload is not None:
+        payload["analysis_index_resume"] = analysis_index_resume_payload
     return payload
 
 
@@ -782,6 +874,58 @@ def _state_processed_digest(state: Mapping[str, JSONValue]) -> str:
     ).hexdigest()
 
 
+def _analysis_index_resume_hydrated_paths(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> set[str]:
+    if not isinstance(collection_resume, Mapping):
+        return set()
+    raw_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(raw_resume, Mapping):
+        return set()
+    raw_hydrated = raw_resume.get("hydrated_paths")
+    if not isinstance(raw_hydrated, Sequence) or isinstance(raw_hydrated, (str, bytes)):
+        return set()
+    return {entry for entry in raw_hydrated if isinstance(entry, str)}
+
+
+def _analysis_index_resume_hydrated_count(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> int:
+    hydrated = _analysis_index_resume_hydrated_paths(collection_resume)
+    if hydrated:
+        return len(hydrated)
+    if not isinstance(collection_resume, Mapping):
+        return 0
+    raw_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(raw_resume, Mapping):
+        return 0
+    raw_count = raw_resume.get("hydrated_paths_count")
+    if isinstance(raw_count, int):
+        return max(0, raw_count)
+    return 0
+
+
+def _analysis_index_resume_hydrated_digest(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> str:
+    hydrated = _analysis_index_resume_hydrated_paths(collection_resume)
+    if hydrated:
+        return hashlib.sha1(
+            _canonical_json_text(sorted(hydrated)).encode("utf-8")
+        ).hexdigest()
+    if not isinstance(collection_resume, Mapping):
+        return hashlib.sha1(b"[]").hexdigest()
+    raw_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(raw_resume, Mapping):
+        return hashlib.sha1(b"[]").hexdigest()
+    raw_digest = raw_resume.get("hydrated_paths_digest")
+    if isinstance(raw_digest, str) and raw_digest:
+        return raw_digest
+    return hashlib.sha1(
+        _canonical_json_text({"count": _analysis_index_resume_hydrated_count(collection_resume)}).encode("utf-8")
+    ).hexdigest()
+
+
 def _collection_semantic_witness(
     *,
     collection_resume: Mapping[str, JSONValue],
@@ -804,12 +948,28 @@ def _collection_semantic_witness(
             }
         )
     digest = hashlib.sha1(
-        _canonical_json_text({"in_progress": state_rows}).encode("utf-8")
+        _canonical_json_text(
+            {
+                "in_progress": state_rows,
+                "index_hydrated_paths_count": _analysis_index_resume_hydrated_count(
+                    collection_resume
+                ),
+                "index_hydrated_paths_digest": _analysis_index_resume_hydrated_digest(
+                    collection_resume
+                ),
+            }
+        ).encode("utf-8")
     ).hexdigest()
     return {
         "witness_digest": digest,
         "in_progress_paths": len(state_rows),
         "processed_functions_total": processed_total,
+        "index_hydrated_paths_count": _analysis_index_resume_hydrated_count(
+            collection_resume
+        ),
+        "index_hydrated_paths_digest": _analysis_index_resume_hydrated_digest(
+            collection_resume
+        ),
     }
 
 
@@ -907,17 +1067,35 @@ def _collection_semantic_progress(
     completed_regressed = max(
         0, prev_progress["completed_files"] - current_progress["completed_files"]
     )
+    previous_hydrated_paths = _analysis_index_resume_hydrated_paths(
+        previous_collection_resume
+    )
+    current_hydrated_paths = _analysis_index_resume_hydrated_paths(collection_resume)
+    if previous_hydrated_paths or current_hydrated_paths:
+        hydrated_delta = len(current_hydrated_paths - previous_hydrated_paths)
+        hydrated_regressed = len(previous_hydrated_paths - current_hydrated_paths)
+    else:
+        previous_hydrated_count = _analysis_index_resume_hydrated_count(
+            previous_collection_resume
+        )
+        current_hydrated_count = _analysis_index_resume_hydrated_count(collection_resume)
+        hydrated_delta = max(0, current_hydrated_count - previous_hydrated_count)
+        hydrated_regressed = max(0, previous_hydrated_count - current_hydrated_count)
     cumulative_new = added_processed
     cumulative_completed_delta = completed_delta
-    cumulative_regressed = regressed_processed + completed_regressed
+    cumulative_hydrated_delta = hydrated_delta
+    cumulative_regressed = regressed_processed + completed_regressed + hydrated_regressed
     if isinstance(cumulative, Mapping):
         raw_cumulative_new = cumulative.get("cumulative_new_processed_functions")
         raw_cumulative_completed = cumulative.get("cumulative_completed_files_delta")
+        raw_cumulative_hydrated = cumulative.get("cumulative_hydrated_paths_delta")
         raw_cumulative_regressed = cumulative.get("cumulative_regressed_functions")
         if isinstance(raw_cumulative_new, int):
             cumulative_new += max(0, raw_cumulative_new)
         if isinstance(raw_cumulative_completed, int):
             cumulative_completed_delta += max(0, raw_cumulative_completed)
+        if isinstance(raw_cumulative_hydrated, int):
+            cumulative_hydrated_delta += max(0, raw_cumulative_hydrated)
         if isinstance(raw_cumulative_regressed, int):
             cumulative_regressed += max(0, raw_cumulative_regressed)
     current_witness = _collection_semantic_witness(collection_resume=collection_resume)
@@ -927,7 +1105,11 @@ def _collection_semantic_progress(
         else {"witness_digest": None}
     )
     substantive_progress = (
-        (cumulative_new > 0 or cumulative_completed_delta > 0)
+        (
+            cumulative_new > 0
+            or cumulative_completed_delta > 0
+            or cumulative_hydrated_delta > 0
+        )
         and cumulative_regressed == 0
     )
     return {
@@ -937,10 +1119,13 @@ def _collection_semantic_progress(
         "regressed_processed_functions_count": regressed_processed,
         "completed_files_delta": completed_delta,
         "completed_files_regressed": completed_regressed,
+        "hydrated_paths_delta": hydrated_delta,
+        "hydrated_paths_regressed": hydrated_regressed,
         "changed_in_progress_paths": changed_in_progress_paths,
         "unchanged_in_progress_paths": unchanged_in_progress_paths,
         "cumulative_new_processed_functions": cumulative_new,
         "cumulative_completed_files_delta": cumulative_completed_delta,
+        "cumulative_hydrated_paths_delta": cumulative_hydrated_delta,
         "cumulative_regressed_functions": cumulative_regressed,
         "monotonic_progress": cumulative_regressed == 0,
         "substantive_progress": substantive_progress,
@@ -1425,6 +1610,19 @@ def _collection_progress_intro_lines(
                 break
         for detail in detail_entries:
             lines.append(f"- `in_progress_detail`: `{detail}`")
+    raw_analysis_index_resume = collection_resume.get("analysis_index_resume")
+    if isinstance(raw_analysis_index_resume, Mapping):
+        hydrated_paths_count = raw_analysis_index_resume.get("hydrated_paths_count")
+        if not isinstance(hydrated_paths_count, int):
+            hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
+        if isinstance(hydrated_paths_count, int):
+            lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
+        function_count = raw_analysis_index_resume.get("function_count")
+        if isinstance(function_count, int):
+            lines.append(f"- `hydrated_function_count`: `{function_count}`")
+        class_count = raw_analysis_index_resume.get("class_count")
+        if isinstance(class_count, int):
+            lines.append(f"- `hydrated_class_count`: `{class_count}`")
     return lines
 
 
@@ -2301,7 +2499,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     str(key): raw_semantic_progress[key]
                     for key in raw_semantic_progress
                 }
-        last_collection_intro_signature: tuple[int, int, int] | None = None
+        last_collection_intro_signature: tuple[int, int, int, int] | None = None
         phase_progress_signatures: dict[str, tuple[int, ...]] = {}
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
@@ -2328,6 +2526,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 collection_progress["completed_files"],
                 collection_progress["in_progress_files"],
                 collection_progress["remaining_files"],
+                _analysis_index_resume_hydrated_count(persisted_progress_payload),
             )
             if collection_intro_signature == last_collection_intro_signature:
                 return
