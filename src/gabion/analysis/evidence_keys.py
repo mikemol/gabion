@@ -485,6 +485,7 @@ def parse_display(display: str) -> dict[str, object] | None:
         if not rest:
             return None
         try:
+            # Embedded JSON fragment; not baseline payload IO.
             payload = json.loads("::".join(rest))
         except json.JSONDecodeError:
             return None
@@ -495,6 +496,7 @@ def parse_display(display: str) -> dict[str, object] | None:
         if not rest:
             return None
         try:
+            # Embedded JSON fragment; not baseline payload IO.
             payload = json.loads("::".join(rest))
         except json.JSONDecodeError:
             return None

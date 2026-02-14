@@ -98,7 +98,8 @@ from .projection_registry import (
     NEVER_INVARIANTS_SPEC,
     REPORT_SECTION_LINES_SPEC,
     SUITE_ORDER_SPEC,
-    spec_metadata_lines,
+    spec_metadata_lines_from_payload,
+    spec_metadata_payload,
 )
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
@@ -6534,7 +6535,11 @@ def _summarize_deadline_obligations(
             row_to_site=_row_to_site,
         )
     lines: list[str] = []
-    lines.extend(spec_metadata_lines(DEADLINE_OBLIGATIONS_SUMMARY_SPEC))
+    lines.extend(
+        spec_metadata_lines_from_payload(
+            spec_metadata_payload(DEADLINE_OBLIGATIONS_SUMMARY_SPEC)
+        )
+    )
     for entry in projected[:max_entries]:
         check_deadline()
         path = entry.get("site_path") or "?"
@@ -6667,7 +6672,9 @@ def _summarize_call_ambiguities(
         kind = str(row.get("kind", "") or "unknown")
         counts[kind] = counts.get(kind, 0) + 1
     lines: list[str] = []
-    lines.extend(spec_metadata_lines(AMBIGUITY_SUMMARY_SPEC))
+    lines.extend(
+        spec_metadata_lines_from_payload(spec_metadata_payload(AMBIGUITY_SUMMARY_SPEC))
+    )
     lines.append("Counts by witness kind:")
     for kind in sorted(counts):
         check_deadline()
@@ -6834,7 +6841,9 @@ def _summarize_never_invariants(
         status for status in grouped.keys() if status not in ordered_statuses
     )
     lines: list[str] = []
-    lines.extend(spec_metadata_lines(NEVER_INVARIANTS_SPEC))
+    lines.extend(
+        spec_metadata_lines_from_payload(spec_metadata_payload(NEVER_INVARIANTS_SPEC))
+    )
     for status in ordered_statuses + extra_statuses:
         check_deadline()
         if status == "PROVEN_UNREACHABLE" and not include_proven_unreachable:
