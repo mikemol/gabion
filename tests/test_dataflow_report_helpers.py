@@ -64,6 +64,41 @@ def test_emit_report_parse_failure_witnesses() -> None:
     ]
 
 
+def test_emit_report_adds_raw_sorted_contract_violations(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(xs):\n    return sorted(xs)\n")
+    groups_by_path = {path: {}}
+    report, violations = da._emit_report(
+        groups_by_path,
+        3,
+        report=da.ReportCarrier(forest=da.Forest()),
+    )
+    assert "Order contract violations" in report
+    assert any("raw_sorted introduced" in line for line in violations)
+
+
+def test_emit_report_raw_sorted_strict_forbid_env(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    _write(path, "def f(xs):\n    return sorted(xs)\n")
+    groups_by_path = {path: {}}
+    previous = da.os.environ.get("GABION_FORBID_RAW_SORTED")
+    try:
+        da.os.environ["GABION_FORBID_RAW_SORTED"] = "1"
+        _, violations = da._emit_report(
+            groups_by_path,
+            3,
+            report=da.ReportCarrier(forest=da.Forest()),
+        )
+    finally:
+        if previous is None:
+            da.os.environ.pop("GABION_FORBID_RAW_SORTED", None)
+        else:
+            da.os.environ["GABION_FORBID_RAW_SORTED"] = previous
+    assert any("raw sorted() forbidden" in line for line in violations)
+
+
 def test_emit_report_execution_pattern_suggestions_are_non_blocking() -> None:
     da = _load()
     report, violations = da._emit_report(

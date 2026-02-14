@@ -370,6 +370,10 @@ def test_parse_failure_stage_taxonomy_is_canonical(tmp_path: Path) -> None:
         project_root=tmp_path,
         parse_failure_witnesses=parse_failures,
     )
+    da._raw_sorted_contract_violations(
+        [bad],
+        parse_failure_witnesses=parse_failures,
+    )
     seen = {str(entry["stage"]) for entry in parse_failures}
     expected = {stage.value for stage in da._ParseModuleStage}
     assert seen == expected
