@@ -2412,13 +2412,22 @@ def _compute_fingerprint_warnings(
             for bundle in bundles:
                 check_deadline()
                 missing = [param for param in bundle if not fn_annots.get(param)]
+                bundle_params = ordered_or_sorted(
+                    bundle,
+                    source="_compute_fingerprint_warnings.bundle",
+                )
                 if missing:
                     warnings.append(
-                        f"{path.name}:{fn_name} bundle {sorted(bundle)} missing type annotations: "
-                        + ", ".join(sorted(missing))
+                        f"{path.name}:{fn_name} bundle {bundle_params} missing type annotations: "
+                        + ", ".join(
+                            ordered_or_sorted(
+                                missing,
+                                source="_compute_fingerprint_warnings.missing",
+                            )
+                        )
                     )
                     continue
-                types = [fn_annots[param] for param in sorted(bundle)]
+                types = [fn_annots[param] for param in bundle_params]
                 if any(t is None for t in types):
                     continue
                 hint_list = [t for t in types if t is not None]
@@ -2442,22 +2451,33 @@ def _compute_fingerprint_warnings(
                     key[len("ctor:") :] if key.startswith("ctor:") else key
                     for key in ctor_keys
                 ]
-                details = f" base={sorted(base_keys)}"
+                base_keys_sorted = ordered_or_sorted(
+                    base_keys,
+                    source="_compute_fingerprint_warnings.base_keys",
+                )
+                ctor_keys_sorted = ordered_or_sorted(
+                    ctor_keys,
+                    source="_compute_fingerprint_warnings.ctor_keys",
+                )
+                details = f" base={base_keys_sorted}"
                 if ctor_keys:
-                    details += f" ctor={sorted(ctor_keys)}"
+                    details += f" ctor={ctor_keys_sorted}"
                 if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
                     details += f" remainder=({base_remaining},{ctor_remaining})"
                 if soundness_issues:
                     warnings.append(
-                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint carrier soundness failed for "
+                        f"{path.name}:{fn_name} bundle {bundle_params} fingerprint carrier soundness failed for "
                         + ", ".join(soundness_issues)
                         + details
                     )
                 if not names:
                     warnings.append(
-                        f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint missing glossary match{details}"
+                        f"{path.name}:{fn_name} bundle {bundle_params} fingerprint missing glossary match{details}"
                     )
-    return sorted(set(warnings))
+    return ordered_or_sorted(
+        set(warnings),
+        source="_compute_fingerprint_warnings.warnings",
+    )
 
 
 def _compute_fingerprint_matches(
@@ -2483,7 +2503,11 @@ def _compute_fingerprint_matches(
                 missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
-                types = [fn_annots[param] for param in sorted(bundle)]
+                bundle_params = ordered_or_sorted(
+                    bundle,
+                    source="_compute_fingerprint_matches.bundle",
+                )
+                types = [fn_annots[param] for param in bundle_params]
                 if any(t is None for t in types):
                     continue
                 hint_list = [t for t in types if t is not None]
@@ -2505,17 +2529,33 @@ def _compute_fingerprint_matches(
                     key[len("ctor:") :] if key.startswith("ctor:") else key
                     for key in ctor_keys
                 ]
-                details = f" base={sorted(base_keys)}"
+                base_keys_sorted = ordered_or_sorted(
+                    base_keys,
+                    source="_compute_fingerprint_matches.base_keys",
+                )
+                ctor_keys_sorted = ordered_or_sorted(
+                    ctor_keys,
+                    source="_compute_fingerprint_matches.ctor_keys",
+                )
+                details = f" base={base_keys_sorted}"
                 if ctor_keys:
-                    details += f" ctor={sorted(ctor_keys)}"
+                    details += f" ctor={ctor_keys_sorted}"
                 if base_remaining not in (0, 1) or ctor_remaining not in (0, 1):
                     details += f" remainder=({base_remaining},{ctor_remaining})"
                 matches.append(
-                    f"{path.name}:{fn_name} bundle {sorted(bundle)} fingerprint {format_fingerprint(fingerprint)} matches: "
-                    + ", ".join(sorted(names))
+                    f"{path.name}:{fn_name} bundle {bundle_params} fingerprint {format_fingerprint(fingerprint)} matches: "
+                    + ", ".join(
+                        ordered_or_sorted(
+                            names,
+                            source="_compute_fingerprint_matches.names",
+                        )
+                    )
                     + details
                 )
-    return sorted(set(matches))
+    return ordered_or_sorted(
+        set(matches),
+        source="_compute_fingerprint_matches.matches",
+    )
 
 
 def _fingerprint_soundness_issues(
@@ -2566,7 +2606,11 @@ def _compute_fingerprint_provenance(
                 missing = [param for param in bundle if param not in fn_annots]
                 if missing:
                     continue
-                types = [fn_annots[param] for param in sorted(bundle)]
+                bundle_params = ordered_or_sorted(
+                    bundle,
+                    source="_compute_fingerprint_provenance.bundle",
+                )
+                types = [fn_annots[param] for param in bundle_params]
                 if any(t is None for t in types):
                     continue
                 hint_list = [t for t in types if t is not None]
@@ -2588,14 +2632,17 @@ def _compute_fingerprint_provenance(
                 ]
                 matches = []
                 if index:
-                    matches = sorted(index.get(fingerprint, set()))
-                bundle_key = ",".join(sorted(bundle))
+                    matches = ordered_or_sorted(
+                        index.get(fingerprint, set()),
+                        source="_compute_fingerprint_provenance.matches",
+                    )
+                bundle_key = ",".join(bundle_params)
                 entries.append(
                     {
                         "provenance_id": f"{path_value}:{fn_name}:{bundle_key}",
                         "path": path_value,
                         "function": fn_name,
-                        "bundle": sorted(bundle),
+                        "bundle": bundle_params,
                         "fingerprint": {
                             "base": {
                                 "product": fingerprint.base.product,
@@ -2614,8 +2661,14 @@ def _compute_fingerprint_provenance(
                                 "mask": fingerprint.synth.mask,
                             },
                         },
-                        "base_keys": sorted(base_keys),
-                        "ctor_keys": sorted(ctor_keys),
+                        "base_keys": ordered_or_sorted(
+                            base_keys,
+                            source="_compute_fingerprint_provenance.base_keys",
+                        ),
+                        "ctor_keys": ordered_or_sorted(
+                            ctor_keys,
+                            source="_compute_fingerprint_provenance.ctor_keys",
+                        ),
                         "remainder": {
                             "base": base_remaining,
                             "ctor": ctor_remaining,
@@ -2648,9 +2701,12 @@ def _summarize_fingerprint_provenance(
             key = ("types", base_keys, ctor_keys)
         grouped.setdefault(key, []).append(entry)
     lines: list[str] = []
-    for key, group in sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0]))[
-        :max_groups
-    ]:
+    grouped_entries = ordered_or_sorted(
+        grouped.items(),
+        source="_summarize_fingerprint_provenance.grouped",
+        key=lambda item: (-len(item[1]), item[0]),
+    )
+    for key, group in grouped_entries[:max_groups]:
         check_deadline()
         label = ""
         if key and key[0] == "glossary":
@@ -2733,7 +2789,10 @@ def _compute_fingerprint_coherence(
                     "ctor_keys": ctor_keys,
                     "synth_version": synth_version,
                 },
-                "alternatives": sorted(set(str(m) for m in matches)),
+                "alternatives": ordered_or_sorted(
+                    set(str(m) for m in matches),
+                    source="_compute_fingerprint_coherence.alternatives",
+                ),
                 "fork_signature": "glossary-ambiguity",
                 "frack_path": ["provenance", "glossary"],
                 "result": "UNKNOWN",
@@ -2741,8 +2800,9 @@ def _compute_fingerprint_coherence(
                 "provenance_id": provenance_id,
             }
         )
-    return sorted(
+    return ordered_or_sorted(
         witnesses,
+        source="_compute_fingerprint_coherence.witnesses",
         key=lambda entry: (
             str(entry.get("site", {}).get("path", "")),
             str(entry.get("site", {}).get("function", "")),
@@ -2832,7 +2892,10 @@ def _compute_fingerprint_rewrite_plans(
         if coherence_entry:
             coherence_id = coherence_entry.get("coherence_id")
         plan_id = f"rewrite:{site.path}:{site.function}:{bundle_key}:glossary-ambiguity"
-        candidates = sorted(set(str(m) for m in matches))
+        candidates = ordered_or_sorted(
+            set(str(m) for m in matches),
+            source="_compute_fingerprint_rewrite_plans.candidates",
+        )
         pre_exception_summary: dict[str, int] | None = None
         if include_exception_predicates:
             pre_exception_summary = exception_summary_map.get(
@@ -2912,8 +2975,9 @@ def _compute_fingerprint_rewrite_plans(
                 },
             }
         )
-    return sorted(
+    return ordered_or_sorted(
         plans,
+        source="_compute_fingerprint_rewrite_plans.plans",
         key=lambda plan: (
             str(plan.get("site", {}).get("path", "")),
             str(plan.get("site", {}).get("function", "")),
@@ -3257,7 +3321,10 @@ def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
         check_deadline()
         if isinstance(node, ast.Name) and node.id in params:
             names.add(node.id)
-    return sorted(names)
+    return ordered_or_sorted(
+        names,
+        source="_exception_param_names.names",
+    )
 
 
 def _exception_type_name(expr: ast.AST | None) -> str | None:
