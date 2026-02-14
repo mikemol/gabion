@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_evidence, test_obsolescence
+from gabion.analysis.baseline_io import write_json
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
     TEST_ANNOTATION_DRIFT_SPEC,
-    spec_metadata_lines,
+    spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
-from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.report_doc import ReportDoc
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 
@@ -78,13 +78,11 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
     check_deadline()
     summary = payload.get("summary", {})
     entries = payload.get("entries", [])
-    lines: list[str] = []
-    lines.extend(spec_metadata_lines(TEST_ANNOTATION_DRIFT_SPEC))
-    lines.append("Summary:")
-    lines.append("```")
-    lines.append(json.dumps(summary, sort_keys=True))
-    lines.append("```")
-    lines.append("")
+    doc = ReportDoc("out_test_annotation_drift")
+    doc.lines(spec_metadata_lines_from_payload(payload))
+    doc.section("Summary")
+    doc.codeblock(summary)
+    doc.line()
     orphaned: list[Mapping[str, JSONValue]] = []
     legacy: list[Mapping[str, JSONValue]] = []
     legacy_ambiguous: list[Mapping[str, JSONValue]] = []
@@ -100,35 +98,35 @@ def render_markdown(payload: Mapping[str, JSONValue]) -> str:
             elif status == "legacy_ambiguous":
                 legacy_ambiguous.append(entry)
     if orphaned:
-        lines.append("Orphaned tags:")
-        lines.append("```")
+        doc.line("Orphaned tags:")
+        rows: list[str] = []
         for entry in orphaned:
             test_id = str(entry.get("test_id", "") or "")
             tag = str(entry.get("tag", "") or "")
             reason = str(entry.get("reason", "") or "")
-            lines.append(f"{test_id} tag={tag} reason={reason}")
-        lines.append("```")
+            rows.append(f"{test_id} tag={tag} reason={reason}")
+        doc.codeblock("\n".join(rows))
     if legacy:
-        lines.append("")
-        lines.append("Legacy tags:")
-        lines.append("```")
+        doc.line()
+        doc.line("Legacy tags:")
+        rows = []
         for entry in legacy:
             test_id = str(entry.get("test_id", "") or "")
             tag = str(entry.get("tag", "") or "")
             reason = str(entry.get("reason", "") or "")
-            lines.append(f"{test_id} tag={tag} reason={reason}")
-        lines.append("```")
+            rows.append(f"{test_id} tag={tag} reason={reason}")
+        doc.codeblock("\n".join(rows))
     if legacy_ambiguous:
-        lines.append("")
-        lines.append("Ambiguous legacy tags:")
-        lines.append("```")
+        doc.line()
+        doc.line("Ambiguous legacy tags:")
+        rows = []
         for entry in legacy_ambiguous:
             test_id = str(entry.get("test_id", "") or "")
             tag = str(entry.get("tag", "") or "")
             reason = str(entry.get("reason", "") or "")
-            lines.append(f"{test_id} tag={tag} reason={reason}")
-        lines.append("```")
-    return render_report_markdown("out_test_annotation_drift", lines)
+            rows.append(f"{test_id} tag={tag} reason={reason}")
+        doc.codeblock("\n".join(rows))
+    return doc.emit()
 
 
 def write_annotation_drift(
@@ -137,10 +135,7 @@ def write_annotation_drift(
     output_path: Path,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    write_json(output_path, payload)
 
 
 def _summarize(entries: Iterable[Mapping[str, JSONValue]]) -> dict[str, int]:

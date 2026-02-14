@@ -1,20 +1,27 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_obsolescence
+from gabion.analysis.baseline_io import (
+    attach_spec_metadata,
+    load_json,
+    parse_spec_metadata,
+    parse_version,
+    write_json,
+)
+from gabion.analysis.delta_tools import coerce_int, format_delta
 from gabion.analysis.projection_registry import (
     TEST_OBSOLESCENCE_BASELINE_SPEC,
     TEST_OBSOLESCENCE_DELTA_SPEC,
-    spec_metadata_lines,
-    spec_metadata_payload,
+    spec_metadata_lines_from_payload,
 )
-from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.report_doc import ReportDoc
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 BASELINE_VERSION = 1
 DELTA_VERSION = 1
@@ -60,21 +67,16 @@ def build_baseline_payload(
         "evidence_index": evidence_index_entries,
         "opaque_evidence_count": _count_opaque_evidence(evidence_by_test),
     }
-    payload.update(spec_metadata_payload(TEST_OBSOLESCENCE_BASELINE_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_BASELINE_SPEC)
 
 
 def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBaseline:
     check_deadline()
-    version = payload.get("version", BASELINE_VERSION)
-    try:
-        version_value = int(version) if version is not None else BASELINE_VERSION
-    except (TypeError, ValueError):
-        version_value = -1
-    if version_value != BASELINE_VERSION:
-        raise ValueError(
-            f"Unsupported test obsolescence baseline version={version!r}; expected {BASELINE_VERSION}"
-        )
+    parse_version(
+        payload,
+        expected=BASELINE_VERSION,
+        error_context="test obsolescence baseline",
+    )
     summary = _normalize_summary_counts(payload.get("summary", {}))
     tests: dict[str, str] = {}
     tests_payload = payload.get("tests", [])
@@ -88,12 +90,8 @@ def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBase
                 continue
             tests[test_id] = class_name
     evidence_index = _parse_evidence_index(payload.get("evidence_index", []))
-    opaque_count = _coerce_int(payload.get("opaque_evidence_count"), 0)
-    spec_id = str(payload.get("generated_by_spec_id", "") or "")
-    spec_payload = payload.get("generated_by_spec", {})
-    spec: dict[str, JSONValue] = {}
-    if isinstance(spec_payload, Mapping):
-        spec = {str(key): spec_payload[key] for key in spec_payload}
+    opaque_count = coerce_int(payload.get("opaque_evidence_count"), 0)
+    spec_id, spec = parse_spec_metadata(payload)
     return ObsolescenceBaseline(
         summary=summary,
         tests=tests,
@@ -105,16 +103,11 @@ def parse_baseline_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceBase
 
 
 def load_baseline(path: str) -> ObsolescenceBaseline:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError("Test obsolescence baseline must be a JSON object.")
-    return parse_baseline_payload(payload)
+    return parse_baseline_payload(load_json(path))
 
 
 def write_baseline(path: str, payload: Mapping[str, JSONValue]) -> None:
-    Path(path).write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    write_json(path, payload)
 
 
 def build_delta_payload(
@@ -134,27 +127,41 @@ def build_delta_payload(
 
     baseline_tests = baseline.tests
     current_tests = current.tests
-    added_tests = sorted(set(current_tests) - set(baseline_tests))
-    removed_tests = sorted(set(baseline_tests) - set(current_tests))
-    changed_tests = sorted(
-        test_id
-        for test_id in set(baseline_tests) & set(current_tests)
-        if baseline_tests[test_id] != current_tests[test_id]
+    added_tests = ordered_or_sorted(
+        set(current_tests) - set(baseline_tests),
+        source="build_delta_payload.added_tests",
+    )
+    removed_tests = ordered_or_sorted(
+        set(baseline_tests) - set(current_tests),
+        source="build_delta_payload.removed_tests",
+    )
+    changed_tests = ordered_or_sorted(
+        {
+            test_id
+            for test_id in set(baseline_tests) & set(current_tests)
+            if baseline_tests[test_id] != current_tests[test_id]
+        },
+        source="build_delta_payload.changed_tests",
     )
 
     baseline_evidence = baseline.evidence_index
     current_evidence = current.evidence_index
-    added_evidence_ids = sorted(
-        set(current_evidence) - set(baseline_evidence)
+    added_evidence_ids = ordered_or_sorted(
+        set(current_evidence) - set(baseline_evidence),
+        source="build_delta_payload.added_evidence_ids",
     )
-    removed_evidence_ids = sorted(
-        set(baseline_evidence) - set(current_evidence)
+    removed_evidence_ids = ordered_or_sorted(
+        set(baseline_evidence) - set(current_evidence),
+        source="build_delta_payload.removed_evidence_ids",
     )
-    changed_evidence_ids = sorted(
-        evidence_id
-        for evidence_id in set(baseline_evidence) & set(current_evidence)
-        if baseline_evidence[evidence_id].witness_count
-        != current_evidence[evidence_id].witness_count
+    changed_evidence_ids = ordered_or_sorted(
+        {
+            evidence_id
+            for evidence_id in set(baseline_evidence) & set(current_evidence)
+            if baseline_evidence[evidence_id].witness_count
+            != current_evidence[evidence_id].witness_count
+        },
+        source="build_delta_payload.changed_evidence_ids",
     )
 
     tests_section = {
@@ -225,8 +232,7 @@ def build_delta_payload(
         "tests": tests_section,
         "evidence_keys": evidence_section,
     }
-    payload.update(spec_metadata_payload(TEST_OBSOLESCENCE_DELTA_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_DELTA_SPEC)
 
 
 def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
@@ -251,28 +257,26 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
     tests_section = delta_payload.get("tests", {})
     evidence_section = delta_payload.get("evidence_keys", {})
 
-    lines: list[str] = []
-    lines.append("# Test Obsolescence Delta")
-    lines.append("")
-    lines.append("Summary:")
-    lines.extend(spec_metadata_lines(TEST_OBSOLESCENCE_DELTA_SPEC))
+    doc = ReportDoc("out_test_obsolescence_delta")
+    doc.lines(spec_metadata_lines_from_payload(delta_payload))
+    doc.section("Summary")
 
     baseline_meta = delta_payload.get("baseline", {})
     if isinstance(baseline_meta, Mapping):
         baseline_path = baseline_meta.get("path")
         if isinstance(baseline_path, str) and baseline_path:
-            lines.append(f"- baseline: {baseline_path}")
+            doc.line(f"- baseline: {baseline_path}")
         baseline_spec = baseline_meta.get("generated_by_spec_id")
         if isinstance(baseline_spec, str) and baseline_spec:
-            lines.append(f"- baseline_spec_id: {baseline_spec}")
+            doc.line(f"- baseline_spec_id: {baseline_spec}")
     current_meta = delta_payload.get("current", {})
     if isinstance(current_meta, Mapping):
         current_spec = current_meta.get("generated_by_spec_id")
         if isinstance(current_spec, str) and current_spec:
-            lines.append(f"- current_spec_id: {current_spec}")
+            doc.line(f"- current_spec_id: {current_spec}")
 
     for key in _class_keys():
-        lines.append(
+        doc.line(
             f"- {key}: {_format_delta(baseline_counts.get(key, 0), current_counts.get(key, 0), delta_counts.get(key, 0))}"
         )
     opaque_line = _format_delta(
@@ -280,23 +284,23 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
         opaque.get("current", 0),
         opaque.get("delta", 0),
     )
-    lines.append(f"- opaque_evidence_count: {opaque_line}")
+    doc.line(f"- opaque_evidence_count: {opaque_line}")
 
-    lines.append("")
-    lines.append("## Tests")
-    _render_test_section(lines, "Added", _section_list(tests_section, "added"))
-    _render_test_section(lines, "Removed", _section_list(tests_section, "removed"))
-    _render_test_changes(lines, _section_list(tests_section, "changed_class"))
+    doc.line()
+    doc.line("## Tests")
+    _render_test_section(doc, "Added", _section_list(tests_section, "added"))
+    _render_test_section(doc, "Removed", _section_list(tests_section, "removed"))
+    _render_test_changes(doc, _section_list(tests_section, "changed_class"))
 
-    lines.append("")
-    lines.append("## Evidence Keys")
-    _render_evidence_section(lines, "Added", _section_list(evidence_section, "added"))
+    doc.line()
+    doc.line("## Evidence Keys")
+    _render_evidence_section(doc, "Added", _section_list(evidence_section, "added"))
     _render_evidence_section(
-        lines, "Removed", _section_list(evidence_section, "removed")
+        doc, "Removed", _section_list(evidence_section, "removed")
     )
-    _render_evidence_changes(lines, _section_list(evidence_section, "changed"))
+    _render_evidence_changes(doc, _section_list(evidence_section, "changed"))
 
-    return render_report_markdown("out_test_obsolescence_delta", lines)
+    return doc.emit()
 
 
 def build_baseline_payload_from_paths(
@@ -320,7 +324,7 @@ def _normalize_summary_counts(summary: Mapping[str, object] | object) -> dict[st
     if not isinstance(summary, Mapping):
         return result
     for key in result:
-        result[key] = _coerce_int(summary.get(key), 0)
+        result[key] = coerce_int(summary.get(key), 0)
     return result
 
 
@@ -339,7 +343,10 @@ def _tests_from_candidates(
         tests[test_id] = class_name
     return [
         {"test_id": test_id, "class": tests[test_id]}
-        for test_id in sorted(tests)
+        for test_id in ordered_or_sorted(
+            tests,
+            source="_tests_from_candidates.tests",
+        )
     ]
 
 
@@ -378,7 +385,10 @@ def _build_evidence_index(
             )
     return [
         _evidence_entry_payload(entries[identity])
-        for identity in sorted(entries)
+        for identity in ordered_or_sorted(
+            entries,
+            source="_build_evidence_index.entries",
+        )
     ]
 
 
@@ -399,7 +409,7 @@ def _parse_evidence_index(value: object) -> dict[str, EvidenceIndexEntry]:
         display_value = (
             str(display) if isinstance(display, str) else evidence_keys.render_display(key)
         )
-        witness_count = _coerce_int(entry.get("witness_count"), 0)
+        witness_count = coerce_int(entry.get("witness_count"), 0)
         existing = entries.get(identity)
         if existing is None:
             entries[identity] = EvidenceIndexEntry(
@@ -484,64 +494,70 @@ def _section_list(container: Mapping[str, JSONValue] | object, key: str) -> list
 
 
 def _render_test_section(
-    lines: list[str], title: str, entries: list[Mapping[str, object]]
+    doc: ReportDoc,
+    title: str,
+    entries: list[Mapping[str, object]],
 ) -> None:
     check_deadline()
-    lines.append(f"### {title}")
+    doc.line(f"### {title}")
     if not entries:
-        lines.append("- None")
+        doc.line("- None")
         return
     for entry in entries:
         test_id = str(entry.get("test_id", "") or "")
         class_name = str(entry.get("class", "") or "")
         suffix = f" (class: {class_name})" if class_name else ""
-        lines.append(f"- `{test_id}`{suffix}")
+        doc.line(f"- `{test_id}`{suffix}")
 
 
 def _render_test_changes(
-    lines: list[str], entries: list[Mapping[str, object]]
+    doc: ReportDoc,
+    entries: list[Mapping[str, object]],
 ) -> None:
     check_deadline()
-    lines.append("### Class Changes")
+    doc.line("### Class Changes")
     if not entries:
-        lines.append("- None")
+        doc.line("- None")
         return
     for entry in entries:
         test_id = str(entry.get("test_id", "") or "")
         before = str(entry.get("before", "") or "")
         after = str(entry.get("after", "") or "")
-        lines.append(f"- `{test_id}`: {before} -> {after}")
+        doc.line(f"- `{test_id}`: {before} -> {after}")
 
 
 def _render_evidence_section(
-    lines: list[str], title: str, entries: list[Mapping[str, object]]
+    doc: ReportDoc,
+    title: str,
+    entries: list[Mapping[str, object]],
 ) -> None:
     check_deadline()
-    lines.append(f"### {title}")
+    doc.line(f"### {title}")
     if not entries:
-        lines.append("- None")
+        doc.line("- None")
         return
     for entry in entries:
         display = str(entry.get("display", "") or "")
-        witnesses = _coerce_int(entry.get("witness_count"), 0)
-        lines.append(f"- `{display}` (witnesses: {witnesses})")
+        witnesses = coerce_int(entry.get("witness_count"), 0)
+        doc.line(f"- `{display}` (witnesses: {witnesses})")
 
 
 def _render_evidence_changes(
-    lines: list[str], entries: list[Mapping[str, object]]
+    doc: ReportDoc,
+    entries: list[Mapping[str, object]],
 ) -> None:
     check_deadline()
-    lines.append("### Witness Count Changes")
+    doc.line("### Witness Count Changes")
     if not entries:
-        lines.append("- None")
+        doc.line("- None")
         return
     for entry in entries:
         display = str(entry.get("display", "") or "")
-        before = _coerce_int(entry.get("before"), 0)
-        after = _coerce_int(entry.get("after"), 0)
-        delta = _coerce_int(entry.get("delta"), after - before)
-        lines.append(
-            f"- `{display}`: {before} -> {after} ({_format_delta_value(delta)})"
+        before = coerce_int(entry.get("before"), 0)
+        after = coerce_int(entry.get("after"), 0)
+        delta = coerce_int(entry.get("delta"), after - before)
+        doc.line(
+            f"- `{display}`: {before} -> {after} ({format_delta(delta)})"
         )
 
 
@@ -555,22 +571,10 @@ def _class_keys() -> list[str]:
 
 
 def _format_delta(baseline: object, current: object, delta: object) -> str:
-    base = _coerce_int(baseline, 0)
-    curr = _coerce_int(current, 0)
+    base = coerce_int(baseline, 0)
+    curr = coerce_int(current, 0)
     if delta is None:
         delta_value = curr - base
     else:
-        delta_value = _coerce_int(delta, curr - base)
-    return f"{base} -> {curr} ({_format_delta_value(delta_value)})"
-
-
-def _format_delta_value(delta: int) -> str:
-    sign = "+" if delta > 0 else ""
-    return f"{sign}{delta}"
-
-
-def _coerce_int(value: object, default: int) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+        delta_value = coerce_int(delta, curr - base)
+    return f"{base} -> {curr} ({format_delta(delta_value)})"

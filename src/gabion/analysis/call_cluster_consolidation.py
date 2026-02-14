@@ -1,18 +1,17 @@
 from __future__ import annotations
-
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_evidence_suggestions
+from gabion.analysis.baseline_io import write_json
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
     CALL_CLUSTER_CONSOLIDATION_SPEC,
-    spec_metadata_lines,
+    spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
-from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
 from gabion.order_contract import ordered_or_sorted
@@ -194,16 +193,14 @@ def render_markdown(
     summary = payload.get("summary", {})
     clusters = payload.get("clusters", [])
     plan = payload.get("plan", [])
-    lines: list[str] = []
-    lines.extend(spec_metadata_lines(CALL_CLUSTER_CONSOLIDATION_SPEC))
-    lines.append("Summary:")
-    lines.append("```")
-    lines.append(json.dumps(summary, sort_keys=True))
-    lines.append("```")
-    lines.append("")
+    doc = ReportDoc("out_call_cluster_consolidation")
+    doc.lines(spec_metadata_lines_from_payload(payload))
+    doc.section("Summary")
+    doc.codeblock(summary)
+    doc.line()
     if not isinstance(plan, list) or not plan:
-        lines.append("No consolidation candidates.")
-        return render_report_markdown("out_call_cluster_consolidation", lines)
+        doc.line("No consolidation candidates.")
+        return doc.emit()
     cluster_index: dict[str, Mapping[str, JSONValue]] = {}
     if isinstance(clusters, list):
         for cluster in clusters:
@@ -213,21 +210,30 @@ def render_markdown(
             identity = str(cluster.get("identity", "") or "")
             if identity:
                 cluster_index[identity] = cluster
-    lines.append("Consolidation plan:")
+    doc.line("Consolidation plan:")
     current_cluster = None
+    current_lines: list[str] = []
+
+    def _flush_current_lines() -> None:
+        nonlocal current_lines
+        if not current_lines:
+            return
+        doc.codeblock("\n".join(current_lines))
+        current_lines = []
+
     for entry in plan:
         check_deadline()
         if not isinstance(entry, Mapping):
             continue
         identity = str(entry.get("cluster_identity", "") or "")
         if identity != current_cluster:
+            _flush_current_lines()
             current_cluster = identity
             cluster = cluster_index.get(identity, {})
             display = str(cluster.get("display", "") or entry.get("cluster_display", ""))
             count = cluster.get("count", entry.get("cluster_count", 0))
-            lines.append("")
-            lines.append(f"Cluster: {display} (count: {count})")
-            lines.append("```")
+            doc.line()
+            doc.line(f"Cluster: {display} (count: {count})")
         test_id = str(entry.get("test_id", "") or "")
         file_path = str(entry.get("file", "") or "")
         line = entry.get("line", 0)
@@ -240,12 +246,11 @@ def render_markdown(
         with_display = ""
         if isinstance(with_entry, Mapping):
             with_display = str(with_entry.get("display", "") or "")
-        lines.append(
+        current_lines.append(
             f"{test_id} ({file_path}:{line}) replace [{replace_tokens}] -> {with_display}"
         )
-    if lines and lines[-1] != "```":
-        lines.append("```")
-    return render_report_markdown("out_call_cluster_consolidation", lines)
+    _flush_current_lines()
+    return doc.emit()
 
 
 def write_call_cluster_consolidation(
@@ -254,10 +259,7 @@ def write_call_cluster_consolidation(
     output_path: Path,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    write_json(output_path, payload)
 
 
 def _targets_signature(value: object) -> tuple[tuple[str, str], ...]:

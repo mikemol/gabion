@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable, Mapping
 
 from gabion.analysis import test_obsolescence_delta
+from gabion.analysis.baseline_io import (
+    attach_spec_metadata,
+    load_json,
+    parse_spec_metadata,
+    parse_version,
+)
 from gabion.analysis.projection_registry import (
     TEST_OBSOLESCENCE_STATE_SPEC,
-    spec_metadata_payload,
 )
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
@@ -43,22 +46,16 @@ def build_state_payload(
         "baseline": baseline_payload,
         "candidates": list(candidates),
     }
-    payload.update(spec_metadata_payload(TEST_OBSOLESCENCE_STATE_SPEC))
-    return payload
+    return attach_spec_metadata(payload, spec=TEST_OBSOLESCENCE_STATE_SPEC)
 
 
 def parse_state_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceState:
     check_deadline()
-    version = payload.get("version", STATE_VERSION)
-    try:
-        version_value = int(version) if version is not None else STATE_VERSION
-    except (TypeError, ValueError):
-        version_value = -1
-    if version_value != STATE_VERSION:
-        raise ValueError(
-            "Unsupported test obsolescence state "
-            f"version={version!r}; expected {STATE_VERSION}"
-        )
+    parse_version(
+        payload,
+        expected=STATE_VERSION,
+        error_context="test obsolescence state",
+    )
     baseline_payload = payload.get("baseline", {})
     if not isinstance(baseline_payload, Mapping):
         raise ValueError("Test obsolescence state baseline must be an object.")
@@ -70,11 +67,7 @@ def parse_state_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceState:
             if not isinstance(entry, Mapping):
                 continue
             candidates.append({str(k): entry[k] for k in entry})
-    spec_id = str(payload.get("generated_by_spec_id", "") or "")
-    spec_payload = payload.get("generated_by_spec", {})
-    spec: dict[str, JSONValue] = {}
-    if isinstance(spec_payload, Mapping):
-        spec = {str(key): spec_payload[key] for key in spec_payload}
+    spec_id, spec = parse_spec_metadata(payload)
     return ObsolescenceState(
         candidates=candidates,
         baseline=baseline,
@@ -85,7 +78,4 @@ def parse_state_payload(payload: Mapping[str, JSONValue]) -> ObsolescenceState:
 
 
 def load_state(path: str) -> ObsolescenceState:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(payload, Mapping):
-        raise ValueError("Test obsolescence state must be a JSON object.")
-    return parse_state_payload(payload)
+    return parse_state_payload(load_json(path))

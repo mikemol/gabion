@@ -29,7 +29,7 @@ from gabion.analysis.dataflow_audit import (
     _resolve_callee,
 )
 from gabion.invariants import require_not_none
-from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.report_doc import ReportDoc
 
 
 GRAPH_SOURCE = "graph"
@@ -219,46 +219,44 @@ def render_markdown(
 ) -> str:
     check_deadline()
     # dataflow-bundle: suggestions, summary
-    lines: list[str] = []
-    lines.append("# Test Evidence Suggestions")
-    lines.append("")
-    lines.append("Summary:")
-    lines.append(f"- total: {summary.total}")
-    lines.append(f"- suggested: {summary.suggested}")
-    lines.append(f"- suggested_graph: {summary.suggested_graph}")
-    lines.append(f"- suggested_heuristic: {summary.suggested_heuristic}")
-    lines.append(f"- skipped_mapped: {summary.skipped_mapped}")
-    lines.append(f"- skipped_no_match: {summary.skipped_no_match}")
-    lines.append(f"- graph_unresolved: {summary.graph_unresolved}")
-    lines.append("")
-    lines.append("Top Unmapped Modules:")
+    doc = ReportDoc("out_test_evidence_suggestions")
+    doc.section("Summary")
+    doc.line(f"- total: {summary.total}")
+    doc.line(f"- suggested: {summary.suggested}")
+    doc.line(f"- suggested_graph: {summary.suggested_graph}")
+    doc.line(f"- suggested_heuristic: {summary.suggested_heuristic}")
+    doc.line(f"- skipped_mapped: {summary.skipped_mapped}")
+    doc.line(f"- skipped_no_match: {summary.skipped_no_match}")
+    doc.line(f"- graph_unresolved: {summary.graph_unresolved}")
+    doc.line()
+    doc.line("Top Unmapped Modules:")
     if summary.unmapped_modules:
         for module, count in summary.unmapped_modules:
-            lines.append(f"- {module}: {count}")
+            doc.line(f"- {module}: {count}")
     else:
-        lines.append("- None")
-    lines.append("")
-    lines.append("Top Unmapped Test Prefixes:")
+        doc.line("- None")
+    doc.line()
+    doc.line("Top Unmapped Test Prefixes:")
     if summary.unmapped_prefixes:
         for prefix, count in summary.unmapped_prefixes:
-            lines.append(f"- {prefix}: {count}")
+            doc.line(f"- {prefix}: {count}")
     else:
-        lines.append("- None")
-    lines.append("")
-    lines.append("## Suggestions")
+        doc.line("- None")
+    doc.line()
+    doc.line("## Suggestions")
     if not suggestions:
-        lines.append("- None")
-        return render_report_markdown("out_test_evidence_suggestions", lines)
+        doc.line("- None")
+        return doc.emit()
 
     for entry in sorted(suggestions, key=lambda item: item.test_id):
         evidence_list = ", ".join(item.display for item in entry.suggested)
         details = [f"source: {entry.source}"]
         if entry.matches:
             details.append(f"matched: {', '.join(entry.matches)}")
-        lines.append(
+        doc.line(
             f"- `{entry.test_id}` -> {evidence_list} ({'; '.join(details)})"
         )
-    return render_report_markdown("out_test_evidence_suggestions", lines)
+    return doc.emit()
 
 
 def render_json_payload(

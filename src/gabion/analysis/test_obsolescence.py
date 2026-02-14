@@ -9,11 +9,12 @@ from gabion.analysis import evidence_keys
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
     TEST_OBSOLESCENCE_SUMMARY_SPEC,
-    spec_metadata_lines,
+    spec_metadata_lines_from_payload,
     spec_metadata_payload,
 )
-from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,11 @@ def load_test_evidence(
         entries.append((test_id, evidence, status))
     evidence_by_test: dict[str, list[EvidenceRef]] = {}
     status_by_test: dict[str, str] = {}
-    for test_id, evidence, status in sorted(entries, key=lambda item: item[0]):
+    for test_id, evidence, status in ordered_or_sorted(
+        entries,
+        source="load_test_evidence.entries",
+        key=lambda item: item[0],
+    ):
         evidence_by_test[test_id] = evidence
         status_by_test[test_id] = status
     return evidence_by_test, status_by_test
@@ -113,7 +118,10 @@ def compute_dominators(
     evidence_by_test: dict[str, list[str]],
 ) -> dict[str, list[str]]:
     check_deadline()
-    test_ids = sorted(evidence_by_test)
+    test_ids = ordered_or_sorted(
+        evidence_by_test,
+        source="compute_dominators.test_ids",
+    )
     evidence_sets = {test_id: set(evidence_by_test[test_id]) for test_id in test_ids}
     evidence_sizes = {test_id: len(evidence_sets[test_id]) for test_id in test_ids}
     dominators: dict[str, list[str]] = {}
@@ -133,8 +141,13 @@ def compute_dominators(
             dominators[test_id] = []
             continue
         min_size = min(evidence_sizes[candidate] for candidate in candidates)
-        frontier = sorted(
-            candidate for candidate in candidates if evidence_sizes[candidate] == min_size
+        frontier = ordered_or_sorted(
+            [
+                candidate
+                for candidate in candidates
+                if evidence_sizes[candidate] == min_size
+            ],
+            source="compute_dominators.frontier",
         )
         dominators[test_id] = frontier
     return dominators
@@ -162,10 +175,13 @@ def classify_candidates(
             for test_id, evidence in mapped_evidence.items()
         }
     )
-    high_risk = sorted(
-        evidence_id
-        for evidence_id, info in risk_registry.items()
-        if info.risk.lower() == "high"
+    high_risk = ordered_or_sorted(
+        [
+            evidence_id
+            for evidence_id, info in risk_registry.items()
+            if info.risk.lower() == "high"
+        ],
+        source="classify_candidates.high_risk",
     )
     evidence_to_tests: dict[str, set[str]] = {}
     for test_id, evidence in mapped_evidence.items():
@@ -177,15 +193,21 @@ def classify_candidates(
         if len(tests) == 1:
             test_id = next(iter(tests))
             last_witness_by_test.setdefault(test_id, []).append(evidence_id)
-    for evidence_ids in last_witness_by_test.values():
-        evidence_ids.sort()
+    for test_id, evidence_ids in last_witness_by_test.items():
+        last_witness_by_test[test_id] = ordered_or_sorted(
+            evidence_ids,
+            source="classify_candidates.last_witness_by_test",
+        )
 
     equivalence: dict[tuple[str, ...], list[str]] = {}
     for test_id, evidence in mapped_evidence.items():
         key = tuple(ref.identity for ref in evidence)
         equivalence.setdefault(key, []).append(test_id)
-    for peers in equivalence.values():
-        peers.sort()
+    for key, peers in equivalence.items():
+        equivalence[key] = ordered_or_sorted(
+            peers,
+            source="classify_candidates.equivalence",
+        )
 
     class_order = [
         "redundant_by_evidence",
@@ -195,7 +217,10 @@ def classify_candidates(
     ]
     class_rank = {name: idx for idx, name in enumerate(class_order)}
     candidates: list[dict[str, object]] = []
-    for test_id in sorted(normalized_evidence):
+    for test_id in ordered_or_sorted(
+        normalized_evidence,
+        source="classify_candidates.normalized_evidence",
+    ):
         evidence = normalized_evidence.get(test_id, [])
         evidence_display = [ref.display for ref in evidence]
         opaque_evidence = [ref.display for ref in evidence if ref.opaque]
@@ -231,11 +256,13 @@ def classify_candidates(
                 "reason": reason,
             }
         )
-    candidates.sort(
+    candidates = ordered_or_sorted(
+        candidates,
+        source="classify_candidates.candidates",
         key=lambda entry: (
             class_rank.get(str(entry.get("class", "")), 99),
             str(entry.get("test_id", "")),
-        )
+        ),
     )
     summary = _summarize_candidates(candidates, class_rank)
     return candidates, summary
@@ -247,19 +274,18 @@ def render_markdown(
 ) -> str:
     check_deadline()
     # dataflow-bundle: candidates, summary_counts
-    lines: list[str] = []
-    lines.append("# Test Obsolescence Report")
-    lines.append("")
-    lines.append("Summary:")
-    lines.extend(spec_metadata_lines(TEST_OBSOLESCENCE_SUMMARY_SPEC))
+    payload = render_json_payload(candidates, summary_counts)
+    doc = ReportDoc("out_test_obsolescence_report")
+    doc.lines(spec_metadata_lines_from_payload(payload))
+    doc.section("Summary")
     for key in [
         "redundant_by_evidence",
         "equivalent_witness",
         "obsolete_candidate",
         "unmapped",
     ]:
-        lines.append(f"- {key}: {summary_counts.get(key, 0)}")
-    lines.append("")
+        doc.line(f"- {key}: {summary_counts.get(key, 0)}")
+    doc.line()
 
     sections = [
         ("redundant_by_evidence", "Redundant By Evidence"),
@@ -268,13 +294,13 @@ def render_markdown(
         ("unmapped", "Unmapped"),
     ]
     for class_key, title in sections:
-        lines.append(f"## {title}")
+        doc.line(f"## {title}")
         entries = [
             entry for entry in candidates if entry.get("class") == class_key
         ]
         if not entries:
-            lines.append("- None")
-            lines.append("")
+            doc.line("- None")
+            doc.line()
             continue
         for entry in entries:
             test_id = str(entry.get("test_id", ""))
@@ -300,9 +326,9 @@ def render_markdown(
             suffix = ""
             if suffix_parts:
                 suffix = " (" + "; ".join(suffix_parts) + ")"
-            lines.append(f"- `{test_id}`{suffix}")
-        lines.append("")
-    return render_report_markdown("out_test_obsolescence_report", lines)
+            doc.line(f"- `{test_id}`{suffix}")
+        doc.line()
+    return doc.emit()
 
 
 def render_json_payload(
@@ -411,5 +437,11 @@ def _normalize_evidence_refs(value: object) -> list[EvidenceRef]:
                     display=rendered,
                     opaque=evidence_keys.is_opaque(key),
                 )
-    ordered = [refs[key] for key in sorted(refs)]
+    ordered = [
+        refs[key]
+        for key in ordered_or_sorted(
+            refs,
+            source="_normalize_evidence_refs.refs",
+        )
+    ]
     return ordered
