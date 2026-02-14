@@ -128,6 +128,37 @@ _PARSE_MODULE_ERROR_TYPES = (
     RecursionError,
 )
 
+_FORBID_RAW_SORTED_ENV = "GABION_FORBID_RAW_SORTED"
+_RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
+    "src/gabion/analysis/ambiguity_delta.py": 2,
+    "src/gabion/analysis/aspf.py": 3,
+    "src/gabion/analysis/call_cluster_consolidation.py": 3,
+    "src/gabion/analysis/call_clusters.py": 1,
+    "src/gabion/analysis/dataflow_audit.py": 180,
+    "src/gabion/analysis/evidence.py": 2,
+    "src/gabion/analysis/evidence_keys.py": 2,
+    "src/gabion/analysis/forest_signature.py": 4,
+    "src/gabion/analysis/forest_spec.py": 5,
+    "src/gabion/analysis/projection_exec.py": 1,
+    "src/gabion/analysis/projection_normalize.py": 3,
+    "src/gabion/analysis/schema_audit.py": 1,
+    "src/gabion/analysis/test_annotation_drift_delta.py": 2,
+    "src/gabion/analysis/test_evidence.py": 6,
+    "src/gabion/analysis/test_evidence_suggestions.py": 14,
+    "src/gabion/analysis/test_obsolescence.py": 6,
+    "src/gabion/analysis/test_obsolescence_delta.py": 8,
+    "src/gabion/analysis/timeout_context.py": 5,
+    "src/gabion/analysis/type_fingerprints.py": 18,
+    "src/gabion/lsp_client.py": 1,
+    "src/gabion/order_contract.py": 2,
+    "src/gabion/refactor/engine.py": 1,
+    "src/gabion/server.py": 16,
+    "src/gabion/synthesis/merge.py": 2,
+    "src/gabion/synthesis/naming.py": 1,
+    "src/gabion/synthesis/protocols.py": 1,
+    "src/gabion/synthesis/schedule.py": 2,
+}
+
 
 class _ParseModuleStage(StrEnum):
     PARAM_ANNOTATIONS = "param_annotations"
@@ -139,6 +170,7 @@ class _ParseModuleStage(StrEnum):
     CONFIG_FIELDS = "config_fields"
     DATACLASS_REGISTRY = "dataclass_registry"
     DATACLASS_CALL_BUNDLES = "dataclass_call_bundles"
+    RAW_SORTED_AUDIT = "raw_sorted_audit"
 
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
@@ -1801,6 +1833,83 @@ def _parse_witness_contract_violations(
         if isinstance(default_node, ast.Constant) and default_node.value is None:
             violations.append(
                 f"{module_path}:{helper_name} parse_sink_contract parse_failure_witnesses must not default to None"
+            )
+    return violations
+
+
+def _raw_sorted_baseline_key(path: Path) -> str:
+    parts = path.parts
+    if "src" in parts:
+        start = parts.index("src")
+        return str(Path(*parts[start:]))
+    return str(path)
+
+
+def _raw_sorted_callsite_counts(
+    paths: Iterable[Path],
+    *,
+    parse_failure_witnesses: list[JSONObject],
+) -> dict[str, list[tuple[int, int]]]:
+    counts: dict[str, list[tuple[int, int]]] = {}
+    for path in _iter_monotonic_paths(
+        paths,
+        source="_raw_sorted_callsite_counts.paths",
+    ):
+        check_deadline()
+        if path.suffix != ".py":
+            continue
+        tree = _parse_module_tree(
+            path,
+            stage=_ParseModuleStage.RAW_SORTED_AUDIT,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+        if tree is None:
+            continue
+        locations: list[tuple[int, int]] = []
+        for node in ast.walk(tree):
+            check_deadline()
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Name) or node.func.id != "sorted":
+                continue
+            line = int(getattr(node, "lineno", 1))
+            col = int(getattr(node, "col_offset", 0)) + 1
+            locations.append((line, col))
+        if locations:
+            counts[_raw_sorted_baseline_key(path)] = locations
+    return counts
+
+
+def _raw_sorted_contract_violations(
+    paths: Iterable[Path],
+    *,
+    parse_failure_witnesses: list[JSONObject],
+) -> list[str]:
+    counts = _raw_sorted_callsite_counts(
+        paths,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    strict_forbid = os.environ.get(_FORBID_RAW_SORTED_ENV) == "1"
+    violations: list[str] = []
+    for path in sorted(counts):
+        check_deadline()
+        baseline = _RAW_SORTED_BASELINE_COUNTS.get(path)
+        current = len(counts[path])
+        if strict_forbid:
+            for line, col in counts[path]:
+                check_deadline()
+                violations.append(
+                    f"{path}:{line}:{col} order_contract raw sorted() forbidden; use ordered_or_sorted(...)"
+                )
+            continue
+        if baseline is None:
+            violations.append(
+                f"{path} order_contract raw_sorted introduced count={current} baseline=0"
+            )
+            continue
+        if current > baseline:
+            violations.append(
+                f"{path} order_contract raw_sorted exceeded baseline current={current} baseline={baseline}"
             )
     return violations
 
@@ -11336,6 +11445,17 @@ def _emit_report(
         lines.extend(_projected("parse_witness_contract_violations", contract_violations))
         lines.append("```")
         violations.extend(contract_violations)
+    raw_sorted_violations = _raw_sorted_contract_violations(
+        file_paths,
+        parse_failure_witnesses=parse_failure_witnesses,
+    )
+    if raw_sorted_violations:
+        _start_section("order_contract_violations")
+        lines.append("Order contract violations:")
+        lines.append("```")
+        lines.extend(_projected("order_contract_violations", raw_sorted_violations))
+        lines.append("```")
+        violations.extend(raw_sorted_violations)
     pattern_instances = _pattern_schema_matches(
         groups_by_path=groups_by_path,
         include_execution=False,
