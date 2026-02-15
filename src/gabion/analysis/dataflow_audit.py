@@ -15679,16 +15679,28 @@ def analyze_paths(
     except TimeoutExceeded:
         emit_collection_progress = locals().get("_emit_collection_progress")
         if callable(emit_collection_progress):
-            emit_collection_progress(force=True)
+            try:
+                emit_collection_progress(force=True)
+            except TimeoutExceeded:
+                pass
         emit_forest_phase_progress = locals().get("_emit_forest_phase_progress")
         if callable(emit_forest_phase_progress):
-            emit_forest_phase_progress()
+            try:
+                emit_forest_phase_progress()
+            except TimeoutExceeded:
+                pass
         emit_edge_phase_progress = locals().get("_emit_edge_phase_progress")
         if callable(emit_edge_phase_progress):
-            emit_edge_phase_progress()
+            try:
+                emit_edge_phase_progress()
+            except TimeoutExceeded:
+                pass
         emit_post_phase_progress = locals().get("_emit_post_phase_progress")
         if callable(emit_post_phase_progress):
-            emit_post_phase_progress()
+            try:
+                emit_post_phase_progress()
+            except TimeoutExceeded:
+                pass
         raise
     finally:
         reset_forest(forest_token)

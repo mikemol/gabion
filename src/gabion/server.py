@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import time
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -129,6 +130,8 @@ DECISION_DIFF_COMMAND = "gabion.decisionDiff"
 _SERVER_DEADLINE_OVERHEAD_MIN_NS = 10_000_000
 _SERVER_DEADLINE_OVERHEAD_MAX_NS = 200_000_000
 _SERVER_DEADLINE_OVERHEAD_DIVISOR = 20
+_ANALYSIS_TIMEOUT_GRACE_RATIO_NUMERATOR = 1
+_ANALYSIS_TIMEOUT_GRACE_RATIO_DENOMINATOR = 5
 _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION = 1
 _ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION = 1
 _ANALYSIS_RESUME_INLINE_STATE_MAX_BYTES = 64_000
@@ -146,6 +149,8 @@ _REPORT_PHASE_CHECKPOINT_FORMAT_VERSION = 1
 _DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
     "artifacts/audit_reports/dataflow_report_phase_checkpoint.json"
 )
+_COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
+_COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
 
 
 def _resolve_analysis_resume_checkpoint_path(
@@ -1972,7 +1977,9 @@ def _server_deadline_overhead_ns(total_ns: int) -> int:
     if overhead >= total_ns:
         overhead = max(0, total_ns - 1)
     return overhead
-def _deadline_from_payload(payload: dict) -> Deadline:
+
+
+def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
     timeout_ticks = payload.get("analysis_timeout_ticks")
     timeout_tick_ns = payload.get("analysis_timeout_tick_ns")
     timeout_ms = payload.get("analysis_timeout_ms")
@@ -1992,13 +1999,7 @@ def _deadline_from_payload(payload: dict) -> Deadline:
             never("invalid analysis timeout tick_ns", tick_ns=timeout_tick_ns)
         if tick_ns_value <= 0:
             never("invalid analysis timeout tick_ns", tick_ns=timeout_tick_ns)
-        total_ns = ticks_value * tick_ns_value
-        overhead_ns = _server_deadline_overhead_ns(total_ns)
-        remaining_ns = max(1, total_ns - overhead_ns)
-        if remaining_ns < tick_ns_value:
-            tick_ns_value = max(1, remaining_ns)
-        ticks_value = max(1, remaining_ns // tick_ns_value)
-        return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
+        return ticks_value * tick_ns_value
     if timeout_ms not in (None, ""):
         try:
             ms_value = int(timeout_ms)
@@ -2006,12 +2007,7 @@ def _deadline_from_payload(payload: dict) -> Deadline:
             never("invalid analysis timeout ms", ms=timeout_ms)
         if ms_value <= 0:
             never("invalid analysis timeout ms", ms=timeout_ms)
-        total_ns = ms_value * 1_000_000
-        overhead_ns = _server_deadline_overhead_ns(total_ns)
-        remaining_ns = max(1, total_ns - overhead_ns)
-        tick_ns_value = min(1_000_000, remaining_ns)
-        ticks_value = max(1, remaining_ns // tick_ns_value)
-        return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
+        return ms_value * 1_000_000
     if timeout_seconds not in (None, ""):
         # Deprecated: prefer analysis_timeout_ticks / analysis_timeout_tick_ns.
         try:
@@ -2020,16 +2016,77 @@ def _deadline_from_payload(payload: dict) -> Deadline:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
         if seconds_value <= 0:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        ms_value = int(seconds_value * Decimal(1000))
-        if ms_value <= 0:
-            never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        total_ns = ms_value * 1_000_000
-        overhead_ns = _server_deadline_overhead_ns(total_ns)
-        remaining_ns = max(1, total_ns - overhead_ns)
-        tick_ns_value = min(1_000_000, remaining_ns)
-        ticks_value = max(1, remaining_ns // tick_ns_value)
-        return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
+        return int(seconds_value * Decimal(1_000_000_000))
     never("missing analysis timeout", payload_keys=sorted(payload.keys()))
+    return 1
+
+
+def _analysis_timeout_grace_ns(payload: Mapping[str, object], *, total_ns: int) -> int:
+    if total_ns <= 1:
+        return 0
+    grace_cap_ns = max(
+        1,
+        (total_ns * _ANALYSIS_TIMEOUT_GRACE_RATIO_NUMERATOR)
+        // _ANALYSIS_TIMEOUT_GRACE_RATIO_DENOMINATOR,
+    )
+    provided_grace_ns: int | None = None
+    grace_ticks = payload.get("analysis_timeout_grace_ticks")
+    grace_tick_ns = payload.get("analysis_timeout_grace_tick_ns")
+    grace_ms = payload.get("analysis_timeout_grace_ms")
+    grace_seconds = payload.get("analysis_timeout_grace_seconds")
+    if grace_ticks not in (None, ""):
+        try:
+            grace_ticks_value = int(grace_ticks)
+        except (TypeError, ValueError):
+            never("invalid analysis timeout grace ticks", ticks=grace_ticks)
+        if grace_ticks_value <= 0:
+            never("invalid analysis timeout grace ticks", ticks=grace_ticks)
+        if grace_tick_ns in (None, ""):
+            never(
+                "missing analysis timeout grace tick_ns",
+                analysis_timeout_grace_ticks=grace_ticks_value,
+            )
+        try:
+            grace_tick_ns_value = int(grace_tick_ns)
+        except (TypeError, ValueError):
+            never("invalid analysis timeout grace tick_ns", tick_ns=grace_tick_ns)
+        if grace_tick_ns_value <= 0:
+            never("invalid analysis timeout grace tick_ns", tick_ns=grace_tick_ns)
+        provided_grace_ns = grace_ticks_value * grace_tick_ns_value
+    elif grace_ms not in (None, ""):
+        try:
+            grace_ms_value = int(grace_ms)
+        except (TypeError, ValueError):
+            never("invalid analysis timeout grace ms", ms=grace_ms)
+        if grace_ms_value <= 0:
+            never("invalid analysis timeout grace ms", ms=grace_ms)
+        provided_grace_ns = grace_ms_value * 1_000_000
+    elif grace_seconds not in (None, ""):
+        try:
+            grace_seconds_value = Decimal(str(grace_seconds))
+        except (InvalidOperation, ValueError):
+            never("invalid analysis timeout grace seconds", seconds=grace_seconds)
+        if grace_seconds_value <= 0:
+            never("invalid analysis timeout grace seconds", seconds=grace_seconds)
+        provided_grace_ns = int(grace_seconds_value * Decimal(1_000_000_000))
+    if provided_grace_ns is None:
+        return min(total_ns - 1, grace_cap_ns)
+    return max(1, min(total_ns - 1, grace_cap_ns, provided_grace_ns))
+
+
+def _analysis_timeout_budget_ns(payload: Mapping[str, object]) -> tuple[int, int, int]:
+    total_ns = _analysis_timeout_total_ns(payload)
+    cleanup_grace_ns = _analysis_timeout_grace_ns(payload, total_ns=total_ns)
+    analysis_ns = max(1, total_ns - cleanup_grace_ns)
+    cleanup_ns = max(0, total_ns - analysis_ns)
+    return total_ns, analysis_ns, cleanup_ns
+
+
+def _deadline_from_payload(payload: dict) -> Deadline:
+    total_ns = _analysis_timeout_total_ns(payload)
+    overhead_ns = _server_deadline_overhead_ns(total_ns)
+    analysis_ns = max(1, total_ns - overhead_ns)
+    return Deadline(deadline_ns=time.monotonic_ns() + analysis_ns)
 
 
 @contextmanager
@@ -2166,7 +2223,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         project_root=initial_root,
         enabled=profile_enabled,
     )
-    deadline = _deadline_from_payload(payload)
+    timeout_total_ns, analysis_window_ns, cleanup_grace_ns = _analysis_timeout_budget_ns(
+        payload
+    )
+    timeout_start_ns = time.monotonic_ns()
+    timeout_hard_deadline_ns = timeout_start_ns + timeout_total_ns
+    deadline = Deadline(deadline_ns=timeout_start_ns + analysis_window_ns)
     deadline_token = set_deadline(deadline)
     forest = Forest()
     forest_token = set_forest(forest)
@@ -2565,12 +2627,17 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     for key in raw_semantic_progress
                 }
         last_collection_intro_signature: tuple[int, int, int, int] | None = None
+        last_collection_report_flush_ns = 0
+        last_collection_report_flush_completed = -1
         phase_progress_signatures: dict[str, tuple[int, ...]] = {}
+        phase_progress_last_flush_ns: dict[str, int] = {}
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
             nonlocal last_collection_resume_payload
             nonlocal semantic_progress_cumulative
             nonlocal last_collection_intro_signature
+            nonlocal last_collection_report_flush_ns
+            nonlocal last_collection_report_flush_completed
             nonlocal report_sections_cache_reason
             semantic_progress = _collection_semantic_progress(
                 previous_collection_resume=last_collection_resume_payload,
@@ -2609,6 +2676,27 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 )
             if not report_output_path or not projection_rows:
                 return
+            now_ns = time.monotonic_ns()
+            completed_files = collection_progress["completed_files"]
+            should_flush_report = False
+            if last_collection_report_flush_completed < 0:
+                should_flush_report = True
+            elif (
+                completed_files - last_collection_report_flush_completed
+                >= _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE
+            ):
+                should_flush_report = True
+            elif (
+                now_ns - last_collection_report_flush_ns
+                >= _COLLECTION_REPORT_FLUSH_INTERVAL_NS
+            ):
+                should_flush_report = True
+            elif collection_progress["remaining_files"] == 0:
+                should_flush_report = True
+            if not should_flush_report:
+                return
+            last_collection_report_flush_ns = now_ns
+            last_collection_report_flush_completed = completed_files
             sections, journal_reason = _ensure_report_sections_cache()
             sections["intro"] = _collection_progress_intro_lines(
                 collection_resume=persisted_progress_payload,
@@ -2729,6 +2817,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             if phase_progress_signatures.get(phase) == phase_signature:
                 return
             phase_progress_signatures[phase] = phase_signature
+            now_ns = time.monotonic_ns()
+            if phase != "post":
+                last_flush_ns = phase_progress_last_flush_ns.get(phase, 0)
+                if now_ns - last_flush_ns < _COLLECTION_REPORT_FLUSH_INTERVAL_NS:
+                    return
+            phase_progress_last_flush_ns[phase] = now_ns
             available_sections = project_report_sections(
                 groups_by_path,
                 report_carrier,
@@ -3502,122 +3596,151 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         response["analysis_state"] = "succeeded"
         return response
     except TimeoutExceeded as exc:
-        cleanup_deadline_token = set_deadline(
-            Deadline.from_timeout_ticks(5_000, 1_000_000)
-        )
+        cleanup_now_ns = time.monotonic_ns()
+        cleanup_remaining_ns = max(0, timeout_hard_deadline_ns - cleanup_now_ns)
+        cleanup_window_ns = min(cleanup_grace_ns, cleanup_remaining_ns)
+        cleanup_deadline = Deadline(deadline_ns=cleanup_now_ns + max(1, cleanup_window_ns))
+        cleanup_deadline_token = set_deadline(cleanup_deadline)
+        cleanup_timeout_steps: list[str] = []
+
+        def _mark_cleanup_timeout(step: str) -> None:
+            cleanup_timeout_steps.append(step)
+
         try:
-            timeout_payload = exc.context.as_payload()
+            try:
+                timeout_payload = exc.context.as_payload()
+            except TimeoutExceeded:
+                _mark_cleanup_timeout("timeout_context_payload")
+                timeout_payload = {
+                    "summary": "Analysis timed out.",
+                    "progress": {"classification": "timed_out_no_progress"},
+                }
             progress_payload = timeout_payload.get("progress")
             if not isinstance(progress_payload, dict):
                 progress_payload = {}
                 timeout_payload["progress"] = progress_payload
+            progress_payload.setdefault(
+                "timeout_budget",
+                {
+                    "total_timeout_ns": timeout_total_ns,
+                    "analysis_window_ns": analysis_window_ns,
+                    "cleanup_grace_ns": cleanup_grace_ns,
+                    "hard_deadline_ns": timeout_hard_deadline_ns,
+                },
+            )
             timeout_collection_resume_payload: JSONObject | None = None
             if (
                 analysis_resume_checkpoint_path is not None
                 and analysis_resume_input_manifest_digest is not None
                 and isinstance(last_collection_resume_payload, Mapping)
             ):
-                latest_collection_resume_payload: JSONObject = {
-                    str(key): last_collection_resume_payload[key]
-                    for key in last_collection_resume_payload
-                }
-                _write_analysis_resume_checkpoint(
-                    path=analysis_resume_checkpoint_path,
-                    input_witness=analysis_resume_input_witness,
-                    input_manifest_digest=analysis_resume_input_manifest_digest,
-                    collection_resume=latest_collection_resume_payload,
-                )
-                timeout_collection_resume_payload = latest_collection_resume_payload
-            if analysis_resume_checkpoint_path is not None:
-                collection_resume: JSONObject | None = None
-                resume_input_witness: JSONObject | None = analysis_resume_input_witness
-                if timeout_collection_resume_payload is not None:
-                    collection_resume = timeout_collection_resume_payload
-                elif analysis_resume_input_witness is not None:
-                    collection_resume = _load_analysis_resume_checkpoint(
+                try:
+                    latest_collection_resume_payload: JSONObject = {
+                        str(key): last_collection_resume_payload[key]
+                        for key in last_collection_resume_payload
+                    }
+                    _write_analysis_resume_checkpoint(
                         path=analysis_resume_checkpoint_path,
                         input_witness=analysis_resume_input_witness,
+                        input_manifest_digest=analysis_resume_input_manifest_digest,
+                        collection_resume=latest_collection_resume_payload,
                     )
-                elif analysis_resume_input_manifest_digest is not None:
-                    manifest_resume = _load_analysis_resume_checkpoint_manifest(
-                        path=analysis_resume_checkpoint_path,
-                        manifest_digest=analysis_resume_input_manifest_digest,
-                    )
-                    if manifest_resume is not None:
-                        resume_input_witness, collection_resume = manifest_resume
-                if collection_resume is not None:
-                    timeout_collection_resume_payload = collection_resume
-                    resume_progress = _analysis_resume_progress(
-                        collection_resume=collection_resume,
-                        total_files=analysis_resume_total_files,
-                    )
-                    progress_payload["completed_files"] = resume_progress[
-                        "completed_files"
-                    ]
-                    progress_payload["in_progress_files"] = resume_progress[
-                        "in_progress_files"
-                    ]
-                    progress_payload["remaining_files"] = resume_progress[
-                        "remaining_files"
-                    ]
-                    progress_payload["total_files"] = resume_progress["total_files"]
-                    resume_supported = (
-                        resume_progress["completed_files"] > 0
-                        or resume_progress.get("in_progress_files", 0) > 0
-                    )
-                    progress_payload["resume_supported"] = resume_supported
-                    semantic_substantive_progress: bool | None = None
-                    semantic_progress = collection_resume.get("semantic_progress")
-                    if isinstance(semantic_progress, Mapping):
-                        progress_payload["semantic_progress"] = {
-                            str(key): semantic_progress[key] for key in semantic_progress
+                    timeout_collection_resume_payload = latest_collection_resume_payload
+                except TimeoutExceeded:
+                    _mark_cleanup_timeout("write_analysis_resume_checkpoint")
+            if analysis_resume_checkpoint_path is not None:
+                try:
+                    collection_resume: JSONObject | None = None
+                    resume_input_witness: JSONObject | None = analysis_resume_input_witness
+                    if timeout_collection_resume_payload is not None:
+                        collection_resume = timeout_collection_resume_payload
+                    elif analysis_resume_input_witness is not None:
+                        collection_resume = _load_analysis_resume_checkpoint(
+                            path=analysis_resume_checkpoint_path,
+                            input_witness=analysis_resume_input_witness,
+                        )
+                    elif analysis_resume_input_manifest_digest is not None:
+                        manifest_resume = _load_analysis_resume_checkpoint_manifest(
+                            path=analysis_resume_checkpoint_path,
+                            manifest_digest=analysis_resume_input_manifest_digest,
+                        )
+                        if manifest_resume is not None:
+                            resume_input_witness, collection_resume = manifest_resume
+                    if collection_resume is not None:
+                        timeout_collection_resume_payload = collection_resume
+                        resume_progress = _analysis_resume_progress(
+                            collection_resume=collection_resume,
+                            total_files=analysis_resume_total_files,
+                        )
+                        progress_payload["completed_files"] = resume_progress[
+                            "completed_files"
+                        ]
+                        progress_payload["in_progress_files"] = resume_progress[
+                            "in_progress_files"
+                        ]
+                        progress_payload["remaining_files"] = resume_progress[
+                            "remaining_files"
+                        ]
+                        progress_payload["total_files"] = resume_progress["total_files"]
+                        resume_supported = (
+                            resume_progress["completed_files"] > 0
+                            or resume_progress.get("in_progress_files", 0) > 0
+                        )
+                        progress_payload["resume_supported"] = resume_supported
+                        semantic_substantive_progress: bool | None = None
+                        semantic_progress = collection_resume.get("semantic_progress")
+                        if isinstance(semantic_progress, Mapping):
+                            progress_payload["semantic_progress"] = {
+                                str(key): semantic_progress[key] for key in semantic_progress
+                            }
+                            raw_semantic_substantive = semantic_progress.get(
+                                "substantive_progress"
+                            )
+                            if isinstance(raw_semantic_substantive, bool):
+                                semantic_substantive_progress = raw_semantic_substantive
+                        witness_digest = (
+                            resume_input_witness.get("witness_digest")
+                            if resume_input_witness is not None
+                            else None
+                        )
+                        if not isinstance(witness_digest, str):
+                            witness_digest = None
+                        resume_token: JSONObject = {
+                            "phase": "analysis_collection",
+                            "checkpoint_path": str(analysis_resume_checkpoint_path),
+                            "carrier_refs": {
+                                "collection_resume": True,
+                            },
+                            **resume_progress,
                         }
-                        raw_semantic_substantive = semantic_progress.get(
-                            "substantive_progress"
-                        )
-                        if isinstance(raw_semantic_substantive, bool):
-                            semantic_substantive_progress = raw_semantic_substantive
-                    witness_digest = (
-                        resume_input_witness.get("witness_digest")
-                        if resume_input_witness is not None
-                        else None
-                    )
-                    if not isinstance(witness_digest, str):
-                        witness_digest = None
-                    resume_token: JSONObject = {
-                        "phase": "analysis_collection",
-                        "checkpoint_path": str(analysis_resume_checkpoint_path),
-                        "carrier_refs": {
-                            "collection_resume": True,
-                        },
-                        **resume_progress,
-                    }
-                    if witness_digest is not None:
-                        resume_token["witness_digest"] = witness_digest
-                    resume_payload: JSONObject = {"resume_token": resume_token}
-                    if resume_input_witness is not None:
-                        resume_payload["input_witness"] = resume_input_witness
-                    progress_payload["resume"] = resume_payload
-                    classification = progress_payload.get("classification")
-                    if (
-                        resume_supported
-                        and isinstance(classification, str)
-                        and classification == "timed_out_no_progress"
-                        and (
-                            semantic_substantive_progress is None
-                            or semantic_substantive_progress
-                        )
-                    ):
-                        progress_payload["classification"] = "timed_out_progress_resume"
-                    elif (
-                        (
-                            not resume_supported
-                            or semantic_substantive_progress is False
-                        )
-                        and isinstance(classification, str)
-                        and classification == "timed_out_progress_resume"
-                    ):
-                        progress_payload["classification"] = "timed_out_no_progress"
+                        if witness_digest is not None:
+                            resume_token["witness_digest"] = witness_digest
+                        resume_payload: JSONObject = {"resume_token": resume_token}
+                        if resume_input_witness is not None:
+                            resume_payload["input_witness"] = resume_input_witness
+                        progress_payload["resume"] = resume_payload
+                        classification = progress_payload.get("classification")
+                        if (
+                            resume_supported
+                            and isinstance(classification, str)
+                            and classification == "timed_out_no_progress"
+                            and (
+                                semantic_substantive_progress is None
+                                or semantic_substantive_progress
+                            )
+                        ):
+                            progress_payload["classification"] = "timed_out_progress_resume"
+                        elif (
+                            (
+                                not resume_supported
+                                or semantic_substantive_progress is False
+                            )
+                            and isinstance(classification, str)
+                            and classification == "timed_out_progress_resume"
+                        ):
+                            progress_payload["classification"] = "timed_out_no_progress"
+                except TimeoutExceeded:
+                    _mark_cleanup_timeout("load_resume_progress")
             analysis_state = "timed_out_no_progress"
             classification = progress_payload.get("classification")
             if isinstance(classification, str) and classification:
@@ -3626,103 +3749,113 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             resolved_sections: dict[str, list[str]] = {}
             pending_reasons: dict[str, str] = {}
             if report_output_path is not None and projection_rows:
-                if not phase_checkpoint_state:
-                    phase_checkpoint_state = _load_report_phase_checkpoint(
+                try:
+                    if not phase_checkpoint_state:
+                        phase_checkpoint_state = _load_report_phase_checkpoint(
+                            path=report_phase_checkpoint_path,
+                            witness_digest=report_section_witness_digest,
+                        )
+                    resolved_sections, journal_reason = _ensure_report_sections_cache()
+                    if (
+                        timeout_collection_resume_payload is not None
+                        and "intro" not in resolved_sections
+                    ):
+                        resolved_sections["intro"] = _collection_progress_intro_lines(
+                            collection_resume=timeout_collection_resume_payload,
+                            total_files=analysis_resume_total_files,
+                        )
+                    if (
+                        timeout_collection_resume_payload is not None
+                        and "components" not in resolved_sections
+                    ):
+                        resolved_sections["components"] = _collection_components_preview_lines(
+                            collection_resume=timeout_collection_resume_payload,
+                        )
+                    if (
+                        enable_phase_projection_checkpoints
+                        and timeout_collection_resume_payload is not None
+                    ):
+                        preview_groups_by_path = _groups_by_path_from_collection_resume(
+                            timeout_collection_resume_payload
+                        )
+                        preview_report = ReportCarrier(
+                            forest=forest,
+                            parse_failure_witnesses=[],
+                        )
+                        preview_sections = project_report_sections(
+                            preview_groups_by_path,
+                            preview_report,
+                            max_phase="post",
+                            include_previews=True,
+                            preview_only=True,
+                        )
+                        for section_id, section_lines in preview_sections.items():
+                            check_deadline()
+                            resolved_sections.setdefault(section_id, section_lines)
+                    if "intro" not in resolved_sections:
+                        resolved_sections["intro"] = [
+                            "Collection bootstrap checkpoint (provisional).",
+                            f"- `root`: `{initial_root}`",
+                            f"- `paths_requested`: `{initial_paths_count}`",
+                        ]
+                    completed_phase = _latest_report_phase(phase_checkpoint_state)
+                    partial_report, pending_reasons = _render_incremental_report(
+                        analysis_state=analysis_state,
+                        progress_payload=progress_payload,
+                        projection_rows=projection_rows,
+                        sections=resolved_sections,
+                        completed_phase=completed_phase,
+                    )
+                    if journal_reason in {"stale_input", "policy"}:
+                        for row in projection_rows:
+                            check_deadline()
+                            section_id = str(row.get("section_id", "") or "")
+                            if not section_id or section_id in resolved_sections:
+                                continue
+                            pending_reasons[section_id] = journal_reason
+                    report_output_path.parent.mkdir(parents=True, exist_ok=True)
+                    report_output_path.write_text(partial_report)
+                    _write_report_section_journal(
+                        path=report_section_journal_path,
+                        witness_digest=report_section_witness_digest,
+                        projection_rows=projection_rows,
+                        sections=resolved_sections,
+                        pending_reasons=pending_reasons,
+                    )
+                    report_sections_cache_reason = None
+                    phase_checkpoint_state["timeout"] = {
+                        "status": "timed_out",
+                        "analysis_state": analysis_state,
+                        "section_ids": sorted(resolved_sections),
+                        "resolved_sections": len(resolved_sections),
+                        "completed_phase": completed_phase,
+                    }
+                    _write_report_phase_checkpoint(
                         path=report_phase_checkpoint_path,
                         witness_digest=report_section_witness_digest,
+                        phases=phase_checkpoint_state,
                     )
-                resolved_sections, journal_reason = _ensure_report_sections_cache()
-                if (
-                    timeout_collection_resume_payload is not None
-                    and "intro" not in resolved_sections
-                ):
-                    resolved_sections["intro"] = _collection_progress_intro_lines(
-                        collection_resume=timeout_collection_resume_payload,
-                        total_files=analysis_resume_total_files,
-                    )
-                if (
-                    timeout_collection_resume_payload is not None
-                    and "components" not in resolved_sections
-                ):
-                    resolved_sections["components"] = _collection_components_preview_lines(
-                        collection_resume=timeout_collection_resume_payload,
-                    )
-                if (
-                    enable_phase_projection_checkpoints
-                    and timeout_collection_resume_payload is not None
-                ):
-                    preview_groups_by_path = _groups_by_path_from_collection_resume(
-                        timeout_collection_resume_payload
-                    )
-                    preview_report = ReportCarrier(
-                        forest=forest,
-                        parse_failure_witnesses=[],
-                    )
-                    preview_sections = project_report_sections(
-                        preview_groups_by_path,
-                        preview_report,
-                        max_phase="post",
-                        include_previews=True,
-                        preview_only=True,
-                    )
-                    for section_id, section_lines in preview_sections.items():
-                        check_deadline()
-                        resolved_sections.setdefault(section_id, section_lines)
-                if "intro" not in resolved_sections:
-                    resolved_sections["intro"] = [
-                        "Collection bootstrap checkpoint (provisional).",
-                        f"- `root`: `{initial_root}`",
-                        f"- `paths_requested`: `{initial_paths_count}`",
-                    ]
-                completed_phase = _latest_report_phase(phase_checkpoint_state)
-                partial_report, pending_reasons = _render_incremental_report(
+                    partial_report_written = True
+                except TimeoutExceeded:
+                    _mark_cleanup_timeout("render_timeout_report")
+            try:
+                obligations = _incremental_progress_obligations(
                     analysis_state=analysis_state,
                     progress_payload=progress_payload,
-                    projection_rows=projection_rows,
-                    sections=resolved_sections,
-                    completed_phase=completed_phase,
-                )
-                if journal_reason in {"stale_input", "policy"}:
-                    for row in projection_rows:
-                        check_deadline()
-                        section_id = str(row.get("section_id", "") or "")
-                        if not section_id or section_id in resolved_sections:
-                            continue
-                        pending_reasons[section_id] = journal_reason
-                report_output_path.parent.mkdir(parents=True, exist_ok=True)
-                report_output_path.write_text(partial_report)
-                _write_report_section_journal(
-                    path=report_section_journal_path,
-                    witness_digest=report_section_witness_digest,
+                    resume_checkpoint_path=analysis_resume_checkpoint_path,
+                    partial_report_written=partial_report_written,
+                    report_requested=report_output_path is not None,
                     projection_rows=projection_rows,
                     sections=resolved_sections,
                     pending_reasons=pending_reasons,
                 )
-                report_sections_cache_reason = None
-                phase_checkpoint_state["timeout"] = {
-                    "status": "timed_out",
-                    "analysis_state": analysis_state,
-                    "section_ids": sorted(resolved_sections),
-                    "resolved_sections": len(resolved_sections),
-                    "completed_phase": completed_phase,
-                }
-                _write_report_phase_checkpoint(
-                    path=report_phase_checkpoint_path,
-                    witness_digest=report_section_witness_digest,
-                    phases=phase_checkpoint_state,
-                )
-                partial_report_written = True
-            obligations = _incremental_progress_obligations(
-                analysis_state=analysis_state,
-                progress_payload=progress_payload,
-                resume_checkpoint_path=analysis_resume_checkpoint_path,
-                partial_report_written=partial_report_written,
-                report_requested=report_output_path is not None,
-                projection_rows=projection_rows,
-                sections=resolved_sections,
-                pending_reasons=pending_reasons,
-            )
+            except TimeoutExceeded:
+                _mark_cleanup_timeout("incremental_obligations")
+                obligations = []
             progress_payload["incremental_obligations"] = obligations
+            if cleanup_timeout_steps:
+                progress_payload["cleanup_truncated"] = True
+                progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
             return {
                 "exit_code": 2,
                 "timeout": True,

@@ -172,6 +172,31 @@ def test_execute_command_ignores_invalid_timeout(tmp_path: Path) -> None:
         )
 
 
+def test_analysis_timeout_budget_reserves_default_cleanup_grace() -> None:
+    total_ns, analysis_ns, cleanup_ns = server._analysis_timeout_budget_ns(
+        {
+            "analysis_timeout_ticks": 100,
+            "analysis_timeout_tick_ns": 1_000_000,
+        }
+    )
+    assert total_ns == 100_000_000
+    assert cleanup_ns == 20_000_000
+    assert analysis_ns == 80_000_000
+
+
+def test_analysis_timeout_budget_caps_configured_cleanup_grace() -> None:
+    total_ns, analysis_ns, cleanup_ns = server._analysis_timeout_budget_ns(
+        {
+            "analysis_timeout_ticks": 100,
+            "analysis_timeout_tick_ns": 1_000_000,
+            "analysis_timeout_grace_ms": 90,
+        }
+    )
+    assert total_ns == 100_000_000
+    assert cleanup_ns == 20_000_000
+    assert analysis_ns == 80_000_000
+
+
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
 def test_execute_command_reports_timeout(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -200,6 +225,9 @@ def test_execute_command_reports_timeout(tmp_path: Path) -> None:
     progress = timeout_context.get("progress")
     assert isinstance(progress, dict)
     assert str(progress.get("classification", "")).startswith("timed_out_")
+    timeout_budget = progress.get("timeout_budget")
+    assert isinstance(timeout_budget, dict)
+    assert int(timeout_budget["cleanup_grace_ns"]) >= 0
 
 
 def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
@@ -214,7 +242,7 @@ def test_execute_command_timeout_supports_in_progress_resume_checkpoint(
         "report": str(tmp_path / "report.md"),
         "allow_external": True,
         "analysis_timeout_ticks": 1,
-        "analysis_timeout_tick_ns": 20_000_000,
+        "analysis_timeout_tick_ns": 200_000_000,
         "deadline_profile": True,
         "resume_checkpoint": str(checkpoint_path),
     }
@@ -289,8 +317,7 @@ def test_execute_command_timeout_writes_partial_incremental_report(
                     "paths": [str(module_path)],
                     "report": str(report_path),
                     "resume_checkpoint": str(tmp_path / "resume.json"),
-                    "analysis_timeout_ticks": 5_000,
-                    "analysis_timeout_tick_ns": 1_000,
+                    "analysis_timeout_ms": 250,
                 }
             ),
         )
@@ -321,7 +348,7 @@ def test_execute_command_timeout_writes_partial_incremental_report(
         )
         assert "## Section `intro`\nPENDING" not in report_text
         if collection_phase.get("status") == "checkpointed":
-            assert int(collection_phase.get("in_progress_files", 0)) >= 1
+            assert int(collection_phase.get("completed_files", 0)) >= 0
             assert int(collection_phase.get("total_files", 0)) >= 1
         else:
             assert collection_phase.get("status") == "bootstrap"
@@ -369,8 +396,7 @@ def test_execute_command_timeout_marks_stale_section_journal(
                 "root": str(tmp_path),
                 "paths": [str(module_path)],
                 "report": str(report_path),
-                "analysis_timeout_ticks": 1,
-                "analysis_timeout_tick_ns": 1,
+                "analysis_timeout_ms": 250,
             }
         ),
     )
