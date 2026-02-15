@@ -191,9 +191,30 @@ class Forest:
         inputs: Iterable[NodeId],
         evidence: dict[str, object] | None = None,
     ) -> Alt:
+        # Forest mutation is semantic work and must run under an explicit
+        # deadline clock scope.
+        self._require_deadline_clock_scope("Forest.add_alt")
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import consume_deadline_ticks
+        consume_deadline_ticks()
         alt = Alt(kind=kind, inputs=tuple(inputs), evidence=evidence or {})
         self.alts.append(alt)
         return alt
+
+    @staticmethod
+    def _require_deadline_clock_scope(operation: str) -> None:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import get_deadline_clock
+        from gabion.exceptions import NeverThrown
+        from gabion.invariants import never
+
+        try:
+            get_deadline_clock()
+        except NeverThrown:
+            never(
+                "forest mutation requires deadline_clock_scope",
+                operation=operation,
+            )
 
     def add_node(self, kind: str, key: NodeKey, meta: dict[str, object] | None = None) -> NodeId:
         node_id = NodeId(kind=kind, key=key)

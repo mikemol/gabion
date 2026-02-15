@@ -1,6 +1,16 @@
 from __future__ import annotations
 
+import pytest
+
 from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    TimeoutExceeded,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_paramset_packed_reuse::aspf.py::gabion.analysis.aspf.Forest
@@ -65,3 +75,16 @@ def test_add_suite_site_parent_emits_suite_contains() -> None:
         alt.kind == "SuiteContains" and alt.inputs == (parent, child)
         for alt in forest.alts
     )
+
+
+def test_add_alt_consumes_logical_ticks() -> None:
+    forest = Forest()
+    left = forest.add_site("mod.py", "mod.left")
+    right = forest.add_site("mod.py", "mod.right")
+    with forest_scope(forest):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            meter = GasMeter(limit=1)
+            with deadline_clock_scope(meter):
+                with pytest.raises(TimeoutExceeded):
+                    forest.add_alt("Edge", (left, right))
+    assert meter.current == 1

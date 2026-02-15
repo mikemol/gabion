@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Iterable, Mapping
 
 from gabion.analysis.projection_normalize import (
@@ -10,8 +11,37 @@ from gabion.analysis.projection_normalize import (
 )
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
 from gabion.analysis.aspf import Forest
-from gabion.analysis.timeout_context import Deadline, deadline_scope, forest_scope
+from gabion.analysis.timeout_context import (
+    Deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
+from gabion.invariants import never
 from gabion.json_types import JSONValue
+
+
+_PROJECTION_REGISTRY_GAS_LIMIT_DEFAULT = 1_000_000
+
+
+def _projection_registry_gas_limit() -> int:
+    raw = os.getenv("GABION_PROJECTION_REGISTRY_GAS_LIMIT", "").strip()
+    if not raw:
+        return _PROJECTION_REGISTRY_GAS_LIMIT_DEFAULT
+    try:
+        value = int(raw)
+    except ValueError:
+        never(
+            "invalid projection registry gas limit",
+            value=raw,
+        )
+    if value <= 0:
+        never(
+            "invalid projection registry gas limit",
+            value=value,
+        )
+    return value
 
 
 NEVER_INVARIANTS_SPEC = ProjectionSpec(
@@ -552,4 +582,5 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
 
 with forest_scope(Forest()):
     with deadline_scope(Deadline.from_timeout_ms(1000)):
-        REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}
+        with deadline_clock_scope(GasMeter(limit=_projection_registry_gas_limit())):
+            REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}
