@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
 from deadline_runtime import deadline_scope_from_ticks
+from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
