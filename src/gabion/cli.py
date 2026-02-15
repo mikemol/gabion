@@ -17,10 +17,12 @@ from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import (
     Deadline,
     check_deadline,
+    deadline_clock_scope,
     deadline_scope,
     forest_scope,
     render_deadline_profile_markdown,
 )
+from gabion.deadline_clock import GasMeter
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
@@ -69,9 +71,11 @@ def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
 
 @contextmanager
 def _cli_deadline_scope():
+    ticks, _tick_ns = _cli_timeout_ticks()
     with forest_scope(Forest()):
         with deadline_scope(_cli_deadline()):
-            yield
+            with deadline_clock_scope(GasMeter(limit=int(ticks))):
+                yield
 
 
 @dataclass(frozen=True)
@@ -238,6 +242,7 @@ def _render_timeout_progress_markdown(
     *,
     analysis_state: str | None,
     progress: Mapping[str, object],
+    deadline_profile: Mapping[str, object] | None = None,
 ) -> str:
     lines = ["# Timeout Progress", ""]
     if analysis_state:
@@ -251,6 +256,23 @@ def _render_timeout_progress_markdown(
     resume_supported = progress.get("resume_supported")
     if isinstance(resume_supported, bool):
         lines.append(f"- `resume_supported`: `{resume_supported}`")
+    ticks_consumed = progress.get("ticks_consumed")
+    if isinstance(ticks_consumed, int):
+        lines.append(f"- `ticks_consumed`: `{ticks_consumed}`")
+    tick_limit = progress.get("tick_limit")
+    if isinstance(tick_limit, int):
+        lines.append(f"- `tick_limit`: `{tick_limit}`")
+    ticks_remaining = progress.get("ticks_remaining")
+    if isinstance(ticks_remaining, int):
+        lines.append(f"- `ticks_remaining`: `{ticks_remaining}`")
+    progress_ticks_per_ns = progress.get("ticks_per_ns")
+    if isinstance(progress_ticks_per_ns, (int, float)):
+        lines.append(f"- `ticks_per_ns`: `{float(progress_ticks_per_ns):.9f}`")
+    if isinstance(deadline_profile, Mapping):
+        if not isinstance(progress_ticks_per_ns, (int, float)):
+            ticks_per_ns = deadline_profile.get("ticks_per_ns")
+            if isinstance(ticks_per_ns, (int, float)):
+                lines.append(f"- `ticks_per_ns`: `{float(ticks_per_ns):.9f}`")
     resume = progress.get("resume")
     if isinstance(resume, Mapping):
         token = resume.get("resume_token")
@@ -301,6 +323,8 @@ def _emit_timeout_progress_artifacts(
     progress = timeout_context.get("progress")
     if not isinstance(progress, Mapping):
         return
+    profile = timeout_context.get("deadline_profile")
+    profile_mapping = profile if isinstance(profile, Mapping) else None
     progress_md_path = root / _DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH
     progress_json_path = progress_md_path.with_suffix(".json")
     progress_md_path.parent.mkdir(parents=True, exist_ok=True)
@@ -313,6 +337,7 @@ def _emit_timeout_progress_artifacts(
         _render_timeout_progress_markdown(
             analysis_state=str(result.get("analysis_state", "")),
             progress=progress,
+            deadline_profile=profile_mapping,
         )
         + "\n",
         encoding="utf-8",
@@ -357,6 +382,7 @@ def build_check_payload(
     resume_checkpoint: Optional[Path] = None,
     emit_timeout_progress_report: bool = False,
     resume_on_timeout: int = 0,
+    analysis_tick_limit: int | None = None,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     if not paths:
@@ -433,6 +459,9 @@ def build_check_payload(
         "emit_timeout_progress_report": bool(emit_timeout_progress_report),
         "resume_on_timeout": max(int(resume_on_timeout), 0),
         "deadline_profile": True,
+        "analysis_tick_limit": int(analysis_tick_limit)
+        if analysis_tick_limit is not None
+        else None,
     }
     return payload
 
@@ -638,6 +667,7 @@ def run_check(
     resume_checkpoint: Optional[Path] = None,
     emit_timeout_progress_report: bool = False,
     resume_on_timeout: int = 0,
+    analysis_tick_limit: int | None = None,
     runner: Runner = run_command,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
@@ -678,8 +708,40 @@ def run_check(
         resume_checkpoint=resume_checkpoint,
         emit_timeout_progress_report=emit_timeout_progress_report,
         resume_on_timeout=resume_on_timeout,
+        analysis_tick_limit=analysis_tick_limit,
     )
     return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
+
+
+def _run_with_timeout_retries(
+    *,
+    run_once: Callable[[], JSONObject],
+    root: Path,
+    emit_timeout_progress_report: bool,
+    resume_on_timeout: int,
+    emit_timeout_profile_artifacts_fn: Callable[..., None] = _emit_timeout_profile_artifacts,
+    emit_timeout_progress_artifacts_fn: Callable[..., None] = _emit_timeout_progress_artifacts,
+    echo_fn: Callable[[str], None] = typer.echo,
+) -> JSONObject:
+    attempt = 0
+    result: JSONObject = {}
+    while True:
+        with _cli_deadline_scope():
+            check_deadline()
+            result = run_once()
+        if result.get("timeout") is not True:
+            return result
+        emit_timeout_profile_artifacts_fn(result, root=root)
+        if emit_timeout_progress_report:
+            emit_timeout_progress_artifacts_fn(result, root=root)
+        if (
+            attempt < max(int(resume_on_timeout), 0)
+            and str(result.get("analysis_state", "")) == "timed_out_progress_resume"
+        ):
+            attempt += 1
+            echo_fn(f"Retrying after timeout with progress ({attempt}/{resume_on_timeout})...")
+            continue
+        raise typer.Exit(code=int(result.get("exit_code", 2)))
 
 
 @app.command()
@@ -815,6 +877,12 @@ def check(
         min=0,
         help="Retry count when timeout reports timed_out_progress_resume.",
     ),
+    analysis_tick_limit: Optional[int] = typer.Option(
+        None,
+        "--analysis-tick-limit",
+        min=1,
+        help="Deterministic logical timeout budget (ticks).",
+    ),
     fail_on_type_ambiguities: bool = typer.Option(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
@@ -829,62 +897,48 @@ def check(
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     """Run the dataflow grammar audit with strict defaults."""
     lint_enabled = lint or bool(lint_jsonl or lint_sarif)
-    attempt = 0
-    result: JSONObject = {}
-    while True:
-        with _cli_deadline_scope():
-            check_deadline()
-            result = run_check(
-                paths=paths,
-                report=report,
-                fail_on_violations=fail_on_violations,
-                root=root,
-                config=config,
-                baseline=baseline,
-                baseline_write=baseline_write,
-                decision_snapshot=decision_snapshot,
-                emit_test_obsolescence=emit_test_obsolescence,
-                emit_test_obsolescence_state=emit_test_obsolescence_state,
-                test_obsolescence_state=test_obsolescence_state,
-                emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-                emit_test_evidence_suggestions=emit_test_evidence_suggestions,
-                emit_call_clusters=emit_call_clusters,
-                emit_call_cluster_consolidation=emit_call_cluster_consolidation,
-                emit_test_annotation_drift=emit_test_annotation_drift,
-                test_annotation_drift_state=test_annotation_drift_state,
-                emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-                write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-                write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-                emit_ambiguity_delta=emit_ambiguity_delta,
-                emit_ambiguity_state=emit_ambiguity_state,
-                ambiguity_state=ambiguity_state,
-                write_ambiguity_baseline=write_ambiguity_baseline,
-                exclude=exclude,
-                ignore_params_csv=ignore_params_csv,
-                transparent_decorators_csv=transparent_decorators_csv,
-                allow_external=allow_external,
-                strictness=strictness,
-                fail_on_type_ambiguities=fail_on_type_ambiguities,
-                lint=lint_enabled,
-                resume_checkpoint=resume_checkpoint,
-                emit_timeout_progress_report=emit_timeout_progress_report,
-                resume_on_timeout=resume_on_timeout,
-            )
-        if result.get("timeout") is not True:
-            break
-        _emit_timeout_profile_artifacts(result, root=Path(root))
-        if emit_timeout_progress_report:
-            _emit_timeout_progress_artifacts(result, root=Path(root))
-        if (
-            attempt < resume_on_timeout
-            and str(result.get("analysis_state", "")) == "timed_out_progress_resume"
-        ):
-            attempt += 1
-            typer.echo(
-                f"Retrying after timeout with progress ({attempt}/{resume_on_timeout})..."
-            )
-            continue
-        raise typer.Exit(code=int(result.get("exit_code", 2)))
+    result = _run_with_timeout_retries(
+        run_once=lambda: run_check(
+            paths=paths,
+            report=report,
+            fail_on_violations=fail_on_violations,
+            root=root,
+            config=config,
+            baseline=baseline,
+            baseline_write=baseline_write,
+            decision_snapshot=decision_snapshot,
+            emit_test_obsolescence=emit_test_obsolescence,
+            emit_test_obsolescence_state=emit_test_obsolescence_state,
+            test_obsolescence_state=test_obsolescence_state,
+            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+            emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+            emit_call_clusters=emit_call_clusters,
+            emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+            emit_test_annotation_drift=emit_test_annotation_drift,
+            test_annotation_drift_state=test_annotation_drift_state,
+            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+            write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+            write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+            emit_ambiguity_delta=emit_ambiguity_delta,
+            emit_ambiguity_state=emit_ambiguity_state,
+            ambiguity_state=ambiguity_state,
+            write_ambiguity_baseline=write_ambiguity_baseline,
+            exclude=exclude,
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+            allow_external=allow_external,
+            strictness=strictness,
+            fail_on_type_ambiguities=fail_on_type_ambiguities,
+            lint=lint_enabled,
+            resume_checkpoint=resume_checkpoint,
+            emit_timeout_progress_report=emit_timeout_progress_report,
+            resume_on_timeout=resume_on_timeout,
+            analysis_tick_limit=analysis_tick_limit,
+        ),
+        root=Path(root),
+        emit_timeout_progress_report=emit_timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+    )
     with _cli_deadline_scope():
         lint_lines = result.get("lint_lines", []) or []
         _emit_lint_outputs(
@@ -908,32 +962,17 @@ def _dataflow_audit(
     opts = parse_dataflow_args(argv)
     payload = build_dataflow_payload(opts)
     runner = request.runner or run_command
-    attempt = 0
-    result: JSONObject = {}
-    while True:
-        with _cli_deadline_scope():
-            check_deadline()
-            result = dispatch_command(
-                command=DATAFLOW_COMMAND,
-                payload=payload,
-                root=Path(opts.root),
-                runner=runner,
-            )
-        if result.get("timeout") is not True:
-            break
-        _emit_timeout_profile_artifacts(result, root=Path(opts.root))
-        if opts.emit_timeout_progress_report:
-            _emit_timeout_progress_artifacts(result, root=Path(opts.root))
-        if (
-            attempt < max(int(opts.resume_on_timeout), 0)
-            and str(result.get("analysis_state", "")) == "timed_out_progress_resume"
-        ):
-            attempt += 1
-            typer.echo(
-                f"Retrying after timeout with progress ({attempt}/{opts.resume_on_timeout})..."
-            )
-            continue
-        raise typer.Exit(code=int(result.get("exit_code", 2)))
+    result = _run_with_timeout_retries(
+        run_once=lambda: dispatch_command(
+            command=DATAFLOW_COMMAND,
+            payload=payload,
+            root=Path(opts.root),
+            runner=runner,
+        ),
+        root=Path(opts.root),
+        emit_timeout_progress_report=opts.emit_timeout_progress_report,
+        resume_on_timeout=max(int(opts.resume_on_timeout), 0),
+    )
     with _cli_deadline_scope():
         lint_lines = result.get("lint_lines", []) or []
         _emit_lint_outputs(

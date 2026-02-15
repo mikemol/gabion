@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-import time
 from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass, field
 from contextlib import contextmanager
@@ -12,6 +11,12 @@ from typing import Callable, Iterable, Mapping
 from contextvars import ContextVar, Token
 
 from gabion.analysis.aspf import Forest
+from gabion.deadline_clock import (
+    DeadlineClock,
+    DeadlineClockExhausted,
+    GasMeter,
+    MonotonicClock,
+)
 from gabion.exceptions import NeverThrown
 from gabion.invariants import never
 from gabion.json_types import JSONValue
@@ -92,6 +97,9 @@ class TimeoutExceeded(TimeoutError):
         self.context = context
 
 
+_SYSTEM_CLOCK = MonotonicClock()
+
+
 @dataclass(frozen=True)
 class Deadline:
     deadline_ns: int
@@ -106,7 +114,7 @@ class Deadline:
         if tick_ns_value <= 0:
             never("invalid timeout tick_ns", tick_ns=tick_ns)
         total_ns = ticks_value * tick_ns_value
-        return cls(deadline_ns=time.monotonic_ns() + total_ns)
+        return cls(deadline_ns=_SYSTEM_CLOCK.get_mark() + total_ns)
 
     @classmethod
     def from_timeout_ms(cls, milliseconds: int) -> "Deadline":
@@ -125,7 +133,7 @@ class Deadline:
         return cls.from_timeout_ms(millis)
 
     def expired(self) -> bool:
-        return time.monotonic_ns() >= self.deadline_ns
+        return _SYSTEM_CLOCK.get_mark() >= self.deadline_ns
 
     def check(self, builder: Callable[[], TimeoutContext]) -> None:
         if self.expired():
@@ -133,6 +141,9 @@ class Deadline:
 
 
 _deadline_var: ContextVar[Deadline | None] = ContextVar("gabion_deadline", default=None)
+_deadline_clock_var: ContextVar[DeadlineClock | None] = ContextVar(
+    "gabion_deadline_clock", default=None
+)
 _MISSING_FOREST = object()
 _forest_var: ContextVar[Forest | object] = ContextVar(
     "gabion_forest", default=_MISSING_FOREST
@@ -166,6 +177,8 @@ class _DeadlineProfileState:
     enabled: bool
     started_ns: int
     last_ns: int
+    started_wall_ns: int
+    last_wall_ns: int
     project_root: Path | None = None
     checks_total: int = 0
     unattributed_elapsed_ns: int = 0
@@ -183,17 +196,24 @@ _deadline_profile_var: ContextVar[_DeadlineProfileState | None] = ContextVar(
 )
 
 
+def _current_deadline_mark() -> int:
+    return get_deadline_clock().get_mark()
+
+
 def set_deadline_profile(
     *,
     project_root: Path | None = None,
     enabled: bool = True,
 ) -> Token[_DeadlineProfileState | None]:
     resolved_root = project_root.resolve() if project_root is not None else None
-    now = time.monotonic_ns()
+    now = _current_deadline_mark()
+    wall_now = _SYSTEM_CLOCK.get_mark()
     state = _DeadlineProfileState(
         enabled=enabled,
         started_ns=now,
         last_ns=now,
+        started_wall_ns=wall_now,
+        last_wall_ns=wall_now,
         project_root=resolved_root,
     )
     return _deadline_profile_var.set(state)
@@ -218,6 +238,23 @@ def get_deadline() -> Deadline:
     if deadline is None:
         never("deadline carrier missing")
     return deadline
+
+
+def set_deadline_clock(clock: DeadlineClock) -> Token[DeadlineClock | None]:
+    if clock is None:
+        never("deadline clock missing")
+    return _deadline_clock_var.set(clock)
+
+
+def reset_deadline_clock(token: Token[DeadlineClock | None]) -> None:
+    _deadline_clock_var.reset(token)
+
+
+def get_deadline_clock() -> DeadlineClock:
+    clock = _deadline_clock_var.get()
+    if clock is None:
+        never("deadline clock missing")
+    return clock
 
 
 def set_forest(forest: Forest) -> Token[Forest | object]:
@@ -246,6 +283,15 @@ def deadline_scope(deadline: Deadline):
         yield
     finally:
         reset_deadline(token)
+
+
+@contextmanager
+def deadline_clock_scope(clock: DeadlineClock):
+    token = set_deadline_clock(clock)
+    try:
+        yield
+    finally:
+        reset_deadline_clock(token)
 
 
 @contextmanager
@@ -284,20 +330,25 @@ def _profile_site_key(
         return ("<external>", qual)
 
 
-def _record_deadline_check(project_root: Path | None) -> None:
+def _record_deadline_check(
+    project_root: Path | None,
+    *,
+    frame_getter: Callable[[], FrameType | None] = inspect.currentframe,
+) -> None:
     state = _deadline_profile_var.get()
     if state is None:
         return
     if not state.enabled:
         return
-    frame = inspect.currentframe()
+    frame = frame_getter()
     if frame is None or frame.f_back is None or frame.f_back.f_back is None:
         return
     caller_frame = frame.f_back.f_back
     effective_root = project_root.resolve() if project_root is not None else state.project_root
-    now = time.monotonic_ns()
+    now = _current_deadline_mark()
     delta = max(0, now - state.last_ns)
     state.last_ns = now
+    state.last_wall_ns = _SYSTEM_CLOCK.get_mark()
     state.checks_total += 1
     site = _profile_site_key(caller_frame, project_root=effective_root)
     stats = state.site_stats.setdefault(site, _DeadlineSiteStats())
@@ -323,6 +374,14 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
         return None
     if not state.enabled:
         return None
+    wall_total_elapsed_ns = max(0, state.last_wall_ns - state.started_wall_ns)
+    clock = _deadline_clock_var.get()
+    ticks_consumed: int | None = None
+    ticks_per_ns: float | None = None
+    if isinstance(clock, GasMeter):
+        ticks_consumed = int(clock.get_mark())
+        if wall_total_elapsed_ns > 0:
+            ticks_per_ns = float(ticks_consumed) / float(wall_total_elapsed_ns)
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []
     for (path, qual), stats in ordered_or_sorted(
@@ -382,6 +441,9 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
         "started_ns": state.started_ns,
         "last_check_ns": state.last_ns,
         "total_elapsed_ns": total_elapsed_ns,
+        "wall_total_elapsed_ns": wall_total_elapsed_ns,
+        "ticks_consumed": ticks_consumed,
+        "ticks_per_ns": ticks_per_ns,
         "unattributed_elapsed_ns": state.unattributed_elapsed_ns,
         "sites": site_rows,
         "edges": edge_rows,
@@ -403,6 +465,11 @@ def _timeout_progress_snapshot(
             site_count = len(sites)
     forest_nodes = len(forest.nodes)
     forest_alts = len(forest.alts)
+    ticks_per_ns: float | None = None
+    if isinstance(deadline_profile, Mapping):
+        profile_ticks_per_ns = deadline_profile.get("ticks_per_ns")
+        if isinstance(profile_ticks_per_ns, (int, float)):
+            ticks_per_ns = float(profile_ticks_per_ns)
     progressed = (
         (forest_nodes + forest_alts) > 0
         or checks_total >= _TIMEOUT_PROGRESS_CHECKS_FLOOR
@@ -413,6 +480,13 @@ def _timeout_progress_snapshot(
         if progressed
         else "timed_out_no_progress"
     )
+    clock = get_deadline_clock()
+    tick_mark = int(clock.get_mark())
+    tick_limit: int | None = None
+    ticks_remaining: int | None = None
+    if isinstance(clock, GasMeter):
+        tick_limit = int(clock.limit)
+        ticks_remaining = max(0, tick_limit - tick_mark)
     return {
         "classification": classification,
         "retry_recommended": progressed,
@@ -421,6 +495,10 @@ def _timeout_progress_snapshot(
         "site_count": site_count,
         "forest_nodes": forest_nodes,
         "forest_alts": forest_alts,
+        "ticks_consumed": tick_mark,
+        "tick_limit": tick_limit,
+        "ticks_remaining": ticks_remaining,
+        "ticks_per_ns": ticks_per_ns,
     }
 
 
@@ -432,9 +510,17 @@ def render_deadline_profile_markdown(
     lines: list[str] = ["# Deadline Profile Heat", ""]
     checks_total = int(profile.get("checks_total", 0) or 0)
     total_elapsed_ns = int(profile.get("total_elapsed_ns", 0) or 0)
+    wall_total_elapsed_ns = int(profile.get("wall_total_elapsed_ns", 0) or 0)
+    ticks_consumed = profile.get("ticks_consumed")
+    ticks_per_ns = profile.get("ticks_per_ns")
     unattributed_ns = int(profile.get("unattributed_elapsed_ns", 0) or 0)
     lines.append(f"- checks_total: `{checks_total}`")
     lines.append(f"- total_elapsed_ns: `{total_elapsed_ns}`")
+    lines.append(f"- wall_total_elapsed_ns: `{wall_total_elapsed_ns}`")
+    if ticks_consumed is not None:
+        lines.append(f"- ticks_consumed: `{int(ticks_consumed)}`")
+    if isinstance(ticks_per_ns, (int, float)):
+        lines.append(f"- ticks_per_ns: `{ticks_per_ns:.9f}`")
     lines.append(f"- unattributed_elapsed_ns: `{unattributed_ns}`")
     lines.append("")
     lines.append("## Site Heat")
@@ -531,18 +617,46 @@ def check_deadline(
     allow_frame_fallback: bool = True,
 ) -> None:
     if deadline is None:
-        deadline = get_deadline()
+        get_deadline()
+    clock = _deadline_clock_var.get()
+    if clock is None:
+        never("deadline clock missing")
+    consume_deadline_ticks(
+        project_root=project_root,
+        forest_spec_id=forest_spec_id,
+        forest_signature=forest_signature,
+        allow_frame_fallback=allow_frame_fallback,
+    )
     _record_deadline_check(project_root)
-    deadline.check(
-        lambda: build_timeout_context_from_stack(
-            forest=get_forest(),
+    return
+
+
+def consume_deadline_ticks(
+    ticks: int = 1,
+    *,
+    project_root: Path | None = None,
+    forest_spec_id: str | None = None,
+    forest_signature: dict[str, JSONValue] | None = None,
+    allow_frame_fallback: bool = True,
+) -> None:
+    clock = _deadline_clock_var.get()
+    if clock is None:
+        never("deadline clock missing")
+    try:
+        clock.consume(ticks)
+    except DeadlineClockExhausted as exc:
+        forest = _forest_var.get()
+        if forest is _MISSING_FOREST:
+            raise
+        timeout_context = build_timeout_context_from_stack(
+            forest=forest,
             project_root=project_root,
             forest_spec_id=forest_spec_id,
             forest_signature=forest_signature,
             deadline_profile=_deadline_profile_snapshot(),
             allow_frame_fallback=allow_frame_fallback,
         )
-    )
+        raise TimeoutExceeded(timeout_context) from exc
 
 
 def _normalize_qualname(qualname: str) -> str:

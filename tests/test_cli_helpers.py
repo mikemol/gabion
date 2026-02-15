@@ -238,6 +238,24 @@ def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
     assert payload["checks_total"] == 3
 
 
+def test_emit_timeout_profile_artifacts_no_profile_is_noop(tmp_path: Path) -> None:
+    cli._emit_timeout_profile_artifacts(
+        {"timeout_context": {"deadline_profile": "bad"}},
+        root=tmp_path,
+    )
+    assert not (tmp_path / "artifacts" / "out" / "deadline_profile.json").exists()
+
+
+def test_emit_timeout_progress_artifacts_no_progress_is_noop(tmp_path: Path) -> None:
+    cli._emit_timeout_progress_artifacts({"timeout_context": {"progress": "bad"}}, root=tmp_path)
+    assert not (tmp_path / "artifacts" / "audit_reports" / "timeout_progress.json").exists()
+
+
+def test_emit_timeout_progress_artifacts_missing_timeout_context_is_noop(tmp_path: Path) -> None:
+    cli._emit_timeout_progress_artifacts({"timeout_context": "bad"}, root=tmp_path)
+    assert not (tmp_path / "artifacts" / "audit_reports" / "timeout_progress.json").exists()
+
+
 def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path) -> None:
     class DummyCtx:
         args: list[str] = []
@@ -300,6 +318,195 @@ def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path)
     assert progress_md.exists()
     payload = json.loads(progress_json.read_text())
     assert payload["analysis_state"] == "timed_out_progress_resume"
+
+
+def test_check_timeout_retry_branch_and_progress_artifacts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[dict[str, object]] = []
+    emitted_profile: list[dict[str, object]] = []
+    emitted_progress: list[dict[str, object]] = []
+
+    def _fake_run_once() -> dict[str, object]:
+        calls.append({"attempt": len(calls) + 1})
+        if len(calls) == 1:
+            return {
+                "timeout": True,
+                "analysis_state": "timed_out_progress_resume",
+                "exit_code": 2,
+            }
+        return {"timeout": False, "exit_code": 0}
+
+    result = cli._run_with_timeout_retries(
+        run_once=_fake_run_once,
+        root=tmp_path,
+        emit_timeout_progress_report=True,
+        resume_on_timeout=1,
+        emit_timeout_profile_artifacts_fn=lambda result, *, root: emitted_profile.append(
+            {"result": dict(result), "root": Path(root)}
+        ),
+        emit_timeout_progress_artifacts_fn=lambda result, *, root: emitted_progress.append(
+            {"result": dict(result), "root": Path(root)}
+        ),
+    )
+    assert result["exit_code"] == 0
+    assert len(calls) == 2
+    assert len(emitted_profile) == 1
+    assert len(emitted_progress) == 1
+    assert emitted_profile[0]["root"] == tmp_path
+    assert emitted_progress[0]["root"] == tmp_path
+    assert "Retrying after timeout with progress (1/1)..." in capsys.readouterr().out
+
+
+def test_check_timeout_no_retry_exits_with_timeout_code(
+    tmp_path: Path,
+) -> None:
+    profile_calls = 0
+
+    def _fake_run_once() -> dict[str, object]:
+        return {
+            "timeout": True,
+            "analysis_state": "timed_out_no_progress",
+            "exit_code": 7,
+        }
+
+    def _record_profile(*_args: object, **_kwargs: object) -> None:
+        nonlocal profile_calls
+        profile_calls += 1
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_with_timeout_retries(
+            run_once=_fake_run_once,
+            root=tmp_path,
+            emit_timeout_progress_report=False,
+            resume_on_timeout=3,
+            emit_timeout_profile_artifacts_fn=_record_profile,
+        )
+    assert exc.value.exit_code == 7
+    assert profile_calls == 1
+
+
+def test_render_timeout_progress_markdown_skips_empty_resume_token_fields() -> None:
+    rendered = cli._render_timeout_progress_markdown(
+        analysis_state="timed_out_progress_resume",
+        progress={
+            "classification": "timed_out_progress_resume",
+            "resume": {"resume_token": {"phase": "analysis_collection", "witness_digest": None}},
+        },
+    )
+    assert "`phase`: `analysis_collection`" in rendered
+    assert "witness_digest" not in rendered
+
+
+def test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries() -> None:
+    rendered = cli._render_timeout_progress_markdown(
+        analysis_state="timed_out_progress_resume",
+        progress={
+            "incremental_obligations": ["bad", {"status": "SATISFIED", "contract": "c", "kind": "k", "detail": "d"}]
+        },
+    )
+    assert "`SATISFIED` `c` `k`" in rendered
+
+
+def test_render_timeout_progress_markdown_includes_tick_metrics() -> None:
+    rendered = cli._render_timeout_progress_markdown(
+        analysis_state="timed_out_progress_resume",
+        progress={
+            "classification": "timed_out_progress_resume",
+            "ticks_consumed": 11,
+            "tick_limit": 20,
+            "ticks_remaining": 9,
+            "ticks_per_ns": 0.25,
+        },
+        deadline_profile={"ticks_per_ns": 0.125},
+    )
+    assert "`ticks_consumed`: `11`" in rendered
+    assert "`tick_limit`: `20`" in rendered
+    assert "`ticks_remaining`: `9`" in rendered
+    assert "`ticks_per_ns`: `0.250000000`" in rendered
+    assert "`ticks_per_ns`: `0.125000000`" not in rendered
+
+
+def test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric() -> None:
+    rendered = cli._render_timeout_progress_markdown(
+        analysis_state="timed_out_progress_resume",
+        progress={
+            "classification": "timed_out_progress_resume",
+            "ticks_consumed": 11,
+            "tick_limit": 20,
+            "ticks_remaining": 9,
+        },
+        deadline_profile={"ticks_per_ns": 0.125},
+    )
+    assert "`ticks_per_ns`: `0.125000000`" in rendered
+
+
+def test_dataflow_audit_timeout_without_retry_raises_exit(tmp_path: Path) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    def runner(*_args, **_kwargs):
+        return {
+            "exit_code": 2,
+            "timeout": True,
+            "analysis_state": "timed_out_no_progress",
+            "timeout_context": {"deadline_profile": {"checks_total": 1, "sites": [], "edges": []}},
+        }
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=[
+            "sample.py",
+            "--root",
+            str(tmp_path),
+            "--resume-on-timeout",
+            "1",
+        ],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 2
+
+
+def test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain(
+    tmp_path: Path,
+) -> None:
+    class DummyCtx:
+        args: list[str] = []
+
+    calls = {"count": 0}
+
+    def runner(*_args, **_kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return {
+                "exit_code": 2,
+                "timeout": True,
+                "analysis_state": "timed_out_progress_resume",
+                "timeout_context": {
+                    "deadline_profile": {"checks_total": 1, "sites": [], "edges": []},
+                    "progress": {"classification": "timed_out_progress_resume"},
+                },
+            }
+        return {"exit_code": 0}
+
+    request = cli.DataflowAuditRequest(
+        ctx=DummyCtx(),
+        args=[
+            "sample.py",
+            "--root",
+            str(tmp_path),
+            "--emit-timeout-progress-report",
+            "--resume-on-timeout",
+            "2",
+        ],
+        runner=runner,
+    )
+    with pytest.raises(typer.Exit) as exc:
+        cli._dataflow_audit(request)
+    assert exc.value.exit_code == 0
+    assert calls["count"] == 2
 
 
 def test_dataflow_audit_retry_uses_fresh_cli_budget(tmp_path: Path) -> None:

@@ -9,20 +9,37 @@ import pytest
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import (
     Deadline,
+    GasMeter,
     TimeoutContext,
     TimeoutExceeded,
+    _deadline_profile_snapshot,
+    _freeze_value,
+    _profile_site_key,
+    _record_deadline_check,
+    _site_key_payload,
+    _site_part_from_payload,
+    _site_part_to_payload,
     build_timeout_context_from_stack,
     build_site_index,
     check_deadline,
+    consume_deadline_ticks,
+    deadline_clock_scope,
     deadline_profile_scope,
     deadline_scope,
+    forest_scope,
+    get_deadline_clock,
     get_deadline,
+    get_forest,
     pack_call_stack,
     record_deadline_io,
     render_deadline_profile_markdown,
+    reset_forest,
     set_deadline,
+    set_deadline_clock,
+    set_forest,
     _frame_site_key,
 )
+from gabion.deadline_clock import DeadlineClockExhausted
 from gabion.exceptions import NeverThrown
 
 
@@ -128,9 +145,12 @@ def test_deadline_from_timeout_variants() -> None:
     with pytest.raises(NeverThrown):
         Deadline.from_timeout_ticks(-5, 0)
     with pytest.raises(NeverThrown):
+        Deadline.from_timeout_ticks(1, 0)
+    with pytest.raises(NeverThrown):
         Deadline.from_timeout(-1)
     with pytest.raises(NeverThrown):
         Deadline.from_timeout("nope")
+    assert isinstance(Deadline.from_timeout(0.001), Deadline)
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_site_index
@@ -232,6 +252,11 @@ def test_set_deadline_rejects_none() -> None:
         set_deadline(None)  # type: ignore[arg-type]
 
 
+def test_set_deadline_clock_rejects_none() -> None:
+    with pytest.raises(NeverThrown):
+        set_deadline_clock(None)  # type: ignore[arg-type]
+
+
 def test_deadline_scope_rejects_none() -> None:
     with pytest.raises(NeverThrown):
         with deadline_scope(None):  # type: ignore[arg-type]
@@ -242,6 +267,45 @@ def test_get_deadline_requires_carrier() -> None:
     ctx = Context()
     with pytest.raises(NeverThrown):
         ctx.run(get_deadline)
+
+
+def test_get_deadline_clock_requires_carrier() -> None:
+    ctx = Context()
+    with pytest.raises(NeverThrown):
+        ctx.run(get_deadline_clock)
+
+
+def test_check_deadline_requires_clock_scope() -> None:
+    ctx = Context()
+
+    def _run() -> None:
+        with forest_scope(Forest()):
+            with deadline_scope(Deadline.from_timeout_ms(100)):
+                check_deadline()
+
+    with pytest.raises(NeverThrown):
+        ctx.run(_run)
+
+
+def test_get_forest_requires_valid_carrier() -> None:
+    ctx = Context()
+    with pytest.raises(NeverThrown):
+        ctx.run(get_forest)
+    token = set_forest("bad")  # type: ignore[arg-type]
+    try:
+        with pytest.raises(NeverThrown):
+            get_forest()
+    finally:
+        reset_forest(token)
+
+
+def test_get_forest_returns_active_carrier() -> None:
+    forest = Forest()
+    token = set_forest(forest)
+    try:
+        assert get_forest() is forest
+    finally:
+        reset_forest(token)
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack
@@ -321,10 +385,81 @@ def test_deadline_profile_scope_collects_heat() -> None:
     )
 
 
+def test_check_deadline_uses_gas_meter_ticks() -> None:
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            with deadline_clock_scope(GasMeter(limit=2)):
+                check_deadline()
+                with pytest.raises(TimeoutExceeded):
+                    check_deadline()
+
+
+def test_deadline_profile_uses_logical_ticks_when_clock_injected() -> None:
+    with forest_scope(Forest()):
+        with deadline_clock_scope(GasMeter(limit=16)):
+            with deadline_profile_scope(enabled=True):
+                with deadline_scope(Deadline.from_timeout_ms(1_000)):
+                    check_deadline()
+                    check_deadline()
+                    snapshot = _deadline_profile_snapshot()
+    assert isinstance(snapshot, dict)
+    assert int(snapshot.get("checks_total", 0) or 0) == 2
+    assert int(snapshot.get("total_elapsed_ns", 0) or 0) == 2
+    assert int(snapshot.get("ticks_consumed", 0) or 0) == 2
+    assert int(snapshot.get("wall_total_elapsed_ns", 0) or 0) >= 0
+    assert "ticks_per_ns" in snapshot
+
+
+def test_timeout_progress_reports_tick_budget() -> None:
+    forest = Forest()
+    with forest_scope(forest):
+        with deadline_profile_scope(enabled=True):
+            with deadline_scope(Deadline.from_timeout_ms(1_000)):
+                with deadline_clock_scope(GasMeter(limit=5)):
+                    check_deadline()
+                    context = build_timeout_context_from_stack(
+                        forest=forest,
+                        project_root=None,
+                        allow_frame_fallback=True,
+                        frames=[],
+                    )
+    progress = context.progress
+    assert isinstance(progress, dict)
+    assert int(progress.get("ticks_consumed", 0) or 0) >= 1
+    assert progress.get("tick_limit") == 5
+    assert int(progress.get("ticks_remaining", 0) or 0) >= 0
+    assert "ticks_per_ns" in progress
+
+
+def test_consume_deadline_ticks_propagates_exhaustion_without_forest() -> None:
+    def _run() -> None:
+        with deadline_clock_scope(GasMeter(limit=1)):
+            with pytest.raises(DeadlineClockExhausted):
+                consume_deadline_ticks()
+
+    Context().run(_run)
+
+
+def test_consume_deadline_ticks_requires_clock_scope() -> None:
+    with pytest.raises(NeverThrown):
+        Context().run(consume_deadline_ticks)
+
+
+def test_check_deadline_ignores_wall_deadline_when_gas_clock_present() -> None:
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline(deadline_ns=0)):
+            with deadline_clock_scope(GasMeter(limit=3)):
+                check_deadline()
+                check_deadline()
+
+
 def test_render_deadline_profile_markdown() -> None:
     profile = {
         "checks_total": 2,
         "total_elapsed_ns": 100,
+        "wall_total_elapsed_ns": 120,
+        "ticks_consumed": 7,
+        "ticks_per_ns": 0.25,
         "unattributed_elapsed_ns": 10,
         "sites": [
             {
@@ -358,9 +493,64 @@ def test_render_deadline_profile_markdown() -> None:
     }
     rendered = render_deadline_profile_markdown(profile)
     assert "Deadline Profile Heat" in rendered
-    assert "Site Heat" in rendered
-    assert "Transition Heat" in rendered
-    assert "I/O Heat" in rendered
+    assert "ticks_consumed" in rendered
+    assert "ticks_per_ns" in rendered
+
+
+def test_render_deadline_profile_markdown_skips_invalid_rows_and_truncates() -> None:
+    rendered = render_deadline_profile_markdown(
+        {
+            "checks_total": 1,
+            "total_elapsed_ns": 1,
+            "unattributed_elapsed_ns": 0,
+            "sites": [{"path": "a.py", "qual": "q", "check_count": 1}, "bad"],
+            "edges": [{"from_path": "a.py", "from_qual": "q"}, 1],
+            "io": [{"name": "x"}, 2],
+        },
+        max_rows=1,
+    )
+    assert "## Site Heat" in rendered
+    assert "| ... | ... | ... | ... | ... |" in rendered
+
+
+def test_render_deadline_profile_markdown_skips_non_mapping_rows() -> None:
+    rendered = render_deadline_profile_markdown(
+        {
+            "checks_total": 1,
+            "total_elapsed_ns": 1,
+            "unattributed_elapsed_ns": 0,
+            "sites": ["bad"],
+            "edges": ["bad"],
+            "io": ["bad"],
+        }
+    )
+    assert "Deadline Profile Heat" in rendered
+
+
+def test_site_part_payload_roundtrip_helpers() -> None:
+    payload = _site_key_payload(path="mod.py", qual="pkg.mod.fn", span=[1, 2, 3, 4])
+    restored = _site_part_from_payload(payload["key"][0])
+    assert _site_part_to_payload(restored) == payload["key"][0]
+
+
+def test_site_part_helpers_reject_invalid_payloads() -> None:
+    with pytest.raises(NeverThrown):
+        _site_part_from_payload({"kind": "FileSite", "key": []})
+    with pytest.raises(NeverThrown):
+        _site_part_from_payload(object())
+    with pytest.raises(NeverThrown):
+        _site_part_to_payload(object())
+    with pytest.raises(NeverThrown):
+        _freeze_value(object())
+
+
+def test_deadline_profile_private_helpers_cover_fallback_paths() -> None:
+    frame = inspect.currentframe()
+    assert frame is not None
+    assert _profile_site_key(frame, project_root=None)[1]
+    assert Context().run(_deadline_profile_snapshot) is None
+    with deadline_profile_scope(project_root=None, enabled=True):
+        _record_deadline_check(project_root=None, frame_getter=lambda: None)
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack

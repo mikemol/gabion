@@ -14,7 +14,13 @@ from typing import Callable, Mapping
 
 from gabion.json_types import JSONObject
 from gabion import server
-from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+)
+from gabion.deadline_clock import GasMeter
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
 
@@ -311,63 +317,68 @@ def run_command(
     assert proc.stdout is not None
 
     root_uri = (root or Path.cwd()).resolve().as_uri()
+    logical_limit = max(10_000, int(lsp_ticks) * 1_000)
     with deadline_scope(deadline):
-        initialize_id = 1
-        _write_rpc(
-            proc.stdin,
-            {
-                "jsonrpc": "2.0",
-                "id": initialize_id,
-                "method": "initialize",
-                "params": {"rootUri": root_uri, "capabilities": {}},
-            },
-        )
-        _read_response(proc.stdout, initialize_id, deadline_ns)
-        _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
+        with deadline_clock_scope(GasMeter(limit=logical_limit)):
+            initialize_id = 1
+            _write_rpc(
+                proc.stdin,
+                {
+                    "jsonrpc": "2.0",
+                    "id": initialize_id,
+                    "method": "initialize",
+                    "params": {"rootUri": root_uri, "capabilities": {}},
+                },
+            )
+            _read_response(proc.stdout, initialize_id, deadline_ns)
+            _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
-        cmd_id = 2
-        remaining_ns = _remaining_deadline_ns(deadline_ns)
-        if not has_existing_analysis_timeout or analysis_target_ns > remaining_ns:
-            target_ns = min(analysis_target_ns, remaining_ns)
-            tick_ns_value = min(tick_ns_value, target_ns)
-            ticks_value = max(1, target_ns // tick_ns_value)
-            payload["analysis_timeout_ticks"] = int(ticks_value)
-            payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
-        _write_rpc(
-            proc.stdin,
-            {
-                "jsonrpc": "2.0",
-                "id": cmd_id,
-                "method": "workspace/executeCommand",
-                "params": {"command": request.command, "arguments": command_args},
-            },
-        )
-        response = _read_response(proc.stdout, cmd_id, deadline_ns)
+            cmd_id = 2
+            remaining_ns = _remaining_deadline_ns(deadline_ns)
+            if not has_existing_analysis_timeout or analysis_target_ns > remaining_ns:
+                target_ns = min(analysis_target_ns, remaining_ns)
+                tick_ns_value = min(tick_ns_value, target_ns)
+                ticks_value = max(1, target_ns // tick_ns_value)
+                payload["analysis_timeout_ticks"] = int(ticks_value)
+                payload["analysis_timeout_tick_ns"] = int(tick_ns_value)
+            _write_rpc(
+                proc.stdin,
+                {
+                    "jsonrpc": "2.0",
+                    "id": cmd_id,
+                    "method": "workspace/executeCommand",
+                    "params": {"command": request.command, "arguments": command_args},
+                },
+            )
+            response = _read_response(proc.stdout, cmd_id, deadline_ns)
 
-        shutdown_id = 3
-        _write_rpc(proc.stdin, {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"})
-        _read_response(proc.stdout, shutdown_id, deadline_ns)
-        _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
-        remaining_ns = deadline_ns - time.monotonic_ns()
-        remaining = max(1.0, remaining_ns / 1_000_000_000)
-        try:
-            out, err = proc.communicate(timeout=remaining)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            out, err = proc.communicate(timeout=1.0)
-        if response.get("error"):
-            raise LspClientError(f"LSP error: {response['error']}")
-        if proc.returncode not in (0, None):
-            detail = err.decode("utf-8", errors="replace").strip()
-            raise LspClientError(f"LSP server failed (exit {proc.returncode}): {detail}")
-        if err:
-            detail = err.decode("utf-8", errors="replace").strip()
-            if detail:
-                raise LspClientError(f"LSP server error output: {detail}")
-        result = response.get("result", {})
-        if not isinstance(result, dict):
-            raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
-        return result
+            shutdown_id = 3
+            _write_rpc(
+                proc.stdin,
+                {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"},
+            )
+            _read_response(proc.stdout, shutdown_id, deadline_ns)
+            _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
+            remaining_ns = deadline_ns - time.monotonic_ns()
+            remaining = max(1.0, remaining_ns / 1_000_000_000)
+            try:
+                out, err = proc.communicate(timeout=remaining)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out, err = proc.communicate(timeout=1.0)
+            if response.get("error"):
+                raise LspClientError(f"LSP error: {response['error']}")
+            if proc.returncode not in (0, None):
+                detail = err.decode("utf-8", errors="replace").strip()
+                raise LspClientError(f"LSP server failed (exit {proc.returncode}): {detail}")
+            if err:
+                detail = err.decode("utf-8", errors="replace").strip()
+                if detail:
+                    raise LspClientError(f"LSP server error output: {detail}")
+            result = response.get("result", {})
+            if not isinstance(result, dict):
+                raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
+            return result
 
 
 def run_command_direct(
