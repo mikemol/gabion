@@ -5,6 +5,7 @@ import hashlib
 import json
 import time
 from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Callable, Literal, Mapping, Sequence, cast
@@ -75,17 +76,19 @@ from gabion.analysis import test_obsolescence_state
 from gabion.analysis import test_evidence_suggestions
 from gabion.analysis.timeout_context import (
     Deadline,
+    GasMeter,
     TimeoutExceeded,
     check_deadline,
     record_deadline_io,
+    reset_deadline_clock,
     forest_scope,
     reset_forest,
     set_forest,
-    deadline_profile_scope,
     reset_deadline_profile,
     reset_deadline,
     set_deadline_profile,
     set_deadline,
+    set_deadline_clock,
 )
 from gabion.invariants import never
 from gabion.config import (
@@ -155,6 +158,67 @@ _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
 
 
+@dataclass(frozen=True)
+class ExecuteCommandDeps:
+    analyze_paths_fn: Callable[..., AnalysisResult]
+    load_analysis_resume_checkpoint_manifest_fn: Callable[..., tuple[JSONObject | None, JSONObject] | None]
+    write_analysis_resume_checkpoint_fn: Callable[..., None]
+    load_analysis_resume_checkpoint_fn: Callable[..., JSONObject | None]
+    analysis_input_manifest_fn: Callable[..., JSONObject]
+    analysis_input_manifest_digest_fn: Callable[[JSONObject], str]
+    build_analysis_collection_resume_seed_fn: Callable[..., JSONObject]
+    collection_semantic_progress_fn: Callable[..., JSONObject]
+    load_report_phase_checkpoint_fn: Callable[..., JSONObject]
+    project_report_sections_fn: Callable[..., dict[str, list[str]]]
+    report_projection_spec_rows_fn: Callable[[], list[JSONObject]]
+    collection_checkpoint_flush_due_fn: Callable[..., bool]
+    write_bootstrap_incremental_artifacts_fn: Callable[..., None]
+    load_report_section_journal_fn: Callable[..., tuple[dict[str, list[str]], str | None]]
+
+    def with_overrides(self, **overrides: object) -> "ExecuteCommandDeps":
+        return replace(self, **overrides)
+
+
+def _collection_checkpoint_flush_due(
+    *,
+    intro_changed: bool,
+    remaining_files: int,
+    now_ns: int,
+    last_flush_ns: int,
+) -> bool:
+    if intro_changed or remaining_files == 0:
+        return True
+    return now_ns - last_flush_ns >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
+
+
+def _collection_report_flush_due(
+    *,
+    completed_files: int,
+    remaining_files: int,
+    now_ns: int,
+    last_flush_ns: int,
+    last_flush_completed: int,
+) -> bool:
+    if last_flush_completed < 0:
+        return True
+    if completed_files - last_flush_completed >= _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE:
+        return True
+    if now_ns - last_flush_ns >= _COLLECTION_REPORT_FLUSH_INTERVAL_NS:
+        return True
+    return remaining_files == 0
+
+
+def _projection_phase_flush_due(
+    *,
+    phase: Literal["collection", "forest", "edge", "post"],
+    now_ns: int,
+    last_flush_ns: int,
+) -> bool:
+    if phase == "post":
+        return True
+    return now_ns - last_flush_ns >= _COLLECTION_REPORT_FLUSH_INTERVAL_NS
+
+
 def _read_text_profiled(
     path: Path,
     *,
@@ -208,7 +272,6 @@ def _resolve_analysis_resume_checkpoint_path(
             return path
         return root / path
     never("invalid analysis resume checkpoint payload", value_type=type(value).__name__)
-    return None
 
 
 def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
@@ -587,7 +650,13 @@ def _analysis_input_witness(
     include_invariant_propositions: bool,
     include_wl_refinement: bool,
     config: AuditConfig,
+    read_text_fn: Callable[..., str] | None = None,
+    parse_source_fn: Callable[..., ast.AST] | None = None,
 ) -> JSONObject:
+    if read_text_fn is None:
+        read_text_fn = _read_text_profiled
+    if parse_source_fn is None:
+        parse_source_fn = ast.parse
     def _normalize_scalar(value: object) -> JSONValue:
         if value is None or isinstance(value, (bool, int, str)):
             return value
@@ -653,13 +722,6 @@ def _analysis_input_witness(
         witness_text = _canonical_json_text(normalized_tree)
         witness_key = hashlib.sha1(witness_text.encode("utf-8")).hexdigest()
         if witness_key not in ast_intern_table:
-            if (
-                not isinstance(
-                    normalized_tree, (dict, list, str, int, float, bool)
-                )
-                and normalized_tree is not None
-            ):
-                never("invalid normalized ast witness payload")
             ast_intern_table[witness_key] = cast(JSONValue, normalized_tree)
         return witness_key
 
@@ -675,7 +737,7 @@ def _analysis_input_witness(
             entry["size"] = int(stat.st_size)
             entry["mtime_ns"] = int(stat.st_mtime_ns)
             try:
-                source = _read_text_profiled(
+                source = read_text_fn(
                     path,
                     io_name="analysis_input_witness.source_read",
                     encoding="utf-8",
@@ -687,7 +749,7 @@ def _analysis_input_witness(
                 }
             else:
                 try:
-                    tree = ast.parse(source, filename=str(path))
+                    tree = parse_source_fn(source, filename=str(path))
                 except SyntaxError as exc:
                     entry["parse_error"] = {
                         "kind": type(exc).__name__,
@@ -862,8 +924,6 @@ def _analysis_resume_progress(
     completed = 0
     if isinstance(completed_paths, list):
         completed = sum(1 for path in completed_paths if isinstance(path, str))
-    if completed < 0:
-        completed = 0
     in_progress_scan = collection_resume.get("in_progress_scan_by_path")
     in_progress = 0
     if isinstance(in_progress_scan, Mapping):
@@ -872,9 +932,12 @@ def _analysis_resume_progress(
             for path, state in in_progress_scan.items()
             if isinstance(path, str) and isinstance(state, Mapping)
         )
-    if in_progress < 0:
-        in_progress = 0
     if total_files >= 0:
+        # A timeout can occur before path discovery populates total_files.
+        # Preserve observed checkpoint progress instead of clamping it away.
+        observed_files = completed + in_progress
+        if observed_files > total_files:
+            total_files = observed_files
         completed = min(completed, total_files)
         in_progress = min(in_progress, max(total_files - completed, 0))
     remaining = max(total_files - completed, 0)
@@ -1202,8 +1265,6 @@ def _collection_semantic_progress(
 
     for path_key in previous_states:
         check_deadline()
-        if path_key in seen_paths:
-            continue
         seen_paths.add(path_key)
         _accumulate_progress(path_key)
     for path_key in current_states:
@@ -1683,10 +1744,7 @@ def _render_incremental_report(
         if section_lines:
             lines.append(f"## Section `{section_id}`")
             lines.extend(section_lines)
-            if not section_lines[-1:]:
-                lines.append("")
-            else:
-                lines.append("")
+            lines.append("")
             continue
         dep_text = ", ".join(deps) if deps else "none"
         if any(dep not in sections for dep in deps):
@@ -2049,6 +2107,8 @@ def _incremental_progress_obligations(
         else:
             status = "OBLIGATION"
             detail = pending_reasons.get(section_id, "section pending")
+            if stale_input_detected and detail == "policy":
+                detail = "stale_input"
         obligations.append(
             {
                 "status": status,
@@ -2080,6 +2140,23 @@ def _split_incremental_obligations(
         if contract in {"progress_report_contract", "incremental_projection_contract"}:
             incremental.append(entry)
     return resumability, incremental
+
+
+def _apply_journal_pending_reason(
+    *,
+    projection_rows: Sequence[Mapping[str, JSONValue]],
+    sections: Mapping[str, object],
+    pending_reasons: dict[str, str],
+    journal_reason: str | None,
+) -> None:
+    if journal_reason not in {"stale_input", "policy"}:
+        return
+    for row in projection_rows:
+        check_deadline()
+        section_id = str(row.get("section_id", "") or "")
+        if not section_id or section_id in sections:
+            continue
+        pending_reasons[section_id] = journal_reason
 
 
 def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
@@ -2127,10 +2204,21 @@ def _truthy_flag(value: object) -> bool:
     return text in {"1", "true", "yes", "on"}
 
 
-def _server_deadline_overhead_ns(total_ns: int) -> int:
+def _server_deadline_overhead_ns(
+    total_ns: int,
+    *,
+    divisor: int | None = None,
+) -> int:
     if total_ns <= 0:
         return 0
-    overhead = total_ns // _SERVER_DEADLINE_OVERHEAD_DIVISOR
+    divisor_value = (
+        _SERVER_DEADLINE_OVERHEAD_DIVISOR
+        if divisor is None
+        else int(divisor)
+    )
+    if divisor_value <= 0:
+        never("invalid server deadline overhead divisor", divisor=divisor_value)
+    overhead = total_ns // divisor_value
     if overhead < _SERVER_DEADLINE_OVERHEAD_MIN_NS:
         overhead = _SERVER_DEADLINE_OVERHEAD_MIN_NS
     if overhead > _SERVER_DEADLINE_OVERHEAD_MAX_NS:
@@ -2184,7 +2272,40 @@ def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
         return timeout_ns
     never("missing analysis timeout", payload_keys=sorted(payload.keys()))
-    return 1
+
+
+def _analysis_timeout_total_ticks(payload: Mapping[str, object]) -> int:
+    timeout_ticks = payload.get("analysis_timeout_ticks")
+    timeout_ms = payload.get("analysis_timeout_ms")
+    timeout_seconds = payload.get("analysis_timeout_seconds")
+    if timeout_ticks not in (None, ""):
+        try:
+            ticks_value = int(timeout_ticks)
+        except (TypeError, ValueError):
+            never("invalid analysis timeout ticks", ticks=timeout_ticks)
+        if ticks_value <= 0:
+            never("invalid analysis timeout ticks", ticks=timeout_ticks)
+        return ticks_value
+    if timeout_ms not in (None, ""):
+        try:
+            ms_value = int(timeout_ms)
+        except (TypeError, ValueError):
+            never("invalid analysis timeout ms", ms=timeout_ms)
+        if ms_value <= 0:
+            never("invalid analysis timeout ms", ms=timeout_ms)
+        return ms_value
+    if timeout_seconds not in (None, ""):
+        try:
+            seconds_value = Decimal(str(timeout_seconds))
+        except (InvalidOperation, ValueError):
+            never("invalid analysis timeout seconds", seconds=timeout_seconds)
+        if seconds_value <= 0:
+            never("invalid analysis timeout seconds", seconds=timeout_seconds)
+        ticks_value = int(seconds_value * Decimal(1000))
+        if ticks_value <= 0:
+            never("invalid analysis timeout seconds", seconds=timeout_seconds)
+        return ticks_value
+    never("missing analysis timeout", payload_keys=sorted(payload.keys()))
 
 
 def _analysis_timeout_grace_ns(payload: Mapping[str, object], *, total_ns: int) -> int:
@@ -2259,19 +2380,34 @@ def _deadline_from_payload(payload: dict) -> Deadline:
 def _deadline_scope_from_payload(payload: object):
     normalized_payload = _require_payload(payload, command="deadline_scope")
     deadline = _deadline_from_payload(normalized_payload)
+    base_ticks = _analysis_timeout_total_ticks(normalized_payload)
+    tick_limit = base_ticks
+    tick_limit_value = normalized_payload.get("analysis_tick_limit")
+    if tick_limit_value not in (None, ""):
+        try:
+            explicit_tick_limit = int(tick_limit_value)
+        except (TypeError, ValueError):
+            never("invalid analysis tick limit", tick_limit=tick_limit_value)
+        if explicit_tick_limit <= 0:
+            never("invalid analysis tick limit", tick_limit=tick_limit_value)
+        tick_limit = min(tick_limit, explicit_tick_limit)
+    logical_clock = GasMeter(limit=tick_limit)
     profile_enabled = _truthy_flag(normalized_payload.get("deadline_profile"))
     root_value = normalized_payload.get("root")
     profile_root = Path(str(root_value)).resolve() if root_value not in (None, "") else None
-    with deadline_profile_scope(
-        project_root=profile_root,
-        enabled=profile_enabled,
-    ):
-        with forest_scope(Forest()):
-            token = set_deadline(deadline)
-            try:
-                yield
-            finally:
-                reset_deadline(token)
+    with forest_scope(Forest()):
+        deadline_token = set_deadline(deadline)
+        clock_token = set_deadline_clock(logical_clock)
+        profile_token = set_deadline_profile(
+            project_root=profile_root,
+            enabled=profile_enabled,
+        )
+        try:
+            yield
+        finally:
+            reset_deadline_profile(profile_token)
+            reset_deadline_clock(clock_token)
+            reset_deadline(deadline_token)
 
 
 def _output_dirs(report_root: Path) -> tuple[Path, Path]:
@@ -2371,13 +2507,55 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
     return diagnostics
 
 
+def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
+    context_obj = getattr(exc, "context", None)
+    if hasattr(context_obj, "as_payload"):
+        payload = context_obj.as_payload()
+        if isinstance(payload, Mapping):
+            return {str(key): payload[key] for key in payload}
+    return {
+        "summary": "Analysis timed out.",
+        "progress": {"classification": "timed_out_no_progress"},
+    }
+
+
+def _default_execute_command_deps() -> ExecuteCommandDeps:
+    return ExecuteCommandDeps(
+        analyze_paths_fn=analyze_paths,
+        load_analysis_resume_checkpoint_manifest_fn=_load_analysis_resume_checkpoint_manifest,
+        write_analysis_resume_checkpoint_fn=_write_analysis_resume_checkpoint,
+        load_analysis_resume_checkpoint_fn=_load_analysis_resume_checkpoint,
+        analysis_input_manifest_fn=_analysis_input_manifest,
+        analysis_input_manifest_digest_fn=_analysis_input_manifest_digest,
+        build_analysis_collection_resume_seed_fn=build_analysis_collection_resume_seed,
+        collection_semantic_progress_fn=_collection_semantic_progress,
+        load_report_phase_checkpoint_fn=_load_report_phase_checkpoint,
+        project_report_sections_fn=project_report_sections,
+        report_projection_spec_rows_fn=report_projection_spec_rows,
+        collection_checkpoint_flush_due_fn=_collection_checkpoint_flush_due,
+        write_bootstrap_incremental_artifacts_fn=_write_bootstrap_incremental_artifacts,
+        load_report_section_journal_fn=_load_report_section_journal,
+    )
+
+
 @server.command(DATAFLOW_COMMAND)
-def execute_command(ls: LanguageServer, payload: dict | None = None) -> dict:
+def execute_command(
+    ls: LanguageServer,
+    payload: dict | None = None,
+    *,
+    deps: ExecuteCommandDeps | None = None,
+) -> dict:
     normalized_payload = _require_payload(payload, command=DATAFLOW_COMMAND)
-    return _execute_command_total(ls, normalized_payload)
+    return _execute_command_total(ls, normalized_payload, deps=deps)
 
 
-def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> dict:
+def _execute_command_total(
+    ls: LanguageServer,
+    payload: dict[str, object],
+    *,
+    deps: ExecuteCommandDeps | None = None,
+) -> dict:
+    execute_deps = deps or _default_execute_command_deps()
     profile_enabled = _truthy_flag(payload.get("deadline_profile"))
     profile_root_value = payload.get("root") or ls.workspace.root_path or "."
     initial_root = Path(str(profile_root_value))
@@ -2385,20 +2563,34 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
     initial_report_path_text = (
         str(initial_report_path) if isinstance(initial_report_path, str) else None
     )
-    profile_token = set_deadline_profile(
-        project_root=initial_root,
-        enabled=profile_enabled,
-    )
     timeout_total_ns, analysis_window_ns, cleanup_grace_ns = _analysis_timeout_budget_ns(
         payload
     )
+    timeout_total_ticks = _analysis_timeout_total_ticks(payload)
+    explicit_tick_limit_value = payload.get("analysis_tick_limit")
+    if explicit_tick_limit_value not in (None, ""):
+        try:
+            explicit_tick_limit = int(explicit_tick_limit_value)
+        except (TypeError, ValueError):
+            never("invalid analysis tick limit", tick_limit=explicit_tick_limit_value)
+        if explicit_tick_limit <= 0:
+            never("invalid analysis tick limit", tick_limit=explicit_tick_limit_value)
+        timeout_total_ticks = min(timeout_total_ticks, explicit_tick_limit)
     timeout_start_ns = time.monotonic_ns()
     timeout_hard_deadline_ns = timeout_start_ns + timeout_total_ns
     deadline = Deadline(deadline_ns=timeout_start_ns + analysis_window_ns)
     deadline_token = set_deadline(deadline)
+    deadline_clock_token = set_deadline_clock(GasMeter(limit=timeout_total_ticks))
+    profile_token = set_deadline_profile(
+        project_root=initial_root,
+        enabled=profile_enabled,
+    )
     forest = Forest()
     forest_token = set_forest(forest)
-    analysis_resume_checkpoint_path: Path | None = None
+    analysis_resume_checkpoint_path: Path | None = _resolve_analysis_resume_checkpoint_path(
+        payload.get("resume_checkpoint"),
+        root=initial_root,
+    )
     analysis_resume_input_witness: JSONObject | None = None
     analysis_resume_input_manifest_digest: str | None = None
     analysis_resume_total_files = 0
@@ -2417,12 +2609,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         report_path=initial_report_path_text,
     )
     projection_rows: list[JSONObject] = (
-        report_projection_spec_rows() if report_output_path else []
+        execute_deps.report_projection_spec_rows_fn() if report_output_path else []
     )
     enable_phase_projection_checkpoints = False
     phase_checkpoint_state: JSONObject = {}
     last_collection_resume_payload: JSONObject | None = None
-    report_sections_cache: dict[str, list[str]] | None = None
+    report_sections_cache: dict[str, list[str]] = {}
     report_sections_cache_reason: str | None = None
     report_sections_cache_loaded = False
 
@@ -2431,18 +2623,18 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
         nonlocal report_sections_cache_reason
         nonlocal report_sections_cache_loaded
         if not report_sections_cache_loaded:
-            report_sections_cache, report_sections_cache_reason = _load_report_section_journal(
+            report_sections_cache, report_sections_cache_reason = (
+                execute_deps.load_report_section_journal_fn(
                 path=report_section_journal_path,
                 witness_digest=report_section_witness_digest,
+                )
             )
             report_sections_cache_loaded = True
-        if report_sections_cache is None:
-            report_sections_cache = {}
         return report_sections_cache, report_sections_cache_reason
 
     raw_initial_paths = payload.get("paths")
     initial_paths_count = len(raw_initial_paths) if isinstance(raw_initial_paths, list) else 1
-    _write_bootstrap_incremental_artifacts(
+    execute_deps.write_bootstrap_incremental_artifacts_fn(
         report_output_path=report_output_path,
         report_section_journal_path=report_section_journal_path,
         report_phase_checkpoint_path=report_phase_checkpoint_path,
@@ -2522,7 +2714,9 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             root=Path(root),
             report_path=report_path_text,
         )
-        projection_rows = report_projection_spec_rows() if report_output_path else []
+        projection_rows = (
+            execute_deps.report_projection_spec_rows_fn() if report_output_path else []
+        )
         emit_timeout_progress_report = _truthy_flag(
             payload.get("emit_timeout_progress_report")
         )
@@ -2698,7 +2892,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 root=Path(root),
             )
             if analysis_resume_checkpoint_path is not None:
-                input_manifest = _analysis_input_manifest(
+                input_manifest = execute_deps.analysis_input_manifest_fn(
                     root=Path(root),
                     file_paths=file_paths_for_run,
                     recursive=not no_recursive,
@@ -2706,10 +2900,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     include_wl_refinement=include_wl_refinement,
                     config=config,
                 )
-                analysis_resume_input_manifest_digest = _analysis_input_manifest_digest(
+                analysis_resume_input_manifest_digest = (
+                    execute_deps.analysis_input_manifest_digest_fn(
                     input_manifest
+                    )
                 )
-                manifest_resume = _load_analysis_resume_checkpoint_manifest(
+                manifest_resume = execute_deps.load_analysis_resume_checkpoint_manifest_fn(
                     path=analysis_resume_checkpoint_path,
                     manifest_digest=analysis_resume_input_manifest_digest,
                 )
@@ -2727,43 +2923,19 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     and analysis_resume_input_manifest_digest is not None
                 ):
                     seed_paths = file_paths_for_run[:1] if file_paths_for_run else []
-                    collection_resume_payload = build_analysis_collection_resume_seed(
+                    collection_resume_payload = (
+                        execute_deps.build_analysis_collection_resume_seed_fn(
                         in_progress_paths=seed_paths
                     )
-                    _write_analysis_resume_checkpoint(
+                    )
+                    execute_deps.write_analysis_resume_checkpoint_fn(
                         path=analysis_resume_checkpoint_path,
                         input_witness=analysis_resume_input_witness,
                         input_manifest_digest=analysis_resume_input_manifest_digest,
                         collection_resume=collection_resume_payload,
                     )
-                if (
-                    analysis_resume_input_witness is None
-                    and collection_resume_payload is None
-                ):
-                    analysis_resume_input_witness = _analysis_input_witness(
-                        root=Path(root),
-                        file_paths=file_paths_for_run,
-                        recursive=not no_recursive,
-                        include_invariant_propositions=bool(report_path),
-                        include_wl_refinement=include_wl_refinement,
-                        config=config,
-                    )
-                if (
-                    collection_resume_payload is None
-                    and analysis_resume_input_witness is not None
-                ):
-                    collection_resume = _load_analysis_resume_checkpoint(
-                        path=analysis_resume_checkpoint_path,
-                        input_witness=analysis_resume_input_witness,
-                    )
-                    if collection_resume is not None:
-                        collection_resume_payload = collection_resume
-                        analysis_resume_reused_files = _analysis_resume_progress(
-                            collection_resume=collection_resume,
-                            total_files=analysis_resume_total_files,
-                        )["completed_files"]
             if file_paths_for_run is not None and analysis_resume_input_manifest_digest is None:
-                input_manifest = _analysis_input_manifest(
+                input_manifest = execute_deps.analysis_input_manifest_fn(
                     root=Path(root),
                     file_paths=file_paths_for_run,
                     recursive=not no_recursive,
@@ -2771,15 +2943,15 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     include_wl_refinement=include_wl_refinement,
                     config=config,
                 )
-                analysis_resume_input_manifest_digest = _analysis_input_manifest_digest(
-                    input_manifest
+                analysis_resume_input_manifest_digest = (
+                    execute_deps.analysis_input_manifest_digest_fn(input_manifest)
                 )
             report_section_witness_digest = _report_witness_digest(
                 input_witness=analysis_resume_input_witness,
                 manifest_digest=analysis_resume_input_manifest_digest,
             )
             if report_output_path is not None:
-                phase_checkpoint_state = _load_report_phase_checkpoint(
+                phase_checkpoint_state = execute_deps.load_report_phase_checkpoint_fn(
                     path=report_phase_checkpoint_path,
                     witness_digest=report_section_witness_digest,
                 )
@@ -2813,7 +2985,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             nonlocal last_collection_report_flush_ns
             nonlocal last_collection_report_flush_completed
             nonlocal report_sections_cache_reason
-            semantic_progress = _collection_semantic_progress(
+            semantic_progress = execute_deps.collection_semantic_progress_fn(
                 previous_collection_resume=last_collection_resume_payload,
                 collection_resume=progress_payload,
                 total_files=analysis_resume_total_files,
@@ -2854,15 +3026,13 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 and analysis_resume_input_manifest_digest is not None
                 and (intro_changed or semantic_changed or analysis_index_changed)
             ):
-                checkpoint_due = intro_changed or collection_progress["remaining_files"] == 0
-                if (
-                    not checkpoint_due
-                    and now_ns - last_collection_checkpoint_flush_ns
-                    >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
+                if execute_deps.collection_checkpoint_flush_due_fn(
+                    intro_changed=intro_changed,
+                    remaining_files=collection_progress["remaining_files"],
+                    now_ns=now_ns,
+                    last_flush_ns=last_collection_checkpoint_flush_ns,
                 ):
-                    checkpoint_due = True
-                if checkpoint_due:
-                    _write_analysis_resume_checkpoint(
+                    execute_deps.write_analysis_resume_checkpoint_fn(
                         path=analysis_resume_checkpoint_path,
                         input_witness=analysis_resume_input_witness,
                         input_manifest_digest=analysis_resume_input_manifest_digest,
@@ -2877,22 +3047,13 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             if not report_output_path or not projection_rows:
                 return
             completed_files = collection_progress["completed_files"]
-            should_flush_report = False
-            if last_collection_report_flush_completed < 0:
-                should_flush_report = True
-            elif (
-                completed_files - last_collection_report_flush_completed
-                >= _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE
+            if not _collection_report_flush_due(
+                completed_files=completed_files,
+                remaining_files=collection_progress["remaining_files"],
+                now_ns=now_ns,
+                last_flush_ns=last_collection_report_flush_ns,
+                last_flush_completed=last_collection_report_flush_completed,
             ):
-                should_flush_report = True
-            elif (
-                now_ns - last_collection_report_flush_ns
-                >= _COLLECTION_REPORT_FLUSH_INTERVAL_NS
-            ):
-                should_flush_report = True
-            elif collection_progress["remaining_files"] == 0:
-                should_flush_report = True
-            if not should_flush_report:
                 return
             last_collection_report_flush_ns = now_ns
             last_collection_report_flush_completed = completed_files
@@ -2909,7 +3070,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     forest=forest,
                     parse_failure_witnesses=[],
                 )
-                preview_sections = project_report_sections(
+                preview_sections = execute_deps.project_report_sections_fn(
                     preview_groups_by_path,
                     preview_report,
                     max_phase="post",
@@ -2931,13 +3092,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 completed_phase="collection",
             )
             pending_reasons.pop("intro", None)
-            if journal_reason in {"stale_input", "policy"}:
-                for row in projection_rows:
-                    check_deadline()
-                    section_id = str(row.get("section_id", "") or "")
-                    if not section_id or section_id in sections:
-                        continue
-                    pending_reasons[section_id] = journal_reason
+            _apply_journal_pending_reason(
+                projection_rows=projection_rows,
+                sections=sections,
+                pending_reasons=pending_reasons,
+                journal_reason=journal_reason,
+            )
             report_output_path.parent.mkdir(parents=True, exist_ok=True)
             _write_text_profiled(
                 report_output_path,
@@ -3021,12 +3181,15 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 return
             phase_progress_signatures[phase] = phase_signature
             now_ns = time.monotonic_ns()
-            if phase != "post":
-                last_flush_ns = phase_progress_last_flush_ns.get(phase, 0)
-                if now_ns - last_flush_ns < _COLLECTION_REPORT_FLUSH_INTERVAL_NS:
-                    return
+            last_flush_ns = phase_progress_last_flush_ns.get(phase, 0)
+            if not _projection_phase_flush_due(
+                phase=phase,
+                now_ns=now_ns,
+                last_flush_ns=last_flush_ns,
+            ):
+                return
             phase_progress_last_flush_ns[phase] = now_ns
-            available_sections = project_report_sections(
+            available_sections = execute_deps.project_report_sections_fn(
                 groups_by_path,
                 report_carrier,
                 max_phase="post",
@@ -3042,13 +3205,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 sections=sections,
                 completed_phase=phase,
             )
-            if journal_reason in {"stale_input", "policy"}:
-                for row in projection_rows:
-                    check_deadline()
-                    section_id = str(row.get("section_id", "") or "")
-                    if not section_id or section_id in sections:
-                        continue
-                    pending_reasons[section_id] = journal_reason
+            _apply_journal_pending_reason(
+                projection_rows=projection_rows,
+                sections=sections,
+                pending_reasons=pending_reasons,
+                journal_reason=journal_reason,
+            )
             report_output_path.parent.mkdir(parents=True, exist_ok=True)
             _write_text_profiled(
                 report_output_path,
@@ -3078,13 +3240,15 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             bootstrap_collection_resume = collection_resume_payload
             if bootstrap_collection_resume is None:
                 seed_paths = file_paths_for_run[:1] if file_paths_for_run else []
-                bootstrap_collection_resume = build_analysis_collection_resume_seed(
+                bootstrap_collection_resume = (
+                    execute_deps.build_analysis_collection_resume_seed_fn(
                     in_progress_paths=seed_paths
+                )
                 )
             _persist_collection_resume(bootstrap_collection_resume)
 
         if needs_analysis:
-            analysis = analyze_paths(
+            analysis = execute_deps.analyze_paths_fn(
                 paths,
                 forest=forest,
                 recursive=not no_recursive,
@@ -3819,7 +3983,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
 
         try:
             try:
-                timeout_payload = exc.context.as_payload()
+                timeout_payload = _timeout_context_payload(exc)
             except TimeoutExceeded:
                 _mark_cleanup_timeout("timeout_context_payload")
                 timeout_payload = {
@@ -3830,6 +3994,8 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             if not isinstance(progress_payload, dict):
                 progress_payload = {}
                 timeout_payload["progress"] = progress_payload
+            if not isinstance(progress_payload.get("classification"), str):
+                progress_payload["classification"] = "timed_out_no_progress"
             progress_payload.setdefault(
                 "timeout_budget",
                 {
@@ -3839,6 +4005,8 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     "hard_deadline_ns": timeout_hard_deadline_ns,
                 },
             )
+            if analysis_resume_checkpoint_path is not None:
+                progress_payload["resume_supported"] = True
             timeout_collection_resume_payload: JSONObject | None = None
             if (
                 analysis_resume_checkpoint_path is not None
@@ -3850,7 +4018,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         str(key): last_collection_resume_payload[key]
                         for key in last_collection_resume_payload
                     }
-                    _write_analysis_resume_checkpoint(
+                    execute_deps.write_analysis_resume_checkpoint_fn(
                         path=analysis_resume_checkpoint_path,
                         input_witness=analysis_resume_input_witness,
                         input_manifest_digest=analysis_resume_input_manifest_digest,
@@ -3866,14 +4034,16 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     if timeout_collection_resume_payload is not None:
                         collection_resume = timeout_collection_resume_payload
                     elif analysis_resume_input_witness is not None:
-                        collection_resume = _load_analysis_resume_checkpoint(
+                        collection_resume = execute_deps.load_analysis_resume_checkpoint_fn(
                             path=analysis_resume_checkpoint_path,
                             input_witness=analysis_resume_input_witness,
                         )
                     elif analysis_resume_input_manifest_digest is not None:
-                        manifest_resume = _load_analysis_resume_checkpoint_manifest(
+                        manifest_resume = (
+                            execute_deps.load_analysis_resume_checkpoint_manifest_fn(
                             path=analysis_resume_checkpoint_path,
                             manifest_digest=analysis_resume_input_manifest_digest,
+                        )
                         )
                         if manifest_resume is not None:
                             resume_input_witness, collection_resume = manifest_resume
@@ -3956,25 +4126,23 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             classification = progress_payload.get("classification")
             if isinstance(classification, str) and classification:
                 analysis_state = classification
+            if analysis_state == "timed_out_progress_resume":
+                progress_payload["resume_supported"] = True
             partial_report_written = False
             resolved_sections: dict[str, list[str]] = {}
             pending_reasons: dict[str, str] = {}
             if report_output_path is not None and projection_rows:
                 try:
-                    if not phase_checkpoint_state:
-                        phase_checkpoint_state = _load_report_phase_checkpoint(
-                            path=report_phase_checkpoint_path,
-                            witness_digest=report_section_witness_digest,
-                        )
+                    loaded_phase_checkpoint_state = (
+                        execute_deps.load_report_phase_checkpoint_fn(
+                        path=report_phase_checkpoint_path,
+                        witness_digest=report_section_witness_digest,
+                    )
+                    )
+                    phase_checkpoint_state = (
+                        phase_checkpoint_state or loaded_phase_checkpoint_state or {}
+                    )
                     resolved_sections, journal_reason = _ensure_report_sections_cache()
-                    if (
-                        timeout_collection_resume_payload is not None
-                        and "intro" not in resolved_sections
-                    ):
-                        resolved_sections["intro"] = _collection_progress_intro_lines(
-                            collection_resume=timeout_collection_resume_payload,
-                            total_files=analysis_resume_total_files,
-                        )
                     if (
                         timeout_collection_resume_payload is not None
                         and "components" not in resolved_sections
@@ -3993,7 +4161,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                             forest=forest,
                             parse_failure_witnesses=[],
                         )
-                        preview_sections = project_report_sections(
+                        preview_sections = execute_deps.project_report_sections_fn(
                             preview_groups_by_path,
                             preview_report,
                             max_phase="post",
@@ -4003,12 +4171,19 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         for section_id, section_lines in preview_sections.items():
                             check_deadline()
                             resolved_sections.setdefault(section_id, section_lines)
-                    if "intro" not in resolved_sections:
-                        resolved_sections["intro"] = [
+                    intro_lines = (
+                        _collection_progress_intro_lines(
+                            collection_resume=timeout_collection_resume_payload,
+                            total_files=analysis_resume_total_files,
+                        )
+                        if timeout_collection_resume_payload is not None
+                        else [
                             "Collection bootstrap checkpoint (provisional).",
                             f"- `root`: `{initial_root}`",
                             f"- `paths_requested`: `{initial_paths_count}`",
                         ]
+                    )
+                    resolved_sections.setdefault("intro", intro_lines)
                     completed_phase = _latest_report_phase(phase_checkpoint_state)
                     partial_report, pending_reasons = _render_incremental_report(
                         analysis_state=analysis_state,
@@ -4017,13 +4192,12 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         sections=resolved_sections,
                         completed_phase=completed_phase,
                     )
-                    if journal_reason in {"stale_input", "policy"}:
-                        for row in projection_rows:
-                            check_deadline()
-                            section_id = str(row.get("section_id", "") or "")
-                            if not section_id or section_id in resolved_sections:
-                                continue
-                            pending_reasons[section_id] = journal_reason
+                    _apply_journal_pending_reason(
+                        projection_rows=projection_rows,
+                        sections=resolved_sections,
+                        pending_reasons=pending_reasons,
+                        journal_reason=journal_reason,
+                    )
                     report_output_path.parent.mkdir(parents=True, exist_ok=True)
                     _write_text_profiled(
                         report_output_path,
@@ -4081,6 +4255,7 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             reset_deadline(cleanup_deadline_token)
     finally:
         reset_forest(forest_token)
+        reset_deadline_clock(deadline_clock_token)
         reset_deadline(deadline_token)
         reset_deadline_profile(profile_token)
 

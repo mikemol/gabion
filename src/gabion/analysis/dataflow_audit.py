@@ -22,6 +22,7 @@ import hashlib
 import os
 import sys
 from collections import Counter, defaultdict, deque
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
@@ -80,9 +81,13 @@ from .forest_spec import (
 )
 from .timeout_context import (
     Deadline,
+    GasMeter,
     TimeoutExceeded,
     build_timeout_context_from_stack,
     check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
     reset_forest,
     set_forest,
 )
@@ -1874,8 +1879,9 @@ def _analyze_decision_surfaces_indexed(
     decision_tiers: dict[str, int] | None,
     require_tiers: bool,
     forest: Forest,
+    run_fn: Callable[..., tuple[list[str], list[str], list[str], list[str]]] = _analyze_decision_surface_indexed,
 ) -> tuple[list[str], list[str], list[str]]:
-    surfaces, warnings, rewrites, lint_lines = _analyze_decision_surface_indexed(
+    surfaces, warnings, rewrites, lint_lines = run_fn(
         context,
         spec=_DIRECT_DECISION_SURFACE_SPEC,
         decision_tiers=decision_tiers,
@@ -2271,11 +2277,15 @@ _NON_NULL_PARSE_WITNESS_HELPERS = frozenset(
 )
 
 
-def _annotation_allows_none(annotation: ast.AST | None) -> bool:
+def _annotation_allows_none(
+    annotation: ast.AST | None,
+    *,
+    unparse_fn: Callable[[ast.AST], str] = ast.unparse,
+) -> bool:
     if annotation is None:
         return True
     try:
-        text = ast.unparse(annotation)
+        text = unparse_fn(annotation)
     except _AST_UNPARSE_ERROR_TYPES:
         return True
     normalized = text.replace(" ", "")
@@ -2409,21 +2419,30 @@ def _raw_sorted_contract_violations(
     paths: Iterable[Path],
     *,
     parse_failure_witnesses: list[JSONObject],
+    strict_forbid: bool | None = None,
+    baseline_counts: Mapping[str, int] | None = None,
 ) -> list[str]:
     counts = _raw_sorted_callsite_counts(
         paths,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    strict_forbid = os.environ.get(_FORBID_RAW_SORTED_ENV) == "1"
+    strict_forbid_flag = (
+        os.environ.get(_FORBID_RAW_SORTED_ENV) == "1"
+        if strict_forbid is None
+        else bool(strict_forbid)
+    )
+    baseline_counts_map: Mapping[str, int] = (
+        _RAW_SORTED_BASELINE_COUNTS if baseline_counts is None else baseline_counts
+    )
     violations: list[str] = []
     for path in ordered_or_sorted(
         counts,
         source="_raw_sorted_contract_violations.counts",
     ):
         check_deadline()
-        baseline = _RAW_SORTED_BASELINE_COUNTS.get(path)
+        baseline = baseline_counts_map.get(path)
         current = len(counts[path])
-        if strict_forbid:
+        if strict_forbid_flag:
             for line, col in counts[path]:
                 check_deadline()
                 violations.append(
@@ -4692,10 +4711,13 @@ def _collect_deadline_function_facts(
     parse_failure_witnesses: list[JSONObject],
     trees: Mapping[Path, ast.AST | None] | None = None,
     analysis_index: AnalysisIndex | None = None,
+    stage_cache_fn: Callable[..., dict[Path, dict[str, "_DeadlineFunctionFacts"] | None]] | None = None,
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
+    if stage_cache_fn is None:
+        stage_cache_fn = _analysis_index_stage_cache
     if analysis_index is not None and trees is None:
-        facts_by_path = _analysis_index_stage_cache(
+        facts_by_path = stage_cache_fn(
             analysis_index,
             paths,
             spec=_StageCacheSpec(
@@ -4846,8 +4868,11 @@ def _collect_call_edges(
     symbol_table: SymbolTable,
     project_root: Path | None,
     class_index: dict[str, ClassInfo],
+    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
 ) -> dict[str, set[str]]:
     check_deadline()
+    if resolve_callee_outcome_fn is None:
+        resolve_callee_outcome_fn = _resolve_callee_outcome
     edges: dict[str, set[str]] = defaultdict(set)
     for infos in by_name.values():
         check_deadline()
@@ -4859,7 +4884,7 @@ def _collect_call_edges(
                 check_deadline()
                 if call.is_test:
                     continue
-                resolution = _resolve_callee_outcome(
+                resolution = resolve_callee_outcome_fn(
                     call.callee,
                     info,
                     by_name,
@@ -5003,10 +5028,6 @@ def _collect_call_resolution_obligations_from_forest(
         if suite_kind != "call":
             continue
         caller_id = _suite_caller_function_id(suite_node)
-        caller_path = str(suite_node.meta.get("path", "") or "")
-        caller_qual = str(suite_node.meta.get("qual", "") or "")
-        if not caller_path or not caller_qual:
-            continue
         raw_span = suite_node.meta.get("span")
         span: tuple[int, int, int, int] | None = None
         if isinstance(raw_span, list) and len(raw_span) == 4:
@@ -5021,6 +5042,8 @@ def _collect_call_resolution_obligations_from_forest(
             if valid:
                 span = (coerced[0], coerced[1], coerced[2], coerced[3])
         if span is None:
+            caller_path = str(suite_node.meta.get("path", "") or "")
+            caller_qual = str(suite_node.meta.get("qual", "") or "")
             never(
                 "call resolution obligation requires span",
                 path=caller_path,
@@ -5039,10 +5062,13 @@ def _collect_call_resolution_obligations_from_forest(
 
 def _collect_unresolved_call_sites_from_forest(
     forest: Forest,
+    collect_call_resolution_obligations_from_forest_fn: Callable[
+        [Forest], list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]
+    ] = _collect_call_resolution_obligations_from_forest,
 ) -> list[tuple[str, str, tuple[int, int, int, int] | None, str]]:
     """Backward-compatible alias for call resolution obligations."""
     out: list[tuple[str, str, tuple[int, int, int, int] | None, str]] = []
-    for caller_id, _, span, callee_key in _collect_call_resolution_obligations_from_forest(
+    for caller_id, _, span, callee_key in collect_call_resolution_obligations_from_forest_fn(
         forest
     ):
         check_deadline()
@@ -5084,8 +5110,11 @@ def _materialize_call_candidates(
     symbol_table: SymbolTable,
     project_root: Path | None,
     class_index: dict[str, ClassInfo],
+    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
 ) -> None:
     check_deadline()
+    if resolve_callee_outcome_fn is None:
+        resolve_callee_outcome_fn = _resolve_callee_outcome
     seen: set[tuple[NodeId, NodeId]] = set()
     obligation_seen: set[NodeId] = set()
     seen_loop_checked = False
@@ -5108,7 +5137,7 @@ def _materialize_call_candidates(
                 check_deadline()
                 if call.is_test:
                     continue
-                resolution = _resolve_callee_outcome(
+                resolution = resolve_callee_outcome_fn(
                     call.callee,
                     info,
                     by_name,
@@ -5517,8 +5546,44 @@ def _collect_deadline_obligations(
     extra_deadline_params: dict[str, set[str]] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
+    materialize_call_candidates_fn: Callable[..., None] | None = None,
+    collect_call_nodes_by_path_fn: Callable[
+        ..., dict[Path, dict[tuple[int, int, int, int], list[ast.Call]]]
+    ] | None = None,
+    collect_deadline_function_facts_fn: Callable[
+        ..., dict[str, "_DeadlineFunctionFacts"]
+    ] | None = None,
+    collect_call_edges_from_forest_fn: Callable[..., dict[NodeId, set[NodeId]]] | None = None,
+    collect_call_resolution_obligations_from_forest_fn: Callable[
+        ..., list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str]]
+    ] | None = None,
+    reachable_from_roots_fn: Callable[
+        [Mapping[NodeId, set[NodeId]], set[NodeId]], set[NodeId]
+    ] | None = None,
+    collect_recursive_nodes_fn: Callable[
+        [Mapping[NodeId, set[NodeId]]], set[NodeId]
+    ] | None = None,
+    resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
 ) -> list[JSONObject]:
     check_deadline()
+    if materialize_call_candidates_fn is None:
+        materialize_call_candidates_fn = _materialize_call_candidates
+    if collect_call_nodes_by_path_fn is None:
+        collect_call_nodes_by_path_fn = _collect_call_nodes_by_path
+    if collect_deadline_function_facts_fn is None:
+        collect_deadline_function_facts_fn = _collect_deadline_function_facts
+    if collect_call_edges_from_forest_fn is None:
+        collect_call_edges_from_forest_fn = _collect_call_edges_from_forest
+    if collect_call_resolution_obligations_from_forest_fn is None:
+        collect_call_resolution_obligations_from_forest_fn = (
+            _collect_call_resolution_obligations_from_forest
+        )
+    if reachable_from_roots_fn is None:
+        reachable_from_roots_fn = _reachable_from_roots
+    if collect_recursive_nodes_fn is None:
+        collect_recursive_nodes_fn = _collect_recursive_nodes
+    if resolve_callee_outcome_fn is None:
+        resolve_callee_outcome_fn = _resolve_callee_outcome
     if not config.deadline_roots:
         return []
     index = analysis_index
@@ -5536,7 +5601,7 @@ def _collect_deadline_obligations(
     by_qual = index.by_qual
     symbol_table = index.symbol_table
     class_index = index.class_index
-    _materialize_call_candidates(
+    materialize_call_candidates_fn(
         forest=forest,
         by_name=by_name,
         by_qual=by_qual,
@@ -5544,12 +5609,12 @@ def _collect_deadline_obligations(
         project_root=project_root,
         class_index=class_index,
     )
-    call_nodes_by_path = _collect_call_nodes_by_path(
+    call_nodes_by_path = collect_call_nodes_by_path_fn(
         paths,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
     )
-    facts_by_qual = _collect_deadline_function_facts(
+    facts_by_qual = collect_deadline_function_facts_fn(
         paths,
         project_root=project_root,
         ignore_params=config.ignore_params,
@@ -5590,7 +5655,7 @@ def _collect_deadline_obligations(
                     continue
                 for call in info.calls:
                     check_deadline()
-                    resolution = _resolve_callee_outcome(
+                    resolution = resolve_callee_outcome_fn(
                         call.callee,
                         info,
                         by_name,
@@ -5630,7 +5695,7 @@ def _collect_deadline_obligations(
             span_index = call_nodes_by_path.get(info.path, {})
             for call in info.calls:
                 check_deadline()
-                resolution = _resolve_callee_outcome(
+                resolution = resolve_callee_outcome_fn(
                     call.callee,
                     info,
                     by_name,
@@ -5833,9 +5898,9 @@ def _collect_deadline_obligations(
                     suite_kind="function",
                 )
 
-    edges = _collect_call_edges_from_forest(forest, by_name=by_name)
-    resolution_obligations = _collect_call_resolution_obligations_from_forest(forest)
-    recursive_nodes = _collect_recursive_nodes(edges)
+    edges = collect_call_edges_from_forest_fn(forest, by_name=by_name)
+    resolution_obligations = collect_call_resolution_obligations_from_forest_fn(forest)
+    recursive_nodes = collect_recursive_nodes_fn(edges)
     def _deadline_exempt(qual: str) -> bool:
         return any(qual.startswith(prefix) for prefix in _DEADLINE_EXEMPT_PREFIXES)
 
@@ -5847,7 +5912,7 @@ def _collect_deadline_obligations(
             continue
         root_site_ids.add(_function_suite_id(_function_suite_key(info.path.name, qual)))
 
-    reachable_from_roots = _reachable_from_roots(edges, root_site_ids)
+    reachable_from_roots = reachable_from_roots_fn(edges, root_site_ids)
     resolved_call_suites: set[NodeId] = set()
     for alt in forest.alts:
         check_deadline()
@@ -7054,11 +7119,16 @@ def _lint_relation_from_forest(forest: Forest) -> list[dict[str, JSONValue]]:
     return relation
 
 
-def _project_lint_rows_from_forest(*, forest: Forest) -> list[dict[str, JSONValue]]:
-    relation = _lint_relation_from_forest(forest)
+def _project_lint_rows_from_forest(
+    *,
+    forest: Forest,
+    relation_fn: Callable[[Forest], list[dict[str, JSONValue]]] = _lint_relation_from_forest,
+    apply_spec_fn: Callable[[ProjectionSpec, list[dict[str, JSONValue]]], list[dict[str, JSONValue]]] = apply_spec,
+) -> list[dict[str, JSONValue]]:
+    relation = relation_fn(forest)
     if not relation:
         return []
-    projected = apply_spec(LINT_FINDINGS_SPEC, relation)
+    projected = apply_spec_fn(LINT_FINDINGS_SPEC, relation)
 
     def _row_to_file_site(row: Mapping[str, JSONValue]) -> NodeId | None:
         path = str(row.get("path", "") or "")
@@ -7377,8 +7447,11 @@ def _build_analysis_index(
     parse_failure_witnesses: list[JSONObject],
     resume_payload: Mapping[str, JSONValue] | None = None,
     on_progress: Callable[[JSONObject], None] | None = None,
+    accumulate_function_index_for_tree_fn: Callable[..., None] | None = None,
 ) -> AnalysisIndex:
     check_deadline()
+    if accumulate_function_index_for_tree_fn is None:
+        accumulate_function_index_for_tree_fn = _accumulate_function_index_for_tree
     ordered_paths = _iter_monotonic_paths(
         paths,
         source="_build_analysis_index.paths",
@@ -7454,7 +7527,7 @@ def _build_analysis_index(
                     error=exc,
                 )
                 continue
-            _accumulate_function_index_for_tree(
+            accumulate_function_index_for_tree_fn(
                 function_index_acc,
                 path,
                 tree,
@@ -7576,9 +7649,12 @@ def _analysis_index_stage_cache(
     *,
     spec: _StageCacheSpec[_StageCacheValue],
     parse_failure_witnesses: list[JSONObject],
+    module_trees_fn: Callable[..., dict[Path, ast.Module | None]] | None = None,
 ) -> dict[Path, _StageCacheValue | None]:
     check_deadline()
-    trees = _analysis_index_module_trees(
+    if module_trees_fn is None:
+        module_trees_fn = _analysis_index_module_trees
+    trees = module_trees_fn(
         analysis_index,
         paths,
         stage=spec.stage,
@@ -8656,11 +8732,7 @@ def _populate_bundle_forest(
         if on_progress is None:
             return
         progress_since_emit += 1
-        if (
-            not force
-            and progress_since_emit != 1
-            and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL
-        ):
+        if not force and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL:
             return
         progress_since_emit = 0
         on_progress()
@@ -8776,7 +8848,12 @@ def _compute_lint_lines(
     broad_type_lint_lines: list[str],
     constant_smells: list[str],
     unused_arg_smells: list[str],
+    project_lint_rows_from_forest_fn: Callable[
+        ..., list[dict[str, JSONValue]]
+    ] | None = None,
 ) -> list[str]:
+    if project_lint_rows_from_forest_fn is None:
+        project_lint_rows_from_forest_fn = _project_lint_rows_from_forest
     bundle_evidence = _collect_bundle_evidence_lines(
         forest=forest,
         groups_by_path=groups_by_path,
@@ -8824,7 +8901,7 @@ def _compute_lint_lines(
     )
 
     _materialize_lint_rows(forest=forest, rows=lint_rows)
-    projected = _project_lint_rows_from_forest(forest=forest)
+    projected = project_lint_rows_from_forest_fn(forest=forest)
     if not projected:
         return []
 
@@ -9502,12 +9579,15 @@ def _analyze_file_internal(
     config: AuditConfig | None = None,
     resume_state: Mapping[str, JSONValue] | None = None,
     on_progress: Callable[[JSONObject], None] | None = None,
+    analyze_function_fn: Callable[..., tuple[dict[str, set[str]], list[CallArgs]]] | None = None,
 ) -> tuple[
     dict[str, list[set[str]]],
     dict[str, dict[str, tuple[int, int, int, int]]],
     dict[str, list[list[JSONObject]]],
 ]:
     check_deadline()
+    if analyze_function_fn is None:
+        analyze_function_fn = _analyze_function
     if config is None:
         config = AuditConfig()
     tree = ast.parse(path.read_text())
@@ -9575,7 +9655,7 @@ def _analyze_file_internal(
                 continue
             if not _decorators_transparent(f, config.transparent_decorators):
                 opaque_callees.add(fn_key)
-            use_map, call_args = _analyze_function(
+            use_map, call_args = analyze_function_fn(
                 f,
                 parents,
                 is_test=is_test,
@@ -10533,6 +10613,7 @@ def _resolve_callee_outcome(
     project_root: Path | None = None,
     class_index: dict[str, ClassInfo] | None = None,
     call: CallArgs | None = None,
+    resolve_callee_fn: Callable[..., FunctionInfo | None] = _resolve_callee,
 ) -> _CalleeResolutionOutcome:
     check_deadline()
     ambiguous_candidates: list[FunctionInfo] = []
@@ -10553,7 +10634,7 @@ def _resolve_callee_outcome(
         ambiguity_phase = phase
         ambiguity_callee_key = sink_callee_key
 
-    resolved = _resolve_callee(
+    resolved = resolve_callee_fn(
         callee_key,
         caller,
         by_name,
@@ -11019,6 +11100,8 @@ def _collect_constant_flow_details(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
+    iter_resolved_edge_param_events_fn: Callable[..., Iterable[_ResolvedEdgeParamEvent]] = _iter_resolved_edge_param_events,
+    reduce_resolved_call_edges_fn: Callable[..., _ConstantFlowFoldAccumulator] = _reduce_resolved_call_edges,
 ) -> list[ConstantFlowDetail]:
     check_deadline()
     index = require_not_none(
@@ -11028,7 +11111,7 @@ def _collect_constant_flow_details(
     )
     by_qual = index.by_qual
     def _fold(acc: _ConstantFlowFoldAccumulator, edge: _ResolvedCallEdge) -> None:
-        for event in _iter_resolved_edge_param_events(
+        for event in iter_resolved_edge_param_events_fn(
             edge,
             strictness=strictness,
             include_variadics_in_low_star=False,
@@ -11047,7 +11130,7 @@ def _collect_constant_flow_details(
             if event.countable:
                 acc.call_counts[key] += 1
 
-    folded = _reduce_resolved_call_edges(
+    folded = reduce_resolved_call_edges_fn(
         index,
         project_root=project_root,
         require_transparent=True,
@@ -11488,11 +11571,14 @@ def _collect_dataclass_registry(
     project_root: Path | None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
+    stage_cache_fn: Callable[..., dict[Path, dict[str, list[str]] | None]] | None = None,
 ) -> dict[str, list[str]]:
     check_deadline()
+    if stage_cache_fn is None:
+        stage_cache_fn = _analysis_index_stage_cache
     registry: dict[str, list[str]] = {}
     if analysis_index is not None:
-        registry_by_path = _analysis_index_stage_cache(
+        registry_by_path = stage_cache_fn(
             analysis_index,
             paths,
             spec=_StageCacheSpec(
@@ -12126,8 +12212,11 @@ def _emit_report(
     *,
     report: ReportCarrier,
     execution_pattern_suggestions: list[str] | None = None,
+    parse_witness_contract_violations_fn: Callable[[], list[str]] | None = None,
 ) -> tuple[str, list[str]]:
     check_deadline()
+    if parse_witness_contract_violations_fn is None:
+        parse_witness_contract_violations_fn = _parse_witness_contract_violations
     forest = report.forest
     bundle_sites_by_path = report.bundle_sites_by_path
     type_suggestions = report.type_suggestions
@@ -12164,7 +12253,15 @@ def _emit_report(
         root = Path(".")
     # Use the analyzed file set (not a repo-wide rglob) so reports and schema
     # audits don't accidentally ingest virtualenvs or unrelated files.
-    file_paths = sorted(groups_by_path) if groups_by_path else []
+    file_paths = (
+        ordered_or_sorted(
+            groups_by_path,
+            source="_emit_report.file_paths",
+            key=lambda path: str(path),
+        )
+        if groups_by_path
+        else []
+    )
     projection = _bundle_projection_from_forest(forest, file_paths=file_paths) if has_bundles else None
     components = (
         _connected_components(projection.nodes, projection.adj)
@@ -12421,7 +12518,7 @@ def _emit_report(
             lines.extend(_projected("parse_failure_witnesses", summary))
             lines.append("```")
         violations.extend(_parse_failure_violation_lines(parse_failure_witnesses))
-    contract_violations = _parse_witness_contract_violations()
+    contract_violations = parse_witness_contract_violations_fn()
     if contract_violations:
         _start_section("parse_witness_contract_violations")
         lines.append("Parse witness contract violations:")
@@ -13969,6 +14066,54 @@ def _serialize_file_scan_resume_state(
     }
 
 
+def _iter_valid_resume_entries(
+    *,
+    payload: Mapping[str, JSONValue],
+    valid_fn_keys: set[str],
+) -> Iterator[tuple[str, JSONValue]]:
+    for fn_key, raw_value in payload.items():
+        check_deadline()
+        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
+            continue
+        yield fn_key, raw_value
+
+
+def _str_list_from_sequence(value: JSONValue) -> list[str]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return []
+    out: list[str] = []
+    for entry in value:
+        check_deadline()
+        if isinstance(entry, str):
+            out.append(entry)
+    return out
+
+
+def _str_tuple_from_sequence(value: JSONValue) -> tuple[str, ...]:
+    return tuple(_str_list_from_sequence(value))
+
+
+_ResumeValue = TypeVar("_ResumeValue")
+
+
+def _load_resume_map(
+    *,
+    payload: Mapping[str, JSONValue],
+    valid_fn_keys: set[str],
+    parser: Callable[[JSONValue], _ResumeValue | None],
+) -> dict[str, _ResumeValue]:
+    out: dict[str, _ResumeValue] = {}
+    for fn_key, raw_value in _iter_valid_resume_entries(
+        payload=payload,
+        valid_fn_keys=valid_fn_keys,
+    ):
+        parsed = parser(raw_value)
+        if parsed is None:
+            continue
+        out[fn_key] = parsed
+    return out
+
+
 def _load_file_scan_resume_state(
     *,
     payload: Mapping[str, JSONValue] | None,
@@ -14042,67 +14187,63 @@ def _load_file_scan_resume_state(
             fn_class_names,
             opaque_callees,
         )
-    for fn_key, raw_value in raw_use.items():
-        check_deadline()
-        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
-            continue
-        if not isinstance(raw_value, Mapping):
-            continue
-        fn_use[fn_key] = _deserialize_param_use_map(raw_value)
-    for fn_key, raw_value in raw_calls.items():
-        check_deadline()
-        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
-            continue
-        if not isinstance(raw_value, Sequence):
-            continue
-        fn_calls[fn_key] = _deserialize_call_args_list(raw_value)
-    for fn_key, raw_value in raw_param_orders.items():
-        check_deadline()
-        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
-            continue
-        if not isinstance(raw_value, Sequence):
-            continue
-        orders: list[str] = []
-        for entry in raw_value:
-            check_deadline()
-            if isinstance(entry, str):
-                orders.append(entry)
-        fn_param_orders[fn_key] = orders
-    for fn_key, raw_value in raw_param_spans.items():
-        check_deadline()
-        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
-            continue
-        if not isinstance(raw_value, Mapping):
-            continue
-        fn_param_spans[fn_key] = _deserialize_param_spans_for_resume(
-            {fn_key: raw_value}
-        ).get(fn_key, {})
-    for fn_key, raw_value in raw_names.items():
-        check_deadline()
-        if (
-            isinstance(fn_key, str)
-            and fn_key in valid_fn_keys
-            and isinstance(raw_value, str)
-        ):
-            fn_names[fn_key] = raw_value
-    for fn_key, raw_value in raw_scopes.items():
-        check_deadline()
-        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
-            continue
-        if not isinstance(raw_value, Sequence):
-            continue
-        scopes: list[str] = []
-        for entry in raw_value:
-            check_deadline()
-            if isinstance(entry, str):
-                scopes.append(entry)
-        fn_lexical_scopes[fn_key] = tuple(scopes)
-    for fn_key, raw_value in raw_class_names.items():
-        check_deadline()
-        if not isinstance(fn_key, str) or fn_key not in valid_fn_keys:
-            continue
+    fn_use = _load_resume_map(
+        payload=raw_use,
+        valid_fn_keys=valid_fn_keys,
+        parser=lambda raw_value: (
+            _deserialize_param_use_map(raw_value)
+            if isinstance(raw_value, Mapping)
+            else None
+        ),
+    )
+    fn_calls = _load_resume_map(
+        payload=raw_calls,
+        valid_fn_keys=valid_fn_keys,
+        parser=lambda raw_value: (
+            _deserialize_call_args_list(raw_value)
+            if isinstance(raw_value, Sequence)
+            else None
+        ),
+    )
+    fn_param_orders = _load_resume_map(
+        payload=raw_param_orders,
+        valid_fn_keys=valid_fn_keys,
+        parser=lambda raw_value: (
+            _str_list_from_sequence(raw_value)
+            if isinstance(raw_value, Sequence)
+            else None
+        ),
+    )
+    fn_param_spans = _load_resume_map(
+        payload=raw_param_spans,
+        valid_fn_keys=valid_fn_keys,
+        parser=lambda raw_value: (
+            _deserialize_param_spans_for_resume({"_": raw_value}).get("_", {})
+            if isinstance(raw_value, Mapping)
+            else None
+        ),
+    )
+    fn_names = _load_resume_map(
+        payload=raw_names,
+        valid_fn_keys=valid_fn_keys,
+        parser=lambda raw_value: raw_value if isinstance(raw_value, str) else None,
+    )
+    fn_lexical_scopes = _load_resume_map(
+        payload=raw_scopes,
+        valid_fn_keys=valid_fn_keys,
+        parser=lambda raw_value: (
+            _str_tuple_from_sequence(raw_value)
+            if isinstance(raw_value, Sequence)
+            else None
+        ),
+    )
+    fn_class_names = {}
+    for fn_key, raw_value in _iter_valid_resume_entries(
+        payload=raw_class_names,
+        valid_fn_keys=valid_fn_keys,
+    ):
         if raw_value is None or isinstance(raw_value, str):
-            fn_class_names[fn_key] = raw_value
+            fn_class_names[fn_key] = cast(str | None, raw_value)
     raw_opaque = payload.get("opaque_callees")
     if isinstance(raw_opaque, Sequence):
         for entry in raw_opaque:
@@ -15123,6 +15264,15 @@ def analyze_paths(
 ) -> AnalysisResult:
     check_deadline()
     forest_token = set_forest(forest)
+
+    def _best_effort_timeout_flush(callback: Callable[[], None] | None) -> None:
+        if not callable(callback):
+            return
+        try:
+            callback()
+        except TimeoutExceeded:
+            return
+
     try:
         if config is None:
             config = AuditConfig()
@@ -15697,28 +15847,10 @@ def analyze_paths(
     except TimeoutExceeded:
         emit_collection_progress = locals().get("_emit_collection_progress")
         if callable(emit_collection_progress):
-            try:
-                emit_collection_progress(force=True)
-            except TimeoutExceeded:
-                pass
-        emit_forest_phase_progress = locals().get("_emit_forest_phase_progress")
-        if callable(emit_forest_phase_progress):
-            try:
-                emit_forest_phase_progress()
-            except TimeoutExceeded:
-                pass
-        emit_edge_phase_progress = locals().get("_emit_edge_phase_progress")
-        if callable(emit_edge_phase_progress):
-            try:
-                emit_edge_phase_progress()
-            except TimeoutExceeded:
-                pass
-        emit_post_phase_progress = locals().get("_emit_post_phase_progress")
-        if callable(emit_post_phase_progress):
-            try:
-                emit_post_phase_progress()
-            except TimeoutExceeded:
-                pass
+            _best_effort_timeout_flush(lambda: emit_collection_progress(force=True))
+        _best_effort_timeout_flush(locals().get("_emit_forest_phase_progress"))
+        _best_effort_timeout_flush(locals().get("_emit_edge_phase_progress"))
+        _best_effort_timeout_flush(locals().get("_emit_post_phase_progress"))
         raise
     finally:
         reset_forest(forest_token)
@@ -15912,6 +16044,24 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Jaccard overlap threshold for merging bundles (0.0-1.0).",
     )
+    parser.add_argument(
+        "--analysis-timeout-ticks",
+        type=int,
+        default=60_000,
+        help="Deadline budget in ticks for standalone analysis execution.",
+    )
+    parser.add_argument(
+        "--analysis-timeout-tick-ns",
+        type=int,
+        default=1_000_000,
+        help="Nanoseconds per timeout tick for standalone analysis execution.",
+    )
+    parser.add_argument(
+        "--analysis-tick-limit",
+        type=int,
+        default=None,
+        help="Optional deterministic logical gas budget (ticks).",
+    )
     return parser
 
 
@@ -15934,10 +16084,29 @@ def _normalize_transparent_decorators(
     return set(items)
 
 
-def run(argv: list[str] | None = None) -> int:
+@contextmanager
+def _analysis_deadline_scope(args: argparse.Namespace):
+    timeout_ticks = int(args.analysis_timeout_ticks)
+    timeout_tick_ns = int(args.analysis_timeout_tick_ns)
+    if timeout_ticks <= 0:
+        never("invalid analysis timeout ticks", analysis_timeout_ticks=timeout_ticks)
+    if timeout_tick_ns <= 0:
+        never("invalid analysis timeout tick_ns", analysis_timeout_tick_ns=timeout_tick_ns)
+    tick_limit_value = args.analysis_tick_limit
+    logical_limit = timeout_ticks
+    if tick_limit_value is not None:
+        tick_limit = int(tick_limit_value)
+        if tick_limit <= 0:
+            never("invalid analysis tick limit", analysis_tick_limit=tick_limit)
+        logical_limit = min(logical_limit, tick_limit)
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ticks(timeout_ticks, timeout_tick_ns)):
+            with deadline_clock_scope(GasMeter(limit=logical_limit)):
+                yield
+
+
+def _run_impl(args: argparse.Namespace) -> int:
     check_deadline()
-    parser = _build_parser()
-    args = parser.parse_args(argv)
     if args.fail_on_type_ambiguities:
         args.type_audit = True
     fingerprint_deadness_json = args.fingerprint_deadness_json
@@ -16420,6 +16589,13 @@ def run(argv: list[str] | None = None) -> int:
         elif violations:
             return 1
     return 0
+
+
+def run(argv: list[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    with _analysis_deadline_scope(args):
+        return _run_impl(args)
 
 
 def main() -> None:
