@@ -8625,9 +8625,12 @@ def _populate_bundle_forest(
             if _is_test_path(info.path):
                 continue
             forest.add_site(info.path.name, info.qual)
+        non_test_file_paths = [
+            path for path in file_paths if not _is_test_path(path)
+        ]
         _materialize_structured_suite_sites(
             forest=forest,
-            file_paths=file_paths,
+            file_paths=non_test_file_paths,
             project_root=project_root,
             parse_failure_witnesses=parse_failure_witnesses,
             analysis_index=index,
@@ -8662,9 +8665,10 @@ def _populate_bundle_forest(
         progress_since_emit = 0
         on_progress()
 
-    for path in _iter_monotonic_paths(
+    for path in ordered_or_sorted(
         groups_by_path,
         source="_populate_bundle_forest.groups_by_path",
+        key=lambda candidate: str(candidate),
     ):
         check_deadline()
         groups = groups_by_path[path]

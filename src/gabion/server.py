@@ -2177,7 +2177,12 @@ def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
         if seconds_value <= 0:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
-        return int(seconds_value * Decimal(1_000_000_000))
+        timeout_ns = int(seconds_value * Decimal(1_000_000_000))
+        # Reject sub-millisecond timeout payloads; they truncate to unstable
+        # sub-tick budgets and violate the integer tick contract.
+        if timeout_ns < 1_000_000:
+            never("invalid analysis timeout seconds", seconds=timeout_seconds)
+        return timeout_ns
     never("missing analysis timeout", payload_keys=sorted(payload.keys()))
     return 1
 
