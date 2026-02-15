@@ -535,14 +535,11 @@ def _preview_components_section(
         f"- `functions_with_groups`: `{function_count}`",
         f"- `bundle_alternatives`: `{bundle_alternatives}`",
     ]
-    if report.forest.nodes:
-        file_paths = ordered_or_sorted(
-            groups_by_path,
-            source="_preview_components_section.file_paths",
-        )
-        projection = _bundle_projection_from_forest(report.forest, file_paths=file_paths)
-        components = _connected_components(projection.nodes, projection.adj)
-        lines.append(f"- `component_count`: `{len(components)}`")
+    if report.forest.alts:
+        # Keep preview cheap under tight timeout budgets; full component
+        # materialization is emitted in forest/post projection.
+        lines.append(f"- `forest_alternatives`: `{len(report.forest.alts)}`")
+        lines.append("- `component_count`: `deferred_until_post_phase`")
     return lines
 
 
@@ -1212,8 +1209,9 @@ def resolve_analysis_paths(paths: Iterable[str | Path], *, config: AuditConfig) 
 def _collect_functions(tree: ast.AST):
     check_deadline()
     funcs = []
-    for node in ast.walk(tree):
-        check_deadline()
+    for idx, node in enumerate(ast.walk(tree), start=1):
+        if (idx & 63) == 0:
+            check_deadline()
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             funcs.append(node)
     return funcs
@@ -11730,9 +11728,7 @@ class BundleProjection:
 
 
 def _alt_input(alt: Alt, kind: str) -> NodeId | None:
-    check_deadline()
     for node_id in alt.inputs:
-        check_deadline()
         if node_id.kind == kind:
             return node_id
     return None
