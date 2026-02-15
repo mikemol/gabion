@@ -2,19 +2,13 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 import sys
 from pathlib import Path
 
-from gabion.analysis.aspf import Forest
-from gabion.analysis.timeout_context import (
-    Deadline,
-    deadline_clock_scope,
-    deadline_scope,
-    forest_scope,
-)
-from gabion.deadline_clock import GasMeter
-from gabion.lsp_client import _env_timeout_ticks
+from deadline_runtime import deadline_scope_from_lsp_env
+
+_DEFAULT_TIMEOUT_TICKS = 120_000
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 
 
 def _add_repo_root() -> Path:
@@ -23,13 +17,11 @@ def _add_repo_root() -> Path:
     return root
 
 
-@contextmanager
 def _deadline_scope_from_env():
-    ticks, tick_ns = _env_timeout_ticks()
-    with forest_scope(Forest()):
-        with deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns)):
-            with deadline_clock_scope(GasMeter(limit=int(ticks))):
-                yield
+    return deadline_scope_from_lsp_env(
+        default_ticks=_DEFAULT_TIMEOUT_TICKS,
+        default_tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

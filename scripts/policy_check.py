@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-from contextlib import contextmanager
 import json
 import os
 import re
@@ -10,15 +9,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from gabion.analysis.aspf import Forest
-from gabion.analysis.timeout_context import (
-    Deadline,
-    check_deadline,
-    deadline_clock_scope,
-    deadline_scope,
-    forest_scope,
-)
-from gabion.deadline_clock import GasMeter
+from deadline_runtime import deadline_scope_from_ticks
+from gabion.analysis.timeout_context import check_deadline
 from gabion.invariants import never
 
 try:
@@ -73,13 +65,9 @@ def _policy_timeout_ticks() -> tuple[int, int]:
     )
 
 
-@contextmanager
 def _policy_deadline_scope():
     ticks_value, tick_ns_value = _policy_timeout_ticks()
-    with forest_scope(Forest()):
-        with deadline_scope(Deadline.from_timeout_ticks(ticks_value, tick_ns_value)):
-            with deadline_clock_scope(GasMeter(limit=ticks_value)):
-                yield
+    return deadline_scope_from_ticks(ticks=ticks_value, tick_ns=tick_ns_value)
 
 
 @dataclass(frozen=True)

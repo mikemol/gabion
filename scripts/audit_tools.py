@@ -8,22 +8,14 @@ import re
 import sys
 import tomllib
 import subprocess
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
-from gabion.analysis.timeout_context import (
-    Deadline,
-    check_deadline,
-    deadline_clock_scope,
-    deadline_scope,
-    forest_scope,
-)
-from gabion.analysis.aspf import Forest
-from gabion.deadline_clock import GasMeter
+from deadline_runtime import deadline_scope_from_ticks
+from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
@@ -49,17 +41,12 @@ def _audit_gas_limit() -> int:
     return value
 
 
-@contextmanager
 def _audit_deadline_scope():
-    with forest_scope(Forest()):
-        with deadline_scope(
-            Deadline.from_timeout_ticks(
-                _DEFAULT_AUDIT_TIMEOUT_TICKS,
-                _DEFAULT_AUDIT_TIMEOUT_TICK_NS,
-            )
-        ):
-            with deadline_clock_scope(GasMeter(limit=_audit_gas_limit())):
-                yield
+    return deadline_scope_from_ticks(
+        ticks=_DEFAULT_AUDIT_TIMEOUT_TICKS,
+        tick_ns=_DEFAULT_AUDIT_TIMEOUT_TICK_NS,
+        gas_limit=_audit_gas_limit(),
+    )
 
 
 # --- Docflow audit constants ---

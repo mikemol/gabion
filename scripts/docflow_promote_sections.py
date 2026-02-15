@@ -13,21 +13,13 @@ dependency doc exposes exactly one anchor.
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 import re
 from pathlib import Path
 from typing import Any, Iterable
 
 from audit_tools import _parse_frontmatter  # type: ignore
-from gabion.analysis.aspf import Forest
-from gabion.analysis.timeout_context import (
-    Deadline,
-    check_deadline,
-    deadline_clock_scope,
-    deadline_scope,
-    forest_scope,
-)
-from gabion.deadline_clock import GasMeter
+from deadline_runtime import deadline_scope_from_ticks
+from gabion.analysis.timeout_context import check_deadline
 
 
 AnchorMap = dict[str, tuple[str, int]]
@@ -36,17 +28,11 @@ _DEFAULT_PROMOTE_TIMEOUT_TICKS = 120_000
 _DEFAULT_PROMOTE_TIMEOUT_TICK_NS = 1_000_000
 
 
-@contextmanager
 def _promote_deadline_scope():
-    with forest_scope(Forest()):
-        with deadline_scope(
-            Deadline.from_timeout_ticks(
-                _DEFAULT_PROMOTE_TIMEOUT_TICKS,
-                _DEFAULT_PROMOTE_TIMEOUT_TICK_NS,
-            )
-        ):
-            with deadline_clock_scope(GasMeter(limit=_DEFAULT_PROMOTE_TIMEOUT_TICKS)):
-                yield
+    return deadline_scope_from_ticks(
+        ticks=_DEFAULT_PROMOTE_TIMEOUT_TICKS,
+        tick_ns=_DEFAULT_PROMOTE_TIMEOUT_TICK_NS,
+    )
 
 
 def _iter_docs(paths: Iterable[str]) -> list[Path]:
