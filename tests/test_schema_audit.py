@@ -3,6 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+import pytest
+
+from gabion.exceptions import NeverThrown
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -12,6 +16,7 @@ def _load():
     return sa
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> None:
     sa = _load()
     path = tmp_path / "mod.py"
@@ -56,6 +61,7 @@ def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> No
     assert attr.suggestion is None
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> None:
     sa = _load()
     test_prefixed = tmp_path / "test_mod.py"
@@ -70,11 +76,43 @@ def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> No
     syntax_error = tmp_path / "broken.py"
     syntax_error.write_text("def f(x: dict[str, object]) -> None\n    return None\n")
 
+    ordered_paths = sorted(
+        [test_prefixed, nested, dotfile, missing, syntax_error],
+        key=lambda path: str(path),
+    )
     assert sa.find_anonymous_schema_surfaces(
-        [test_prefixed, nested, dotfile, missing, syntax_error], project_root=tmp_path
+        ordered_paths,
+        project_root=tmp_path,
     ) == []
 
 
+def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
+    tmp_path: Path,
+) -> None:
+    sa = _load()
+    first = tmp_path / "a.py"
+    second = tmp_path / "b.py"
+    first.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
+    second.write_text("def b(payload: dict[str, object]) -> None:\n    return None\n")
+    with pytest.raises(NeverThrown):
+        sa.find_anonymous_schema_surfaces(
+            [second, first],
+            project_root=tmp_path,
+        )
+
+
+def test_find_anonymous_schema_surfaces_rejects_duplicate_paths(tmp_path: Path) -> None:
+    sa = _load()
+    path = tmp_path / "a.py"
+    path.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
+    with pytest.raises(NeverThrown):
+        sa.find_anonymous_schema_surfaces(
+            [path, path],
+            project_root=tmp_path,
+        )
+
+
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._suggest_type_name::name E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._singularize_token::token
 def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
     sa = _load()
     assert sa._suggest_type_name("deadness_witnesses") == "DeadnessWitness"
@@ -85,6 +123,7 @@ def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
     assert sa._suggest_type_name("___") is None
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
     sa = _load()
     root = tmp_path / "root"
@@ -93,6 +132,7 @@ def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
     assert sa._normalize_path(path, root) == str(path)
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
 def test_subscript_helpers_cover_non_tuple_slices() -> None:
     sa = _load()
     tree = sa.ast.parse("x: list[int]\n")
@@ -107,6 +147,7 @@ def test_subscript_helpers_cover_non_tuple_slices() -> None:
     assert sa._is_anonymous_dict_subscript(dict_ann) is False
 
 
+# gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
 def test_name_handles_attribute_and_unknown_nodes() -> None:
     sa = _load()
     attr = sa.ast.Attribute(value=sa.ast.Name(id="typing", ctx=sa.ast.Load()), attr="Dict")
@@ -114,6 +155,7 @@ def test_name_handles_attribute_and_unknown_nodes() -> None:
     assert sa._name(sa.ast.Constant(value=1)) is None
 
 
+# gabion:evidence E:function_site::schema_audit.py::gabion.analysis.schema_audit._unparse
 def test_unparse_fallback_for_invalid_ast() -> None:
     sa = _load()
     # ast.unparse expects well-formed nodes; this intentionally violates that.

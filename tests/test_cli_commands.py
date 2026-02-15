@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import json
+import os
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -14,6 +15,20 @@ def _has_pygls() -> bool:
     return importlib.util.find_spec("pygls") is not None
 
 
+def _cli_env() -> dict[str, str]:
+    return {
+        **os.environ,
+        "GABION_DIRECT_RUN": "1",
+        "GABION_LSP_TIMEOUT_TICKS": "5000",
+        "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
+    }
+
+
+def _invoke(runner: CliRunner, args: list[str]):
+    return runner.invoke(cli.app, args, env=_cli_env())
+
+
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -29,8 +44,8 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
         "    callee_str(b)\n"
     )
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "check",
             str(module),
@@ -42,8 +57,8 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
 
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "dataflow-audit",
             str(module),
@@ -70,11 +85,12 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     assert "Type ambiguities" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app
 def test_cli_docflow_audit() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "docflow-audit",
             "--root",
@@ -85,12 +101,14 @@ def test_cli_docflow_audit() -> None:
     assert result.exit_code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_dataflow_audit_requires_paths::cli.py::gabion.cli.app
 def test_cli_dataflow_audit_requires_paths() -> None:
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["dataflow-audit"])
+    result = _invoke(runner, ["dataflow-audit"])
     assert result.exit_code != 0
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -102,8 +120,8 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     )
     out_dir = tmp_path / "out"
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "synth",
             str(module),
@@ -120,8 +138,8 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     assert "Snapshot:" in result.output
 
 
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "synth",
             str(module),
@@ -142,8 +160,8 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
         '{"bundles":[{"bundle":["x"],"tier":2}],"allow_singletons":true,"min_bundle_size":1}'
     )
     output_path = tmp_path / "synth_out.json"
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "synthesis-plan",
             "--input",
@@ -156,6 +174,7 @@ def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:
     assert output_path.exists()
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_structure_diff(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
@@ -163,8 +182,8 @@ def test_cli_structure_diff(tmp_path: Path) -> None:
     baseline.write_text(json.dumps({"files": []}))
     current.write_text(json.dumps({"files": [{"functions": [{"bundles": [["a"]]}]}]}))
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "structure-diff",
             "--baseline",
@@ -179,13 +198,14 @@ def test_cli_structure_diff(tmp_path: Path) -> None:
     assert "\"diff\"" in result.output
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a + b\n")
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "refactor-protocol",
             "--protocol-name",
@@ -201,21 +221,23 @@ def test_cli_refactor_protocol(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json::cli.py::gabion.cli.app
 def test_cli_synthesis_plan_invalid_json(tmp_path: Path) -> None:
     payload_path = tmp_path / "bad.json"
     payload_path.write_text("{bad")
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["synthesis-plan", "--input", str(payload_path)])
+    result = _invoke(runner, ["synthesis-plan", "--input", str(payload_path)])
     assert result.exit_code != 0
     assert "Invalid JSON payload" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_invalid_json::cli.py::gabion.cli.app
 def test_cli_refactor_protocol_invalid_json(tmp_path: Path) -> None:
     payload_path = tmp_path / "bad.json"
     payload_path.write_text("{bad")
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "refactor-protocol",
             "--input",
@@ -226,13 +248,14 @@ def test_cli_refactor_protocol_invalid_json(tmp_path: Path) -> None:
     assert "Invalid JSON payload" in result.output
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
     payload_path = tmp_path / "payload.json"
     payload_path.write_text('{"bundles":[{"bundle":["x"],"tier":2}]}')
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "synthesis-plan",
             "--input",
@@ -243,14 +266,15 @@ def test_cli_synthesis_plan_stdout(tmp_path: Path) -> None:
     assert result.output.strip().startswith("{")
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol_output_file(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a + b\n")
     out_path = tmp_path / "out.json"
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "refactor-protocol",
             "--protocol-name",
@@ -269,24 +293,26 @@ def test_cli_refactor_protocol_output_file(tmp_path: Path) -> None:
     assert out_path.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_strictness::cli.py::gabion.cli.app
 def test_cli_synth_invalid_strictness(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a\n")
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         ["synth", str(module), "--root", str(tmp_path), "--strictness", "weird"],
     )
     assert result.exit_code != 0
     assert "strictness" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_synth_invalid_protocols_kind::cli.py::gabion.cli.app
 def test_cli_synth_invalid_protocols_kind(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text("def f(a, b):\n    return a\n")
     runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
+    result = _invoke(
+        runner,
         [
             "synth",
             str(module),

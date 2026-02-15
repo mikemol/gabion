@@ -12,6 +12,7 @@ def _load():
     return render_protocol_stubs
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind
 def test_render_protocol_stubs_emits_dataclass() -> None:
     render_protocol_stubs = _load()
     plan = {
@@ -33,6 +34,7 @@ def test_render_protocol_stubs_emits_dataclass() -> None:
     assert "config: Any" in stub
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind
 def test_render_protocol_stubs_emits_protocol() -> None:
     render_protocol_stubs = _load()
     plan = {

@@ -12,6 +12,7 @@ def _load():
     return _jaccard, merge_bundles
 
 
+# gabion:evidence E:decision_surface/direct::merge.py::gabion.synthesis.merge._jaccard::left,right E:decision_surface/direct::merge.py::gabion.synthesis.merge.merge_bundles::min_overlap E:decision_surface/value_encoded::merge.py::gabion.synthesis.merge._jaccard::left,right
 def test_merge_bundles_combines_overlaps() -> None:
     _jaccard, merge_bundles = _load()
     bundles = [{"a", "b"}, {"a", "b", "c"}]
@@ -20,6 +21,7 @@ def test_merge_bundles_combines_overlaps() -> None:
     assert _jaccard(set(), set()) == 1.0
 
 
+# gabion:evidence E:decision_surface/direct::merge.py::gabion.synthesis.merge._jaccard::left,right E:decision_surface/direct::merge.py::gabion.synthesis.merge.merge_bundles::min_overlap E:decision_surface/value_encoded::merge.py::gabion.synthesis.merge._jaccard::left,right
 def test_merge_bundles_keeps_distinct() -> None:
     _jaccard, merge_bundles = _load()
     bundles = [{"a", "b"}, {"c", "d"}]

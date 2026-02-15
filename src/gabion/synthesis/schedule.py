@@ -1,4 +1,6 @@
 from __future__ import annotations
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Set
@@ -11,30 +13,45 @@ class ScheduleResult:
 
 
 def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
+    check_deadline()
     nodes: Set[str] = set(graph.keys())
     for deps in graph.values():
+        check_deadline()
         nodes.update(deps)
 
     incoming: Dict[str, Set[str]] = {node: set() for node in nodes}
     outgoing: Dict[str, Set[str]] = {node: set() for node in nodes}
 
     for node, deps in graph.items():
+        check_deadline()
         for dep in deps:
+            check_deadline()
             outgoing[dep].add(node)
             incoming[node].add(dep)
 
-    ready = sorted(node for node, deps in incoming.items() if not deps)
+    ready = ordered_or_sorted(
+        (node for node, deps in incoming.items() if not deps),
+        source="topological_schedule.ready",
+    )
     order: List[str] = []
 
     while ready:
+        check_deadline()
         node = ready.pop(0)
         order.append(node)
-        for follower in sorted(outgoing[node]):
+        for follower in ordered_or_sorted(
+            outgoing[node],
+            source="topological_schedule.followers",
+        ):
+            check_deadline()
             incoming[follower].discard(node)
             if not incoming[follower]:
                 if follower not in ready and follower not in order:
                     ready.append(follower)
-        ready.sort()
+        ready = ordered_or_sorted(
+            ready,
+            source="topological_schedule.ready_reorder",
+        )
 
     remaining = {node for node, deps in incoming.items() if deps}
     cycles: List[Set[str]] = []
@@ -50,6 +67,7 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
 
 
 def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]:
+    check_deadline()
     index = 0
     indices: Dict[str, int] = {}
     lowlinks: Dict[str, int] = {}
@@ -58,6 +76,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
     components: List[Set[str]] = []
 
     def visit(node: str) -> None:
+        check_deadline()
         nonlocal index
         indices[node] = index
         lowlinks[node] = index
@@ -65,6 +84,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
         stack.append(node)
         on_stack.add(node)
         for neighbor in graph.get(node, set()):
+            check_deadline()
             if neighbor not in indices:
                 visit(neighbor)
                 lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
@@ -73,6 +93,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
         if lowlinks[node] == indices[node]:
             component: Set[str] = set()
             while True:
+                check_deadline()
                 popped = stack.pop()
                 on_stack.discard(popped)
                 component.add(popped)
@@ -81,6 +102,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
             components.append(component)
 
     for node in graph:
+        check_deadline()
         if node not in indices:
             visit(node)
 

@@ -5,11 +5,23 @@ import argparse
 import sys
 from pathlib import Path
 
+from deadline_runtime import deadline_scope_from_lsp_env
+
+_DEFAULT_TIMEOUT_TICKS = 120_000
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+
 
 def _add_repo_root() -> Path:
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root / "src"))
     return root
+
+
+def _deadline_scope_from_env():
+    return deadline_scope_from_lsp_env(
+        default_ticks=_DEFAULT_TIMEOUT_TICKS,
+        default_tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -30,13 +42,14 @@ def main(argv: list[str] | None = None) -> int:
     from gabion.analysis import test_evidence
 
     paths = [Path(item) for item in args.tests]
-    payload = test_evidence.build_test_evidence_payload(
-        paths,
-        root=root,
-        include=args.tests,
-        exclude=args.exclude,
-    )
-    test_evidence.write_test_evidence(payload, Path(args.out))
+    with _deadline_scope_from_env():
+        payload = test_evidence.build_test_evidence_payload(
+            paths,
+            root=root,
+            include=args.tests,
+            exclude=args.exclude,
+        )
+        test_evidence.write_test_evidence(payload, Path(args.out))
     return 0
 
 

@@ -1,12 +1,49 @@
 ---
 doc_revision: 2
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+doc_change_protocol: POLICY_SEED.md#change_protocol
+doc_requires:
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+doc_reviewed_as_of:
+  POLICY_SEED.md#policy_seed: 38
+  glossary.md#contract: 42
+doc_review_notes:
+  POLICY_SEED.md#policy_seed: Confirms contributor workflow constraints align with current execution policy.
+  glossary.md#contract: Confirms semantic correctness contract reference for contributions.
+doc_id: in_contributing
+doc_role: contributing
+doc_scope:
+  - repo
+  - governance
+  - contributing
+doc_authority: normative
+doc_sections:
+  in_contributing: 1
+doc_section_requires:
+  in_contributing:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+doc_section_reviews:
+  in_contributing:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 38
+      self_version_at_review: 1
+      outcome: no_change
+      note: Policy guardrails remain aligned with current execution policy.
+    glossary.md#contract:
+      dep_version: 42
+      self_version_at_review: 1
+      outcome: no_change
+      note: Semantic correctness contract reference remains current.
 ---
+
+<a id="in_contributing"></a>
 
 # Contributing
 
 Thanks for contributing. This repo enforces a strict execution policy to protect
-self-hosted runners. Please read `POLICY_SEED.md` before making changes.
+self-hosted runners. Please read `POLICY_SEED.md#policy_seed` before making changes.
 
 ## Policy requirements (summary)
 - Self-hosted workflows must trigger only on `push` to trusted branches.
@@ -17,8 +54,8 @@ self-hosted runners. Please read `POLICY_SEED.md` before making changes.
 - Workflows must declare `permissions: contents: read`.
 
 ## Contract handshake (normative)
-Execution safety is governed by `POLICY_SEED.md`. Semantic correctness is governed
-by `in/glossary.md`. Both contracts must be satisfied for any change to be valid.
+Execution safety is governed by `POLICY_SEED.md#policy_seed`. Semantic correctness is governed
+by `glossary.md#contract`. Both contracts must be satisfied for any change to be valid.
 
 ## Guardrails
 Install the advisory hooks:
@@ -63,7 +100,7 @@ If running under Codex or another sandboxed runner, increase the sandbox
 command timeout before invoking the helper.
 
 ## Agda proofs
-Agda checks run in a pinned container image. See `agda/README.md` for details.
+Agda checks run in a pinned container image. See `agda/README.md#repo_contract` for details.
 Local run:
 ```
 scripts/check_agda_container.sh

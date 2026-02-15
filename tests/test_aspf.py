@@ -1,8 +1,19 @@
 from __future__ import annotations
 
+import pytest
+
 from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    TimeoutExceeded,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_paramset_packed_reuse::aspf.py::gabion.analysis.aspf.Forest
 def test_paramset_packed_reuse() -> None:
     forest = Forest()
     site_a = forest.add_site("a.py", "mod.fn_a")
@@ -18,8 +29,62 @@ def test_paramset_packed_reuse() -> None:
     assert len(alts) == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_site_records_span::aspf.py::gabion.analysis.aspf.Forest
 def test_add_site_records_span() -> None:
     forest = Forest()
     site = forest.add_site("mod.py", "mod.fn", span=(1, 2, 3, 4))
     node = forest.nodes[site]
     assert node.meta["span"] == [1, 2, 3, 4]
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_site_records_file_site::aspf.py::gabion.analysis.aspf.Forest
+def test_add_site_records_file_site() -> None:
+    forest = Forest()
+    site = forest.add_site("mod.py", "mod.fn")
+    file_nodes = [node for node in forest.nodes.values() if node.kind == "FileSite"]
+    assert len(file_nodes) == 1
+    assert file_nodes[0].meta["path"] == "mod.py"
+    assert any(
+        alt.kind == "FunctionSiteInFile" and alt.inputs[0] == site for alt in forest.alts
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_suite_site_records_file_site::aspf.py::gabion.analysis.aspf.Forest
+def test_add_suite_site_records_file_site() -> None:
+    forest = Forest()
+    suite = forest.add_suite_site("mod.py", "mod.fn", "loop", span=(0, 1, 2, 3))
+    file_nodes = [node for node in forest.nodes.values() if node.kind == "FileSite"]
+    assert len(file_nodes) == 1
+    assert any(
+        alt.kind == "SuiteSiteInFile" and alt.inputs[0] == suite for alt in forest.alts
+    )
+
+
+def test_add_suite_site_parent_emits_suite_contains() -> None:
+    forest = Forest()
+    parent = forest.add_suite_site("mod.py", "mod.fn", "function")
+    child = forest.add_suite_site(
+        "mod.py",
+        "mod.fn",
+        "if_body",
+        span=(2, 4, 3, 8),
+        parent=parent,
+    )
+
+    assert any(
+        alt.kind == "SuiteContains" and alt.inputs == (parent, child)
+        for alt in forest.alts
+    )
+
+
+def test_add_alt_consumes_logical_ticks() -> None:
+    forest = Forest()
+    left = forest.add_site("mod.py", "mod.left")
+    right = forest.add_site("mod.py", "mod.right")
+    with forest_scope(forest):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            meter = GasMeter(limit=1)
+            with deadline_clock_scope(meter):
+                with pytest.raises(TimeoutExceeded):
+                    forest.add_alt("Edge", (left, right))
+    assert meter.current == 1

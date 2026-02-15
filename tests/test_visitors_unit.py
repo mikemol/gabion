@@ -4,6 +4,8 @@ import ast
 from pathlib import Path
 import sys
 
+import pytest
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -56,6 +58,7 @@ def _make_visitor(
     return visitor, use_map, alias_to_param, call_args
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_star_forwarding_low_strictness() -> None:
     tree = ast.parse(
         "def f(a, b, *args, **kwargs):\n"
@@ -68,6 +71,7 @@ def test_usevisitor_star_forwarding_low_strictness() -> None:
     assert ("kwargs[*]", "kw[*]") in use_map["kwargs"].direct_forward
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_span_adjusts_zero_width_call() -> None:
     tree = ast.parse("def f(a, b, *args, **kwargs):\n    g(a)\n")
     call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
@@ -86,11 +90,13 @@ def test_usevisitor_span_adjusts_zero_width_call() -> None:
     )
 
 
+# gabion:evidence E:decision_surface/direct::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node E:decision_surface/value_encoded::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node
 def test_usevisitor_node_span_none_without_locations() -> None:
     *_, UseVisitor = _load()
     assert UseVisitor._node_span(ast.AST()) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_alias_binding_and_non_forward() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
@@ -127,6 +133,7 @@ def test_usevisitor_alias_binding_and_non_forward() -> None:
     assert use_map["kwargs"].non_forward is True
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     tree = ast.parse("def f(a, b):\n    return a, b\n")
     visitor, _, alias_to_param, _ = _make_visitor(tree, strictness="high")
@@ -137,6 +144,7 @@ def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     assert visitor._bind_return_alias(targets, ["a"]) is False
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_alias_from_call_rejects_starred::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_alias_from_call_rejects_starred() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
@@ -153,6 +161,7 @@ def test_alias_from_call_rejects_starred() -> None:
     assert visitor._alias_from_call(call) is None
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_attribute_and_subscript_forwarding() -> None:
     tree = ast.parse(
         "def f(a):\n"
@@ -170,6 +179,7 @@ def test_attribute_and_subscript_forwarding() -> None:
     assert use_map["a"].non_forward is True
 
 
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_bind_sequence_mismatch_marks_non_forward() -> None:
     tree = ast.parse("def f(a, b):\n    pass\n")
     visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
@@ -183,6 +193,7 @@ def test_bind_sequence_mismatch_marks_non_forward() -> None:
     assert use_map["b"].non_forward is False
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_import_visitor_basic_and_relative::dataflow_audit.py::gabion.analysis.dataflow_audit.SymbolTable::visitors.py::gabion.analysis.visitors.ImportVisitor
 def test_import_visitor_basic_and_relative() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -208,3 +219,27 @@ def test_import_visitor_basic_and_relative() -> None:
     deep = ImportVisitor("a.b", table)
     deep.visit(ast.parse("from ..... import Nope\n"))
     assert dict(table.imports) == before
+
+
+def test_project_visitor_node_entry_respects_gas_meter() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root / "src"))
+    from gabion.analysis.aspf import Forest
+    from gabion.analysis.timeout_context import (
+        Deadline,
+        TimeoutExceeded,
+        deadline_clock_scope,
+        deadline_scope,
+        forest_scope,
+    )
+    from gabion.analysis.visitors import ParentAnnotator
+    from gabion.deadline_clock import GasMeter
+
+    tree = ast.parse("def f(x):\n    return x\n")
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            meter = GasMeter(limit=1)
+            with deadline_clock_scope(meter):
+                with pytest.raises(TimeoutExceeded):
+                    ParentAnnotator().visit(tree)
+    assert meter.current == 1

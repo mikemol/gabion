@@ -40,7 +40,9 @@ jobs:
           token = os.environ["GITHUB_TOKEN"]
           repo = os.environ["REPO"]
           sha = os.environ["SHA"]
-          deadline = time.time() + 20 * 60
+          # Stage CI can now run resumable dataflow retries (~30m budget), so
+          # wait longer before failing this gate.
+          deadline = time.time() + 45 * 60
           url = (
               f"https://api.github.com/repos/{repo}/actions/workflows/ci.yml/runs"
               f"?branch=stage&per_page=50"
@@ -87,13 +89,16 @@ jobs:
       - name: Install package
         run: mise exec -- python -m pip install -e .
       - name: Render dataflow grammar report
+        env:
+          GABION_LSP_TIMEOUT_SECONDS: "300"
         run: |
           mkdir -p artifacts/dataflow_grammar
           mise exec -- python -m gabion dataflow-audit . \
             --root . \
             --report artifacts/dataflow_grammar/report.md \
             --dot artifacts/dataflow_grammar/dataflow_graph.dot \
-            --type-audit-report
+            --type-audit-report \
+            --fail-on-violations
       - name: Upload dataflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

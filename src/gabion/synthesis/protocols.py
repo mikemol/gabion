@@ -11,6 +11,8 @@ from gabion.synthesis.model import (
     SynthesisPlan,
 )
 from gabion.synthesis.naming import suggest_name
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 @dataclass
@@ -23,6 +25,7 @@ class Synthesizer:
         field_types: Mapping[str, str] | None = None,
         naming_context: NamingContext | None = None,
     ) -> SynthesisPlan:
+        check_deadline()
         field_types = field_types or {}
         naming_context = naming_context or NamingContext()
         protocols: List[ProtocolSpec] = []
@@ -36,6 +39,7 @@ class Synthesizer:
         )
 
         for bundle, tier in bundle_tiers.items():
+            check_deadline()
             bundle_set = set(bundle)
             if not self._bundle_allowed(bundle_set, tier):
                 continue
@@ -67,8 +71,13 @@ class Synthesizer:
     def _build_fields(
         self, bundle: Iterable[str], field_types: Dict[str, str]
     ) -> List[FieldSpec]:
+        check_deadline()
         fields: List[FieldSpec] = []
-        for name in sorted(bundle):
+        for name in ordered_or_sorted(
+            bundle,
+            source="Synthesizer._build_fields.bundle",
+        ):
+            check_deadline()
             type_hint = field_types.get(name)
             fields.append(FieldSpec(name=name, type_hint=type_hint, source_params={name}))
         return fields

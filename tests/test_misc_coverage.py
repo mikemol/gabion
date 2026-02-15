@@ -4,6 +4,7 @@ import io
 import json
 import runpy
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from lsprotocol.types import (
 )
 
 
+# gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_entrypoint_invokes_app::__main__.py::gabion.__main__
 def test_main_entrypoint_invokes_app() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -32,6 +34,7 @@ def test_main_entrypoint_invokes_app() -> None:
         sys.argv = old_argv
 
 
+# gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_module_import::__main__.py::gabion.__main__
 def test_main_module_import() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -39,6 +42,7 @@ def test_main_module_import() -> None:
     assert hasattr(module, "main")
 
 
+# gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults::engine.py::gabion.analysis.engine.GabionEngine::model.py::gabion.analysis.model.CallArgs::model.py::gabion.analysis.model.ClassInfo::model.py::gabion.analysis.model.DispatchTable::model.py::gabion.analysis.model.FunctionInfo::model.py::gabion.analysis.model.ParamUse::model.py::gabion.analysis.model.SymbolTable::schema.py::gabion.schema.AnalysisResponse
 def test_analysis_engine_and_model_defaults() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -66,6 +70,7 @@ def test_analysis_engine_and_model_defaults() -> None:
     assert param_use.current_aliases == set()
 
 
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 def test_lsp_client_rpc_roundtrip() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -75,16 +80,16 @@ def test_lsp_client_rpc_roundtrip() -> None:
     data = json.dumps(payload).encode("utf-8")
     header = f"Content-Length: {len(data)}\r\n\r\n".encode("utf-8")
     stream = io.BytesIO(header + data)
-    assert _read_rpc(stream)["id"] == 1
+    assert _read_rpc(stream, time.monotonic_ns() + 1_000_000_000)["id"] == 1
 
     bad = io.BytesIO(b"Content-Length: 0\r\n\r\n{}")
     try:
-        _read_rpc(bad)
+        _read_rpc(bad, time.monotonic_ns() + 1_000_000_000)
         assert False, "Expected LspClientError"
     except LspClientError:
         pass
     try:
-        _read_rpc(io.BytesIO(b""))
+        _read_rpc(io.BytesIO(b""), time.monotonic_ns() + 1_000_000_000)
         assert False, "Expected LspClientError"
     except LspClientError:
         pass
@@ -92,7 +97,9 @@ def test_lsp_client_rpc_roundtrip() -> None:
     payload2 = {"jsonrpc": "2.0", "id": 2, "result": {"ok": False}}
     data2 = json.dumps(payload2).encode("utf-8")
     stream2 = io.BytesIO(header + data + f"Content-Length: {len(data2)}\r\n\r\n".encode("utf-8") + data2)
-    assert _read_response(stream2, 2)["result"] == {"ok": False}
+    assert _read_response(stream2, 2, time.monotonic_ns() + 1_000_000_000)["result"] == {
+        "ok": False
+    }
 
     out = io.BytesIO()
     _write_rpc(out, payload)
@@ -101,6 +108,7 @@ def test_lsp_client_rpc_roundtrip() -> None:
     assert data in out_value
 
 
+# gabion:evidence E:decision_surface/direct::server.py::gabion.server.did_open::ls E:decision_surface/direct::server.py::gabion.server.did_save::ls
 def test_server_code_actions_and_diagnostics(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))

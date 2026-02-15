@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 84
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -10,24 +10,62 @@ doc_scope:
   - tooling
 doc_authority: normative
 doc_requires:
-  - README.md
-  - AGENTS.md
-  - POLICY_SEED.md
-  - glossary.md
-  - docs/coverage_semantics.md
+  - README.md#repo_contract
+  - AGENTS.md#agent_obligations
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - docs/coverage_semantics.md#coverage_semantics
 doc_reviewed_as_of:
-  README.md: 58
-  AGENTS.md: 13
-  POLICY_SEED.md: 29
-  glossary.md: 22
-  docs/coverage_semantics.md: 6
+  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  AGENTS.md#agent_obligations: 1
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md: "Reviewed for glossary additions; no conflicts with contributor scope."
-  AGENTS.md: "Agent review discipline aligns with contributor workflow."
-  POLICY_SEED.md: "Review discipline invariant incorporated here."
-  glossary.md: "Higher-order bundle definition is consistent with workflow guidance."
-  docs/coverage_semantics.md: "Coverage semantics unchanged by review discipline."
-doc_change_protocol: "POLICY_SEED.md §6"
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with contributor scope."
+  CONTRIBUTING.md#contributing_contract: "Self-review via Grothendieck analysis (cofibration/dedup/contrast); docflow now fails on missing GH references for SPPF-relevant changes; baseline guardrail + ci_cycle helper affirmed."
+  AGENTS.md#agent_obligations: "Agent review discipline aligns with contributor workflow."
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); contributor guidance unchanged."
+doc_sections:
+  contributing_contract: 1
+doc_section_requires:
+  contributing_contract:
+    - README.md#repo_contract
+    - AGENTS.md#agent_obligations
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - docs/coverage_semantics.md#coverage_semantics
+doc_section_reviews:
+  contributing_contract:
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Repo contract reviewed; contributor contract unchanged."
+    AGENTS.md#agent_obligations:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Agent obligations reviewed; contributor contract unchanged."
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Policy seed reviewed; contributor contract unchanged."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Glossary contract reviewed; contributor contract unchanged."
+    docs/coverage_semantics.md#coverage_semantics:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Coverage semantics reviewed; contributor contract unchanged."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - policy_glossary_handshake
   - dataflow_grammar_invariant
@@ -39,14 +77,15 @@ doc_erasure:
 doc_owner: maintainer
 ---
 
+<a id="contributing_contract"></a>
 # Contributing
 
 Thanks for contributing. This repo enforces a strict execution policy to protect
-self-hosted runners. Please read `POLICY_SEED.md` before making changes.
+self-hosted runners. Please read `POLICY_SEED.md#policy_seed` before making changes.
 
 ## Contract handshake (normative)
-Execution safety is governed by `POLICY_SEED.md`. Semantic correctness is
-governed by `glossary.md`. Both contracts must be satisfied for any change to be
+Execution safety is governed by `POLICY_SEED.md#policy_seed`. Semantic correctness is
+governed by `[glossary.md#contract](glossary.md#contract)`. Both contracts must be satisfied for any change to be
 valid.
 
 ## Documentation review discipline (normative)
@@ -66,10 +105,10 @@ See `docs/doer_judge_witness.md` for a lightweight Doer/Judge/Witness workflow
 that can be adopted when helpful.
 
 ## Cross-references (normative pointers)
-- `README.md` defines project scope, status, and entry points.
-- `AGENTS.md` defines LLM/agent obligations and refusal rules.
-- `POLICY_SEED.md` defines execution and CI safety constraints.
-- `glossary.md` defines semantic meanings, axes, and commutation obligations.
+- `README.md#repo_contract` defines project scope, status, and entry points.
+- `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
+- `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
+- `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
 
 ## Dataflow grammar invariant
 Recurring parameter bundles are treated as type-level obligations. Any bundle
@@ -80,7 +119,7 @@ config/local bundle), or explicitly documented in-place with:
 # dataflow-bundle: a1, a2, a3
 ```
 
-Tier-2 bundles must be reified before merge (see `glossary.md`).
+Tier-2 bundles must be reified before merge (see `[glossary.md#contract](glossary.md#contract)`).
 Tier-3 bundles must be documented with `# dataflow-bundle:` or reified.
 
 ## Branching model (normative)
@@ -160,8 +199,10 @@ Run the dataflow grammar audit (strict defaults):
 ```
 mise exec -- python -m gabion check
 ```
-`gabion check` enforces violations even without `--report` output, and fails on
-type ambiguities for this repo.
+`gabion check` writes a Markdown report to
+`artifacts/audit_reports/dataflow_report.md` by default, and fails on type
+ambiguities for this repo.
+Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to allowlist existing violations and
 `--baseline-write` to generate/update the baseline (ratchet mode). Baseline
 writes are a local, explicit action and should not run in CI.
@@ -183,10 +224,14 @@ Run audit + synthesis in one step (timestamped output under `artifacts/synthesis
 mise exec -- python -m gabion synth path/to/project
 ```
 
-Run the docflow audit (governance docs only):
+Run the docflow audit (governance docs; `in/` is included for dependency resolution):
 ```
 mise exec -- python -m gabion docflow-audit
 ```
+
+Docflow now fails when commits touching SPPF-relevant paths (`src/`, `in/`, or
+`docs/sppf_checklist.md`) lack GH references in commit messages. Use `GH-####`
+trailers or run `scripts/sppf_sync.py --comment` after adding references.
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
@@ -251,7 +296,7 @@ Run coverage (advisory):
 ```
 mise exec -- python -m pytest --cov=src/gabion --cov-report=term-missing
 ```
-Coverage meaning is defined in `docs/coverage_semantics.md`.
+Coverage meaning is defined in `docs/coverage_semantics.md#coverage_semantics`.
 
 Run tests with durable logs:
 ```
@@ -287,6 +332,40 @@ Preview what will run:
 scripts/checks.sh --list
 ```
 
+Baseline refresh helpers:
+
+```
+mise exec -- python scripts/refresh_baselines.py --obsolescence
+mise exec -- python scripts/refresh_baselines.py --annotation-drift
+mise exec -- python scripts/refresh_baselines.py --ambiguity
+mise exec -- python scripts/refresh_baselines.py --all
+```
+
+Baseline refresh guardrail (normative):
+- **Never** refresh a baseline to bypass a ratchet. `refresh_baselines.py` will
+  refuse to refresh when the corresponding gate is enabled and the delta is
+  positive. Clear the delta via real fixes first, then refresh at a checkpoint.
+- Use `--timeout <seconds>` if a baseline refresh risks hanging.
+
+No-op CI cycle helper:
+
+```
+mise exec -- python scripts/ci_cycle.py --push --watch
+```
+
+CI watch helper:
+
+```
+mise exec -- python scripts/ci_watch.py --branch stage
+```
+
+By default this prefers active runs (in-progress/queued). If you want the most
+recent run regardless of status, pass:
+
+```
+mise exec -- python scripts/ci_watch.py --branch stage --no-prefer-active
+```
+
 ## Make targets (optional)
 If you prefer `make`, the following targets wrap the scripts:
 ```
@@ -318,7 +397,7 @@ If `POLICY_GITHUB_TOKEN` is set, the CI workflow also runs the posture check
 (`scripts/policy_check.py --posture`) on pushes.
 
 ## Policy guardrails
-- Workflow changes must preserve the Prime Invariant in `POLICY_SEED.md`.
+- Workflow changes must preserve the Prime Invariant in `POLICY_SEED.md#policy_seed`.
 - Actions must be pinned to full commit SHAs and allow-listed.
 - Self-hosted jobs must use the required labels and actor guard.
 Allow-listed actions are defined in `docs/allowed_actions.txt` and enforced by

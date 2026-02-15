@@ -1,8 +1,8 @@
 ---
-doc_revision: 4
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_revision: 6
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: out_1
-"doc_role": "hypothesis"
+doc_role: hypothesis
 doc_scope:
   - repo
   - governance
@@ -10,21 +10,58 @@ doc_scope:
   - documentation
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - CONTRIBUTING.md
-  - README.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md: 28
-  glossary.md: 14
-  CONTRIBUTING.md: 71
-  README.md: 58
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 1
+doc_review_notes:
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
+doc_sections:
+  out_out_1: 1
+doc_section_requires:
+  out_out_1:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - CONTRIBUTING.md#contributing_contract
+    - README.md#repo_contract
+doc_section_reviews:
+  out_out_1:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
 ---
+
+<a id="out_out_1"></a>
 
 # Outbox Hypothesis: What `out/` Is
 
@@ -37,12 +74,14 @@ legible, testable, and publishable.
 This is not just a dump folder for “notes.” It is a deliberate layer in the
 repo’s governance loop: a place where meaning is stabilized and exported.
 
+Normative pointers (explicit): [POLICY_SEED.md#policy_seed](POLICY_SEED.md#policy_seed), [glossary.md#contract](glossary.md#contract), [CONTRIBUTING.md#contributing_contract](CONTRIBUTING.md#contributing_contract), [README.md#repo_contract](README.md#repo_contract).
+
 ## 1. Roles of `out/`
 
 ### 1.1 Interpretation Layer
 `out/` records how the project **interprets** its own constraints. It provides
-explanations that are faithful to the normative sources (`POLICY_SEED.md`,
-`glossary.md`) while remaining readable by humans.
+explanations that are faithful to the normative sources (`POLICY_SEED.md#policy_seed`,
+`[glossary.md#contract](glossary.md#contract)`) while remaining readable by humans.
 
 ### 1.2 Reviewable Evidence
 `out/` entries are **reviewable artifacts**. They should be concise, grounded,
@@ -56,8 +95,8 @@ without being purely technical; the goal is intelligibility rather than exhausti
 ## 2. Boundaries
 
 ### 2.1 What `out/` Is Not
-- Not a policy source of truth (that lives in `POLICY_SEED.md`).
-- Not a glossary (that lives in `glossary.md`).
+- Not a policy source of truth (that lives in `POLICY_SEED.md#policy_seed`).
+- Not a glossary (that lives in `[glossary.md#contract](glossary.md#contract)`).
 - Not a dump of raw ideas (that lives in `in/`).
 
 ### 2.2 What Belongs in `out/`
@@ -95,4 +134,4 @@ separate note. This entry is about the *purpose* of the outbox, not the proof.
 ## 6. Questions
 - Should `out/` entries be indexed or tagged?
 - Do we want a minimum template (e.g., thesis, evidence, risks)?
-- Should `out/` entries be cited from `README.md` or release notes?
+- Should `out/` entries be cited from `README.md#repo_contract` or release notes?

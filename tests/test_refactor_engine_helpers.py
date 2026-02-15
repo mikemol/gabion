@@ -7,6 +7,7 @@ import libcst as cst
 from gabion.refactor import engine as refactor_engine
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._is_docstring::stmt E:decision_surface/direct::engine.py::gabion.refactor.engine._is_import::stmt
 def test_import_helpers_and_insert_index() -> None:
     module = cst.parse_module('"""Doc"""\nimport typing\nfrom typing import Protocol\n')
     body = list(module.body)
@@ -24,6 +25,7 @@ def test_import_helpers_and_insert_index() -> None:
     assert refactor_engine._has_warnings_import(new_body) is True
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr
 def test_module_expr_to_str() -> None:
     assert refactor_engine._module_expr_to_str(cst.Name("typing")) == "typing"
     expr = cst.Attribute(cst.Name("a"), cst.Name("b"))
@@ -31,6 +33,7 @@ def test_module_expr_to_str() -> None:
     assert refactor_engine._module_expr_to_str(None) is None
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module
 def test_collect_import_context() -> None:
     module = cst.parse_module(
         "import pkg.mod as pm\n"
@@ -45,6 +48,7 @@ def test_collect_import_context() -> None:
     assert protocol_alias == "Proto"
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._collect_import_context::protocol_name,target_module E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets
 def test_rewrite_call_sites_target_and_imports(tmp_path: Path) -> None:
     source = (
         "from pkg.mod import target\n"
@@ -88,6 +92,7 @@ def test_rewrite_call_sites_target_and_imports(tmp_path: Path) -> None:
     assert "from pkg.mod import Bundle" in updated.code
 
 
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites_in_project::target_path
 def test_rewrite_call_sites_in_project(tmp_path: Path) -> None:
     target = tmp_path / "src" / "target.py"
     target.parent.mkdir(parents=True, exist_ok=True)

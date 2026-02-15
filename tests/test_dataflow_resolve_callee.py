@@ -24,9 +24,11 @@ def _fn(da, *, name: str, qual: str, path: Path, class_name: str | None = None):
         class_name=class_name,
         scope=(),
         lexical_scope=(),
+        function_span=(0, 0, 0, 1),
     )
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_globals_only() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -38,6 +40,7 @@ def test_resolve_callee_globals_only() -> None:
     assert resolved is callee
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_ambiguous_then_global() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -52,6 +55,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=(),
         lexical_scope=(),
+        function_span=(0, 0, 0, 1),
     )
     scoped_one = da.FunctionInfo(
         name="target",
@@ -64,6 +68,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=("outer", "caller"),
         lexical_scope=("caller",),
+        function_span=(0, 0, 0, 1),
     )
     scoped_two = da.FunctionInfo(
         name="target",
@@ -76,6 +81,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=("outer", "caller"),
         lexical_scope=("caller",),
+        function_span=(0, 0, 0, 1),
     )
     global_candidate = da.FunctionInfo(
         name="target",
@@ -88,6 +94,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
         class_name=None,
         scope=(),
         lexical_scope=(),
+        function_span=(0, 0, 0, 1),
     )
     by_name = {"target": [scoped_one, scoped_two, global_candidate]}
     by_qual = {
@@ -99,6 +106,7 @@ def test_resolve_callee_ambiguous_then_global() -> None:
     assert resolved is global_candidate
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_import_and_star() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -138,6 +146,7 @@ def test_resolve_callee_import_and_star() -> None:
     assert resolved_star is by_qual["pkg.star.StarFunc"]
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_import_filtered_out() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -164,6 +173,7 @@ def test_resolve_callee_import_filtered_out() -> None:
     assert resolved is None
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_self_and_base_import() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -202,6 +212,7 @@ def test_resolve_callee_self_and_base_import() -> None:
     assert resolved_imported is imported_method
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_class_hierarchy() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -233,6 +244,7 @@ def test_resolve_callee_class_hierarchy() -> None:
     assert resolved is base_method
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_self_class_candidates() -> None:
     da = _load()
     path = Path("pkg/mod.py")

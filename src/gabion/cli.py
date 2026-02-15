@@ -3,14 +3,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, List, Optional, TypeAlias
+from contextlib import contextmanager
+from typing import Callable, List, Mapping, Optional, TypeAlias
 import argparse
 import json
+import os
+import re
 import subprocess
 import sys
-import re
 
 import typer
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+    render_deadline_profile_markdown,
+)
+from gabion.deadline_clock import GasMeter
 
 DATAFLOW_COMMAND = "gabion.dataflowAudit"
 SYNTHESIS_COMMAND = "gabion.synthesisPlan"
@@ -18,13 +30,52 @@ REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
-from gabion.lsp_client import CommandRequest, run_command
+from gabion.lsp_client import (
+    CommandRequest,
+    run_command,
+    run_command_direct,
+    _env_timeout_ticks,
+    _has_env_timeout,
+)
 from gabion.json_types import JSONObject
 app = typer.Typer(add_completion=False)
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
 
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
+
+_DEFAULT_TIMEOUT_TICKS = 100
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_CHECK_REPORT_REL_PATH = Path("artifacts/audit_reports/dataflow_report.md")
+_DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH = Path(
+    "artifacts/audit_reports/timeout_progress.md"
+)
+
+
+def _cli_timeout_ticks() -> tuple[int, int]:
+    if _has_env_timeout():
+        return _env_timeout_ticks()
+    return _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
+
+
+def _cli_deadline() -> Deadline:
+    ticks, tick_ns = _cli_timeout_ticks()
+    return Deadline.from_timeout_ticks(ticks, tick_ns)
+
+
+def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
+    if report is not None:
+        return report
+    return root / _DEFAULT_CHECK_REPORT_REL_PATH
+
+
+@contextmanager
+def _cli_deadline_scope():
+    ticks, _tick_ns = _cli_timeout_ticks()
+    with forest_scope(Forest()):
+        with deadline_scope(_cli_deadline()):
+            with deadline_clock_scope(GasMeter(limit=int(ticks))):
+                yield
 
 
 @dataclass(frozen=True)
@@ -38,20 +89,18 @@ def _find_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _split_csv_entries(entries: Optional[List[str]]) -> list[str] | None:
-    if entries is None:
-        return None
+def _split_csv_entries(entries: List[str]) -> list[str]:
+    check_deadline()
     merged: list[str] = []
     for entry in entries:
+        check_deadline()
         merged.extend([part.strip() for part in entry.split(",") if part.strip()])
-    return merged or None
+    return merged
 
 
-def _split_csv(value: Optional[str]) -> list[str] | None:
-    if value is None:
-        return None
+def _split_csv(value: str) -> list[str]:
     items = [part.strip() for part in value.split(",") if part.strip()]
-    return items or None
+    return items
 
 
 def _parse_lint_line(line: str) -> dict[str, object] | None:
@@ -75,8 +124,10 @@ def _parse_lint_line(line: str) -> dict[str, object] | None:
 
 
 def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
+    check_deadline()
     entries: list[dict[str, object]] = []
     for line in lines:
+        check_deadline()
         parsed = _parse_lint_line(line)
         if parsed is not None:
             entries.append(parsed)
@@ -92,9 +143,11 @@ def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
 
 
 def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
+    check_deadline()
     rules: dict[str, dict[str, object]] = {}
     results: list[dict[str, object]] = []
     for entry in entries:
+        check_deadline()
         code = str(entry.get("code") or "GABION")
         message = str(entry.get("message") or "").strip()
         path = str(entry.get("path") or "")
@@ -148,8 +201,10 @@ def _emit_lint_outputs(
     lint_jsonl: Optional[Path],
     lint_sarif: Optional[Path],
 ) -> None:
+    check_deadline()
     if lint:
         for line in lint_lines:
+            check_deadline()
             typer.echo(line)
     if lint_jsonl or lint_sarif:
         entries = _collect_lint_entries(lint_lines)
@@ -157,6 +212,138 @@ def _emit_lint_outputs(
             _write_lint_jsonl(str(lint_jsonl), entries)
         if lint_sarif is not None:
             _write_lint_sarif(str(lint_sarif), entries)
+
+
+def _emit_timeout_profile_artifacts(
+    result: Mapping[str, object],
+    *,
+    root: Path,
+) -> None:
+    timeout_context = result.get("timeout_context")
+    if not isinstance(timeout_context, Mapping):
+        return
+    profile = timeout_context.get("deadline_profile")
+    if not isinstance(profile, Mapping):
+        return
+    artifact_dir = root / "artifacts" / "out"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    profile_json_path = artifact_dir / "deadline_profile.json"
+    profile_md_path = artifact_dir / "deadline_profile.md"
+    profile_json_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+    profile_md_path.write_text(
+        render_deadline_profile_markdown(profile) + "\n",
+        encoding="utf-8",
+    )
+    typer.echo(f"Wrote deadline profile JSON: {profile_json_path}")
+    typer.echo(f"Wrote deadline profile markdown: {profile_md_path}")
+
+
+def _render_timeout_progress_markdown(
+    *,
+    analysis_state: str | None,
+    progress: Mapping[str, object],
+    deadline_profile: Mapping[str, object] | None = None,
+) -> str:
+    lines = ["# Timeout Progress", ""]
+    if analysis_state:
+        lines.append(f"- `analysis_state`: `{analysis_state}`")
+    classification = progress.get("classification")
+    if isinstance(classification, str):
+        lines.append(f"- `classification`: `{classification}`")
+    retry_recommended = progress.get("retry_recommended")
+    if isinstance(retry_recommended, bool):
+        lines.append(f"- `retry_recommended`: `{retry_recommended}`")
+    resume_supported = progress.get("resume_supported")
+    if isinstance(resume_supported, bool):
+        lines.append(f"- `resume_supported`: `{resume_supported}`")
+    ticks_consumed = progress.get("ticks_consumed")
+    if isinstance(ticks_consumed, int):
+        lines.append(f"- `ticks_consumed`: `{ticks_consumed}`")
+    tick_limit = progress.get("tick_limit")
+    if isinstance(tick_limit, int):
+        lines.append(f"- `tick_limit`: `{tick_limit}`")
+    ticks_remaining = progress.get("ticks_remaining")
+    if isinstance(ticks_remaining, int):
+        lines.append(f"- `ticks_remaining`: `{ticks_remaining}`")
+    progress_ticks_per_ns = progress.get("ticks_per_ns")
+    if isinstance(progress_ticks_per_ns, (int, float)):
+        lines.append(f"- `ticks_per_ns`: `{float(progress_ticks_per_ns):.9f}`")
+    if isinstance(deadline_profile, Mapping):
+        if not isinstance(progress_ticks_per_ns, (int, float)):
+            ticks_per_ns = deadline_profile.get("ticks_per_ns")
+            if isinstance(ticks_per_ns, (int, float)):
+                lines.append(f"- `ticks_per_ns`: `{float(ticks_per_ns):.9f}`")
+    resume = progress.get("resume")
+    if isinstance(resume, Mapping):
+        token = resume.get("resume_token")
+        if isinstance(token, Mapping):
+            lines.append("")
+            lines.append("## Resume Token")
+            lines.append("")
+            for key in (
+                "phase",
+                "checkpoint_path",
+                "completed_files",
+                "remaining_files",
+                "total_files",
+                "witness_digest",
+            ):
+                value = token.get(key)
+                if value is None:
+                    continue
+                lines.append(f"- `{key}`: `{value}`")
+    obligations = progress.get("incremental_obligations")
+    if isinstance(obligations, list) and obligations:
+        lines.append("")
+        lines.append("## Incremental Obligations")
+        lines.append("")
+        for entry in obligations:
+            if not isinstance(entry, Mapping):
+                continue
+            status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
+            contract = str(entry.get("contract", "") or "")
+            kind = str(entry.get("kind", "") or "")
+            detail = str(entry.get("detail", "") or "")
+            section_id = str(entry.get("section_id", "") or "")
+            section_suffix = f" section={section_id}" if section_id else ""
+            lines.append(
+                f"- `{status}` `{contract}` `{kind}`{section_suffix}: {detail}"
+            )
+    return "\n".join(lines)
+
+
+def _emit_timeout_progress_artifacts(
+    result: Mapping[str, object],
+    *,
+    root: Path,
+) -> None:
+    timeout_context = result.get("timeout_context")
+    if not isinstance(timeout_context, Mapping):
+        return
+    progress = timeout_context.get("progress")
+    if not isinstance(progress, Mapping):
+        return
+    profile = timeout_context.get("deadline_profile")
+    profile_mapping = profile if isinstance(profile, Mapping) else None
+    progress_md_path = root / _DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH
+    progress_json_path = progress_md_path.with_suffix(".json")
+    progress_md_path.parent.mkdir(parents=True, exist_ok=True)
+    payload: JSONObject = {
+        "analysis_state": str(result.get("analysis_state", "")),
+        "progress": {str(key): progress[key] for key in progress},
+    }
+    progress_json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    progress_md_path.write_text(
+        _render_timeout_progress_markdown(
+            analysis_state=str(result.get("analysis_state", "")),
+            progress=progress,
+            deadline_profile=profile_mapping,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    typer.echo(f"Wrote timeout progress JSON: {progress_json_path}")
+    typer.echo(f"Wrote timeout progress markdown: {progress_md_path}")
 
 
 def build_check_payload(
@@ -169,6 +356,22 @@ def build_check_payload(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
+    emit_test_obsolescence: bool,
+    emit_test_obsolescence_state: bool,
+    test_obsolescence_state: Optional[Path],
+    emit_test_obsolescence_delta: bool,
+    emit_test_evidence_suggestions: bool,
+    emit_call_clusters: bool,
+    emit_call_cluster_consolidation: bool,
+    emit_test_annotation_drift: bool,
+    test_annotation_drift_state: Optional[Path],
+    emit_test_annotation_drift_delta: bool,
+    write_test_annotation_drift_baseline: bool,
+    write_test_obsolescence_baseline: bool,
+    emit_ambiguity_delta: bool,
+    emit_ambiguity_state: bool,
+    ambiguity_state: Optional[Path],
+    write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -176,16 +379,44 @@ def build_check_payload(
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
     lint: bool,
+    resume_checkpoint: Optional[Path] = None,
+    emit_timeout_progress_report: bool = False,
+    resume_on_timeout: int = 0,
+    analysis_tick_limit: int | None = None,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     if not paths:
         paths = [Path(".")]
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
-    exclude_dirs = _split_csv_entries(exclude)
-    ignore_list = _split_csv(ignore_params_csv)
-    transparent_list = _split_csv(transparent_decorators_csv)
-    baseline_write_value: bool | None = baseline_write if baseline is not None else None
+    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
+        raise typer.BadParameter(
+            "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+        )
+    if emit_test_obsolescence_state and test_obsolescence_state is not None:
+        raise typer.BadParameter(
+            "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
+        )
+    if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
+        raise typer.BadParameter(
+            "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
+        )
+    if emit_ambiguity_delta and write_ambiguity_baseline:
+        raise typer.BadParameter(
+            "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
+        )
+    if emit_ambiguity_state and ambiguity_state is not None:
+        raise typer.BadParameter(
+            "Use --emit-ambiguity-state or --ambiguity-state, not both."
+        )
+    exclude_dirs = _split_csv_entries(exclude) if exclude is not None else None
+    ignore_list = _split_csv(ignore_params_csv) if ignore_params_csv is not None else None
+    transparent_list = (
+        _split_csv(transparent_decorators_csv)
+        if transparent_decorators_csv is not None
+        else None
+    )
+    baseline_write_value = bool(baseline is not None and baseline_write)
     root = root or Path(".")
     payload = {
         "paths": [str(p) for p in paths],
@@ -197,6 +428,26 @@ def build_check_payload(
         "baseline": str(baseline) if baseline is not None else None,
         "baseline_write": baseline_write_value,
         "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
+        "emit_test_obsolescence": emit_test_obsolescence,
+        "emit_test_obsolescence_state": emit_test_obsolescence_state,
+        "test_obsolescence_state": str(test_obsolescence_state)
+        if test_obsolescence_state is not None
+        else None,
+        "emit_test_obsolescence_delta": emit_test_obsolescence_delta,
+        "emit_test_evidence_suggestions": emit_test_evidence_suggestions,
+        "emit_call_clusters": emit_call_clusters,
+        "emit_call_cluster_consolidation": emit_call_cluster_consolidation,
+        "emit_test_annotation_drift": emit_test_annotation_drift,
+        "test_annotation_drift_state": str(test_annotation_drift_state)
+        if test_annotation_drift_state is not None
+        else None,
+        "emit_test_annotation_drift_delta": emit_test_annotation_drift_delta,
+        "write_test_annotation_drift_baseline": write_test_annotation_drift_baseline,
+        "write_test_obsolescence_baseline": write_test_obsolescence_baseline,
+        "emit_ambiguity_delta": emit_ambiguity_delta,
+        "emit_ambiguity_state": emit_ambiguity_state,
+        "ambiguity_state": str(ambiguity_state) if ambiguity_state is not None else None,
+        "write_ambiguity_baseline": write_ambiguity_baseline,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
@@ -204,6 +455,13 @@ def build_check_payload(
         "strictness": strictness,
         "type_audit": True if fail_on_type_ambiguities else None,
         "lint": lint,
+        "resume_checkpoint": str(resume_checkpoint) if resume_checkpoint else None,
+        "emit_timeout_progress_report": bool(emit_timeout_progress_report),
+        "resume_on_timeout": max(int(resume_on_timeout), 0),
+        "deadline_profile": True,
+        "analysis_tick_limit": int(analysis_tick_limit)
+        if analysis_tick_limit is not None
+        else None,
     }
     return payload
 
@@ -214,9 +472,13 @@ def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
 
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    exclude_dirs = _split_csv_entries(opts.exclude)
-    ignore_list = _split_csv(opts.ignore_params)
-    transparent_list = _split_csv(opts.transparent_decorators)
+    exclude_dirs = _split_csv_entries(opts.exclude) if opts.exclude is not None else None
+    ignore_list = _split_csv(opts.ignore_params) if opts.ignore_params is not None else None
+    transparent_list = (
+        _split_csv(opts.transparent_decorators)
+        if opts.transparent_decorators is not None
+        else None
+    )
     payload: JSONObject = {
         "paths": [str(p) for p in opts.paths],
         "root": str(opts.root),
@@ -241,6 +503,11 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "transparent_decorators": transparent_list,
         "allow_external": opts.allow_external,
         "strictness": opts.strictness,
+        "resume_checkpoint": str(opts.resume_checkpoint)
+        if opts.resume_checkpoint
+        else None,
+        "emit_timeout_progress_report": bool(opts.emit_timeout_progress_report),
+        "resume_on_timeout": max(int(opts.resume_on_timeout), 0),
         "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
         "synthesis_report": opts.synthesis_report,
         "synthesis_max_tier": opts.synthesis_max_tier,
@@ -284,6 +551,7 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "structure_metrics": str(opts.emit_structure_metrics)
         if opts.emit_structure_metrics
         else None,
+        "deadline_profile": True,
     }
     return payload
 
@@ -299,6 +567,7 @@ def build_refactor_payload(
     compatibility_shim: bool,
     rationale: Optional[str],
 ) -> JSONObject:
+    check_deadline()
     if input_payload is not None:
         return input_payload
     if protocol_name is None or target_path is None:
@@ -307,6 +576,7 @@ def build_refactor_payload(
         )
     field_specs: list[dict[str, str | None]] = []
     for spec in field or []:
+        check_deadline()
         name, _, hint = spec.partition(":")
         name = name.strip()
         if not name:
@@ -332,9 +602,33 @@ def dispatch_command(
     payload: JSONObject,
     root: Path | None = None,
     runner: Runner = run_command,
+    process_factory: Callable[..., subprocess.Popen] | None = None,
 ) -> JSONObject:
+    ticks, tick_ns = _cli_timeout_ticks()
+    if (
+        "analysis_timeout_ticks" not in payload
+        and "analysis_timeout_ms" not in payload
+        and "analysis_timeout_seconds" not in payload
+    ):
+        payload = dict(payload)
+        payload["analysis_timeout_ticks"] = int(ticks)
+        payload["analysis_timeout_tick_ns"] = int(tick_ns)
     request = CommandRequest(command, [payload])
-    return runner(request, root=root)
+    resolved = runner
+    if runner is run_command:
+        flag = os.getenv("GABION_DIRECT_RUN", "").strip().lower()
+        if flag in {"1", "true", "yes", "on"}:
+            resolved = run_command_direct
+    if resolved is run_command:
+        factory = process_factory or subprocess.Popen
+        return resolved(
+            request,
+            root=root,
+            timeout_ticks=ticks,
+            timeout_tick_ns=tick_ns,
+            process_factory=factory,
+        )
+    return resolved(request, root=root)
 
 
 def run_check(
@@ -347,6 +641,22 @@ def run_check(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
+    emit_test_obsolescence: bool,
+    emit_test_obsolescence_state: bool,
+    test_obsolescence_state: Optional[Path],
+    emit_test_obsolescence_delta: bool,
+    emit_test_evidence_suggestions: bool,
+    emit_call_clusters: bool,
+    emit_call_cluster_consolidation: bool,
+    emit_test_annotation_drift: bool,
+    test_annotation_drift_state: Optional[Path],
+    emit_test_annotation_drift_delta: bool,
+    write_test_annotation_drift_baseline: bool,
+    write_test_obsolescence_baseline: bool,
+    emit_ambiguity_delta: bool,
+    emit_ambiguity_state: bool,
+    ambiguity_state: Optional[Path],
+    write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
@@ -354,18 +664,40 @@ def run_check(
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
     lint: bool,
+    resume_checkpoint: Optional[Path] = None,
+    emit_timeout_progress_report: bool = False,
+    resume_on_timeout: int = 0,
+    analysis_tick_limit: int | None = None,
     runner: Runner = run_command,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
+    resolved_report = _resolve_check_report_path(report, root=root)
+    resolved_report.parent.mkdir(parents=True, exist_ok=True)
     payload = build_check_payload(
         paths=paths,
-        report=report,
+        report=resolved_report,
         fail_on_violations=fail_on_violations,
         root=root,
         config=config,
         baseline=baseline,
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
+        emit_test_obsolescence=emit_test_obsolescence,
+        emit_test_obsolescence_state=emit_test_obsolescence_state,
+        test_obsolescence_state=test_obsolescence_state,
+        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+        emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+        emit_call_clusters=emit_call_clusters,
+        emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+        emit_test_annotation_drift=emit_test_annotation_drift,
+        test_annotation_drift_state=test_annotation_drift_state,
+        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+        write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+        write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+        emit_ambiguity_delta=emit_ambiguity_delta,
+        emit_ambiguity_state=emit_ambiguity_state,
+        ambiguity_state=ambiguity_state,
+        write_ambiguity_baseline=write_ambiguity_baseline,
         exclude=exclude,
         ignore_params_csv=ignore_params_csv,
         transparent_decorators_csv=transparent_decorators_csv,
@@ -373,8 +705,43 @@ def run_check(
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
         lint=lint,
+        resume_checkpoint=resume_checkpoint,
+        emit_timeout_progress_report=emit_timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        analysis_tick_limit=analysis_tick_limit,
     )
     return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
+
+
+def _run_with_timeout_retries(
+    *,
+    run_once: Callable[[], JSONObject],
+    root: Path,
+    emit_timeout_progress_report: bool,
+    resume_on_timeout: int,
+    emit_timeout_profile_artifacts_fn: Callable[..., None] = _emit_timeout_profile_artifacts,
+    emit_timeout_progress_artifacts_fn: Callable[..., None] = _emit_timeout_progress_artifacts,
+    echo_fn: Callable[[str], None] = typer.echo,
+) -> JSONObject:
+    attempt = 0
+    result: JSONObject = {}
+    while True:
+        with _cli_deadline_scope():
+            check_deadline()
+            result = run_once()
+        if result.get("timeout") is not True:
+            return result
+        emit_timeout_profile_artifacts_fn(result, root=root)
+        if emit_timeout_progress_report:
+            emit_timeout_progress_artifacts_fn(result, root=root)
+        if (
+            attempt < max(int(resume_on_timeout), 0)
+            and str(result.get("analysis_state", "")) == "timed_out_progress_resume"
+        ):
+            attempt += 1
+            echo_fn(f"Retrying after timeout with progress ({attempt}/{resume_on_timeout})...")
+            continue
+        raise typer.Exit(code=int(result.get("exit_code", 2)))
 
 
 @app.command()
@@ -386,6 +753,98 @@ def check(
     config: Optional[Path] = typer.Option(None, "--config"),
     decision_snapshot: Optional[Path] = typer.Option(
         None, "--decision-snapshot", help="Write decision surface snapshot JSON."
+    ),
+    emit_test_obsolescence: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence/--no-emit-test-obsolescence",
+        help=(
+            "Write test obsolescence report (JSON in artifacts/out, markdown in out/)."
+        ),
+    ),
+    emit_test_obsolescence_state: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence-state/--no-emit-test-obsolescence-state",
+        help="Write test obsolescence state to artifacts/out.",
+    ),
+    test_obsolescence_state: Optional[Path] = typer.Option(
+        None,
+        "--test-obsolescence-state",
+        help="Use precomputed test obsolescence state for delta/report.",
+    ),
+    emit_test_obsolescence_delta: bool = typer.Option(
+        False,
+        "--emit-test-obsolescence-delta/--no-emit-test-obsolescence-delta",
+        help=(
+            "Write test obsolescence delta report (JSON in artifacts/out, markdown in out/)."
+        ),
+    ),
+    emit_test_evidence_suggestions: bool = typer.Option(
+        False,
+        "--emit-test-evidence-suggestions/--no-emit-test-evidence-suggestions",
+        help=(
+            "Write test evidence suggestions (JSON in artifacts/out, markdown in out/)."
+        ),
+    ),
+    emit_call_clusters: bool = typer.Option(
+        False,
+        "--emit-call-clusters/--no-emit-call-clusters",
+        help="Write call cluster report (JSON in artifacts/out, markdown in out/).",
+    ),
+    emit_call_cluster_consolidation: bool = typer.Option(
+        False,
+        "--emit-call-cluster-consolidation/--no-emit-call-cluster-consolidation",
+        help=(
+            "Write call cluster consolidation plan (JSON in artifacts/out, markdown in out/)."
+        ),
+    ),
+    emit_test_annotation_drift: bool = typer.Option(
+        False,
+        "--emit-test-annotation-drift/--no-emit-test-annotation-drift",
+        help=(
+            "Write test annotation drift report (JSON in artifacts/out, markdown in out/)."
+        ),
+    ),
+    test_annotation_drift_state: Optional[Path] = typer.Option(
+        None,
+        "--test-annotation-drift-state",
+        help="Use precomputed annotation drift state for delta.",
+    ),
+    emit_test_annotation_drift_delta: bool = typer.Option(
+        False,
+        "--emit-test-annotation-drift-delta/--no-emit-test-annotation-drift-delta",
+        help=(
+            "Write test annotation drift delta report (JSON in artifacts/out, markdown in out/)."
+        ),
+    ),
+    write_test_annotation_drift_baseline: bool = typer.Option(
+        False,
+        "--write-test-annotation-drift-baseline/--no-write-test-annotation-drift-baseline",
+        help="Write the current test annotation drift baseline to baselines/.",
+    ),
+    write_test_obsolescence_baseline: bool = typer.Option(
+        False,
+        "--write-test-obsolescence-baseline/--no-write-test-obsolescence-baseline",
+        help="Write the current test obsolescence baseline to baselines/.",
+    ),
+    emit_ambiguity_delta: bool = typer.Option(
+        False,
+        "--emit-ambiguity-delta/--no-emit-ambiguity-delta",
+        help="Write ambiguity delta report (JSON in artifacts/out, markdown in out/).",
+    ),
+    emit_ambiguity_state: bool = typer.Option(
+        False,
+        "--emit-ambiguity-state/--no-emit-ambiguity-state",
+        help="Write ambiguity state to artifacts/out.",
+    ),
+    ambiguity_state: Optional[Path] = typer.Option(
+        None,
+        "--ambiguity-state",
+        help="Use precomputed ambiguity state for delta.",
+    ),
+    write_ambiguity_baseline: bool = typer.Option(
+        False,
+        "--write-ambiguity-baseline/--no-write-ambiguity-baseline",
+        help="Write the current ambiguity baseline to baselines/.",
     ),
     baseline: Optional[Path] = typer.Option(
         None, "--baseline", help="Baseline file of allowed violations."
@@ -402,6 +861,28 @@ def check(
         None, "--allow-external/--no-allow-external"
     ),
     strictness: Optional[str] = typer.Option(None, "--strictness"),
+    resume_checkpoint: Optional[Path] = typer.Option(
+        None,
+        "--resume-checkpoint",
+        help="Checkpoint path for resumable timeout runs.",
+    ),
+    emit_timeout_progress_report: bool = typer.Option(
+        False,
+        "--emit-timeout-progress-report/--no-emit-timeout-progress-report",
+        help="Write timeout progress report artifacts on timeout.",
+    ),
+    resume_on_timeout: int = typer.Option(
+        0,
+        "--resume-on-timeout",
+        min=0,
+        help="Retry count when timeout reports timed_out_progress_resume.",
+    ),
+    analysis_tick_limit: Optional[int] = typer.Option(
+        None,
+        "--analysis-tick-limit",
+        min=1,
+        help="Deterministic logical timeout budget (ticks).",
+    ),
     fail_on_type_ambiguities: bool = typer.Option(
         True, "--fail-on-type-ambiguities/--no-fail-on-type-ambiguities"
     ),
@@ -416,30 +897,56 @@ def check(
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     """Run the dataflow grammar audit with strict defaults."""
     lint_enabled = lint or bool(lint_jsonl or lint_sarif)
-    result = run_check(
-        paths=paths,
-        report=report,
-        fail_on_violations=fail_on_violations,
-        root=root,
-        config=config,
-        baseline=baseline,
-        baseline_write=baseline_write,
-        decision_snapshot=decision_snapshot,
-        exclude=exclude,
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
-        allow_external=allow_external,
-        strictness=strictness,
-        fail_on_type_ambiguities=fail_on_type_ambiguities,
-        lint=lint_enabled,
+    result = _run_with_timeout_retries(
+        run_once=lambda: run_check(
+            paths=paths,
+            report=report,
+            fail_on_violations=fail_on_violations,
+            root=root,
+            config=config,
+            baseline=baseline,
+            baseline_write=baseline_write,
+            decision_snapshot=decision_snapshot,
+            emit_test_obsolescence=emit_test_obsolescence,
+            emit_test_obsolescence_state=emit_test_obsolescence_state,
+            test_obsolescence_state=test_obsolescence_state,
+            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+            emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+            emit_call_clusters=emit_call_clusters,
+            emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+            emit_test_annotation_drift=emit_test_annotation_drift,
+            test_annotation_drift_state=test_annotation_drift_state,
+            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+            write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+            write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+            emit_ambiguity_delta=emit_ambiguity_delta,
+            emit_ambiguity_state=emit_ambiguity_state,
+            ambiguity_state=ambiguity_state,
+            write_ambiguity_baseline=write_ambiguity_baseline,
+            exclude=exclude,
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+            allow_external=allow_external,
+            strictness=strictness,
+            fail_on_type_ambiguities=fail_on_type_ambiguities,
+            lint=lint_enabled,
+            resume_checkpoint=resume_checkpoint,
+            emit_timeout_progress_report=emit_timeout_progress_report,
+            resume_on_timeout=resume_on_timeout,
+            analysis_tick_limit=analysis_tick_limit,
+        ),
+        root=Path(root),
+        emit_timeout_progress_report=emit_timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
     )
-    lint_lines = result.get("lint_lines", []) or []
-    _emit_lint_outputs(
-        lint_lines,
-        lint=lint,
-        lint_jsonl=lint_jsonl,
-        lint_sarif=lint_sarif,
-    )
+    with _cli_deadline_scope():
+        lint_lines = result.get("lint_lines", []) or []
+        _emit_lint_outputs(
+            lint_lines,
+            lint=lint,
+            lint_jsonl=lint_jsonl,
+            lint_sarif=lint_sarif,
+        )
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -447,106 +954,119 @@ def _dataflow_audit(
     request: "DataflowAuditRequest",
 ) -> None:
     """Run the dataflow grammar audit with explicit options."""
+    with _cli_deadline_scope():
+        check_deadline()
     argv = list(request.args or []) + list(request.ctx.args)
     if not argv:
         argv = []
     opts = parse_dataflow_args(argv)
     payload = build_dataflow_payload(opts)
     runner = request.runner or run_command
-    result = dispatch_command(
-        command=DATAFLOW_COMMAND,
-        payload=payload,
+    result = _run_with_timeout_retries(
+        run_once=lambda: dispatch_command(
+            command=DATAFLOW_COMMAND,
+            payload=payload,
+            root=Path(opts.root),
+            runner=runner,
+        ),
         root=Path(opts.root),
-        runner=runner,
+        emit_timeout_progress_report=opts.emit_timeout_progress_report,
+        resume_on_timeout=max(int(opts.resume_on_timeout), 0),
     )
-    lint_lines = result.get("lint_lines", []) or []
-    _emit_lint_outputs(
-        lint_lines,
-        lint=opts.lint,
-        lint_jsonl=opts.lint_jsonl,
-        lint_sarif=opts.lint_sarif,
-    )
-    if opts.type_audit:
-        suggestions = result.get("type_suggestions", [])
-        ambiguities = result.get("type_ambiguities", [])
-        if suggestions:
-            typer.echo("Type tightening candidates:")
-            for line in suggestions[: opts.type_audit_max]:
-                typer.echo(f"- {line}")
-        if ambiguities:
-            typer.echo("Type ambiguities (conflicting downstream expectations):")
-            for line in ambiguities[: opts.type_audit_max]:
-                typer.echo(f"- {line}")
-    if opts.dot == "-" and "dot" in result:
-        typer.echo(result["dot"])
-    if opts.synthesis_plan == "-" and "synthesis_plan" in result:
-        typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
-    if opts.synthesis_protocols == "-" and "synthesis_protocols" in result:
-        typer.echo(result["synthesis_protocols"])
-    if opts.refactor_plan_json == "-" and "refactor_plan" in result:
-        typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
-    if (
-        opts.fingerprint_synth_json == "-"
-        and "fingerprint_synth_registry" in result
-    ):
-        typer.echo(
-            json.dumps(
-                result["fingerprint_synth_registry"], indent=2, sort_keys=True
-            )
+    with _cli_deadline_scope():
+        lint_lines = result.get("lint_lines", []) or []
+        _emit_lint_outputs(
+            lint_lines,
+            lint=opts.lint,
+            lint_jsonl=opts.lint_jsonl,
+            lint_sarif=opts.lint_sarif,
         )
-    if (
-        opts.fingerprint_provenance_json == "-"
-        and "fingerprint_provenance" in result
-    ):
-        typer.echo(
-            json.dumps(
-                result["fingerprint_provenance"], indent=2, sort_keys=True
+        if opts.type_audit:
+            suggestions = result.get("type_suggestions", [])
+            ambiguities = result.get("type_ambiguities", [])
+            if suggestions:
+                typer.echo("Type tightening candidates:")
+                for line in suggestions[: opts.type_audit_max]:
+                    check_deadline()
+                    typer.echo(f"- {line}")
+            if ambiguities:
+                typer.echo("Type ambiguities (conflicting downstream expectations):")
+                for line in ambiguities[: opts.type_audit_max]:
+                    check_deadline()
+                    typer.echo(f"- {line}")
+        if opts.dot == "-" and "dot" in result:
+            typer.echo(result["dot"])
+        if opts.synthesis_plan == "-" and "synthesis_plan" in result:
+            typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
+        if opts.synthesis_protocols == "-" and "synthesis_protocols" in result:
+            typer.echo(result["synthesis_protocols"])
+        if opts.refactor_plan_json == "-" and "refactor_plan" in result:
+            typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
+        if (
+            opts.fingerprint_synth_json == "-"
+            and "fingerprint_synth_registry" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_synth_registry"], indent=2, sort_keys=True
+                )
             )
-        )
-    if opts.fingerprint_deadness_json == "-" and "fingerprint_deadness" in result:
-        typer.echo(
-            json.dumps(
-                result["fingerprint_deadness"], indent=2, sort_keys=True
+        if (
+            opts.fingerprint_provenance_json == "-"
+            and "fingerprint_provenance" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_provenance"], indent=2, sort_keys=True
+                )
             )
-        )
-    if opts.fingerprint_coherence_json == "-" and "fingerprint_coherence" in result:
-        typer.echo(
-            json.dumps(
-                result["fingerprint_coherence"], indent=2, sort_keys=True
+        if opts.fingerprint_deadness_json == "-" and "fingerprint_deadness" in result:
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_deadness"], indent=2, sort_keys=True
+                )
             )
-        )
-    if (
-        opts.fingerprint_rewrite_plans_json == "-"
-        and "fingerprint_rewrite_plans" in result
-    ):
-        typer.echo(
-            json.dumps(
-                result["fingerprint_rewrite_plans"], indent=2, sort_keys=True
+        if opts.fingerprint_coherence_json == "-" and "fingerprint_coherence" in result:
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_coherence"], indent=2, sort_keys=True
+                )
             )
-        )
-    if (
-        opts.fingerprint_exception_obligations_json == "-"
-        and "fingerprint_exception_obligations" in result
-    ):
-        typer.echo(
-            json.dumps(
-                result["fingerprint_exception_obligations"],
-                indent=2,
-                sort_keys=True,
+        if (
+            opts.fingerprint_rewrite_plans_json == "-"
+            and "fingerprint_rewrite_plans" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_rewrite_plans"], indent=2, sort_keys=True
+                )
             )
-        )
-    if opts.fingerprint_handledness_json == "-" and "fingerprint_handledness" in result:
-        typer.echo(
-            json.dumps(
-                result["fingerprint_handledness"], indent=2, sort_keys=True
+        if (
+            opts.fingerprint_exception_obligations_json == "-"
+            and "fingerprint_exception_obligations" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_exception_obligations"],
+                    indent=2,
+                    sort_keys=True,
+                )
             )
-        )
-    if opts.emit_structure_tree == "-" and "structure_tree" in result:
-        typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
-    if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
-        typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
-    if opts.emit_decision_snapshot == "-" and "decision_snapshot" in result:
-        typer.echo(json.dumps(result["decision_snapshot"], indent=2, sort_keys=True))
+        if (
+            opts.fingerprint_handledness_json == "-"
+            and "fingerprint_handledness" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_handledness"], indent=2, sort_keys=True
+                )
+            )
+        if opts.emit_structure_tree == "-" and "structure_tree" in result:
+            typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
+        if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
+            typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
+        if opts.emit_decision_snapshot == "-" and "decision_snapshot" in result:
+            typer.echo(json.dumps(result["decision_snapshot"], indent=2, sort_keys=True))
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -586,6 +1106,22 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument("--strictness", choices=["high", "low"], default=None)
+    parser.add_argument(
+        "--resume-checkpoint",
+        default=None,
+        help="Checkpoint path for resumable timeout runs.",
+    )
+    parser.add_argument(
+        "--emit-timeout-progress-report",
+        action="store_true",
+        help="Write timeout progress report artifacts on timeout.",
+    )
+    parser.add_argument(
+        "--resume-on-timeout",
+        type=int,
+        default=0,
+        help="Retry count when timeout returns timed_out_progress_resume.",
+    )
     parser.add_argument("--no-recursive", action="store_true")
     parser.add_argument("--dot", default=None, help="Write DOT graph to file or '-' for stdout.")
     parser.add_argument(
@@ -796,12 +1332,14 @@ def _run_synth(
     fail_on_violations: bool,
     runner: Runner = run_command,
 ) -> tuple[JSONObject, dict[str, Path], Path | None]:
+    check_deadline()
     if not paths:
         paths = [Path(".")]
     exclude_dirs: list[str] | None = None
     if exclude is not None:
         exclude_dirs = []
         for entry in exclude:
+            check_deadline()
             exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
     ignore_list: list[str] | None = None
     if ignore_params_csv is not None:
@@ -934,34 +1472,35 @@ def synth(
     ),
 ) -> None:
     """Run the dataflow audit and emit synthesis outputs (prototype)."""
-    result, paths_out, timestamp = _run_synth(
-        paths=paths,
-        root=root,
-        out_dir=out_dir,
-        no_timestamp=no_timestamp,
-        config=config,
-        exclude=exclude,
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
-        allow_external=allow_external,
-        strictness=strictness,
-        no_recursive=no_recursive,
-        max_components=max_components,
-        type_audit_report=type_audit_report,
-        type_audit_max=type_audit_max,
-        synthesis_max_tier=synthesis_max_tier,
-        synthesis_min_bundle_size=synthesis_min_bundle_size,
-        synthesis_allow_singletons=synthesis_allow_singletons,
-        synthesis_protocols_kind=synthesis_protocols_kind,
-        refactor_plan=refactor_plan,
-        fail_on_violations=fail_on_violations,
-    )
-    _emit_synth_outputs(
-        paths_out=paths_out,
-        timestamp=timestamp,
-        refactor_plan=refactor_plan,
-    )
-    raise typer.Exit(code=int(result.get("exit_code", 0)))
+    with _cli_deadline_scope():
+        result, paths_out, timestamp = _run_synth(
+            paths=paths,
+            root=root,
+            out_dir=out_dir,
+            no_timestamp=no_timestamp,
+            config=config,
+            exclude=exclude,
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+            allow_external=allow_external,
+            strictness=strictness,
+            no_recursive=no_recursive,
+            max_components=max_components,
+            type_audit_report=type_audit_report,
+            type_audit_max=type_audit_max,
+            synthesis_max_tier=synthesis_max_tier,
+            synthesis_min_bundle_size=synthesis_min_bundle_size,
+            synthesis_allow_singletons=synthesis_allow_singletons,
+            synthesis_protocols_kind=synthesis_protocols_kind,
+            refactor_plan=refactor_plan,
+            fail_on_violations=fail_on_violations,
+        )
+        _emit_synth_outputs(
+            paths_out=paths_out,
+            timestamp=timestamp,
+            refactor_plan=refactor_plan,
+        )
+        raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
 @app.command("synthesis-plan")
@@ -974,7 +1513,8 @@ def synthesis_plan(
     ),
 ) -> None:
     """Generate a synthesis plan from a JSON payload (prototype)."""
-    _run_synthesis_plan(input_path=input_path, output_path=output_path)
+    with _cli_deadline_scope():
+        _run_synthesis_plan(input_path=input_path, output_path=output_path)
 
 
 def _run_synthesis_plan(
@@ -1090,33 +1630,39 @@ def run_structure_reuse(
 
 
 def _emit_structure_diff(result: JSONObject) -> None:
+    check_deadline()
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
     if errors:
         for error in errors:
+            check_deadline()
             typer.secho(str(error), err=True, fg=typer.colors.RED)
     if exit_code:
         raise typer.Exit(code=exit_code)
 
 
 def _emit_decision_diff(result: JSONObject) -> None:
+    check_deadline()
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
     if errors:
         for error in errors:
+            check_deadline()
             typer.secho(str(error), err=True, fg=typer.colors.RED)
     if exit_code:
         raise typer.Exit(code=exit_code)
 
 
 def _emit_structure_reuse(result: JSONObject) -> None:
+    check_deadline()
     errors = result.get("errors")
     exit_code = int(result.get("exit_code", 0))
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
     if errors:
         for error in errors:
+            check_deadline()
             typer.secho(str(error), err=True, fg=typer.colors.RED)
     if exit_code:
         raise typer.Exit(code=exit_code)
@@ -1130,8 +1676,9 @@ def structure_diff(
 ) -> None:
     """Compare two structure snapshots and emit a JSON diff."""
     # dataflow-bundle: baseline, current
-    result = run_structure_diff(baseline=baseline, current=current, root=root)
-    _emit_structure_diff(result)
+    with _cli_deadline_scope():
+        result = run_structure_diff(baseline=baseline, current=current, root=root)
+        _emit_structure_diff(result)
 
 
 @app.command("decision-diff")
@@ -1141,8 +1688,9 @@ def decision_diff(
     root: Optional[Path] = typer.Option(None, "--root"),
 ) -> None:
     """Compare two decision surface snapshots and emit a JSON diff."""
-    result = run_decision_diff(baseline=baseline, current=current, root=root)
-    _emit_decision_diff(result)
+    with _cli_deadline_scope():
+        result = run_decision_diff(baseline=baseline, current=current, root=root)
+        _emit_decision_diff(result)
 
 
 @app.command("structure-reuse")
@@ -1155,13 +1703,14 @@ def structure_reuse(
     root: Optional[Path] = typer.Option(None, "--root"),
 ) -> None:
     """Detect repeated subtrees in a structure snapshot."""
-    result = run_structure_reuse(
-        snapshot=snapshot,
-        min_count=min_count,
-        lemma_stubs=lemma_stubs,
-        root=root,
-    )
-    _emit_structure_reuse(result)
+    with _cli_deadline_scope():
+        result = run_structure_reuse(
+            snapshot=snapshot,
+            min_count=min_count,
+            lemma_stubs=lemma_stubs,
+            root=root,
+        )
+        _emit_structure_reuse(result)
 
 
 @app.command("refactor-protocol")
@@ -1187,17 +1736,18 @@ def refactor_protocol(
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
-    _run_refactor_protocol(
-        input_path=input_path,
-        output_path=output_path,
-        protocol_name=protocol_name,
-        bundle=bundle,
-        field=field,
-        target_path=target_path,
-        target_functions=target_functions,
-        compatibility_shim=compatibility_shim,
-        rationale=rationale,
-    )
+    with _cli_deadline_scope():
+        _run_refactor_protocol(
+            input_path=input_path,
+            output_path=output_path,
+            protocol_name=protocol_name,
+            bundle=bundle,
+            field=field,
+            target_path=target_path,
+            target_functions=target_functions,
+            compatibility_shim=compatibility_shim,
+            rationale=rationale,
+        )
 
 
 def _run_refactor_protocol(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 import textwrap
+from gabion.analysis.aspf import Forest
 
 
 def _load():
@@ -18,7 +19,8 @@ def _analyze(tmp_path: Path, source: str):
     path = tmp_path / "mod.py"
     path.write_text(source)
     analysis = analyze_paths(
-        [path],
+        forest=Forest(),
+        paths=[path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -31,6 +33,7 @@ def _analyze(tmp_path: Path, source: str):
     return analysis
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
 def test_invariant_extracts_len_equality(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """
@@ -45,6 +48,7 @@ def test_invariant_extracts_len_equality(tmp_path: Path) -> None:
     )
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
 def test_invariant_extracts_param_equality(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """
@@ -59,6 +63,7 @@ def test_invariant_extracts_param_equality(tmp_path: Path) -> None:
     )
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
 def test_invariant_ignores_non_param_asserts(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """

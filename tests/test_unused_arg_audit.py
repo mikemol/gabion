@@ -20,6 +20,7 @@ def _load_analyzer():
     return analyze_unused_arg_flow_repo
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_unused_arg_smell_detected(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -47,6 +48,7 @@ def test_unused_arg_smell_detected(tmp_path: Path) -> None:
     )
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_unused_arg_ignores_constants(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -70,6 +72,7 @@ def test_unused_arg_ignores_constants(tmp_path: Path) -> None:
     assert not smells
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_unused_arg_skips_test_calls(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -93,6 +96,7 @@ def test_unused_arg_skips_test_calls(tmp_path: Path) -> None:
     assert not smells
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_unused_arg_non_const_pos_and_kw(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -117,6 +121,7 @@ def test_unused_arg_non_const_pos_and_kw(tmp_path: Path) -> None:
     assert any("non-constant kw 'z'" in smell for smell in smells)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_unused_arg_star_kw_low_strictness(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -140,6 +145,7 @@ def test_unused_arg_star_kw_low_strictness(tmp_path: Path) -> None:
     assert any("non-constant kw 'x'" in smell for smell in smells)
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_unused_arg_ignores_extra_pos_args(tmp_path: Path) -> None:
     path = _write(
         tmp_path,
@@ -163,6 +169,7 @@ def test_unused_arg_ignores_extra_pos_args(tmp_path: Path) -> None:
     assert smells == []
 
 
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_unused_arg_edge_branches(tmp_path: Path) -> None:
     path = _write(
         tmp_path,

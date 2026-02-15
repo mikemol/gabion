@@ -5,6 +5,8 @@ from pathlib import Path
 import libcst as cst
 
 from gabion.refactor.model import FieldSpec, RefactorPlan, RefactorRequest, TextEdit
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 class RefactorEngine:
@@ -12,6 +14,7 @@ class RefactorEngine:
         self.project_root = project_root
 
     def plan_protocol_extraction(self, request: RefactorRequest) -> RefactorPlan:
+        check_deadline()
         path = Path(request.target_path)
         if self.project_root and not path.is_absolute():
             path = self.project_root / path
@@ -30,6 +33,7 @@ class RefactorEngine:
         field_specs: list[FieldSpec] = []
         seen_fields: set[str] = set()
         for spec in request.fields or []:
+            check_deadline()
             name = (spec.name or "").strip()
             if not name or name in seen_fields:
                 continue
@@ -37,6 +41,7 @@ class RefactorEngine:
             field_specs.append(spec)
         if bundle:
             for name in bundle:
+                check_deadline()
                 if name in seen_fields:
                     continue
                 seen_fields.add(name)
@@ -82,6 +87,7 @@ class RefactorEngine:
 
         field_lines = []
         for spec in field_specs:
+            check_deadline()
             field_lines.append(
                 cst.SimpleStatementLine(
                     [
@@ -199,15 +205,18 @@ def _is_import(stmt: cst.CSTNode) -> bool:
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
+    check_deadline()
     insert_idx = 0
     if body and _is_docstring(body[0]):
         insert_idx = 1
     while insert_idx < len(body) and _is_import(body[insert_idx]):
+        check_deadline()
         insert_idx += 1
     return insert_idx
 
 
 def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
+    check_deadline()
     if expr is None:
         return None
     if isinstance(expr, cst.Name):
@@ -216,6 +225,7 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
         parts = []
         current: cst.BaseExpression | None = expr
         while isinstance(current, cst.Attribute):
+            check_deadline()
             if isinstance(current.attr, cst.Name):
                 parts.append(current.attr.value)
             current = current.value
@@ -227,12 +237,16 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
 
 
 def _has_typing_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if isinstance(item, cst.Import):
                 for alias in item.names:
+                    check_deadline()
                     if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                         if alias.name.value == "typing":
                             return True
@@ -245,16 +259,20 @@ def _has_typing_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if not isinstance(item, cst.ImportFrom):
                 continue
             module = _module_expr_to_str(item.module)
             if module != "typing":
                 continue
             for alias in item.names:
+                check_deadline()
                 if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                     if alias.name.value == "Protocol":
                         return True
@@ -262,16 +280,20 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if not isinstance(item, cst.ImportFrom):
                 continue
             module = _module_expr_to_str(item.module)
             if module != "typing":
                 continue
             for alias in item.names:
+                check_deadline()
                 if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                     if alias.name.value == "overload":
                         return True
@@ -279,12 +301,16 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if isinstance(item, cst.Import):
                 for alias in item.names:
+                    check_deadline()
                     if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                         if alias.name.value == "warnings":
                             return True
@@ -324,15 +350,19 @@ def _collect_import_context(
     target_module: str,
     protocol_name: str,
 ) -> tuple[dict[str, str], dict[str, str], str | None]:
+    check_deadline()
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
     protocol_alias: str | None = None
     for stmt in module.body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if isinstance(item, cst.Import):
                 for alias in item.names:
+                    check_deadline()
                     if not isinstance(alias, cst.ImportAlias):  # pragma: no cover
                         continue
                     module_name = _module_expr_to_str(alias.name)
@@ -347,6 +377,7 @@ def _collect_import_context(
                 if module_name != target_module:
                     continue
                 for alias in item.names:
+                    check_deadline()
                     if not isinstance(alias, cst.ImportAlias):
                         continue
                     if not isinstance(alias.name, cst.Name):
@@ -368,6 +399,7 @@ def _rewrite_call_sites(
     bundle_fields: list[str],
     targets: set[str],
 ) -> tuple[list[str], cst.Module | None]:
+    check_deadline()
     warnings: list[str] = []
     file_is_target = file_path == target_path
     if not targets:
@@ -375,6 +407,7 @@ def _rewrite_call_sites(
     target_simple = {name for name in targets if "." not in name}
     target_methods: dict[str, set[str]] = {}
     for name in targets:
+        check_deadline()
         if "." not in name:
             continue
         parts = name.split(".")
@@ -450,12 +483,18 @@ def _rewrite_call_sites_in_project(
     bundle_fields: list[str],
     targets: set[str],
 ) -> tuple[list[TextEdit], list[str]]:
+    check_deadline()
     edits: list[TextEdit] = []
     warnings: list[str] = []
     scan_root = project_root / "src"
     if not scan_root.exists():
         scan_root = project_root
-    for path in sorted(scan_root.rglob("*.py")):
+    for path in ordered_or_sorted(
+        scan_root.rglob("*.py"),
+        source="_rewrite_call_sites_in_project.scan_root",
+        key=lambda item: str(item),
+    ):
+        check_deadline()
         if path == target_path:
             continue
         try:
@@ -709,32 +748,41 @@ class _RefactorTransformer(cst.CSTTransformer):
         )
 
     def _ordered_param_names(self, params: cst.Parameters) -> list[str]:
+        check_deadline()
         names: list[str] = []
         for param in params.posonly_params:
+            check_deadline()
             names.append(param.name.value)
         for param in params.params:
+            check_deadline()
             names.append(param.name.value)
         for param in params.kwonly_params:
+            check_deadline()
             names.append(param.name.value)
         return names
 
     def _find_self_param(
         self, params: cst.Parameters, name: str
     ) -> cst.Param | None:
+        check_deadline()
         for param in params.posonly_params:
+            check_deadline()
             if param.name.value == name:
                 return param
         for param in params.params:
+            check_deadline()
             if param.name.value == name:
                 return param
         return None
 
     def _choose_bundle_name(self, existing: list[str]) -> str:
+        check_deadline()
         candidate = "bundle"
         if candidate not in existing:
             return candidate
         idx = 1
         while f"bundle_{idx}" in existing:
+            check_deadline()
             idx += 1
         return f"bundle_{idx}"
 
@@ -885,6 +933,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
         return False
 
     def _build_bundle_args(self, call: cst.Call) -> list[cst.Arg] | None:
+        check_deadline()
         if any(arg.star in {"*", "**"} for arg in call.args):
             self.warnings.append("Skipped call with star args/kwargs during refactor.")
             return None
@@ -895,6 +944,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
             if arg.keyword is not None and isinstance(arg.keyword, cst.Name)
         }
         for key in keyword_args:
+            check_deadline()
             if key not in self.bundle_fields:
                 self.warnings.append(
                     f"Skipped call with unknown keyword '{key}' during refactor."
@@ -907,6 +957,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
             self.warnings.append("Skipped call with extra positional args during refactor.")
             return None
         for field, arg in zip(remaining, positional):
+            check_deadline()
             mapping[field] = arg.value
         if len(mapping) != len(self.bundle_fields):
             self.warnings.append("Skipped call with missing bundle fields during refactor.")

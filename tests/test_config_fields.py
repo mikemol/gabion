@@ -12,6 +12,7 @@ def _load():
     return _iter_config_fields
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields
 def test_iter_config_fields_expands_config_dataclass(tmp_path: Path) -> None:
     _iter_config_fields = _load()
     config_path = tmp_path / "config.py"
@@ -31,6 +32,6 @@ class Other:
     beta: int
 """
     )
-    bundles = _iter_config_fields(config_path)
+    bundles = _iter_config_fields(config_path, parse_failure_witnesses=[])
     assert bundles["AppConfig"] == {"foo", "bar_fn", "baz"}
     assert bundles["Other"] == {"alpha_fn"}
