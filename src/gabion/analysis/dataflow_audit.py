@@ -13654,27 +13654,45 @@ def _serialize_analysis_index_resume_payload(
     hydrated_path_keys = sorted(
         _analysis_collection_resume_path_key(path) for path in hydrated_paths
     )
+    ordered_function_items = list(
+        ordered_or_sorted(
+            by_qual.items(),
+            source="_serialize_analysis_index_resume_payload.functions_by_qual",
+        )
+    )
+    ordered_class_items = list(
+        ordered_or_sorted(
+            class_index.items(),
+            source="_serialize_analysis_index_resume_payload.class_index",
+        )
+    )
+    resume_digest = hashlib.sha1(
+        json.dumps(
+            {
+                "hydrated_paths": hydrated_path_keys,
+                "function_quals": [qual for qual, _ in ordered_function_items],
+                "class_quals": [qual for qual, _ in ordered_class_items],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
     return {
         "format_version": 1,
         "phase": "analysis_index_hydration",
+        "resume_digest": resume_digest,
         "hydrated_paths": hydrated_path_keys,
         "hydrated_paths_count": len(hydrated_path_keys),
         "function_count": len(by_qual),
         "class_count": len(class_index),
         "functions_by_qual": {
             qual: _serialize_function_info_for_resume(info)
-            for qual, info in ordered_or_sorted(
-                by_qual.items(),
-                source="_serialize_analysis_index_resume_payload.functions_by_qual",
-            )
+            for qual, info in ordered_function_items
         },
         "symbol_table": _serialize_symbol_table_for_resume(symbol_table),
         "class_index": {
             qual: _serialize_class_info_for_resume(class_info)
-            for qual, class_info in ordered_or_sorted(
-                class_index.items(),
-                source="_serialize_analysis_index_resume_payload.class_index",
-            )
+            for qual, class_info in ordered_class_items
         },
     }
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -758,6 +759,64 @@ def test_externalize_and_inflate_analysis_index_resume_state_ref(
     inflated_resume = inflated.get("analysis_index_resume")
     assert isinstance(inflated_resume, dict)
     assert inflated_resume.get("hydrated_paths_count") == 1
+
+
+def test_analysis_index_resume_signature_prefers_resume_digest() -> None:
+    signature = server._analysis_index_resume_signature(
+        {
+            "analysis_index_resume": {
+                "phase": "analysis_index_hydration",
+                "hydrated_paths": ["a.py"],
+                "hydrated_paths_count": 1,
+                "function_count": 2,
+                "class_count": 1,
+                "resume_digest": "abc123",
+            }
+        }
+    )
+    assert signature == (1, hashlib.sha1(b'[\"a.py\"]').hexdigest(), 2, 1, "analysis_index_hydration", "abc123")
+
+
+def test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary(
+    tmp_path: Path,
+) -> None:
+    checkpoint_path = tmp_path / "artifacts" / "audit_reports" / "resume.json"
+    collection_resume = {
+        "completed_paths": [],
+        "in_progress_scan_by_path": {},
+        "analysis_index_resume": {
+            "format_version": 1,
+            "phase": "analysis_index_hydration",
+            "hydrated_paths": ["a.py"],
+            "hydrated_paths_count": 1,
+            "function_count": 2,
+            "class_count": 1,
+            "resume_digest": "abc123",
+            "functions_by_qual": {},
+            "symbol_table": {
+                "imports": [],
+                "internal_roots": [],
+                "external_filter": True,
+                "star_imports": {},
+                "module_exports": {},
+                "module_export_map": {},
+            },
+            "class_index": {},
+        },
+    }
+    server._write_analysis_resume_checkpoint(
+        path=checkpoint_path,
+        input_witness={"witness_digest": "w1", "manifest_digest": "m1"},
+        input_manifest_digest="m1",
+        collection_resume=collection_resume,
+    )
+    payload = json.loads(checkpoint_path.read_text())
+    summary = payload.get("analysis_index_hydration")
+    assert isinstance(summary, dict)
+    assert summary.get("hydrated_paths_count") == 1
+    assert summary.get("function_count") == 2
+    assert summary.get("class_count") == 1
+    assert summary.get("resume_digest") == "abc123"
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress

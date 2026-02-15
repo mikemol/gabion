@@ -149,6 +149,7 @@ _REPORT_PHASE_CHECKPOINT_FORMAT_VERSION = 1
 _DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
     "artifacts/audit_reports/dataflow_report_phase_checkpoint.json"
 )
+_COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
 
@@ -760,6 +761,9 @@ def _write_analysis_resume_checkpoint(
         "input_manifest_digest": manifest_digest,
         "collection_resume": externalized_collection_resume,
     }
+    analysis_index_summary = _analysis_index_resume_summary(collection_resume)
+    if analysis_index_summary is not None:
+        payload["analysis_index_hydration"] = analysis_index_summary
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
@@ -939,6 +943,67 @@ def _analysis_index_resume_hydrated_digest(
     ).hexdigest()
 
 
+def _analysis_index_resume_signature(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> tuple[int, str, int, int, str, str]:
+    hydrated_count = _analysis_index_resume_hydrated_count(collection_resume)
+    hydrated_digest = _analysis_index_resume_hydrated_digest(collection_resume)
+    if not isinstance(collection_resume, Mapping):
+        return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
+    raw_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(raw_resume, Mapping):
+        return (hydrated_count, hydrated_digest, 0, 0, "", hydrated_digest)
+    function_count = raw_resume.get("function_count")
+    class_count = raw_resume.get("class_count")
+    phase = raw_resume.get("phase")
+    resume_digest = raw_resume.get("resume_digest")
+    if not isinstance(function_count, int):
+        function_count = 0
+    if not isinstance(class_count, int):
+        class_count = 0
+    if not isinstance(phase, str):
+        phase = ""
+    if not isinstance(resume_digest, str) or not resume_digest:
+        resume_digest = hydrated_digest
+    return (
+        hydrated_count,
+        hydrated_digest,
+        function_count,
+        class_count,
+        phase,
+        resume_digest,
+    )
+
+
+def _analysis_index_resume_summary(
+    collection_resume: Mapping[str, JSONValue] | None,
+) -> JSONObject | None:
+    if not isinstance(collection_resume, Mapping):
+        return None
+    raw_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(raw_resume, Mapping):
+        return None
+    (
+        hydrated_count,
+        hydrated_digest,
+        function_count,
+        class_count,
+        phase,
+        resume_digest,
+    ) = (
+        _analysis_index_resume_signature(collection_resume)
+    )
+    summary: JSONObject = {
+        "phase": phase or "analysis_index_hydration",
+        "hydrated_paths_count": hydrated_count,
+        "hydrated_paths_digest": hydrated_digest,
+        "resume_digest": resume_digest,
+        "function_count": function_count,
+        "class_count": class_count,
+    }
+    return summary
+
+
 def _collection_semantic_witness(
     *,
     collection_resume: Mapping[str, JSONValue],
@@ -960,6 +1025,7 @@ def _collection_semantic_witness(
                 "processed_functions_digest": _state_processed_digest(state),
             }
         )
+    index_signature = _analysis_index_resume_signature(collection_resume)
     digest = hashlib.sha1(
         _canonical_json_text(
             {
@@ -970,6 +1036,9 @@ def _collection_semantic_witness(
                 "index_hydrated_paths_digest": _analysis_index_resume_hydrated_digest(
                     collection_resume
                 ),
+                "index_resume_digest": index_signature[5],
+                "index_function_count": index_signature[2],
+                "index_class_count": index_signature[3],
             }
         ).encode("utf-8")
     ).hexdigest()
@@ -983,6 +1052,9 @@ def _collection_semantic_witness(
         "index_hydrated_paths_digest": _analysis_index_resume_hydrated_digest(
             collection_resume
         ),
+        "index_resume_digest": index_signature[5],
+        "index_function_count": index_signature[2],
+        "index_class_count": index_signature[3],
     }
 
 
@@ -2627,6 +2699,11 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     for key in raw_semantic_progress
                 }
         last_collection_intro_signature: tuple[int, int, int, int] | None = None
+        last_collection_semantic_witness_digest: str | None = None
+        last_collection_checkpoint_flush_ns = 0
+        last_analysis_index_resume_signature: tuple[
+            int, str, int, int, str, str
+        ] | None = None
         last_collection_report_flush_ns = 0
         last_collection_report_flush_completed = -1
         phase_progress_signatures: dict[str, tuple[int, ...]] = {}
@@ -2636,6 +2713,9 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
             nonlocal last_collection_resume_payload
             nonlocal semantic_progress_cumulative
             nonlocal last_collection_intro_signature
+            nonlocal last_collection_semantic_witness_digest
+            nonlocal last_collection_checkpoint_flush_ns
+            nonlocal last_analysis_index_resume_signature
             nonlocal last_collection_report_flush_ns
             nonlocal last_collection_report_flush_completed
             nonlocal report_sections_cache_reason
@@ -2661,22 +2741,47 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                 collection_progress["remaining_files"],
                 _analysis_index_resume_hydrated_count(persisted_progress_payload),
             )
-            if collection_intro_signature == last_collection_intro_signature:
-                return
-            last_collection_intro_signature = collection_intro_signature
+            semantic_witness_digest = semantic_progress.get("current_witness_digest")
+            if not isinstance(semantic_witness_digest, str):
+                semantic_witness_digest = None
+            analysis_index_signature = _analysis_index_resume_signature(
+                persisted_progress_payload
+            )
+            intro_changed = collection_intro_signature != last_collection_intro_signature
+            semantic_changed = (
+                semantic_witness_digest != last_collection_semantic_witness_digest
+            )
+            analysis_index_changed = (
+                analysis_index_signature != last_analysis_index_resume_signature
+            )
+            now_ns = time.monotonic_ns()
             if (
                 analysis_resume_checkpoint_path is not None
                 and analysis_resume_input_manifest_digest is not None
+                and (intro_changed or semantic_changed or analysis_index_changed)
             ):
-                _write_analysis_resume_checkpoint(
-                    path=analysis_resume_checkpoint_path,
-                    input_witness=analysis_resume_input_witness,
-                    input_manifest_digest=analysis_resume_input_manifest_digest,
-                    collection_resume=persisted_progress_payload,
-                )
+                checkpoint_due = intro_changed or collection_progress["remaining_files"] == 0
+                if (
+                    not checkpoint_due
+                    and now_ns - last_collection_checkpoint_flush_ns
+                    >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
+                ):
+                    checkpoint_due = True
+                if checkpoint_due:
+                    _write_analysis_resume_checkpoint(
+                        path=analysis_resume_checkpoint_path,
+                        input_witness=analysis_resume_input_witness,
+                        input_manifest_digest=analysis_resume_input_manifest_digest,
+                        collection_resume=persisted_progress_payload,
+                    )
+                    last_collection_checkpoint_flush_ns = now_ns
+            last_collection_semantic_witness_digest = semantic_witness_digest
+            last_analysis_index_resume_signature = analysis_index_signature
+            if not intro_changed:
+                return
+            last_collection_intro_signature = collection_intro_signature
             if not report_output_path or not projection_rows:
                 return
-            now_ns = time.monotonic_ns()
             completed_files = collection_progress["completed_files"]
             should_flush_report = False
             if last_collection_report_flush_completed < 0:

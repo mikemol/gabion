@@ -59,6 +59,12 @@ jobs:
             --emit-timeout-progress-report \
             --baseline baselines/dataflow_baseline.txt \
             || (cat artifacts/audit_reports/dataflow_report.md; [ -f artifacts/audit_reports/timeout_progress.md ] && cat artifacts/audit_reports/timeout_progress.md; exit 1)
+      - name: Deadline profile summary
+        if: always()
+        run: |
+          .venv/bin/python scripts/deadline_profile_ci_summary.py \
+            --allow-missing-local \
+            --step-summary "$GITHUB_STEP_SUMMARY"
       - name: Docflow audit
         run: .venv/bin/python scripts/docflow_audit.py --root . --fail-on-violations
       - name: Test evidence index
@@ -106,3 +112,5 @@ jobs:
             artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
             artifacts/out/deadline_profile.json
             artifacts/out/deadline_profile.md
+            artifacts/out/deadline_profile_ci_summary.json
+            artifacts/out/deadline_profile_ci_summary.md
