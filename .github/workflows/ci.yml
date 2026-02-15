@@ -10,7 +10,98 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  dataflow-audit:
+    if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
+    runs-on: ubuntu-latest
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      # Allow-listed actions: actions/checkout, jdx/mise-action
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install mise
+        uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
+      - name: Install toolchain
+        run: mise install
+      - name: Create venv
+        run: |
+          mise exec -- python -m venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - name: Install dependencies (locked)
+        run: |
+          .venv/bin/python -m pip install --upgrade pip uv
+          .venv/bin/uv pip sync requirements.lock
+          .venv/bin/uv pip install -e .
+      - name: Dataflow audit stage A (collection/hydration warmup)
+        id: dataflow_stage_a
+        continue-on-error: true
+        env:
+          GABION_DIRECT_RUN: "1"
+          GABION_LSP_TIMEOUT_TICKS: "300000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
+        run: |
+          mkdir -p artifacts/audit_reports
+          .venv/bin/python -m gabion check \
+            --report artifacts/audit_reports/dataflow_report.md \
+            --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
+            --resume-on-timeout 1 \
+            --emit-timeout-progress-report \
+            --baseline baselines/dataflow_baseline.txt
+      - name: Dataflow audit stage B (projection/post warmup)
+        id: dataflow_stage_b
+        if: steps.dataflow_stage_a.outcome == 'failure'
+        continue-on-error: true
+        env:
+          GABION_DIRECT_RUN: "1"
+          GABION_LSP_TIMEOUT_TICKS: "300000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
+        run: |
+          mkdir -p artifacts/audit_reports
+          .venv/bin/python -m gabion check \
+            --report artifacts/audit_reports/dataflow_report.md \
+            --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
+            --resume-on-timeout 1 \
+            --emit-timeout-progress-report \
+            --baseline baselines/dataflow_baseline.txt
+      - name: Dataflow audit stage C (gating)
+        if: steps.dataflow_stage_a.outcome == 'failure' && (steps.dataflow_stage_b.outcome == 'failure' || steps.dataflow_stage_b.outcome == 'skipped')
+        env:
+          GABION_DIRECT_RUN: "1"
+          GABION_LSP_TIMEOUT_TICKS: "300000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
+        run: |
+          mkdir -p artifacts/audit_reports
+          .venv/bin/python -m gabion check \
+            --report artifacts/audit_reports/dataflow_report.md \
+            --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
+            --resume-on-timeout 1 \
+            --emit-timeout-progress-report \
+            --baseline baselines/dataflow_baseline.txt \
+            || (cat artifacts/audit_reports/dataflow_report.md; [ -f artifacts/audit_reports/timeout_progress.md ] && cat artifacts/audit_reports/timeout_progress.md; exit 1)
+      - name: Deadline profile summary
+        if: always()
+        run: |
+          .venv/bin/python scripts/deadline_profile_ci_summary.py \
+            --allow-missing-local \
+            --step-summary "$GITHUB_STEP_SUMMARY"
+      - name: Upload dataflow report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dataflow-report
+          path: |
+            artifacts/audit_reports/dataflow_report.md
+            artifacts/audit_reports/timeout_progress.md
+            artifacts/audit_reports/timeout_progress.json
+            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
+            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json.chunks/**
+            artifacts/out/deadline_profile.json
+            artifacts/out/deadline_profile.md
+            artifacts/out/deadline_profile_ci_summary.json
+            artifacts/out/deadline_profile_ci_summary.md
+
+  checks:
     if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
     runs-on: ubuntu-latest
     env:
@@ -45,26 +136,6 @@ jobs:
             exit 0
           fi
           .venv/bin/python scripts/policy_check.py --posture
-      - name: Dataflow audit
-        env:
-          GABION_DIRECT_RUN: "1"
-          GABION_LSP_TIMEOUT_TICKS: "300000"
-          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-        run: |
-          mkdir -p artifacts/audit_reports
-          .venv/bin/python -m gabion check \
-            --report artifacts/audit_reports/dataflow_report.md \
-            --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
-            --resume-on-timeout 5 \
-            --emit-timeout-progress-report \
-            --baseline baselines/dataflow_baseline.txt \
-            || (cat artifacts/audit_reports/dataflow_report.md; [ -f artifacts/audit_reports/timeout_progress.md ] && cat artifacts/audit_reports/timeout_progress.md; exit 1)
-      - name: Deadline profile summary
-        if: always()
-        run: |
-          .venv/bin/python scripts/deadline_profile_ci_summary.py \
-            --allow-missing-local \
-            --step-summary "$GITHUB_STEP_SUMMARY"
       - name: Docflow audit
         run: .venv/bin/python scripts/docflow_audit.py --root . --fail-on-violations
       - name: Test evidence index
@@ -100,17 +171,3 @@ jobs:
         with:
           name: test-runs
           path: artifacts/test_runs
-      - name: Upload dataflow report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: dataflow-report
-          path: |
-            artifacts/audit_reports/dataflow_report.md
-            artifacts/audit_reports/timeout_progress.md
-            artifacts/audit_reports/timeout_progress.json
-            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
-            artifacts/out/deadline_profile.json
-            artifacts/out/deadline_profile.md
-            artifacts/out/deadline_profile_ci_summary.json
-            artifacts/out/deadline_profile_ci_summary.md

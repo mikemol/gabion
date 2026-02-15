@@ -50,6 +50,24 @@ def _site_rows(profile: Mapping[str, object]) -> list[dict[str, object]]:
     return rows
 
 
+def _io_rows(profile: Mapping[str, object]) -> list[dict[str, object]]:
+    raw_io = profile.get("io")
+    if not isinstance(raw_io, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for entry in raw_io:
+        if not isinstance(entry, Mapping):
+            continue
+        rows.append({str(key): entry[key] for key in entry})
+    rows.sort(
+        key=lambda row: (
+            -_safe_int(row.get("elapsed_ns")),
+            str(row.get("name", "")),
+        )
+    )
+    return rows
+
+
 def _site_key(row: Mapping[str, object]) -> str:
     return f"{row.get('path', '')}:{row.get('qual', '')}"
 
@@ -74,10 +92,13 @@ def _build_summary(
 ) -> dict[str, object]:
     ci_sites = _site_rows(ci_profile)
     local_sites = _site_rows(local_profile or {})
+    ci_io = _io_rows(ci_profile)
+    local_io = _io_rows(local_profile or {})
     ci_total_ns = _safe_int(ci_profile.get("total_elapsed_ns"))
     ci_checks_total = _safe_int(ci_profile.get("checks_total"))
     ci_unattributed_ns = _safe_int(ci_profile.get("unattributed_elapsed_ns"))
     ci_top_sites = _top_rows(ci_sites, top=top)
+    ci_top_io = _top_rows(ci_io, top=top)
 
     local_total_ns = _safe_int(local_profile.get("total_elapsed_ns")) if local_profile else 0
     local_checks_total = _safe_int(local_profile.get("checks_total")) if local_profile else 0
@@ -110,6 +131,31 @@ def _build_summary(
             str(row.get("site", "")),
         )
     )
+    local_io_map: dict[str, dict[str, object]] = {}
+    for row in local_io:
+        local_io_map[str(row.get("name", ""))] = row
+    io_regressions: list[dict[str, object]] = []
+    for row in ci_io:
+        name = str(row.get("name", ""))
+        local_row = local_io_map.get(name)
+        ci_elapsed = _safe_int(row.get("elapsed_ns"))
+        local_elapsed = _safe_int(local_row.get("elapsed_ns")) if local_row else 0
+        delta = ci_elapsed - local_elapsed
+        io_regressions.append(
+            {
+                "name": name,
+                "ci_elapsed_ns": ci_elapsed,
+                "local_elapsed_ns": local_elapsed,
+                "delta_ns": delta,
+                "ratio": (ci_elapsed / local_elapsed) if local_elapsed > 0 else None,
+            }
+        )
+    io_regressions.sort(
+        key=lambda row: (
+            -_safe_int(row.get("delta_ns")),
+            str(row.get("name", "")),
+        )
+    )
 
     comparison: dict[str, object] | None = None
     if local_profile is not None and local_total_ns > 0:
@@ -133,6 +179,7 @@ def _build_summary(
             "unattributed_elapsed_ns": ci_unattributed_ns,
             "unattributed_elapsed_ms": _to_ms(ci_unattributed_ns),
             "top_sites": ci_top_sites,
+            "top_io": ci_top_io,
         },
         "local": (
             {
@@ -147,6 +194,7 @@ def _build_summary(
         ),
         "comparison": comparison,
         "top_regressions": _top_rows(regressions, top=top),
+        "top_io_regressions": _top_rows(io_regressions, top=top),
     }
 
 
@@ -155,7 +203,9 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
     local = summary.get("local")
     comparison = summary.get("comparison")
     top_sites = ci.get("top_sites", []) if isinstance(ci, Mapping) else []
+    top_io = ci.get("top_io", []) if isinstance(ci, Mapping) else []
     top_regressions = summary.get("top_regressions", [])
+    top_io_regressions = summary.get("top_io_regressions", [])
 
     lines = [
         "# Deadline Profile Summary",
@@ -221,6 +271,28 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
     else:
         lines.append("| _none_ | 0.000 | 0 | 0.000 |")
     lines.append("")
+    lines.extend(
+        [
+            "## Top CI I/O",
+            "| io | elapsed_ms | events | max_event_ms | bytes_total |",
+            "| --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    if isinstance(top_io, list) and top_io:
+        for row in top_io:
+            if not isinstance(row, Mapping):
+                continue
+            name = str(row.get("name", ""))
+            elapsed_ms = _safe_int(row.get("elapsed_ns")) / 1_000_000
+            events = _safe_int(row.get("event_count"))
+            max_event_ms = _safe_int(row.get("max_event_ns")) / 1_000_000
+            bytes_total = _safe_int(row.get("bytes_total"))
+            lines.append(
+                f"| `{name}` | {elapsed_ms:.3f} | {events} | {max_event_ms:.3f} | {bytes_total} |"
+            )
+    else:
+        lines.append("| _none_ | 0.000 | 0 | 0.000 | 0 |")
+    lines.append("")
 
     lines.extend(
         [
@@ -241,6 +313,29 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
             ratio_text = f"{ratio:.3f}" if isinstance(ratio, float) else "n/a"
             lines.append(
                 f"| `{site}` | {ci_ms:.3f} | {local_ms:.3f} | {delta_ms:.3f} | {ratio_text} |"
+            )
+    else:
+        lines.append("| _none_ | 0.000 | 0.000 | 0.000 | n/a |")
+    lines.append("")
+    lines.extend(
+        [
+            "## Top CI I/O Regressions vs Local",
+            "| io | ci_ms | local_ms | delta_ms | ratio |",
+            "| --- | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    if isinstance(top_io_regressions, list) and top_io_regressions:
+        for row in top_io_regressions:
+            if not isinstance(row, Mapping):
+                continue
+            name = str(row.get("name", ""))
+            ci_ms = _safe_int(row.get("ci_elapsed_ns")) / 1_000_000
+            local_ms = _safe_int(row.get("local_elapsed_ns")) / 1_000_000
+            delta_ms = _safe_int(row.get("delta_ns")) / 1_000_000
+            ratio = row.get("ratio")
+            ratio_text = f"{ratio:.3f}" if isinstance(ratio, float) else "n/a"
+            lines.append(
+                f"| `{name}` | {ci_ms:.3f} | {local_ms:.3f} | {delta_ms:.3f} | {ratio_text} |"
             )
     else:
         lines.append("| _none_ | 0.000 | 0.000 | 0.000 | n/a |")

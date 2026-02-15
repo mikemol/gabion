@@ -154,6 +154,14 @@ class _DeadlineEdgeStats:
 
 
 @dataclass
+class _DeadlineIoStats:
+    events: int = 0
+    elapsed_ns: int = 0
+    max_event_ns: int = 0
+    bytes_total: int = 0
+
+
+@dataclass
 class _DeadlineProfileState:
     enabled: bool
     started_ns: int
@@ -167,6 +175,7 @@ class _DeadlineProfileState:
         tuple[tuple[str, str], tuple[str, str]],
         _DeadlineEdgeStats,
     ] = field(default_factory=dict)
+    io_stats: dict[str, _DeadlineIoStats] = field(default_factory=dict)
 
 
 _deadline_profile_var: ContextVar[_DeadlineProfileState | None] = ContextVar(
@@ -353,6 +362,21 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
                 "max_gap_ns": stats.max_gap_ns,
             }
         )
+    io_rows: list[dict[str, JSONValue]] = []
+    for io_name, stats in ordered_or_sorted(
+        state.io_stats.items(),
+        source="_deadline_profile_snapshot.io_rows",
+        key=lambda item: (-item[1].elapsed_ns, item[0]),
+    ):
+        io_rows.append(
+            {
+                "name": io_name,
+                "event_count": stats.events,
+                "elapsed_ns": stats.elapsed_ns,
+                "max_event_ns": stats.max_event_ns,
+                "bytes_total": stats.bytes_total,
+            }
+        )
     return {
         "checks_total": state.checks_total,
         "started_ns": state.started_ns,
@@ -361,6 +385,7 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
         "unattributed_elapsed_ns": state.unattributed_elapsed_ns,
         "sites": site_rows,
         "edges": edge_rows,
+        "io": io_rows,
     }
 
 
@@ -454,7 +479,47 @@ def render_deadline_profile_markdown(
         if len(edges) > max_rows:
             lines.append(f"| ... | ... | ... | ... | ... |")
     lines.append("")
+    lines.append("## I/O Heat")
+    lines.append("")
+    lines.append("| io | events | elapsed_ns | max_event_ns | bytes_total |")
+    lines.append("| --- | ---: | ---: | ---: | ---: |")
+    io_rows = profile.get("io", [])
+    if isinstance(io_rows, list):
+        for row in io_rows[:max_rows]:
+            if not isinstance(row, Mapping):
+                continue
+            lines.append(
+                "| {name} | {events} | {elapsed} | {max_event} | {bytes_total} |".format(
+                    name=str(row.get("name", "") or ""),
+                    events=int(row.get("event_count", 0) or 0),
+                    elapsed=int(row.get("elapsed_ns", 0) or 0),
+                    max_event=int(row.get("max_event_ns", 0) or 0),
+                    bytes_total=int(row.get("bytes_total", 0) or 0),
+                )
+            )
+        if len(io_rows) > max_rows:
+            lines.append("| ... | ... | ... | ... | ... |")
+    lines.append("")
     return "\n".join(lines)
+
+
+def record_deadline_io(
+    *,
+    name: str,
+    elapsed_ns: int,
+    bytes_count: int | None = None,
+) -> None:
+    state = _deadline_profile_var.get()
+    if state is None or not state.enabled:
+        return
+    safe_elapsed_ns = max(0, int(elapsed_ns))
+    safe_bytes_count = max(0, int(bytes_count)) if bytes_count is not None else 0
+    stats = state.io_stats.setdefault(name, _DeadlineIoStats())
+    stats.events += 1
+    stats.elapsed_ns += safe_elapsed_ns
+    stats.bytes_total += safe_bytes_count
+    if safe_elapsed_ns > stats.max_event_ns:
+        stats.max_event_ns = safe_elapsed_ns
 
 
 def check_deadline(

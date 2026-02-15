@@ -77,6 +77,7 @@ from gabion.analysis.timeout_context import (
     Deadline,
     TimeoutExceeded,
     check_deadline,
+    record_deadline_io,
     forest_scope,
     reset_forest,
     set_forest,
@@ -152,6 +153,41 @@ _DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
 _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
+
+
+def _read_text_profiled(
+    path: Path,
+    *,
+    io_name: str,
+    encoding: str | None = None,
+) -> str:
+    started_ns = time.monotonic_ns()
+    text = path.read_text() if encoding is None else path.read_text(encoding=encoding)
+    record_deadline_io(
+        name=io_name,
+        elapsed_ns=time.monotonic_ns() - started_ns,
+        bytes_count=len(text.encode("utf-8")),
+    )
+    return text
+
+
+def _write_text_profiled(
+    path: Path,
+    text: str,
+    *,
+    io_name: str,
+    encoding: str | None = None,
+) -> None:
+    started_ns = time.monotonic_ns()
+    if encoding is None:
+        path.write_text(text)
+    else:
+        path.write_text(text, encoding=encoding)
+    record_deadline_io(
+        name=io_name,
+        elapsed_ns=time.monotonic_ns() - started_ns,
+        bytes_count=len(text.encode("utf-8")),
+    )
 
 
 def _resolve_analysis_resume_checkpoint_path(
@@ -242,7 +278,11 @@ def _externalize_collection_resume_states(
             "path": raw_path,
             "state": state_payload,
         }
-        chunk_path.write_text(_canonical_json_text(chunk_payload) + "\n")
+        _write_text_profiled(
+            chunk_path,
+            _canonical_json_text(chunk_payload) + "\n",
+            io_name="analysis_resume.chunk_write",
+        )
         used_chunk_names.add(chunk_name)
         summary: JSONObject = {
             "phase": (
@@ -287,7 +327,11 @@ def _externalize_collection_resume_states(
                 "path": "analysis_index_resume",
                 "state": state_payload,
             }
-            chunk_path.write_text(_canonical_json_text(chunk_payload) + "\n")
+            _write_text_profiled(
+                chunk_path,
+                _canonical_json_text(chunk_payload) + "\n",
+                io_name="analysis_resume.chunk_write",
+            )
             used_chunk_names.add(chunk_name)
             summary: JSONObject = {
                 "phase": (
@@ -364,7 +408,12 @@ def _inflate_collection_resume_states(
         if isinstance(state_ref, str) and state_ref:
             chunk_path = chunks_dir / state_ref
             try:
-                chunk_data = json.loads(chunk_path.read_text())
+                chunk_data = json.loads(
+                    _read_text_profiled(
+                        chunk_path,
+                        io_name="analysis_resume.chunk_read",
+                    )
+                )
             except (OSError, UnicodeError, json.JSONDecodeError):
                 in_progress_payload[raw_path] = {str(key): raw_state[key] for key in raw_state}
                 continue
@@ -387,7 +436,12 @@ def _inflate_collection_resume_states(
         if isinstance(state_ref, str) and state_ref:
             chunk_path = chunks_dir / state_ref
             try:
-                chunk_data = json.loads(chunk_path.read_text())
+                chunk_data = json.loads(
+                    _read_text_profiled(
+                        chunk_path,
+                        io_name="analysis_resume.chunk_read",
+                    )
+                )
             except (OSError, UnicodeError, json.JSONDecodeError):
                 analysis_index_resume_payload = {
                     str(key): raw_analysis_index_resume[key]
@@ -621,7 +675,11 @@ def _analysis_input_witness(
             entry["size"] = int(stat.st_size)
             entry["mtime_ns"] = int(stat.st_mtime_ns)
             try:
-                source = path.read_text(encoding="utf-8")
+                source = _read_text_profiled(
+                    path,
+                    io_name="analysis_input_witness.source_read",
+                    encoding="utf-8",
+                )
             except (OSError, UnicodeError) as exc:
                 entry["parse_error"] = {
                     "kind": type(exc).__name__,
@@ -672,7 +730,9 @@ def _load_analysis_resume_checkpoint(
     if not path.exists():
         return None
     try:
-        raw_payload = json.loads(path.read_text())
+        raw_payload = json.loads(
+            _read_text_profiled(path, io_name="analysis_resume.checkpoint_read")
+        )
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
     if not isinstance(raw_payload, dict):
@@ -704,7 +764,9 @@ def _load_analysis_resume_checkpoint_manifest(
     if not path.exists():
         return None
     try:
-        raw_payload = json.loads(path.read_text())
+        raw_payload = json.loads(
+            _read_text_profiled(path, io_name="analysis_resume.checkpoint_read")
+        )
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
     if not isinstance(raw_payload, dict):
@@ -765,7 +827,11 @@ def _write_analysis_resume_checkpoint(
     if analysis_index_summary is not None:
         payload["analysis_index_hydration"] = analysis_index_summary
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    _write_text_profiled(
+        path,
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        io_name="analysis_resume.checkpoint_write",
+    )
 
 
 def _clear_analysis_resume_checkpoint(path: Path) -> None:
@@ -1289,7 +1355,9 @@ def _load_report_section_journal(
     if path is None or not path.exists():
         return {}, None
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(
+            _read_text_profiled(path, io_name="report_section_journal.read")
+        )
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}, "policy"
     if not isinstance(payload, dict):
@@ -1365,7 +1433,11 @@ def _write_report_section_journal(
         "projection_rows": rows_payload,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    _write_text_profiled(
+        path,
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        io_name="report_section_journal.write",
+    )
 
 
 def _load_report_phase_checkpoint(
@@ -1377,7 +1449,9 @@ def _load_report_phase_checkpoint(
     if path is None or not path.exists():
         return {}
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(
+            _read_text_profiled(path, io_name="report_phase_checkpoint.read")
+        )
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     if not isinstance(payload, dict):
@@ -1419,7 +1493,11 @@ def _write_report_phase_checkpoint(
         "phases": phases_payload,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    _write_text_profiled(
+        path,
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        io_name="report_phase_checkpoint.write",
+    )
 
 
 def _write_bootstrap_incremental_artifacts(
@@ -1438,7 +1516,12 @@ def _write_bootstrap_incremental_artifacts(
     existing_reason: str | None = None
     if report_section_journal_path is not None and report_section_journal_path.exists():
         try:
-            existing_payload = json.loads(report_section_journal_path.read_text())
+            existing_payload = json.loads(
+                _read_text_profiled(
+                    report_section_journal_path,
+                    io_name="report_section_journal.read",
+                )
+            )
         except (OSError, UnicodeError, json.JSONDecodeError):
             existing_reason = "policy"
         else:
@@ -1521,10 +1604,15 @@ def _write_bootstrap_incremental_artifacts(
             }
         )
     report_output_path.parent.mkdir(parents=True, exist_ok=True)
-    report_output_path.write_text("\n".join(report_lines).rstrip() + "\n")
+    _write_text_profiled(
+        report_output_path,
+        "\n".join(report_lines).rstrip() + "\n",
+        io_name="report_markdown.write",
+    )
     if report_section_journal_path is not None:
         report_section_journal_path.parent.mkdir(parents=True, exist_ok=True)
-        report_section_journal_path.write_text(
+        _write_text_profiled(
+            report_section_journal_path,
             json.dumps(
                 {
                     "format_version": _REPORT_SECTION_JOURNAL_FORMAT_VERSION,
@@ -1535,7 +1623,8 @@ def _write_bootstrap_incremental_artifacts(
                 indent=2,
                 sort_keys=True,
             )
-            + "\n"
+            + "\n",
+            io_name="report_section_journal.write",
         )
     phase_checkpoint_state["collection"] = {
         "status": "bootstrap",
@@ -2845,7 +2934,11 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         continue
                     pending_reasons[section_id] = journal_reason
             report_output_path.parent.mkdir(parents=True, exist_ok=True)
-            report_output_path.write_text(partial_report)
+            _write_text_profiled(
+                report_output_path,
+                partial_report,
+                io_name="report_markdown.write",
+            )
             _write_report_section_journal(
                 path=report_section_journal_path,
                 witness_digest=report_section_witness_digest,
@@ -2952,7 +3045,11 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                         continue
                     pending_reasons[section_id] = journal_reason
             report_output_path.parent.mkdir(parents=True, exist_ok=True)
-            report_output_path.write_text(partial_report)
+            _write_text_profiled(
+                report_output_path,
+                partial_report,
+                io_name="report_markdown.write",
+            )
             _write_report_section_journal(
                 path=report_section_journal_path,
                 witness_digest=report_section_witness_digest,
@@ -3597,7 +3694,11 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                     report = report + render_refactor_plan(plan_payload)
                 if report_output_path is not None:
                     report_output_path.parent.mkdir(parents=True, exist_ok=True)
-                    report_output_path.write_text(report)
+                    _write_text_profiled(
+                        report_output_path,
+                        report,
+                        io_name="report_markdown.write",
+                    )
         else:
             violation_carrier = ReportCarrier(
                 forest=analysis.forest,
@@ -3919,7 +4020,11 @@ def _execute_command_total(ls: LanguageServer, payload: dict[str, object]) -> di
                                 continue
                             pending_reasons[section_id] = journal_reason
                     report_output_path.parent.mkdir(parents=True, exist_ok=True)
-                    report_output_path.write_text(partial_report)
+                    _write_text_profiled(
+                        report_output_path,
+                        partial_report,
+                        io_name="report_markdown.write",
+                    )
                     _write_report_section_journal(
                         path=report_section_journal_path,
                         witness_digest=report_section_witness_digest,

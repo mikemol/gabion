@@ -18,6 +18,7 @@ from gabion.analysis.timeout_context import (
     deadline_scope,
     get_deadline,
     pack_call_stack,
+    record_deadline_io,
     render_deadline_profile_markdown,
     set_deadline,
     _frame_site_key,
@@ -294,6 +295,11 @@ def test_deadline_profile_scope_collects_heat() -> None:
         with deadline_scope(Deadline.from_timeout_ms(100)):
             check_deadline()
             check_deadline()
+            record_deadline_io(
+                name="analysis_resume.checkpoint_write",
+                elapsed_ns=5_000_000,
+                bytes_count=4096,
+            )
             frame = inspect.currentframe()
             assert frame is not None
             context = build_timeout_context_from_stack(
@@ -306,6 +312,13 @@ def test_deadline_profile_scope_collects_heat() -> None:
     assert isinstance(profile, dict)
     assert int(profile.get("checks_total", 0) or 0) >= 2
     assert isinstance(profile.get("sites", []), list)
+    io_rows = profile.get("io")
+    assert isinstance(io_rows, list)
+    assert any(
+        isinstance(entry, dict)
+        and entry.get("name") == "analysis_resume.checkpoint_write"
+        for entry in io_rows
+    )
 
 
 def test_render_deadline_profile_markdown() -> None:
@@ -333,11 +346,21 @@ def test_render_deadline_profile_markdown() -> None:
                 "max_gap_ns": 80,
             }
         ],
+        "io": [
+            {
+                "name": "report_markdown.write",
+                "event_count": 2,
+                "elapsed_ns": 500,
+                "max_event_ns": 400,
+                "bytes_total": 1024,
+            }
+        ],
     }
     rendered = render_deadline_profile_markdown(profile)
     assert "Deadline Profile Heat" in rendered
     assert "Site Heat" in rendered
     assert "Transition Heat" in rendered
+    assert "I/O Heat" in rendered
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.build_timeout_context_from_stack

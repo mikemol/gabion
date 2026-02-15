@@ -21,6 +21,15 @@ def _write_profile(path: Path, *, total_elapsed_ns: int, site_elapsed_ns: int) -
             }
         ],
         "edges": [],
+        "io": [
+            {
+                "name": "analysis_resume.checkpoint_write",
+                "event_count": 2,
+                "elapsed_ns": 40_000_000,
+                "max_event_ns": 25_000_000,
+                "bytes_total": 8192,
+            }
+        ],
     }
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
@@ -51,6 +60,7 @@ def test_deadline_profile_ci_summary_allows_missing_local(tmp_path: Path) -> Non
     assert summary_json.exists()
     assert summary_md.exists()
     assert "Local profile not provided" in summary_md.read_text()
+    assert "Top CI I/O" in summary_md.read_text()
 
 
 def test_deadline_profile_ci_summary_compares_local_profile(tmp_path: Path) -> None:
@@ -84,3 +94,4 @@ def test_deadline_profile_ci_summary_compares_local_profile(tmp_path: Path) -> N
     assert isinstance(ratio, float)
     assert ratio > 1.0
     assert "CI vs Local" in summary_md.read_text()
+    assert "Top CI I/O Regressions vs Local" in summary_md.read_text()
