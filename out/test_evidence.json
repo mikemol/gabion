@@ -1027,6 +1027,21 @@
       ]
     },
     {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_helpers.py::test_analyze_paths_collection_resume_roundtrip"
+      ]
+    },
+    {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table",
       "key": {
         "k": "decision_surface",
@@ -1253,6 +1268,36 @@
       ]
     },
     {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::collection_resume,file_paths_override,on_collection_progress",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "collection_resume,file_paths_override,on_collection_progress",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.analyze_paths"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_helpers.py::test_analyze_paths_collection_resume_roundtrip"
+      ]
+    },
+    {
+      "display": "E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "collection_resume,input_witness,path",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server._write_analysis_resume_checkpoint"
+        }
+      },
+      "tests": [
+        "tests/test_server_execute_command_edges.py::test_execute_command_reuses_collection_checkpoint"
+      ]
+    },
+    {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::component,declared_global,nodes",
       "key": {
         "k": "decision_surface",
@@ -1373,6 +1418,21 @@
       },
       "tests": [
         "tests/test_cli_helpers.py::test_run_synth_parses_optional_inputs"
+      ]
+    },
+    {
+      "display": "E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "config,file_paths,include_invariant_propositions,recursive,root",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server._analysis_input_witness"
+        }
+      },
+      "tests": [
+        "tests/test_server_execute_command_edges.py::test_execute_command_reuses_collection_checkpoint"
       ]
     },
     {
@@ -2161,6 +2221,21 @@
       ]
     },
     {
+      "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload::file_paths,include_invariant_propositions,payload",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "file_paths,include_invariant_propositions,payload",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload"
+        }
+      },
+      "tests": [
+        "tests/test_dataflow_audit_helpers.py::test_analyze_paths_collection_resume_roundtrip"
+      ]
+    },
+    {
       "display": "E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint",
       "key": {
         "k": "decision_surface",
@@ -2547,7 +2622,7 @@
         }
       },
       "tests": [
-        "tests/test_dataflow_audit_never_invariants.py::test_render_decision_snapshot_marks_partial_when_missing_forest",
+        "tests/test_dataflow_audit_never_invariants.py::test_render_decision_snapshot_requires_forest",
         "tests/test_dataflow_audit_run.py::test_run_baseline_write_requires_path",
         "tests/test_dataflow_audit_run.py::test_run_dot_stdout_short_circuit",
         "tests/test_dataflow_audit_run.py::test_run_fail_on_violations_no_report",
@@ -3254,6 +3329,21 @@
       ]
     },
     {
+      "display": "E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "input_witness,path",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server._load_analysis_resume_checkpoint"
+        }
+      },
+      "tests": [
+        "tests/test_server_execute_command_edges.py::test_execute_command_reuses_collection_checkpoint"
+      ]
+    },
+    {
       "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._alt_input::kind",
       "key": {
         "k": "decision_surface",
@@ -3822,6 +3912,21 @@
       },
       "tests": [
         "tests/test_visitors_unit.py::test_usevisitor_node_span_none_without_locations"
+      ]
+    },
+    {
+      "display": "E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress",
+      "key": {
+        "k": "decision_surface",
+        "m": "direct",
+        "param": "on_collection_progress",
+        "site": {
+          "path": "server.py",
+          "qual": "gabion.server._execute_command_total"
+        }
+      },
+      "tests": [
+        "tests/test_server_execute_command_edges.py::test_execute_command_reuses_collection_checkpoint"
       ]
     },
     {
@@ -5621,6 +5726,73 @@
       ]
     },
     {
+      "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.attach_spec_metadata",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "baseline_io.py",
+          "qual": "gabion.analysis.baseline_io.attach_spec_metadata"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_baseline_io_helpers_roundtrip"
+      ]
+    },
+    {
+      "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "baseline_io.py",
+          "qual": "gabion.analysis.baseline_io.load_json"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_baseline_io_helpers_roundtrip",
+        "tests/test_analysis_shared_helpers.py::test_baseline_io_load_json_rejects_non_object"
+      ]
+    },
+    {
+      "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_spec_metadata",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "baseline_io.py",
+          "qual": "gabion.analysis.baseline_io.parse_spec_metadata"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_baseline_io_helpers_roundtrip"
+      ]
+    },
+    {
+      "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_version",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "baseline_io.py",
+          "qual": "gabion.analysis.baseline_io.parse_version"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_baseline_io_helpers_roundtrip",
+        "tests/test_analysis_shared_helpers.py::test_baseline_io_parse_version_rejects_bad_version"
+      ]
+    },
+    {
+      "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.write_json",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "baseline_io.py",
+          "qual": "gabion.analysis.baseline_io.write_json"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_baseline_io_helpers_roundtrip"
+      ]
+    },
+    {
       "display": "E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation._targets_signature",
       "key": {
         "k": "function_site",
@@ -5701,7 +5873,8 @@
       "tests": [
         "tests/test_call_clusters.py::test_call_clusters_payload_and_render",
         "tests/test_call_clusters.py::test_call_clusters_render_empty",
-        "tests/test_call_clusters.py::test_call_clusters_render_skips_non_mapping"
+        "tests/test_call_clusters.py::test_call_clusters_render_skips_non_mapping",
+        "tests/test_call_clusters.py::test_call_clusters_render_uses_payload_spec_metadata"
       ]
     },
     {
@@ -5773,6 +5946,19 @@
         "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_state_and_path",
         "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write",
         "tests/test_cli_payloads.py::test_check_payload_rejects_obsolescence_state_and_path"
+      ]
+    },
+    {
+      "display": "E:function_site::cli.py::gabion.cli.build_dataflow_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "cli.py",
+          "qual": "gabion.cli.build_dataflow_payload"
+        }
+      },
+      "tests": [
+        "tests/test_cli_payloads.py::test_dataflow_payload_resume_checkpoint_and_timeout_flags"
       ]
     },
     {
@@ -6287,6 +6473,59 @@
       ]
     },
     {
+      "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.coerce_int",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "delta_tools.py",
+          "qual": "gabion.analysis.delta_tools.coerce_int"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_delta_tools_helpers"
+      ]
+    },
+    {
+      "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.count_delta",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "delta_tools.py",
+          "qual": "gabion.analysis.delta_tools.count_delta"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_delta_tools_helpers"
+      ]
+    },
+    {
+      "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_delta",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "delta_tools.py",
+          "qual": "gabion.analysis.delta_tools.format_delta"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_delta_tools_helpers"
+      ]
+    },
+    {
+      "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_transition",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "delta_tools.py",
+          "qual": "gabion.analysis.delta_tools.format_transition"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_delta_tools_helpers",
+        "tests/test_test_obsolescence_delta.py::test_helpers_cover_edge_cases"
+      ]
+    },
+    {
       "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys._normalize_span",
       "key": {
         "k": "function_site",
@@ -6514,7 +6753,7 @@
         }
       },
       "tests": [
-        "tests/test_lsp_client_direct.py::test_wait_readable_skips_missing_fileno",
+        "tests/test_lsp_client_direct.py::test_wait_readable_rejects_missing_fileno",
         "tests/test_lsp_client_direct.py::test_wait_readable_times_out"
       ]
     },
@@ -6620,6 +6859,45 @@
       },
       "tests": [
         "tests/test_projection_exec_edges.py::test_spec_from_dict_handles_invalid_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.emit",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "report_doc.py",
+          "qual": "gabion.analysis.report_doc.ReportDoc.emit"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_report_doc_emit_renders_markdown"
+      ]
+    },
+    {
+      "display": "E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.header",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "report_doc.py",
+          "qual": "gabion.analysis.report_doc.ReportDoc.header"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_report_doc_guards_invalid_table_or_header"
+      ]
+    },
+    {
+      "display": "E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.table",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "report_doc.py",
+          "qual": "gabion.analysis.report_doc.ReportDoc.table"
+        }
+      },
+      "tests": [
+        "tests/test_analysis_shared_helpers.py::test_report_doc_guards_invalid_table_or_header"
       ]
     },
     {
@@ -7072,6 +7350,7 @@
       },
       "tests": [
         "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload",
+        "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload_rejects_non_object",
         "tests/test_test_evidence_suggestions_edges.py::test_load_test_evidence_errors_and_defaults"
       ]
     },
@@ -7172,19 +7451,6 @@
       "tests": [
         "tests/test_test_obsolescence.py::test_load_test_evidence_errors",
         "tests/test_test_obsolescence.py::test_load_test_evidence_skips_invalid_entries"
-      ]
-    },
-    {
-      "display": "E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._format_delta",
-      "key": {
-        "k": "function_site",
-        "site": {
-          "path": "test_obsolescence_delta.py",
-          "qual": "gabion.analysis.test_obsolescence_delta._format_delta"
-        }
-      },
-      "tests": [
-        "tests/test_test_obsolescence_delta.py::test_helpers_cover_edge_cases"
       ]
     },
     {
@@ -7653,6 +7919,16 @@
       ]
     },
     {
+      "display": "E:deadline/call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates",
+      "key": {
+        "k": "opaque",
+        "s": "E:deadline/call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates"
+      },
+      "tests": [
+        "tests/test_deadline_coverage.py::test_materialized_call_candidates_target_function_suites"
+      ]
+    },
+    {
       "display": "E:decision_surface/direct::cli.py::gabion.cli.dispatch_command",
       "key": {
         "k": "opaque",
@@ -7868,7 +8144,7 @@
         }
       ],
       "file": "tests/test_alias_attribute.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_alias_attribute.py::test_alias_attribute_forwarding"
     },
@@ -8068,7 +8344,7 @@
         }
       ],
       "file": "tests/test_alias_attribute.py",
-      "line": 48,
+      "line": 50,
       "status": "mapped",
       "test_id": "tests/test_alias_attribute.py::test_alias_attribute_object_attr"
     },
@@ -8268,7 +8544,7 @@
         }
       ],
       "file": "tests/test_alias_rename_invariance.py",
-      "line": 49,
+      "line": 51,
       "status": "mapped",
       "test_id": "tests/test_alias_rename_invariance.py::test_chained_alias_preserves_bundle_identity"
     },
@@ -8468,7 +8744,7 @@
         }
       ],
       "file": "tests/test_alias_rename_invariance.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_alias_rename_invariance.py::test_direct_rename_preserves_bundle_identity"
     },
@@ -8700,7 +8976,7 @@
         }
       ],
       "file": "tests/test_alias_unpacking.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_alias_unpacking.py::test_tuple_unpacking_preserves_bundle"
     },
@@ -8779,21 +9055,21 @@
     {
       "evidence": [],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 166,
+      "line": 234,
       "status": "unmapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_ambiguity_suite_agg_materializes_spec_facets"
     },
     {
       "evidence": [],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 242,
+      "line": 310,
       "status": "unmapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_materializes_suite_facets"
     },
     {
       "evidence": [],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 204,
+      "line": 272,
       "status": "unmapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_ambiguity_virtual_set_spec_requires_multiple_candidates"
     },
@@ -8811,7 +9087,7 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 21,
+      "line": 25,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls"
     },
@@ -8829,7 +9105,7 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 46,
+      "line": 51,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_collect_call_ambiguities_skips_test_calls_in_tests_dir"
     },
@@ -8847,14 +9123,21 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 75,
+      "line": 81,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_dedupe_emit_and_lint_call_ambiguities"
     },
     {
       "evidence": [],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 123,
+      "line": 193,
+      "status": "unmapped",
+      "test_id": "tests/test_ambiguity_helpers.py::test_emit_call_ambiguities_requires_candidate_function_span"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_ambiguity_helpers.py",
+      "line": 142,
       "status": "unmapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_emit_call_ambiguities_uses_call_suite"
     },
@@ -8872,7 +9155,7 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 301,
+      "line": 369,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_render_report_includes_ambiguities"
     },
@@ -8890,7 +9173,7 @@
         }
       ],
       "file": "tests/test_ambiguity_helpers.py",
-      "line": 285,
+      "line": 353,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_helpers.py::test_summarize_call_ambiguities_handles_empty_and_invalid_entries"
     },
@@ -8993,6 +9276,194 @@
       "line": 12,
       "status": "mapped",
       "test_id": "tests/test_ambiguity_state.py::test_state_payload_roundtrip"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.attach_spec_metadata",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "baseline_io.py",
+              "qual": "gabion.analysis.baseline_io.attach_spec_metadata"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "baseline_io.py",
+              "qual": "gabion.analysis.baseline_io.load_json"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_spec_metadata",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "baseline_io.py",
+              "qual": "gabion.analysis.baseline_io.parse_spec_metadata"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_version",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "baseline_io.py",
+              "qual": "gabion.analysis.baseline_io.parse_version"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.write_json",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "baseline_io.py",
+              "qual": "gabion.analysis.baseline_io.write_json"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_analysis_shared_helpers.py",
+      "line": 25,
+      "status": "mapped",
+      "test_id": "tests/test_analysis_shared_helpers.py::test_baseline_io_helpers_roundtrip"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.load_json",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "baseline_io.py",
+              "qual": "gabion.analysis.baseline_io.load_json"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_analysis_shared_helpers.py",
+      "line": 52,
+      "status": "mapped",
+      "test_id": "tests/test_analysis_shared_helpers.py::test_baseline_io_load_json_rejects_non_object"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::baseline_io.py::gabion.analysis.baseline_io.parse_version",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "baseline_io.py",
+              "qual": "gabion.analysis.baseline_io.parse_version"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_analysis_shared_helpers.py",
+      "line": 40,
+      "status": "mapped",
+      "test_id": "tests/test_analysis_shared_helpers.py::test_baseline_io_parse_version_rejects_bad_version"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.coerce_int",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "delta_tools.py",
+              "qual": "gabion.analysis.delta_tools.coerce_int"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.count_delta",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "delta_tools.py",
+              "qual": "gabion.analysis.delta_tools.count_delta"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_delta",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "delta_tools.py",
+              "qual": "gabion.analysis.delta_tools.format_delta"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_transition",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "delta_tools.py",
+              "qual": "gabion.analysis.delta_tools.format_transition"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_analysis_shared_helpers.py",
+      "line": 60,
+      "status": "mapped",
+      "test_id": "tests/test_analysis_shared_helpers.py::test_delta_tools_helpers"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.emit",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "report_doc.py",
+              "qual": "gabion.analysis.report_doc.ReportDoc.emit"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_analysis_shared_helpers.py",
+      "line": 73,
+      "status": "mapped",
+      "test_id": "tests/test_analysis_shared_helpers.py::test_report_doc_emit_renders_markdown"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.header",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "report_doc.py",
+              "qual": "gabion.analysis.report_doc.ReportDoc.header"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::report_doc.py::gabion.analysis.report_doc.ReportDoc.table",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "report_doc.py",
+              "qual": "gabion.analysis.report_doc.ReportDoc.table"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_analysis_shared_helpers.py",
+      "line": 91,
+      "status": "mapped",
+      "test_id": "tests/test_analysis_shared_helpers.py::test_report_doc_guards_invalid_table_or_header"
     },
     {
       "evidence": [
@@ -9133,6 +9604,13 @@
       "test_id": "tests/test_aspf.py::test_add_site_records_span"
     },
     {
+      "evidence": [],
+      "file": "tests/test_aspf.py",
+      "line": 53,
+      "status": "unmapped",
+      "test_id": "tests/test_aspf.py::test_add_suite_site_parent_emits_suite_contains"
+    },
+    {
       "evidence": [
         {
           "display": "E:call_footprint::tests/test_aspf.py::test_add_suite_site_records_file_site::aspf.py::gabion.analysis.aspf.Forest",
@@ -9203,21 +9681,21 @@
     {
       "evidence": [],
       "file": "tests/test_broad_type_lint.py",
-      "line": 153,
+      "line": 156,
       "status": "unmapped",
       "test_id": "tests/test_broad_type_lint.py::test_broad_type_helpers_cover_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_broad_type_lint.py",
-      "line": 63,
+      "line": 64,
       "status": "unmapped",
       "test_id": "tests/test_broad_type_lint.py::test_internal_broad_type_int_linted"
     },
     {
       "evidence": [],
       "file": "tests/test_broad_type_lint.py",
-      "line": 163,
+      "line": 166,
       "status": "unmapped",
       "test_id": "tests/test_broad_type_lint.py::test_internal_broad_type_skips_tests"
     },
@@ -9244,7 +9722,7 @@
     {
       "evidence": [],
       "file": "tests/test_broad_type_lint.py",
-      "line": 107,
+      "line": 109,
       "status": "unmapped",
       "test_id": "tests/test_broad_type_lint.py::test_internal_node_id_not_linted"
     },
@@ -9406,7 +9884,7 @@
         }
       ],
       "file": "tests/test_call_clusters.py",
-      "line": 66,
+      "line": 60,
       "status": "mapped",
       "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_handles_empty_targets"
     },
@@ -9424,7 +9902,7 @@
         }
       ],
       "file": "tests/test_call_clusters.py",
-      "line": 104,
+      "line": 95,
       "status": "mapped",
       "test_id": "tests/test_call_clusters.py::test_call_clusters_payload_projection_skips_unknown_identity"
     },
@@ -9442,7 +9920,7 @@
         }
       ],
       "file": "tests/test_call_clusters.py",
-      "line": 158,
+      "line": 145,
       "status": "mapped",
       "test_id": "tests/test_call_clusters.py::test_call_clusters_render_empty"
     },
@@ -9460,9 +9938,27 @@
         }
       ],
       "file": "tests/test_call_clusters.py",
-      "line": 165,
+      "line": 152,
       "status": "mapped",
       "test_id": "tests/test_call_clusters.py::test_call_clusters_render_skips_non_mapping"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "call_clusters.py",
+              "qual": "gabion.analysis.call_clusters.render_markdown"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_call_clusters.py",
+      "line": 170,
+      "status": "mapped",
+      "test_id": "tests/test_call_clusters.py::test_call_clusters_render_uses_payload_spec_metadata"
     },
     {
       "evidence": [
@@ -9478,7 +9974,7 @@
         }
       ],
       "file": "tests/test_call_clusters.py",
-      "line": 175,
+      "line": 162,
       "status": "mapped",
       "test_id": "tests/test_call_clusters.py::test_call_clusters_write_creates_file"
     },
@@ -9541,6 +10037,34 @@
       "line": 16,
       "status": "mapped",
       "test_id": "tests/test_callsite_evidence_helper.py::test_callsite_evidence_skips_calls_without_span"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_canonical.py",
+      "line": 11,
+      "status": "unmapped",
+      "test_id": "tests/test_canonical.py::test_canon_is_idempotent_and_order_invariant"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_canonical.py",
+      "line": 20,
+      "status": "unmapped",
+      "test_id": "tests/test_canonical.py::test_canon_normalizes_multiset_encoding"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_canonical.py",
+      "line": 39,
+      "status": "unmapped",
+      "test_id": "tests/test_canonical.py::test_canon_rejects_set_inputs"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_canonical.py",
+      "line": 44,
+      "status": "unmapped",
+      "test_id": "tests/test_canonical.py::test_encode_and_digest_are_stable_for_equivalent_payloads"
     },
     {
       "evidence": [
@@ -9726,7 +10250,7 @@
         }
       ],
       "file": "tests/test_class_method_propagation.py",
-      "line": 54,
+      "line": 56,
       "status": "mapped",
       "test_id": "tests/test_class_method_propagation.py::test_inherited_method_call_propagates_bundle"
     },
@@ -9914,7 +10438,7 @@
         }
       ],
       "file": "tests/test_class_method_propagation.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_class_method_propagation.py::test_method_call_propagates_bundle"
     },
@@ -10186,7 +10710,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 71,
+      "line": 70,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_build_refactor_payload_input_payload_passthrough"
     },
@@ -10206,7 +10730,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 86,
+      "line": 85,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_build_refactor_payload_requires_fields"
     },
@@ -10226,7 +10750,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 676,
+      "line": 847,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_cli_diff_and_reuse_commands_use_default_runner"
     },
@@ -10270,7 +10794,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 262,
+      "line": 433,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_decision_snapshot"
     },
@@ -10314,7 +10838,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 292,
+      "line": 463,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_fingerprint_outputs"
     },
@@ -10358,7 +10882,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 172,
+      "line": 171,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_lint_outputs"
     },
@@ -10402,7 +10926,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 231,
+      "line": 402,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_structure_metrics"
     },
@@ -10446,53 +10970,16 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 207,
+      "line": 378,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_structure_tree"
     },
     {
-      "evidence": [
-        {
-          "display": "E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "lint,lint_jsonl,lint_sarif",
-            "site": {
-              "path": "cli.py",
-              "qual": "gabion.cli._emit_lint_outputs"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts",
-          "key": {
-            "k": "decision_surface",
-            "m": "direct",
-            "param": "opts",
-            "site": {
-              "path": "cli.py",
-              "qual": "gabion.cli.build_dataflow_payload"
-            }
-          }
-        },
-        {
-          "display": "E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request",
-          "key": {
-            "k": "decision_surface",
-            "m": "value_encoded",
-            "param": "request",
-            "site": {
-              "path": "cli.py",
-              "qual": "gabion.cli._dataflow_audit"
-            }
-          }
-        }
-      ],
+      "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 138,
-      "status": "mapped",
-      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_skips_type_audit_output"
+      "line": 305,
+      "status": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_retry_uses_fresh_cli_budget"
     },
     {
       "evidence": [
@@ -10534,7 +11021,65 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 153,
+      "line": 137,
+      "status": "mapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_skips_type_audit_output"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_cli_helpers.py",
+      "line": 241,
+      "status": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_timeout_progress_report_and_resume_retry"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_cli_helpers.py",
+      "line": 205,
+      "status": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_timeout_writes_deadline_profile"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "lint,lint_jsonl,lint_sarif",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._emit_lint_outputs"
+            }
+          }
+        },
+        {
+          "display": "E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "opts",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.build_dataflow_payload"
+            }
+          }
+        },
+        {
+          "display": "E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request",
+          "key": {
+            "k": "decision_surface",
+            "m": "value_encoded",
+            "param": "request",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli._dataflow_audit"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_cli_helpers.py",
+      "line": 152,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_type_audit_empty_findings"
     },
@@ -10549,7 +11094,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 614,
+      "line": 785,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dispatch_command_passes_timeout_ticks"
     },
@@ -10567,7 +11112,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 742,
+      "line": 913,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_errors_exit"
     },
@@ -10585,7 +11130,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 734,
+      "line": 905,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_success"
     },
@@ -10629,7 +11174,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 54,
+      "line": 53,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_lint_outputs_writes_artifacts"
     },
@@ -10647,7 +11192,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 723,
+      "line": 894,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_errors_exit"
     },
@@ -10665,7 +11210,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 714,
+      "line": 885,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_success"
     },
@@ -10683,7 +11228,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 760,
+      "line": 931,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_errors_exit"
     },
@@ -10701,7 +11246,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 752,
+      "line": 923,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_success"
     },
@@ -10721,7 +11266,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 401,
+      "line": 572,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_synth_outputs_lists_optional_paths"
     },
@@ -10753,7 +11298,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 26,
+      "line": 25,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_lint_parsing_and_writers"
     },
@@ -10773,9 +11318,16 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 471,
+      "line": 642,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_refactor_protocol_rejects_non_object_payload"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_cli_helpers.py",
+      "line": 347,
+      "status": "unmapped",
+      "test_id": "tests/test_cli_helpers.py::test_render_timeout_progress_markdown_includes_incremental_obligations"
     },
     {
       "evidence": [
@@ -10791,7 +11343,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 542,
+      "line": 713,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_decision_diff_uses_runner"
     },
@@ -10811,7 +11363,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 115,
+      "line": 114,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_missing_script"
     },
@@ -10831,7 +11383,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 126,
+      "line": 125,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags"
     },
@@ -10863,7 +11415,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 480,
+      "line": 651,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_refactor_protocol_accepts_object_payload"
     },
@@ -10881,7 +11433,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 511,
+      "line": 682,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_structure_diff_uses_runner"
     },
@@ -10901,7 +11453,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 650,
+      "line": 821,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_structure_reuse_uses_runner"
     },
@@ -10921,7 +11473,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 367,
+      "line": 538,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_synth_parses_optional_inputs"
     },
@@ -10941,7 +11493,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 458,
+      "line": 629,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_synthesis_plan_rejects_non_object_payload"
     },
@@ -10961,7 +11513,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 439,
+      "line": 610,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_synthesis_plan_without_input"
     },
@@ -10993,7 +11545,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 15,
+      "line": 16,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_split_csv_helpers"
     },
@@ -11081,7 +11633,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 107,
+      "line": 112,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline"
     },
@@ -11099,7 +11651,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 371,
+      "line": 448,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write"
     },
@@ -11117,7 +11669,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 449,
+      "line": 526,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_state_and_path"
     },
@@ -11135,7 +11687,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 333,
+      "line": 410,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
     },
@@ -11179,7 +11731,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 295,
+      "line": 372,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
     },
@@ -11197,7 +11749,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 409,
+      "line": 486,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_obsolescence_state_and_path"
     },
@@ -11241,7 +11793,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 69,
+      "line": 74,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_strictness_validation"
     },
@@ -11285,7 +11837,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 145,
+      "line": 150,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing"
     },
@@ -11329,9 +11881,27 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 178,
+      "line": 183,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::cli.py::gabion.cli.build_dataflow_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.build_dataflow_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_cli_payloads.py",
+      "line": 203,
+      "status": "mapped",
+      "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_resume_checkpoint_and_timeout_flags"
     },
     {
       "evidence": [
@@ -11349,7 +11919,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 215,
+      "line": 240,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
     },
@@ -11369,9 +11939,16 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 198,
+      "line": 223,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_cli_payloads.py",
+      "line": 323,
+      "status": "unmapped",
+      "test_id": "tests/test_cli_payloads.py::test_run_check_uses_explicit_report_path"
     },
     {
       "evidence": [
@@ -11401,7 +11978,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 229,
+      "line": 254,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
@@ -11607,7 +12184,7 @@
         }
       ],
       "file": "tests/test_config_declarations_anywhere.py",
-      "line": 24,
+      "line": 31,
       "status": "mapped",
       "test_id": "tests/test_config_declarations_anywhere.py::test_config_dataclass_declares_bundle_outside_config_py"
     },
@@ -11884,7 +12461,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 55,
+      "line": 57,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_detects_constant_kw_and_ignores_non_const"
     },
@@ -11904,7 +12481,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 119,
+      "line": 121,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_ignores_extra_pos_args"
     },
@@ -11924,7 +12501,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 98,
+      "line": 100,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_low_strictness_star_handling"
     },
@@ -11944,7 +12521,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 161,
+      "line": 163,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_skips_multi_value_constants"
     },
@@ -11964,7 +12541,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 76,
+      "line": 78,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_skips_test_paths"
     },
@@ -12152,7 +12729,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 21,
+      "line": 22,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_smells_and_star_paths"
     },
@@ -12172,7 +12749,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 140,
+      "line": 142,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_constant_flow_tracks_non_const_kw"
     },
@@ -12204,7 +12781,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 183,
+      "line": 185,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_deadness_witnesses_from_constant_flow"
     },
@@ -12222,7 +12799,7 @@
         }
       ],
       "file": "tests/test_constant_flow_audit.py",
-      "line": 210,
+      "line": 212,
       "status": "mapped",
       "test_id": "tests/test_constant_flow_audit.py::test_format_call_site_handles_missing_span"
     },
@@ -12445,77 +13022,77 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 87,
+      "line": 88,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_requires_int_span"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 65,
+      "line": 66,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_requires_path_qual"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 78,
+      "line": 79,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_requires_span"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 41,
+      "line": 42,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_empty_alt_inputs"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 33,
+      "line": 34,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_missing_function_meta"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 56,
+      "line": 57,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_non_call_suite"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 48,
+      "line": 49,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_relation_skips_non_suite_node"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 105,
+      "line": 106,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_row_to_site_requires_path_qual"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 109,
+      "line": 110,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_suite_row_to_suite_requires_identity"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 115,
+      "line": 116,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_ambiguity_virtual_count_gt_1_handles_invalid_count"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_ambiguity_suite.py",
-      "line": 119,
+      "line": 120,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_ambiguity_suite.py::test_emit_call_ambiguities_requires_span_when_forest"
     },
@@ -12691,7 +13268,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 442,
+      "line": 443,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_bundle_projection_and_emitters"
     },
@@ -13075,7 +13652,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 524,
+      "line": 525,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_and_handledness_summary_edges"
     },
@@ -13309,7 +13886,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 512,
+      "line": 513,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_exception_protocol_warning_filters"
     },
@@ -13403,7 +13980,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 497,
+      "line": 498,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_forbid_adhoc_bundle_discovery_guard"
     },
@@ -13615,7 +14192,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 568,
+      "line": 569,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_populate_bundle_forest_dedupes"
     },
@@ -13633,7 +14210,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 616,
+      "line": 618,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_evidence_summary"
     },
@@ -13725,7 +14302,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 599,
+      "line": 601,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_handles_empty_bundle_members"
     },
@@ -13817,7 +14394,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 584,
+      "line": 586,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_synthesis_plan_value_decision_counts"
     },
@@ -13861,7 +14438,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 551,
+      "line": 552,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_value_decision_surfaces_emit_forest"
     },
@@ -13879,7 +14456,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 169,
+      "line": 170,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_ambiguity_witnesses_emit"
     },
@@ -13899,7 +14476,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 230,
+      "line": 232,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_callee_globals"
     },
@@ -13919,7 +14496,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 813,
+      "line": 845,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_ambiguous"
     },
@@ -13939,7 +14516,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 851,
+      "line": 883,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_local_resolution_globals_only"
     },
@@ -13959,7 +14536,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 114,
+      "line": 115,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_file_recursive_false"
     },
@@ -13977,7 +14554,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 970,
+      "line": 1004,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_analyze_paths_deadline_includes_forest_spec"
     },
@@ -13997,7 +14574,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 71,
+      "line": 72,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_base_identifier_invalid_attribute"
     },
@@ -14041,7 +14618,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 649,
+      "line": 668,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_none_and_nontransparent"
     },
@@ -14085,7 +14662,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 883,
+      "line": 915,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_nontransparent_dependency"
     },
@@ -14141,7 +14718,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 609,
+      "line": 628,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_refactor_plan_skips_unresolved_and_opaque"
     },
@@ -14233,7 +14810,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 796,
+      "line": 828,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_build_synthesis_plan_skips_empty_members"
     },
@@ -14277,7 +14854,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 58,
+      "line": 59,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_module_exports_augassign_only"
     },
@@ -14297,7 +14874,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 98,
+      "line": 99,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_all_params_ignored"
     },
@@ -14317,7 +14894,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 82,
+      "line": 83,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_collect_return_aliases_empty_params"
     },
@@ -14335,7 +14912,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 954,
+      "line": 988,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_fingerprint_warnings_missing_annotations"
     },
@@ -14499,28 +15076,28 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 693,
+      "line": 712,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_compute_knob_param_names_non_const_kw"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 995,
+      "line": 1030,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_deadline_missing_carrier_for_loop"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 1008,
+      "line": 1043,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_deadline_none_arg_violation"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 1023,
+      "line": 1058,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_deadline_origin_not_allowlisted"
     },
@@ -14684,7 +15261,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 570,
+      "line": 586,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_emit_report_tier2_violation"
     },
@@ -14704,7 +15281,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 601,
+      "line": 620,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_infer_root_with_groups"
     },
@@ -14772,7 +15349,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 725,
+      "line": 749,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles"
     },
@@ -14790,7 +15367,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 937,
+      "line": 970,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_empty_groups"
     },
@@ -14808,7 +15385,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 916,
+      "line": 948,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_skips_test_sites"
     },
@@ -14948,7 +15525,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 478,
+      "line": 493,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_helpers_and_baseline"
     },
@@ -14966,7 +15543,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 683,
+      "line": 702,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_render_type_mermaid_edges"
     },
@@ -15154,7 +15731,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 318,
+      "line": 325,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_external_filtered"
     },
@@ -15222,7 +15799,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 350,
+      "line": 362,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_global_and_imported"
     },
@@ -15410,7 +15987,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 255,
+      "line": 257,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_callee_imports_and_self"
     },
@@ -15430,7 +16007,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 131,
+      "line": 132,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_local_callee_ambiguity_and_scope"
     },
@@ -15462,7 +16039,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_edges.py",
-      "line": 434,
+      "line": 449,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_edges.py::test_resolve_method_in_hierarchy_edges"
     },
@@ -15650,7 +16227,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_flows.py",
-      "line": 143,
+      "line": 144,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_flows.py::test_analyze_paths_config_default"
     },
@@ -15951,6 +16528,34 @@
       "test_id": "tests/test_dataflow_audit_flows.py::test_flow_analyses_edge_cases"
     },
     {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 563,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analysis_index_module_trees_replays_parse_failure_by_stage"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 533,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analysis_index_module_trees_reuses_cached_tree_across_stages"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 480,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analysis_index_resolved_call_edges_cache_and_transparency"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 717,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analysis_index_stage_cache_factory_reuses_builder"
+    },
+    {
       "evidence": [
         {
           "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_decision_surfaces_repo::forest,require_tiers",
@@ -15990,9 +16595,60 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 139,
+      "line": 142,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_analyze_decision_surfaces_repo_warnings"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload"
+            }
+          }
+        },
+        {
+          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::collection_resume,file_paths_override,on_collection_progress",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "collection_resume,file_paths_override,on_collection_progress",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.analyze_paths"
+            }
+          }
+        },
+        {
+          "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload::file_paths,include_invariant_propositions,payload",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "file_paths,include_invariant_propositions,payload",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1552,
+      "status": "mapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analyze_paths_collection_resume_roundtrip"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1728,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_analyze_paths_rejects_unsorted_file_paths_override"
     },
     {
       "evidence": [
@@ -16034,9 +16690,65 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 187,
+      "line": 191,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_analyze_value_encoded_decisions_repo_warnings"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 662,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_build_analysis_index_module_artifact_parity"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 639,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_build_analysis_index_module_artifact_parse_stages"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1651,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_build_analysis_index_resumes_hydrated_payload"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 405,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_build_call_graph_reuses_prebuilt_analysis_index"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1694,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_build_collection_resume_rejects_path_order_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 597,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_build_module_artifacts_parses_each_path_once_across_specs"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1149,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_caller_param_bindings_for_call_covers_low_strict_star_paths"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 757,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_collect_config_and_dataclass_stage_caches_reuse_analysis_index"
     },
     {
       "evidence": [
@@ -16066,9 +16778,16 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 65,
+      "line": 68,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_collect_invariant_emitters_type_error"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1613,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_collection_resume_roundtrip_preserves_analysis_index_resume_payload"
     },
     {
       "evidence": [
@@ -16110,7 +16829,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 284,
+      "line": 1356,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_matches_skips_missing_params"
     },
@@ -16154,7 +16873,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 264,
+      "line": 1336,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_matches_skips_missing_types"
     },
@@ -16198,7 +16917,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 318,
+      "line": 1390,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_provenance_skips_missing_params"
     },
@@ -16242,7 +16961,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 302,
+      "line": 1374,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_provenance_skips_none_types"
     },
@@ -16274,7 +16993,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 380,
+      "line": 1452,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_synth_includes_ctor_keys"
     },
@@ -16306,7 +17025,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 360,
+      "line": 1432,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_synth_skips_missing_params"
     },
@@ -16338,9 +17057,30 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 340,
+      "line": 1412,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_fingerprint_synth_skips_none_types"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1229,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_compute_lint_lines_uses_forest_projection"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1095,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_constant_and_deadness_projections_share_constant_details"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 439,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_constant_flow_accepts_prebuilt_analysis_index"
     },
     {
       "evidence": [
@@ -16358,9 +17098,16 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 94,
+      "line": 97,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_decision_helpers_cover_paths"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 234,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_decision_surface_metafactory_parity"
     },
     {
       "evidence": [
@@ -16378,9 +17125,16 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 105,
+      "line": 108,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_decision_surface_params_match_ifexp_and_match"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1273,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_emit_report_materializes_report_section_specs"
     },
     {
       "evidence": [
@@ -16566,9 +17320,16 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 438,
+      "line": 1511,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_exception_obligations_enum_and_handledness"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 990,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_execution_pattern_suggestions_detect_indexed_pass_ingress"
     },
     {
       "evidence": [
@@ -16598,9 +17359,16 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 23,
+      "line": 26,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_extract_invariant_from_expr_edges"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1756,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_extract_report_sections_parses_marked_sections"
     },
     {
       "evidence": [
@@ -16618,7 +17386,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 83,
+      "line": 86,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_format_invariant_proposition_variants"
     },
@@ -16650,9 +17418,37 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 43,
+      "line": 46,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_invariant_collector_skips_nested_defs_and_lambda"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1719,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_iter_monotonic_paths_accepts_monotonic_order"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1710,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_iter_monotonic_paths_rejects_path_order_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 925,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_iter_resolved_edge_param_events_low_strict_variadic_modes"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1187,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_lint_rows_materialize_and_project_from_forest"
     },
     {
       "evidence": [
@@ -16668,7 +17464,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 425,
+      "line": 1498,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_load_decision_snapshot_errors"
     },
@@ -16688,9 +17484,58 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 230,
+      "line": 308,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_param_annotations_by_path_skips_parse_errors"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 323,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_parse_failure_stage_taxonomy_is_canonical"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 388,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_parse_witness_contract_violations_detect_nullable_signature"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1059,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_pattern_schema_residue_entries_cover_both_axes"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1018,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_pattern_schema_suggestions_include_execution_and_dataflow_axes"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1254,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_project_report_section_lines_roundtrip"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1820,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_project_report_sections_preview_only"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 868,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_reduce_resolved_call_edges_respects_transparency_filter"
     },
     {
       "evidence": [
@@ -16732,9 +17577,30 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 402,
+      "line": 1474,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_render_structure_snapshot_skips_invalid_invariant_scope"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1847,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_report_projection_phase_rank_order"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1802,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_report_projection_specs_are_topologically_ordered"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 1775,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_report_projection_specs_rows"
     },
     {
       "evidence": [
@@ -16752,9 +17618,23 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 239,
+      "line": 1311,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_resolve_synth_registry_path_latest"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 801,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_run_indexed_pass_hydrates_index_and_sink"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_helpers.py",
+      "line": 835,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_helpers.py::test_run_indexed_pass_reuses_prebuilt_index"
     },
     {
       "evidence": [
@@ -16772,7 +17652,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 334,
+      "line": 1406,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_summarize_fingerprint_provenance_empty"
     },
@@ -16804,7 +17684,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_helpers.py",
-      "line": 121,
+      "line": 124,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_helpers.py::test_value_encoded_decision_params_branches"
     },
@@ -16822,7 +17702,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 60,
+      "line": 62,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_copies_fields"
     },
@@ -16840,7 +17720,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 51,
+      "line": 53,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_copy_forest_signature_metadata_marks_missing_signature"
     },
@@ -16858,7 +17738,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 9,
+      "line": 11,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_format_span_fields_handles_invalid_values"
     },
@@ -16878,9 +17758,9 @@
         }
       ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 72,
+      "line": 74,
       "status": "mapped",
-      "test_id": "tests/test_dataflow_audit_never_invariants.py::test_render_decision_snapshot_marks_partial_when_missing_forest"
+      "test_id": "tests/test_dataflow_audit_never_invariants.py::test_render_decision_snapshot_requires_forest"
     },
     {
       "evidence": [
@@ -16922,7 +17802,7 @@
         }
       ],
       "file": "tests/test_dataflow_audit_never_invariants.py",
-      "line": 16,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_dataflow_audit_never_invariants.py::test_summarize_never_invariants_filters_and_formats"
     },
@@ -18534,7 +19414,7 @@
         }
       ],
       "file": "tests/test_dataflow_class_resolution.py",
-      "line": 78,
+      "line": 79,
       "status": "mapped",
       "test_id": "tests/test_dataflow_class_resolution.py::test_local_class_bases_and_method_resolution"
     },
@@ -18606,7 +19486,7 @@
         }
       ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 132,
+      "line": 146,
       "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_collect_dataclass_registry_without_project_root"
     },
@@ -18634,7 +19514,7 @@
         }
       ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 121,
+      "line": 135,
       "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_config_and_documented_bundles_error_paths"
     },
@@ -18740,7 +19620,7 @@
         }
       ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 61,
+      "line": 64,
       "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_dataclass_registry_and_call_bundles"
     },
@@ -18784,7 +19664,7 @@
         }
       ],
       "file": "tests/test_dataflow_dataclass_bundles.py",
-      "line": 150,
+      "line": 168,
       "status": "mapped",
       "test_id": "tests/test_dataflow_dataclass_bundles.py::test_iter_dataclass_call_bundles_invalid_file"
     },
@@ -19778,7 +20658,7 @@
         }
       ],
       "file": "tests/test_dataflow_kitchen_sink.py",
-      "line": 132,
+      "line": 136,
       "status": "mapped",
       "test_id": "tests/test_dataflow_kitchen_sink.py::test_kitchen_sink_analysis_outputs"
     },
@@ -20033,6 +20913,27 @@
       "test_id": "tests/test_dataflow_misc_edges.py::test_symbol_table_resolve_star_external_filtered"
     },
     {
+      "evidence": [],
+      "file": "tests/test_dataflow_report_helpers.py",
+      "line": 117,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_adds_dataflow_pattern_schema_suggestions"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_report_helpers.py",
+      "line": 134,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_adds_pattern_schema_residue_non_blocking"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_report_helpers.py",
+      "line": 67,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_adds_raw_sorted_contract_violations"
+    },
+    {
       "evidence": [
         {
           "display": "E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write",
@@ -20056,7 +20957,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 259,
+      "line": 419,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_anonymous_schema_surfaces"
     },
@@ -20084,7 +20985,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 277,
+      "line": 439,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_anonymous_schema_surfaces_truncates_long_list"
     },
@@ -20112,7 +21013,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 177,
+      "line": 317,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_coherence_summary"
     },
@@ -20264,7 +21165,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 41,
+      "line": 152,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_component_summary"
     },
@@ -20292,7 +21193,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 153,
+      "line": 288,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_deadness_summary"
     },
@@ -20432,7 +21333,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 33,
+      "line": 34,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_empty_groups"
     },
@@ -20460,9 +21361,16 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 219,
+      "line": 369,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_exception_obligation_summary"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_report_helpers.py",
+      "line": 102,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_execution_pattern_suggestions_are_non_blocking"
     },
     {
       "evidence": [
@@ -20612,7 +21520,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 131,
+      "line": 257,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_fingerprint_matches_and_synth"
     },
@@ -20640,7 +21548,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 91,
+      "line": 212,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_fingerprint_provenance_summary"
     },
@@ -20668,7 +21576,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 240,
+      "line": 395,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_handledness_summary"
     },
@@ -20820,9 +21728,23 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 290,
+      "line": 454,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_max_components_cutoff"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_report_helpers.py",
+      "line": 43,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_parse_failure_witnesses"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_report_helpers.py",
+      "line": 81,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_raw_sorted_strict_forbid_env"
     },
     {
       "evidence": [
@@ -20848,7 +21770,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 198,
+      "line": 343,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_emit_report_rewrite_plan_summary"
     },
@@ -20868,7 +21790,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 333,
+      "line": 499,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_merge_counts_by_knobs_merges_subset"
     },
@@ -20888,7 +21810,7 @@
         }
       ],
       "file": "tests/test_dataflow_report_helpers.py",
-      "line": 301,
+      "line": 467,
       "status": "mapped",
       "test_id": "tests/test_dataflow_report_helpers.py::test_render_mermaid_component_declared_none_documented"
     },
@@ -20956,7 +21878,7 @@
         }
       ],
       "file": "tests/test_dataflow_resolve_callee.py",
-      "line": 43,
+      "line": 44,
       "status": "mapped",
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_ambiguous_then_global"
     },
@@ -21024,7 +21946,7 @@
         }
       ],
       "file": "tests/test_dataflow_resolve_callee.py",
-      "line": 211,
+      "line": 216,
       "status": "mapped",
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_class_hierarchy"
     },
@@ -21092,7 +22014,7 @@
         }
       ],
       "file": "tests/test_dataflow_resolve_callee.py",
-      "line": 31,
+      "line": 32,
       "status": "mapped",
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_globals_only"
     },
@@ -21160,7 +22082,7 @@
         }
       ],
       "file": "tests/test_dataflow_resolve_callee.py",
-      "line": 105,
+      "line": 110,
       "status": "mapped",
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_import_and_star"
     },
@@ -21228,7 +22150,7 @@
         }
       ],
       "file": "tests/test_dataflow_resolve_callee.py",
-      "line": 145,
+      "line": 150,
       "status": "mapped",
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_import_filtered_out"
     },
@@ -21296,7 +22218,7 @@
         }
       ],
       "file": "tests/test_dataflow_resolve_callee.py",
-      "line": 172,
+      "line": 177,
       "status": "mapped",
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_self_and_base_import"
     },
@@ -21364,7 +22286,7 @@
         }
       ],
       "file": "tests/test_dataflow_resolve_callee.py",
-      "line": 243,
+      "line": 248,
       "status": "mapped",
       "test_id": "tests/test_dataflow_resolve_callee.py::test_resolve_callee_self_class_candidates"
     },
@@ -25571,233 +26493,283 @@
     {
       "evidence": [],
       "file": "tests/test_deadline_coverage.py",
-      "line": 197,
+      "line": 785,
       "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_collect_call_edges_and_recursive_helpers"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 188,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_collect_call_nodes_handles_missing_span"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 389,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_collect_deadline_obligations_full_matrix"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1038,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_collect_deadline_obligations_strictness_low_star"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 305,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_arg_info_binding_and_fallback"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 100,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_collector_handles_missing_span_and_orelse"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1255,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_exempt_prefix_is_skipped"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 162,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_function_facts_parse_error_and_scopes"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 65,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_helper_classification_and_unparse_error"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 122,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_local_info_aliasing"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 242,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_loop_forwarded_params_branches"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1292,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_loop_requires_check_in_body"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 969,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_obligation_span_fallback_missing_raises"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 882,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_obligation_span_fallbacks_param_and_facts"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1070,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_obligations_emit_suite_sites"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1163,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_loop_ambient_no_carrier"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1194,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_loop_ambient_with_carrier"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1105,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_missing_carrier"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1225,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_skips_missing_facts"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 1134,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_unchecked"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 666,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_summary_handles_bad_span"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 686,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_summary_materializes_spec_facets"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 852,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_deadline_summary_row_to_site_handles_missing_path"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 833,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_materialize_projection_spec_rows_handles_empty_and_missing_site"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 810,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_spec_row_span_handles_invalid_and_valid"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 825,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_spec_row_span_raises_on_none"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 770,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_suite_order_relation_requires_int_span_fields"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 742,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_suite_order_relation_requires_path_and_qual"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_deadline_coverage.py",
-      "line": 756,
-      "status": "unmapped",
-      "test_id": "tests/test_deadline_coverage.py::test_suite_order_relation_requires_span"
+      "test_id": "tests/test_deadline_coverage.py::test_call_edges_include_resolution_obligation_candidates"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_coverage.py",
       "line": 728,
       "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_call_resolution_obligation_is_discharged_by_call_candidate"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 209,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_call_edges_and_recursive_helpers"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 196,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_call_nodes_handles_missing_span"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 401,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_deadline_obligations_full_matrix"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1238,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_collect_deadline_obligations_strictness_low_star"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 317,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_arg_info_binding_and_fallback"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 101,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_collector_handles_missing_span_and_orelse"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1468,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_exempt_prefix_is_skipped"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 163,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_function_facts_parse_error_and_scopes"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 66,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_helper_classification_and_unparse_error"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 123,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_local_info_aliasing"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 254,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_loop_forwarded_params_branches"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1507,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_loop_requires_check_in_body"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1167,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_obligation_span_fallback_missing_raises"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1077,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_obligation_span_fallbacks_param_and_facts"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1272,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_obligations_emit_suite_sites"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 682,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_obligations_include_call_resolution_requirement"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1370,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_loop_ambient_no_carrier"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1403,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_loop_ambient_with_carrier"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1308,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_missing_carrier"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1436,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_skips_missing_facts"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1339,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_recursion_unchecked"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 861,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_summary_handles_bad_span"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 881,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_summary_materializes_spec_facets"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1047,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_deadline_summary_row_to_site_handles_missing_path"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1028,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_materialize_projection_spec_rows_handles_empty_and_missing_site"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:deadline/call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates",
+          "key": {
+            "k": "opaque",
+            "s": "E:deadline/call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates"
+          }
+        }
+      ],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 816,
+      "status": "mapped",
+      "test_id": "tests/test_deadline_coverage.py::test_materialized_call_candidates_target_function_suites"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1005,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_spec_row_span_handles_invalid_and_valid"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 1020,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_spec_row_span_raises_on_none"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 965,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_suite_order_relation_requires_int_span_fields"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 937,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_suite_order_relation_requires_path_and_qual"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 951,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_coverage.py::test_suite_order_relation_requires_span"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_coverage.py",
+      "line": 923,
+      "status": "unmapped",
       "test_id": "tests/test_deadline_coverage.py::test_suite_order_relation_skips_spec_sites"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_coverage.py",
-      "line": 793,
+      "line": 988,
       "status": "unmapped",
       "test_id": "tests/test_deadline_coverage.py::test_suite_order_row_to_site_rejects_invalid_span"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_coverage.py",
-      "line": 784,
+      "line": 979,
       "status": "unmapped",
       "test_id": "tests/test_deadline_coverage.py::test_suite_order_row_to_site_rejects_missing_fields"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_coverage.py",
-      "line": 710,
+      "line": 905,
       "status": "unmapped",
       "test_id": "tests/test_deadline_coverage.py::test_suite_order_spec_materializes_spec_facets"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_profile_ci_summary.py",
+      "line": 37,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_profile_ci_summary.py::test_deadline_profile_ci_summary_allows_missing_local"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_profile_ci_summary.py",
+      "line": 66,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_profile_ci_summary.py::test_deadline_profile_ci_summary_compares_local_profile"
     },
     {
       "evidence": [
@@ -25818,6 +26790,13 @@
       "line": 16,
       "status": "mapped",
       "test_id": "tests/test_decision_snapshots.py::test_render_and_diff_decision_snapshots"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_decision_snapshots.py",
+      "line": 52,
+      "status": "unmapped",
+      "test_id": "tests/test_decision_snapshots.py::test_render_decision_snapshot_includes_pattern_schema_residue"
     },
     {
       "evidence": [
@@ -26071,7 +27050,7 @@
         }
       ],
       "file": "tests/test_decision_surfaces.py",
-      "line": 104,
+      "line": 107,
       "status": "mapped",
       "test_id": "tests/test_decision_surfaces.py::test_analyze_value_encoded_decisions_repo"
     },
@@ -26283,7 +27262,7 @@
         }
       ],
       "file": "tests/test_decision_surfaces.py",
-      "line": 155,
+      "line": 164,
       "status": "mapped",
       "test_id": "tests/test_decision_surfaces.py::test_decision_surface_internal_caller"
     },
@@ -26327,7 +27306,7 @@
         }
       ],
       "file": "tests/test_decision_surfaces.py",
-      "line": 246,
+      "line": 261,
       "status": "mapped",
       "test_id": "tests/test_decision_surfaces.py::test_decision_surface_location_tier_suppresses_lint"
     },
@@ -26391,7 +27370,7 @@
         }
       ],
       "file": "tests/test_decision_surfaces.py",
-      "line": 220,
+      "line": 234,
       "status": "mapped",
       "test_id": "tests/test_decision_surfaces.py::test_decision_surface_tier_warning_internal"
     },
@@ -26555,7 +27534,7 @@
         }
       ],
       "file": "tests/test_decision_surfaces.py",
-      "line": 198,
+      "line": 209,
       "status": "mapped",
       "test_id": "tests/test_decision_surfaces.py::test_emit_report_includes_decision_surfaces"
     },
@@ -26719,7 +27698,7 @@
         }
       ],
       "file": "tests/test_decision_surfaces.py",
-      "line": 133,
+      "line": 137,
       "status": "mapped",
       "test_id": "tests/test_decision_surfaces.py::test_emit_report_includes_value_rewrites"
     },
@@ -26771,7 +27750,7 @@
         }
       ],
       "file": "tests/test_decorator_transparency.py",
-      "line": 61,
+      "line": 63,
       "status": "mapped",
       "test_id": "tests/test_decorator_transparency.py::test_decorated_function_opaque_without_allowlist"
     },
@@ -26791,7 +27770,7 @@
         }
       ],
       "file": "tests/test_decorator_transparency.py",
-      "line": 35,
+      "line": 37,
       "status": "mapped",
       "test_id": "tests/test_decorator_transparency.py::test_decorated_function_transparent_by_default"
     },
@@ -28579,7 +29558,7 @@
         }
       ],
       "file": "tests/test_forest_bundles.py",
-      "line": 16,
+      "line": 17,
       "status": "mapped",
       "test_id": "tests/test_forest_bundles.py::test_bundle_forest_reuses_paramset"
     },
@@ -28797,7 +29776,7 @@
         }
       ],
       "file": "tests/test_forest_signature.py",
-      "line": 13,
+      "line": 16,
       "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_forest_signature_deterministic"
     },
@@ -28815,9 +29794,16 @@
         }
       ],
       "file": "tests/test_forest_signature.py",
-      "line": 24,
+      "line": 27,
       "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_forest_signature_from_groups"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_forest_signature.py",
+      "line": 37,
+      "status": "unmapped",
+      "test_id": "tests/test_forest_signature.py::test_forest_signature_from_groups_rejects_path_order_regression"
     },
     {
       "evidence": [
@@ -28833,7 +29819,7 @@
         }
       ],
       "file": "tests/test_forest_signature.py",
-      "line": 35,
+      "line": 48,
       "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_normalize_key_handles_objects"
     },
@@ -28851,7 +29837,7 @@
         }
       ],
       "file": "tests/test_forest_signature.py",
-      "line": 44,
+      "line": 57,
       "status": "mapped",
       "test_id": "tests/test_forest_signature.py::test_path_name_falls_back_to_str"
     },
@@ -28868,6 +29854,20 @@
       "line": 69,
       "status": "unmapped",
       "test_id": "tests/test_forest_spec.py::test_forest_spec_includes_deadline_obligations"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_forest_spec.py",
+      "line": 95,
+      "status": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_forest_spec_includes_lint_findings"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_forest_spec.py",
+      "line": 111,
+      "status": "unmapped",
+      "test_id": "tests/test_forest_spec.py::test_forest_spec_includes_wl_refinement_collector"
     },
     {
       "evidence": [
@@ -29053,7 +30053,7 @@
         }
       ],
       "file": "tests/test_forest_spec.py",
-      "line": 96,
+      "line": 128,
       "status": "mapped",
       "test_id": "tests/test_forest_spec.py::test_normalize_decision_tiers_ignores_invalid"
     },
@@ -29241,7 +30241,7 @@
         }
       ],
       "file": "tests/test_import_shadowing.py",
-      "line": 24,
+      "line": 25,
       "status": "mapped",
       "test_id": "tests/test_import_shadowing.py::test_local_definition_overrides_import"
     },
@@ -29429,7 +30429,7 @@
         }
       ],
       "file": "tests/test_invariant_emitter_hooks.py",
-      "line": 21,
+      "line": 22,
       "status": "mapped",
       "test_id": "tests/test_invariant_emitter_hooks.py::test_invariant_emitters_are_applied"
     },
@@ -29449,7 +30449,7 @@
         }
       ],
       "file": "tests/test_invariant_propositions.py",
-      "line": 35,
+      "line": 37,
       "status": "mapped",
       "test_id": "tests/test_invariant_propositions.py::test_invariant_extracts_len_equality"
     },
@@ -29469,7 +30469,7 @@
         }
       ],
       "file": "tests/test_invariant_propositions.py",
-      "line": 50,
+      "line": 52,
       "status": "mapped",
       "test_id": "tests/test_invariant_propositions.py::test_invariant_extracts_param_equality"
     },
@@ -29489,7 +30489,7 @@
         }
       ],
       "file": "tests/test_invariant_propositions.py",
-      "line": 65,
+      "line": 67,
       "status": "mapped",
       "test_id": "tests/test_invariant_propositions.py::test_invariant_ignores_non_param_asserts"
     },
@@ -29721,7 +30721,7 @@
     {
       "evidence": [],
       "file": "tests/test_lsp_client_direct.py",
-      "line": 56,
+      "line": 69,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_direct.py::test_run_command_direct_rejects_non_dict_payload"
     },
@@ -29739,7 +30739,7 @@
         }
       ],
       "file": "tests/test_lsp_client_direct.py",
-      "line": 51,
+      "line": 58,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_direct.py::test_run_command_direct_rejects_unknown_command"
     },
@@ -29757,7 +30757,7 @@
         }
       ],
       "file": "tests/test_lsp_client_direct.py",
-      "line": 40,
+      "line": 41,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_direct.py::test_run_command_direct_structure_reuse_and_decision_diff"
     },
@@ -29777,7 +30777,7 @@
       "file": "tests/test_lsp_client_direct.py",
       "line": 19,
       "status": "mapped",
-      "test_id": "tests/test_lsp_client_direct.py::test_wait_readable_skips_missing_fileno"
+      "test_id": "tests/test_lsp_client_direct.py::test_wait_readable_rejects_missing_fileno"
     },
     {
       "evidence": [
@@ -29793,7 +30793,7 @@
         }
       ],
       "file": "tests/test_lsp_client_direct.py",
-      "line": 24,
+      "line": 25,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_direct.py::test_wait_readable_times_out"
     },
@@ -29833,7 +30833,7 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 49,
+      "line": 53,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_response_skips_unmatched_ids"
     },
@@ -29851,7 +30851,7 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 69,
+      "line": 73,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_accepts_prefetched_body"
     },
@@ -29869,7 +30869,7 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 16,
+      "line": 17,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_invalid_length"
     },
@@ -29887,7 +30887,7 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 27,
+      "line": 29,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_missing_content_length_header"
     },
@@ -29905,7 +30905,7 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 91,
+      "line": 95,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_rejects_non_object_payload"
     },
@@ -29923,7 +30923,7 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 59,
+      "line": 63,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_skips_non_content_length_headers"
     },
@@ -29941,84 +30941,84 @@
         }
       ],
       "file": "tests/test_lsp_client_rpc.py",
-      "line": 38,
+      "line": 41,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_rpc.py::test_read_rpc_stream_closed"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 187,
+      "line": 221,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_analysis_timeout_slack_cap"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 183,
+      "line": 217,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_analysis_timeout_slack_floor"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 660,
+      "line": 694,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_missing_raises"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 613,
+      "line": 647,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_ms_invalid_returns_none"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 566,
+      "line": 600,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_ms_parsing"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 644,
+      "line": 678,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_seconds_invalid_returns_none"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 629,
+      "line": 663,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_seconds_parsing"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 581,
+      "line": 615,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_tick_ns_invalid_falls_back_to_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 597,
+      "line": 631,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_tick_ns_missing_raises"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 551,
+      "line": 585,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_env_timeout_ticks_with_tick_ns"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 714,
+      "line": 742,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_remaining_deadline_ns_raises_when_expired"
     },
@@ -30038,25 +31038,11 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 119,
+      "line": 153,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_allows_blank_stderr"
     },
     {
-      "evidence": [],
-      "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 695,
-      "status": "unmapped",
-      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_clamps_zero_tick_ns"
-    },
-    {
-      "evidence": [],
-      "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 676,
-      "status": "unmapped",
-      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_clamps_zero_timeout_ticks"
-    },
-    {
       "evidence": [
         {
           "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command",
@@ -30070,11 +31056,18 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 192,
+      "line": 226,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_env_timeout_zero_rejected"
     },
     {
+      "evidence": [],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 764,
+      "status": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_handles_shutdown_timeout"
+    },
+    {
       "evidence": [
         {
           "display": "E:function_site::lsp_client.py::gabion.lsp_client.run_command",
@@ -30088,21 +31081,21 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 211,
+      "line": 245,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_injects_analysis_timeout_ticks"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 479,
+      "line": 513,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 427,
+      "line": 461,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_seconds"
     },
@@ -30120,21 +31113,21 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 280,
+      "line": 314,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_overrides_invalid_analysis_timeout_ticks"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 367,
+      "line": 401,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 397,
+      "line": 431,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_seconds"
     },
@@ -30152,7 +31145,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 244,
+      "line": 278,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_preserves_lower_analysis_timeout_ticks"
     },
@@ -30172,7 +31165,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 99,
+      "line": 116,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_nonzero_returncode"
     },
@@ -30192,7 +31185,7 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 109,
+      "line": 143,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_raises_on_stderr_output"
     },
@@ -30210,16 +31203,23 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 165,
+      "line": 199,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_invalid_env_timeout"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 311,
+      "line": 345,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_missing_analysis_timeout_tick_ns"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 125,
+      "status": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_missing_payload_arguments"
     },
     {
       "evidence": [
@@ -30237,35 +31237,49 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 128,
+      "line": 162,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_non_object_result"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 505,
+      "line": 539,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_ms"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 453,
+      "line": 487,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_seconds"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 339,
+      "line": 373,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_analysis_timeout_tick_ns"
     },
     {
       "evidence": [],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 531,
+      "line": 726,
+      "status": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_tick_ns"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 710,
+      "status": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_rejects_zero_timeout_ticks"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 565,
       "status": "unmapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_tick_ns_clamps_to_remaining"
     },
@@ -30283,9 +31297,16 @@
         }
       ],
       "file": "tests/test_lsp_client_run_command_di.py",
-      "line": 138,
+      "line": 172,
       "status": "mapped",
       "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_uses_env_timeout"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_lsp_client_run_command_di.py",
+      "line": 747,
+      "status": "unmapped",
+      "test_id": "tests/test_lsp_client_run_command_di.py::test_run_command_uses_unbuffered_stdio"
     },
     {
       "evidence": [
@@ -30419,7 +31440,7 @@
         }
       ],
       "file": "tests/test_misc_coverage.py",
-      "line": 45,
+      "line": 46,
       "status": "mapped",
       "test_id": "tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults"
     },
@@ -30439,7 +31460,7 @@
         }
       ],
       "file": "tests/test_misc_coverage.py",
-      "line": 73,
+      "line": 74,
       "status": "mapped",
       "test_id": "tests/test_misc_coverage.py::test_lsp_client_rpc_roundtrip"
     },
@@ -30463,7 +31484,7 @@
         }
       ],
       "file": "tests/test_misc_coverage.py",
-      "line": 23,
+      "line": 24,
       "status": "mapped",
       "test_id": "tests/test_misc_coverage.py::test_main_entrypoint_invokes_app"
     },
@@ -30487,7 +31508,7 @@
         }
       ],
       "file": "tests/test_misc_coverage.py",
-      "line": 37,
+      "line": 38,
       "status": "mapped",
       "test_id": "tests/test_misc_coverage.py::test_main_module_import"
     },
@@ -30519,7 +31540,7 @@
         }
       ],
       "file": "tests/test_misc_coverage.py",
-      "line": 109,
+      "line": 112,
       "status": "mapped",
       "test_id": "tests/test_misc_coverage.py::test_server_code_actions_and_diagnostics"
     },
@@ -30707,7 +31728,7 @@
         }
       ],
       "file": "tests/test_nested_resolution.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_nested_resolution.py::test_nested_function_resolution"
     },
@@ -30907,7 +31928,7 @@
         }
       ],
       "file": "tests/test_never_invariants.py",
-      "line": 125,
+      "line": 127,
       "status": "mapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_obligation"
     },
@@ -31107,7 +32128,7 @@
         }
       ],
       "file": "tests/test_never_invariants.py",
-      "line": 90,
+      "line": 91,
       "status": "mapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_proven_unreachable"
     },
@@ -31319,7 +32340,7 @@
         }
       ],
       "file": "tests/test_never_invariants.py",
-      "line": 163,
+      "line": 166,
       "status": "mapped",
       "test_id": "tests/test_never_invariants.py::test_never_invariant_report_order_and_evidence"
     },
@@ -31736,6 +32757,97 @@
       "test_id": "tests/test_never_invariants.py::test_never_invariants_emit_forest_and_report"
     },
     {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 23,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_accepts_sorted_when_required"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 143,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 126,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 46,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_check_policy_sorts_only_on_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 82,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_check_records_context_telemetry"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 91,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_check_records_global_telemetry_env"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 76,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_enforce_policy_raises_on_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 109,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_enforces_canonical_sort_allowlist"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 66,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_policy_argument_overrides_context"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 28,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_rejects_unsorted_when_required"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 33,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_respects_env_toggle"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 18,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_sorts_by_default"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_order_contract.py",
+      "line": 60,
+      "status": "unmapped",
+      "test_id": "tests/test_order_contract.py::test_ordered_or_sorted_trust_policy_keeps_caller_order"
+    },
+    {
       "evidence": [
         {
           "display": "E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config",
@@ -31919,7 +33031,7 @@
         }
       ],
       "file": "tests/test_param_spans.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_param_spans.py::test_param_spans_capture_signature_positions"
     },
@@ -33559,7 +34671,7 @@
         }
       ],
       "file": "tests/test_refactor_idempotency.py",
-      "line": 24,
+      "line": 25,
       "status": "mapped",
       "test_id": "tests/test_refactor_idempotency.py::test_refactor_idempotency"
     },
@@ -33771,7 +34883,7 @@
         }
       ],
       "file": "tests/test_refactor_plan.py",
-      "line": 18,
+      "line": 19,
       "status": "mapped",
       "test_id": "tests/test_refactor_plan.py::test_refactor_plan_orders_callee_first"
     },
@@ -33971,7 +35083,7 @@
         }
       ],
       "file": "tests/test_report_callsite_evidence.py",
-      "line": 16,
+      "line": 23,
       "status": "mapped",
       "test_id": "tests/test_report_callsite_evidence.py::test_report_includes_callsite_evidence_for_undocumented_bundle"
     },
@@ -34171,7 +35283,7 @@
         }
       ],
       "file": "tests/test_report_callsite_evidence.py",
-      "line": 54,
+      "line": 61,
       "status": "mapped",
       "test_id": "tests/test_report_callsite_evidence.py::test_report_omits_callsite_evidence_for_documented_bundle"
     },
@@ -34645,7 +35757,7 @@
         }
       ],
       "file": "tests/test_schema_audit.py",
-      "line": 16,
+      "line": 20,
       "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_finds_common_sites"
     },
@@ -34665,9 +35777,23 @@
         }
       ],
       "file": "tests/test_schema_audit.py",
-      "line": 61,
+      "line": 65,
       "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_ignores_test_roles"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_schema_audit.py",
+      "line": 104,
+      "status": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_rejects_duplicate_paths"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_schema_audit.py",
+      "line": 89,
+      "status": "unmapped",
+      "test_id": "tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_rejects_path_order_regression"
     },
     {
       "evidence": [
@@ -34685,7 +35811,7 @@
         }
       ],
       "file": "tests/test_schema_audit.py",
-      "line": 116,
+      "line": 151,
       "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_name_handles_attribute_and_unknown_nodes"
     },
@@ -34705,7 +35831,7 @@
         }
       ],
       "file": "tests/test_schema_audit.py",
-      "line": 92,
+      "line": 127,
       "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_normalize_path_outside_root_returns_absolute"
     },
@@ -34725,7 +35851,7 @@
         }
       ],
       "file": "tests/test_schema_audit.py",
-      "line": 101,
+      "line": 136,
       "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_subscript_helpers_cover_non_tuple_slices"
     },
@@ -34757,7 +35883,7 @@
         }
       ],
       "file": "tests/test_schema_audit.py",
-      "line": 81,
+      "line": 116,
       "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_suggest_type_name_singularizes_and_handles_provenance"
     },
@@ -34775,7 +35901,7 @@
         }
       ],
       "file": "tests/test_schema_audit.py",
-      "line": 124,
+      "line": 159,
       "status": "mapped",
       "test_id": "tests/test_schema_audit.py::test_unparse_fallback_for_invalid_ast"
     },
@@ -36224,6 +37350,69 @@
       "test_id": "tests/test_server_execute_command.py::test_uri_to_path_plain_path"
     },
     {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 764,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_analysis_index_resume_signature_prefers_resume_digest"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 891,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_analysis_input_witness_interns_ast_normal_forms"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 188,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_analysis_timeout_budget_caps_configured_cleanup_grace"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 176,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_analysis_timeout_budget_reserves_default_cleanup_grace"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 569,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_include_resume_counts"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 663,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_reject_path_order_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 614,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_flags_state_loss_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 637,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_tracks_analysis_index_hydration"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 591,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_treats_completed_path_as_non_regression"
+    },
+    {
       "evidence": [
         {
           "display": "E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module",
@@ -36243,7 +37432,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 397,
+      "line": 1135,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_baseline_apply"
     },
@@ -36267,7 +37456,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 81,
+      "line": 91,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_dash_outputs"
     },
@@ -36419,7 +37608,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1526,
+      "line": 2281,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_defaults_payload"
     },
@@ -36437,7 +37626,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1295,
+      "line": 2050,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta"
     },
@@ -36455,7 +37644,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1321,
+      "line": 2076,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta_from_state"
     },
@@ -36473,7 +37662,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1381,
+      "line": 2136,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_state"
     },
@@ -36497,7 +37686,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1014,
+      "line": 1769,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift"
     },
@@ -36515,7 +37704,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 855,
+      "line": 1610,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta"
     },
@@ -36533,7 +37722,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 966,
+      "line": 1721,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta_from_state"
     },
@@ -36557,7 +37746,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1120,
+      "line": 1875,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_cluster_consolidation"
     },
@@ -36581,7 +37770,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1070,
+      "line": 1825,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_call_clusters"
     },
@@ -36733,7 +37922,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 664,
+      "line": 1419,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta"
     },
@@ -36751,7 +37940,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 714,
+      "line": 1469,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta_from_state"
     },
@@ -36769,7 +37958,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 779,
+      "line": 1534,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_state"
     },
@@ -36793,7 +37982,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 616,
+      "line": 1371,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_test_reports"
     },
@@ -36945,7 +38134,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 420,
+      "line": 1158,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fail_on_type_ambiguities"
     },
@@ -37097,7 +38286,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 269,
+      "line": 1007,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_fingerprint_outputs_and_decision_snapshot"
     },
@@ -37115,7 +38304,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 188,
+      "line": 926,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_ignores_invalid_tick_ns"
     },
@@ -37133,7 +38322,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 148,
+      "line": 159,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_ignores_invalid_timeout"
     },
@@ -37157,7 +38346,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 437,
+      "line": 1175,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_includes_lint_lines"
     },
@@ -37181,7 +38370,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 105,
+      "line": 116,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_invalid_synth_min_occurrences"
     },
@@ -37199,7 +38388,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 221,
+      "line": 959,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_invalid_timeout_ms_ignored"
     },
@@ -37217,7 +38406,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 253,
+      "line": 991,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_invalid_timeout_seconds_ignored"
     },
@@ -37241,7 +38430,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1418,
+      "line": 2173,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_flags"
     },
@@ -37259,7 +38448,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1435,
+      "line": 2190,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_state_conflict"
     },
@@ -37283,7 +38472,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1260,
+      "line": 2015,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_annotation_drift_flags"
     },
@@ -37307,7 +38496,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1451,
+      "line": 2206,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_conflicting_obsolescence_flags"
     },
@@ -37325,7 +38514,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 944,
+      "line": 1699,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_annotation_drift_state"
     },
@@ -37343,7 +38532,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1364,
+      "line": 2119,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_ambiguity_state"
     },
@@ -37361,7 +38550,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 923,
+      "line": 1678,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_annotation_drift_state"
     },
@@ -37379,9 +38568,16 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 760,
+      "line": 1515,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_obsolescence_state"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 2287,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_non_dict_payload"
     },
     {
       "evidence": [
@@ -37397,7 +38593,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1470,
+      "line": 2225,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_obsolescence_state_conflict"
     },
@@ -37421,7 +38617,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 578,
+      "line": 1331,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_appends_sections"
     },
@@ -37445,7 +38641,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 453,
+      "line": 1191,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_report_baseline_write"
     },
@@ -37469,7 +38665,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 129,
+      "line": 140,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_reports_synthesis_error"
     },
@@ -37487,7 +38683,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 166,
+      "line": 202,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_reports_timeout"
     },
@@ -37511,7 +38707,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1278,
+      "line": 2033,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_ambiguity_baseline"
     },
@@ -37535,7 +38731,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1180,
+      "line": 1935,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_annotation_drift_baseline"
     },
@@ -37559,9 +38755,86 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1489,
+      "line": 2244,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_requires_obsolescence_baseline"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:decision_surface/direct::server.py::gabion.server._write_analysis_resume_checkpoint::collection_resume,input_witness,path",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "collection_resume,input_witness,path",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server._write_analysis_resume_checkpoint"
+            }
+          }
+        },
+        {
+          "display": "E:decision_surface/direct::server.py::gabion.server._analysis_input_witness::config,file_paths,include_invariant_propositions,recursive,root",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "config,file_paths,include_invariant_propositions,recursive,root",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server._analysis_input_witness"
+            }
+          }
+        },
+        {
+          "display": "E:decision_surface/direct::server.py::gabion.server._load_analysis_resume_checkpoint::input_witness,path",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "input_witness,path",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server._load_analysis_resume_checkpoint"
+            }
+          }
+        },
+        {
+          "display": "E:decision_surface/direct::server.py::gabion.server._execute_command_total::on_collection_progress",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "on_collection_progress",
+            "site": {
+              "path": "server.py",
+              "qual": "gabion.server._execute_command_total"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 823,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_reuses_collection_checkpoint"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 366,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_marks_stale_section_journal"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 234,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_supports_in_progress_resume_checkpoint"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 305,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_writes_partial_incremental_report"
     },
     {
       "evidence": [
@@ -37577,7 +38850,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 205,
+      "line": 943,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_uses_timeout_ms"
     },
@@ -37595,7 +38868,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 237,
+      "line": 975,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_uses_timeout_seconds"
     },
@@ -37613,7 +38886,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1399,
+      "line": 2154,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_ambiguity_baseline"
     },
@@ -37631,7 +38904,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1225,
+      "line": 1980,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_annotation_drift_baseline"
     },
@@ -37655,7 +38928,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 379,
+      "line": 1117,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_decision_snapshot"
     },
@@ -37807,7 +39080,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 320,
+      "line": 1058,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_fingerprint_outputs"
     },
@@ -37959,9 +39232,16 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 815,
+      "line": 1570,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_obsolescence_baseline"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 417,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_phase_checkpoint_when_incremental_enabled"
     },
     {
       "evidence": [
@@ -37979,7 +39259,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 542,
+      "line": 1290,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_invalid_snapshot"
     },
@@ -37999,9 +39279,16 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 530,
+      "line": 1273,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_missing_paths"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 1284,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_non_dict"
     },
     {
       "evidence": [
@@ -38019,7 +39306,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 536,
+      "line": 1279,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_none"
     },
@@ -38039,7 +39326,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 553,
+      "line": 1301,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_valid_snapshot"
     },
@@ -38059,9 +39346,16 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1552,
+      "line": 2313,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_invalid_payload"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 2326,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_non_dict"
     },
     {
       "evidence": [
@@ -38079,7 +39373,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1559,
+      "line": 2320,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_none"
     },
@@ -38099,9 +39393,16 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1533,
+      "line": 2294,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 1325,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_diff_rejects_non_dict_payload"
     },
     {
       "evidence": [
@@ -38119,7 +39420,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 572,
+      "line": 1320,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_diff_requires_timeout_payload"
     },
@@ -38151,7 +39452,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 489,
+      "line": 1232,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_invalid_snapshot"
     },
@@ -38183,9 +39484,16 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 477,
+      "line": 1215,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_missing_snapshot"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 1226,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_non_dict"
     },
     {
       "evidence": [
@@ -38215,7 +39523,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 483,
+      "line": 1221,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_none"
     },
@@ -38247,7 +39555,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 499,
+      "line": 1242,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs"
     },
@@ -38279,7 +39587,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 515,
+      "line": 1258,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_writes_lemma_stubs_file"
     },
@@ -38299,9 +39607,16 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1566,
+      "line": 2333,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_invalid_payload"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 2362,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_non_dict"
     },
     {
       "evidence": [
@@ -38319,7 +39634,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1589,
+      "line": 2356,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_none"
     },
@@ -38339,7 +39654,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1573,
+      "line": 2340,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_records_bundle_tiers"
     },
@@ -38359,9 +39674,65 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1596,
+      "line": 2369,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_skips_empty_bundle"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 703,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_externalize_and_inflate_analysis_index_resume_state_ref"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 677,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_externalize_resume_states_reject_path_order_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 487,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_flag_no_projection_progress"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 542,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_flag_semantic_progress_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 451,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_require_restart_on_witness_mismatch"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 513,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_require_substantive_progress_for_resume"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 690,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_inflate_resume_states_reject_path_order_regression"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 780,
+      "status": "unmapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary"
     },
     {
       "evidence": [
@@ -38937,7 +40308,7 @@
         }
       ],
       "file": "tests/test_structure_snapshot.py",
-      "line": 40,
+      "line": 56,
       "status": "mapped",
       "test_id": "tests/test_structure_snapshot.py::test_render_structure_snapshot_handles_outside_root"
     },
@@ -39297,7 +40668,7 @@
         }
       ],
       "file": "tests/test_synthesis_control_context.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_synthesis_control_context.py::test_synthesis_plan_includes_control_context_evidence"
     },
@@ -40063,7 +41434,7 @@
         }
       ],
       "file": "tests/test_synthesis_types.py",
-      "line": 17,
+      "line": 18,
       "status": "mapped",
       "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_includes_type_hints"
     },
@@ -40335,7 +41706,7 @@
         }
       ],
       "file": "tests/test_synthesis_types.py",
-      "line": 105,
+      "line": 108,
       "status": "mapped",
       "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_infers_types_from_constants"
     },
@@ -40607,7 +41978,7 @@
         }
       ],
       "file": "tests/test_synthesis_types.py",
-      "line": 61,
+      "line": 63,
       "status": "mapped",
       "test_id": "tests/test_synthesis_types.py::test_synthesis_plan_resolves_conflicts_to_union"
     },
@@ -40949,7 +42320,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 224,
+      "line": 227,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_call_footprint_module_literal"
     },
@@ -40977,7 +42348,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 194,
+      "line": 197,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_call_footprint_symbol_argument"
     },
@@ -41015,7 +42386,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 29,
+      "line": 31,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_decision_surface_suggestion"
     },
@@ -41053,7 +42424,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 118,
+      "line": 121,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback"
     },
@@ -41091,7 +42462,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 155,
+      "line": 158,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_function_site_fallback_uses_reachable"
     },
@@ -41129,7 +42500,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 88,
+      "line": 91,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_graph_resolution_blocks_heuristics"
     },
@@ -41147,7 +42518,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 69,
+      "line": 71,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_heuristic_fallback_when_graph_unavailable"
     },
@@ -41165,9 +42536,27 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 273,
+      "line": 276,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.load_test_evidence",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "test_evidence_suggestions.py",
+              "qual": "gabion.analysis.test_evidence_suggestions.load_test_evidence"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_test_evidence_suggestions.py",
+      "line": 298,
+      "status": "mapped",
+      "test_id": "tests/test_test_evidence_suggestions.py::test_load_test_evidence_payload_rejects_non_object"
     },
     {
       "evidence": [
@@ -41183,7 +42572,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions.py",
-      "line": 254,
+      "line": 257,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions.py::test_skips_mapped_entries"
     },
@@ -41215,7 +42604,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 190,
+      "line": 191,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_build_indices_and_helper_functions"
     },
@@ -41233,7 +42622,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 467,
+      "line": 475,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_call_symbol_and_literal_helpers"
     },
@@ -41251,7 +42640,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 293,
+      "line": 295,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprint_targets_no_outer"
     },
@@ -41269,7 +42658,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 607,
+      "line": 615,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_cache_and_missing"
     },
@@ -41287,7 +42676,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 589,
+      "line": 597,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_entries"
     },
@@ -41305,7 +42694,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 594,
+      "line": 602,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_empty_paths"
     },
@@ -41355,7 +42744,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 261,
+      "line": 263,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_evidence_for_alt_variants"
     },
@@ -41373,7 +42762,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 324,
+      "line": 327,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_empty_and_missing"
     },
@@ -41391,7 +42780,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 369,
+      "line": 373,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_node_missing"
     },
@@ -41409,7 +42798,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 401,
+      "line": 406,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_resolves_symbol_and_literal"
     },
@@ -41539,7 +42928,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 454,
+      "line": 462,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_iter_outer_calls_skips_nested"
     },
@@ -41613,7 +43002,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 566,
+      "line": 574,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_resolve_module_literal_invalid"
     },
@@ -41631,7 +43020,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 502,
+      "line": 510,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_resolve_symbol_and_module_helpers"
     },
@@ -41655,7 +43044,7 @@
         }
       ],
       "file": "tests/test_test_evidence_suggestions_edges.py",
-      "line": 185,
+      "line": 186,
       "status": "mapped",
       "test_id": "tests/test_test_evidence_suggestions_edges.py::test_test_qual_passthrough"
     },
@@ -41701,7 +43090,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 277,
+      "line": 282,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_compute_dominators_handles_empty_evidence"
     },
@@ -41777,7 +43166,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 283,
+      "line": 288,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_guardrail_and_opaque_evidence"
     },
@@ -41805,7 +43194,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 245,
+      "line": 250,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_load_risk_registry_variants"
     },
@@ -41841,7 +43230,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 228,
+      "line": 233,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_load_test_evidence_skips_invalid_entries"
     },
@@ -41879,7 +43268,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 332,
+      "line": 337,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_normalize_evidence_refs_variants"
     },
@@ -41969,7 +43358,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence.py",
-      "line": 321,
+      "line": 326,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence.py::test_summarize_candidates_handles_bad_counts"
     },
@@ -42108,12 +43497,12 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._format_delta",
+          "display": "E:function_site::delta_tools.py::gabion.analysis.delta_tools.format_transition",
           "key": {
             "k": "function_site",
             "site": {
-              "path": "test_obsolescence_delta.py",
-              "qual": "gabion.analysis.test_obsolescence_delta._format_delta"
+              "path": "delta_tools.py",
+              "qual": "gabion.analysis.delta_tools.format_transition"
             }
           }
         },
@@ -42395,7 +43784,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 110,
+      "line": 137,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_build_site_index_filters_nodes"
     },
@@ -42413,7 +43802,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 199,
+      "line": 248,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_build_timeout_context_frame_fallback"
     },
@@ -42431,9 +43820,23 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 47,
+      "line": 51,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_build_timeout_context_from_stack_uses_forest"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_timeout_context.py",
+      "line": 260,
+      "status": "unmapped",
+      "test_id": "tests/test_timeout_context.py::test_build_timeout_context_progress_classification_no_progress"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_timeout_context.py",
+      "line": 275,
+      "status": "unmapped",
+      "test_id": "tests/test_timeout_context.py::test_build_timeout_context_progress_classification_with_progress"
     },
     {
       "evidence": [
@@ -42449,7 +43852,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 212,
+      "line": 367,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_build_timeout_context_skips_unmatched_frames"
     },
@@ -42467,7 +43870,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 94,
+      "line": 118,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_deadline_expired_raises"
     },
@@ -42485,14 +43888,21 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 103,
+      "line": 127,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_deadline_from_timeout_variants"
     },
     {
       "evidence": [],
       "file": "tests/test_timeout_context.py",
-      "line": 186,
+      "line": 292,
+      "status": "unmapped",
+      "test_id": "tests/test_timeout_context.py::test_deadline_profile_scope_collects_heat"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_timeout_context.py",
+      "line": 235,
       "status": "unmapped",
       "test_id": "tests/test_timeout_context.py::test_deadline_scope_rejects_none"
     },
@@ -42510,7 +43920,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 152,
+      "line": 201,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_frame_site_key_outside_root_raises"
     },
@@ -42528,21 +43938,21 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 161,
+      "line": 210,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_frame_site_key_without_module_name"
     },
     {
       "evidence": [],
       "file": "tests/test_timeout_context.py",
-      "line": 192,
+      "line": 241,
       "status": "unmapped",
       "test_id": "tests/test_timeout_context.py::test_get_deadline_requires_carrier"
     },
     {
       "evidence": [],
       "file": "tests/test_timeout_context.py",
-      "line": 142,
+      "line": 170,
       "status": "unmapped",
       "test_id": "tests/test_timeout_context.py::test_pack_call_stack_accepts_list_key_part"
     },
@@ -42560,7 +43970,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 120,
+      "line": 147,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_pack_call_stack_keeps_span"
     },
@@ -42578,23 +43988,44 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 26,
+      "line": 30,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_pack_call_stack_orders_and_indexes"
     },
     {
       "evidence": [],
       "file": "tests/test_timeout_context.py",
-      "line": 137,
+      "line": 165,
       "status": "unmapped",
       "test_id": "tests/test_timeout_context.py::test_pack_call_stack_rejects_invalid_entries"
     },
     {
       "evidence": [],
       "file": "tests/test_timeout_context.py",
-      "line": 181,
+      "line": 179,
+      "status": "unmapped",
+      "test_id": "tests/test_timeout_context.py::test_pack_call_stack_uses_first_seen_site_order"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_timeout_context.py",
+      "line": 324,
+      "status": "unmapped",
+      "test_id": "tests/test_timeout_context.py::test_render_deadline_profile_markdown"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_timeout_context.py",
+      "line": 230,
       "status": "unmapped",
       "test_id": "tests/test_timeout_context.py::test_set_deadline_rejects_none"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_timeout_context.py",
+      "line": 87,
+      "status": "unmapped",
+      "test_id": "tests/test_timeout_context.py::test_timeout_context_payload_includes_deadline_profile"
     },
     {
       "evidence": [
@@ -42610,9 +44041,16 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 71,
+      "line": 75,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_timeout_context_payload_includes_metadata"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_timeout_context.py",
+      "line": 97,
+      "status": "unmapped",
+      "test_id": "tests/test_timeout_context.py::test_timeout_context_payload_includes_progress"
     },
     {
       "evidence": [
@@ -42628,7 +44066,7 @@
         }
       ],
       "file": "tests/test_timeout_context.py",
-      "line": 84,
+      "line": 108,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_timeout_exceeded_carries_context"
     },
@@ -44040,7 +45478,7 @@
         }
       ],
       "file": "tests/test_type_flow_audit.py",
-      "line": 16,
+      "line": 17,
       "status": "mapped",
       "test_id": "tests/test_type_flow_audit.py::test_type_flow_suggestions_and_ambiguities"
     },
@@ -44072,7 +45510,7 @@
         }
       ],
       "file": "tests/test_type_flow_callsite_evidence.py",
-      "line": 30,
+      "line": 32,
       "status": "mapped",
       "test_id": "tests/test_type_flow_callsite_evidence.py::test_format_type_flow_site_handles_missing_span"
     },
@@ -44104,7 +45542,7 @@
         }
       ],
       "file": "tests/test_type_flow_callsite_evidence.py",
-      "line": 78,
+      "line": 82,
       "status": "mapped",
       "test_id": "tests/test_type_flow_callsite_evidence.py::test_type_flow_evidence_in_report"
     },
@@ -45117,6 +46555,34 @@
       "line": 24,
       "status": "mapped",
       "test_id": "tests/test_wildcard_forwarding.py::test_unused_arg_flow_maps_star_args_low_strictness"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_wl_refinement.py",
+      "line": 82,
+      "status": "unmapped",
+      "test_id": "tests/test_wl_refinement.py::test_analyze_paths_emits_structured_suite_contains"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_wl_refinement.py",
+      "line": 145,
+      "status": "unmapped",
+      "test_id": "tests/test_wl_refinement.py::test_analyze_paths_emits_wl_facets_when_enabled"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_wl_refinement.py",
+      "line": 55,
+      "status": "unmapped",
+      "test_id": "tests/test_wl_refinement.py::test_wl_refinement_is_deterministic_across_insertion_order"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_wl_refinement.py",
+      "line": 72,
+      "status": "unmapped",
+      "test_id": "tests/test_wl_refinement.py::test_wl_refinement_proof_mode_emits_sink_and_raises"
     }
   ]
 }
