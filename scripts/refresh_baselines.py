@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 import shutil
@@ -8,7 +9,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
+from gabion.lsp_client import _env_timeout_ticks, _has_env_timeout
 
 
 OBSOLESCENCE_DELTA_PATH = Path("artifacts/out/test_obsolescence_delta.json")
@@ -24,6 +34,20 @@ DOCFLOW_CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
 ENV_GATE_UNMAPPED = "GABION_GATE_UNMAPPED_DELTA"
 ENV_GATE_ORPHANED = "GABION_GATE_ORPHANED_DELTA"
 ENV_GATE_AMBIGUITY = "GABION_GATE_AMBIGUITY_DELTA"
+_DEFAULT_TIMEOUT_TICKS = 120_000
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+
+
+@contextmanager
+def _deadline_scope():
+    if _has_env_timeout():
+        ticks, tick_ns = _env_timeout_ticks()
+    else:
+        ticks, tick_ns = _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns)):
+            with deadline_clock_scope(GasMeter(limit=int(ticks))):
+                yield
 
 
 def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -> None:
@@ -164,84 +188,85 @@ def _guard_docflow_delta(timeout: int | None) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Refresh baseline carriers via gabion check.",
-    )
-    parser.add_argument(
-        "--obsolescence",
-        action="store_true",
-        help="Refresh baselines/test_obsolescence_baseline.json",
-    )
-    parser.add_argument(
-        "--annotation-drift",
-        action="store_true",
-        help="Refresh baselines/test_annotation_drift_baseline.json",
-    )
-    parser.add_argument(
-        "--ambiguity",
-        action="store_true",
-        help="Refresh baselines/ambiguity_baseline.json",
-    )
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Refresh all baselines (default when no flags provided).",
-    )
-    parser.add_argument(
-        "--docflow",
-        action="store_true",
-        help="Refresh baselines/docflow_compliance_baseline.json",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=None,
-        help="Seconds to wait for each gabion check (default: no timeout).",
-    )
-    args = parser.parse_args()
+    with _deadline_scope():
+        parser = argparse.ArgumentParser(
+            description="Refresh baseline carriers via gabion check.",
+        )
+        parser.add_argument(
+            "--obsolescence",
+            action="store_true",
+            help="Refresh baselines/test_obsolescence_baseline.json",
+        )
+        parser.add_argument(
+            "--annotation-drift",
+            action="store_true",
+            help="Refresh baselines/test_annotation_drift_baseline.json",
+        )
+        parser.add_argument(
+            "--ambiguity",
+            action="store_true",
+            help="Refresh baselines/ambiguity_baseline.json",
+        )
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Refresh all baselines (default when no flags provided).",
+        )
+        parser.add_argument(
+            "--docflow",
+            action="store_true",
+            help="Refresh baselines/docflow_compliance_baseline.json",
+        )
+        parser.add_argument(
+            "--timeout",
+            type=int,
+            default=None,
+            help="Seconds to wait for each gabion check (default: no timeout).",
+        )
+        args = parser.parse_args()
 
-    if not (
-        args.obsolescence
-        or args.annotation_drift
-        or args.ambiguity
-        or args.docflow
-        or args.all
-    ):
-        args.all = True
+        if not (
+            args.obsolescence
+            or args.annotation_drift
+            or args.ambiguity
+            or args.docflow
+            or args.all
+        ):
+            args.all = True
 
-    if args.all or args.obsolescence:
-        _guard_obsolescence_delta(args.timeout)
-        _run_check(
-            "--write-test-obsolescence-baseline",
-            args.timeout,
-            _state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
-        )
-    if args.all or args.annotation_drift:
-        _guard_annotation_drift_delta(args.timeout)
-        _run_check(
-            "--write-test-annotation-drift-baseline",
-            args.timeout,
-            _state_args(
-                ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"
-            ),
-        )
-    if args.all or args.ambiguity:
-        _guard_ambiguity_delta(args.timeout)
-        _run_check(
-            "--write-ambiguity-baseline",
-            args.timeout,
-            _state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
-        )
-    if args.all or args.docflow:
-        _guard_docflow_delta(args.timeout)
-        if not DOCFLOW_CURRENT_PATH.exists():
-            raise FileNotFoundError(
-                f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"
+        if args.all or args.obsolescence:
+            _guard_obsolescence_delta(args.timeout)
+            _run_check(
+                "--write-test-obsolescence-baseline",
+                args.timeout,
+                _state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
             )
-        DOCFLOW_BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(DOCFLOW_CURRENT_PATH, DOCFLOW_BASELINE_PATH)
+        if args.all or args.annotation_drift:
+            _guard_annotation_drift_delta(args.timeout)
+            _run_check(
+                "--write-test-annotation-drift-baseline",
+                args.timeout,
+                _state_args(
+                    ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"
+                ),
+            )
+        if args.all or args.ambiguity:
+            _guard_ambiguity_delta(args.timeout)
+            _run_check(
+                "--write-ambiguity-baseline",
+                args.timeout,
+                _state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
+            )
+        if args.all or args.docflow:
+            _guard_docflow_delta(args.timeout)
+            if not DOCFLOW_CURRENT_PATH.exists():
+                raise FileNotFoundError(
+                    f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"
+                )
+            DOCFLOW_BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(DOCFLOW_CURRENT_PATH, DOCFLOW_BASELINE_PATH)
 
-    return 0
+        return 0
 
 
 if __name__ == "__main__":

@@ -2,11 +2,21 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
+from gabion.lsp_client import _env_timeout_ticks, _has_env_timeout
 
 
 REQUIRED_FRONTMATTER_FIELDS = {
@@ -36,6 +46,21 @@ REQUIRED_SECTIONS = [
     "appendix a: canonical template (authoritative)",
     "appendix b: structural self-audit",
 ]
+
+_DEFAULT_TIMEOUT_TICKS = 120_000
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+
+
+@contextmanager
+def _deadline_scope():
+    if _has_env_timeout():
+        ticks, tick_ns = _env_timeout_ticks()
+    else:
+        ticks, tick_ns = _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns)):
+            with deadline_clock_scope(GasMeter(limit=int(ticks))):
+                yield
 
 
 @dataclass(frozen=True)
@@ -165,24 +190,25 @@ def _iter_paths(paths: list[str]) -> list[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit in_step document structure.")
-    parser.add_argument("paths", nargs="+", help="Markdown files or directories to audit.")
-    args = parser.parse_args(argv)
+    with _deadline_scope():
+        parser = argparse.ArgumentParser(description="Audit in_step document structure.")
+        parser.add_argument("paths", nargs="+", help="Markdown files or directories to audit.")
+        args = parser.parse_args(argv)
 
-    violations: list[str] = []
-    for path in _iter_paths(args.paths):
-        check_deadline()
-        if not path.exists():
-            violations.append(f"{path}: missing file")
-            continue
-        violations.extend(_audit_doc(path))
-
-    if violations:
-        for violation in violations:
+        violations: list[str] = []
+        for path in _iter_paths(args.paths):
             check_deadline()
-            print(violation)
-        return 2
-    return 0
+            if not path.exists():
+                violations.append(f"{path}: missing file")
+                continue
+            violations.extend(_audit_doc(path))
+
+        if violations:
+            for violation in violations:
+                check_deadline()
+                print(violation)
+            return 2
+        return 0
 
 
 if __name__ == "__main__":

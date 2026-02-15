@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from contextlib import contextmanager
 import json
 import os
 import re
@@ -9,7 +10,15 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
 from gabion.invariants import never
 
 try:
@@ -37,7 +46,7 @@ _DEFAULT_POLICY_TIMEOUT_TICKS = 120_000
 _DEFAULT_POLICY_TIMEOUT_TICK_NS = 1_000_000
 
 
-def _policy_deadline() -> Deadline:
+def _policy_timeout_ticks() -> tuple[int, int]:
     raw_ticks = os.getenv("GABION_POLICY_TIMEOUT_TICKS", "").strip()
     raw_tick_ns = os.getenv("GABION_POLICY_TIMEOUT_TICK_NS", "").strip()
     if raw_ticks or raw_tick_ns:
@@ -57,11 +66,20 @@ def _policy_deadline() -> Deadline:
             never("invalid policy timeout ticks", ticks=raw_ticks)
         if tick_ns_value <= 0:
             never("invalid policy timeout tick_ns", tick_ns=raw_tick_ns)
-        return Deadline.from_timeout_ticks(ticks_value, tick_ns_value)
-    return Deadline.from_timeout_ticks(
+        return ticks_value, tick_ns_value
+    return (
         _DEFAULT_POLICY_TIMEOUT_TICKS,
         _DEFAULT_POLICY_TIMEOUT_TICK_NS,
     )
+
+
+@contextmanager
+def _policy_deadline_scope():
+    ticks_value, tick_ns_value = _policy_timeout_ticks()
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ticks(ticks_value, tick_ns_value)):
+            with deadline_clock_scope(GasMeter(limit=ticks_value)):
+                yield
 
 
 @dataclass(frozen=True)
@@ -1058,7 +1076,7 @@ def main():
     if not args.workflows and not args.posture:
         args.workflows = True
 
-    with deadline_scope(_policy_deadline()):
+    with _policy_deadline_scope():
         if args.workflows:
             check_workflows()
         if args.posture:

@@ -8,16 +8,40 @@ via the GitHub CLI.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 
-from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
+from gabion.lsp_client import _env_timeout_ticks, _has_env_timeout
 
 
 GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 KEYWORD_REF_RE = re.compile(r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE)
+_DEFAULT_TIMEOUT_TICKS = 120_000
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+
+
+@contextmanager
+def _deadline_scope():
+    if _has_env_timeout():
+        ticks, tick_ns = _env_timeout_ticks()
+    else:
+        ticks, tick_ns = _DEFAULT_TIMEOUT_TICKS, _DEFAULT_TIMEOUT_TICK_NS
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns)):
+            with deadline_clock_scope(GasMeter(limit=int(ticks))):
+                yield
 
 
 @dataclass(frozen=True)
@@ -97,51 +121,52 @@ def _run_gh(args: list[str], dry_run: bool) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync SPPF-linked issues from commit messages.")
-    parser.add_argument(
-        "--range",
-        dest="rev_range",
-        default=None,
-        help="Git revision range (default: origin/stage..HEAD if available).")
-    parser.add_argument(
-        "--comment",
-        action="store_true",
-        help="Comment on each referenced issue with commit summary.")
-    parser.add_argument(
-        "--close",
-        action="store_true",
-        help="Close each referenced issue with a summary comment.")
-    parser.add_argument(
-        "--label",
-        default=None,
-        help="Apply a label to each referenced issue.")
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print gh commands without executing.")
-    args = parser.parse_args()
+    with _deadline_scope():
+        parser = argparse.ArgumentParser(description="Sync SPPF-linked issues from commit messages.")
+        parser.add_argument(
+            "--range",
+            dest="rev_range",
+            default=None,
+            help="Git revision range (default: origin/stage..HEAD if available).")
+        parser.add_argument(
+            "--comment",
+            action="store_true",
+            help="Comment on each referenced issue with commit summary.")
+        parser.add_argument(
+            "--close",
+            action="store_true",
+            help="Close each referenced issue with a summary comment.")
+        parser.add_argument(
+            "--label",
+            default=None,
+            help="Apply a label to each referenced issue.")
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Print gh commands without executing.")
+        args = parser.parse_args()
 
-    rev_range = args.rev_range or _default_range()
-    commits = _collect_commits(rev_range)
-    if not commits:
-        print("No commits in range; nothing to sync.")
+        rev_range = args.rev_range or _default_range()
+        commits = _collect_commits(rev_range)
+        if not commits:
+            print("No commits in range; nothing to sync.")
+            return 0
+
+        issue_ids = sorted(_issue_ids_from_commits(commits))
+        if not issue_ids:
+            print("No issue references found in commit messages.")
+            return 0
+
+        comment = _build_comment(rev_range, commits)
+        for issue_id in issue_ids:
+            check_deadline()
+            if args.close:
+                _run_gh(["issue", "close", issue_id, "-c", comment], args.dry_run)
+            elif args.comment:
+                _run_gh(["issue", "comment", issue_id, "-b", comment], args.dry_run)
+            if args.label:
+                _run_gh(["issue", "edit", issue_id, "--add-label", args.label], args.dry_run)
         return 0
-
-    issue_ids = sorted(_issue_ids_from_commits(commits))
-    if not issue_ids:
-        print("No issue references found in commit messages.")
-        return 0
-
-    comment = _build_comment(rev_range, commits)
-    for issue_id in issue_ids:
-        check_deadline()
-        if args.close:
-            _run_gh(["issue", "close", issue_id, "-c", comment], args.dry_run)
-        elif args.comment:
-            _run_gh(["issue", "comment", issue_id, "-b", comment], args.dry_run)
-        if args.label:
-            _run_gh(["issue", "edit", issue_id, "--add-label", args.label], args.dry_run)
-    return 0
 
 
 if __name__ == "__main__":

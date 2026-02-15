@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 
-from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
 from gabion.lsp_client import _env_timeout_ticks, _has_env_timeout
 
 
@@ -13,6 +22,7 @@ _DEFAULT_ADVISORY_TIMEOUT_TICKS = 120_000
 _DEFAULT_ADVISORY_TIMEOUT_TICK_NS = 1_000_000
 
 
+@contextmanager
 def _deadline_scope():
     if _has_env_timeout():
         ticks, tick_ns = _env_timeout_ticks()
@@ -21,7 +31,10 @@ def _deadline_scope():
             _DEFAULT_ADVISORY_TIMEOUT_TICKS,
             _DEFAULT_ADVISORY_TIMEOUT_TICK_NS,
         )
-    return deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns))
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ticks(ticks, tick_ns)):
+            with deadline_clock_scope(GasMeter(limit=int(ticks))):
+                yield
 
 
 def _enabled() -> bool:

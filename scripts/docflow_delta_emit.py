@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
+from gabion.deadline_clock import GasMeter
+from gabion.lsp_client import _env_timeout_ticks, _has_env_timeout
 
 BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
@@ -16,13 +26,24 @@ _DEFAULT_DELTA_TIMEOUT_TICKS = 120_000
 _DEFAULT_DELTA_TIMEOUT_TICK_NS = 1_000_000
 
 
+@contextmanager
 def _delta_deadline_scope():
-    return deadline_scope(
-        Deadline.from_timeout_ticks(
+    if _has_env_timeout():
+        ticks, tick_ns = _env_timeout_ticks()
+    else:
+        ticks, tick_ns = (
             _DEFAULT_DELTA_TIMEOUT_TICKS,
             _DEFAULT_DELTA_TIMEOUT_TICK_NS,
         )
-    )
+    with forest_scope(Forest()):
+        with deadline_scope(
+            Deadline.from_timeout_ticks(
+                ticks,
+                tick_ns,
+            )
+        ):
+            with deadline_clock_scope(GasMeter(limit=int(ticks))):
+                yield
 
 
 def _run_docflow_audit() -> None:
