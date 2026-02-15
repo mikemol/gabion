@@ -8,6 +8,12 @@ import sys
 import pytest
 
 from gabion.exceptions import NeverThrown
+from gabion.analysis.timeout_context import (
+    Deadline,
+    TimeoutContext,
+    deadline_scope,
+    pack_call_stack,
+)
 
 
 def _load():
@@ -1855,3 +1861,1567 @@ def test_report_projection_phase_rank_order() -> None:
     assert da.report_projection_phase_rank("edge") < da.report_projection_phase_rank(
         "post"
     )
+
+
+def test_resume_map_harness_uses_injected_parser() -> None:
+    da = _load()
+    seen: list[object] = []
+
+    def _parser(value: object) -> int | None:
+        seen.append(value)
+        if value == "keep":
+            return 1
+        return None
+
+    out = da._load_resume_map(
+        payload={"k1": "keep", "k2": "drop", "k3": "ignored"},
+        valid_fn_keys={"k1", "k2"},
+        parser=_parser,
+    )
+    assert seen == ["keep", "drop"]
+    assert out == {"k1": 1}
+
+
+def test_iter_valid_resume_entries_and_str_sequence_helpers() -> None:
+    da = _load()
+    entries = list(
+        da._iter_valid_resume_entries(
+            payload={"k1": "v1", "k2": 2, "k3": "v3"},
+            valid_fn_keys={"k1", "k3"},
+        )
+    )
+    assert entries == [("k1", "v1"), ("k3", "v3")]
+    assert da._str_list_from_sequence(["a", 1, "b"]) == ["a", "b"]
+    assert da._str_list_from_sequence("bad") == []
+    assert da._str_tuple_from_sequence(["a", 1, "b"]) == ("a", "b")
+
+
+def test_deserialize_param_use_filters_malformed_values() -> None:
+    da = _load()
+    use = da._deserialize_param_use(
+        {
+            "direct_forward": [["callee", "slot"], ["bad"], [1, 2], ["callee2", 3]],
+            "non_forward": 1,
+            "current_aliases": ["a", 2, "b"],
+            "forward_sites": [
+                {
+                    "callee": "callee",
+                    "slot": "slot",
+                    "spans": [[1, 2, 3, 4], [1, 2, 3], [1, 2, 3, "x"], (4, 5, 6, 7)],
+                },
+                {"callee": 1, "slot": "x", "spans": []},
+                "bad",
+            ],
+        }
+    )
+    assert ("callee", "slot") in use.direct_forward
+    assert use.current_aliases == {"a", "b"}
+    assert use.non_forward is True
+    assert use.forward_sites[("callee", "slot")] == {(1, 2, 3, 4), (4, 5, 6, 7)}
+
+
+def test_deserialize_call_args_handles_invalid_shapes() -> None:
+    da = _load()
+    assert da._deserialize_call_args({"callee": 1}) is None
+
+    call = da._deserialize_call_args(
+        {
+            "callee": "mod.fn",
+            "pos_map": {"a": "p", 1: "bad", "b": 2},
+            "kw_map": {"k": "v"},
+            "const_pos": {"a": "1"},
+            "const_kw": {"k": "2"},
+            "non_const_pos": ["x", 1],
+            "non_const_kw": ["y", 2],
+            "star_pos": [[0, "p"], ["bad", "q"], [1, 2], ["3", "r"], [9]],
+            "star_kw": ["kw", 2],
+            "is_test": 1,
+            "span": [1, 2, 3, "x"],
+        }
+    )
+    assert call is not None
+    assert call.callee == "mod.fn"
+    assert call.pos_map == {"a": "p"}
+    assert call.non_const_pos == {"x"}
+    assert call.non_const_kw == {"y"}
+    assert call.star_pos == [(0, "p"), (3, "r")]
+    assert call.star_kw == ["kw"]
+    assert call.span is None
+    assert call.is_test is True
+
+
+def test_deserialize_function_info_for_resume_filters_malformed_fields(tmp_path: Path) -> None:
+    da = _load()
+    allowed_paths = {"m.py": tmp_path / "m.py"}
+    assert (
+        da._deserialize_function_info_for_resume(
+            {"name": "f", "qual": "m.f", "path": "m.py", "params": "bad"},
+            allowed_paths=allowed_paths,
+        )
+        is None
+    )
+    info = da._deserialize_function_info_for_resume(
+        {
+            "name": "f",
+            "qual": "m.f",
+            "path": "m.py",
+            "params": ["a", 1],
+            "annots": {"a": "int", "b": None, 1: "bad", "c": 3},
+            "calls": [{"callee": "m.g"}, "bad"],
+            "unused_params": ["u", 1],
+            "defaults": ["d", 1],
+            "transparent": False,
+            "class_name": 123,
+            "scope": ["S", 1],
+            "lexical_scope": ["L", 1],
+            "decision_params": ["x", 1],
+            "value_decision_params": ["y", 1],
+            "value_decision_reasons": ["r", 1],
+            "positional_params": ["p", 1],
+            "kwonly_params": ["k", 1],
+            "vararg": 2,
+            "kwarg": 3,
+            "param_spans": {
+                "a": [1, 2, 3, 4],
+                "badlen": [1, 2, 3],
+                "badtype": [1, 2, 3, "x"],
+            },
+            "function_span": [1, 2, 3, "x"],
+        },
+        allowed_paths=allowed_paths,
+    )
+    assert info is not None
+    assert info.path == tmp_path / "m.py"
+    assert info.params == ["a"]
+    assert info.annots == {"a": "int", "b": None}
+    assert len(info.calls) == 1
+    assert info.class_name is None
+    assert info.scope == ("S",)
+    assert info.lexical_scope == ("L",)
+    assert info.decision_params == {"x"}
+    assert info.value_decision_params == {"y"}
+    assert info.value_decision_reasons == {"r"}
+    assert info.positional_params == ("p",)
+    assert info.kwonly_params == ("k",)
+    assert info.vararg is None
+    assert info.kwarg is None
+    assert info.param_spans == {"a": (1, 2, 3, 4)}
+    assert info.function_span is None
+
+
+def test_deserialize_symbol_table_for_resume_filters_malformed_entries() -> None:
+    da = _load()
+    table = da._deserialize_symbol_table_for_resume(
+        {
+            "external_filter": 0,
+            "imports": [["m", "n", "m.n"], ["bad"], [1, 2, 3]],
+            "internal_roots": ["pkg", 1],
+            "star_imports": {"mod": ["a", 1], 2: ["x"]},
+            "module_exports": {"mod": ["x", 1], 2: ["y"]},
+            "module_export_map": {"mod": {"a": "b", "x": 1}, 2: {"q": "r"}},
+        }
+    )
+    assert table.external_filter is False
+    assert table.imports == {("m", "n"): "m.n"}
+    assert table.internal_roots == {"pkg"}
+    assert table.star_imports == {"mod": {"a"}}
+    assert table.module_exports == {"mod": {"x"}}
+    assert table.module_export_map == {"mod": {"a": "b"}}
+
+
+def test_load_file_scan_resume_state_handles_invalid_shapes() -> None:
+    da = _load()
+    empty = ({}, {}, {}, {}, {}, {}, {}, set())
+    assert da._load_file_scan_resume_state(payload=None, valid_fn_keys=set()) == empty
+    assert (
+        da._load_file_scan_resume_state(
+            payload={"phase": "wrong"},
+            valid_fn_keys={"f"},
+        )
+        == empty
+    )
+    assert (
+        da._load_file_scan_resume_state(
+            payload={
+                "phase": "function_scan",
+                "fn_use": [],
+                "fn_calls": {},
+                "fn_param_orders": {},
+                "fn_param_spans": {},
+                "fn_names": {},
+                "fn_lexical_scopes": {},
+                "fn_class_names": {},
+            },
+            valid_fn_keys={"f"},
+        )
+        == empty
+    )
+
+
+def test_load_file_scan_resume_state_parses_valid_entries() -> None:
+    da = _load()
+    payload = {
+        "phase": "function_scan",
+        "fn_use": {"f": {"p": {"direct_forward": [["g", "x"]]}}},
+        "fn_calls": {"f": [{"callee": "m.g"}], "other": [{"callee": "ignored"}]},
+        "fn_param_orders": {"f": ["a", 1], "other": ["x"]},
+        "fn_param_spans": {"f": {"a": [1, 2, 3, 4]}},
+        "fn_names": {"f": "name", "other": "ignored"},
+        "fn_lexical_scopes": {"f": ["L", 1], "other": ["X"]},
+        "fn_class_names": {"f": None, "other": "C"},
+        "opaque_callees": ["f", "other", 1],
+    }
+    (
+        fn_use,
+        fn_calls,
+        fn_param_orders,
+        fn_param_spans,
+        fn_names,
+        fn_lexical_scopes,
+        fn_class_names,
+        opaque_callees,
+    ) = da._load_file_scan_resume_state(payload=payload, valid_fn_keys={"f"})
+    assert set(fn_use) == {"f"}
+    assert set(fn_calls) == {"f"}
+    assert fn_param_orders == {"f": ["a"]}
+    assert fn_param_spans == {"f": {"a": (1, 2, 3, 4)}}
+    assert fn_names == {"f": "name"}
+    assert fn_lexical_scopes == {"f": ("L",)}
+    assert fn_class_names == {"f": None}
+    assert opaque_callees == {"f"}
+
+
+def test_deserialize_invariants_for_resume_filters_malformed_entries() -> None:
+    da = _load()
+    invariants = da._deserialize_invariants_for_resume(
+        [
+            {"form": "eq", "terms": ["a", 1], "scope": "s", "source": "src"},
+            {"form": "bad", "terms": "not-seq"},
+            {"terms": ["x"]},
+            "bad",
+        ]
+    )
+    assert len(invariants) == 1
+    invariant = invariants[0]
+    assert invariant.form == "eq"
+    assert invariant.terms == ("a",)
+    assert invariant.scope == "s"
+    assert invariant.source == "src"
+
+
+def test_load_analysis_collection_resume_payload_invalid_shapes() -> None:
+    da = _load()
+    empty = ({}, {}, {}, [], set(), {}, None)
+    assert (
+        da._load_analysis_collection_resume_payload(
+            payload=None,
+            file_paths=[],
+            include_invariant_propositions=False,
+        )
+        == empty
+    )
+    assert (
+        da._load_analysis_collection_resume_payload(
+            payload={"format_version": 0},
+            file_paths=[],
+            include_invariant_propositions=False,
+        )
+        == empty
+    )
+    assert (
+        da._load_analysis_collection_resume_payload(
+            payload={
+                "format_version": 2,
+                "groups_by_path": [],
+                "param_spans_by_path": {},
+                "bundle_sites_by_path": {},
+                "in_progress_scan_by_path": {},
+            },
+            file_paths=[],
+            include_invariant_propositions=False,
+        )
+        == empty
+    )
+    assert (
+        da._load_analysis_collection_resume_payload(
+            payload={
+                "format_version": 2,
+                "groups_by_path": {},
+                "param_spans_by_path": [],
+                "bundle_sites_by_path": {},
+                "in_progress_scan_by_path": {},
+            },
+            file_paths=[],
+            include_invariant_propositions=False,
+        )
+        == empty
+    )
+
+
+def test_load_analysis_collection_resume_payload_filters_entries(tmp_path: Path) -> None:
+    da = _load()
+    first = tmp_path / "a.py"
+    second = tmp_path / "b.py"
+    payload = {
+        "format_version": 2,
+        "completed_paths": [str(first), str(second), "missing.py", 1],
+        "groups_by_path": {
+            str(first): {"fn": [["a"]]},
+            str(second): [],
+        },
+        "param_spans_by_path": {
+            str(first): {"fn": {"a": [1, 2, 3, 4]}},
+            str(second): [],
+        },
+        "bundle_sites_by_path": {
+            str(first): {"fn": [[{"kind": "k"}]]},
+            str(second): [],
+        },
+        "in_progress_scan_by_path": {
+            str(first): {"phase": "scan_pending"},
+            str(second): {"phase": "function_scan"},
+            "missing.py": {"phase": "scan_pending"},
+            str(tmp_path / "bad.py"): "bad",
+        },
+        "invariant_propositions": [
+            {"form": "eq", "terms": ["a"]},
+            "bad",
+        ],
+        "analysis_index_resume": {"phase": "analysis_index_hydration"},
+    }
+    (
+        groups_by_path,
+        param_spans_by_path,
+        bundle_sites_by_path,
+        invariant_propositions,
+        completed_paths,
+        in_progress_scan_by_path,
+        analysis_index_resume,
+    ) = da._load_analysis_collection_resume_payload(
+        payload=payload,
+        file_paths=[first, second],
+        include_invariant_propositions=True,
+    )
+    assert completed_paths == {first}
+    assert groups_by_path[first]["fn"] == [{"a"}]
+    assert param_spans_by_path[first]["fn"]["a"] == (1, 2, 3, 4)
+    assert bundle_sites_by_path[first]["fn"][0][0]["kind"] == "k"
+    assert second in in_progress_scan_by_path
+    assert first not in in_progress_scan_by_path
+    assert len(invariant_propositions) == 1
+    assert isinstance(analysis_index_resume, dict)
+    assert analysis_index_resume["phase"] == "analysis_index_hydration"
+
+
+def test_runtime_obligation_violation_lines_and_preview_helpers() -> None:
+    da = _load()
+    obligations = [
+        {
+            "status": "SATISFIED",
+            "contract": "resume_contract",
+            "kind": "ok",
+            "detail": "done",
+        },
+        {
+            "status": "VIOLATION",
+            "contract": "resume_contract",
+            "kind": "missing_checkpoint",
+            "section_id": "intro",
+            "phase": "collection",
+            "detail": "checkpoint missing",
+        },
+    ]
+    violations = da._runtime_obligation_violation_lines(obligations)
+    assert violations == [
+        "resume_contract missing_checkpoint section=intro phase=collection detail=checkpoint missing"
+    ]
+    lines = da._preview_runtime_obligations_section(
+        title="Resumability obligations",
+        obligations=obligations,
+    )
+    assert lines[0] == "Resumability obligations preview (provisional)."
+    assert any("`violations`: `1`" in line for line in lines)
+    assert any("sample_violation" in line for line in lines)
+
+
+def test_known_violation_and_preview_violations_sections() -> None:
+    da = _load()
+    report = da.ReportCarrier(
+        forest=da.Forest(),
+        parse_failure_witnesses=[
+            {
+                "path": "a.py",
+                "stage": "parse",
+                "error_type": "SyntaxError",
+                "error": "bad",
+            }
+        ],
+        decision_warnings=["warn"],
+        fingerprint_warnings=["warn"],
+        resumability_obligations=[
+            {
+                "status": "VIOLATION",
+                "contract": "resume_contract",
+                "kind": "missing",
+            }
+        ],
+    )
+    known = da._known_violation_lines(report)
+    assert any("resume_contract missing" in line for line in known)
+    assert any("parse_failure" in line for line in known)
+    assert known.count("warn") == 1
+
+    preview = da._preview_violations_section(report, {})
+    assert preview[0] == "Violations preview (provisional)."
+    assert any("known_violations" in line for line in preview)
+    assert any(line.startswith("- ") for line in preview[2:])
+
+    empty_report = da.ReportCarrier(forest=da.Forest(), parse_failure_witnesses=[])
+    empty_preview = da._preview_violations_section(empty_report, {})
+    assert "- none observed yet" in empty_preview
+
+
+def test_preview_parse_failure_witnesses_section_counts_stage() -> None:
+    da = _load()
+    report = da.ReportCarrier(
+        forest=da.Forest(),
+        parse_failure_witnesses=[
+            {"path": "a.py", "stage": "parse"},
+            {"path": "b.py", "stage": ""},
+            {"path": "c.py"},
+        ],
+    )
+    lines = da._preview_parse_failure_witnesses_section(report, {})
+    assert lines[0] == "Parse failure witnesses preview (provisional)."
+    assert any("stage[parse]" in line for line in lines)
+    assert any("stage[unknown]" in line for line in lines)
+
+
+def test_load_analysis_index_resume_payload_filters_entries(tmp_path: Path) -> None:
+    da = _load()
+    first = tmp_path / "a.py"
+    second = tmp_path / "b.py"
+    hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload=None,
+        file_paths=[first, second],
+    )
+    assert hydrated_paths == set()
+    assert by_qual == {}
+    assert symbol_table.imports == {}
+    assert class_index == {}
+
+    payload = {
+        "format_version": 1,
+        "hydrated_paths": [str(first), "missing.py", 1],
+        "functions_by_qual": {
+            "m.f": {
+                "name": "f",
+                "qual": "m.f",
+                "path": str(first),
+                "params": ["a"],
+                "annots": {"a": "int"},
+                "calls": [{"callee": "m.g"}],
+                "unused_params": ["u"],
+                "defaults": [],
+                "transparent": True,
+                "class_name": None,
+                "scope": [],
+                "lexical_scope": [],
+                "decision_params": [],
+                "value_decision_params": [],
+                "value_decision_reasons": [],
+                "positional_params": [],
+                "kwonly_params": [],
+                "vararg": None,
+                "kwarg": None,
+                "param_spans": {"a": [1, 2, 3, 4]},
+            },
+            "bad": "skip",
+        },
+        "symbol_table": {
+            "imports": [["m", "n", "m.n"]],
+            "internal_roots": ["pkg"],
+            "external_filter": True,
+            "star_imports": {},
+            "module_exports": {},
+            "module_export_map": {},
+        },
+        "class_index": {
+            "m.C": {"qual": "m.C", "module": "m", "bases": [], "methods": ["x"]},
+            "bad": "skip",
+        },
+    }
+    hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload=payload,
+        file_paths=[first, second],
+    )
+    assert hydrated_paths == {first}
+    assert set(by_qual) == {"m.f"}
+    assert symbol_table.imports == {("m", "n"): "m.n"}
+    assert set(class_index) == {"m.C"}
+
+
+def test_report_projection_spec_topology_guards() -> None:
+    da = _load()
+    first = da._report_section_spec(section_id="intro", phase="collection")
+    second = da._report_section_spec(
+        section_id="components",
+        phase="forest",
+        deps=("intro",),
+    )
+    ordered = da._topologically_order_report_projection_specs((second, first))
+    assert [spec.section_id for spec in ordered] == ["intro", "components"]
+
+    with pytest.raises(NeverThrown):
+        da._topologically_order_report_projection_specs(
+            (
+                da._report_section_spec(section_id="x", phase="collection", deps=("missing",)),
+            )
+        )
+    with pytest.raises(NeverThrown):
+        da._topologically_order_report_projection_specs(
+            (
+                da._report_section_spec(section_id="x", phase="collection", deps=("x",)),
+            )
+        )
+    with pytest.raises(NeverThrown):
+        da._topologically_order_report_projection_specs(
+            (
+                da._report_section_spec(section_id="x", phase="collection"),
+                da._report_section_spec(section_id="x", phase="forest"),
+            )
+        )
+    with pytest.raises(NeverThrown):
+        da._topologically_order_report_projection_specs(
+            (
+                da._report_section_spec(section_id="x", phase="collection", deps=("y",)),
+                da._report_section_spec(section_id="y", phase="forest", deps=("x",)),
+            )
+        )
+
+
+def test_report_preview_helpers_cover_samples() -> None:
+    da = _load()
+    report = da.ReportCarrier(
+        forest=da.Forest(),
+        parse_failure_witnesses=[],
+        type_ambiguities=["ambiguous[x]"],
+        type_suggestions=["s"],
+        type_callsite_evidence=["e"],
+        constant_smells=["const"],
+        deadline_obligations=[{"kind": "k", "status": "VIOLATION", "detail": "d"}],
+        resumability_obligations=[{"status": "PENDING", "contract": "resume", "kind": "k"}],
+    )
+    type_preview = da._preview_type_flow_section(report, {})
+    assert any("sample_type_ambiguity" in line for line in type_preview)
+
+    deadline_preview = da._preview_deadline_summary_section(report, {})
+    assert deadline_preview[0] == "Deadline propagation preview (provisional)."
+    empty_deadline_preview = da._preview_deadline_summary_section(
+        da.ReportCarrier(forest=da.Forest(), parse_failure_witnesses=[]),
+        {},
+    )
+    assert "- no deadline obligations yet" in empty_deadline_preview
+
+    const_preview = da._preview_constant_smells_section(report, {})
+    assert any("sample_constant_smell" in line for line in const_preview)
+
+    obligations_preview = da._preview_runtime_obligations_section(
+        title="Resumability obligations",
+        obligations=report.resumability_obligations,
+    )
+    assert any("`pending`: `1`" in line for line in obligations_preview)
+    assert da._report_section_no_violations(["x"]) == []
+
+
+def test_parse_witness_contract_violations_read_and_parse_errors(tmp_path: Path) -> None:
+    da = _load()
+    missing = da._parse_witness_contract_violations(source_path=tmp_path / "missing.py")
+    assert missing and "read_error" in missing[0]
+    parse_error = da._parse_witness_contract_violations(
+        source="def broken(:\n",
+        source_path=tmp_path / "broken.py",
+    )
+    assert parse_error and "parse_error" in parse_error[0]
+
+
+def test_parse_witness_contract_violations_missing_helper_and_param(tmp_path: Path) -> None:
+    da = _load()
+    source = (
+        "def helper(parse_failure_witnesses: list[dict]):\n"
+        "    return None\n"
+        "def missing_param(x: int):\n"
+        "    return x\n"
+    )
+    violations = da._parse_witness_contract_violations(
+        source=source,
+        source_path=tmp_path / "module.py",
+        target_helpers=frozenset({"helper", "missing", "missing_param"}),
+    )
+    assert any("missing helper definition" in line for line in violations)
+    assert any("missing parse_failure_witnesses" in line for line in violations)
+
+
+def test_annotation_allows_none_and_parameter_default_map_edges() -> None:
+    da = _load()
+    assert da._annotation_allows_none(None) is True
+    assert da._annotation_allows_none(ast.parse("Optional[int]").body[0].value) is True
+    assert da._annotation_allows_none(ast.parse("int").body[0].value) is False
+
+    fn = ast.parse(
+        "def f(a, b=1, *, c=None, d=2):\n"
+        "    return a\n"
+    ).body[0]
+    mapping = da._parameter_default_map(fn)
+    assert mapping["b"] is not None
+    assert mapping["c"] is not None
+    assert mapping["d"] is not None
+
+
+def test_raw_sorted_contract_violations_strict_and_baseline(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "m.py"
+    _write(path, "def f(xs):\n    return sorted(xs)\n")
+    baseline_key = da._raw_sorted_baseline_key(path)
+    assert baseline_key.endswith("m.py")
+
+    strict = da._raw_sorted_contract_violations(
+        [path],
+        parse_failure_witnesses=[],
+        strict_forbid=True,
+    )
+    assert any("raw sorted() forbidden" in line for line in strict)
+
+    exceeds = da._raw_sorted_contract_violations(
+        [path],
+        parse_failure_witnesses=[],
+        baseline_counts={baseline_key: 0},
+    )
+    assert any("raw_sorted exceeded baseline" in line for line in exceeds)
+
+
+def test_report_projection_render_paths_and_dedup_dep_edges(tmp_path: Path) -> None:
+    da = _load()
+    report = da.ReportCarrier(forest=da.Forest(), parse_failure_witnesses=[])
+    groups = {tmp_path / "m.py": {"f": [{"x"}]}}
+    section_lines = da._report_section_text(report, groups, section_id="intro")
+    assert isinstance(section_lines, list)
+    assert da.report_projection_specs()
+    rendered = da.project_report_sections(
+        groups,
+        report,
+        max_phase="collection",
+        include_previews=False,
+        preview_only=False,
+    )
+    assert "components" not in rendered
+
+    ordered = da._topologically_order_report_projection_specs(
+        (
+            da._report_section_spec(section_id="root", phase="collection"),
+            da._report_section_spec(
+                section_id="child",
+                phase="forest",
+                deps=("root", "root"),
+            ),
+        )
+    )
+    assert [spec.section_id for spec in ordered] == ["root", "child"]
+
+
+def test_decision_surface_indexed_rewrite_guard_and_annotation_unparse_failure() -> None:
+    da = _load()
+
+    def _patched_run(*_args, **_kwargs):
+        return (["s"], [], ["rewrite"], [])
+
+    with pytest.raises(NeverThrown):
+        da._analyze_decision_surfaces_indexed(
+            da._IndexedPassContext(
+                paths=[],
+                project_root=None,
+                ignore_params=set(),
+                strictness="high",
+                external_filter=True,
+                transparent_decorators=None,
+                parse_failure_witnesses=[],
+                analysis_index=da.AnalysisIndex(
+                    by_name={},
+                    by_qual={},
+                    symbol_table=da.SymbolTable(),
+                    class_index={},
+                ),
+            ),
+            decision_tiers=None,
+            require_tiers=False,
+            forest=da.Forest(),
+            run_fn=_patched_run,
+        )
+
+    def _raise_unparse(*_args: object, **_kwargs: object) -> str:
+        raise ValueError("boom")
+
+    assert (
+        da._annotation_allows_none(
+            ast.parse("int").body[0].value,
+            unparse_fn=_raise_unparse,
+        )
+        is True
+    )
+
+
+def test_raw_sorted_key_and_callsite_count_non_py(tmp_path: Path) -> None:
+    da = _load()
+    src_path = tmp_path / "src" / "pkg" / "mod.py"
+    src_path.parent.mkdir(parents=True)
+    src_path.write_text("def f(xs):\n    return sorted(xs)\n")
+    assert da._raw_sorted_baseline_key(src_path).startswith("src/")
+    txt = tmp_path / "notes.txt"
+    txt.write_text("sorted([1])\n")
+    counts = da._raw_sorted_callsite_counts([txt], parse_failure_witnesses=[])
+    assert counts == {}
+
+
+def test_detect_execution_pattern_matches_read_and_parse_and_filter_paths(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    missing = da._detect_execution_pattern_matches(source=None, source_path=tmp_path / "missing.py")
+    assert missing == []
+    parse_fail = da._detect_execution_pattern_matches(
+        source="def broken(:\n",
+        source_path=tmp_path / "broken.py",
+    )
+    assert parse_fail == []
+    filtered = da._detect_execution_pattern_matches(
+        source=(
+            "x = 1\n"
+            "def f(a):\n"
+            "    return a\n"
+            "def g(paths, project_root, ignore_params, strictness, external_filter, transparent_decorators, parse_failure_witnesses, analysis_index):\n"
+            "    return 1\n"
+        ),
+        source_path=tmp_path / "m.py",
+    )
+    assert filtered == []
+
+
+def test_lint_and_report_section_projection_edge_filters() -> None:
+    da = _load()
+    assert da._parse_lint_remainder("") == ("GABION_UNKNOWN", "")
+    rows = da._lint_rows_from_lines(
+        ["no-location", "a.py:1:2: CODE message"],
+        source="src",
+    )
+    assert len(rows) == 1
+
+    forest = da.Forest()
+    da._materialize_lint_rows(
+        forest=forest,
+        rows=[
+            {"path": "", "line": 1, "col": 1, "code": "X", "message": "m"},
+            {"path": "a.py", "line": "bad", "col": 1, "code": "X", "message": "m"},
+            {"path": "a.py", "line": 1, "col": 1, "code": "", "message": "m"},
+            {"path": "a.py", "line": 1, "col": 1, "code": "X", "message": "m"},
+        ],
+    )
+    relation = da._lint_relation_from_forest(forest)
+    assert relation
+
+    assert da._project_lint_rows_from_forest(
+        forest=da.Forest(),
+        relation_fn=lambda _forest: [
+            {
+                "path": "",
+                "line": 1,
+                "col": 1,
+                "code": "X",
+                "message": "",
+                "sources": [],
+            }
+        ],
+        apply_spec_fn=lambda _spec, relation: relation,
+    ) == [
+        {"path": "", "line": 1, "col": 1, "code": "X", "message": "", "sources": []}
+    ]
+
+    key = da._ReportSectionKey(run_id="r", section="s")
+    section_forest = da.Forest()
+    assert da._project_report_section_lines(forest=section_forest, section_key=key, lines=[]) == []
+
+
+def test_suite_order_and_suite_span_and_async_for_materialization(tmp_path: Path) -> None:
+    da = _load()
+    forest = da.Forest()
+    da._materialize_suite_order_spec(forest=forest)
+    assert not forest.alts
+
+    assert da._suite_span_from_statements([]) is None
+    expr_only = ast.parse("1\n").body
+    assert da._suite_span_from_statements(expr_only) is not None
+    body = ast.parse("x = 1\ny = 2\n").body
+    span = da._suite_span_from_statements(body)
+    assert span is not None
+
+    module = ast.parse(
+        "async def f():\n"
+        "    async for item in xs:\n"
+        "        y = item\n"
+        "    else:\n"
+        "        z = 1\n"
+    )
+    async_fn = module.body[0]
+    async_for = async_fn.body[0]
+    parent = forest.add_suite_site("m.py", "m.f", "function_body", span=(1, 1, 4, 1))
+    da._materialize_statement_suite_contains(
+        forest=forest,
+        path_name="m.py",
+        qual="m.f",
+        statements=[async_for],
+        parent_suite=parent,
+    )
+    assert any(alt.kind == "SuiteContains" for alt in forest.alts)
+
+
+def test_parse_failure_and_runtime_summary_edges() -> None:
+    da = _load()
+    assert da._summarize_parse_failure_witnesses([]) == []
+    lines = da._summarize_parse_failure_witnesses(
+        [
+            {"path": "a.py", "stage": "parse", "error_type": "SyntaxError", "error": "bad"},
+            {"path": "b.py", "stage": "parse", "error_type": "ValueError"},
+            {"path": "c.py", "stage": "parse", "error_type": "TypeError"},
+        ],
+        max_entries=2,
+    )
+    assert any("more" in line for line in lines)
+    violation_lines = da._parse_failure_violation_lines(
+        [{"path": "a.py", "stage": "s", "error_type": "E", "error": "x"}]
+    )
+    assert any("parse_failure" in line for line in violation_lines)
+    assert da._summarize_runtime_obligations([]) == []
+    runtime = da._summarize_runtime_obligations(
+        [{"contract": "c", "kind": "k", "status": "SATISFIED", "detail": "d"}] * 3,
+        max_entries=2,
+    )
+    assert any("more" in line for line in runtime)
+
+
+def test_resume_deserialize_helpers_cover_invalid_rows(tmp_path: Path) -> None:
+    da = _load()
+    assert da._parse_report_section_marker("no marker") is None
+    assert da._parse_report_section_marker("<!-- report-section: -->") is None
+    extracted = da.extract_report_sections("line")
+    assert extracted == {}
+
+    tree = ast.parse("def f(a):\n    return a\n")
+    marker_lines = [
+        "<!-- report-section:intro -->",
+        "ok",
+    ]
+    assert da.extract_report_sections("\n".join(marker_lines)) == {"intro": ["ok"]}
+
+    assert da._deserialize_param_use_map({"x": 1}) == {}
+    allowed = {str(tmp_path / "m.py"): tmp_path / "m.py"}
+    assert da._deserialize_function_info_for_resume({}, allowed_paths=allowed) is None
+    assert da._deserialize_function_info_for_resume(
+        {
+            "name": "f",
+            "qual": "m.f",
+            "path": "missing.py",
+            "params": [],
+        },
+        allowed_paths=allowed,
+    ) is None
+    info = da._deserialize_function_info_for_resume(
+        {
+            "name": "f",
+            "qual": "m.f",
+            "path": str(tmp_path / "m.py"),
+            "params": [],
+            "param_spans": {"x": ["bad", 1, 2, 3], 1: [1, 2, 3, 4]},
+        },
+        allowed_paths=allowed,
+    )
+    assert info is not None
+    assert info.param_spans == {}
+    assert da._deserialize_class_info_for_resume({"qual": 1, "module": "m"}) is None
+
+
+def test_resume_payload_loaders_and_serializers_cover_edges(tmp_path: Path) -> None:
+    da = _load()
+    first = tmp_path / "a.py"
+    second = tmp_path / "b.py"
+    hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload={"format_version": 0},
+        file_paths=[first, second],
+    )
+    assert hydrated_paths == set()
+    assert by_qual == {}
+    assert symbol_table.imports == {}
+    assert class_index == {}
+
+    payload = da._load_analysis_collection_resume_payload(
+        payload={"in_progress_scan_by_path": None, "analysis_index_resume": {"bad": 1}},
+        file_paths=[first],
+        include_invariant_propositions=False,
+    )
+    assert len(payload) == 7
+
+    assert da._deserialize_groups_for_resume({1: []}) == {}
+    assert da._deserialize_param_spans_for_resume(
+        {"f": {"x": [1, 2, 3], 1: [1, 2, 3, 4]}}
+    ) == {"f": {}}
+    serialized_sites = da._serialize_bundle_sites_for_resume({"f": [[{"kind": "k"}, "bad"]]})
+    assert serialized_sites == {"f": [[{"kind": "k"}]]}
+    assert da._deserialize_bundle_sites_for_resume({"f": [["bad"]]}) == {"f": [[]]}
+    assert da._serialize_invariants_for_resume(
+        [da.InvariantProposition(form="Equal", terms=("a", "b"), scope="s", source="src")]
+    )
+
+
+def test_analysis_index_cache_and_build_edges(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "m.py"
+    path.write_text("def f():\n    return 1\n")
+    assert da._build_module_artifacts(
+        [path],
+        specs=(),
+        parse_failure_witnesses=[],
+    ) == ()
+
+    index = da.AnalysisIndex(by_name={}, by_qual={}, symbol_table=da.SymbolTable(), class_index={})
+    spec = da._StageCacheSpec(
+        stage=da._ParseModuleStage.FUNCTION_INDEX,
+        cache_key=("k",),
+        build=lambda _tree, _path: "ok",
+    )
+    assert da._analysis_index_stage_cache(
+        index,
+        [path],
+        spec=spec,
+        parse_failure_witnesses=[],
+        module_trees_fn=lambda *_args, **_kwargs: {path: None},
+    ) == {path: None}
+
+    index.resolved_transparent_edges_by_caller = {"m.f": ()}
+    assert da._analysis_index_resolved_call_edges_by_caller(
+        index,
+        project_root=None,
+        require_transparent=True,
+    ) == {"m.f": ()}
+
+
+def test_deadline_function_facts_cache_and_tree_path_edges(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "m.py"
+    path.write_text("def f(deadline):\n    return deadline\n")
+    index = da.AnalysisIndex(by_name={}, by_qual={}, symbol_table=da.SymbolTable(), class_index={})
+    assert da._collect_deadline_function_facts(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        parse_failure_witnesses=[],
+        analysis_index=index,
+        stage_cache_fn=lambda *_args, **_kwargs: {path: None},
+    ) == {}
+    facts = da._collect_deadline_function_facts(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        parse_failure_witnesses=[],
+        trees={path: ast.parse(path.read_text())},
+    )
+    assert isinstance(facts, dict)
+
+
+def test_call_edge_helper_filters_and_report_line_filters() -> None:
+    da = _load()
+    forest = da.Forest()
+    missing_suite = da.NodeId("SuiteSite", ("p", "q", "call"))
+    forest.add_alt("CallCandidate", (missing_suite, da.NodeId("FunctionSite", ("p", "q"))))
+    assert da._collect_call_edges_from_forest(forest, by_name={}) == {}
+
+    bad_call_suite = forest.add_suite_site("p.py", "", "call", span=(1, 1, 1, 2))
+    forest.add_alt("CallResolutionObligation", (bad_call_suite,), evidence={"callee": "x"})
+    with pytest.raises(NeverThrown):
+        da._collect_call_resolution_obligations_from_forest(forest)
+
+    key = da._ReportSectionKey(run_id="r", section="s")
+    report_forest = da.Forest()
+    report_node = report_forest.add_node("Other", ("x",), {})
+    report_forest.add_alt("ReportSectionLine", (da.NodeId("FileSite", ("<report>",)), report_node), evidence={"run_id": "r", "section": "s"})
+    assert da._report_section_line_relation(forest=report_forest, section_key=key) == []
+
+
+def test_materialize_call_candidates_span_requirements_and_duplicate_edges() -> None:
+    da = _load()
+    candidate = da.FunctionInfo(
+        name="target",
+        qual="pkg.target",
+        path=Path("pkg/target.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[da.CallArgs(callee="x", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=None)],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    forest = da.Forest()
+
+    def _internal(*_args, **_kwargs):
+        return da._CalleeResolutionOutcome(
+            status="unresolved_internal",
+            phase="internal",
+            callee_key="x",
+            candidates=(candidate,),
+        )
+
+    with pytest.raises(NeverThrown):
+        da._materialize_call_candidates(
+            forest=forest,
+            by_name={"caller": [caller]},
+            by_qual={caller.qual: caller},
+            symbol_table=da.SymbolTable(),
+            project_root=Path("."),
+            class_index={},
+            resolve_callee_outcome_fn=_internal,
+        )
+
+    caller.calls = [
+        da.CallArgs(callee="x", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=(1, 1, 1, 2)),
+        da.CallArgs(callee="x", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=(1, 1, 1, 2)),
+    ]
+    seen_forest = da.Forest()
+    suite = seen_forest.add_suite_site("mod.py", "pkg.caller", "call", span=(1, 1, 1, 2))
+    target_site = da._call_candidate_target_site(forest=seen_forest, candidate=candidate)
+    seen_forest.add_alt("CallCandidate", (suite, target_site))
+
+    def _resolved(*_args, **_kwargs):
+        return da._CalleeResolutionOutcome(
+            status="resolved",
+            phase="resolved",
+            callee_key="x",
+            candidates=(candidate,),
+        )
+
+    da._materialize_call_candidates(
+        forest=seen_forest,
+        by_name={"caller": [caller]},
+        by_qual={caller.qual: caller},
+        symbol_table=da.SymbolTable(),
+        project_root=Path("."),
+        class_index={},
+        resolve_callee_outcome_fn=_resolved,
+    )
+    assert len([alt for alt in seen_forest.alts if alt.kind == "CallCandidate"]) == 1
+
+
+def test_build_analysis_index_timeout_and_resolve_outcome_edges(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "m.py"
+    path.write_text("def f():\n    return 1\n")
+    timeout_exc = da.TimeoutExceeded(
+        TimeoutContext(call_stack=pack_call_stack([{"path": "m.py", "qual": "m.f"}]))
+    )
+    with deadline_scope(Deadline.from_timeout_ms(10_000)):
+        with pytest.raises(da.TimeoutExceeded):
+            da._build_analysis_index(
+                [path],
+                project_root=tmp_path,
+                ignore_params=set(),
+                strictness="high",
+                external_filter=True,
+                parse_failure_witnesses=[],
+                accumulate_function_index_for_tree_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(timeout_exc),
+            )
+
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    candidate = da.FunctionInfo(
+        name="target",
+        qual="pkg.target",
+        path=Path("pkg/target.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+
+    def _sink_resolve(*_args, ambiguity_sink, **_kwargs):
+        ambiguity_sink(caller, None, [candidate], "phase", "pkg.target")
+        return None
+
+    outcome = da._resolve_callee_outcome(
+        "pkg.target",
+        caller,
+        {"target": [candidate]},
+        {caller.qual: caller, candidate.qual: candidate},
+        resolve_callee_fn=_sink_resolve,
+    )
+    assert outcome.status == "ambiguous"
+
+    outcome = da._resolve_callee_outcome(
+        "pkg.target",
+        caller,
+        {"target": [candidate]},
+        {caller.qual: caller, candidate.qual: candidate},
+        resolve_callee_fn=lambda *_args, **_kwargs: None,
+    )
+    assert outcome.status == "unresolved_internal"
+
+
+def test_constant_flow_and_dataclass_registry_cache_none_edges() -> None:
+    da = _load()
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    callee = da.FunctionInfo(
+        name="callee",
+        qual="pkg.callee",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    edge = da._ResolvedCallEdge(
+        caller=caller,
+        call=da.CallArgs(callee="pkg.callee", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=(1, 1, 1, 2)),
+        callee=callee,
+    )
+    def _reduce(_index, *, spec, **_kwargs):
+        acc = spec.init()
+        spec.fold(acc, edge)
+        return spec.finish(acc)
+    index = da.AnalysisIndex(
+        by_name={"callee": [callee]},
+        by_qual={callee.qual: callee},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    details = da._collect_constant_flow_details(
+        [Path("pkg/mod.py")],
+        project_root=None,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        parse_failure_witnesses=[],
+        analysis_index=index,
+        iter_resolved_edge_param_events_fn=lambda *_args, **_kwargs: [
+            da._ResolvedEdgeParamEvent(
+                kind="const",
+                param="p",
+                value=None,
+                countable=True,
+            )
+        ],
+        reduce_resolved_call_edges_fn=_reduce,
+    )
+    assert details == []
+
+    assert da._collect_dataclass_registry(
+        [Path("x.py")],
+        project_root=None,
+        parse_failure_witnesses=[],
+        analysis_index=index,
+        stage_cache_fn=lambda *_args, **_kwargs: {Path("x.py"): None},
+    ) == {}
+
+
+def test_resume_payload_loader_format_v1_invalid_rows(tmp_path: Path) -> None:
+    da = _load()
+    file_path = tmp_path / "a.py"
+    payload = {
+        "format_version": 1,
+        "groups_by_path": {str(file_path): {"f": [["x"], "bad"]}},
+        "param_spans_by_path": {str(file_path): {"f": {"x": ["a", 1, 2, 3]}}},
+        "bundle_sites_by_path": {str(file_path): {"f": [["bad"], "bad"]}},
+        "completed_paths": [str(file_path)],
+        "in_progress_scan_by_path": None,
+        "analysis_index_resume": {"phase": "x"},
+    }
+    (
+        groups,
+        spans,
+        sites,
+        _invariants,
+        completed,
+        in_progress,
+        analysis_index_resume,
+    ) = da._load_analysis_collection_resume_payload(
+        payload=payload,
+        file_paths=[file_path],
+        include_invariant_propositions=False,
+    )
+    assert completed == set()
+    assert groups == {}
+    assert spans == {}
+    assert sites == {}
+    assert in_progress == {}
+    assert analysis_index_resume is None
+
+
+def test_detection_and_node_identity_and_graph_cycle_edges(tmp_path: Path) -> None:
+    da = _load()
+    noisy_source = (
+        "def runner(paths, project_root, ignore_params, strictness, external_filter, transparent_decorators, parse_failure_witnesses, analysis_index):\n"
+        + "\n".join(["    x = 1" for _ in range(70)])
+        + "\n    obj.run()\n"
+    )
+    assert da._detect_execution_pattern_matches(source=noisy_source, source_path=tmp_path / "m.py") == []
+
+    forest = da.Forest()
+    assert da._node_to_function_suite_id(forest, da.NodeId("Missing", ("x",))) is None
+    suite = forest.add_suite_site("a.py", "q", "call", span=(1, 1, 1, 2))
+    forest.nodes[suite] = da.Node(node_id=suite, meta={"suite_kind": "call", "path": "a.py", "qual": "q"})
+    assert da._node_to_function_suite_id(forest, suite) is None
+
+    graph = {"a": {"b"}, "b": {"a"}}
+    assert da._reachable_from_roots(graph, {"a"}) == {"a", "b"}
+
+
+def test_lint_and_report_relation_skip_rows_edges() -> None:
+    da = _load()
+    forest = da.Forest()
+    file_site = forest.add_file_site("a.py")
+    other = forest.add_node("Other", ("x",), {})
+    lint = forest.add_node("LintFinding", ("a.py", 1, 1, "X", "m"), meta={"path": "a.py", "line": "x", "col": 1, "code": "X", "message": "m"})
+    forest.add_alt("LintFinding", (file_site, other), evidence={"source": "s"})
+    forest.add_alt("LintFinding", (file_site, lint), evidence={"source": "s"})
+    relation = da._lint_relation_from_forest(forest)
+    assert relation == []
+
+    section_key = da._ReportSectionKey(run_id="r", section="s")
+    report_forest = da.Forest()
+    line_node = report_forest.add_node(
+        "ReportSectionLine",
+        ("r", "s", "x", "text"),
+        meta={"run_id": "r", "section": "other", "line_index": "x", "text": "text"},
+    )
+    report_forest.add_alt("ReportSectionLine", (report_forest.add_file_site("<report>"), line_node), evidence={"run_id": "r", "section": "s"})
+    assert da._report_section_line_relation(forest=report_forest, section_key=section_key) == []
+
+
+def test_suite_span_none_and_lint_render_filter_edges() -> None:
+    da = _load()
+    assert da._suite_span_from_statements([ast.Pass()]) is None
+    forest = da.Forest()
+    parent = forest.add_suite_site("m.py", "m.f", "function_body", span=(1, 1, 1, 2))
+    stmt = ast.parse("if True:\n    pass\n").body[0]
+    da._materialize_statement_suite_contains(
+        forest=forest,
+        path_name="m.py",
+        qual="m.f",
+        statements=[stmt],
+        parent_suite=parent,
+    )
+    assert any(alt.kind == "SuiteContains" for alt in forest.alts)
+
+    projected_rows = [
+        {"path": "", "line": 1, "col": 1, "code": "X", "message": "m"},
+        {"path": "a.py", "line": "x", "col": 1, "code": "X", "message": "m"},
+    ]
+    rendered = da._compute_lint_lines(
+        forest=da.Forest(),
+        groups_by_path={},
+        bundle_sites_by_path={},
+        type_callsite_evidence=[],
+        ambiguity_witnesses=[],
+        exception_obligations=[],
+        never_invariants=[],
+        deadline_obligations=[],
+        decision_lint_lines=[],
+        broad_type_lint_lines=[],
+        constant_smells=[],
+        unused_arg_smells=[],
+    )
+    assert isinstance(rendered, list)
+    assert da._parse_failure_violation_lines([{"path": "a.py", "stage": "parse", "error_type": "SyntaxError"}])
+
+
+def test_emit_report_parse_contract_section_and_marker_edges() -> None:
+    da = _load()
+    assert da._parse_report_section_marker("missing marker") is None
+    lines, violations = da._emit_report(
+        {},
+        max_components=1,
+        report=da.ReportCarrier(forest=da.Forest(), parse_failure_witnesses=[]),
+        parse_witness_contract_violations_fn=lambda: ["violation"],
+    )
+    assert "Parse witness contract violations:" in lines
+    assert violations
+
+
+def test_resume_payload_loader_edge_rows_and_in_progress_defaults(tmp_path: Path) -> None:
+    da = _load()
+    file_path = tmp_path / "a.py"
+    payload = {
+        "format_version": 2,
+        "groups_by_path": {str(file_path): {"f": [["x"], [1]]}},
+        "param_spans_by_path": {str(file_path): {"f": {"x": [1, 2, 3, 4], "bad": ["a", 2, 3, 4]}}},
+        "bundle_sites_by_path": {str(file_path): {"f": [["ok"], "bad"]}},
+        "completed_paths": [str(file_path)],
+        "in_progress_scan_by_path": None,
+        "analysis_index_resume": {"format_version": 1, "hydrated_paths": [str(file_path)], "functions_by_qual": {"bad": []}, "class_index": {"bad": []}},
+    }
+    (
+        groups,
+        spans,
+        sites,
+        _invariants,
+        completed,
+        in_progress,
+        _analysis_index_resume,
+    ) = da._load_analysis_collection_resume_payload(
+        payload=payload,
+        file_paths=[file_path],
+        include_invariant_propositions=False,
+    )
+    assert completed == {file_path}
+    assert groups[file_path] == {"f": [{"x"}, {"1"}]}
+    assert spans[file_path]["f"]["x"] == (1, 2, 3, 4)
+    assert sites[file_path] == {"f": [[]]}
+    assert in_progress == {}
+
+
+def test_resume_index_and_collection_loader_additional_edge_rows(tmp_path: Path) -> None:
+    da = _load()
+    file_path = tmp_path / "a.py"
+    index_payload = {
+        "format_version": 1,
+        "hydrated_paths": [str(file_path)],
+        "functions_by_qual": {"bad": []},
+        "symbol_table": {},
+        "class_index": {"bad": []},
+    }
+    hydrated, by_qual, _symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload=index_payload,
+        file_paths=[file_path],
+    )
+    assert hydrated == {file_path}
+    assert by_qual == {}
+    assert class_index == {}
+
+    assert da._deserialize_groups_for_resume({"f": ["bad"]}) == {"f": []}
+    assert da._deserialize_param_spans_for_resume({1: {"x": [1, 2, 3, 4]}, "f": {"x": ["a", 2, 3, 4]}}) == {"f": {}}
+    assert da._serialize_bundle_sites_for_resume({"f": ["bad"]}) == {"f": []}
+    assert da._deserialize_bundle_sites_for_resume({1: [], "f": ["bad"]}) == {"f": []}
+
+    collection_payload = {
+        "format_version": 2,
+        "groups_by_path": {str(file_path): {"f": [["x"]]}},
+        "param_spans_by_path": {str(file_path): []},
+        "bundle_sites_by_path": {str(file_path): {"f": []}},
+        "completed_paths": [str(file_path)],
+        "in_progress_scan_by_path": [],
+    }
+    loaded = da._load_analysis_collection_resume_payload(
+        payload=collection_payload,
+        file_paths=[file_path],
+        include_invariant_propositions=False,
+    )
+    assert loaded[4] == set()
+
+
+def test_call_resolution_and_lint_compute_filter_edges() -> None:
+    da = _load()
+    forest = da.Forest()
+    missing_suite = da.NodeId("SuiteSite", ("p", "q", "call"))
+    forest.add_alt("CallResolutionObligation", (missing_suite,), evidence={"callee": "x"})
+    assert da._collect_call_resolution_obligations_from_forest(forest) == []
+    assert da._dedupe_resolution_candidates(
+        [
+            da.FunctionInfo(
+                name="f",
+                qual="pkg.f",
+                path=Path("tests/test_mod.py"),
+                params=[],
+                annots={},
+                calls=[],
+                unused_params=set(),
+                function_span=(0, 0, 0, 1),
+            )
+        ]
+    ) == ()
+
+    rendered = da._compute_lint_lines(
+        forest=da.Forest(),
+        groups_by_path={},
+        bundle_sites_by_path={},
+        type_callsite_evidence=[],
+        ambiguity_witnesses=[],
+        exception_obligations=[],
+        never_invariants=[],
+        deadline_obligations=[],
+        decision_lint_lines=[],
+        broad_type_lint_lines=[],
+        constant_smells=[],
+        unused_arg_smells=[],
+        project_lint_rows_from_forest_fn=lambda **_kwargs: [
+            {"path": "", "line": 1, "col": 1, "code": "X", "message": "m"},
+            {"path": "a.py", "line": "x", "col": 1, "code": "X", "message": "m"},
+        ],
+    )
+    assert rendered == []
+
+
+def test_statement_suite_contains_body_without_span_and_parse_marker_suffix() -> None:
+    da = _load()
+    parent = da.Forest().add_suite_site("m.py", "m.f", "function_body", span=(1, 1, 1, 2))
+    stmt = ast.If(test=ast.Constant(value=True), body=[ast.Pass()], orelse=[])
+    forest = da.Forest()
+    parent = forest.add_suite_site("m.py", "m.f", "function_body", span=(1, 1, 1, 2))
+    da._materialize_statement_suite_contains(
+        forest=forest,
+        path_name="m.py",
+        qual="m.f",
+        statements=[stmt],
+        parent_suite=parent,
+    )
+    assert da._parse_report_section_marker("text") is None
+    assert da._parse_report_section_marker("<!-- report-section:intro") is None
+
+
+def test_lint_and_report_relations_skip_missing_nodes_and_bad_payloads() -> None:
+    da = _load()
+    forest = da.Forest()
+    file_site = forest.add_file_site("a.py")
+    missing_lint_node = da.NodeId("LintFinding", ("missing",))
+    forest.add_alt("LintFinding", (file_site, missing_lint_node), evidence={"source": "s"})
+    bad_lint_node = forest.add_node(
+        "LintFinding",
+        ("bad",),
+        meta={"path": "", "code": "", "message": "m", "line": 1, "col": 1},
+    )
+    forest.add_alt("LintFinding", (file_site, bad_lint_node), evidence={"source": "s"})
+    assert da._lint_relation_from_forest(forest) == []
+
+    section_key = da._ReportSectionKey(run_id="run", section="intro")
+    report_forest = da.Forest()
+    report_file = report_forest.add_file_site("<report>")
+    missing_report_node = da.NodeId("ReportSectionLine", ("run", "intro", 0, "x"))
+    report_forest.add_alt(
+        "ReportSectionLine",
+        (report_file, missing_report_node),
+        evidence={"run_id": "run", "section": "intro"},
+    )
+    bad_report_node = report_forest.add_node(
+        "ReportSectionLine",
+        ("run", "intro", 1, "x"),
+        meta={"run_id": "run", "section": "intro", "line_index": "bad", "text": "x"},
+    )
+    report_forest.add_alt(
+        "ReportSectionLine",
+        (report_file, bad_report_node),
+        evidence={"run_id": "run", "section": "intro"},
+    )
+    assert da._report_section_line_relation(forest=report_forest, section_key=section_key) == []
+
+
+def test_resume_loaders_skip_invalid_function_and_class_rows(tmp_path: Path) -> None:
+    da = _load()
+    file_path = tmp_path / "m.py"
+    payload = {
+        "format_version": 1,
+        "hydrated_paths": [str(file_path)],
+        "functions_by_qual": {"pkg.bad": {"name": "bad"}},
+        "symbol_table": {},
+        "class_index": {"pkg.C": {"qual": 1}},
+    }
+    hydrated_paths, by_qual, _symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload=payload,
+        file_paths=[file_path],
+    )
+    assert hydrated_paths == {file_path}
+    assert by_qual == {}
+    assert class_index == {}
+
+    loaded = da._load_analysis_collection_resume_payload(
+        payload={
+            "format_version": 2,
+            "groups_by_path": {str(file_path): {"f": [["x"]]}},
+            "param_spans_by_path": {str(file_path): []},
+            "bundle_sites_by_path": {str(file_path): {"f": []}},
+            "completed_paths": [str(file_path)],
+            "in_progress_scan_by_path": [],
+        },
+        file_paths=[file_path],
+        include_invariant_propositions=False,
+    )
+    assert loaded[4] == set()
+
+
+def test_analyze_file_internal_timeout_re_emits_scan_progress(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    path.write_text("def f(x):\n    return x\n", encoding="utf-8")
+    config = da.AuditConfig(project_root=tmp_path)
+    emitted: list[dict[str, object]] = []
+
+    def _raise_timeout(*_args: object, **_kwargs: object):
+        raise da.TimeoutExceeded(
+            TimeoutContext(call_stack=pack_call_stack([{"path": str(path), "qual": "mod.f"}]))
+        )
+
+    with pytest.raises(da.TimeoutExceeded):
+        with deadline_scope(Deadline.from_timeout_ms(10_000)):
+            da._analyze_file_internal(
+                path,
+                recursive=True,
+                config=config,
+                on_progress=lambda payload: emitted.append(dict(payload)),
+                analyze_function_fn=_raise_timeout,
+            )
+    assert emitted
+
+
+def test_analyze_file_internal_emits_scan_progress_on_interval(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    fn_count = da._FILE_SCAN_PROGRESS_EMIT_INTERVAL + 1
+    lines: list[str] = []
+    for index in range(fn_count):
+        lines.append(f"def fn_{index}(value):")
+        lines.append("    return value")
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+    emitted: list[dict[str, object]] = []
+
+    with deadline_scope(Deadline.from_timeout_ms(10_000)):
+        da._analyze_file_internal(
+            path,
+            recursive=True,
+            config=da.AuditConfig(project_root=tmp_path),
+            on_progress=lambda payload: emitted.append(dict(payload)),
+        )
+
+    assert len(emitted) >= 2
