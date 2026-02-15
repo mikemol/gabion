@@ -6,6 +6,7 @@ import math
 
 from gabion.analysis.json_types import JSONObject, JSONValue
 from gabion.analysis.timeout_context import check_deadline
+from gabion.analysis.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 def _split_top_level(value: str, sep: str) -> list[str]:
@@ -132,6 +133,7 @@ class PrimeRegistry:
     next_bit: int = 0
 
     def get_or_assign(self, key: str) -> int:
+        consume_deadline_ticks()
         check_deadline()
         if not key:
             raise ValueError("Type key must be non-empty.")

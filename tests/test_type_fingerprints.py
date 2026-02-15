@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+import pytest
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -36,6 +38,28 @@ def test_prime_registry_assigns_stable_primes() -> None:
     second = registry.get_or_assign("str")
     assert first != second
     assert registry.get_or_assign("int") == first
+
+
+def test_prime_registry_consumes_gas_ticks() -> None:
+    tf = _load()
+    from gabion.analysis.aspf import Forest
+    from gabion.analysis.timeout_context import (
+        Deadline,
+        TimeoutExceeded,
+        deadline_clock_scope,
+        deadline_scope,
+        forest_scope,
+    )
+    from gabion.deadline_clock import GasMeter
+
+    registry = tf.PrimeRegistry()
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            meter = GasMeter(limit=1)
+            with deadline_clock_scope(meter):
+                with pytest.raises(TimeoutExceeded):
+                    registry.get_or_assign("int")
+    assert meter.current == 1
 
 
 # gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint

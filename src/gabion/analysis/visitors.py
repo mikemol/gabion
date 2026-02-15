@@ -9,10 +9,13 @@ if TYPE_CHECKING:
 
 
 class ProjectVisitor(ast.NodeVisitor):
-    pass
+    def visit(self, node: ast.AST):  # type: ignore[override]
+        # Treat every node entry as a deterministic work unit.
+        check_deadline()
+        return super().visit(node)
 
 
-class ParentAnnotator(ast.NodeVisitor):
+class ParentAnnotator(ProjectVisitor):
     def __init__(self) -> None:
         self.parents: dict[ast.AST, ast.AST] = {}
 
@@ -24,7 +27,7 @@ class ParentAnnotator(ast.NodeVisitor):
             self.visit(child)
 
 
-class ImportVisitor(ast.NodeVisitor):
+class ImportVisitor(ProjectVisitor):
     def __init__(self, module_name: str, table) -> None:
         # dataflow-bundle: module_name, table
         self.module = module_name
@@ -61,7 +64,7 @@ class ImportVisitor(ast.NodeVisitor):
             self.table.imports[(self.module, local)] = fqn
 
 
-class UseVisitor(ast.NodeVisitor):
+class UseVisitor(ProjectVisitor):
     def __init__(
         self,
         *,

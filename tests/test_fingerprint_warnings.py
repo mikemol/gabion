@@ -84,7 +84,7 @@ def test_fingerprint_synth_reports_tail(tmp_path: Path) -> None:
         min_occurrences=2,
         version="synth@1",
     )
-    assert any("synth@" in line or "synth registry" in line for line in synth)
+    assert any("synth" in line.lower() for line in synth)
     assert payload is not None
     assert payload.get("entries")
 

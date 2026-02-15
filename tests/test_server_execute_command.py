@@ -6,7 +6,12 @@ from pathlib import Path
 import pytest
 
 from gabion import server
-from gabion.analysis.timeout_context import Deadline, deadline_scope
+from gabion.analysis.timeout_context import (
+    Deadline,
+    TimeoutExceeded,
+    check_deadline,
+    deadline_scope,
+)
 from gabion.exceptions import NeverThrown
 
 
@@ -27,13 +32,23 @@ class _CommandResult:
 
 
 _TIMEOUT_PAYLOAD = {
-    "analysis_timeout_ticks": 1000,
+    "analysis_timeout_ticks": 50_000,
     "analysis_timeout_tick_ns": 1_000_000,
 }
 
 
 def _with_timeout(payload: dict) -> dict:
-    return {**_TIMEOUT_PAYLOAD, **payload}
+    merged = {**_TIMEOUT_PAYLOAD, **payload}
+    if (
+        "analysis_timeout_ticks" not in payload
+        and (
+            "analysis_timeout_ms" in payload
+            or "analysis_timeout_seconds" in payload
+        )
+    ):
+        merged.pop("analysis_timeout_ticks", None)
+        merged.pop("analysis_timeout_tick_ns", None)
+    return merged
 
 
 @pytest.mark.parametrize(
@@ -57,6 +72,126 @@ def test_deadline_scope_requires_payload() -> None:
     with pytest.raises(NeverThrown):
         with server._deadline_scope_from_payload(None):
             pass
+
+
+def test_deadline_scope_rejects_invalid_tick_limit() -> None:
+    with pytest.raises(NeverThrown):
+        with server._deadline_scope_from_payload(
+            {
+                "analysis_timeout_ticks": 100,
+                "analysis_timeout_tick_ns": 1_000_000,
+                "analysis_tick_limit": 0,
+            }
+        ):
+            pass
+
+
+def test_deadline_scope_rejects_non_numeric_tick_limit() -> None:
+    with pytest.raises(NeverThrown):
+        with server._deadline_scope_from_payload(
+            {
+                "analysis_timeout_ticks": 100,
+                "analysis_timeout_tick_ns": 1_000_000,
+                "analysis_tick_limit": "bad",
+            }
+        ):
+            pass
+
+
+def test_deadline_scope_applies_analysis_tick_limit() -> None:
+    with server._deadline_scope_from_payload(
+        {
+            "analysis_timeout_ticks": 100,
+            "analysis_timeout_tick_ns": 1_000_000,
+            "analysis_tick_limit": 1,
+        }
+    ):
+        with pytest.raises(TimeoutExceeded):
+            check_deadline()
+
+
+def test_analysis_timeout_total_ticks_parses_supported_units() -> None:
+    assert (
+        server._analysis_timeout_total_ticks(
+            {"analysis_timeout_ticks": 250, "analysis_timeout_tick_ns": 1_000_000}
+        )
+        == 250
+    )
+    assert server._analysis_timeout_total_ticks({"analysis_timeout_ms": 120}) == 120
+    assert server._analysis_timeout_total_ticks({"analysis_timeout_seconds": "0.5"}) == 500
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"analysis_timeout_ticks": "bad"},
+        {"analysis_timeout_ticks": 0},
+        {"analysis_timeout_ms": "bad"},
+        {"analysis_timeout_ms": 0},
+        {"analysis_timeout_seconds": "bad"},
+        {"analysis_timeout_seconds": 0},
+        {"analysis_timeout_seconds": "0.0001"},
+        {},
+    ],
+)
+def test_analysis_timeout_total_ticks_rejects_invalid(payload: dict) -> None:
+    with pytest.raises(NeverThrown):
+        server._analysis_timeout_total_ticks(payload)
+
+
+def test_execute_command_rejects_non_positive_analysis_tick_limit(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    with pytest.raises(NeverThrown):
+        server.execute_command(
+            _DummyServer(str(tmp_path)),
+            _with_timeout(
+                {
+                    "root": str(tmp_path),
+                    "paths": [str(module_path)],
+                    "analysis_tick_limit": 0,
+                }
+            ),
+        )
+
+
+def test_execute_command_rejects_non_numeric_analysis_tick_limit(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    with pytest.raises(NeverThrown):
+        server.execute_command(
+            _DummyServer(str(tmp_path)),
+            _with_timeout(
+                {
+                    "root": str(tmp_path),
+                    "paths": [str(module_path)],
+                    "analysis_tick_limit": "bad",
+                }
+            ),
+        )
+
+
+def test_execute_command_applies_analysis_tick_limit(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_minimal_module(module_path)
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "analysis_tick_limit": 1,
+                "report": str(tmp_path / "report.md"),
+            }
+        ),
+    )
+    assert result.get("exit_code") == 2
+    assert result.get("timeout") is True
+    timeout_context = result.get("timeout_context")
+    assert isinstance(timeout_context, dict)
+    progress = timeout_context.get("progress")
+    assert isinstance(progress, dict)
+    assert progress.get("tick_limit") == 1
 
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value

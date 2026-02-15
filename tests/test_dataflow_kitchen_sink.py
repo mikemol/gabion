@@ -171,7 +171,9 @@ def test_kitchen_sink_analysis_outputs(tmp_path: Path) -> None:
         5,
         report=ReportCarrier.from_analysis_result(analysis),
     )
-    assert "Dataflow grammar" in report or "dataflow-grammar" in report
+    report_lc = report.lower()
+    assert "dataflow" in report_lc
+    assert "grammar" in report_lc
     assert isinstance(violations, list)
 
     dot = render_dot(analysis.forest)

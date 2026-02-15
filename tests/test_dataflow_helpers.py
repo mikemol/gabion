@@ -19,7 +19,9 @@ def test_const_repr_and_type_from_const_repr() -> None:
     const_node = ast.parse("x = 1").body[0].value
     assert da._const_repr(const_node) == "1"
     unary_node = ast.parse("x = -1").body[0].value
-    assert da._const_repr(unary_node) in {"-1", "(-1)"}
+    unary_repr = da._const_repr(unary_node)
+    assert isinstance(unary_repr, str)
+    assert unary_repr.replace("(", "").replace(")", "") == "-1"
     attr_node = ast.parse("MOD.CONST").body[0].value
     assert da._const_repr(attr_node) == "MOD.CONST"
     lower_attr = ast.parse("mod.const").body[0].value

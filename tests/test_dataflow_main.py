@@ -6,6 +6,9 @@ import sys
 
 import pytest
 
+from gabion.analysis import dataflow_audit as da
+from gabion.exceptions import NeverThrown
+
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_main.py::test_dataflow_audit_main_executes::dataflow_audit.py::gabion.analysis.dataflow_audit
 def test_dataflow_audit_main_executes(tmp_path: Path) -> None:
@@ -25,3 +28,89 @@ def test_dataflow_audit_main_executes(tmp_path: Path) -> None:
             runpy.run_module("gabion.analysis.dataflow_audit", run_name="__main__")
     finally:
         sys.argv = original_argv
+
+
+def test_dataflow_audit_parser_accepts_tick_options() -> None:
+    parser = da._build_parser()
+    args = parser.parse_args(
+        [
+            "sample.py",
+            "--analysis-timeout-ticks",
+            "123",
+            "--analysis-timeout-tick-ns",
+            "456",
+            "--analysis-tick-limit",
+            "789",
+        ]
+    )
+    assert args.analysis_timeout_ticks == 123
+    assert args.analysis_timeout_tick_ns == 456
+    assert args.analysis_tick_limit == 789
+
+
+def test_dataflow_audit_run_uses_tick_limit_timeout(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text("def f(a, b):\n    return a + b\n", encoding="utf-8")
+    with pytest.raises(da.TimeoutExceeded):
+        da.run(
+            [
+                str(sample),
+                "--root",
+                str(tmp_path),
+                "--analysis-timeout-ticks",
+                "1000",
+                "--analysis-timeout-tick-ns",
+                "1000000",
+                "--analysis-tick-limit",
+                "1",
+            ]
+        )
+
+
+def test_dataflow_audit_run_rejects_invalid_tick_config(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text("def f(a, b):\n    return a + b\n", encoding="utf-8")
+    with pytest.raises(NeverThrown):
+        da.run(
+            [
+                str(sample),
+                "--root",
+                str(tmp_path),
+                "--analysis-timeout-ticks",
+                "0",
+            ]
+        )
+
+
+def test_dataflow_audit_run_rejects_invalid_tick_ns(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text("def f(a, b):\n    return a + b\n", encoding="utf-8")
+    with pytest.raises(NeverThrown):
+        da.run(
+            [
+                str(sample),
+                "--root",
+                str(tmp_path),
+                "--analysis-timeout-tick-ns",
+                "0",
+            ]
+        )
+
+
+def test_dataflow_audit_run_rejects_invalid_tick_limit(tmp_path: Path) -> None:
+    sample = tmp_path / "sample.py"
+    sample.write_text("def f(a, b):\n    return a + b\n", encoding="utf-8")
+    with pytest.raises(NeverThrown):
+        da.run(
+            [
+                str(sample),
+                "--root",
+                str(tmp_path),
+                "--analysis-timeout-ticks",
+                "1000",
+                "--analysis-timeout-tick-ns",
+                "1000000",
+                "--analysis-tick-limit",
+                "0",
+            ]
+        )

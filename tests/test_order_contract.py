@@ -8,6 +8,7 @@ from gabion.exceptions import NeverThrown
 from gabion.order_contract import (
     OrderPolicy,
     canonical_sort_allowlist,
+    get_order_policy,
     get_order_telemetry_events,
     order_policy,
     order_telemetry,
@@ -156,3 +157,79 @@ def test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope() -> N
             os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
         else:
             os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+
+
+def test_get_order_policy_reads_env_alias_values() -> None:
+    previous = os.environ.get("GABION_ORDER_POLICY")
+    try:
+        os.environ["GABION_ORDER_POLICY"] = "off"
+        assert get_order_policy() is OrderPolicy.SORT
+        os.environ["GABION_ORDER_POLICY"] = "   "
+        assert get_order_policy() is OrderPolicy.SORT
+        os.environ["GABION_ORDER_POLICY"] = "on"
+        assert get_order_policy() is OrderPolicy.ENFORCE
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ORDER_POLICY", None)
+        else:
+            os.environ["GABION_ORDER_POLICY"] = previous
+
+
+def test_get_order_policy_rejects_unknown_env_policy() -> None:
+    previous = os.environ.get("GABION_ORDER_POLICY")
+    try:
+        os.environ["GABION_ORDER_POLICY"] = "nonsense"
+        with pytest.raises(NeverThrown):
+            get_order_policy()
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ORDER_POLICY", None)
+        else:
+            os.environ["GABION_ORDER_POLICY"] = previous
+
+
+def test_ordered_or_sorted_check_handles_incomparable_values() -> None:
+    with order_policy(OrderPolicy.CHECK):
+        with pytest.raises(TypeError):
+            ordered_or_sorted([{"a": 1}, {"b": 2}], source="incomparable")
+
+
+def test_ordered_or_sorted_enforce_rejects_incomparable_values() -> None:
+    with order_policy(OrderPolicy.ENFORCE):
+        with pytest.raises(NeverThrown):
+            ordered_or_sorted([{"a": 1}, {"b": 2}], source="incomparable")
+
+
+def test_ordered_or_sorted_canonical_allowlist_skips_without_explicit_sort() -> None:
+    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+    try:
+        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
+        assert ordered_or_sorted(["z", "a"], source="not_allowlisted") == ["a", "z"]
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
+        else:
+            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+
+
+def test_ordered_or_sorted_explicit_sort_from_require_sorted_false_obeys_allowlist() -> None:
+    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+    try:
+        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
+        with pytest.raises(NeverThrown):
+            ordered_or_sorted(
+                ["z", "a"],
+                source="not_allowlisted.explicit",
+                require_sorted=False,
+            )
+    finally:
+        if previous is None:
+            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
+        else:
+            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+
+
+def test_ordered_or_sorted_accepts_string_policy() -> None:
+    with order_policy(OrderPolicy.TRUST):
+        ordered = ordered_or_sorted(["a", "b"], source="string-policy", policy="enforce")
+    assert ordered == ["a", "b"]

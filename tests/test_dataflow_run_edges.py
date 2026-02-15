@@ -215,7 +215,7 @@ def test_run_synthesis_outputs_to_stdout(tmp_path: Path, capsys) -> None:
         ]
     )
     captured = capsys.readouterr().out
-    assert "protocol" in captured or "class" in captured
+    assert "class" in captured
     assert code == 0
 
 
@@ -521,7 +521,7 @@ def test_run_dot_stdout_returns_early(tmp_path: Path, capsys) -> None:
         ]
     )
     captured = capsys.readouterr().out
-    assert "graph" in captured or "digraph" in captured
+    assert "digraph" in captured
     assert code == 0
 
 

@@ -87,6 +87,19 @@ def test_heuristic_fallback_when_graph_unavailable(tmp_path: Path) -> None:
     assert suggestions[0].matches == ("alias_invariance",)
 
 
+def test_suggest_evidence_empty_entries_short_circuits(tmp_path: Path) -> None:
+    suggestions, summary = test_evidence_suggestions.suggest_evidence(
+        [],
+        root=tmp_path,
+        paths=[tmp_path],
+        forest=Forest(),
+        config=AuditConfig(project_root=tmp_path),
+    )
+    assert suggestions == []
+    assert summary.total == 0
+    assert summary.suggested == 0
+
+
 # gabion:evidence E:function_site::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload E:function_site::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence E:function_site::test_test_evidence_suggestions.py::tests.test_test_evidence_suggestions._entries_from_payload
 def test_graph_resolution_blocks_heuristics(tmp_path: Path) -> None:
     root = tmp_path

@@ -4,6 +4,8 @@ import ast
 from pathlib import Path
 import sys
 
+import pytest
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -217,3 +219,27 @@ def test_import_visitor_basic_and_relative() -> None:
     deep = ImportVisitor("a.b", table)
     deep.visit(ast.parse("from ..... import Nope\n"))
     assert dict(table.imports) == before
+
+
+def test_project_visitor_node_entry_respects_gas_meter() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root / "src"))
+    from gabion.analysis.aspf import Forest
+    from gabion.analysis.timeout_context import (
+        Deadline,
+        TimeoutExceeded,
+        deadline_clock_scope,
+        deadline_scope,
+        forest_scope,
+    )
+    from gabion.analysis.visitors import ParentAnnotator
+    from gabion.deadline_clock import GasMeter
+
+    tree = ast.parse("def f(x):\n    return x\n")
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            meter = GasMeter(limit=1)
+            with deadline_clock_scope(meter):
+                with pytest.raises(TimeoutExceeded):
+                    ParentAnnotator().visit(tree)
+    assert meter.current == 1

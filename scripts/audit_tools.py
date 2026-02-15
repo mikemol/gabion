@@ -3,34 +3,63 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import tomllib
 import subprocess
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
-from gabion.analysis.timeout_context import Deadline, check_deadline, deadline_scope
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+    forest_scope,
+)
 from gabion.analysis.aspf import Forest
+from gabion.deadline_clock import GasMeter
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis import evidence_keys
+from gabion.invariants import never
 
 _DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
 _DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_AUDIT_GAS_LIMIT = 50_000_000
+_AUDIT_GAS_LIMIT_ENV = "GABION_AUDIT_GAS_LIMIT"
 
 
+def _audit_gas_limit() -> int:
+    raw = os.getenv(_AUDIT_GAS_LIMIT_ENV, "").strip()
+    if not raw:
+        return _DEFAULT_AUDIT_GAS_LIMIT
+    try:
+        value = int(raw)
+    except ValueError:
+        never("invalid audit gas limit", value=raw)
+    if value <= 0:
+        never("invalid audit gas limit", value=value)
+    return value
+
+
+@contextmanager
 def _audit_deadline_scope():
-    return deadline_scope(
-        Deadline.from_timeout_ticks(
-            _DEFAULT_AUDIT_TIMEOUT_TICKS,
-            _DEFAULT_AUDIT_TIMEOUT_TICK_NS,
-        )
-    )
+    with forest_scope(Forest()):
+        with deadline_scope(
+            Deadline.from_timeout_ticks(
+                _DEFAULT_AUDIT_TIMEOUT_TICKS,
+                _DEFAULT_AUDIT_TIMEOUT_TICK_NS,
+            )
+        ):
+            with deadline_clock_scope(GasMeter(limit=_audit_gas_limit())):
+                yield
 
 
 # --- Docflow audit constants ---

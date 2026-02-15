@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from gabion.analysis.canonical import canon, digest_index, encode_canon
+from gabion.analysis.canonical import _canon_multiset, canon, digest_index, encode_canon
 from gabion.exceptions import NeverThrown
 
 
@@ -47,3 +47,32 @@ def test_encode_and_digest_are_stable_for_equivalent_payloads() -> None:
     assert encode_canon(left) == encode_canon(right)
     assert digest_index(left) == digest_index(right)
     assert json.loads(encode_canon(left)) == canon(left)
+
+
+def test_canon_converts_tuple_to_list() -> None:
+    assert canon(("a", 1, {"b": 2})) == ["a", 1, {"b": 2}]
+
+
+def test_canon_rejects_non_json_object() -> None:
+    with pytest.raises(NeverThrown):
+        canon(object())
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        ["ms", [("x",)]],
+        ["ms", [[{"k": "v"}, "nope"]]],
+        ["ms", [[{"k": "v"}, 0]]],
+    ],
+)
+def test_canon_rejects_invalid_multiset_shapes(value: object) -> None:
+    with pytest.raises(NeverThrown):
+        canon(value)
+
+
+def test_canon_multiset_private_guards() -> None:
+    with pytest.raises(NeverThrown):
+        _canon_multiset(["ms", object()])
+    with pytest.raises(NeverThrown):
+        _canon_multiset(["bad", []])

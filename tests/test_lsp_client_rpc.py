@@ -4,7 +4,7 @@ import io
 import json
 import time
 
-from gabion.lsp_client import LspClientError, _read_response, _read_rpc
+from gabion.lsp_client import LspClientError, _read_exact, _read_response, _read_rpc
 
 
 def _rpc_message(payload: dict) -> bytes:
@@ -102,3 +102,35 @@ def test_read_rpc_rejects_non_object_payload() -> None:
         assert "payload" in str(exc).lower()
     else:
         raise AssertionError("Expected LspClientError for non-object payload")
+
+
+def test_read_exact_rejects_closed_stream() -> None:
+    stream = io.BytesIO(b"")
+    try:
+        _read_exact(stream, 1, time.monotonic_ns() + 1_000_000_000)
+    except LspClientError as exc:
+        assert "stream closed" in str(exc).lower()
+    else:
+        raise AssertionError("Expected LspClientError for closed stream")
+
+
+def test_read_rpc_truncates_prefetched_excess_body() -> None:
+    payload = {"jsonrpc": "2.0", "id": 7, "result": {"ok": True}}
+    body = json.dumps(payload).encode("utf-8")
+
+    class _Chunky:
+        def __init__(self, data: bytes) -> None:
+            self._data = data
+            self._sent = False
+
+        def read(self, _n: int) -> bytes:
+            if self._sent:
+                return b""
+            self._sent = True
+            return self._data
+
+    stream = _Chunky(
+        f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8") + body + b"extra-bytes"
+    )
+    message = _read_rpc(stream, time.monotonic_ns() + 1_000_000_000)
+    assert message["id"] == 7

@@ -35,7 +35,6 @@ def canon(value: object) -> JSONValue:
         "canon() received non-JSON value",
         value_type=type(value).__name__,
     )
-    return None
 
 
 def encode_canon(value: object) -> str:

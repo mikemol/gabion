@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from gabion.analysis.aspf import Forest, NodeId
 from gabion.analysis.canonical import canon, digest_index, encode_canon
@@ -21,6 +21,7 @@ def emit_wl_refinement_facets(
     forest: Forest,
     spec: ProjectionSpec,
     scope: set[NodeId] | None = None,
+    canon_fn: Callable[[object], JSONValue] = canon,
 ) -> None:
     check_deadline()
     target_kind = _string_param(spec.params, "target_kind", "SuiteSite")
@@ -111,8 +112,9 @@ def emit_wl_refinement_facets(
             forest=forest,
             seed_fields=seed_fields,
             degree=len(adjacency[node_id]),
+            canon_fn=canon_fn,
         )
-        labels_prev[node_id] = canon(
+        labels_prev[node_id] = canon_fn(
             [
                 label_namespace,
                 {"step": -1},
@@ -154,6 +156,7 @@ def emit_wl_refinement_facets(
                 forest=forest,
                 seed_fields=seed_fields,
                 degree=len(neighbors),
+                canon_fn=canon_fn,
             )
             counts: dict[str, tuple[JSONValue, int]] = {}
             for neighbor in neighbors:
@@ -178,7 +181,7 @@ def emit_wl_refinement_facets(
                 spec_name=spec.name,
                 node=node_id.sort_key(),
             )
-            label_struct = canon(
+            label_struct = canon_fn(
                 [
                     label_namespace,
                     {"step": step_index},
@@ -253,6 +256,7 @@ def _seed_struct(
     forest: Forest,
     seed_fields: tuple[str, ...],
     degree: int,
+    canon_fn: Callable[[object], JSONValue] = canon,
 ) -> JSONValue:
     node = forest.nodes.get(node_id)
     if node is None:
@@ -268,13 +272,13 @@ def _seed_struct(
             seed[field] = value
             continue
         if isinstance(value, Mapping):
-            seed[field] = canon(value)
+            seed[field] = canon_fn(value)
             continue
         if isinstance(value, list):
-            seed[field] = canon(value)
+            seed[field] = canon_fn(value)
             continue
         seed[field] = str(value)
-    return canon(seed)
+    return canon_fn(seed)
 
 
 def _string_param(params: Mapping[str, JSONValue], name: str, default: str) -> str:
