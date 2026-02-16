@@ -283,6 +283,12 @@ def test_dataflow_audit_help_does_not_emit_alias_warning(
     assert warned["count"] == 0
 
 
+def test_dataflow_alias_migration_epilog_contains_map() -> None:
+    epilog = cli._dataflow_alias_migration_epilog()
+    assert "gabion check --profile raw" in epilog
+    assert "--emit-decision-snapshot -> --decision-snapshot" in epilog
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
 def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     good_line = "mod.py:10:2: GABION_CODE something happened"

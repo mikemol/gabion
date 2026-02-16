@@ -114,6 +114,7 @@ def test_cli_dataflow_audit_help_uses_dataflow_parser() -> None:
     assert result.exit_code == 0
     assert "usage:" in result.output.lower()
     assert "--type-audit" in result.output
+    assert "check --profile raw" in result.output
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls

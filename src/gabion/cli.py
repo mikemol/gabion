@@ -53,6 +53,15 @@ _DEFAULT_CHECK_REPORT_REL_PATH = Path("artifacts/audit_reports/dataflow_report.m
 _DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH = Path(
     "artifacts/audit_reports/timeout_progress.md"
 )
+_DATAFLOW_AUDIT_ALIAS_MESSAGE = (
+    "`dataflow-audit` is deprecated; use `check --profile raw`."
+)
+_DATAFLOW_AUDIT_MIGRATION_EPILOG = (
+    f"DEPRECATION: {_DATAFLOW_AUDIT_ALIAS_MESSAGE}\n"
+    "Migration map:\n"
+    "  gabion dataflow-audit <paths> -> gabion check --profile raw <paths>\n"
+    "  --emit-decision-snapshot -> --decision-snapshot"
+)
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
@@ -1072,10 +1081,11 @@ def _run_check_raw_profile(
 
 
 def _warn_dataflow_audit_alias() -> None:
-    typer.echo(
-        "`dataflow-audit` is deprecated; use `check --profile raw`.",
-        err=True,
-    )
+    typer.echo(_DATAFLOW_AUDIT_ALIAS_MESSAGE, err=True)
+
+
+def _dataflow_alias_migration_epilog() -> str:
+    return _DATAFLOW_AUDIT_MIGRATION_EPILOG
 
 
 @app.command(
@@ -1373,7 +1383,11 @@ def dataflow_audit(
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Run dataflow grammar audit in raw profile mode.",
+        epilog=_dataflow_alias_migration_epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("paths", nargs="+")
     parser.add_argument("--root", default=".")
     parser.add_argument("--config", default=None)
