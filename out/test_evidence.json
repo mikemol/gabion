@@ -37819,7 +37819,7 @@
     {
       "evidence": [],
       "file": "tests/test_script_deadline_contracts.py",
-      "line": 24,
+      "line": 28,
       "status": "unmapped",
       "test_id": "tests/test_script_deadline_contracts.py::test_deadline_runtime_provides_scope_guards"
     },

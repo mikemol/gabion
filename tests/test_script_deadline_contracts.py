@@ -8,7 +8,11 @@ def test_scripts_using_deadlines_require_clock_and_forest_scope() -> None:
     offenders: list[str] = []
     for script_path in sorted(scripts_dir.glob("*.py")):
         text = script_path.read_text(encoding="utf-8")
-        uses_deadline_checks = "check_deadline(" in text or "deadline_scope(" in text
+        uses_deadline_checks = (
+            "check_deadline(" in text
+            or "deadline_scope(" in text
+            or "deadline_loop_iter(" in text
+        )
         if not uses_deadline_checks:
             continue
         has_local_scope = "deadline_clock_scope(" in text and "forest_scope(" in text

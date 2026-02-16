@@ -12,6 +12,11 @@ from typing import Callable, Sequence
 
 from gabion.analysis.timeout_context import deadline_loop_iter
 
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.deadline_runtime import deadline_scope_from_lsp_env
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from deadline_runtime import deadline_scope_from_lsp_env
+
 _STAGE_SEQUENCE: tuple[str, ...] = ("a", "b", "c")
 
 
@@ -361,14 +366,15 @@ def main() -> int:
         resume_checkpoint_path=args.resume_checkpoint,
         baseline_path=args.baseline,
     )
-    results = run_staged(
-        stage_ids=stage_ids,
-        paths=paths,
-        resume_on_timeout=args.resume_on_timeout,
-        step_summary_path=step_summary_path,
-        run_command_fn=_run_subprocess,
-    )
-    _emit_stage_outputs(github_output_path, results)
+    with deadline_scope_from_lsp_env():
+        results = run_staged(
+            stage_ids=stage_ids,
+            paths=paths,
+            resume_on_timeout=args.resume_on_timeout,
+            step_summary_path=step_summary_path,
+            run_command_fn=_run_subprocess,
+        )
+        _emit_stage_outputs(github_output_path, results)
     return 0
 
 
