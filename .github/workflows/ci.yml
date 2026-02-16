@@ -39,50 +39,196 @@ jobs:
           .venv/bin/uv pip install -e .
       - name: Dataflow audit stage A (collection/hydration warmup)
         id: dataflow_stage_a
-        continue-on-error: true
         env:
           GABION_DIRECT_RUN: "1"
+          DATAFLOW_STAGE_ID: "a"
         run: |
-          mkdir -p artifacts/audit_reports
+          mkdir -p artifacts/audit_reports artifacts/out
+          set +e
           .venv/bin/python -m gabion check \
             --report artifacts/audit_reports/dataflow_report.md \
             --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
             --resume-on-timeout 1 \
             --emit-timeout-progress-report \
             --baseline baselines/dataflow_baseline.txt
+          stage_exit=$?
+          set -e
+          analysis_state="none"
+          if [ -f artifacts/audit_reports/timeout_progress.json ]; then
+            analysis_state=$(
+              .venv/bin/python -c 'import json; from pathlib import Path; p=Path("artifacts/audit_reports/timeout_progress.json"); d=json.loads(p.read_text()) if p.exists() else {}; s=d.get("analysis_state") if isinstance(d, dict) else None; prog=d.get("progress") if isinstance(d, dict) else None; fallback=prog.get("classification") if isinstance(prog, dict) else None; print(s if isinstance(s, str) and s else (fallback if isinstance(fallback, str) and fallback else "none"))'
+            )
+          fi
+          cp -f artifacts/audit_reports/dataflow_report.md "artifacts/audit_reports/dataflow_report_stage_${DATAFLOW_STAGE_ID}.md" || true
+          cp -f artifacts/audit_reports/timeout_progress.json "artifacts/audit_reports/timeout_progress_stage_${DATAFLOW_STAGE_ID}.json" || true
+          cp -f artifacts/audit_reports/timeout_progress.md "artifacts/audit_reports/timeout_progress_stage_${DATAFLOW_STAGE_ID}.md" || true
+          cp -f artifacts/out/deadline_profile.json "artifacts/out/deadline_profile_stage_${DATAFLOW_STAGE_ID}.json" || true
+          cp -f artifacts/out/deadline_profile.md "artifacts/out/deadline_profile_stage_${DATAFLOW_STAGE_ID}.md" || true
+          echo "exit_code=$stage_exit" >> "$GITHUB_OUTPUT"
+          echo "analysis_state=$analysis_state" >> "$GITHUB_OUTPUT"
+          if [ "$analysis_state" = "timed_out_progress_resume" ]; then
+            echo "is_timeout_resume=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_timeout_resume=false" >> "$GITHUB_OUTPUT"
+          fi
+          stage_metrics=$(
+            .venv/bin/python -c 'import json,sys;from pathlib import Path;p=Path("artifacts/out/deadline_profile.json");d=json.loads(p.read_text()) if p.exists() else None;wall=(d.get("wall_total_elapsed_ns") if isinstance(d,dict) else None);wall_s=(f"{wall/1_000_000_000:.3f}" if isinstance(wall,int) else "n/a");print(f"ticks={(d.get(\"ticks_consumed\") if isinstance(d,dict) else \"n/a\")} checks={(d.get(\"checks_total\") if isinstance(d,dict) else \"n/a\")} ticks_per_ns={(d.get(\"ticks_per_ns\") if isinstance(d,dict) else \"n/a\")} wall_s={wall_s}")'
+          )
+          echo "stage ${DATAFLOW_STAGE_ID^^}: exit=$stage_exit analysis_state=$analysis_state $stage_metrics"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            echo "- stage ${DATAFLOW_STAGE_ID^^}: exit=\`$stage_exit\`, state=\`$analysis_state\`, $stage_metrics" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Dataflow audit stage B (projection/post warmup)
         id: dataflow_stage_b
-        if: steps.dataflow_stage_a.outcome == 'failure'
-        continue-on-error: true
+        if: steps.dataflow_stage_a.outputs.is_timeout_resume == 'true'
         env:
           GABION_DIRECT_RUN: "1"
+          DATAFLOW_STAGE_ID: "b"
         run: |
-          mkdir -p artifacts/audit_reports
+          mkdir -p artifacts/audit_reports artifacts/out
+          set +e
           .venv/bin/python -m gabion check \
             --report artifacts/audit_reports/dataflow_report.md \
             --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
             --resume-on-timeout 1 \
             --emit-timeout-progress-report \
             --baseline baselines/dataflow_baseline.txt
+          stage_exit=$?
+          set -e
+          analysis_state="none"
+          if [ -f artifacts/audit_reports/timeout_progress.json ]; then
+            analysis_state=$(
+              .venv/bin/python -c 'import json; from pathlib import Path; p=Path("artifacts/audit_reports/timeout_progress.json"); d=json.loads(p.read_text()) if p.exists() else {}; s=d.get("analysis_state") if isinstance(d, dict) else None; prog=d.get("progress") if isinstance(d, dict) else None; fallback=prog.get("classification") if isinstance(prog, dict) else None; print(s if isinstance(s, str) and s else (fallback if isinstance(fallback, str) and fallback else "none"))'
+            )
+          fi
+          cp -f artifacts/audit_reports/dataflow_report.md "artifacts/audit_reports/dataflow_report_stage_${DATAFLOW_STAGE_ID}.md" || true
+          cp -f artifacts/audit_reports/timeout_progress.json "artifacts/audit_reports/timeout_progress_stage_${DATAFLOW_STAGE_ID}.json" || true
+          cp -f artifacts/audit_reports/timeout_progress.md "artifacts/audit_reports/timeout_progress_stage_${DATAFLOW_STAGE_ID}.md" || true
+          cp -f artifacts/out/deadline_profile.json "artifacts/out/deadline_profile_stage_${DATAFLOW_STAGE_ID}.json" || true
+          cp -f artifacts/out/deadline_profile.md "artifacts/out/deadline_profile_stage_${DATAFLOW_STAGE_ID}.md" || true
+          echo "exit_code=$stage_exit" >> "$GITHUB_OUTPUT"
+          echo "analysis_state=$analysis_state" >> "$GITHUB_OUTPUT"
+          if [ "$analysis_state" = "timed_out_progress_resume" ]; then
+            echo "is_timeout_resume=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_timeout_resume=false" >> "$GITHUB_OUTPUT"
+          fi
+          stage_metrics=$(
+            .venv/bin/python -c 'import json,sys;from pathlib import Path;p=Path("artifacts/out/deadline_profile.json");d=json.loads(p.read_text()) if p.exists() else None;wall=(d.get("wall_total_elapsed_ns") if isinstance(d,dict) else None);wall_s=(f"{wall/1_000_000_000:.3f}" if isinstance(wall,int) else "n/a");print(f"ticks={(d.get(\"ticks_consumed\") if isinstance(d,dict) else \"n/a\")} checks={(d.get(\"checks_total\") if isinstance(d,dict) else \"n/a\")} ticks_per_ns={(d.get(\"ticks_per_ns\") if isinstance(d,dict) else \"n/a\")} wall_s={wall_s}")'
+          )
+          echo "stage ${DATAFLOW_STAGE_ID^^}: exit=$stage_exit analysis_state=$analysis_state $stage_metrics"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            echo "- stage ${DATAFLOW_STAGE_ID^^}: exit=\`$stage_exit\`, state=\`$analysis_state\`, $stage_metrics" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Dataflow audit stage C (gating)
-        if: steps.dataflow_stage_a.outcome == 'failure' && (steps.dataflow_stage_b.outcome == 'failure' || steps.dataflow_stage_b.outcome == 'skipped')
+        id: dataflow_stage_c
+        if: steps.dataflow_stage_b.outputs.is_timeout_resume == 'true'
         env:
           GABION_DIRECT_RUN: "1"
+          DATAFLOW_STAGE_ID: "c"
         run: |
-          mkdir -p artifacts/audit_reports
+          mkdir -p artifacts/audit_reports artifacts/out
+          set +e
           .venv/bin/python -m gabion check \
             --report artifacts/audit_reports/dataflow_report.md \
             --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_ci.json \
             --resume-on-timeout 1 \
             --emit-timeout-progress-report \
-            --baseline baselines/dataflow_baseline.txt \
-            || (cat artifacts/audit_reports/dataflow_report.md; [ -f artifacts/audit_reports/timeout_progress.md ] && cat artifacts/audit_reports/timeout_progress.md; exit 1)
+            --baseline baselines/dataflow_baseline.txt
+          stage_exit=$?
+          set -e
+          analysis_state="none"
+          if [ -f artifacts/audit_reports/timeout_progress.json ]; then
+            analysis_state=$(
+              .venv/bin/python -c 'import json; from pathlib import Path; p=Path("artifacts/audit_reports/timeout_progress.json"); d=json.loads(p.read_text()) if p.exists() else {}; s=d.get("analysis_state") if isinstance(d, dict) else None; prog=d.get("progress") if isinstance(d, dict) else None; fallback=prog.get("classification") if isinstance(prog, dict) else None; print(s if isinstance(s, str) and s else (fallback if isinstance(fallback, str) and fallback else "none"))'
+            )
+          fi
+          cp -f artifacts/audit_reports/dataflow_report.md "artifacts/audit_reports/dataflow_report_stage_${DATAFLOW_STAGE_ID}.md" || true
+          cp -f artifacts/audit_reports/timeout_progress.json "artifacts/audit_reports/timeout_progress_stage_${DATAFLOW_STAGE_ID}.json" || true
+          cp -f artifacts/audit_reports/timeout_progress.md "artifacts/audit_reports/timeout_progress_stage_${DATAFLOW_STAGE_ID}.md" || true
+          cp -f artifacts/out/deadline_profile.json "artifacts/out/deadline_profile_stage_${DATAFLOW_STAGE_ID}.json" || true
+          cp -f artifacts/out/deadline_profile.md "artifacts/out/deadline_profile_stage_${DATAFLOW_STAGE_ID}.md" || true
+          echo "exit_code=$stage_exit" >> "$GITHUB_OUTPUT"
+          echo "analysis_state=$analysis_state" >> "$GITHUB_OUTPUT"
+          if [ "$analysis_state" = "timed_out_progress_resume" ]; then
+            echo "is_timeout_resume=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_timeout_resume=false" >> "$GITHUB_OUTPUT"
+          fi
+          stage_metrics=$(
+            .venv/bin/python -c 'import json,sys;from pathlib import Path;p=Path("artifacts/out/deadline_profile.json");d=json.loads(p.read_text()) if p.exists() else None;wall=(d.get("wall_total_elapsed_ns") if isinstance(d,dict) else None);wall_s=(f"{wall/1_000_000_000:.3f}" if isinstance(wall,int) else "n/a");print(f"ticks={(d.get(\"ticks_consumed\") if isinstance(d,dict) else \"n/a\")} checks={(d.get(\"checks_total\") if isinstance(d,dict) else \"n/a\")} ticks_per_ns={(d.get(\"ticks_per_ns\") if isinstance(d,dict) else \"n/a\")} wall_s={wall_s}")'
+          )
+          echo "stage ${DATAFLOW_STAGE_ID^^}: exit=$stage_exit analysis_state=$analysis_state $stage_metrics"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            echo "- stage ${DATAFLOW_STAGE_ID^^}: exit=\`$stage_exit\`, state=\`$analysis_state\`, $stage_metrics" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Finalize dataflow audit outcome
+        if: always()
+        env:
+          STAGE_A_EXIT: ${{ steps.dataflow_stage_a.outputs.exit_code }}
+          STAGE_A_STATE: ${{ steps.dataflow_stage_a.outputs.analysis_state }}
+          STAGE_A_OUTCOME: ${{ steps.dataflow_stage_a.outcome }}
+          STAGE_B_EXIT: ${{ steps.dataflow_stage_b.outputs.exit_code }}
+          STAGE_B_STATE: ${{ steps.dataflow_stage_b.outputs.analysis_state }}
+          STAGE_B_OUTCOME: ${{ steps.dataflow_stage_b.outcome }}
+          STAGE_C_EXIT: ${{ steps.dataflow_stage_c.outputs.exit_code }}
+          STAGE_C_STATE: ${{ steps.dataflow_stage_c.outputs.analysis_state }}
+          STAGE_C_OUTCOME: ${{ steps.dataflow_stage_c.outcome }}
+        run: |
+          terminal_stage="A"
+          terminal_exit="${STAGE_A_EXIT:-}"
+          terminal_state="${STAGE_A_STATE:-}"
+          terminal_status="not_run"
+          if [ -n "${STAGE_B_EXIT:-}" ]; then
+            terminal_stage="B"
+            terminal_exit="${STAGE_B_EXIT:-}"
+            terminal_state="${STAGE_B_STATE:-}"
+          fi
+          if [ -n "${STAGE_C_EXIT:-}" ]; then
+            terminal_stage="C"
+            terminal_exit="${STAGE_C_EXIT:-}"
+            terminal_state="${STAGE_C_STATE:-}"
+          fi
+          if [ -z "$terminal_exit" ]; then
+            echo "No dataflow audit stage produced an exit code."
+            exit 1
+          fi
+          if [ "$terminal_exit" = "0" ]; then
+            terminal_status="success"
+          elif [ "$terminal_state" = "timed_out_progress_resume" ]; then
+            terminal_status="timeout_resume"
+          else
+            terminal_status="hard_failure"
+          fi
+          echo "terminal_stage=$terminal_stage exit_code=$terminal_exit analysis_state=${terminal_state:-none} status=$terminal_status"
+          if [ "$terminal_status" = "success" ]; then
+            exit 0
+          fi
+          if [ -f artifacts/audit_reports/dataflow_report.md ]; then
+            echo "===== dataflow report ====="
+            cat artifacts/audit_reports/dataflow_report.md
+          fi
+          if [ -f artifacts/audit_reports/timeout_progress.md ]; then
+            echo "===== timeout progress ====="
+            cat artifacts/audit_reports/timeout_progress.md
+          fi
+          if [ "$terminal_status" = "timeout_resume" ]; then
+            echo "Dataflow audit exhausted timeout budget after staged retries."
+            exit 1
+          fi
+          echo "Dataflow audit failed for a non-timeout reason."
+          exit 1
       - name: Deadline profile summary
         if: always()
         run: |
-          .venv/bin/python scripts/deadline_profile_ci_summary.py \
-            --allow-missing-local \
-            --step-summary "$GITHUB_STEP_SUMMARY"
+          if [ -f artifacts/out/deadline_profile.json ]; then
+            .venv/bin/python scripts/deadline_profile_ci_summary.py \
+              --allow-missing-local \
+              --step-summary "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Skipping deadline profile summary (missing artifacts/out/deadline_profile.json)." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload dataflow report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -90,12 +236,17 @@ jobs:
           name: dataflow-report
           path: |
             artifacts/audit_reports/dataflow_report.md
+            artifacts/audit_reports/dataflow_report_stage_*.md
             artifacts/audit_reports/timeout_progress.md
             artifacts/audit_reports/timeout_progress.json
+            artifacts/audit_reports/timeout_progress_stage_*.md
+            artifacts/audit_reports/timeout_progress_stage_*.json
             artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
             artifacts/audit_reports/dataflow_resume_checkpoint_ci.json.chunks/**
             artifacts/out/deadline_profile.json
             artifacts/out/deadline_profile.md
+            artifacts/out/deadline_profile_stage_*.json
+            artifacts/out/deadline_profile_stage_*.md
             artifacts/out/deadline_profile_ci_summary.json
             artifacts/out/deadline_profile_ci_summary.md
 
