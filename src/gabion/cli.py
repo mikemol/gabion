@@ -18,6 +18,7 @@ from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import (
     Deadline,
     check_deadline,
+    deadline_loop_iter,
     deadline_clock_scope,
     deadline_scope,
     forest_scope,
@@ -282,13 +283,15 @@ def _render_timeout_progress_markdown(
             lines.append("")
             lines.append("## Resume Token")
             lines.append("")
-            for key in (
-                "phase",
-                "checkpoint_path",
-                "completed_files",
-                "remaining_files",
-                "total_files",
-                "witness_digest",
+            for key in deadline_loop_iter(
+                (
+                    "phase",
+                    "checkpoint_path",
+                    "completed_files",
+                    "remaining_files",
+                    "total_files",
+                    "witness_digest",
+                )
             ):
                 value = token.get(key)
                 if value is None:
@@ -299,7 +302,7 @@ def _render_timeout_progress_markdown(
         lines.append("")
         lines.append("## Incremental Obligations")
         lines.append("")
-        for entry in obligations:
+        for entry in deadline_loop_iter(obligations):
             if not isinstance(entry, Mapping):
                 continue
             status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
@@ -335,13 +338,14 @@ def _emit_timeout_progress_artifacts(
         "progress": {str(key): progress[key] for key in progress},
     }
     progress_json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    progress_md_path.write_text(
-        _render_timeout_progress_markdown(
+    with _cli_deadline_scope():
+        rendered = _render_timeout_progress_markdown(
             analysis_state=str(result.get("analysis_state", "")),
             progress=progress,
             deadline_profile=profile_mapping,
         )
-        + "\n",
+    progress_md_path.write_text(
+        rendered + "\n",
         encoding="utf-8",
     )
     typer.echo(f"Wrote timeout progress JSON: {progress_json_path}")
@@ -353,7 +357,7 @@ def build_check_payload(
     paths: Optional[List[Path]],
     report: Optional[Path],
     fail_on_violations: bool,
-    root: Path | None,
+    root: Path,
     config: Optional[Path],
     baseline: Optional[Path],
     baseline_write: bool,
@@ -419,7 +423,6 @@ def build_check_payload(
         else None
     )
     baseline_write_value = bool(baseline is not None and baseline_write)
-    root = root or Path(".")
     payload = {
         "paths": [str(p) for p in paths],
         "report": str(report) if report is not None else None,
@@ -602,7 +605,7 @@ def dispatch_command(
     *,
     command: str,
     payload: JSONObject,
-    root: Path | None = None,
+    root: Path = Path("."),
     runner: Runner = run_command,
     process_factory: Callable[..., subprocess.Popen] | None = None,
 ) -> JSONObject:
@@ -1587,7 +1590,7 @@ def _run_synthesis_plan(
     result = dispatch_command(
         command=SYNTHESIS_COMMAND,
         payload=payload,
-        root=None,
+        root=Path("."),
         runner=runner,
     )
     output = json.dumps(result, indent=2, sort_keys=True)
@@ -1635,10 +1638,11 @@ def run_structure_diff(
     # dataflow-bundle: baseline, current
     payload = {"baseline": str(baseline), "current": str(current)}
     runner = runner or DEFAULT_RUNNER
+    root_path = root or Path(".")
     return dispatch_command(
         command=STRUCTURE_DIFF_COMMAND,
         payload=payload,
-        root=root,
+        root=root_path,
         runner=runner,
     )
 
@@ -1652,10 +1656,11 @@ def run_decision_diff(
 ) -> JSONObject:
     payload = {"baseline": str(baseline), "current": str(current)}
     runner = runner or DEFAULT_RUNNER
+    root_path = root or Path(".")
     return dispatch_command(
         command=DECISION_DIFF_COMMAND,
         payload=payload,
-        root=root,
+        root=root_path,
         runner=runner,
     )
 
@@ -1672,10 +1677,11 @@ def run_structure_reuse(
     if lemma_stubs is not None:
         payload["lemma_stubs"] = str(lemma_stubs)
     runner = runner or DEFAULT_RUNNER
+    root_path = root or Path(".")
     return dispatch_command(
         command=STRUCTURE_REUSE_COMMAND,
         payload=payload,
-        root=root,
+        root=root_path,
         runner=runner,
     )
 

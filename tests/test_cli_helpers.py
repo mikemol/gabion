@@ -909,7 +909,7 @@ def test_run_synthesis_plan_without_input(tmp_path: Path) -> None:
         output_path=output_path,
         runner=runner,
     )
-    assert captured["root"] is None
+    assert captured["root"] == Path(".")
     assert output_path.read_text().strip()
 
 
