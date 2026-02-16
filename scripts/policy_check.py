@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import check_deadline
 from gabion.invariants import never
+from gabion.order_contract import ordered_or_sorted
 
 try:
     import yaml
@@ -75,6 +76,15 @@ def _policy_timeout_budget() -> DeadlineBudget:
 def _policy_deadline_scope():
     return deadline_scope_from_ticks(
         budget=_policy_timeout_budget(),
+    )
+
+
+def _sorted(values, *, key=None, reverse: bool = False):
+    return ordered_or_sorted(
+        values,
+        source="scripts.policy_check",
+        key=key,
+        reverse=reverse,
     )
 
 
@@ -865,7 +875,7 @@ def _check_self_hosted_constraints(doc, path, errors):
         branch_set = {str(item) for item in branches}
         if not branch_set.issubset(TRUSTED_BRANCHES):
             errors.append(
-                f"{path}: push branches must be subset of {sorted(TRUSTED_BRANCHES)}"
+                f"{path}: push branches must be subset of {_sorted(TRUSTED_BRANCHES)}"
             )
 
     for name, job in self_hosted_jobs:
@@ -876,7 +886,7 @@ def _check_self_hosted_constraints(doc, path, errors):
             errors.append(f"{path}:{name}: runs-on must be explicit labels")
         if not REQUIRED_RUNNER_LABELS.issubset(labels):
             errors.append(
-                f"{path}:{name}: runs-on must include {sorted(REQUIRED_RUNNER_LABELS)}"
+                f"{path}:{name}: runs-on must include {_sorted(REQUIRED_RUNNER_LABELS)}"
             )
         cond = _normalize_if(job.get("if"))
         if "github.actor==github.repository_owner" not in cond:
@@ -890,7 +900,7 @@ def check_workflows():
     if not allowed_actions:
         _fail([f"allowed actions list is empty or missing: {ALLOWED_ACTIONS_FILE}"])
     errors = []
-    for path in sorted(WORKFLOW_DIR.glob("*.yml")):
+    for path in _sorted(WORKFLOW_DIR.glob("*.yml")):
         check_deadline()
         doc = _load_yaml(path)
         jobs = doc.get("jobs", {})
@@ -1051,12 +1061,12 @@ def check_posture():
             normalized.append(pattern)
     if invalid_patterns:
         errors.append(
-            f"invalid action patterns (must end with @* or be bare): {sorted(invalid_patterns)}"
+            f"invalid action patterns (must end with @* or be bare): {_sorted(invalid_patterns)}"
         )
     allowed_actions = _load_allowed_actions(ALLOWED_ACTIONS_FILE)
     if set(normalized) != set(allowed_actions):
         errors.append(
-            f"allowed action patterns must match {sorted(allowed_actions)}"
+            f"allowed action patterns must match {_sorted(allowed_actions)}"
         )
 
     if errors:

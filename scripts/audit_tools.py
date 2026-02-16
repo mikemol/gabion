@@ -22,6 +22,7 @@ from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis import evidence_keys
 from gabion.invariants import never
+from gabion.order_contract import ordered_or_sorted
 
 _DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
 _DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
@@ -50,6 +51,15 @@ def _audit_deadline_scope():
     return deadline_scope_from_ticks(
         budget=_DEFAULT_AUDIT_TIMEOUT_BUDGET,
         gas_limit=_audit_gas_limit(),
+    )
+
+
+def _sorted(values: Iterable[object], *, key: Callable[[object], object] | None = None, reverse: bool = False) -> list[object]:
+    return ordered_or_sorted(
+        values,
+        source="scripts.audit_tools",
+        key=key,
+        reverse=reverse,
     )
 
 
@@ -559,7 +569,7 @@ def _iter_docflow_paths(root: Path, extra_paths: list[str] | None) -> list[Path]
             raw = Path(entry)
             path = raw if raw.is_absolute() else root / raw
             if path.is_dir():
-                for doc in sorted(path.rglob("*.md")):
+                for doc in _sorted(path.rglob("*.md")):
                     check_deadline()
                     if doc not in seen:
                         paths.append(doc)
@@ -1056,7 +1066,7 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
                 if isinstance(labels, list):
                     node.setdefault("labels", [lab.get("name") for lab in labels if isinstance(lab, dict)])
             if formatted_refs:
-                node["doc_refs"] = sorted(set(node.get("doc_refs", [])) | set(formatted_refs))
+                node["doc_refs"] = _sorted(set(node.get("doc_refs", [])) | set(formatted_refs))
             else:
                 issues_without_doc_ref.add(issue_key)
 
@@ -1069,7 +1079,7 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
                     "revision": rev,
                     "issues": [],
                 })
-                doc_node["issues"] = sorted(set(doc_node.get("issues", [])) | {issue_key})
+                doc_node["issues"] = _sorted(set(doc_node.get("issues", [])) | {issue_key})
                 edges.append({"from": doc_key, "to": issue_key, "kind": "doc_ref"})
 
         if formatted_refs and not issue_ids:
@@ -1084,8 +1094,8 @@ def _build_sppf_dependency_graph(root: Path, issues_json: Path | None = None) ->
         "issues": issue_nodes,
         "docs": doc_nodes,
         "edges": edges,
-        "issues_without_doc_ref": sorted(issues_without_doc_ref),
-        "docs_without_issue": sorted(docs_without_issue),
+        "issues_without_doc_ref": _sorted(issues_without_doc_ref),
+        "docs_without_issue": _sorted(docs_without_issue),
     }
     return graph
 
@@ -1097,11 +1107,11 @@ def _write_sppf_graph_outputs(graph: dict[str, object], *, json_output: Path | N
     if dot_output is not None:
         dot_output.parent.mkdir(parents=True, exist_ok=True)
         lines = ["digraph sppf_deps {"]
-        for doc_key, node in sorted(graph.get("docs", {}).items()):
+        for doc_key, node in _sorted(graph.get("docs", {}).items()):
             check_deadline()
             label = doc_key
             lines.append(f"  \"{doc_key}\" [shape=box,label=\"{label}\"];")
-        for issue_key, node in sorted(graph.get("issues", {}).items()):
+        for issue_key, node in _sorted(graph.get("issues", {}).items()):
             check_deadline()
             label = issue_key
             title = node.get("title")
@@ -1239,7 +1249,7 @@ def _sppf_axis_audit(root: Path, docs: dict[str, Doc]) -> tuple[list[str], list[
                     )
         if checked_doc_status and doc_status and expected_doc_statuses and doc_status not in expected_doc_statuses:
             violations.append(
-                f"docs/sppf_checklist.md: doc status {doc_status} does not match influence index {sorted(expected_doc_statuses)}: {line}"
+                f"docs/sppf_checklist.md: doc status {doc_status} does not match influence index {_sorted(expected_doc_statuses)}: {line}"
             )
         state = match.group("state")
         if state == "x" and (doc_status != "done" or impl_status != "done"):
@@ -1405,7 +1415,7 @@ def _docflow_invariant_rows(
 ) -> tuple[list[dict[str, object]], list[str]]:
     rows: list[dict[str, object]] = []
     warnings: list[str] = []
-    for rel in sorted(missing_frontmatter):
+    for rel in _sorted(missing_frontmatter):
         check_deadline()
         rows.append(
             {
@@ -1490,7 +1500,7 @@ def _docflow_invariant_rows(
             projection = fm.get("doc_dependency_projection")
             if isinstance(projection, str) and projection == "glossary_root":
                 required_core = set()
-            missing = sorted(required_core - {rel} - requires)
+            missing = _sorted(required_core - {rel} - requires)
             for req in missing:
                 check_deadline()
                 rows.append(
@@ -1996,7 +2006,7 @@ def _docflow_canonicality_entries(
     if not isinstance(sections, dict):
         return [], [], {"error": "glossary.md missing doc_sections"}
     headings = _glossary_section_headings(glossary)
-    terms = sorted(str(key) for key in sections.keys())
+    terms = _sorted(str(key) for key in sections.keys())
 
     entries: list[dict[str, object]] = []
     signal_rows: list[dict[str, object]] = []
@@ -2043,15 +2053,15 @@ def _docflow_canonicality_entries(
         if missing_anchor:
             _record_signal(term, "missing_anchor")
             ambiguous_terms.add(term)
-        for rel in sorted(explicit_without_requires):
+        for rel in _sorted(explicit_without_requires):
             check_deadline()
             _record_signal(term, "explicit_without_requires", rel)
             ambiguous_terms.add(term)
-        for rel in sorted(requires_without_explicit):
+        for rel in _sorted(requires_without_explicit):
             check_deadline()
             _record_signal(term, "requires_without_explicit", rel)
             ambiguous_terms.add(term)
-        for rel in sorted(implicit_docs):
+        for rel in _sorted(implicit_docs):
             check_deadline()
             _record_signal(term, "implicit_without_requires", rel)
             ambiguous_terms.add(term)
@@ -2070,11 +2080,11 @@ def _docflow_canonicality_entries(
                 "term": term,
                 "heading": heading,
                 "anchor_present": not missing_anchor,
-                "requires_docs": sorted(requires_docs),
-                "explicit_docs": sorted(explicit_docs),
-                "implicit_docs": sorted(implicit_docs),
-                "explicit_without_requires": sorted(explicit_without_requires),
-                "requires_without_explicit": sorted(requires_without_explicit),
+                "requires_docs": _sorted(requires_docs),
+                "explicit_docs": _sorted(explicit_docs),
+                "implicit_docs": _sorted(implicit_docs),
+                "explicit_without_requires": _sorted(explicit_without_requires),
+                "requires_without_explicit": _sorted(requires_without_explicit),
                 "candidate": candidate,
             }
         )
@@ -2093,7 +2103,7 @@ def _docflow_dependency_graph(
 ) -> dict[str, object]:
     nodes: dict[str, dict[str, object]] = {}
     edges: list[dict[str, object]] = []
-    for rel, doc in sorted(docs.items()):
+    for rel, doc in _sorted(docs.items()):
         check_deadline()
         fm = doc.frontmatter
         requires = fm.get("doc_requires", [])
@@ -2208,7 +2218,7 @@ def _docflow_cycles(
         has_self = any(node in adjacency.get(node, set()) for node in comp)
         if len(comp) == 1 and not has_self:
             continue
-        ordered = sorted(comp)
+        ordered = _sorted(comp)
         kind = "non_core"
         if set(ordered).issubset(core):
             kind = "core"
@@ -2242,7 +2252,7 @@ def _render_docflow_cycles_md(
         check_deadline()
         kind = str(entry.get("kind", "unknown"))
         counts[kind] = counts.get(kind, 0) + 1
-    for kind in sorted(counts):
+    for kind in _sorted(counts):
         check_deadline()
         lines.append(f"- {kind}: {counts[kind]}")
     lines.append("")
@@ -2253,7 +2263,7 @@ def _render_docflow_cycles_md(
         kind = str(entry.get("kind", "unknown"))
         projection_counts[kind] = projection_counts.get(kind, 0) + 1
     if projection_counts:
-        for kind in sorted(projection_counts):
+        for kind in _sorted(projection_counts):
             check_deadline()
             lines.append(f"- {kind}: {projection_counts[kind]}")
     else:
@@ -2339,7 +2349,7 @@ def _docflow_change_protocol_entries(
     docs: dict[str, Doc],
 ) -> list[dict[str, object]]:
     entries: list[dict[str, object]] = []
-    for rel in sorted(docs):
+    for rel in _sorted(docs):
         check_deadline()
         fm = docs[rel].frontmatter
         status, normalized = _classify_change_protocol(fm.get("doc_change_protocol"))
@@ -2367,7 +2377,7 @@ def _render_docflow_change_protocol_md(
         by_status[status].append(entry)
     lines: list[str] = ["Docflow change-protocol normalization report"]
     lines.append("Summary:")
-    for status in sorted(counts):
+    for status in _sorted(counts):
         check_deadline()
         lines.append(f"- {status}: {counts[status]}")
     for status in ("legacy", "custom", "missing"):
@@ -2417,7 +2427,7 @@ def _docflow_section_review_rows(
 ) -> tuple[list[dict[str, object]], list[str]]:
     rows: list[dict[str, object]] = []
     warnings: list[str] = []
-    for rel in sorted(docs):
+    for rel in _sorted(docs):
         check_deadline()
         fm = docs[rel].frontmatter
         doc_id = fm.get("doc_id") if isinstance(fm.get("doc_id"), str) else None
@@ -2509,7 +2519,7 @@ def _render_docflow_section_reviews_md(
         counts[status] += 1
     lines: list[str] = ["Docflow anchor review report"]
     lines.append("Summary:")
-    for status in sorted(counts):
+    for status in _sorted(counts):
         check_deadline()
         lines.append(f"- {status}: {counts[status]}")
     for row in rows:
@@ -2585,7 +2595,7 @@ def _render_docflow_canonicality_md(
     if not candidates:
         lines.append("- (none)")
     else:
-        for entry in sorted(candidates, key=lambda e: str(e.get("term"))):
+        for entry in _sorted(candidates, key=lambda e: str(e.get("term"))):
             check_deadline()
             heading = entry.get("heading") or ""
             requires = entry.get("requires_docs") or []
@@ -2609,7 +2619,7 @@ def _render_docflow_canonicality_md(
     if not ambiguous:
         lines.append("- (none)")
     else:
-        for entry in sorted(ambiguous, key=lambda e: str(e.get("term"))):
+        for entry in _sorted(ambiguous, key=lambda e: str(e.get("term"))):
             check_deadline()
             term = entry.get("term")
             reasons: list[str] = []
@@ -2630,7 +2640,7 @@ def _render_docflow_canonicality_md(
     if not no_induced:
         lines.append("- (none)")
     else:
-        for entry in sorted(no_induced, key=lambda e: str(e.get("term"))):
+        for entry in _sorted(no_induced, key=lambda e: str(e.get("term"))):
             check_deadline()
             heading = entry.get("heading") or ""
             lines.append(f"- {entry.get('term')} ({heading})")
@@ -2687,10 +2697,10 @@ def _emit_docflow_canonicality(
     docflow_terms = {str(term) for term in docflow_terms if term}
     convergence = {
         "matched": docflow_terms == projection_terms,
-        "docflow_terms": sorted(docflow_terms),
-        "projection_terms": sorted(projection_terms),
-        "docflow_only": sorted(docflow_terms - projection_terms),
-        "projection_only": sorted(projection_terms - docflow_terms),
+        "docflow_terms": _sorted(docflow_terms),
+        "projection_terms": _sorted(projection_terms),
+        "docflow_only": _sorted(docflow_terms - projection_terms),
+        "projection_only": _sorted(projection_terms - docflow_terms),
     }
 
     payload = {
@@ -2915,7 +2925,7 @@ def _docflow_audit_context(
             raw_path = Path(entry)
             path = raw_path if raw_path.is_absolute() else root / raw_path
             if path.is_dir():
-                extra.extend(sorted(path.rglob("*.md")))
+                extra.extend(_sorted(path.rglob("*.md")))
             elif path.is_file():
                 extra.append(path)
         return extra
@@ -3048,7 +3058,7 @@ def _influence_warnings(root: Path) -> List[str]:
         warnings.append("docs/influence_index.md: missing influence index for in/")
         return warnings
     index_text = index_path.read_text(encoding="utf-8")
-    for path in sorted(inbox.glob("in-*.md")):
+    for path in _sorted(inbox.glob("in-*.md")):
         check_deadline()
         rel = path.as_posix()
         if rel not in index_text:
@@ -3104,7 +3114,7 @@ def _sppf_sync_warnings(root: Path) -> List[str]:
     if issue_ids:
         return warnings
 
-    sample = ", ".join(sorted(relevant)[:5])
+    sample = ", ".join(_sorted(relevant)[:5])
     suffix = f" (e.g. {sample})" if sample else ""
     warnings.append(
         f"sppf_sync: no GH references found in commit range {rev_range} touching SPPF-relevant paths{suffix}"
@@ -3127,7 +3137,7 @@ def _decision_tier_candidates(lint_path: Path, *, tier: int, output_format: str)
             continue
         keys.append(f"{parsed.path}:{parsed.line}:{parsed.col}")
 
-    keys = sorted(set(keys))
+    keys = _sorted(set(keys))
     if output_format == "lines":
         for key in keys:
             check_deadline()
@@ -3259,7 +3269,7 @@ def _render_bundle_candidates(
     max_examples: int,
 ) -> list[str]:
     lines: list[str] = []
-    for params, surfaces in sorted(
+    for params, surfaces in _sorted(
         bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
     ):
         check_deadline()
@@ -3279,7 +3289,7 @@ def _render_param_clusters(
     max_examples: int,
 ) -> list[str]:
     lines: list[str] = []
-    for param, surfaces in sorted(
+    for param, surfaces in _sorted(
         param_to_surfaces.items(), key=lambda kv: (-len(kv[1]), kv[0])
     ):
         check_deadline()
@@ -3300,7 +3310,7 @@ def _render_higher_order_candidates(
     max_examples: int,
 ) -> list[str]:
     lines: list[str] = []
-    for params, surfaces in sorted(
+    for params, surfaces in _sorted(
         bundle_counts.items(), key=lambda kv: (-len(kv[1]), kv[0])
     ):
         check_deadline()
@@ -3330,7 +3340,7 @@ def _build_suggestions(
     for surface in decision_surfaces:
         check_deadline()
         if surface.params:
-            bundle_counts[tuple(sorted(surface.params))].append(surface)
+            bundle_counts[tuple(_sorted(surface.params))].append(surface)
         for param in surface.params:
             check_deadline()
             param_counts[param].append(surface)
@@ -3442,7 +3452,7 @@ def _write_consolidation_report(
     for surface in decision_surfaces:
         check_deadline()
         if surface.params:
-            bundle_counts[tuple(sorted(surface.params))].append(surface)
+            bundle_counts[tuple(_sorted(surface.params))].append(surface)
         for param in surface.params:
             check_deadline()
             param_to_surfaces[param].append(surface)
@@ -3466,7 +3476,7 @@ def _write_consolidation_report(
     lines.append(f"- Forest required: {config.require_forest}")
     if fallback_notes:
         lines.append(
-            f"- {FOREST_FALLBACK_MARKER}: " + "; ".join(sorted(set(fallback_notes)))
+            f"- {FOREST_FALLBACK_MARKER}: " + "; ".join(_sorted(set(fallback_notes)))
         )
     if lint_by_code:
         lines.append("- Lint codes: " + ", ".join(
@@ -3506,7 +3516,7 @@ def _write_consolidation_report(
         for entry in lint_entries
         if entry.code in {"GABION_DECISION_SURFACE", "GABION_VALUE_DECISION_SURFACE"}
     ]
-    boundary_lint_sorted = sorted(boundary_lint, key=lambda e: (e.path, e.line, e.col))
+    boundary_lint_sorted = _sorted(boundary_lint, key=lambda e: (e.path, e.line, e.col))
     if boundary_lint_sorted:
         for entry in boundary_lint_sorted[:20]:
             check_deadline()

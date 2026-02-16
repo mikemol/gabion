@@ -91,6 +91,7 @@ from gabion.analysis.timeout_context import (
     set_deadline_clock,
 )
 from gabion.invariants import never
+from gabion.order_contract import ordered_or_sorted
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -2270,7 +2271,13 @@ def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
         if timeout_ns < 1_000_000:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
         return timeout_ns
-    never("missing analysis timeout", payload_keys=sorted(payload.keys()))
+    never(
+        "missing analysis timeout",
+        payload_keys=ordered_or_sorted(
+            payload.keys(),
+            source="server._analysis_timeout_total_ns.payload_keys",
+        ),
+    )
 
 
 def _analysis_timeout_total_ticks(payload: Mapping[str, object]) -> int:
@@ -2304,7 +2311,13 @@ def _analysis_timeout_total_ticks(payload: Mapping[str, object]) -> int:
         if ticks_value <= 0:
             never("invalid analysis timeout seconds", seconds=timeout_seconds)
         return ticks_value
-    never("missing analysis timeout", payload_keys=sorted(payload.keys()))
+    never(
+        "missing analysis timeout",
+        payload_keys=ordered_or_sorted(
+            payload.keys(),
+            source="server._analysis_timeout_total_ticks.payload_keys",
+        ),
+    )
 
 
 def _analysis_timeout_grace_ns(payload: Mapping[str, object], *, total_ns: int) -> int:
