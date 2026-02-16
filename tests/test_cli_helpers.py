@@ -195,7 +195,8 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
         ["check", "--profile", "raw", "sample.py", "--emit-test-obsolescence"],
     )
     assert result.exit_code != 0
-    assert "--profile raw does not support check-only options" in result.output
+    assert "check-only options" in result.output
+    assert "--emit-test-obsolescence" in result.output
 
 
 def test_dataflow_audit_command_delegates_to_raw_runner(
