@@ -1015,6 +1015,69 @@ def _check_raw_profile_args(
     return argv
 
 
+def _run_check_raw_profile(
+    *,
+    ctx: typer.Context,
+    paths: Optional[List[Path]],
+    report: Optional[Path],
+    fail_on_violations: bool,
+    root: Path,
+    config: Optional[Path],
+    decision_snapshot: Optional[Path],
+    baseline: Optional[Path],
+    baseline_write: bool,
+    exclude: Optional[List[str]],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
+    allow_external: Optional[bool],
+    strictness: Optional[str],
+    resume_checkpoint: Optional[Path],
+    emit_timeout_progress_report: bool,
+    resume_on_timeout: int,
+    fail_on_type_ambiguities: bool,
+    lint: bool,
+    lint_jsonl: Optional[Path],
+    lint_sarif: Optional[Path],
+) -> None:
+    unsupported = _raw_profile_unsupported_flags(ctx)
+    if unsupported:
+        rendered = ", ".join(unsupported)
+        raise typer.BadParameter(
+            f"--profile raw does not support check-only options: {rendered}"
+        )
+    raw_args = _check_raw_profile_args(
+        ctx=ctx,
+        paths=paths,
+        report=report,
+        fail_on_violations=fail_on_violations,
+        root=root,
+        config=config,
+        decision_snapshot=decision_snapshot,
+        baseline=baseline,
+        baseline_write=baseline_write,
+        exclude=exclude,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
+        allow_external=allow_external,
+        strictness=strictness,
+        resume_checkpoint=resume_checkpoint,
+        emit_timeout_progress_report=emit_timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+        lint=lint,
+        lint_jsonl=lint_jsonl,
+        lint_sarif=lint_sarif,
+    )
+    _dataflow_audit(DataflowAuditRequest(ctx=ctx, args=raw_args))
+
+
+def _warn_dataflow_audit_alias() -> None:
+    typer.echo(
+        "`dataflow-audit` is deprecated; use `check --profile raw`.",
+        err=True,
+    )
+
+
 @app.command(
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
@@ -1175,13 +1238,7 @@ def check(
     if profile_name not in {"strict", "raw"}:
         raise typer.BadParameter("profile must be 'strict' or 'raw'")
     if profile_name == "raw":
-        unsupported = _raw_profile_unsupported_flags(ctx)
-        if unsupported:
-            rendered = ", ".join(unsupported)
-            raise typer.BadParameter(
-                f"--profile raw does not support check-only options: {rendered}"
-            )
-        raw_args = _check_raw_profile_args(
+        _run_check_raw_profile(
             ctx=ctx,
             paths=paths,
             report=report,
@@ -1204,7 +1261,6 @@ def check(
             lint_jsonl=lint_jsonl,
             lint_sarif=lint_sarif,
         )
-        _dataflow_audit(DataflowAuditRequest(ctx=ctx, args=raw_args))
         return
     extra_tokens = list(ctx.args)
     extra_tokens.extend(
@@ -1305,8 +1361,15 @@ def dataflow_audit(
     ctx: typer.Context,
     args: List[str] = typer.Argument(None),
 ) -> None:
-    request = DataflowAuditRequest(ctx=ctx, args=args)
-    _dataflow_audit(request)
+    argv = list(args or []) + list(ctx.args)
+    if any(arg in {"-h", "--help"} for arg in argv):
+        parse_dataflow_args_or_exit(["--help"])
+    _warn_dataflow_audit_alias()
+    check(
+        ctx=ctx,
+        paths=[Path(value) for value in (args or [])],
+        profile="raw",
+    )
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:

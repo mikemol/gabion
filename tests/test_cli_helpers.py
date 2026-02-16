@@ -204,6 +204,85 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
     assert "--profile raw does not support check-only options" in result.output
 
 
+def test_dataflow_audit_command_delegates_to_check_raw(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_check(*, ctx, paths, profile, **_kwargs):  # type: ignore[no-untyped-def]
+        captured["profile"] = profile
+        captured["paths"] = [str(path) for path in (paths or [])]
+        captured["ctx_args"] = list(ctx.args)
+        raise typer.Exit(code=0)
+
+    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", lambda: None)
+    monkeypatch.setattr(cli, "check", _fake_check)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        ["dataflow-audit", "sample.py", "--dot", "-", "--root", "."],
+    )
+    assert result.exit_code == 0
+    assert captured["profile"] == "raw"
+    assert captured["paths"] == ["sample.py", "--dot", "-", "--root", "."]
+    assert captured["ctx_args"] == []
+
+
+def test_dataflow_audit_alias_matches_check_raw_args(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[tuple[list[str], list[str]]] = []
+
+    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
+        captured.append((list(request.args or []), list(request.ctx.args)))
+        raise typer.Exit(code=0)
+
+    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", lambda: None)
+    runner = CliRunner()
+    check_result = runner.invoke(
+        cli.app,
+        ["check", "--profile", "raw", "sample.py", "--dot", "-"],
+    )
+    dataflow_result = runner.invoke(cli.app, ["dataflow-audit", "sample.py", "--dot", "-"])
+    assert check_result.exit_code == 0
+    assert dataflow_result.exit_code == 0
+    assert len(captured) == 2
+    assert captured[0] == captured[1]
+
+
+def test_dataflow_audit_emits_alias_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    warned = {"count": 0}
+
+    def _fake_warn() -> None:
+        warned["count"] += 1
+
+    def _fake_check(*, ctx, paths, profile, **_kwargs):  # type: ignore[no-untyped-def]
+        raise typer.Exit(code=0)
+
+    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", _fake_warn)
+    monkeypatch.setattr(cli, "check", _fake_check)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["dataflow-audit", "sample.py"])
+    assert result.exit_code == 0
+    assert warned["count"] == 1
+
+
+def test_dataflow_audit_help_does_not_emit_alias_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    warned = {"count": 0}
+
+    def _fake_warn() -> None:
+        warned["count"] += 1
+
+    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", _fake_warn)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["dataflow-audit", "--help"])
+    assert result.exit_code == 0
+    assert warned["count"] == 0
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
 def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     good_line = "mod.py:10:2: GABION_CODE something happened"
