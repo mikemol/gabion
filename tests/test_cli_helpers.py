@@ -8,6 +8,7 @@ import types
 
 import pytest
 import typer
+from typer.testing import CliRunner
 
 from gabion import cli
 from gabion.analysis.timeout_context import check_deadline
@@ -34,6 +35,173 @@ def test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit() -> No
     with pytest.raises(typer.Exit) as exc:
         cli.parse_dataflow_args_or_exit([])
     assert exc.value.exit_code == 2
+
+
+def test_check_rejects_unknown_args_in_strict_profile() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["check", "sample.py", "--dot", "-"])
+    assert result.exit_code != 0
+    assert "Unknown arguments for strict profile" in result.output
+
+
+def test_check_rejects_unknown_profile() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["check", "sample.py", "--profile", "mystery"])
+    assert result.exit_code != 0
+    assert "profile must be 'strict' or 'raw'" in result.output
+
+
+def test_check_raw_profile_delegates_with_profile_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
+        captured["args"] = list(request.args or [])
+        captured["ctx_args"] = list(request.ctx.args)
+
+    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["check", "--profile", "raw", "sample.py"])
+    assert result.exit_code == 0
+    assert captured["args"] == ["sample.py"]
+    assert captured["ctx_args"] == []
+
+
+def test_check_raw_profile_maps_common_flags_and_passthrough_args(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
+        captured["args"] = list(request.args or [])
+        captured["ctx_args"] = list(request.ctx.args)
+        raise typer.Exit(code=0)
+
+    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "--profile",
+            "raw",
+            "sample.py",
+            "--root",
+            str(tmp_path),
+            "--config",
+            "cfg.toml",
+            "--report",
+            "report.md",
+            "--decision-snapshot",
+            "decision.json",
+            "--baseline",
+            "baseline.txt",
+            "--baseline-write",
+            "--exclude",
+            "a,b",
+            "--ignore-params",
+            "x,y",
+            "--transparent-decorators",
+            "deco",
+            "--allow-external",
+            "--strictness",
+            "low",
+            "--resume-checkpoint",
+            "resume.json",
+            "--emit-timeout-progress-report",
+            "--resume-on-timeout",
+            "2",
+            "--fail-on-violations",
+            "--fail-on-type-ambiguities",
+            "--lint",
+            "--lint-jsonl",
+            "lint.jsonl",
+            "--lint-sarif",
+            "lint.sarif",
+            "--dot",
+            "-",
+            "--type-audit",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured["args"] == [
+        "sample.py",
+        "--dot",
+        "-",
+        "--type-audit",
+        "--root",
+        str(tmp_path),
+        "--config",
+        "cfg.toml",
+        "--report",
+        "report.md",
+        "--emit-decision-snapshot",
+        "decision.json",
+        "--baseline",
+        "baseline.txt",
+        "--baseline-write",
+        "--exclude",
+        "a,b",
+        "--ignore-params",
+        "x,y",
+        "--transparent-decorators",
+        "deco",
+        "--allow-external",
+        "--strictness",
+        "low",
+        "--resume-checkpoint",
+        "resume.json",
+        "--emit-timeout-progress-report",
+        "--resume-on-timeout",
+        "2",
+        "--fail-on-violations",
+        "--fail-on-type-ambiguities",
+        "--lint",
+        "--lint-jsonl",
+        "lint.jsonl",
+        "--lint-sarif",
+        "lint.sarif",
+    ]
+    assert captured["ctx_args"] == []
+
+
+def test_check_raw_profile_maps_no_allow_external(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
+        captured["args"] = list(request.args or [])
+        raise typer.Exit(code=0)
+
+    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "--profile",
+            "raw",
+            "sample.py",
+            "--no-allow-external",
+            "--no-fail-on-violations",
+            "--no-fail-on-type-ambiguities",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured["args"] == ["sample.py", "--no-allow-external"]
+
+
+def test_check_raw_profile_rejects_check_only_flags() -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        ["check", "--profile", "raw", "sample.py", "--emit-test-obsolescence"],
+    )
+    assert result.exit_code != 0
+    assert "--profile raw does not support check-only options" in result.output
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target

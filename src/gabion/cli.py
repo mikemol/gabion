@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 
+from click.core import ParameterSource
 import typer
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import (
@@ -421,7 +422,7 @@ def _build_dataflow_payload_common(
         "lint": lint,
         "resume_checkpoint": str(resume_checkpoint) if resume_checkpoint is not None else None,
         "emit_timeout_progress_report": bool(emit_timeout_progress_report),
-        "resume_on_timeout": max(int(resume_on_timeout), 0),
+        "resume_on_timeout": int(resume_on_timeout),
         "deadline_profile": bool(deadline_profile),
     }
     return payload
@@ -816,9 +817,211 @@ def _run_with_timeout_retries(
         raise typer.Exit(code=int(result.get("exit_code", 2)))
 
 
-@app.command()
+def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) -> None:
+    with _cli_deadline_scope():
+        lint_lines = result.get("lint_lines", []) or []
+        _emit_lint_outputs(
+            lint_lines,
+            lint=opts.lint,
+            lint_jsonl=opts.lint_jsonl,
+            lint_sarif=opts.lint_sarif,
+        )
+        if opts.type_audit:
+            suggestions = result.get("type_suggestions", [])
+            ambiguities = result.get("type_ambiguities", [])
+            if suggestions:
+                typer.echo("Type tightening candidates:")
+                for line in suggestions[: opts.type_audit_max]:
+                    check_deadline()
+                    typer.echo(f"- {line}")
+            if ambiguities:
+                typer.echo("Type ambiguities (conflicting downstream expectations):")
+                for line in ambiguities[: opts.type_audit_max]:
+                    check_deadline()
+                    typer.echo(f"- {line}")
+        if opts.dot == "-" and "dot" in result:
+            typer.echo(result["dot"])
+        if opts.synthesis_plan == "-" and "synthesis_plan" in result:
+            typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
+        if opts.synthesis_protocols == "-" and "synthesis_protocols" in result:
+            typer.echo(result["synthesis_protocols"])
+        if opts.refactor_plan_json == "-" and "refactor_plan" in result:
+            typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
+        if (
+            opts.fingerprint_synth_json == "-"
+            and "fingerprint_synth_registry" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_synth_registry"], indent=2, sort_keys=True
+                )
+            )
+        if (
+            opts.fingerprint_provenance_json == "-"
+            and "fingerprint_provenance" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_provenance"], indent=2, sort_keys=True
+                )
+            )
+        if opts.fingerprint_deadness_json == "-" and "fingerprint_deadness" in result:
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_deadness"], indent=2, sort_keys=True
+                )
+            )
+        if opts.fingerprint_coherence_json == "-" and "fingerprint_coherence" in result:
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_coherence"], indent=2, sort_keys=True
+                )
+            )
+        if (
+            opts.fingerprint_rewrite_plans_json == "-"
+            and "fingerprint_rewrite_plans" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_rewrite_plans"], indent=2, sort_keys=True
+                )
+            )
+        if (
+            opts.fingerprint_exception_obligations_json == "-"
+            and "fingerprint_exception_obligations" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_exception_obligations"],
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+        if (
+            opts.fingerprint_handledness_json == "-"
+            and "fingerprint_handledness" in result
+        ):
+            typer.echo(
+                json.dumps(
+                    result["fingerprint_handledness"], indent=2, sort_keys=True
+                )
+            )
+        if opts.emit_structure_tree == "-" and "structure_tree" in result:
+            typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
+        if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
+            typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
+        if opts.emit_decision_snapshot == "-" and "decision_snapshot" in result:
+            typer.echo(json.dumps(result["decision_snapshot"], indent=2, sort_keys=True))
+
+
+def _param_is_command_line(ctx: typer.Context, param: str) -> bool:
+    return ctx.get_parameter_source(param) is ParameterSource.COMMANDLINE
+
+
+def _raw_profile_unsupported_flags(ctx: typer.Context) -> list[str]:
+    strict_only_flags = {
+        "emit_test_obsolescence": "--emit-test-obsolescence",
+        "emit_test_obsolescence_state": "--emit-test-obsolescence-state",
+        "test_obsolescence_state": "--test-obsolescence-state",
+        "emit_test_obsolescence_delta": "--emit-test-obsolescence-delta",
+        "emit_test_evidence_suggestions": "--emit-test-evidence-suggestions",
+        "emit_call_clusters": "--emit-call-clusters",
+        "emit_call_cluster_consolidation": "--emit-call-cluster-consolidation",
+        "emit_test_annotation_drift": "--emit-test-annotation-drift",
+        "test_annotation_drift_state": "--test-annotation-drift-state",
+        "emit_test_annotation_drift_delta": "--emit-test-annotation-drift-delta",
+        "write_test_annotation_drift_baseline": "--write-test-annotation-drift-baseline",
+        "write_test_obsolescence_baseline": "--write-test-obsolescence-baseline",
+        "emit_ambiguity_delta": "--emit-ambiguity-delta",
+        "emit_ambiguity_state": "--emit-ambiguity-state",
+        "ambiguity_state": "--ambiguity-state",
+        "write_ambiguity_baseline": "--write-ambiguity-baseline",
+        "analysis_tick_limit": "--analysis-tick-limit",
+    }
+    return [
+        flag
+        for param, flag in strict_only_flags.items()
+        if _param_is_command_line(ctx, param)
+    ]
+
+
+def _check_raw_profile_args(
+    *,
+    ctx: typer.Context,
+    paths: Optional[List[Path]],
+    report: Optional[Path],
+    fail_on_violations: bool,
+    root: Path,
+    config: Optional[Path],
+    decision_snapshot: Optional[Path],
+    baseline: Optional[Path],
+    baseline_write: bool,
+    exclude: Optional[List[str]],
+    ignore_params_csv: Optional[str],
+    transparent_decorators_csv: Optional[str],
+    allow_external: Optional[bool],
+    strictness: Optional[str],
+    resume_checkpoint: Optional[Path],
+    emit_timeout_progress_report: bool,
+    resume_on_timeout: int,
+    fail_on_type_ambiguities: bool,
+    lint: bool,
+    lint_jsonl: Optional[Path],
+    lint_sarif: Optional[Path],
+) -> list[str]:
+    argv = [str(path) for path in (paths or [])]
+    if _param_is_command_line(ctx, "root"):
+        argv.extend(["--root", str(root)])
+    if _param_is_command_line(ctx, "config") and config is not None:
+        argv.extend(["--config", str(config)])
+    if _param_is_command_line(ctx, "report") and report is not None:
+        argv.extend(["--report", str(report)])
+    if _param_is_command_line(ctx, "decision_snapshot") and decision_snapshot is not None:
+        argv.extend(["--emit-decision-snapshot", str(decision_snapshot)])
+    if _param_is_command_line(ctx, "baseline") and baseline is not None:
+        argv.extend(["--baseline", str(baseline)])
+    if _param_is_command_line(ctx, "baseline_write") and baseline_write:
+        argv.append("--baseline-write")
+    if _param_is_command_line(ctx, "exclude"):
+        for entry in deadline_loop_iter(exclude or []):
+            argv.extend(["--exclude", entry])
+    if _param_is_command_line(ctx, "ignore_params_csv") and ignore_params_csv is not None:
+        argv.extend(["--ignore-params", ignore_params_csv])
+    if (
+        _param_is_command_line(ctx, "transparent_decorators_csv")
+        and transparent_decorators_csv is not None
+    ):
+        argv.extend(["--transparent-decorators", transparent_decorators_csv])
+    if _param_is_command_line(ctx, "allow_external") and allow_external is not None:
+        argv.append("--allow-external" if allow_external else "--no-allow-external")
+    if _param_is_command_line(ctx, "strictness") and strictness is not None:
+        argv.extend(["--strictness", strictness])
+    if _param_is_command_line(ctx, "resume_checkpoint") and resume_checkpoint is not None:
+        argv.extend(["--resume-checkpoint", str(resume_checkpoint)])
+    if _param_is_command_line(ctx, "emit_timeout_progress_report") and emit_timeout_progress_report:
+        argv.append("--emit-timeout-progress-report")
+    if _param_is_command_line(ctx, "resume_on_timeout"):
+        argv.extend(["--resume-on-timeout", str(int(resume_on_timeout))])
+    if _param_is_command_line(ctx, "fail_on_violations") and fail_on_violations:
+        argv.append("--fail-on-violations")
+    if _param_is_command_line(ctx, "fail_on_type_ambiguities") and fail_on_type_ambiguities:
+        argv.append("--fail-on-type-ambiguities")
+    if _param_is_command_line(ctx, "lint") and lint:
+        argv.append("--lint")
+    if _param_is_command_line(ctx, "lint_jsonl") and lint_jsonl is not None:
+        argv.extend(["--lint-jsonl", str(lint_jsonl)])
+    if _param_is_command_line(ctx, "lint_sarif") and lint_sarif is not None:
+        argv.extend(["--lint-sarif", str(lint_sarif)])
+    return argv
+
+
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 def check(
+    ctx: typer.Context,
     paths: List[Path] = typer.Argument(None),
+    profile: str = typer.Option("strict", "--profile"),
     report: Optional[Path] = typer.Option(None, "--report"),
     fail_on_violations: bool = typer.Option(True, "--fail-on-violations/--no-fail-on-violations"),
     root: Path = typer.Option(Path("."), "--root"),
@@ -968,6 +1171,50 @@ def check(
 ) -> None:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     """Run the dataflow grammar audit with strict defaults."""
+    profile_name = profile.strip().lower()
+    if profile_name not in {"strict", "raw"}:
+        raise typer.BadParameter("profile must be 'strict' or 'raw'")
+    if profile_name == "raw":
+        unsupported = _raw_profile_unsupported_flags(ctx)
+        if unsupported:
+            rendered = ", ".join(unsupported)
+            raise typer.BadParameter(
+                f"--profile raw does not support check-only options: {rendered}"
+            )
+        raw_args = _check_raw_profile_args(
+            ctx=ctx,
+            paths=paths,
+            report=report,
+            fail_on_violations=fail_on_violations,
+            root=root,
+            config=config,
+            decision_snapshot=decision_snapshot,
+            baseline=baseline,
+            baseline_write=baseline_write,
+            exclude=exclude,
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+            allow_external=allow_external,
+            strictness=strictness,
+            resume_checkpoint=resume_checkpoint,
+            emit_timeout_progress_report=emit_timeout_progress_report,
+            resume_on_timeout=resume_on_timeout,
+            fail_on_type_ambiguities=fail_on_type_ambiguities,
+            lint=lint,
+            lint_jsonl=lint_jsonl,
+            lint_sarif=lint_sarif,
+        )
+        _dataflow_audit(DataflowAuditRequest(ctx=ctx, args=raw_args))
+        return
+    extra_tokens = list(ctx.args)
+    extra_tokens.extend(
+        str(path) for path in (paths or []) if str(path).startswith("-")
+    )
+    if extra_tokens:
+        joined = " ".join(extra_tokens)
+        raise typer.BadParameter(
+            f"Unknown arguments for strict profile: {joined}. Use --profile raw for raw options."
+        )
     lint_enabled = lint or bool(lint_jsonl or lint_sarif)
     result = _run_with_timeout_retries(
         run_once=lambda: run_check(
@@ -1045,100 +1292,7 @@ def _dataflow_audit(
         emit_timeout_progress_report=opts.emit_timeout_progress_report,
         resume_on_timeout=max(int(opts.resume_on_timeout), 0),
     )
-    with _cli_deadline_scope():
-        lint_lines = result.get("lint_lines", []) or []
-        _emit_lint_outputs(
-            lint_lines,
-            lint=opts.lint,
-            lint_jsonl=opts.lint_jsonl,
-            lint_sarif=opts.lint_sarif,
-        )
-        if opts.type_audit:
-            suggestions = result.get("type_suggestions", [])
-            ambiguities = result.get("type_ambiguities", [])
-            if suggestions:
-                typer.echo("Type tightening candidates:")
-                for line in suggestions[: opts.type_audit_max]:
-                    check_deadline()
-                    typer.echo(f"- {line}")
-            if ambiguities:
-                typer.echo("Type ambiguities (conflicting downstream expectations):")
-                for line in ambiguities[: opts.type_audit_max]:
-                    check_deadline()
-                    typer.echo(f"- {line}")
-        if opts.dot == "-" and "dot" in result:
-            typer.echo(result["dot"])
-        if opts.synthesis_plan == "-" and "synthesis_plan" in result:
-            typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
-        if opts.synthesis_protocols == "-" and "synthesis_protocols" in result:
-            typer.echo(result["synthesis_protocols"])
-        if opts.refactor_plan_json == "-" and "refactor_plan" in result:
-            typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
-        if (
-            opts.fingerprint_synth_json == "-"
-            and "fingerprint_synth_registry" in result
-        ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_synth_registry"], indent=2, sort_keys=True
-                )
-            )
-        if (
-            opts.fingerprint_provenance_json == "-"
-            and "fingerprint_provenance" in result
-        ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_provenance"], indent=2, sort_keys=True
-                )
-            )
-        if opts.fingerprint_deadness_json == "-" and "fingerprint_deadness" in result:
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_deadness"], indent=2, sort_keys=True
-                )
-            )
-        if opts.fingerprint_coherence_json == "-" and "fingerprint_coherence" in result:
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_coherence"], indent=2, sort_keys=True
-                )
-            )
-        if (
-            opts.fingerprint_rewrite_plans_json == "-"
-            and "fingerprint_rewrite_plans" in result
-        ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_rewrite_plans"], indent=2, sort_keys=True
-                )
-            )
-        if (
-            opts.fingerprint_exception_obligations_json == "-"
-            and "fingerprint_exception_obligations" in result
-        ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_exception_obligations"],
-                    indent=2,
-                    sort_keys=True,
-                )
-            )
-        if (
-            opts.fingerprint_handledness_json == "-"
-            and "fingerprint_handledness" in result
-        ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_handledness"], indent=2, sort_keys=True
-                )
-            )
-        if opts.emit_structure_tree == "-" and "structure_tree" in result:
-            typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
-        if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
-            typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
-        if opts.emit_decision_snapshot == "-" and "decision_snapshot" in result:
-            typer.echo(json.dumps(result["decision_snapshot"], indent=2, sort_keys=True))
+    _emit_dataflow_result_outputs(result, opts)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
