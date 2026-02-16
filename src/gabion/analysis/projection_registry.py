@@ -580,7 +580,11 @@ def iter_registered_specs() -> Iterable[ProjectionSpec]:
     )
 
 
-with forest_scope(Forest()):
-    with deadline_scope(Deadline.from_timeout_ms(1000)):
-        with deadline_clock_scope(GasMeter(limit=_projection_registry_gas_limit())):
-            REGISTERED_SPECS = {spec_hash(spec): spec for spec in iter_registered_specs()}
+def build_registered_specs() -> dict[str, ProjectionSpec]:
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ms(1000)):
+            with deadline_clock_scope(GasMeter(limit=_projection_registry_gas_limit())):
+                return {spec_hash(spec): spec for spec in iter_registered_specs()}
+
+
+REGISTERED_SPECS = build_registered_specs()

@@ -168,3 +168,10 @@ def test_annotation_drift_render_sections_and_write(tmp_path: Path) -> None:
 def test_annotation_drift_summarize_unknown_status() -> None:
     summary = test_annotation_drift._summarize([{"status": "custom"}])
     assert summary["custom"] == 1
+
+
+def test_annotation_drift_render_handles_non_list_entries_payload() -> None:
+    rendered = test_annotation_drift.render_markdown(
+        {"summary": {"ok": 1}, "entries": "not-a-list"}
+    )
+    assert "Summary" in rendered

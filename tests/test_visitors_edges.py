@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 import types
 
+import pytest
+
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -441,3 +443,155 @@ def test_subscript_and_attribute_slot_fallbacks() -> None:
     )
     tree, visitor, _, _ = _make_use_visitor(code, ["a", "data", "obj"])
     visitor.visit(tree)
+
+
+def test_check_write_missing_use_map_entries() -> None:
+    tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
+    visitor.alias_to_param["ghost"] = "missing"
+    visitor._attr_alias_to_param[("obj", "field")] = "missing"
+    visitor._key_alias_to_param[("data", "k")] = "missing"
+    visitor._check_write(ast.Name(id="ghost", ctx=ast.Store()))
+    visitor._check_write(ast.Name(id="obj", ctx=ast.Store()))
+    visitor._check_write(ast.Name(id="data", ctx=ast.Store()))
+    assert "missing" not in use_map
+    visitor.visit(tree)
+
+
+def test_bind_sequence_nested_mismatch_and_missing_use_map() -> None:
+    tree, visitor, _, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
+    visitor.alias_to_param["rhs"] = "missing"
+    lhs_nested = ast.Tuple(
+        elts=[
+            ast.Tuple(
+                elts=[ast.Name(id="x", ctx=ast.Store())],
+                ctx=ast.Store(),
+            )
+        ],
+        ctx=ast.Store(),
+    )
+    rhs_nested = ast.Tuple(
+        elts=[
+            ast.Tuple(
+                elts=[
+                    ast.Name(id="rhs", ctx=ast.Load()),
+                    ast.Name(id="other", ctx=ast.Load()),
+                ],
+                ctx=ast.Load(),
+            )
+        ],
+        ctx=ast.Load(),
+    )
+    assert visitor._bind_sequence(lhs_nested, rhs_nested) is True
+
+    lhs = ast.Tuple(elts=[ast.Name(id="x", ctx=ast.Store())], ctx=ast.Store())
+    rhs = ast.Tuple(elts=[ast.Name(id="rhs", ctx=ast.Load())], ctx=ast.Load())
+    assert visitor._bind_sequence(lhs, rhs) is True
+    visitor.visit(tree)
+
+
+def test_bind_sequence_nested_match_branch_and_mark_non_forward_suspended() -> None:
+    tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
+    lhs_nested = ast.Tuple(
+        elts=[
+            ast.Tuple(
+                elts=[ast.Name(id="x", ctx=ast.Store())],
+                ctx=ast.Store(),
+            )
+        ],
+        ctx=ast.Store(),
+    )
+    rhs_nested = ast.Tuple(
+        elts=[
+            ast.Tuple(
+                elts=[ast.Name(id="a", ctx=ast.Load())],
+                ctx=ast.Load(),
+            )
+        ],
+        ctx=ast.Load(),
+    )
+    assert visitor._bind_sequence(lhs_nested, rhs_nested) is True
+    assert "x" in visitor.alias_to_param
+    visitor._suspend_non_forward.add("a")
+    assert visitor._mark_non_forward("a") is False
+    assert use_map["a"].non_forward is False
+    visitor.visit(tree)
+
+
+def test_bind_return_alias_and_annassign_missing_use_map_entries() -> None:
+    _, visitor, _, _ = _make_use_visitor(
+        "def f(a):\n    x: int = identity(a)\n",
+        ["a"],
+        return_aliases={"identity": (["x"], ["x"])},
+    )
+    assert visitor._bind_return_alias([ast.Name(id="x", ctx=ast.Store())], ["missing"]) is True
+    tuple_target = ast.Tuple(
+        elts=[ast.Name(id="x", ctx=ast.Store()), ast.Name(id="y", ctx=ast.Store())],
+        ctx=ast.Store(),
+    )
+    assert visitor._bind_return_alias([tuple_target], ["missing", "missing2"]) is True
+    visitor.alias_to_param["a"] = "missing"
+    annassign = ast.parse("x: int = identity(a)").body[0]
+    assert isinstance(annassign, ast.AnnAssign)
+    with pytest.raises(KeyError):
+        visitor.visit_AnnAssign(annassign)
+
+
+def test_attribute_and_subscript_non_forward_when_not_suspended() -> None:
+    tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
+    visitor.visit_Attribute(
+        ast.Attribute(
+            value=ast.Attribute(
+                value=ast.Name(id="a", ctx=ast.Load()),
+                attr="b",
+                ctx=ast.Load(),
+            ),
+            attr="c",
+            ctx=ast.Load(),
+        )
+    )
+    visitor.visit_Attribute(
+        ast.Attribute(
+            value=ast.Name(id="a", ctx=ast.Load()),
+            attr="unknown",
+            ctx=ast.Load(),
+        )
+    )
+    visitor.visit_Subscript(
+        ast.Subscript(
+            value=ast.Attribute(
+                value=ast.Name(id="a", ctx=ast.Load()),
+                attr="b",
+                ctx=ast.Load(),
+            ),
+            slice=ast.Constant(value="k"),
+            ctx=ast.Load(),
+        )
+    )
+    visitor.visit_Subscript(
+        ast.Subscript(
+            value=ast.Name(id="a", ctx=ast.Load()),
+            slice=ast.Name(id="idx", ctx=ast.Load()),
+            ctx=ast.Load(),
+        )
+    )
+    visitor.visit_Subscript(
+        ast.Subscript(
+            value=ast.Name(id="a", ctx=ast.Load()),
+            slice=ast.Constant(value="k"),
+            ctx=ast.Load(),
+        )
+    )
+    assert use_map["a"].non_forward is True
+    visitor.visit(tree)
+
+
+def test_subscript_positional_slot_detection() -> None:
+    code = (
+        "def f(a):\n"
+        "    data = {}\n"
+        "    data['k'] = a\n"
+        "    sink(data['k'])\n"
+    )
+    tree, visitor, use_map, _ = _make_use_visitor(code, ["a"], strictness="low")
+    visitor.visit(tree)
+    assert ("sink", "arg[0]") in use_map["a"].direct_forward

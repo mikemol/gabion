@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextvars import Context
+
 import pytest
 
 from gabion.analysis.aspf import Forest
@@ -11,6 +13,7 @@ from gabion.analysis.timeout_context import (
     forest_scope,
 )
 from gabion.deadline_clock import GasMeter
+from gabion.exceptions import NeverThrown
 
 
 # gabion:evidence E:call_footprint::tests/test_aspf.py::test_paramset_packed_reuse::aspf.py::gabion.analysis.aspf.Forest
@@ -88,3 +91,47 @@ def test_add_alt_consumes_logical_ticks() -> None:
                 with pytest.raises(TimeoutExceeded):
                     forest.add_alt("Edge", (left, right))
     assert meter.current == 1
+
+
+def test_to_json_omits_meta_for_nodes_without_metadata() -> None:
+    forest = Forest()
+    forest.add_node("Sentinel", ("id",))
+    payload = forest.to_json()
+    sentinel = next(
+        node for node in payload["nodes"] if node["kind"] == "Sentinel"
+    )
+    assert "meta" not in sentinel
+
+
+def test_add_spec_site_records_optional_spec_fields() -> None:
+    forest = Forest()
+    node_id = forest.add_spec_site(
+        spec_hash="abc123",
+        spec_name="demo",
+        spec_domain="analysis",
+        spec_version=2,
+    )
+    meta = forest.nodes[node_id].meta
+    assert meta["spec_domain"] == "analysis"
+    assert meta["spec_version"] == 2
+
+
+def test_add_spec_site_omits_optional_spec_fields_when_absent() -> None:
+    forest = Forest()
+    node_id = forest.add_spec_site(spec_hash="abc123", spec_name="demo")
+    meta = forest.nodes[node_id].meta
+    assert "spec_domain" not in meta
+    assert "spec_version" not in meta
+
+
+def test_add_alt_requires_deadline_clock_scope() -> None:
+    def _run() -> None:
+        forest = Forest()
+        left = forest.add_site("mod.py", "mod.left")
+        right = forest.add_site("mod.py", "mod.right")
+        with forest_scope(forest):
+            with deadline_scope(Deadline.from_timeout_ms(1_000)):
+                forest.add_alt("Edge", (left, right))
+
+    with pytest.raises(NeverThrown):
+        Context().run(_run)

@@ -279,6 +279,7 @@ def run_command(
     timeout_ticks: int | None = None,
     timeout_tick_ns: int = 1_000_000,
     process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
+    remaining_deadline_ns_fn: Callable[[int], int] | None = None,
 ) -> JSONObject:
     if _has_env_timeout():
         timeout_ticks, timeout_tick_ns = _env_timeout_ticks()
@@ -318,6 +319,7 @@ def run_command(
 
     root_uri = (root or Path.cwd()).resolve().as_uri()
     logical_limit = max(10_000, int(lsp_ticks) * 1_000)
+    remaining_deadline_ns = remaining_deadline_ns_fn or _remaining_deadline_ns
     with deadline_scope(deadline):
         with deadline_clock_scope(GasMeter(limit=logical_limit)):
             initialize_id = 1
@@ -334,7 +336,7 @@ def run_command(
             _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
             cmd_id = 2
-            remaining_ns = _remaining_deadline_ns(deadline_ns)
+            remaining_ns = remaining_deadline_ns(deadline_ns)
             if not has_existing_analysis_timeout or analysis_target_ns > remaining_ns:
                 target_ns = min(analysis_target_ns, remaining_ns)
                 tick_ns_value = min(tick_ns_value, target_ns)
@@ -359,7 +361,7 @@ def run_command(
             )
             _read_response(proc.stdout, shutdown_id, deadline_ns)
             _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
-            remaining_ns = deadline_ns - time.monotonic_ns()
+            remaining_ns = remaining_deadline_ns(deadline_ns)
             remaining = max(1.0, remaining_ns / 1_000_000_000)
             try:
                 out, err = proc.communicate(timeout=remaining)

@@ -7,33 +7,15 @@ import pytest
 from gabion.analysis import evidence_keys, test_obsolescence, test_obsolescence_delta
 
 
-def _ref_from_display(display: str) -> test_obsolescence.EvidenceRef:
-    key = evidence_keys.make_opaque_key(display)
-    identity = evidence_keys.key_identity(key)
-    return test_obsolescence.EvidenceRef(
-        key=key,
-        identity=identity,
-        display=display,
-        opaque=True,
-    )
-
-
-def _ref_paramset(value: str) -> test_obsolescence.EvidenceRef:
-    key = evidence_keys.make_paramset_key([value])
-    identity = evidence_keys.key_identity(key)
-    return test_obsolescence.EvidenceRef(
-        key=key,
-        identity=identity,
-        display=evidence_keys.render_display(key),
-        opaque=False,
-    )
-
-
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
-def test_build_baseline_payload_roundtrip(tmp_path: Path) -> None:
+def test_build_baseline_payload_roundtrip(
+    tmp_path: Path,
+    make_obsolescence_paramset_ref,
+    make_obsolescence_opaque_ref,
+) -> None:
     evidence_by_test = {
-        "tests/test_alpha.py::test_a": [_ref_paramset("x")],
-        "tests/test_beta.py::test_b": [_ref_from_display("E:opaque")],
+        "tests/test_alpha.py::test_a": [make_obsolescence_paramset_ref("x")],
+        "tests/test_beta.py::test_b": [make_obsolescence_opaque_ref("E:opaque")],
     }
     status_by_test = {
         "tests/test_alpha.py::test_a": "mapped",
@@ -297,3 +279,153 @@ def test_parse_baseline_payload_filters_invalid_entries() -> None:
     }
     baseline = test_obsolescence_delta.parse_baseline_payload(payload)
     assert baseline.tests == {}
+
+
+def test_parse_baseline_payload_ignores_non_list_tests_payload() -> None:
+    baseline = test_obsolescence_delta.parse_baseline_payload(
+        {
+            "version": 1,
+            "summary": {},
+            "tests": {"bad": True},
+            "evidence_index": [],
+            "opaque_evidence_count": 0,
+            "generated_by_spec_id": "spec",
+            "generated_by_spec": {},
+        }
+    )
+    assert baseline.tests == {}
+
+
+def test_render_markdown_handles_non_mapping_summary_and_meta_sections() -> None:
+    rendered = test_obsolescence_delta.render_markdown(
+        {
+            "summary": "bad",
+            "tests": {},
+            "evidence_keys": {},
+            "baseline": [],
+            "current": [],
+            "generated_by_spec_id": "spec",
+            "generated_by_spec": {},
+        }
+    )
+    assert "Summary" in rendered
+
+
+def test_parse_evidence_index_prefers_existing_display_when_new_display_missing() -> None:
+    key = evidence_keys.make_paramset_key(["z"])
+    entry_a = {"key": key, "display": "A", "witness_count": 1}
+    entry_b = {"key": key, "display": "", "witness_count": 3}
+    parsed = test_obsolescence_delta._parse_evidence_index([entry_a, entry_b])
+    identity = evidence_keys.key_identity(key)
+    assert parsed[identity].display == "A"
+    assert parsed[identity].witness_count == 3
+
+
+def test_render_markdown_skips_empty_baseline_and_current_spec_ids() -> None:
+    rendered = test_obsolescence_delta.render_markdown(
+        {
+            "summary": {"counts": {}},
+            "tests": {},
+            "evidence_keys": {},
+            "baseline": {"generated_by_spec_id": ""},
+            "current": {"generated_by_spec_id": ""},
+            "generated_by_spec_id": "spec",
+            "generated_by_spec": {},
+        }
+    )
+    assert "baseline_spec_id" not in rendered
+    assert "current_spec_id" not in rendered
+
+
+def test_resolve_baseline_path_and_write_baseline(tmp_path: Path) -> None:
+    baseline_path = test_obsolescence_delta.resolve_baseline_path(tmp_path)
+    assert baseline_path == tmp_path / test_obsolescence_delta.BASELINE_RELATIVE_PATH
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": 1,
+        "summary": {},
+        "tests": [],
+        "evidence_index": [],
+        "opaque_evidence_count": 0,
+        "generated_by_spec_id": "spec",
+        "generated_by_spec": {},
+    }
+    test_obsolescence_delta.write_baseline(str(baseline_path), payload)
+    loaded = test_obsolescence_delta.load_baseline(str(baseline_path))
+    assert loaded.generated_by_spec_id == "spec"
+
+
+def test_render_markdown_includes_baseline_path_when_present() -> None:
+    rendered = test_obsolescence_delta.render_markdown(
+        {
+            "summary": {"counts": {}},
+            "tests": {},
+            "evidence_keys": {},
+            "baseline": {"path": "baselines/test_obsolescence_baseline.json"},
+            "current": {},
+            "generated_by_spec_id": "spec",
+            "generated_by_spec": {},
+        }
+    )
+    assert "- baseline: baselines/test_obsolescence_baseline.json" in rendered
+
+
+def test_build_baseline_payload_from_paths_calls_obsolescence_pipeline() -> None:
+    observed: dict[str, object] = {}
+    expected_payload = {"version": 1}
+    evidence_by_test = {"t": []}
+    status_by_test = {"t": "mapped"}
+    candidates = [{"test_id": "t", "class": "obsolete_candidate"}]
+    summary = {"obsolete_candidate": 1}
+
+    def _build(ev, st, cand, summ):
+        observed["args"] = (ev, st, cand, summ)
+        return expected_payload
+
+    payload = test_obsolescence_delta.build_baseline_payload_from_paths(
+        "evidence.json",
+        "risk.json",
+        load_test_evidence_fn=lambda _path: (evidence_by_test, status_by_test),
+        load_risk_registry_fn=lambda _path: {"E:x": object()},
+        classify_candidates_fn=lambda ev, st, rr: (candidates, summary),
+        build_baseline_payload_fn=_build,
+    )
+    assert payload == expected_payload
+    assert observed["args"] == (evidence_by_test, status_by_test, candidates, summary)
+
+
+def test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order() -> None:
+    key = evidence_keys.make_paramset_key(["x"])
+    display = evidence_keys.render_display(key)
+    mapped_ref = test_obsolescence.EvidenceRef(
+        key=key,
+        identity=evidence_keys.key_identity(key),
+        display=display,
+        opaque=False,
+    )
+    evidence_by_test = {
+        "mapped": [mapped_ref],
+        "unmapped": [mapped_ref],
+    }
+    status_by_test = {"mapped": "mapped", "unmapped": "unmapped"}
+    rows = test_obsolescence_delta._build_evidence_index(evidence_by_test, status_by_test)
+    assert len(rows) == 1
+    assert rows[0]["display"] == display
+
+    rich_ref = test_obsolescence.EvidenceRef(
+        key=key,
+        identity=evidence_keys.key_identity(key),
+        display=display,
+        opaque=False,
+    )
+    less_preferred = test_obsolescence.EvidenceRef(
+        key=key,
+        identity=evidence_keys.key_identity(key),
+        display=display + "zzz",
+        opaque=False,
+    )
+    rows = test_obsolescence_delta._build_evidence_index(
+        {"t1": [rich_ref], "t2": [less_preferred]},
+        {"t1": "mapped", "t2": "mapped"},
+    )
+    assert rows[0]["display"] == display

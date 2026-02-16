@@ -4706,3 +4706,530 @@ def test_execute_command_projection_phase_callback_no_rows(
         analyze_paths_fn=_analyze,
     )
     assert result.get("analysis_state") == "succeeded"
+
+
+def test_externalize_collection_resume_state_summary_fallback_branches(
+    tmp_path: Path,
+) -> None:
+    payload: dict[str, object] = {
+        "in_progress_scan_by_path": {
+            "a.py": {
+                "phase": "function_scan",
+                "processed_functions_digest": "",
+                "padding": "x" * 70_000,
+            }
+        },
+        "analysis_index_resume": {
+            "phase": "analysis_index_hydration",
+            "hydrated_paths": {"not": "a-sequence"},
+            "function_count": "bad",
+            "class_count": None,
+            "padding": "x" * 70_000,
+        },
+    }
+    externalized = server._externalize_collection_resume_states(
+        path=tmp_path / "resume.json",
+        collection_resume=payload,
+    )
+    in_progress = externalized["in_progress_scan_by_path"]["a.py"]
+    assert isinstance(in_progress, dict)
+    assert "processed_functions_digest" not in in_progress
+    analysis_index = externalized["analysis_index_resume"]
+    assert isinstance(analysis_index, dict)
+    assert "hydrated_paths_count" not in analysis_index
+    assert "function_count" not in analysis_index
+    assert "class_count" not in analysis_index
+
+
+def test_inflate_collection_resume_chunk_state_non_mapping_falls_back(
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "resume.json"
+    chunk_name = server._analysis_resume_state_chunk_name("a.py")
+    chunk_path = server._analysis_resume_checkpoint_chunks_dir(checkpoint) / chunk_name
+    chunk_path.parent.mkdir(parents=True, exist_ok=True)
+    chunk_path.write_text(
+        json.dumps(
+            {
+                "format_version": server._ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
+                "path": "a.py",
+                "state": ["not", "a", "mapping"],
+            }
+        )
+    )
+    inflated = server._inflate_collection_resume_states(
+        path=checkpoint,
+        collection_resume={
+            "in_progress_scan_by_path": {
+                "a.py": {"phase": "scan_pending", "state_ref": chunk_name}
+            }
+        },
+    )
+    state = inflated["in_progress_scan_by_path"]["a.py"]
+    assert isinstance(state, dict)
+    assert state["state_ref"] == chunk_name
+
+
+def test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back(
+    tmp_path: Path,
+) -> None:
+    checkpoint = tmp_path / "resume.json"
+    chunk_name = server._analysis_resume_named_chunk_name("analysis_index_resume")
+    chunk_path = server._analysis_resume_checkpoint_chunks_dir(checkpoint) / chunk_name
+    chunk_path.parent.mkdir(parents=True, exist_ok=True)
+    chunk_path.write_text(
+        json.dumps(
+            {
+                "format_version": server._ANALYSIS_RESUME_STATE_REF_FORMAT_VERSION,
+                "path": "wrong-path",
+                "state": {"phase": "analysis_index_hydration"},
+            }
+        )
+    )
+    inflated = server._inflate_collection_resume_states(
+        path=checkpoint,
+        collection_resume={
+            "in_progress_scan_by_path": {},
+            "analysis_index_resume": {"state_ref": chunk_name, "phase": "fallback"},
+        },
+    )
+    analysis_index = inflated["analysis_index_resume"]
+    assert isinstance(analysis_index, dict)
+    assert analysis_index["state_ref"] == chunk_name
+    assert analysis_index["phase"] == "fallback"
+
+
+def test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees(
+    tmp_path: Path,
+) -> None:
+    first = tmp_path / "a.py"
+    second = tmp_path / "b.py"
+    source = "def f(x):\n    return x\n"
+    first.write_text(source)
+    second.write_text(source)
+    witness = server._analysis_input_witness(
+        root=tmp_path,
+        file_paths=[first, second],
+        recursive=True,
+        include_invariant_propositions=False,
+        include_wl_refinement=False,
+        config=server.AuditConfig(project_root=tmp_path),
+    )
+    files = witness["files"]
+    assert isinstance(files, list)
+    refs = [entry.get("ast_ref") for entry in files if isinstance(entry, dict)]
+    assert len(set(refs)) == 1
+    table = witness["ast_intern_table"]
+    assert isinstance(table, dict)
+    assert len(table) == 1
+
+
+def test_load_analysis_resume_checkpoint_without_expected_digest(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "resume.json"
+    input_witness = {"root": str(tmp_path)}
+    checkpoint.write_text(
+        json.dumps(
+            {
+                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
+                "input_witness": input_witness,
+                "collection_resume": {"in_progress_scan_by_path": {}},
+            }
+        )
+    )
+    loaded = server._load_analysis_resume_checkpoint(
+        path=checkpoint,
+        input_witness=input_witness,
+    )
+    assert isinstance(loaded, dict)
+
+
+def test_analysis_resume_progress_allows_negative_total_files() -> None:
+    progress = server._analysis_resume_progress(
+        collection_resume={
+            "completed_paths": ["a.py"],
+            "in_progress_scan_by_path": {"b.py": {"phase": "scan_pending"}},
+        },
+        total_files=-1,
+    )
+    assert progress == {
+        "completed_files": 1,
+        "in_progress_files": 1,
+        "remaining_files": 0,
+        "total_files": -1,
+    }
+
+
+def test_collection_semantic_progress_ignores_non_int_cumulative_values() -> None:
+    progress = server._collection_semantic_progress(
+        previous_collection_resume={"completed_paths": []},
+        collection_resume={"completed_paths": ["a.py"]},
+        total_files=1,
+        cumulative={
+            "cumulative_new_processed_functions": "bad",
+            "cumulative_completed_files_delta": None,
+            "cumulative_hydrated_paths_delta": 1.2,
+            "cumulative_regressed_functions": {},
+        },
+    )
+    assert progress["cumulative_new_processed_functions"] == 0
+    assert progress["cumulative_completed_files_delta"] == 1
+    assert progress["cumulative_hydrated_paths_delta"] == 0
+    assert progress["cumulative_regressed_functions"] == 0
+
+
+def test_write_report_section_journal_handles_non_list_deps(tmp_path: Path) -> None:
+    journal_path = tmp_path / "sections.json"
+    server._write_report_section_journal(
+        path=journal_path,
+        witness_digest="wd",
+        projection_rows=[{"section_id": "intro", "phase": "collection", "deps": "bad"}],
+        sections={},
+    )
+    payload = json.loads(journal_path.read_text())
+    assert payload["sections"]["intro"]["deps"] == []
+    assert payload["projection_rows"][0]["deps"] == []
+
+
+def test_write_bootstrap_incremental_artifacts_without_journal_path(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "report.md"
+    phase_path = tmp_path / "phases.json"
+    phase_state: dict[str, object] = {}
+    server._write_bootstrap_incremental_artifacts(
+        report_output_path=report_path,
+        report_section_journal_path=None,
+        report_phase_checkpoint_path=phase_path,
+        witness_digest="wd",
+        root=tmp_path,
+        paths_requested=1,
+        projection_rows=[{"section_id": "components", "phase": "forest", "deps": "bad"}],
+        phase_checkpoint_state=phase_state,
+    )
+    assert report_path.exists()
+    assert phase_path.exists()
+    assert phase_state.get("collection") is not None
+
+
+def test_write_bootstrap_incremental_artifacts_existing_digest_variants(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "report.md"
+    journal_path = tmp_path / "sections.json"
+    phase_path = tmp_path / "phases.json"
+    phase_state: dict[str, object] = {}
+
+    journal_path.write_text(
+        json.dumps(
+            {
+                "format_version": server._REPORT_SECTION_JOURNAL_FORMAT_VERSION,
+                "witness_digest": "",
+                "sections": {},
+            }
+        )
+    )
+    server._write_bootstrap_incremental_artifacts(
+        report_output_path=report_path,
+        report_section_journal_path=journal_path,
+        report_phase_checkpoint_path=phase_path,
+        witness_digest="wd",
+        root=tmp_path,
+        paths_requested=1,
+        projection_rows=[{"section_id": "components", "phase": "forest", "deps": []}],
+        phase_checkpoint_state=phase_state,
+    )
+    first_payload = json.loads(journal_path.read_text())
+    assert first_payload["sections"]["components"]["reason"] == "policy"
+
+    journal_path.write_text(
+        json.dumps(
+            {
+                "format_version": server._REPORT_SECTION_JOURNAL_FORMAT_VERSION,
+                "witness_digest": "wd",
+                "sections": {},
+            }
+        )
+    )
+    server._write_bootstrap_incremental_artifacts(
+        report_output_path=report_path,
+        report_section_journal_path=journal_path,
+        report_phase_checkpoint_path=phase_path,
+        witness_digest="wd",
+        root=tmp_path,
+        paths_requested=1,
+        projection_rows=[{"section_id": "components", "phase": "forest", "deps": []}],
+        phase_checkpoint_state=phase_state,
+    )
+    second_payload = json.loads(journal_path.read_text())
+    assert second_payload["sections"]["components"]["reason"] == "policy"
+
+
+def test_render_incremental_report_handles_non_mapping_progress_and_non_list_deps() -> None:
+    report_text, pending = server._render_incremental_report(
+        analysis_state="timed_out_no_progress",
+        progress_payload=None,
+        projection_rows=[{"section_id": "components", "phase": "forest", "deps": "bad"}],
+        sections={},
+    )
+    assert "classification" not in report_text
+    assert pending["components"] == "policy"
+
+
+def test_collection_progress_intro_lines_skip_non_numeric_optional_metrics() -> None:
+    lines = server._collection_progress_intro_lines(
+        collection_resume={
+            "completed_paths": [],
+            "in_progress_scan_by_path": {},
+            "semantic_progress": {
+                "new_processed_functions_count": "3",
+                "substantive_progress": "true",
+            },
+            "analysis_index_resume": {
+                "hydrated_paths_count": "bad",
+                "function_count": "bad",
+                "class_count": None,
+            },
+        },
+        total_files=0,
+    )
+    assert all("new_processed_functions" not in line for line in lines)
+    assert all("substantive_progress" not in line for line in lines)
+    assert any("hydrated_paths_count" in line for line in lines)
+    assert all("hydrated_function_count" not in line for line in lines)
+    assert all("hydrated_class_count" not in line for line in lines)
+
+
+def test_incremental_progress_obligations_ignore_non_boolean_semantic_flags() -> None:
+    obligations = server._incremental_progress_obligations(
+        analysis_state="timed_out_progress_resume",
+        progress_payload={
+            "classification": "timed_out_progress_resume",
+            "resume_supported": True,
+            "semantic_progress": {
+                "monotonic_progress": "yes",
+                "substantive_progress": "no",
+            },
+        },
+        resume_checkpoint_path=None,
+        partial_report_written=False,
+        report_requested=False,
+        projection_rows=[],
+        sections={},
+        pending_reasons={},
+    )
+    kinds = {
+        entry.get("kind")
+        for entry in obligations
+        if isinstance(entry, dict) and isinstance(entry.get("kind"), str)
+    }
+    assert "progress_monotonicity" not in kinds
+    assert "substantive_progress_required" not in kinds
+
+
+def test_normalize_transparent_decorators_returns_none_for_invalid_payload() -> None:
+    assert server._normalize_transparent_decorators(123) is None  # type: ignore[arg-type]
+
+
+def test_timeout_context_payload_falls_back_for_non_mapping_payload() -> None:
+    class _ContextProxy:
+        def as_payload(self) -> list[str]:
+            return ["bad"]
+
+    payload = server._timeout_context_payload(server.TimeoutExceeded(_ContextProxy()))  # type: ignore[arg-type]
+    assert payload["summary"] == "Analysis timed out."
+
+
+def test_execute_command_writes_refactor_plan_json_file(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    refactor_plan_path = tmp_path / "refactor-plan.json"
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "refactor_plan_json": str(refactor_plan_path),
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    assert refactor_plan_path.exists()
+
+
+def test_execute_command_refactor_plan_without_json_path(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "refactor_plan": True,
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    assert "refactor_plan" in result
+
+
+def test_execute_command_with_empty_fingerprint_index(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text("[fingerprints]\nuser_context = 1\n")
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "config": str(config_path),
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+
+
+def test_execute_command_skips_markdown_write_when_report_output_is_dash(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    assert not (tmp_path / "report.md").exists()
+
+
+def test_execute_command_skips_report_append_when_report_is_empty_string(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    result = server.execute_command(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "",
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+
+
+def test_execute_command_timeout_cleanup_manifest_resume_none_branch(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    checkpoint_path = tmp_path / "resume.json"
+
+    result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "resume_checkpoint": str(checkpoint_path),
+                "report": "",
+                "lint": True,
+                "analysis_timeout_ms": 5_000,
+            }
+        ),
+        load_analysis_resume_checkpoint_manifest_fn=lambda *_args, **_kwargs: None,
+        write_analysis_resume_checkpoint_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            _timeout_exc()
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            _timeout_exc(progress={"classification": "timed_out_no_progress"})
+        ),
+    )
+    assert result["timeout"] is True
+
+
+def test_execute_command_timeout_cleanup_non_boolean_semantic_progress(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    checkpoint_path = tmp_path / "resume.json"
+
+    manifest_resume = (
+        {"witness_digest": "wd"},
+        {
+            "completed_paths": ["sample.py"],
+            "in_progress_scan_by_path": {},
+            "semantic_progress": {"substantive_progress": "unknown"},
+        },
+    )
+
+    class _EmptyClassificationContext:
+        def as_payload(self) -> dict[str, object]:
+            return {"progress": {"classification": ""}}
+
+    result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "resume_checkpoint": str(checkpoint_path),
+                "report": "",
+                "lint": True,
+                "analysis_timeout_ms": 5_000,
+            }
+        ),
+        load_analysis_resume_checkpoint_manifest_fn=lambda *_args, **_kwargs: manifest_resume,
+        write_analysis_resume_checkpoint_fn=lambda *_args, **_kwargs: None,
+        load_analysis_resume_checkpoint_fn=lambda *_args, **_kwargs: {
+            "completed_paths": ["sample.py"],
+            "in_progress_scan_by_path": {},
+            "semantic_progress": {"substantive_progress": "unknown"},
+        },
+        analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            server.TimeoutExceeded(_EmptyClassificationContext())  # type: ignore[arg-type]
+        ),
+    )
+    assert result["timeout"] is True
+
+
+def test_execute_refactor_valid_payload_without_workspace_root(tmp_path: Path) -> None:
+    module_path = tmp_path / "target.py"
+    module_path.write_text("def f(a, b):\n    return a + b\n")
+    result = server.execute_refactor(
+        _DummyServer(""),
+        _with_timeout(
+            {
+                "protocol_name": "ExampleProto",
+                "bundle": ["a", "b"],
+                "target_path": str(module_path),
+                "target_functions": [],
+            }
+        ),
+    )
+    assert result.get("errors") == []
+
+
+def test_execute_structure_reuse_total_success_without_lemma_stubs(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot.json"
+    snapshot.write_text(
+        "{\"format_version\": 1, \"root\": null, \"files\": []}"
+    )
+    result = server._execute_structure_reuse_total(
+        _DummyServer(str(tmp_path)),
+        _with_timeout({"snapshot": str(snapshot), "min_count": 1}),
+    )
+    assert result["exit_code"] == 0
+    assert "lemma_stubs" not in result

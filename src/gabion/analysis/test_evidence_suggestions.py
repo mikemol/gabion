@@ -142,6 +142,11 @@ def suggest_evidence(
     config: AuditConfig | None = None,
     max_depth: int = DEFAULT_MAX_DEPTH,
     include_heuristics: bool = True,
+    graph_suggestions_fn: Callable[..., tuple[dict[str, _GraphSuggestion], set[str]]] | None = None,
+    suggest_for_entry_fn: Callable[
+        [TestEvidenceEntry], tuple[list[EvidenceSuggestion], list[str]]
+    ]
+    | None = None,
 ) -> tuple[list[Suggestion], SuggestionSummary]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, forest, config
@@ -154,7 +159,9 @@ def suggest_evidence(
     entry_list = sorted(entries, key=lambda item: item.test_id)
     total = len(entry_list)
     root_path = Path(root)
-    graph_suggestions, graph_resolved = _graph_suggestions(
+    graph_suggestions = graph_suggestions_fn or _graph_suggestions
+    suggest_for_entry = suggest_for_entry_fn or _suggest_for_entry
+    graph_suggestions_map, graph_resolved = graph_suggestions(
         entry_list,
         root=root_path,
         paths=paths,
@@ -168,7 +175,7 @@ def suggest_evidence(
             continue
         if entry.test_id not in graph_resolved:
             graph_unresolved += 1
-        graph_suggested = graph_suggestions.get(entry.test_id)
+        graph_suggested = graph_suggestions_map.get(entry.test_id)
         if graph_suggested:
             suggestions.append(
                 Suggestion(
@@ -184,7 +191,7 @@ def suggest_evidence(
             suggested_graph += 1
             continue
         if include_heuristics and entry.test_id not in graph_resolved:
-            heuristic_suggested, matches = _suggest_for_entry(entry)
+            heuristic_suggested, matches = suggest_for_entry(entry)
             if heuristic_suggested:
                 suggestions.append(
                     Suggestion(
@@ -312,6 +319,15 @@ def collect_call_footprints(
     root: Path | str = ".",
     paths: Iterable[Path] | None = None,
     config: AuditConfig | None = None,
+    iter_paths_fn: Callable[[list[str], AuditConfig], list[Path]] | None = None,
+    build_function_index_fn: Callable[..., tuple[dict[str, Sequence[FunctionInfo]], dict[str, FunctionInfo]]]
+    | None = None,
+    build_symbol_table_fn: Callable[..., SymbolTable] | None = None,
+    collect_class_index_fn: Callable[..., Mapping[str, ClassInfo]] | None = None,
+    build_test_index_fn: Callable[[Mapping[str, FunctionInfo], Path | None], dict[str, FunctionInfo]]
+    | None = None,
+    resolve_callee_fn: Callable[..., FunctionInfo | None] | None = None,
+    collect_call_footprint_targets_fn: Callable[..., tuple[dict[str, str], ...]] | None = None,
 ) -> dict[str, tuple[dict[str, str], ...]]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, config
@@ -321,11 +337,20 @@ def collect_call_footprints(
     root_path = Path(root)
     config = config or AuditConfig(project_root=root_path)
     project_root = config.project_root or root_path
-    path_list = _iter_paths([str(p) for p in (paths or [root_path])], config)
+    iter_paths = iter_paths_fn or _iter_paths
+    build_function_index = build_function_index_fn or _build_function_index
+    build_symbol_table = build_symbol_table_fn or _build_symbol_table
+    collect_class_index = collect_class_index_fn or _collect_class_index
+    build_test_index = build_test_index_fn or _build_test_index
+    resolve_callee = resolve_callee_fn or _resolve_callee
+    collect_call_footprint_targets = (
+        collect_call_footprint_targets_fn or _collect_call_footprint_targets
+    )
+    path_list = iter_paths([str(p) for p in (paths or [root_path])], config)
     if not path_list:
         return {}
     parse_failure_witnesses: list[JSONObject] = []
-    by_name, by_qual = _build_function_index(
+    by_name, by_qual = build_function_index(
         path_list,
         project_root,
         config.ignore_params,
@@ -333,18 +358,18 @@ def collect_call_footprints(
         config.transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    symbol_table = _build_symbol_table(
+    symbol_table = build_symbol_table(
         path_list,
         project_root,
         external_filter=config.external_filter,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    class_index = _collect_class_index(
+    class_index = collect_class_index(
         path_list,
         project_root,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    test_index = _build_test_index(by_qual, project_root)
+    test_index = build_test_index(by_qual, project_root)
     cache: dict[str, tuple[FunctionInfo, ...]] = {}
     node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]] = {}
     module_cache: dict[str, Path | None] = {}
@@ -355,7 +380,7 @@ def collect_call_footprints(
             return cache[info.qual]
         resolved_callees: dict[str, FunctionInfo] = {}
         for call in info.calls:
-            callee = _resolve_callee(
+            callee = resolve_callee(
                 call.callee,
                 info,
                 by_name,
@@ -377,7 +402,7 @@ def collect_call_footprints(
         if info is None:
             continue
         direct_callees = _resolved_callees(info)
-        targets = _collect_call_footprint_targets(
+        targets = collect_call_footprint_targets(
             info,
             entry=entry,
             direct_callees=direct_callees,
@@ -402,6 +427,20 @@ def _graph_suggestions(
     forest: Forest,
     config: AuditConfig | None,
     max_depth: int,
+    iter_paths_fn: Callable[[list[str], AuditConfig], list[Path]] | None = None,
+    build_function_index_fn: Callable[..., tuple[dict[str, Sequence[FunctionInfo]], dict[str, FunctionInfo]]]
+    | None = None,
+    build_symbol_table_fn: Callable[..., SymbolTable] | None = None,
+    collect_class_index_fn: Callable[..., Mapping[str, ClassInfo]] | None = None,
+    build_test_index_fn: Callable[[Mapping[str, FunctionInfo], Path | None], dict[str, FunctionInfo]]
+    | None = None,
+    build_forest_evidence_index_fn: Callable[
+        [Forest], tuple[dict[tuple[str, str], NodeId], dict[NodeId, tuple[EvidenceSuggestion, ...]]]
+    ]
+    | None = None,
+    resolve_callee_fn: Callable[..., FunctionInfo | None] | None = None,
+    collect_reachable_fn: Callable[..., list[FunctionInfo]] | None = None,
+    collect_call_footprint_targets_fn: Callable[..., tuple[dict[str, str], ...]] | None = None,
 ) -> tuple[dict[str, _GraphSuggestion], set[str]]:
     check_deadline()
     # dataflow-bundle: entries, root, paths, forest, config
@@ -409,11 +448,22 @@ def _graph_suggestions(
         return {}, set()
     config = config or AuditConfig(project_root=root)
     project_root = config.project_root or root
-    path_list = _iter_paths([str(p) for p in (paths or [root])], config)
+    iter_paths = iter_paths_fn or _iter_paths
+    build_function_index = build_function_index_fn or _build_function_index
+    build_symbol_table = build_symbol_table_fn or _build_symbol_table
+    collect_class_index = collect_class_index_fn or _collect_class_index
+    build_test_index = build_test_index_fn or _build_test_index
+    build_forest_evidence_index = build_forest_evidence_index_fn or _build_forest_evidence_index
+    resolve_callee = resolve_callee_fn or _resolve_callee
+    collect_reachable = collect_reachable_fn or _collect_reachable
+    collect_call_footprint_targets = (
+        collect_call_footprint_targets_fn or _collect_call_footprint_targets
+    )
+    path_list = iter_paths([str(p) for p in (paths or [root])], config)
     if not path_list:
         return {}, set()
     parse_failure_witnesses: list[JSONObject] = []
-    by_name, by_qual = _build_function_index(
+    by_name, by_qual = build_function_index(
         path_list,
         project_root,
         config.ignore_params,
@@ -421,19 +471,19 @@ def _graph_suggestions(
         config.transparent_decorators,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    symbol_table = _build_symbol_table(
+    symbol_table = build_symbol_table(
         path_list,
         project_root,
         external_filter=config.external_filter,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    class_index = _collect_class_index(
+    class_index = collect_class_index(
         path_list,
         project_root,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    test_index = _build_test_index(by_qual, project_root)
-    site_index, evidence_by_site = _build_forest_evidence_index(forest)
+    test_index = build_test_index(by_qual, project_root)
+    site_index, evidence_by_site = build_forest_evidence_index(forest)
     resolved: set[str] = set()
     suggestions: dict[str, _GraphSuggestion] = {}
     cache: dict[str, tuple[FunctionInfo, ...]] = {}
@@ -446,7 +496,7 @@ def _graph_suggestions(
             return cache[info.qual]
         resolved_callees: dict[str, FunctionInfo] = {}
         for call in info.calls:
-            callee = _resolve_callee(
+            callee = resolve_callee(
                 call.callee,
                 info,
                 by_name,
@@ -468,7 +518,7 @@ def _graph_suggestions(
             continue
         resolved.add(entry.test_id)
         direct_callees = _resolved_callees(info)
-        reachable = _collect_reachable(
+        reachable = collect_reachable(
             info,
             max_depth=max_depth,
             resolve_callees=_resolved_callees,
@@ -483,7 +533,7 @@ def _graph_suggestions(
             for item in evidence_by_site.get(site_id, ()):
                 evidence_items[item.identity] = item
         if not evidence_items:
-            targets = _collect_call_footprint_targets(
+            targets = collect_call_footprint_targets(
                 info,
                 entry=entry,
                 direct_callees=direct_callees,
@@ -940,21 +990,35 @@ def _format_paramset(items: Sequence[str]) -> str:
     return ",".join(items)
 
 
-def _suggest_for_entry(entry: TestEvidenceEntry) -> tuple[list[EvidenceSuggestion], list[str]]:
+def _suggest_for_entry(
+    entry: TestEvidenceEntry,
+    *,
+    rules_fn: Callable[[], list[_SuggestionRule]] | None = None,
+    parse_display_fn: Callable[[str], dict[str, object] | None] | None = None,
+    make_opaque_key_fn: Callable[[str], dict[str, object]] | None = None,
+    normalize_key_fn: Callable[[dict[str, object]], dict[str, object]] | None = None,
+    render_display_fn: Callable[[dict[str, object]], str] | None = None,
+    is_opaque_fn: Callable[[dict[str, object]], bool] | None = None,
+) -> tuple[list[EvidenceSuggestion], list[str]]:
     check_deadline()
     file_haystack, name_haystack = _suggestion_haystack(entry)
-    rules = _suggestion_rules()
+    rules = (rules_fn or _suggestion_rules)()
+    parse_display = parse_display_fn or evidence_keys.parse_display
+    make_opaque_key = make_opaque_key_fn or evidence_keys.make_opaque_key
+    normalize_key = normalize_key_fn or evidence_keys.normalize_key
+    render_display = render_display_fn or evidence_keys.render_display
+    is_opaque = is_opaque_fn or evidence_keys.is_opaque
     suggested: list[EvidenceSuggestion] = []
     matches: list[str] = []
     for rule in rules:
         if rule.matches(file=file_haystack, name=name_haystack):
             for display in rule.evidence:
-                key = evidence_keys.parse_display(display)
+                key = parse_display(display)
                 if key is None:
-                    key = evidence_keys.make_opaque_key(display)
-                key = evidence_keys.normalize_key(key)
-                rendered = evidence_keys.render_display(key)
-                if evidence_keys.is_opaque(key):
+                    key = make_opaque_key(display)
+                key = normalize_key(key)
+                rendered = render_display(key)
+                if is_opaque(key):
                     rendered = display
                 suggested.append(EvidenceSuggestion(key=key, display=rendered))
             matches.append(rule.rule_id)

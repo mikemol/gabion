@@ -5,25 +5,17 @@ from pathlib import Path
 
 import pytest
 
-from gabion.analysis import evidence_keys, test_obsolescence, test_obsolescence_state
-
-
-def _ref_paramset(value: str) -> test_obsolescence.EvidenceRef:
-    key = evidence_keys.make_paramset_key([value])
-    identity = evidence_keys.key_identity(key)
-    return test_obsolescence.EvidenceRef(
-        key=key,
-        identity=identity,
-        display=evidence_keys.render_display(key),
-        opaque=False,
-    )
+from gabion.analysis import test_obsolescence, test_obsolescence_state
 
 
 # gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.build_state_payload E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.load_state
-def test_state_payload_roundtrip(tmp_path: Path) -> None:
+def test_state_payload_roundtrip(
+    tmp_path: Path,
+    make_obsolescence_paramset_ref,
+) -> None:
     evidence_by_test = {
-        "tests/test_alpha.py::test_a": [_ref_paramset("x")],
-        "tests/test_beta.py::test_b": [_ref_paramset("x")],
+        "tests/test_alpha.py::test_a": [make_obsolescence_paramset_ref("x")],
+        "tests/test_beta.py::test_b": [make_obsolescence_paramset_ref("x")],
     }
     status_by_test = {
         "tests/test_alpha.py::test_a": "mapped",
@@ -60,9 +52,11 @@ def test_state_payload_rejects_bad_baseline() -> None:
 
 
 # gabion:evidence E:function_site::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload
-def test_state_payload_skips_invalid_candidates() -> None:
+def test_state_payload_skips_invalid_candidates(
+    make_obsolescence_paramset_ref,
+) -> None:
     evidence_by_test = {
-        "tests/test_alpha.py::test_a": [_ref_paramset("x")],
+        "tests/test_alpha.py::test_a": [make_obsolescence_paramset_ref("x")],
     }
     status_by_test = {
         "tests/test_alpha.py::test_a": "mapped",
@@ -74,6 +68,26 @@ def test_state_payload_skips_invalid_candidates() -> None:
         evidence_by_test, status_by_test, candidates, summary
     )
     payload["candidates"] = ["not-a-mapping"]
+    state = test_obsolescence_state.parse_state_payload(payload)
+    assert state.candidates == []
+
+
+def test_state_payload_ignores_non_list_candidates_payload(
+    make_obsolescence_paramset_ref,
+) -> None:
+    evidence_by_test = {
+        "tests/test_alpha.py::test_a": [make_obsolescence_paramset_ref("x")],
+    }
+    status_by_test = {
+        "tests/test_alpha.py::test_a": "mapped",
+    }
+    candidates, summary = test_obsolescence.classify_candidates(
+        evidence_by_test, status_by_test, {}
+    )
+    payload = test_obsolescence_state.build_state_payload(
+        evidence_by_test, status_by_test, candidates, summary
+    )
+    payload["candidates"] = {"bad": True}
     state = test_obsolescence_state.parse_state_payload(payload)
     assert state.candidates == []
 

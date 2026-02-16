@@ -59,3 +59,39 @@ def test_ambiguity_delta_render_handles_invalid_numbers() -> None:
     }
     rendered = ambiguity_delta.render_markdown(payload)
     assert "total:" in rendered
+
+
+def test_ambiguity_baseline_parse_ignores_non_mapping_summary_shapes() -> None:
+    parsed = ambiguity_delta.parse_baseline_payload(
+        {
+            "version": 1,
+            "summary": [],
+            "generated_by_spec_id": "spec",
+            "generated_by_spec": {},
+        }
+    )
+    assert parsed.total == 0
+    assert parsed.by_kind == {}
+
+    parsed = ambiguity_delta.parse_baseline_payload(
+        {
+            "version": 1,
+            "summary": {"total": 3, "by_kind": []},
+            "generated_by_spec_id": "spec",
+            "generated_by_spec": {},
+        }
+    )
+    assert parsed.total == 3
+    assert parsed.by_kind == {}
+
+
+def test_ambiguity_delta_render_ignores_non_mapping_by_kind_summary() -> None:
+    rendered = ambiguity_delta.render_markdown(
+        {
+            "summary": {
+                "total": {"baseline": 1, "current": 2, "delta": 1},
+                "by_kind": ["invalid"],
+            }
+        }
+    )
+    assert "- total: 1 -> 2 (+1)" in rendered

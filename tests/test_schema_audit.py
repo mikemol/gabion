@@ -1,24 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
 import pytest
 
+from gabion.analysis import schema_audit as sa
 from gabion.exceptions import NeverThrown
-
-
-def _load():
-    repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
-    from gabion.analysis import schema_audit as sa
-
-    return sa
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> None:
-    sa = _load()
     path = tmp_path / "mod.py"
     path.write_text(
         "from __future__ import annotations\n"
@@ -63,7 +54,6 @@ def test_find_anonymous_schema_surfaces_finds_common_sites(tmp_path: Path) -> No
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> None:
-    sa = _load()
     test_prefixed = tmp_path / "test_mod.py"
     test_prefixed.write_text("def f(x: dict[str, object]) -> None:\n    return None\n")
     tests_dir = tmp_path / "tests"
@@ -89,7 +79,6 @@ def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> No
 def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
     tmp_path: Path,
 ) -> None:
-    sa = _load()
     first = tmp_path / "a.py"
     second = tmp_path / "b.py"
     first.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
@@ -102,7 +91,6 @@ def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
 
 
 def test_find_anonymous_schema_surfaces_rejects_duplicate_paths(tmp_path: Path) -> None:
-    sa = _load()
     path = tmp_path / "a.py"
     path.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
     with pytest.raises(NeverThrown):
@@ -114,7 +102,6 @@ def test_find_anonymous_schema_surfaces_rejects_duplicate_paths(tmp_path: Path) 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._suggest_type_name::name E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._singularize_token::token
 def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
-    sa = _load()
     assert sa._suggest_type_name("deadness_witnesses") == "DeadnessWitness"
     assert sa._suggest_type_name("entries") == "Entry"
     assert sa._suggest_type_name("cats") == "Cat"
@@ -125,16 +112,39 @@ def test_suggest_type_name_singularizes_and_handles_provenance() -> None:
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
 def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
-    sa = _load()
     root = tmp_path / "root"
     root.mkdir()
     path = tmp_path / "mod.py"
     assert sa._normalize_path(path, root) == str(path)
 
 
+def test_normalize_path_inside_root_returns_relative(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    pkg = root / "pkg"
+    pkg.mkdir(parents=True)
+    path = pkg / "mod.py"
+    assert sa._normalize_path(path, root) == "pkg/mod.py"
+
+
+def test_normalize_path_without_root_returns_original_path(tmp_path: Path) -> None:
+    path = tmp_path / "mod.py"
+    assert sa._normalize_path(path, None) == str(path)
+
+
+def test_find_anonymous_schema_surfaces_covers_async_without_returns(tmp_path: Path) -> None:
+    path = tmp_path / "mod_async.py"
+    path.write_text(
+        "async def fetch() -> dict[str, object]:\n"
+        "    return {}\n\n"
+        "async def no_return():\n"
+        "    return None\n"
+    )
+    surfaces = sa.find_anonymous_schema_surfaces([path], project_root=tmp_path)
+    assert any(surface.context == "fetch.returns" for surface in surfaces)
+
+
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
 def test_subscript_helpers_cover_non_tuple_slices() -> None:
-    sa = _load()
     tree = sa.ast.parse("x: list[int]\n")
     ann = tree.body[0].annotation
     assert isinstance(ann, sa.ast.Subscript)
@@ -149,7 +159,6 @@ def test_subscript_helpers_cover_non_tuple_slices() -> None:
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._name::node
 def test_name_handles_attribute_and_unknown_nodes() -> None:
-    sa = _load()
     attr = sa.ast.Attribute(value=sa.ast.Name(id="typing", ctx=sa.ast.Load()), attr="Dict")
     assert sa._name(attr) == "Dict"
     assert sa._name(sa.ast.Constant(value=1)) is None
@@ -157,7 +166,41 @@ def test_name_handles_attribute_and_unknown_nodes() -> None:
 
 # gabion:evidence E:function_site::schema_audit.py::gabion.analysis.schema_audit._unparse
 def test_unparse_fallback_for_invalid_ast() -> None:
-    sa = _load()
     # ast.unparse expects well-formed nodes; this intentionally violates that.
     bad = sa.ast.Name(id=None, ctx=sa.ast.Load())
     assert sa._unparse(bad) == "<annotation>"
+
+
+def test_anonymous_schema_surface_format_handles_optional_suggestion() -> None:
+    surface = sa.AnonymousSchemaSurface(
+        path="mod.py",
+        lineno=1,
+        col=2,
+        context="ctx",
+        annotation="dict[str, object]",
+        suggestion=None,
+    )
+    assert "consider" not in surface.format()
+
+    suggested = sa.AnonymousSchemaSurface(
+        path="mod.py",
+        lineno=1,
+        col=2,
+        context="ctx",
+        annotation="dict[str, object]",
+        suggestion="Payload",
+    )
+    assert "consider Payload" in suggested.format()
+
+
+def test_surface_visitor_covers_class_only_prefix_and_non_anonymous_annassign(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "mod_class_annassign.py"
+    path.write_text(
+        "class Service:\n"
+        "    schema: dict[str, object] = {}\n"
+        "    count: int = 0\n"
+    )
+    surfaces = sa.find_anonymous_schema_surfaces([path], project_root=tmp_path)
+    assert any(surface.context == "Service.schema" for surface in surfaces)

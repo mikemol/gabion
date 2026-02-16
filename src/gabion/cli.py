@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from typing import Callable, List, Mapping, Optional, TypeAlias
 import argparse
 import json
@@ -72,10 +72,11 @@ def _resolve_check_report_path(report: Path | None, *, root: Path) -> Path:
 @contextmanager
 def _cli_deadline_scope():
     ticks, _tick_ns = _cli_timeout_ticks()
-    with forest_scope(Forest()):
-        with deadline_scope(_cli_deadline()):
-            with deadline_clock_scope(GasMeter(limit=int(ticks))):
-                yield
+    with ExitStack() as stack:
+        stack.enter_context(forest_scope(Forest()))
+        stack.enter_context(deadline_scope(_cli_deadline()))
+        stack.enter_context(deadline_clock_scope(GasMeter(limit=int(ticks))))
+        yield
 
 
 @dataclass(frozen=True)

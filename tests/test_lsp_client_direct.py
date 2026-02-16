@@ -73,6 +73,22 @@ def test_wait_readable_handles_fileno_failure_with_and_without_read() -> None:
         _wait_readable(_FilenoRaisesWithRead(), time.monotonic_ns())
 
 
+def test_wait_readable_returns_when_stream_is_ready() -> None:
+    read_fd, write_fd = os.pipe()
+    try:
+        with os.fdopen(read_fd, "rb", closefd=True) as reader, os.fdopen(
+            write_fd, "wb", closefd=True
+        ) as writer:
+            writer.write(b"x")
+            writer.flush()
+            _wait_readable(reader, time.monotonic_ns() + 1_000_000_000)
+    finally:
+        try:
+            os.close(write_fd)
+        except OSError:
+            pass
+
+
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct
 def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) -> None:
     reuse_request = CommandRequest(

@@ -31,17 +31,13 @@ def test_ordered_or_sorted_rejects_unsorted_when_required() -> None:
         ordered_or_sorted(["b", "a"], source="test", require_sorted=True)
 
 
-def test_ordered_or_sorted_respects_env_toggle() -> None:
-    previous = os.environ.get("GABION_CALLER_SORTED")
+def test_ordered_or_sorted_respects_env_toggle(env_scope, restore_env) -> None:
+    previous = env_scope({"GABION_CALLER_SORTED": "1"})
     try:
-        os.environ["GABION_CALLER_SORTED"] = "1"
         with pytest.raises(NeverThrown):
             ordered_or_sorted(["b", "a"], source="test")
     finally:
-        if previous is None:
-            os.environ.pop("GABION_CALLER_SORTED", None)
-        else:
-            os.environ["GABION_CALLER_SORTED"] = previous
+        restore_env(previous)
 
 
 def test_ordered_or_sorted_check_policy_sorts_only_on_regression() -> None:
@@ -89,11 +85,12 @@ def test_ordered_or_sorted_check_records_context_telemetry() -> None:
     assert events[0]["source"] == "test"
 
 
-def test_ordered_or_sorted_check_records_global_telemetry_env() -> None:
-    previous = os.environ.get("GABION_ORDER_TELEMETRY")
+def test_ordered_or_sorted_check_records_global_telemetry_env(
+    env_scope, restore_env
+) -> None:
+    previous = env_scope({"GABION_ORDER_TELEMETRY": "1"})
     get_order_telemetry_events(clear=True)
     try:
-        os.environ["GABION_ORDER_TELEMETRY"] = "1"
         with order_policy(OrderPolicy.CHECK):
             ordered_or_sorted(["b", "a"], source="test-global")
         events = get_order_telemetry_events(clear=True)
@@ -101,16 +98,29 @@ def test_ordered_or_sorted_check_records_global_telemetry_env() -> None:
         assert events[0]["source"] == "test-global"
     finally:
         get_order_telemetry_events(clear=True)
-        if previous is None:
-            os.environ.pop("GABION_ORDER_TELEMETRY", None)
-        else:
-            os.environ["GABION_ORDER_TELEMETRY"] = previous
+        restore_env(previous)
 
 
-def test_ordered_or_sorted_enforces_canonical_sort_allowlist() -> None:
-    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+def test_get_order_telemetry_events_can_clear_global_buffer(
+    env_scope, restore_env
+) -> None:
+    previous = env_scope({"GABION_ORDER_TELEMETRY": "1"})
     try:
-        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
+        with order_policy(OrderPolicy.CHECK):
+            ordered_or_sorted(["b", "a"], source="clear-buffer")
+        assert get_order_telemetry_events(clear=False)
+        assert get_order_telemetry_events(clear=True)
+        assert get_order_telemetry_events(clear=False) == []
+    finally:
+        get_order_telemetry_events(clear=True)
+        restore_env(previous)
+
+
+def test_ordered_or_sorted_enforces_canonical_sort_allowlist(
+    env_scope, restore_env
+) -> None:
+    previous = env_scope({"GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST": "1"})
+    try:
         with pytest.raises(NeverThrown):
             ordered_or_sorted(
                 ["b", "a"],
@@ -118,16 +128,14 @@ def test_ordered_or_sorted_enforces_canonical_sort_allowlist() -> None:
                 policy=OrderPolicy.SORT,
             )
     finally:
-        if previous is None:
-            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
-        else:
-            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+        restore_env(previous)
 
 
-def test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source() -> None:
-    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+def test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source(
+    env_scope, restore_env
+) -> None:
+    previous = env_scope({"GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST": "1"})
     try:
-        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
         ordered = ordered_or_sorted(
             ["b", "a"],
             source="canonical_type_key.union_parts",
@@ -135,16 +143,14 @@ def test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source() -> No
         )
         assert ordered == ["a", "b"]
     finally:
-        if previous is None:
-            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
-        else:
-            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+        restore_env(previous)
 
 
-def test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope() -> None:
-    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+def test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope(
+    env_scope, restore_env
+) -> None:
+    previous = env_scope({"GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST": "1"})
     try:
-        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
         with canonical_sort_allowlist("scoped_sort_prefix"):
             ordered = ordered_or_sorted(
                 ["b", "a"],
@@ -153,39 +159,28 @@ def test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope() -> N
             )
         assert ordered == ["a", "b"]
     finally:
-        if previous is None:
-            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
-        else:
-            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+        restore_env(previous)
 
 
-def test_get_order_policy_reads_env_alias_values() -> None:
-    previous = os.environ.get("GABION_ORDER_POLICY")
+def test_get_order_policy_reads_env_alias_values(env_scope, restore_env) -> None:
+    previous = env_scope({"GABION_ORDER_POLICY": "off"})
     try:
-        os.environ["GABION_ORDER_POLICY"] = "off"
         assert get_order_policy() is OrderPolicy.SORT
         os.environ["GABION_ORDER_POLICY"] = "   "
         assert get_order_policy() is OrderPolicy.SORT
         os.environ["GABION_ORDER_POLICY"] = "on"
         assert get_order_policy() is OrderPolicy.ENFORCE
     finally:
-        if previous is None:
-            os.environ.pop("GABION_ORDER_POLICY", None)
-        else:
-            os.environ["GABION_ORDER_POLICY"] = previous
+        restore_env(previous)
 
 
-def test_get_order_policy_rejects_unknown_env_policy() -> None:
-    previous = os.environ.get("GABION_ORDER_POLICY")
+def test_get_order_policy_rejects_unknown_env_policy(env_scope, restore_env) -> None:
+    previous = env_scope({"GABION_ORDER_POLICY": "nonsense"})
     try:
-        os.environ["GABION_ORDER_POLICY"] = "nonsense"
         with pytest.raises(NeverThrown):
             get_order_policy()
     finally:
-        if previous is None:
-            os.environ.pop("GABION_ORDER_POLICY", None)
-        else:
-            os.environ["GABION_ORDER_POLICY"] = previous
+        restore_env(previous)
 
 
 def test_ordered_or_sorted_check_handles_incomparable_values() -> None:
@@ -200,22 +195,21 @@ def test_ordered_or_sorted_enforce_rejects_incomparable_values() -> None:
             ordered_or_sorted([{"a": 1}, {"b": 2}], source="incomparable")
 
 
-def test_ordered_or_sorted_canonical_allowlist_skips_without_explicit_sort() -> None:
-    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+def test_ordered_or_sorted_canonical_allowlist_skips_without_explicit_sort(
+    env_scope, restore_env
+) -> None:
+    previous = env_scope({"GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST": "1"})
     try:
-        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
         assert ordered_or_sorted(["z", "a"], source="not_allowlisted") == ["a", "z"]
     finally:
-        if previous is None:
-            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
-        else:
-            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+        restore_env(previous)
 
 
-def test_ordered_or_sorted_explicit_sort_from_require_sorted_false_obeys_allowlist() -> None:
-    previous = os.environ.get("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST")
+def test_ordered_or_sorted_explicit_sort_from_require_sorted_false_obeys_allowlist(
+    env_scope, restore_env
+) -> None:
+    previous = env_scope({"GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST": "1"})
     try:
-        os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = "1"
         with pytest.raises(NeverThrown):
             ordered_or_sorted(
                 ["z", "a"],
@@ -223,10 +217,7 @@ def test_ordered_or_sorted_explicit_sort_from_require_sorted_false_obeys_allowli
                 require_sorted=False,
             )
     finally:
-        if previous is None:
-            os.environ.pop("GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST", None)
-        else:
-            os.environ["GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"] = previous
+        restore_env(previous)
 
 
 def test_ordered_or_sorted_accepts_string_policy() -> None:

@@ -128,3 +128,18 @@ def test_forest_spec_includes_wl_refinement_collector() -> None:
 def test_normalize_decision_tiers_ignores_invalid() -> None:
     tiers = {"": 1, "ok": "bad", "fine": 2}
     assert _normalize_decision_tiers(tiers) == {"fine": 2}
+
+
+def test_forest_spec_from_dict_ignores_non_list_collectors_and_outputs() -> None:
+    spec = forest_spec_from_dict(
+        {
+            "spec_version": 1,
+            "name": "spec",
+            "params": "invalid",
+            "declared_outputs": "CollectorOut",
+            "collectors": {"name": "collector"},
+        }
+    )
+    assert spec.params == {}
+    assert spec.declared_outputs == ()
+    assert spec.collectors == ()

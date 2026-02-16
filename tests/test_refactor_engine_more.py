@@ -11,8 +11,11 @@ from gabion.refactor.engine import (
     _CallSiteTransformer,
     _RefactorTransformer,
     _collect_import_context,
+    _ensure_compat_imports,
+    _has_typing_import,
     _has_typing_overload_import,
     _has_typing_protocol_import,
+    _has_warnings_import,
     _module_expr_to_str,
     _module_name,
     _rewrite_call_sites,
@@ -331,3 +334,134 @@ def test_call_site_transformer_helpers() -> None:
     )
     mismatch_call = cst.parse_expression("target(mod.Bundle(a=a, b=b))")
     assert name_constructor._already_wrapped(mismatch_call) is False
+
+
+def test_engine_helper_negative_branches() -> None:
+    module = cst.parse_module("import os\nimport pkg.typing\n")
+    assert _has_typing_import(list(module.body)) is False
+
+    module = cst.parse_module("from typing import List\n")
+    assert _has_typing_protocol_import(list(module.body)) is False
+    assert _has_typing_overload_import(list(module.body)) is False
+    module = cst.Module(
+        body=[
+            cst.SimpleStatementLine(
+                [
+                    cst.ImportFrom(
+                        module=cst.Name("typing"),
+                        names=[
+                            cst.ImportAlias(
+                                name=cst.Attribute(cst.Name("typing"), cst.Name("Protocol"))
+                            )
+                        ],
+                    )
+                ]
+            )
+        ]
+    )
+    assert _has_typing_protocol_import(list(module.body)) is False
+    assert _has_typing_overload_import(list(module.body)) is False
+    module = cst.parse_module("from typing import *\n")
+    assert _has_typing_protocol_import(list(module.body)) is False
+    assert _has_typing_overload_import(list(module.body)) is False
+
+    module = cst.parse_module("import warnings\nfrom typing import overload\n")
+    updated = _ensure_compat_imports(module)
+    # Existing imports should not be duplicated.
+    assert updated.code.count("import warnings") == 1
+    assert updated.code.count("from typing import overload") == 1
+    module = cst.parse_module("import pkg.warnings\n")
+    assert _has_warnings_import(list(module.body)) is False
+
+    expr = cst.parse_expression("pkg().mod")
+    assert _module_expr_to_str(expr) == "mod"
+
+    context_module = cst.parse_module("value = 1\n")
+    aliases, imported, proto = _collect_import_context(
+        context_module,
+        target_module="pkg.mod",
+        protocol_name="Protocol",
+    )
+    assert aliases == {}
+    assert imported == {}
+    assert proto is None
+    context_module = cst.Module(
+        body=[
+            cst.SimpleStatementLine(
+                [
+                    cst.ImportFrom(
+                        module=cst.Attribute(cst.Name("pkg"), cst.Name("mod")),
+                        names=cst.ImportStar(),
+                    )
+                ]
+            )
+        ]
+    )
+    aliases, imported, proto = _collect_import_context(
+        context_module,
+        target_module="pkg.mod",
+        protocol_name="Protocol",
+    )
+    assert aliases == {}
+    assert imported == {}
+    assert proto is None
+
+
+def test_refactor_and_callsite_transformer_stack_and_param_edges() -> None:
+    transformer = _RefactorTransformer(
+        targets={"f"},
+        bundle_fields=["a"],
+        protocol_hint="",
+    )
+    # Empty protocol hint exercises the no-annotation path.
+    params = transformer._build_parameters(None, "bundle")
+    assert params.params[0].annotation is None
+
+    # Empty body exercises the branch where no first statement is inspected.
+    empty_suite = cst.IndentedBlock(body=[])
+    injected = transformer._inject_preamble(empty_suite, "bundle", ["a"])
+    assert isinstance(injected, cst.IndentedBlock)
+
+    # Non-simple-statement first node takes the fast path.
+    non_simple = cst.IndentedBlock(
+        body=[
+            cst.If(
+                test=cst.Name("cond"),
+                body=cst.IndentedBlock(
+                    body=[cst.SimpleStatementLine([cst.Pass()])]
+                ),
+            )
+        ]
+    )
+    injected = transformer._inject_preamble(non_simple, "bundle", ["a"])
+    assert isinstance(injected, cst.IndentedBlock)
+
+    # leave_* guards with empty stacks.
+    class_node = cst.ClassDef(name=cst.Name("C"), body=cst.IndentedBlock(body=[]))
+    fn_node = cst.FunctionDef(
+        name=cst.Name("f"),
+        params=cst.Parameters(params=[]),
+        body=cst.IndentedBlock(body=[cst.SimpleStatementLine([cst.Pass()])]),
+    )
+    assert transformer.leave_ClassDef(class_node, class_node) is class_node
+    assert transformer.leave_FunctionDef(fn_node, fn_node) is fn_node
+
+    call_transformer = _CallSiteTransformer(
+        file_is_target=True,
+        target_simple=set(),
+        target_methods={"C": {"m"}},
+        module_aliases=set(),
+        imported_targets=set(),
+        bundle_fields=["a"],
+        constructor_expr=cst.Name("Bundle"),
+    )
+    call_transformer._class_stack.append("C")
+    # attr in methods but receiver not in allowed receiver set.
+    call = cst.parse_expression("obj.m(a)")
+    assert call_transformer._is_target_call(call.func) is False
+    miss_call = cst.parse_expression("self.n(a)")
+    assert call_transformer._is_target_call(miss_call.func) is False
+    call_transformer._class_stack.pop()
+    # leave_ClassDef guard with empty stack.
+    class_node = cst.ClassDef(name=cst.Name("C"), body=cst.IndentedBlock(body=[]))
+    assert call_transformer.leave_ClassDef(class_node, class_node) is class_node

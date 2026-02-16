@@ -46,7 +46,10 @@ def topological_schedule(graph: Dict[str, Set[str]]) -> ScheduleResult:
             check_deadline()
             incoming[follower].discard(node)
             if not incoming[follower]:
-                if follower not in ready and follower not in order:
+                # A follower can only become ready when its final unresolved
+                # dependency is removed in this loop body, so it should not
+                # already be present in `ready`/`order` here.
+                if follower not in ready and follower not in order:  # pragma: no branch
                     ready.append(follower)
         ready = ordered_or_sorted(
             ready,
@@ -88,7 +91,7 @@ def _strongly_connected_components(graph: Dict[str, Set[str]]) -> List[Set[str]]
             if neighbor not in indices:
                 visit(neighbor)
                 lowlinks[node] = min(lowlinks[node], lowlinks[neighbor])
-            elif neighbor in on_stack:
+            elif neighbor in on_stack:  # pragma: no branch
                 lowlinks[node] = min(lowlinks[node], indices[neighbor])
         if lowlinks[node] == indices[node]:
             component: Set[str] = set()

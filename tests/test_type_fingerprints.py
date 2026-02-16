@@ -525,6 +525,71 @@ def test_normalize_type_list_variants() -> None:
     assert tf._normalize_type_list(["a, b", "c"]) == ["a", "b", "c"]
 
 
+def test_split_top_level_handles_empty_segments() -> None:
+    tf = _load()
+    assert tf._split_top_level(",a", ",") == ["a"]
+    assert tf._split_top_level("a,", ",") == ["a"]
+
+
+def test_prime_registry_existing_bit_and_key_lookup_scan() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    registry.bit_positions["k"] = 7
+    prime = registry.get_or_assign("k")
+    assert registry.bit_for("k") == 7
+    other_prime = registry.get_or_assign("other")
+    assert registry.key_for_prime(other_prime) == "other"
+    assert prime != other_prime
+
+
+def test_normalize_type_list_ignores_non_string_entries() -> None:
+    tf = _load()
+    assert tf._normalize_type_list(123) == []
+    assert tf._normalize_type_list(["a", 1, "b"]) == ["a", "b"]
+
+
+def test_dimension_helpers_handle_missing_registry_bits() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    registry.get_or_assign("int")
+    registry.bit_positions.pop("int", None)
+    dim = tf._dimension_from_keys(["int"], registry)
+    assert dim.mask == 0
+
+    registry.get_or_assign("ctor:list")
+    registry.bit_positions.pop("ctor:list", None)
+    ctor_dim = tf._ctor_dimension_from_names(["list"], registry)
+    assert ctor_dim.mask == 0
+
+
+def test_apply_registry_payload_filters_invalid_registry_values() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    tf._apply_registry_payload({"primes": [], "bit_positions": []}, registry)
+    assert registry.primes == {}
+    assert registry.bit_positions == {}
+
+    tf._apply_registry_payload(
+        {
+            "primes": {"a": "bad", "b": 5},
+            "bit_positions": {"a": "bad", "b": 2},
+        },
+        registry,
+    )
+    assert registry.prime_for("a") is None
+    assert registry.prime_for("b") == 5
+    assert registry.bit_for("a") is None
+    assert registry.bit_for("b") == 2
+
+
+def test_bundle_fingerprint_dimensional_without_constructor_registry() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    fingerprint = tf.bundle_fingerprint_dimensional(["int"], registry, None)
+    assert fingerprint.base.product == registry.get_or_assign("int")
+    assert fingerprint.ctor.is_empty()
+
+
 # gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.load_synth_registry_payload
 def test_synth_registry_payload_handles_non_list_entries() -> None:
     tf = _load()

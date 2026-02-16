@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_obsolescence
 from gabion.analysis.baseline_io import (
@@ -305,16 +305,34 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
 
 
 def build_baseline_payload_from_paths(
-    evidence_path: str, risk_registry_path: str
+    evidence_path: str,
+    risk_registry_path: str,
+    *,
+    load_test_evidence_fn: Callable[[str], tuple[Mapping[str, Iterable[object]], Mapping[str, str]]]
+    | None = None,
+    load_risk_registry_fn: Callable[[str], Mapping[str, object]] | None = None,
+    classify_candidates_fn: Callable[
+        [Mapping[str, Iterable[object]], Mapping[str, str], Mapping[str, object]],
+        tuple[list[dict[str, str]], Mapping[str, int]],
+    ]
+    | None = None,
+    build_baseline_payload_fn: Callable[
+        [Mapping[str, Iterable[object]], Mapping[str, str], list[dict[str, str]], Mapping[str, int]],
+        dict[str, JSONValue],
+    ]
+    | None = None,
 ) -> dict[str, JSONValue]:
-    evidence_by_test, status_by_test = test_obsolescence.load_test_evidence(
-        evidence_path
-    )
-    risk_registry = test_obsolescence.load_risk_registry(risk_registry_path)
-    candidates, summary_counts = test_obsolescence.classify_candidates(
+    load_test_evidence = load_test_evidence_fn or test_obsolescence.load_test_evidence
+    load_risk_registry = load_risk_registry_fn or test_obsolescence.load_risk_registry
+    classify_candidates = classify_candidates_fn or test_obsolescence.classify_candidates
+    build_baseline_payload_impl = build_baseline_payload_fn or build_baseline_payload
+
+    evidence_by_test, status_by_test = load_test_evidence(evidence_path)
+    risk_registry = load_risk_registry(risk_registry_path)
+    candidates, summary_counts = classify_candidates(
         evidence_by_test, status_by_test, risk_registry
     )
-    return build_baseline_payload(
+    return build_baseline_payload_impl(
         evidence_by_test, status_by_test, candidates, summary_counts
     )
 

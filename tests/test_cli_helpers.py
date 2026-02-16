@@ -49,6 +49,18 @@ def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     assert "sarif-2.1.0.json" in capsys.readouterr().out
 
 
+def test_write_lint_sarif_reuses_existing_rule(tmp_path: Path) -> None:
+    entries = [
+        {"path": "mod.py", "line": 1, "col": 1, "code": "GABION_CODE", "message": "m1"},
+        {"path": "mod.py", "line": 2, "col": 1, "code": "GABION_CODE", "message": "m2"},
+    ]
+    sarif_path = tmp_path / "lint.sarif"
+    cli._write_lint_sarif(str(sarif_path), entries)
+    payload = json.loads(sarif_path.read_text(encoding="utf-8"))
+    rules = payload["runs"][0]["tool"]["driver"]["rules"]
+    assert len(rules) == 1
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
 def test_emit_lint_outputs_writes_artifacts(tmp_path: Path, capsys) -> None:
     lines = ["mod.py:1:1: GABION_CODE message"]
@@ -64,6 +76,35 @@ def test_emit_lint_outputs_writes_artifacts(tmp_path: Path, capsys) -> None:
     assert "GABION_CODE" in out
     assert jsonl_path.exists()
     assert sarif_path.exists()
+
+
+def test_emit_lint_outputs_jsonl_only(tmp_path: Path) -> None:
+    lines = ["mod.py:1:1: GABION_CODE message"]
+    jsonl_path = tmp_path / "lint.jsonl"
+    cli._emit_lint_outputs(
+        lines,
+        lint=False,
+        lint_jsonl=jsonl_path,
+        lint_sarif=None,
+    )
+    assert jsonl_path.exists()
+
+
+def test_emit_lint_outputs_sarif_only(tmp_path: Path) -> None:
+    lines = ["mod.py:1:1: GABION_CODE message"]
+    sarif_path = tmp_path / "lint.sarif"
+    cli._emit_lint_outputs(
+        lines,
+        lint=False,
+        lint_jsonl=None,
+        lint_sarif=sarif_path,
+    )
+    assert sarif_path.exists()
+
+
+def test_cli_deadline_scope_yields() -> None:
+    with cli._cli_deadline_scope():
+        assert True
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path
@@ -1024,6 +1065,32 @@ def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
     assert payload["analysis_timeout_tick_ns"] > 0
 
 
+def test_dispatch_command_preserves_existing_timeout_ms(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"ok": True}
+
+    result = cli.dispatch_command(
+        command=cli.STRUCTURE_DIFF_COMMAND,
+        payload={
+            "baseline": str(tmp_path / "base.json"),
+            "current": str(tmp_path / "current.json"),
+            "analysis_timeout_ms": 1,
+        },
+        root=tmp_path,
+        runner=runner,
+    )
+    assert result == {"ok": True}
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["analysis_timeout_ms"] == 1
+    assert "analysis_timeout_ticks" not in payload
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs
 def test_run_structure_reuse_uses_runner(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
@@ -1086,6 +1153,47 @@ def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
     assert cli.STRUCTURE_DIFF_COMMAND in calls
     assert cli.DECISION_DIFF_COMMAND in calls
     assert cli.STRUCTURE_REUSE_COMMAND in calls
+
+
+def test_emit_synth_outputs_skips_absent_optional_paths(tmp_path: Path, capsys) -> None:
+    root = tmp_path / "out"
+    root.mkdir()
+    paths_out = {
+        "output_root": root,
+        "report": root / "dataflow_report.md",
+        "dot": root / "graph.dot",
+        "plan": root / "plan.json",
+        "protocol": root / "protocols.py",
+        "refactor": root / "refactor.json",
+        "fingerprint_synth": root / "fingerprint_synth.json",
+        "fingerprint_provenance": root / "fingerprint_provenance.json",
+        "fingerprint_coherence": root / "fingerprint_coherence.json",
+        "fingerprint_rewrite_plans": root / "fingerprint_rewrite_plans.json",
+        "fingerprint_exception_obligations": root / "fingerprint_exception_obligations.json",
+        "fingerprint_handledness": root / "fingerprint_handledness.json",
+    }
+    cli._emit_synth_outputs(
+        paths_out=paths_out,
+        timestamp=root,
+        refactor_plan=True,
+    )
+    output = capsys.readouterr().out
+    assert "fingerprint_coherence.json" not in output
+    assert "fingerprint_rewrite_plans.json" not in output
+    assert "fingerprint_exception_obligations.json" not in output
+    assert "fingerprint_handledness.json" not in output
+
+
+def test_render_timeout_progress_markdown_handles_non_mapping_resume_token() -> None:
+    rendered = cli._render_timeout_progress_markdown(
+        analysis_state=None,
+        progress={
+            "resume": {"resume_token": "bad"},
+            "incremental_obligations": [],
+        },
+    )
+    assert "analysis_state" not in rendered
+    assert "Resume Token" not in rendered
 
 
 # gabion:evidence E:function_site::cli.py::gabion.cli._emit_structure_diff

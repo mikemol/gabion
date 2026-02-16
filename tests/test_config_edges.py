@@ -59,3 +59,8 @@ def test_config_helpers_cover_bool_and_lists() -> None:
     assert config.exception_never_list(None) == []
     assert config.exception_never_list("bad") == []
     assert config.exception_never_list({"never": "A, B"}) == ["A", "B"]
+
+
+def test_normalize_name_list_ignores_non_string_entries() -> None:
+    assert config._normalize_name_list(["a, b", 1, None, "c"]) == ["a", "b", "c"]
+    assert config._normalize_name_list(5) == []

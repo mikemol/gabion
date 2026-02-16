@@ -642,3 +642,323 @@ def test_collect_call_footprints_cache_and_missing(tmp_path: Path) -> None:
         config=config,
     )
     assert entry.test_id in footprints
+
+
+def test_suggest_evidence_without_heuristics_skips_no_match(tmp_path: Path) -> None:
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    suggestions, summary = test_evidence_suggestions.suggest_evidence(
+        [entry],
+        root=tmp_path,
+        forest=Forest(),
+        include_heuristics=False,
+        graph_suggestions_fn=lambda *args, **kwargs: ({}, set()),
+        suggest_for_entry_fn=lambda _entry: ([], []),
+    )
+    assert suggestions == []
+    assert summary.skipped_no_match == 1
+
+
+def test_render_markdown_without_match_details() -> None:
+    key = evidence_keys.make_opaque_key("opaque")
+    suggestion = test_evidence_suggestions.Suggestion(
+        test_id="tests/test_alpha.py::test_alpha",
+        file="tests/test_alpha.py",
+        line=1,
+        suggested=(test_evidence_suggestions.EvidenceSuggestion(key=key, display="opaque"),),
+        matches=(),
+        source="graph",
+    )
+    summary = test_evidence_suggestions.SuggestionSummary(
+        total=1,
+        suggested=1,
+        suggested_graph=1,
+        suggested_heuristic=0,
+        skipped_mapped=0,
+        skipped_no_match=0,
+        graph_unresolved=0,
+        unmapped_modules=(),
+        unmapped_prefixes=(),
+    )
+    rendered = test_evidence_suggestions.render_markdown([suggestion], summary)
+    assert "matched:" not in rendered
+
+
+def test_graph_suggestions_evidence_items_and_no_targets_branches(tmp_path: Path) -> None:
+    (tmp_path / "seed.py").write_text("def seed():\n    return 1\n", encoding="utf-8")
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    info = FunctionInfo(
+        name="test_alpha",
+        qual="tests.test_alpha.test_alpha",
+        path=tmp_path / "tests" / "test_alpha.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    callee = FunctionInfo(
+        name="helper",
+        qual="pkg.app.helper",
+        path=tmp_path / "app.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    site_id = NodeId(kind="FunctionSite", key=("app.py", "pkg.app.helper"))
+    evidence_item = test_evidence_suggestions.EvidenceSuggestion(
+        key=evidence_keys.make_paramset_key(["x"]),
+        display="E:paramset::x",
+    )
+
+    suggestions, resolved = test_evidence_suggestions._graph_suggestions(
+        [entry],
+        root=tmp_path,
+        paths=[tmp_path],
+        forest=Forest(),
+        config=None,
+        max_depth=1,
+        iter_paths_fn=lambda _paths, _cfg: [tmp_path / "seed.py"],
+        build_function_index_fn=lambda *args, **kwargs: ({}, {info.qual: info}),
+        build_test_index_fn=lambda _by_qual, _root: {entry.test_id: info},
+        build_symbol_table_fn=lambda *args, **kwargs: SymbolTable(),
+        build_forest_evidence_index_fn=lambda _forest: (
+            {("app.py", "pkg.app.helper"): site_id},
+            {site_id: (evidence_item,)},
+        ),
+        collect_reachable_fn=lambda *_args, **_kwargs: [callee],
+    )
+    assert entry.test_id in suggestions
+    assert suggestions[entry.test_id].source == test_evidence_suggestions.GRAPH_SOURCE
+    assert entry.test_id in resolved
+
+    suggestions, resolved = test_evidence_suggestions._graph_suggestions(
+        [entry],
+        root=tmp_path,
+        paths=[tmp_path],
+        forest=Forest(),
+        config=None,
+        max_depth=1,
+        iter_paths_fn=lambda _paths, _cfg: [tmp_path / "seed.py"],
+        build_function_index_fn=lambda *args, **kwargs: ({}, {info.qual: info}),
+        build_test_index_fn=lambda _by_qual, _root: {entry.test_id: info},
+        build_symbol_table_fn=lambda *args, **kwargs: SymbolTable(),
+        build_forest_evidence_index_fn=lambda _forest: ({}, {}),
+        collect_reachable_fn=lambda *_args, **_kwargs: [callee],
+        collect_call_footprint_targets_fn=lambda *args, **kwargs: (),
+    )
+    assert suggestions == {}
+    assert entry.test_id in resolved
+
+
+def test_suggest_evidence_include_heuristics_no_match_branch(tmp_path: Path) -> None:
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    suggestions, summary = test_evidence_suggestions.suggest_evidence(
+        [entry],
+        root=tmp_path,
+        forest=Forest(),
+        include_heuristics=True,
+        graph_suggestions_fn=lambda *args, **kwargs: ({}, set()),
+        suggest_for_entry_fn=lambda _entry: ([], []),
+    )
+    assert suggestions == []
+    assert summary.skipped_no_match == 1
+
+
+def test_collect_call_footprints_skips_empty_targets(tmp_path: Path) -> None:
+    seed = tmp_path / "seed.py"
+    seed.write_text("def seed():\n    return 1\n", encoding="utf-8")
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    info = FunctionInfo(
+        name="test_alpha",
+        qual="tests.test_alpha.test_alpha",
+        path=seed,
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    assert (
+        test_evidence_suggestions.collect_call_footprints(
+            [entry, entry],
+            root=tmp_path,
+            paths=[tmp_path],
+            config=AuditConfig(project_root=tmp_path),
+            iter_paths_fn=lambda _paths, _cfg: [seed],
+            build_function_index_fn=lambda *args, **kwargs: ({}, {info.qual: info}),
+            build_symbol_table_fn=lambda *args, **kwargs: SymbolTable(),
+            collect_class_index_fn=lambda *args, **kwargs: {},
+            build_test_index_fn=lambda _by_qual, _root: {entry.test_id: info},
+            collect_call_footprint_targets_fn=lambda *args, **kwargs: (),
+        )
+        == {}
+    )
+
+
+def test_find_module_level_calls_relative_cache_and_symbol_helpers(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    test_file = tests_dir / "test_alpha.py"
+    test_file.write_text("def test_alpha():\n    helper(mod.run, k=name, m='pkg.mod')\n", encoding="utf-8")
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    info = FunctionInfo(
+        name="test_alpha",
+        qual="tests.test_alpha.test_alpha",
+        path=test_file,
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 1, 1),
+    )
+    node_cache: dict[Path, dict[tuple[tuple[str, ...], str], ast.AST]] = {}
+    resolved = test_evidence_suggestions._find_module_level_calls(
+        info,
+        entry=entry,
+        node_cache=node_cache,
+        module_cache={},
+        symbol_table=SymbolTable(),
+        by_name={},
+        by_qual={},
+        class_index=None,
+        project_root=tmp_path,
+    )
+    assert resolved == ()
+    assert tmp_path.joinpath("tests", "test_alpha.py") in node_cache
+    cached_resolved = test_evidence_suggestions._find_module_level_calls(
+        info,
+        entry=entry,
+        node_cache=node_cache,
+        module_cache={},
+        symbol_table=SymbolTable(),
+        by_name={},
+        by_qual={},
+        class_index=None,
+        project_root=tmp_path,
+    )
+    assert cached_resolved == ()
+    absolute_entry = _minimal_entry(
+        "tests/test_alpha.py::test_alpha",
+        str(tmp_path / "tests" / "test_alpha.py"),
+    )
+    absolute_resolved = test_evidence_suggestions._find_module_level_calls(
+        info,
+        entry=absolute_entry,
+        node_cache=node_cache,
+        module_cache={},
+        symbol_table=SymbolTable(),
+        by_name={},
+        by_qual={},
+        class_index=None,
+        project_root=tmp_path,
+    )
+    assert absolute_resolved == ()
+
+    call = ast.parse("pkg.run(mod.helper, k=name, m='pkg.mod')").body[0].value
+    assert isinstance(call, ast.Call)
+    refs = test_evidence_suggestions._call_symbol_refs(call)
+    assert "pkg.run" in refs
+    assert "mod.helper" in refs
+    assert "name" in refs
+    literals = test_evidence_suggestions._call_module_literals(call)
+    assert "pkg.mod" in literals
+
+
+def test_call_symbol_refs_attribute_none_and_suggest_for_entry_parse_fallback() -> None:
+    call = ast.Call(
+        func=ast.Attribute(
+            value=ast.Call(func=ast.Name(id="factory", ctx=ast.Load()), args=[], keywords=[]),
+            attr="run",
+            ctx=ast.Load(),
+        ),
+        args=[],
+        keywords=[],
+    )
+    assert test_evidence_suggestions._call_symbol_refs(call) == []
+
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    rule = test_evidence_suggestions._SuggestionRule(
+        rule_id="opaque",
+        evidence=("opaque-display",),
+        needles=("alpha",),
+        scope="name",
+    )
+    suggested, _ = test_evidence_suggestions._suggest_for_entry(
+        entry,
+        rules_fn=lambda: [rule],
+        parse_display_fn=lambda _value: None,
+        make_opaque_key_fn=lambda display: {"kind": "opaque", "display": display},
+        normalize_key_fn=lambda key: key,
+        render_display_fn=lambda key: f"rendered::{key['display']}",
+        is_opaque_fn=lambda _key: True,
+    )
+    assert suggested and suggested[0].display == "opaque-display"
+    call_with_non_symbol_callee = ast.Call(
+        func=ast.Call(func=ast.Name(id="factory", ctx=ast.Load()), args=[], keywords=[]),
+        args=[],
+        keywords=[],
+    )
+    assert test_evidence_suggestions._call_symbol_refs(call_with_non_symbol_callee) == []
+
+
+def test_suggest_for_entry_parse_display_and_non_opaque_path() -> None:
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    rule = test_evidence_suggestions._SuggestionRule(
+        rule_id="parsed",
+        evidence=("E:bundle/sample",),
+        needles=("alpha",),
+        scope="name",
+    )
+    suggested, matches = test_evidence_suggestions._suggest_for_entry(
+        entry,
+        rules_fn=lambda: [rule],
+        parse_display_fn=lambda value: {"kind": "parsed", "value": value},
+        normalize_key_fn=lambda key: key,
+        render_display_fn=lambda key: f"rendered::{key['value']}",
+        is_opaque_fn=lambda _key: False,
+    )
+    assert matches == ["parsed"]
+    assert suggested and suggested[0].display == "rendered::E:bundle/sample"
+
+
+def test_module_resolution_and_site_parts_edge_branches(tmp_path: Path) -> None:
+    module_dir = tmp_path / "src" / "pkg"
+    module_dir.mkdir(parents=True)
+    cache: dict[str, Path | None] = {}
+    assert test_evidence_suggestions._resolve_module_file("pkg", tmp_path, cache) is None
+
+    forest = Forest()
+    node_id = NodeId(kind="FunctionSite", key=("a.py", "q"))
+    assert test_evidence_suggestions._site_parts(node_id, forest) == ("a.py", "q")
+
+
+def test_suggest_for_entry_opaque_and_normalize_mapping_edges() -> None:
+    entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
+    rule = test_evidence_suggestions._SuggestionRule(
+        rule_id="opaque",
+        evidence=("opaque-display",),
+        needles=("alpha",),
+        scope="name",
+    )
+    suggested, matches = test_evidence_suggestions._suggest_for_entry(
+        entry,
+        rules_fn=lambda: [rule],
+    )
+    assert matches == ["opaque"]
+    assert suggested and suggested[0].display == "opaque-display"
+
+    assert test_evidence_suggestions._normalize_evidence_list(
+        [{"display": 123}, {"not_display": "x"}]
+    ) == []
+    assert test_evidence_suggestions._normalize_evidence_list([1]) == []
+
+    modules, prefixes = test_evidence_suggestions._summarize_unmapped(
+        [
+            _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py"),
+            _minimal_entry("tests/test_helper.py::helper", "tests/test_helper.py"),
+        ]
+    )
+    assert modules
+    assert prefixes

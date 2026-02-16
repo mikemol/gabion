@@ -194,3 +194,45 @@ def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
         test_evidence.build_test_evidence_payload(
             [tests_dir], root=root, include=["tests"], exclude=[]
         )
+
+
+def test_build_test_evidence_merges_duplicate_evidence_identity(tmp_path: Path) -> None:
+    root = tmp_path
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    source = tests_dir / "test_dupe_evidence.py"
+    source.write_text(
+        "\n".join(
+            [
+                "# gabion:evidence E:function_site::m.py::pkg.fn",
+                "def test_one():",
+                "    assert True",
+                "",
+                "# gabion:evidence E:function_site::m.py::pkg.fn",
+                "def test_two():",
+                "    assert True",
+            ]
+        )
+        + "\n"
+    )
+    payload = test_evidence.build_test_evidence_payload(
+        [tests_dir], root=root, include=["tests"], exclude=[]
+    )
+    assert len(payload["evidence_index"]) == 1
+    assert payload["evidence_index"][0]["tests"] == [
+        "tests/test_dupe_evidence.py::test_one",
+        "tests/test_dupe_evidence.py::test_two",
+    ]
+
+
+def test_collect_test_files_ignores_non_python_paths(tmp_path: Path) -> None:
+    root = tmp_path
+    txt = tmp_path / "notes.txt"
+    txt.write_text("plain text\n", encoding="utf-8")
+    files = test_evidence._collect_test_files([txt], root=root, exclude=set())
+    assert files == []
+
+
+def test_evidence_comments_ignores_empty_ids() -> None:
+    comments = test_evidence._evidence_comments("# gabion:evidence   \n")
+    assert comments == {}

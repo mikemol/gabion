@@ -7,6 +7,7 @@ import pytest
 from gabion.analysis.projection_registry import (
     WL_REFINEMENT_SPEC,
     _projection_registry_gas_limit,
+    build_registered_specs,
     spec_metadata_lines,
     spec_metadata_lines_from_payload,
 )
@@ -32,22 +33,24 @@ def test_spec_metadata_lines_from_payload_defaults_non_mapping_spec_payload() ->
     ]
 
 
-def test_projection_registry_gas_limit_default_and_env_override() -> None:
-    previous = os.environ.get("GABION_PROJECTION_REGISTRY_GAS_LIMIT")
+def test_projection_registry_gas_limit_default_and_env_override(
+    env_scope,
+    restore_env,
+) -> None:
+    previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": None})
     try:
-        os.environ.pop("GABION_PROJECTION_REGISTRY_GAS_LIMIT", None)
         assert _projection_registry_gas_limit() > 0
         os.environ["GABION_PROJECTION_REGISTRY_GAS_LIMIT"] = "12345"
         assert _projection_registry_gas_limit() == 12_345
     finally:
-        if previous is None:
-            os.environ.pop("GABION_PROJECTION_REGISTRY_GAS_LIMIT", None)
-        else:
-            os.environ["GABION_PROJECTION_REGISTRY_GAS_LIMIT"] = previous
+        restore_env(previous)
 
 
-def test_projection_registry_gas_limit_rejects_invalid_env() -> None:
-    previous = os.environ.get("GABION_PROJECTION_REGISTRY_GAS_LIMIT")
+def test_projection_registry_gas_limit_rejects_invalid_env(
+    env_scope,
+    restore_env,
+) -> None:
+    previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": None})
     try:
         os.environ["GABION_PROJECTION_REGISTRY_GAS_LIMIT"] = "0"
         with pytest.raises(NeverThrown):
@@ -56,7 +59,16 @@ def test_projection_registry_gas_limit_rejects_invalid_env() -> None:
         with pytest.raises(NeverThrown):
             _projection_registry_gas_limit()
     finally:
-        if previous is None:
-            os.environ.pop("GABION_PROJECTION_REGISTRY_GAS_LIMIT", None)
-        else:
-            os.environ["GABION_PROJECTION_REGISTRY_GAS_LIMIT"] = previous
+        restore_env(previous)
+
+
+def test_build_registered_specs_uses_configured_gas_limit(
+    env_scope,
+    restore_env,
+) -> None:
+    previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "10000"})
+    try:
+        specs = build_registered_specs()
+    finally:
+        restore_env(previous)
+    assert specs

@@ -105,3 +105,21 @@ def test_require_no_python_hash_always_raises_in_proof_mode() -> None:
     assert observed
     assert observed[0]["constraint"] == "no_python_hash"
     assert observed[0]["spec"] == "wl"
+
+
+def test_require_invariants_raise_without_callbacks() -> None:
+    with proof_mode_scope(True):
+        with pytest.raises(NeverThrown):
+            require_sorted("ascending", [2, 1])
+        with pytest.raises(NeverThrown):
+            require_no_dupes("dupes", ["x", "x"])
+        with pytest.raises(NeverThrown):
+            require_canonical_multiset("ms", [("k", 0)])
+        with pytest.raises(NeverThrown):
+            require_no_python_hash("hash-order")
+
+
+def test_require_invariants_accept_empty_iterables_in_proof_mode() -> None:
+    with proof_mode_scope(True):
+        require_no_dupes("dupes", [])
+        require_canonical_multiset("ms", [])

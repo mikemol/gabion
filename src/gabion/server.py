@@ -1847,8 +1847,7 @@ def _collection_progress_intro_lines(
         hydrated_paths_count = raw_analysis_index_resume.get("hydrated_paths_count")
         if not isinstance(hydrated_paths_count, int):
             hydrated_paths_count = _analysis_index_resume_hydrated_count(collection_resume)
-        if isinstance(hydrated_paths_count, int):
-            lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
+        lines.append(f"- `hydrated_paths_count`: `{hydrated_paths_count}`")
         function_count = raw_analysis_index_resume.get("function_count")
         if isinstance(function_count, int):
             lines.append(f"- `hydrated_function_count`: `{function_count}`")
@@ -2665,26 +2664,23 @@ def _execute_command_total(
         )
         synth_min_occurrences = 0
         synth_version = "synth@1"
-        if isinstance(fingerprint_section, dict):
-            try:
-                synth_min_occurrences = int(
-                    fingerprint_section.get("synth_min_occurrences", 0) or 0
-                )
-            except (TypeError, ValueError):
-                synth_min_occurrences = 0
-            synth_version = str(
-                fingerprint_section.get("synth_version", synth_version) or synth_version
+        try:
+            synth_min_occurrences = int(
+                fingerprint_section.get("synth_min_occurrences", 0) or 0
             )
+        except (TypeError, ValueError):
+            synth_min_occurrences = 0
+        synth_version = str(
+            fingerprint_section.get("synth_version", synth_version) or synth_version
+        )
         fingerprint_registry: PrimeRegistry | None = None
         fingerprint_index: dict[Fingerprint, set[str]] = {}
         constructor_registry: TypeConstructorRegistry | None = None
-        fingerprint_spec: dict[str, JSONValue] = {}
-        if isinstance(fingerprint_section, dict):
-            fingerprint_spec = {
-                key: value
-                for key, value in fingerprint_section.items()
-                if not str(key).startswith("synth_")
-            }
+        fingerprint_spec: dict[str, JSONValue] = {
+            key: value
+            for key, value in fingerprint_section.items()
+            if not str(key).startswith("synth_")
+        }
         if fingerprint_spec:
             registry, index = build_fingerprint_registry(fingerprint_spec)
             if index:
@@ -3831,43 +3827,42 @@ def _execute_command_total(
                     witness_digest=report_section_witness_digest,
                     phases=phase_checkpoint_state,
                 )
-            if report_path:
-                if decision_snapshot_path:
-                    decision_payload = render_decision_snapshot(
-                        decision_surfaces=analysis.decision_surfaces,
-                        value_decision_surfaces=analysis.value_decision_surfaces,
-                        forest=analysis.forest,
-                        project_root=Path(root),
-                        groups_by_path=analysis.groups_by_path,
-                    )
-                    report = report + "\n" + json.dumps(
-                        decision_payload, indent=2, sort_keys=True
-                    )
-                if structure_tree_path:
-                    structure_payload = render_structure_snapshot(
-                        analysis.groups_by_path,
-                        forest=analysis.forest,
-                        project_root=Path(root),
-                        invariant_propositions=analysis.invariant_propositions,
-                    )
-                    report = report + "\n" + json.dumps(
-                        structure_payload, indent=2, sort_keys=True
-                    )
-                if structure_metrics_path:
-                    report = report + "\n" + json.dumps(metrics, indent=2, sort_keys=True)
-                if synthesis_plan and (
-                    synthesis_report or synthesis_plan_path or synthesis_protocols_path
-                ):
-                    report = report + render_synthesis_section(synthesis_plan)
-                if refactor_plan and (refactor_plan or refactor_plan_json):
-                    report = report + render_refactor_plan(plan_payload)
-                if report_output_path is not None:
-                    report_output_path.parent.mkdir(parents=True, exist_ok=True)
-                    _write_text_profiled(
-                        report_output_path,
-                        report,
-                        io_name="report_markdown.write",
-                    )
+            if decision_snapshot_path:
+                decision_payload = render_decision_snapshot(
+                    decision_surfaces=analysis.decision_surfaces,
+                    value_decision_surfaces=analysis.value_decision_surfaces,
+                    forest=analysis.forest,
+                    project_root=Path(root),
+                    groups_by_path=analysis.groups_by_path,
+                )
+                report = report + "\n" + json.dumps(
+                    decision_payload, indent=2, sort_keys=True
+                )
+            if structure_tree_path:
+                structure_payload = render_structure_snapshot(
+                    analysis.groups_by_path,
+                    forest=analysis.forest,
+                    project_root=Path(root),
+                    invariant_propositions=analysis.invariant_propositions,
+                )
+                report = report + "\n" + json.dumps(
+                    structure_payload, indent=2, sort_keys=True
+                )
+            if structure_metrics_path:
+                report = report + "\n" + json.dumps(metrics, indent=2, sort_keys=True)
+            if synthesis_plan and (
+                synthesis_report or synthesis_plan_path or synthesis_protocols_path
+            ):
+                report = report + render_synthesis_section(synthesis_plan)
+            if refactor_plan and (refactor_plan or refactor_plan_json):
+                report = report + render_refactor_plan(plan_payload)
+            if report_output_path is not None:
+                report_output_path.parent.mkdir(parents=True, exist_ok=True)
+                _write_text_profiled(
+                    report_output_path,
+                    report,
+                    io_name="report_markdown.write",
+                )
         else:
             violation_carrier = ReportCarrier(
                 forest=analysis.forest,
@@ -4077,8 +4072,10 @@ def _execute_command_total(
                             raw_semantic_substantive = semantic_progress.get(
                                 "substantive_progress"
                             )
-                            if isinstance(raw_semantic_substantive, bool):
-                                semantic_substantive_progress = raw_semantic_substantive
+                            semantic_substantive_progress = {
+                                True: True,
+                                False: False,
+                            }.get(raw_semantic_substantive)
                         witness_digest = (
                             resume_input_witness.get("witness_digest")
                             if resume_input_witness is not None

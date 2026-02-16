@@ -155,3 +155,48 @@ def test_count_by_groups_rows() -> None:
         {"class": "a", "count": 2},
         {"class": "b", "count": 1},
     ]
+
+
+def test_spec_from_dict_ignores_non_list_pipeline_payload() -> None:
+    spec = spec_from_dict(
+        {
+            "spec_version": 1,
+            "name": "demo",
+            "domain": "tests",
+            "pipeline": {"op": "select"},
+        }
+    )
+    assert spec.pipeline == ()
+
+
+def test_normalize_spec_handles_empty_unknown_and_mixed_param_shapes() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="mixed",
+        domain="tests",
+        pipeline=(
+            ProjectionOp("select", {"predicates": ["ok", "", 1]}),
+            ProjectionOp("project", {"fields": ["x", "", 1]}),
+            ProjectionOp("sort", {"by": ""}),
+            ProjectionOp("sort", {"by": {"field": "x"}}),
+            ProjectionOp("sort", {"by": ["", 1, {"field": "x", "order": "UP"}]}),
+            ProjectionOp("   ", {"ignored": True}),
+        ),
+    )
+    normalized = normalize_spec(spec)
+    assert normalized["pipeline"] == [
+        {"op": "select", "params": {"predicates": ["ok"]}},
+        {"op": "project", "params": {"fields": ["x"]}},
+        {"op": "sort", "params": {"by": [{"field": "x", "order": "asc"}]}},
+    ]
+
+
+def test_normalize_spec_drops_project_with_non_string_non_list_fields() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="drop-project",
+        domain="tests",
+        pipeline=(ProjectionOp("project", {"fields": {"field": "x"}}),),
+    )
+    normalized = normalize_spec(spec)
+    assert normalized["pipeline"] == []

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Callable, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING, cast
 from gabion.analysis.timeout_context import check_deadline
 
 if TYPE_CHECKING:
@@ -118,6 +118,28 @@ class UseVisitor(ProjectVisitor):
             return
         sites = self.use_map[param_name].forward_sites.setdefault((callee, slot), set())
         sites.add(span)
+
+    def _mark_non_forward(self, param_name: str) -> bool:
+        if param_name in self._suspend_non_forward:
+            return False
+        self.use_map[param_name].non_forward = True
+        return True
+
+    @staticmethod
+    def _slot_for_call_node(call: ast.Call, node: ast.AST) -> str:
+        slot: str | None = None
+        for idx, arg in enumerate(call.args):
+            check_deadline()
+            if arg is node:
+                slot = f"arg[{idx}]"
+                break
+        if slot is None:
+            for kw in call.keywords:
+                check_deadline()
+                if kw.value is node and kw.arg is not None:
+                    slot = f"kw[{kw.arg}]"
+                    break
+        return slot or "arg[?]"
 
     def visit_Call(self, node: ast.Call) -> None:
         check_deadline()
@@ -305,12 +327,12 @@ class UseVisitor(ProjectVisitor):
                 return False
             if not all(isinstance(elt, ast.Name) for elt in target.elts):
                 return False
-            for elt, param in zip(target.elts, aliases):
+            named_targets = cast(list[ast.Name], target.elts)
+            for elt, param in zip(named_targets, aliases):
                 check_deadline()
-                if isinstance(elt, ast.Name):
-                    self.alias_to_param[elt.id] = param
-                    if param in self.use_map:
-                        self.use_map[param].current_aliases.add(elt.id)
+                self.alias_to_param[elt.id] = param
+                if param in self.use_map:
+                    self.use_map[param].current_aliases.add(elt.id)
             return True
         return False
 
@@ -425,20 +447,7 @@ class UseVisitor(ProjectVisitor):
             self.use_map[param_name].non_forward = True
             return
         callee = self.callee_name(call)
-        slot = None
-        for idx, arg in enumerate(call.args):
-            check_deadline()
-            if arg is node:
-                slot = f"arg[{idx}]"
-                break
-        if slot is None:
-            for kw in call.keywords:
-                check_deadline()
-                if kw.value is node and kw.arg is not None:
-                    slot = f"kw[{kw.arg}]"
-                    break
-        if slot is None:
-            slot = "arg[?]"
+        slot = self._slot_for_call_node(call, node)
         self._record_forward(param_name, callee, slot, call)
 
     def _root_name(self, node: ast.AST) -> str | None:
@@ -459,16 +468,14 @@ class UseVisitor(ProjectVisitor):
             root_name = self._root_name(node)
             if root_name and root_name in self.alias_to_param:
                 param_name = self.alias_to_param[root_name]
-                if param_name not in self._suspend_non_forward:
-                    self.use_map[param_name].non_forward = True
+                self._mark_non_forward(param_name)
             self.generic_visit(node)
             return
         key = (node.value.id, node.attr)
         if key not in self._attr_alias_to_param:
             if node.value.id in self.alias_to_param:
                 param_name = self.alias_to_param[node.value.id]
-                if param_name not in self._suspend_non_forward:
-                    self.use_map[param_name].non_forward = True
+                self._mark_non_forward(param_name)
             return
         param_name = self._attr_alias_to_param[key]
         if param_name in self._suspend_non_forward:
@@ -478,20 +485,7 @@ class UseVisitor(ProjectVisitor):
             self.use_map[param_name].non_forward = True
             return
         callee = self.callee_name(call)
-        slot = None
-        for idx, arg in enumerate(call.args):
-            check_deadline()
-            if arg is node:
-                slot = f"arg[{idx}]"
-                break
-        if slot is None:
-            for kw in call.keywords:
-                check_deadline()
-                if kw.value is node and kw.arg is not None:
-                    slot = f"kw[{kw.arg}]"
-                    break
-        if slot is None:
-            slot = "arg[?]"
+        slot = self._slot_for_call_node(call, node)
         self._record_forward(param_name, callee, slot, call)
 
     def visit_Subscript(self, node: ast.Subscript) -> None:
@@ -502,8 +496,7 @@ class UseVisitor(ProjectVisitor):
             root_name = self._root_name(node)
             if root_name and root_name in self.alias_to_param:
                 param_name = self.alias_to_param[root_name]
-                if param_name not in self._suspend_non_forward:
-                    self.use_map[param_name].non_forward = True
+                self._mark_non_forward(param_name)
             self.generic_visit(node)
             return
         key_value = None
@@ -512,16 +505,14 @@ class UseVisitor(ProjectVisitor):
         if key_value is None:
             if node.value.id in self.alias_to_param:
                 param_name = self.alias_to_param[node.value.id]
-                if param_name not in self._suspend_non_forward:
-                    self.use_map[param_name].non_forward = True
+                self._mark_non_forward(param_name)
             self.visit(node.slice)
             return
         key = (node.value.id, key_value)
         if key not in self._key_alias_to_param:
             if node.value.id in self.alias_to_param:
                 param_name = self.alias_to_param[node.value.id]
-                if param_name not in self._suspend_non_forward:
-                    self.use_map[param_name].non_forward = True
+                self._mark_non_forward(param_name)
             self.visit(node.slice)
             return
         param_name = self._key_alias_to_param[key]
@@ -532,18 +523,5 @@ class UseVisitor(ProjectVisitor):
             self.use_map[param_name].non_forward = True
             return
         callee = self.callee_name(call)
-        slot = None
-        for idx, arg in enumerate(call.args):
-            check_deadline()
-            if arg is node:
-                slot = f"arg[{idx}]"
-                break
-        if slot is None:
-            for kw in call.keywords:
-                check_deadline()
-                if kw.value is node and kw.arg is not None:
-                    slot = f"kw[{kw.arg}]"
-                    break
-        if slot is None:
-            slot = "arg[?]"
+        slot = self._slot_for_call_node(call, node)
         self._record_forward(param_name, callee, slot, call)

@@ -87,6 +87,26 @@ def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.render_display({"k": "custom"}) == "E:custom"
 
 
+def test_make_never_sink_key_omits_empty_normalized_reason() -> None:
+    key = evidence_keys.make_never_sink_key(
+        path="p",
+        qual="q",
+        param="x",
+        reason="   ",
+    )
+    assert "reason" not in key
+
+
+def test_make_partition_witness_key_handles_missing_support_and_collapse() -> None:
+    payload = evidence_keys.make_partition_witness_key(
+        kind="local_resolution_ambiguous",
+        site={"path": "p", "qual": "q"},
+        ambiguity={"k": "opaque", "s": "E:x"},
+    )
+    assert "support" not in payload
+    assert "collapse" not in payload
+
+
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display
 def test_render_display_handles_non_list_params() -> None:
     def fake_normalize_key(_key):
@@ -268,6 +288,27 @@ def test_render_display_call_cluster_skips_invalid_targets() -> None:
         normalize=fake_normalize,
     )
     assert display == "E:call_cluster"
+
+
+def test_render_display_handles_non_list_targets_payloads() -> None:
+    assert (
+        evidence_keys.render_display(
+            {"k": "call_footprint"},
+            normalize=lambda _key: {
+                "k": "call_footprint",
+                "site": {"path": "t.py", "qual": "mod.fn"},
+                "targets": "not-a-list",
+            },
+        )
+        == "E:call_footprint::t.py::mod.fn"
+    )
+    assert (
+        evidence_keys.render_display(
+            {"k": "call_cluster"},
+            normalize=lambda _key: {"k": "call_cluster", "targets": "not-a-list"},
+        )
+        == "E:call_cluster"
+    )
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.parse_display

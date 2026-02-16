@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import libcst as cst
@@ -110,9 +111,8 @@ class RefactorEngine:
         if import_stmt is not None:
             new_body.insert(insert_idx, import_stmt)
             insert_idx += 1
-        if insert_idx > 0 and not isinstance(new_body[insert_idx - 1], cst.EmptyLine):
-            new_body.insert(insert_idx, cst.EmptyLine())
-            insert_idx += 1
+        new_body.insert(insert_idx, cst.EmptyLine())
+        insert_idx += 1
         new_body.insert(insert_idx, class_def)
 
         new_module = module.with_changes(body=new_body)
@@ -226,8 +226,7 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
         current: cst.BaseExpression | None = expr
         while isinstance(current, cst.Attribute):
             check_deadline()
-            if isinstance(current.attr, cst.Name):
-                parts.append(current.attr.value)
+            parts.append(current.attr.value)
             current = current.value
         if isinstance(current, cst.Name):
             parts.append(current.value)
@@ -271,6 +270,8 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
             module = _module_expr_to_str(item.module)
             if module != "typing":
                 continue
+            if not isinstance(item.names, Sequence):
+                continue
             for alias in item.names:
                 check_deadline()
                 if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
@@ -291,6 +292,8 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
                 continue
             module = _module_expr_to_str(item.module)
             if module != "typing":
+                continue
+            if not isinstance(item.names, Sequence):
                 continue
             for alias in item.names:
                 check_deadline()
@@ -375,6 +378,8 @@ def _collect_import_context(
             elif isinstance(item, cst.ImportFrom):
                 module_name = _module_expr_to_str(item.module)
                 if module_name != target_module:
+                    continue
+                if not isinstance(item.names, Sequence):
                     continue
                 for alias in item.names:
                     check_deadline()
