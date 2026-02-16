@@ -978,9 +978,9 @@ def test_run_structure_diff_uses_runner(tmp_path: Path) -> None:
 
     baseline = tmp_path / "base.json"
     current = tmp_path / "current.json"
+    request = cli.SnapshotDiffRequest(baseline=baseline, current=current)
     result = cli.run_structure_diff(
-        baseline=baseline,
-        current=current,
+        request=request,
         root=tmp_path,
         runner=runner,
     )
@@ -1009,9 +1009,9 @@ def test_run_decision_diff_uses_runner(tmp_path: Path) -> None:
 
     baseline = tmp_path / "base.json"
     current = tmp_path / "current.json"
+    request = cli.SnapshotDiffRequest(baseline=baseline, current=current)
     result = cli.run_decision_diff(
-        baseline=baseline,
-        current=current,
+        request=request,
         root=tmp_path,
         runner=runner,
     )

@@ -88,6 +88,15 @@ class DataflowAuditRequest:
     runner: Runner | None = None
 
 
+@dataclass(frozen=True)
+class SnapshotDiffRequest:
+    baseline: Path
+    current: Path
+
+    def to_payload(self) -> JSONObject:
+        return {"baseline": str(self.baseline), "current": str(self.current)}
+
+
 def _find_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -1630,13 +1639,11 @@ def _emit_synth_outputs(
 
 def run_structure_diff(
     *,
-    baseline: Path,
-    current: Path,
+    request: SnapshotDiffRequest,
     root: Path | None = None,
     runner: Runner | None = None,
 ) -> JSONObject:
-    # dataflow-bundle: baseline, current
-    payload = {"baseline": str(baseline), "current": str(current)}
+    payload = request.to_payload()
     runner = runner or DEFAULT_RUNNER
     root_path = root or Path(".")
     return dispatch_command(
@@ -1649,12 +1656,11 @@ def run_structure_diff(
 
 def run_decision_diff(
     *,
-    baseline: Path,
-    current: Path,
+    request: SnapshotDiffRequest,
     root: Path | None = None,
     runner: Runner | None = None,
 ) -> JSONObject:
-    payload = {"baseline": str(baseline), "current": str(current)}
+    payload = request.to_payload()
     runner = runner or DEFAULT_RUNNER
     root_path = root or Path(".")
     return dispatch_command(
@@ -1732,9 +1738,9 @@ def structure_diff(
     root: Optional[Path] = typer.Option(None, "--root"),
 ) -> None:
     """Compare two structure snapshots and emit a JSON diff."""
-    # dataflow-bundle: baseline, current
     with _cli_deadline_scope():
-        result = run_structure_diff(baseline=baseline, current=current, root=root)
+        request = SnapshotDiffRequest(baseline=baseline, current=current)
+        result = run_structure_diff(request=request, root=root)
         _emit_structure_diff(result)
 
 
@@ -1746,7 +1752,8 @@ def decision_diff(
 ) -> None:
     """Compare two decision surface snapshots and emit a JSON diff."""
     with _cli_deadline_scope():
-        result = run_decision_diff(baseline=baseline, current=current, root=root)
+        request = SnapshotDiffRequest(baseline=baseline, current=current)
+        result = run_decision_diff(request=request, root=root)
         _emit_decision_diff(result)
 
 
