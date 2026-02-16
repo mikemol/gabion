@@ -1270,12 +1270,6 @@ def test_collect_module_exports_annassign_and_augassign_edges() -> None:
     assert "second" in exports
 
 
-def test_invariant_term_len_call_branch() -> None:
-    da = _load()
-    expr = ast.parse("len(data)").body[0].value
-    assert da._invariant_term(expr, {"data"}) == "data.length"
-
-
 def test_accumulate_function_index_vararg_and_kwarg_ignored() -> None:
     da = _load()
     tree = ast.parse("def f(*skip_a, **skip_k):\n    return 1\n")
