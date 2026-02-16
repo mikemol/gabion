@@ -1873,9 +1873,9 @@ def test_resume_map_harness_uses_injected_parser() -> None:
             return 1
         return None
 
-    out = da._load_resume_map(
+    out = da.load_resume_map(
         payload={"k1": "keep", "k2": "drop", "k3": "ignored"},
-        valid_fn_keys={"k1", "k2"},
+        valid_keys={"k1", "k2"},
         parser=_parser,
     )
     assert seen == ["keep", "drop"]
@@ -1885,15 +1885,15 @@ def test_resume_map_harness_uses_injected_parser() -> None:
 def test_iter_valid_resume_entries_and_str_sequence_helpers() -> None:
     da = _load()
     entries = list(
-        da._iter_valid_resume_entries(
+        da.iter_valid_key_entries(
             payload={"k1": "v1", "k2": 2, "k3": "v3"},
-            valid_fn_keys={"k1", "k3"},
+            valid_keys={"k1", "k3"},
         )
     )
     assert entries == [("k1", "v1"), ("k3", "v3")]
-    assert da._str_list_from_sequence(["a", 1, "b"]) == ["a", "b"]
-    assert da._str_list_from_sequence("bad") == []
-    assert da._str_tuple_from_sequence(["a", 1, "b"]) == ("a", "b")
+    assert da.str_list_from_sequence(["a", 1, "b"]) == ["a", "b"]
+    assert da.str_list_from_sequence("bad") == []
+    assert da.str_tuple_from_sequence(["a", 1, "b"]) == ("a", "b")
 
 
 def test_deserialize_param_use_filters_malformed_values() -> None:
@@ -1948,6 +1948,50 @@ def test_deserialize_call_args_handles_invalid_shapes() -> None:
     assert call.star_kw == ["kw"]
     assert call.span is None
     assert call.is_test is True
+
+
+def test_serialize_call_and_function_info_resume_omit_optional_spans(tmp_path: Path) -> None:
+    da = _load()
+    call = da.CallArgs(
+        callee="m.f",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=None,
+    )
+    call_payload = da._serialize_call_args(call)
+    assert "span" not in call_payload
+
+    info = da.FunctionInfo(
+        name="f",
+        qual="m.f",
+        path=tmp_path / "m.py",
+        params=["a"],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=None,
+    )
+    info_payload = da._serialize_function_info_for_resume(info)
+    assert "function_span" not in info_payload
+
+
+def test_deserialize_call_args_list_skips_non_call_mappings() -> None:
+    da = _load()
+    calls = da._deserialize_call_args_list(
+        [
+            {"callee": "m.ok"},
+            {"callee": 1},
+            "bad",
+        ]
+    )
+    assert [call.callee for call in calls] == ["m.ok"]
 
 
 def test_deserialize_function_info_for_resume_filters_malformed_fields(tmp_path: Path) -> None:
@@ -2091,6 +2135,24 @@ def test_load_file_scan_resume_state_parses_valid_entries() -> None:
     assert opaque_callees == {"f"}
 
 
+def test_load_file_scan_resume_state_filters_class_name_and_opaque_shapes() -> None:
+    da = _load()
+    payload = {
+        "phase": "function_scan",
+        "fn_use": {},
+        "fn_calls": {},
+        "fn_param_orders": {},
+        "fn_param_spans": {},
+        "fn_names": {},
+        "fn_lexical_scopes": {},
+        "fn_class_names": {"f": 3},
+        "opaque_callees": {"f": True},
+    }
+    result = da._load_file_scan_resume_state(payload=payload, valid_fn_keys={"f"})
+    assert result[6] == {}
+    assert result[7] == set()
+
+
 def test_deserialize_invariants_for_resume_filters_malformed_entries() -> None:
     da = _load()
     invariants = da._deserialize_invariants_for_resume(
@@ -2211,6 +2273,28 @@ def test_load_analysis_collection_resume_payload_filters_entries(tmp_path: Path)
     assert len(invariant_propositions) == 1
     assert isinstance(analysis_index_resume, dict)
     assert analysis_index_resume["phase"] == "analysis_index_hydration"
+
+
+def test_load_analysis_collection_resume_payload_handles_non_sequence_completion_and_invariants(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    path = tmp_path / "a.py"
+    payload = {
+        "format_version": 2,
+        "completed_paths": {"not": "a-sequence"},
+        "groups_by_path": {},
+        "param_spans_by_path": {},
+        "bundle_sites_by_path": {},
+        "invariant_propositions": {"bad": True},
+    }
+    loaded = da._load_analysis_collection_resume_payload(
+        payload=payload,
+        file_paths=[path],
+        include_invariant_propositions=True,
+    )
+    assert loaded[4] == set()
+    assert loaded[3] == []
 
 
 def test_runtime_obligation_violation_lines_and_preview_helpers() -> None:
@@ -2680,6 +2764,64 @@ def test_suite_order_and_suite_span_and_async_for_materialization(tmp_path: Path
         statements=[async_for],
         parent_suite=parent,
     )
+    assert any(alt.kind == "SuiteContains" for alt in forest.alts)
+
+
+def test_materialize_statement_suite_contains_handles_all_statement_kinds() -> None:
+    da = _load()
+    tree = ast.parse(
+        "def f(xs):\n"
+        "    if xs:\n"
+        "        a = 1\n"
+        "    else:\n"
+        "        a = 2\n"
+        "    for item in xs:\n"
+        "        b = item\n"
+        "    else:\n"
+        "        b = 0\n"
+        "    while False:\n"
+        "        c = 1\n"
+        "    else:\n"
+        "        c = 2\n"
+        "    try:\n"
+        "        d = 1\n"
+        "    except Exception:\n"
+        "        d = 2\n"
+        "    else:\n"
+        "        d = 3\n"
+        "    finally:\n"
+        "        d = 4\n"
+        "    pass\n"
+    )
+    fn = tree.body[0]
+    assert isinstance(fn, ast.FunctionDef)
+    forest = da.Forest()
+    parent = forest.add_suite_site("m.py", "m.f", "function_body", span=(1, 1, 24, 1))
+    da._materialize_statement_suite_contains(
+        forest=forest,
+        path_name="m.py",
+        qual="m.f",
+        statements=fn.body,
+        parent_suite=parent,
+    )
+    suite_kinds = {
+        str(node.meta.get("suite_kind", ""))
+        for node in forest.nodes.values()
+        if node.node_id.kind == "SuiteSite"
+    }
+    expected_kinds = {
+        "if_body",
+        "if_else",
+        "for_body",
+        "for_else",
+        "while_body",
+        "while_else",
+        "try_body",
+        "except_body",
+        "try_else",
+        "try_finally",
+    }
+    assert expected_kinds.issubset(suite_kinds)
     assert any(alt.kind == "SuiteContains" for alt in forest.alts)
 
 
@@ -3425,3 +3567,345 @@ def test_analyze_file_internal_emits_scan_progress_on_interval(tmp_path: Path) -
         )
 
     assert len(emitted) >= 2
+
+
+def test_suite_span_and_statement_suite_contains_no_span_branches() -> None:
+    da = _load()
+    spanned_stmt = ast.parse("x = 1\n").body[0]
+    assert da._suite_span_from_statements([spanned_stmt, ast.Pass()]) == da._suite_span_from_statements([spanned_stmt])
+
+    forest = da.Forest()
+    parent = forest.add_suite_site("m.py", "m.f", "function_body", span=(1, 1, 1, 2))
+    synthetic_statements: list[ast.stmt] = [
+        ast.If(test=ast.Constant(value=True), body=[ast.Pass()], orelse=[ast.Pass()]),
+        ast.For(
+            target=ast.Name(id="item", ctx=ast.Store()),
+            iter=ast.Name(id="items", ctx=ast.Load()),
+            body=[ast.Pass()],
+            orelse=[ast.Pass()],
+            type_comment=None,
+        ),
+        ast.AsyncFor(
+            target=ast.Name(id="item", ctx=ast.Store()),
+            iter=ast.Name(id="items", ctx=ast.Load()),
+            body=[ast.Pass()],
+            orelse=[],
+            type_comment=None,
+        ),
+        ast.AsyncFor(
+            target=ast.Name(id="item", ctx=ast.Store()),
+            iter=ast.Name(id="items", ctx=ast.Load()),
+            body=[ast.Pass()],
+            orelse=[ast.Pass()],
+            type_comment=None,
+        ),
+        ast.While(test=ast.Constant(value=True), body=[ast.Pass()], orelse=[]),
+        ast.While(test=ast.Constant(value=True), body=[ast.Pass()], orelse=[ast.Pass()]),
+        ast.Try(
+            body=[ast.Pass()],
+            handlers=[ast.ExceptHandler(type=None, name=None, body=[ast.Pass()])],
+            orelse=[],
+            finalbody=[],
+        ),
+        ast.Try(
+            body=[ast.Pass()],
+            handlers=[ast.ExceptHandler(type=None, name=None, body=[ast.Pass()])],
+            orelse=[ast.Pass()],
+            finalbody=[ast.Pass()],
+        ),
+    ]
+    da._materialize_statement_suite_contains(
+        forest=forest,
+        path_name="m.py",
+        qual="m.f",
+        statements=synthetic_statements,
+        parent_suite=parent,
+    )
+    # Bodies without spans should not produce suite containment edges.
+    assert [alt for alt in forest.alts if alt.kind == "SuiteContains"] == []
+
+
+def test_fallback_deadline_arg_info_vararg_kwarg_and_low_strictness_edges() -> None:
+    da = _load()
+    call = da.CallArgs(
+        callee="pkg.target",
+        pos_map={"1": "pos_param"},
+        kw_map={"extra": "kw_param"},
+        const_pos={"2": "None"},
+        const_kw={"extra_const": "None"},
+        non_const_pos={"3"},
+        non_const_kw={"extra_unknown"},
+        star_pos=[(0, "spread_a"), (1, "spread_b")],
+        star_kw=["spread_kw_a", "spread_kw_b"],
+        is_test=False,
+        span=(1, 1, 1, 2),
+    )
+    callee = da.FunctionInfo(
+        name="target",
+        qual="pkg.target",
+        path=Path("pkg/target.py"),
+        params=["p0"],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        positional_params=("p0",),
+        kwonly_params=("k0",),
+        vararg="rest",
+        kwarg="kwargs",
+        function_span=(1, 1, 1, 2),
+    )
+    info_map = da._fallback_deadline_arg_info(call, callee, strictness="low")
+    assert info_map["rest"].kind == "param"
+    assert info_map["kwargs"].kind == "param"
+    assert "k0" not in info_map
+
+
+def test_collect_deadline_obligations_call_node_lookup_edge_cases(tmp_path: Path) -> None:
+    da = _load()
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=tmp_path / "mod.py",
+        params=[],
+        annots={},
+        calls=[
+            da.CallArgs(
+                callee="pkg.callee",
+                pos_map={},
+                kw_map={},
+                const_pos={},
+                const_kw={},
+                non_const_pos=set(),
+                non_const_kw=set(),
+                star_pos=[],
+                star_kw=[],
+                is_test=False,
+                span=None,
+            ),
+            da.CallArgs(
+                callee="pkg.callee",
+                pos_map={},
+                kw_map={},
+                const_pos={},
+                const_kw={},
+                non_const_pos=set(),
+                non_const_kw=set(),
+                star_pos=[],
+                star_kw=[],
+                is_test=False,
+                span=(1, 1, 1, 2),
+            ),
+        ],
+        unused_params=set(),
+        function_span=(1, 1, 1, 2),
+    )
+    callee = da.FunctionInfo(
+        name="callee",
+        qual="pkg.callee",
+        path=tmp_path / "callee.py",
+        params=["value"],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(1, 1, 1, 2),
+    )
+    index = da.AnalysisIndex(
+        by_name={"caller": [caller]},
+        by_qual={caller.qual: caller, callee.qual: callee},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    forest = da.Forest()
+    config = da.AuditConfig(project_root=tmp_path, deadline_roots={"pkg.root"})
+
+    def _resolve(*_args, **_kwargs):
+        return da._CalleeResolutionOutcome(
+            status="resolved",
+            phase="resolved",
+            callee_key="pkg.callee",
+            candidates=(callee,),
+        )
+
+    obligations = da._collect_deadline_obligations(
+        [caller.path],
+        project_root=tmp_path,
+        config=config,
+        forest=forest,
+        parse_failure_witnesses=[],
+        analysis_index=index,
+        extra_deadline_params={"pkg.root": set()},
+        materialize_call_candidates_fn=lambda **_kwargs: None,
+        collect_call_nodes_by_path_fn=lambda *_args, **_kwargs: {
+            caller.path: {(1, 1, 1, 2): []}
+        },
+        collect_deadline_function_facts_fn=lambda *_args, **_kwargs: {},
+        collect_call_edges_from_forest_fn=lambda *_args, **_kwargs: {},
+        collect_call_resolution_obligations_from_forest_fn=lambda _forest: [],
+        reachable_from_roots_fn=lambda *_args, **_kwargs: set(),
+        collect_recursive_nodes_fn=lambda _edges: set(),
+        resolve_callee_outcome_fn=_resolve,
+    )
+    assert obligations == []
+
+
+def test_collect_deadline_obligations_unknown_kind_fallthrough(tmp_path: Path) -> None:
+    da = _load()
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=tmp_path / "mod.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(1, 1, 1, 2),
+    )
+    callee = da.FunctionInfo(
+        name="callee",
+        qual="pkg.callee",
+        path=tmp_path / "callee.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(1, 1, 1, 2),
+    )
+    index = da.AnalysisIndex(
+        by_name={},
+        by_qual={caller.qual: caller, callee.qual: callee},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    call = da.CallArgs(
+        callee="pkg.callee",
+        pos_map={},
+        kw_map={},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[],
+        star_kw=[],
+        is_test=False,
+        span=(1, 1, 1, 2),
+    )
+    obligations = da._collect_deadline_obligations(
+        [caller.path],
+        project_root=tmp_path,
+        config=da.AuditConfig(project_root=tmp_path, deadline_roots={"pkg.caller"}),
+        forest=da.Forest(),
+        parse_failure_witnesses=[],
+        analysis_index=index,
+        extra_deadline_params={"pkg.callee": {"deadline"}},
+        extra_call_infos={
+            caller.qual: [
+                (
+                    call,
+                    callee,
+                    {"deadline": da._DeadlineArgInfo(kind="mystery")},
+                )
+            ]
+        },
+        materialize_call_candidates_fn=lambda **_kwargs: None,
+        collect_call_nodes_by_path_fn=lambda *_args, **_kwargs: {},
+        collect_deadline_function_facts_fn=lambda *_args, **_kwargs: {},
+        collect_call_edges_from_forest_fn=lambda *_args, **_kwargs: {},
+        collect_call_resolution_obligations_from_forest_fn=lambda _forest: [],
+        reachable_from_roots_fn=lambda *_args, **_kwargs: set(),
+        collect_recursive_nodes_fn=lambda _edges: set(),
+        resolve_callee_outcome_fn=lambda *_args, **_kwargs: da._CalleeResolutionOutcome(
+            status="resolved",
+            phase="resolved",
+            callee_key="pkg.callee",
+            candidates=(callee,),
+        ),
+    )
+    assert obligations == []
+
+
+def test_resolve_class_candidates_symbol_table_and_module_edge_cases() -> None:
+    da = _load()
+    class_index = {
+        "pkg.Base": da.ClassInfo(qual="pkg.Base", module="pkg", bases=[], methods=set()),
+        "Local": da.ClassInfo(qual="Local", module="", bases=[], methods=set()),
+    }
+    assert da._resolve_class_candidates(
+        "pkg.Base",
+        module="",
+        symbol_table=None,
+        class_index=class_index,
+    ) == ["pkg.Base"]
+
+    symbol_table = da.SymbolTable(
+        imports={("", "Local"): "ext.Local"},
+        internal_roots=set(),
+        external_filter=True,
+    )
+    assert da._resolve_class_candidates(
+        "Local",
+        module="",
+        symbol_table=symbol_table,
+        class_index=class_index,
+    ) == ["Local"]
+
+
+def test_callsite_evidence_for_bundle_skips_non_bundle_slots() -> None:
+    da = _load()
+    call = da.CallArgs(
+        callee="pkg.fn",
+        pos_map={"0": "x"},
+        kw_map={"name": "y"},
+        const_pos={},
+        const_kw={},
+        non_const_pos=set(),
+        non_const_kw=set(),
+        star_pos=[(1, "z")],
+        star_kw=["w"],
+        is_test=False,
+        span=(1, 1, 1, 2),
+    )
+    evidence = da._callsite_evidence_for_bundle([call], {"bundle_only"})
+    assert evidence == []
+
+
+def test_collect_never_invariants_dead_env_edge_cases(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "never_edges.py"
+    path.write_text(
+        "from gabion.invariants import never\n"
+        "\n"
+        "def f(flag):\n"
+        "    if 0:\n"
+        "        never('const-false')\n"
+        "\n"
+        "def g(flag):\n"
+        "    if flag + 1:\n"
+        "        never('undecidable-with-env')\n"
+    )
+    normalized_path = da._normalize_snapshot_path(path, tmp_path)
+    deadness = [
+        {
+            "path": normalized_path,
+            "function": "f",
+            "bundle": ["flag"],
+            "environment": {"flag": "False"},
+            "deadness_id": "dead:f",
+        },
+        {
+            "path": normalized_path,
+            "function": "g",
+            "bundle": ["flag"],
+            "environment": {"flag": "True"},
+            "deadness_id": "dead:g",
+        },
+    ]
+    invariants = da._collect_never_invariants(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        deadness_witnesses=deadness,
+        forest=da.Forest(),
+    )
+    by_reason = {str(entry.get("reason", "")): entry for entry in invariants}
+    assert by_reason["const-false"]["status"] == "OBLIGATION"
+    assert "undecidable_reason" not in by_reason["undecidable-with-env"]
