@@ -4,7 +4,7 @@ from pathlib import Path
 
 import libcst as cst
 
-from gabion.refactor import engine as refactor_engine
+from gabion.refactor import RefactorCompatibilityShimConfig, engine as refactor_engine
 
 
 # gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._is_docstring::stmt E:decision_surface/direct::engine.py::gabion.refactor.engine._is_import::stmt
@@ -19,7 +19,9 @@ def test_import_helpers_and_insert_index() -> None:
     assert refactor_engine._has_typing_overload_import(body) is False
     assert refactor_engine._has_warnings_import(body) is False
 
-    module = refactor_engine._ensure_compat_imports(module)
+    module = refactor_engine._ensure_compat_imports(
+        module, RefactorCompatibilityShimConfig(enabled=True)
+    )
     new_body = list(module.body)
     assert refactor_engine._has_typing_overload_import(new_body) is True
     assert refactor_engine._has_warnings_import(new_body) is True

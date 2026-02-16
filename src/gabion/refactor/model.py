@@ -21,13 +21,30 @@ class FieldSpec:
 
 
 @dataclass(frozen=True)
+class CompatibilityShimConfig:
+    enabled: bool = True
+    emit_deprecation_warning: bool = True
+    emit_overload_stubs: bool = True
+
+
+def normalize_compatibility_shim(
+    compatibility_shim: bool | CompatibilityShimConfig,
+) -> CompatibilityShimConfig:
+    if isinstance(compatibility_shim, CompatibilityShimConfig):
+        return compatibility_shim
+    if compatibility_shim:
+        return CompatibilityShimConfig(enabled=True)
+    return CompatibilityShimConfig(enabled=False)
+
+
+@dataclass(frozen=True)
 class RefactorRequest:
     protocol_name: str
     bundle: List[str]
     target_path: str
     fields: List[FieldSpec] = field(default_factory=list)
     target_functions: List[str] = field(default_factory=list)
-    compatibility_shim: bool = False
+    compatibility_shim: bool | CompatibilityShimConfig = False
     rationale: Optional[str] = None
 
 

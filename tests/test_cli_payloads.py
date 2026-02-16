@@ -318,12 +318,18 @@ def test_refactor_protocol_payload(tmp_path: Path) -> None:
         target_path=tmp_path / "sample.py",
         target_functions=["alpha"],
         compatibility_shim=True,
+        compatibility_shim_warnings=True,
+        compatibility_shim_overloads=True,
         rationale="use bundle",
     )
     assert payload["protocol_name"] == "Bundle"
     assert payload["bundle"] == ["a", "b"]
     assert payload["target_functions"] == ["alpha"]
-    assert payload["compatibility_shim"] is True
+    assert payload["compatibility_shim"] == {
+        "enabled": True,
+        "emit_deprecation_warning": True,
+        "emit_overload_stubs": True,
+    }
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_refactor_payload::bundle,input_payload,protocol_name,target_path
@@ -335,6 +341,8 @@ def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
         target_path=tmp_path / "sample.py",
         target_functions=[],
         compatibility_shim=False,
+        compatibility_shim_warnings=True,
+        compatibility_shim_overloads=True,
         rationale=None,
     )
     assert payload["bundle"] == ["a", "b"]
