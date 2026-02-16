@@ -138,7 +138,7 @@ def _execute_with_deps(
     **overrides: object,
 ) -> dict:
     deps = server._default_execute_command_deps().with_overrides(**overrides)
-    return server.execute_command(ls, payload, deps=deps)
+    return server.execute_command_with_deps(ls, payload, deps=deps)
 
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module

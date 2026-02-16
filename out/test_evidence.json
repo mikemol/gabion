@@ -13407,133 +13407,133 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1273,
+      "line": 1296,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_accumulate_function_index_vararg_and_kwarg_ignored"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2520,
+      "line": 2543,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_class_and_call_resolution"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2284,
+      "line": 2307,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_fingerprint_and_rewrite"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2601,
+      "line": 2624,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_flow_and_registry"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2357,
+      "line": 2380,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_flow_and_render"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2720,
+      "line": 2743,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_rendering_variants"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2443,
+      "line": 2466,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_reporting_and_exports"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2266,
+      "line": 2289,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_scalar_helpers"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2471,
+      "line": 2494,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_structure_materialization"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1737,
+      "line": 1760,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_analysis_index_resolved_edges_by_caller_require_transparent_branch"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 972,
+      "line": 995,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_analyze_decision_surface_indexed_lint_none_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1462,
+      "line": 1485,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_analyze_decision_surface_indexed_missing_tier_without_require"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1937,
+      "line": 1960,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_bind_call_args_classify_deadline_and_forward_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 3209,
+      "line": 3232,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_exports_refactor_and_scope_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2968,
+      "line": 2991,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_flow_and_obligation_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2747,
+      "line": 2770,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_lint_and_projection_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2807,
+      "line": 2830,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_rewrite_and_resolution_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2020,
+      "line": 2043,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_build_module_artifacts_and_lint_helper_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1055,
+      "line": 1078,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_build_synthesis_plan_duplicate_counts_and_hint_branches"
     },
@@ -13547,7 +13547,7 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1291,
+      "line": 1314,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_bundle_name_registry_non_empty_keys"
     },
@@ -13730,63 +13730,63 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1309,
+      "line": 1332,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_bundle_projection_skips_empty_evidence_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1785,
+      "line": 1808,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_class_index_and_resolve_candidates_with_symbol_table_branches"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2099,
+      "line": 2122,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_class_resolution_type_flow_and_refactor_render_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1756,
+      "line": 1779,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_bundle_evidence_lines_with_component_evidence"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1712,
+      "line": 1735,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_call_resolution_obligations_invalid_span_list_raises"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1123,
+      "line": 1146,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_deadline_local_info_multi_source_alias_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1868,
+      "line": 1891,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_exception_obligations_dead_env_name_filter_branches"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1026,
+      "line": 1049,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_exception_obligations_dead_reachability_branch"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1684,
+      "line": 1707,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_exception_obligations_names_loop_without_env_match"
     },
@@ -13885,21 +13885,21 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1240,
+      "line": 1263,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_all_assignment_none_values_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1256,
+      "line": 1279,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_annassign_and_augassign_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1807,
+      "line": 1830,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_augassign_initializes_explicit_all"
     },
@@ -14114,7 +14114,7 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1732,
+      "line": 1755,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_collect_recursive_nodes_singleton_self_loop_false_branch"
     },
@@ -14128,14 +14128,21 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1908,
+      "line": 840,
+      "status": "unmapped",
+      "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_deadline_collector_deadline_loop_iter_branches"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_dataflow_audit_coverage_gaps.py",
+      "line": 1931,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_deadline_local_info_call_resolution_and_recursive_node_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1992,
+      "line": 2015,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_deadline_summary_parse_location_and_lint_edges"
     },
@@ -14194,28 +14201,28 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 3370,
+      "line": 3393,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_emit_sidecar_outputs_dispatches_expected_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1216,
+      "line": 1239,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_eval_bool_expr_or_gte_and_branch_reachability_else_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1843,
+      "line": 1866,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_eval_expr_and_branch_reachability_else_constraint_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1678,
+      "line": 1701,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_eval_value_expr_unary_non_numeric_and_parse_range_branch"
     },
@@ -14520,7 +14527,7 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 939,
+      "line": 962,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_fallback_deadline_arg_info_skips_vararg_kwarg_when_absent"
     },
@@ -14571,14 +14578,14 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1657,
+      "line": 1680,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_provenance_index_lookup_and_types_summary_branch"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1576,
+      "line": 1599,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_warning_provenance_and_rewrite_verification_edges"
     },
@@ -14603,14 +14610,14 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 3339,
+      "line": 3362,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_has_followup_actions_variants"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1522,
+      "line": 1545,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_internal_broad_type_lint_lines_indexed_appends_multiple"
     },
@@ -14624,49 +14631,49 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1105,
+      "line": 1128,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_invariant_term_len_call_branch"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1625,
+      "line": 1648,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_invariant_term_len_with_non_param_argument_returns_none"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1428,
+      "line": 1451,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_iter_dataclass_call_bundles_assign_and_attribute_branches"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 840,
+      "line": 863,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_load_analysis_index_resume_payload_edge_shapes"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 860,
+      "line": 883,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_load_analysis_index_resume_payload_hydrates_valid_sections"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1172,
+      "line": 1195,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_load_analysis_index_resume_payload_non_mapping_sections"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2051,
+      "line": 2074,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_materialize_structured_suites_populate_runtime_and_exports_edges"
     },
@@ -14799,7 +14806,7 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1631,
+      "line": 1654,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_parameter_default_map_multiple_defaults_runs_single_check_once"
     },
@@ -14906,14 +14913,14 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1084,
+      "line": 1107,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_project_report_sections_phase_and_preview_branches"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1503,
+      "line": 1526,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_project_report_sections_preview_selects_non_empty_preview"
     },
@@ -14927,28 +14934,28 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1638,
+      "line": 1661,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_raw_sorted_contract_violations_mixed_baseline_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1557,
+      "line": 1580,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_raw_sorted_contract_violations_multi_path_exceeded_loop"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1326,
+      "line": 1349,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_render_mermaid_component_empty_component_branch"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1817,
+      "line": 1840,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_render_reuse_stubs_and_refactor_plan_order_branches"
     },
@@ -14980,56 +14987,56 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1369,
+      "line": 1392,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_resolve_callee_self_and_hierarchy_none_branches"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 927,
+      "line": 950,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_resolve_local_method_in_hierarchy_recurses_to_base"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1111,
+      "line": 1134,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_resolve_local_method_in_hierarchy_unresolved_branch"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 2230,
+      "line": 2253,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_scope_normalization_and_timeout_cleanup_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 918,
+      "line": 941,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_scope_path_relative_and_none_root_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1342,
+      "line": 1365,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_split_top_level_empty_part_and_tail_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1149,
+      "line": 1172,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_summarize_never_invariants_evidence_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1347,
+      "line": 1370,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_summarize_never_invariants_missing_evidence_branches"
     },
@@ -15264,14 +15271,14 @@
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 1192,
+      "line": 1215,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_verify_rewrite_plan_verification_and_remainder_edges"
     },
     {
       "evidence": [],
       "file": "tests/test_dataflow_audit_coverage_gaps.py",
-      "line": 3302,
+      "line": 3325,
       "status": "unmapped",
       "test_id": "tests/test_dataflow_audit_coverage_gaps.py::test_write_output_helpers_cover_stdout_and_file"
     },

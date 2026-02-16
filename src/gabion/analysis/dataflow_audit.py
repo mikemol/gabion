@@ -85,6 +85,7 @@ from .timeout_context import (
     TimeoutExceeded,
     build_timeout_context_from_stack,
     check_deadline,
+    deadline_loop_iter,
     deadline_clock_scope,
     deadline_scope,
     forest_scope,
@@ -4436,6 +4437,7 @@ def _collect_never_invariants(
 _DEADLINE_CHECK_METHODS = {"check", "expired"}
 _DEADLINE_HELPER_QUALS = {
     "gabion.analysis.timeout_context.check_deadline",
+    "gabion.analysis.timeout_context.deadline_loop_iter",
     "gabion.analysis.timeout_context.set_deadline",
     "gabion.analysis.timeout_context.reset_deadline",
     "gabion.analysis.timeout_context.get_deadline",
@@ -4523,9 +4525,28 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
             return
         self._loop_stack[-1].call_spans.add(span)
 
-    def _visit_loop_body(self, node: ast.AST, kind: str) -> None:
+    def _iter_marks_ambient(self, expr: ast.AST) -> bool:
+        if not isinstance(expr, ast.Call):
+            return False
+        if isinstance(expr.func, ast.Name):
+            return expr.func.id == "deadline_loop_iter"
+        if isinstance(expr.func, ast.Attribute):
+            return expr.func.attr == "deadline_loop_iter"
+        return False
+
+    def _visit_loop_body(
+        self,
+        node: ast.AST,
+        kind: str,
+        *,
+        ambient_check: bool = False,
+    ) -> None:
         self.loop = True
-        loop_fact = _DeadlineLoopFacts(span=_node_span(node), kind=kind)
+        loop_fact = _DeadlineLoopFacts(
+            span=_node_span(node),
+            kind=kind,
+            ambient_check=ambient_check,
+        )
         self._loop_stack.append(loop_fact)
         for stmt in getattr(node, "body", []):
             check_deadline()
@@ -4551,15 +4572,17 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 
     def visit_For(self, node: ast.For) -> None:
         self.loop = True
+        ambient_check = self._iter_marks_ambient(node.iter)
         self.visit(node.target)
         self.visit(node.iter)
-        self._visit_loop_body(node, "for")
+        self._visit_loop_body(node, "for", ambient_check=ambient_check)
 
     def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
         self.loop = True
+        ambient_check = self._iter_marks_ambient(node.iter)
         self.visit(node.target)
         self.visit(node.iter)
-        self._visit_loop_body(node, "async_for")
+        self._visit_loop_body(node, "async_for", ambient_check=ambient_check)
 
     def visit_While(self, node: ast.While) -> None:
         self.loop = True
@@ -4569,6 +4592,8 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:
         self._record_call_span(node)
         if isinstance(node.func, ast.Attribute):
+            if node.func.attr == "deadline_loop_iter":
+                self._mark_ambient_check()
             if (
                 node.func.attr in _DEADLINE_CHECK_METHODS
                 and isinstance(node.func.value, ast.Name)
@@ -4582,6 +4607,8 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
             if node.func.attr in {"check_deadline", "require_deadline"} and not node.args:
                 self._mark_ambient_check()
         elif isinstance(node.func, ast.Name):
+            if node.func.id == "deadline_loop_iter":
+                self._mark_ambient_check()
             if node.func.id == "check_deadline" and node.args:
                 first = node.args[0]
                 if isinstance(first, ast.Name) and first.id in self._params:
@@ -11807,7 +11834,7 @@ class BundleProjection:
 
 
 def _alt_input(alt: Alt, kind: str) -> NodeId | None:
-    for node_id in alt.inputs:
+    for node_id in deadline_loop_iter(alt.inputs):
         if node_id.kind == kind:
             return node_id
     return None
@@ -14014,16 +14041,17 @@ def _load_file_scan_resume_state(
         ),
     )
     fn_class_names = {}
-    for fn_key, raw_value in iter_valid_key_entries(
-        payload=raw_class_names,
-        valid_keys=valid_fn_keys,
+    for fn_key, raw_value in deadline_loop_iter(
+        iter_valid_key_entries(
+            payload=raw_class_names,
+            valid_keys=valid_fn_keys,
+        )
     ):
         if raw_value is None or isinstance(raw_value, str):
             fn_class_names[fn_key] = cast(str | None, raw_value)
     raw_opaque = payload.get("opaque_callees")
     if isinstance(raw_opaque, Sequence):
-        for entry in raw_opaque:
-            check_deadline()
+        for entry in deadline_loop_iter(raw_opaque):
             if isinstance(entry, str) and entry in valid_fn_keys:
                 opaque_callees.add(entry)
     return (
@@ -14940,14 +14968,20 @@ def _emit_sidecar_outputs(
     fingerprint_exception_obligations_json: str | None,
     fingerprint_handledness_json: str | None,
 ) -> None:
-    for path, payload, require_content in (
-        (args.fingerprint_synth_json, analysis.fingerprint_synth_registry, True),
-        (args.fingerprint_provenance_json, analysis.fingerprint_provenance, True),
-        (fingerprint_deadness_json, analysis.deadness_witnesses, False),
-        (fingerprint_coherence_json, analysis.coherence_witnesses, False),
-        (fingerprint_rewrite_plans_json, analysis.rewrite_plans, False),
-        (fingerprint_exception_obligations_json, analysis.exception_obligations, False),
-        (fingerprint_handledness_json, analysis.handledness_witnesses, False),
+    for path, payload, require_content in deadline_loop_iter(
+        (
+            (args.fingerprint_synth_json, analysis.fingerprint_synth_registry, True),
+            (args.fingerprint_provenance_json, analysis.fingerprint_provenance, True),
+            (fingerprint_deadness_json, analysis.deadness_witnesses, False),
+            (fingerprint_coherence_json, analysis.coherence_witnesses, False),
+            (fingerprint_rewrite_plans_json, analysis.rewrite_plans, False),
+            (
+                fingerprint_exception_obligations_json,
+                analysis.exception_obligations,
+                False,
+            ),
+            (fingerprint_handledness_json, analysis.handledness_witnesses, False),
+        )
     ):
         if not path:
             continue
@@ -14956,8 +14990,7 @@ def _emit_sidecar_outputs(
         _write_json_or_stdout(path, payload)
 
     if args.lint:
-        for line in analysis.lint_lines:
-            check_deadline()
+        for line in deadline_loop_iter(analysis.lint_lines):
             print(line)
 
 

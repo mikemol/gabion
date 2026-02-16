@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 from typing import Mapping
 
+from deadline_runtime import deadline_scope_from_lsp_env
+from gabion.analysis.timeout_context import deadline_loop_iter
+
 
 def _safe_int(value: object) -> int:
     if isinstance(value, bool):
@@ -36,7 +39,7 @@ def _site_rows(profile: Mapping[str, object]) -> list[dict[str, object]]:
     if not isinstance(raw_sites, list):
         return []
     rows: list[dict[str, object]] = []
-    for entry in raw_sites:
+    for entry in deadline_loop_iter(raw_sites):
         if not isinstance(entry, Mapping):
             continue
         rows.append({str(key): entry[key] for key in entry})
@@ -55,7 +58,7 @@ def _io_rows(profile: Mapping[str, object]) -> list[dict[str, object]]:
     if not isinstance(raw_io, list):
         return []
     rows: list[dict[str, object]] = []
-    for entry in raw_io:
+    for entry in deadline_loop_iter(raw_io):
         if not isinstance(entry, Mapping):
             continue
         rows.append({str(key): entry[key] for key in entry})
@@ -107,10 +110,10 @@ def _build_summary(
     )
 
     local_site_map: dict[str, dict[str, object]] = {}
-    for row in local_sites:
+    for row in deadline_loop_iter(local_sites):
         local_site_map[_site_key(row)] = row
     regressions: list[dict[str, object]] = []
-    for row in ci_sites:
+    for row in deadline_loop_iter(ci_sites):
         key = _site_key(row)
         local_row = local_site_map.get(key)
         ci_elapsed = _safe_int(row.get("elapsed_between_checks_ns"))
@@ -132,10 +135,10 @@ def _build_summary(
         )
     )
     local_io_map: dict[str, dict[str, object]] = {}
-    for row in local_io:
+    for row in deadline_loop_iter(local_io):
         local_io_map[str(row.get("name", ""))] = row
     io_regressions: list[dict[str, object]] = []
-    for row in ci_io:
+    for row in deadline_loop_iter(ci_io):
         name = str(row.get("name", ""))
         local_row = local_io_map.get(name)
         ci_elapsed = _safe_int(row.get("elapsed_ns"))
@@ -258,7 +261,7 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
         ]
     )
     if isinstance(top_sites, list) and top_sites:
-        for row in top_sites:
+        for row in deadline_loop_iter(top_sites):
             if not isinstance(row, Mapping):
                 continue
             site = _site_key(row)
@@ -279,7 +282,7 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
         ]
     )
     if isinstance(top_io, list) and top_io:
-        for row in top_io:
+        for row in deadline_loop_iter(top_io):
             if not isinstance(row, Mapping):
                 continue
             name = str(row.get("name", ""))
@@ -302,7 +305,7 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
         ]
     )
     if isinstance(top_regressions, list) and top_regressions:
-        for row in top_regressions:
+        for row in deadline_loop_iter(top_regressions):
             if not isinstance(row, Mapping):
                 continue
             site = str(row.get("site", ""))
@@ -325,7 +328,7 @@ def _render_markdown(summary: Mapping[str, object]) -> str:
         ]
     )
     if isinstance(top_io_regressions, list) and top_io_regressions:
-        for row in top_io_regressions:
+        for row in deadline_loop_iter(top_io_regressions):
             if not isinstance(row, Mapping):
                 continue
             name = str(row.get("name", ""))
@@ -387,27 +390,28 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    args = _parse_args()
-    ci_profile = _load_profile(args.ci_profile)
-    if ci_profile is None:
-        raise SystemExit(f"Missing CI deadline profile: {args.ci_profile}")
-    local_profile = _load_profile(args.local_profile)
-    if local_profile is None and not args.allow_missing_local:
-        raise SystemExit(f"Missing local deadline profile: {args.local_profile}")
-    summary = _build_summary(
-        ci_profile=ci_profile,
-        local_profile=local_profile,
-        top=max(1, int(args.top)),
-    )
-    markdown = _render_markdown(summary)
-    args.json_out.parent.mkdir(parents=True, exist_ok=True)
-    args.json_out.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
-    args.md_out.parent.mkdir(parents=True, exist_ok=True)
-    args.md_out.write_text(markdown + "\n")
-    if args.step_summary is not None:
-        args.step_summary.parent.mkdir(parents=True, exist_ok=True)
-        with args.step_summary.open("a", encoding="utf-8") as handle:
-            handle.write(markdown + "\n")
+    with deadline_scope_from_lsp_env():
+        args = _parse_args()
+        ci_profile = _load_profile(args.ci_profile)
+        if ci_profile is None:
+            raise SystemExit(f"Missing CI deadline profile: {args.ci_profile}")
+        local_profile = _load_profile(args.local_profile)
+        if local_profile is None and not args.allow_missing_local:
+            raise SystemExit(f"Missing local deadline profile: {args.local_profile}")
+        summary = _build_summary(
+            ci_profile=ci_profile,
+            local_profile=local_profile,
+            top=max(1, int(args.top)),
+        )
+        markdown = _render_markdown(summary)
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+        args.md_out.parent.mkdir(parents=True, exist_ok=True)
+        args.md_out.write_text(markdown + "\n")
+        if args.step_summary is not None:
+            args.step_summary.parent.mkdir(parents=True, exist_ok=True)
+            with args.step_summary.open("a", encoding="utf-8") as handle:
+                handle.write(markdown + "\n")
     return 0
 
 

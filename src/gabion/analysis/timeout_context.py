@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from contextlib import contextmanager
 from pathlib import Path
 from types import FrameType
-from typing import Callable, Iterable, Mapping
+from typing import Callable, Iterable, Iterator, Mapping, TypeVar
 
 from contextvars import ContextVar, Token
 
@@ -25,6 +25,7 @@ from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 _TIMEOUT_PROGRESS_CHECKS_FLOOR = 32
 _TIMEOUT_PROGRESS_SITE_FLOOR = 4
+_LoopItem = TypeVar("_LoopItem")
 
 
 @dataclass(frozen=True)
@@ -629,6 +630,12 @@ def check_deadline(
     )
     _record_deadline_check(project_root)
     return
+
+
+def deadline_loop_iter(values: Iterable[_LoopItem]) -> Iterator[_LoopItem]:
+    for value in values:
+        check_deadline()
+        yield value
 
 
 def consume_deadline_ticks(

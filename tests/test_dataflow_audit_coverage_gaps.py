@@ -837,6 +837,29 @@ def test_deadline_collector_call_and_bind_args_edges() -> None:
     assert "named" in bound
 
 
+def test_deadline_collector_deadline_loop_iter_branches() -> None:
+    da = _load()
+    fn = ast.parse(
+        "def f(items):\n"
+        "    for x in items:\n"
+        "        pass\n"
+        "    for y in obj.deadline_loop_iter(items):\n"
+        "        pass\n"
+        "    for z in (lambda seq: seq)(items):\n"
+        "        pass\n"
+        "    obj.deadline_loop_iter(items)\n"
+        "    deadline_loop_iter(items)\n"
+    ).body[0]
+    collector = da._DeadlineFunctionCollector(fn, set())
+    collector.visit(fn)
+    assert collector.loop is True
+    assert len(collector.loop_sites) == 3
+    assert collector.loop_sites[0].ambient_check is False
+    assert collector.loop_sites[1].ambient_check is True
+    assert collector.loop_sites[2].ambient_check is False
+    assert collector.ambient_check is True
+
+
 def test_load_analysis_index_resume_payload_edge_shapes(tmp_path: Path) -> None:
     da = _load()
     file_path = tmp_path / "mod.py"

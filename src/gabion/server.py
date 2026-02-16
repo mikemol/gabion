@@ -2541,6 +2541,14 @@ def _default_execute_command_deps() -> ExecuteCommandDeps:
 def execute_command(
     ls: LanguageServer,
     payload: dict | None = None,
+) -> dict:
+    normalized_payload = _require_payload(payload, command=DATAFLOW_COMMAND)
+    return _execute_command_total(ls, normalized_payload)
+
+
+def execute_command_with_deps(
+    ls: LanguageServer,
+    payload: dict | None = None,
     *,
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
@@ -2577,8 +2585,8 @@ def _execute_command_total(
         timeout_total_ticks = min(timeout_total_ticks, explicit_tick_limit)
     timeout_start_ns = time.monotonic_ns()
     timeout_hard_deadline_ns = timeout_start_ns + timeout_total_ns
-    deadline = Deadline(deadline_ns=timeout_start_ns + analysis_window_ns)
-    deadline_token = set_deadline(deadline)
+    analysis_deadline_ns = timeout_start_ns + analysis_window_ns
+    deadline_token = set_deadline(Deadline(deadline_ns=analysis_deadline_ns))
     deadline_clock_token = set_deadline_clock(GasMeter(limit=timeout_total_ticks))
     profile_token = set_deadline_profile(
         project_root=initial_root,
@@ -3969,8 +3977,9 @@ def _execute_command_total(
         cleanup_now_ns = time.monotonic_ns()
         cleanup_remaining_ns = max(0, timeout_hard_deadline_ns - cleanup_now_ns)
         cleanup_window_ns = min(cleanup_grace_ns, cleanup_remaining_ns)
-        cleanup_deadline = Deadline(deadline_ns=cleanup_now_ns + max(1, cleanup_window_ns))
-        cleanup_deadline_token = set_deadline(cleanup_deadline)
+        cleanup_deadline_token = set_deadline(
+            Deadline(deadline_ns=cleanup_now_ns + max(1, cleanup_window_ns))
+        )
         cleanup_timeout_steps: list[str] = []
 
         def _mark_cleanup_timeout(step: str) -> None:
