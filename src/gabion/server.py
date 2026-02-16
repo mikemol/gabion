@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -118,8 +119,15 @@ from gabion.refactor import (
     RefactorRequest as RefactorRequestModel,
 )
 from gabion.schema import (
+    DataflowAuditResponseDTO,
+    DecisionDiffResponseDTO,
+    LintEntryDTO,
+    RefactorProtocolResponseDTO,
     RefactorRequest,
     RefactorResponse,
+    StructureDiffResponseDTO,
+    StructureReuseResponseDTO,
+    SynthesisPlanResponseDTO,
     SynthesisResponse,
     SynthesisRequest,
     TextEditDTO,
@@ -159,6 +167,7 @@ _DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
 _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
+_LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
@@ -2263,6 +2272,57 @@ def _require_optional_payload(
     return _require_payload(payload, command=command)
 
 
+def _parse_lint_line(line: str) -> LintEntryDTO | None:
+    match = _LINT_RE.match(line.strip())
+    if not match:
+        return None
+    rest = match.group("rest").strip()
+    if not rest:
+        return None
+    code, _, message = rest.partition(" ")
+    return LintEntryDTO(
+        path=match.group("path"),
+        line=int(match.group("line")),
+        col=int(match.group("col")),
+        code=code,
+        message=message,
+    )
+
+
+def _lint_entries_from_lines(lines: Sequence[str]) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for line in lines:
+        check_deadline()
+        entry = _parse_lint_line(line)
+        if entry is not None:
+            entries.append(entry.model_dump())
+    return entries
+
+
+def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, object]:
+    lint_lines_raw = response.get("lint_lines")
+    lint_lines = [str(line) for line in lint_lines_raw] if isinstance(lint_lines_raw, list) else []
+    lint_entries_raw = response.get("lint_entries")
+    lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else _lint_entries_from_lines(lint_lines)
+    base = DataflowAuditResponseDTO(
+        exit_code=int(response.get("exit_code", 0) or 0),
+        timeout=bool(response.get("timeout", False)),
+        analysis_state=(str(response.get("analysis_state")) if response.get("analysis_state") is not None else None),
+        errors=[str(err) for err in (response.get("errors") or [])] if isinstance(response.get("errors"), list) else [],
+        lint_lines=lint_lines,
+        lint_entries=[LintEntryDTO.model_validate(entry) for entry in lint_entries],
+        payload={str(key): response[key] for key in response},
+    )
+    normalized = dict(base.payload)
+    normalized["exit_code"] = base.exit_code
+    normalized["timeout"] = base.timeout
+    normalized["analysis_state"] = base.analysis_state
+    normalized["errors"] = base.errors
+    normalized["lint_lines"] = base.lint_lines
+    normalized["lint_entries"] = [entry.model_dump() for entry in base.lint_entries]
+    return normalized
+
+
 def _truthy_flag(value: object) -> bool:
     if isinstance(value, bool):
         return value
@@ -2846,6 +2906,8 @@ def _execute_command_total(
         decision_ignore_params.update(decision_ignore_list(decision_section))
         allow_external = payload.get("allow_external", False)
         strictness = payload.get("strictness", "high")
+        if strictness not in {"high", "low"}:
+            never("invalid strictness", strictness=str(strictness))
         transparent_payload = payload.get("transparent_decorators")
         transparent_decorators = _normalize_transparent_decorators(transparent_payload)
         if transparent_decorators is None and transparent_payload is None:
@@ -4059,7 +4121,7 @@ def _execute_command_total(
             else:
                 response["exit_code"] = 1 if (fail_on_violations and effective_violations) else 0
         response["analysis_state"] = "succeeded"
-        return response
+        return _normalize_dataflow_response(response)
     except TimeoutExceeded as exc:
         cleanup_now_ns = time.monotonic_ns()
         cleanup_remaining_ns = max(0, timeout_hard_deadline_ns - cleanup_now_ns)
@@ -4336,12 +4398,14 @@ def _execute_command_total(
             if cleanup_timeout_steps:
                 progress_payload["cleanup_truncated"] = True
                 progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
-            return {
-                "exit_code": 2,
-                "timeout": True,
-                "analysis_state": analysis_state,
-                "timeout_context": timeout_payload,
-            }
+            return _normalize_dataflow_response(
+                {
+                    "exit_code": 2,
+                    "timeout": True,
+                    "analysis_state": analysis_state,
+                    "timeout_context": timeout_payload,
+                }
+            )
         finally:
             reset_deadline(cleanup_deadline_token)
     finally:
@@ -4369,7 +4433,7 @@ def _execute_synthesis_total(
         try:
             request = SynthesisRequest.model_validate(payload)
         except ValidationError as exc:
-            return {"protocols": [], "warnings": [], "errors": [str(exc)]}
+            return SynthesisPlanResponseDTO(protocols=[], warnings=[], errors=[str(exc)]).model_dump()
 
         bundle_tiers: dict[frozenset[str], int] = {}
         for entry in request.bundles:
@@ -4396,7 +4460,7 @@ def _execute_synthesis_total(
             field_types=field_types,
             naming_context=naming_context,
         )
-        response = SynthesisResponse(
+        response = SynthesisPlanResponseDTO(
             protocols=[
                 {
                     "name": spec.name,
@@ -4434,16 +4498,17 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
         try:
             request = RefactorRequest.model_validate(payload)
         except ValidationError as exc:
-            return RefactorResponse(errors=[str(exc)]).model_dump()
+            return RefactorProtocolResponseDTO(errors=[str(exc)]).model_dump()
 
         project_root = None
         if ls.workspace.root_path:
             project_root = Path(ls.workspace.root_path)
         engine = RefactorEngine(project_root=project_root)
+        normalized_bundle = request.bundle or [field.name for field in request.fields or []]
         plan = engine.plan_protocol_extraction(
             RefactorRequestModel(
                 protocol_name=request.protocol_name,
-                bundle=request.bundle,
+                bundle=normalized_bundle,
                 fields=[
                     FieldSpec(name=field.name, type_hint=field.type_hint)
                     for field in request.fields or []
@@ -4463,7 +4528,7 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
             )
             for edit in plan.edits
         ]
-        response = RefactorResponse(
+        response = RefactorProtocolResponseDTO(
             edits=edits,
             warnings=plan.warnings,
             errors=plan.errors,
@@ -4488,16 +4553,19 @@ def _execute_structure_diff_total(
         baseline_path = payload.get("baseline")
         current_path = payload.get("current")
         if not baseline_path or not current_path:
-            return {
-                "exit_code": 2,
-                "errors": ["baseline and current snapshot paths are required"],
-            }
+            return StructureDiffResponseDTO(
+                exit_code=2,
+                errors=["baseline and current snapshot paths are required"],
+            ).model_dump()
         try:
             baseline = load_structure_snapshot(Path(baseline_path))
             current = load_structure_snapshot(Path(current_path))
         except ValueError as exc:
-            return {"exit_code": 2, "errors": [str(exc)]}
-        return {"exit_code": 0, "diff": diff_structure_snapshots(baseline, current)}
+            return StructureDiffResponseDTO(exit_code=2, errors=[str(exc)]).model_dump()
+        return StructureDiffResponseDTO(
+            exit_code=0,
+            diff=diff_structure_snapshots(baseline, current),
+        ).model_dump()
 
 
 @server.command(STRUCTURE_REUSE_COMMAND)
@@ -4518,19 +4586,19 @@ def _execute_structure_reuse_total(
         lemma_stubs_path = payload.get("lemma_stubs")
         min_count = payload.get("min_count", 2)
         if not snapshot_path:
-            return {"exit_code": 2, "errors": ["snapshot path is required"]}
+            return StructureReuseResponseDTO(exit_code=2, errors=["snapshot path is required"]).model_dump()
         try:
             snapshot = load_structure_snapshot(Path(snapshot_path))
         except ValueError as exc:
-            return {"exit_code": 2, "errors": [str(exc)]}
+            return StructureReuseResponseDTO(exit_code=2, errors=[str(exc)]).model_dump()
         try:
             min_count_int = int(min_count)
         except (TypeError, ValueError):
-            return {"exit_code": 2, "errors": ["min_count must be an integer"]}
+            return StructureReuseResponseDTO(exit_code=2, errors=["min_count must be an integer"]).model_dump()
         if min_count_int <= 0:
-            return {"exit_code": 2, "errors": ["min_count must be positive"]}
+            return StructureReuseResponseDTO(exit_code=2, errors=["min_count must be positive"]).model_dump()
         reuse = compute_structure_reuse(snapshot, min_count=min_count_int)
-        response: JSONObject = {"exit_code": 0, "reuse": reuse}
+        response: JSONObject = StructureReuseResponseDTO(exit_code=0, reuse=reuse).model_dump()
         if lemma_stubs_path:
             stubs = render_reuse_lemma_stubs(reuse)
             if lemma_stubs_path == "-":
@@ -4557,16 +4625,19 @@ def _execute_decision_diff_total(
         baseline_path = payload.get("baseline")
         current_path = payload.get("current")
         if not baseline_path or not current_path:
-            return {
-                "exit_code": 2,
-                "errors": ["baseline and current decision snapshot paths are required"],
-            }
+            return DecisionDiffResponseDTO(
+                exit_code=2,
+                errors=["baseline and current decision snapshot paths are required"],
+            ).model_dump()
         try:
             baseline = load_decision_snapshot(Path(baseline_path))
             current = load_decision_snapshot(Path(current_path))
         except ValueError as exc:
-            return {"exit_code": 2, "errors": [str(exc)]}
-        return {"exit_code": 0, "diff": diff_decision_snapshots(baseline, current)}
+            return DecisionDiffResponseDTO(exit_code=2, errors=[str(exc)]).model_dump()
+        return DecisionDiffResponseDTO(
+            exit_code=0,
+            diff=diff_decision_snapshots(baseline, current),
+        ).model_dump()
 
 
 @server.feature(TEXT_DOCUMENT_CODE_ACTION)

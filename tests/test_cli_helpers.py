@@ -438,7 +438,7 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
         compatibility_shim=False,
         rationale=None,
     )
-    assert payload["bundle"] == ["a", "b"]
+    assert payload["bundle"] == []
     assert payload["fields"] == [
         {"name": "a", "type_hint": "int"},
         {"name": "b", "type_hint": None},
