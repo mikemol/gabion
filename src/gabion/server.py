@@ -79,6 +79,8 @@ from gabion.analysis.timeout_context import (
     GasMeter,
     TimeoutExceeded,
     check_deadline,
+    get_deadline,
+    get_deadline_clock,
     record_deadline_io,
     reset_deadline_clock,
     forest_scope,
@@ -157,6 +159,14 @@ _DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
 _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
+
+
+def _deadline_tick_budget_allows_check(clock: object) -> bool:
+    limit = getattr(clock, "limit", None)
+    current = getattr(clock, "current", None)
+    if isinstance(limit, int) and isinstance(current, int):
+        return (limit - current) > 1
+    return True
 
 
 @dataclass(frozen=True)
@@ -1542,10 +1552,17 @@ def _write_report_phase_checkpoint(
     witness_digest: str | None,
     phases: Mapping[str, JSONValue],
 ) -> None:
+    get_deadline()
+    if _deadline_tick_budget_allows_check(get_deadline_clock()):
+        check_deadline(allow_frame_fallback=False)
     if path is None:
         return
     phases_payload: JSONObject = {}
     for phase_name, raw_entry in phases.items():
+        if _deadline_tick_budget_allows_check(get_deadline_clock()):
+            check_deadline(allow_frame_fallback=False)
+        else:
+            get_deadline()
         if not isinstance(phase_name, str) or not isinstance(raw_entry, Mapping):
             continue
         phases_payload[phase_name] = {str(key): raw_entry[key] for key in raw_entry}
@@ -1573,6 +1590,9 @@ def _write_bootstrap_incremental_artifacts(
     projection_rows: Sequence[Mapping[str, JSONValue]],
     phase_checkpoint_state: JSONObject,
 ) -> None:
+    get_deadline()
+    if _deadline_tick_budget_allows_check(get_deadline_clock()):
+        check_deadline(allow_frame_fallback=False)
     if report_output_path is None or not projection_rows:
         return
     existing_reason: str | None = None
@@ -1635,6 +1655,10 @@ def _write_bootstrap_incremental_artifacts(
         }
     )
     for row in projection_rows:
+        if _deadline_tick_budget_allows_check(get_deadline_clock()):
+            check_deadline(allow_frame_fallback=False)
+        else:
+            get_deadline()
         section_id = str(row.get("section_id", "") or "")
         if not section_id or section_id == "intro":
             continue
@@ -1642,7 +1666,13 @@ def _write_bootstrap_incremental_artifacts(
         deps_raw = row.get("deps")
         deps: list[str] = []
         if isinstance(deps_raw, list):
-            deps = [str(dep) for dep in deps_raw if isinstance(dep, str)]
+            for dep in deps_raw:
+                if _deadline_tick_budget_allows_check(get_deadline_clock()):
+                    check_deadline(allow_frame_fallback=False)
+                else:
+                    get_deadline()
+                if isinstance(dep, str):
+                    deps.append(str(dep))
         dep_text = ", ".join(deps) if deps else "none"
         reason = existing_reason or (
             "missing_dep" if any(dep not in sections for dep in deps) else "policy"
@@ -1806,7 +1836,10 @@ def _collection_progress_intro_lines(
             lines.append(f"- `substantive_progress`: `{substantive_progress}`")
     in_progress_states = _in_progress_scan_states(collection_resume)
     if in_progress_states:
-        in_progress_paths = list(in_progress_states)
+        in_progress_paths: list[str] = []
+        for in_progress_path in in_progress_states:
+            check_deadline()
+            in_progress_paths.append(in_progress_path)
         sample = ", ".join(in_progress_paths[:3])
         lines.append(f"- `in_progress_path_sample`: `{sample}`")
         detail_entries: list[str] = []
@@ -1818,18 +1851,22 @@ def _collection_progress_intro_lines(
             if not isinstance(processed_count, int):
                 raw_processed = state_mapping.get("processed_functions")
                 if isinstance(raw_processed, Sequence):
-                    processed_count = sum(
-                        1 for entry in raw_processed if isinstance(entry, str)
-                    )
+                    processed_count = 0
+                    for entry in raw_processed:
+                        check_deadline()
+                        if isinstance(entry, str):
+                            processed_count += 1
                 else:
                     processed_count = 0
             function_count = state_mapping.get("function_count")
             if not isinstance(function_count, int):
                 raw_fn_names = state_mapping.get("fn_names")
                 if isinstance(raw_fn_names, Mapping):
-                    function_count = sum(
-                        1 for key in raw_fn_names if isinstance(key, str)
-                    )
+                    function_count = 0
+                    for key in raw_fn_names:
+                        check_deadline()
+                        if isinstance(key, str):
+                            function_count += 1
                 else:
                     function_count = 0
             detail_entries.append(
@@ -1842,6 +1879,7 @@ def _collection_progress_intro_lines(
             if len(detail_entries) >= 3:
                 break
         for detail in detail_entries:
+            check_deadline()
             lines.append(f"- `in_progress_detail`: `{detail}`")
     raw_analysis_index_resume = collection_resume.get("analysis_index_resume")
     if isinstance(raw_analysis_index_resume, Mapping):

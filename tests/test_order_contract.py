@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 
+from gabion.analysis.timeout_context import (
+    Deadline,
+    GasMeter,
+    deadline_clock_scope,
+    deadline_scope,
+)
 from gabion.exceptions import NeverThrown
 from gabion.order_contract import (
     OrderPolicy,
@@ -166,10 +170,16 @@ def test_get_order_policy_reads_env_alias_values(env_scope, restore_env) -> None
     previous = env_scope({"GABION_ORDER_POLICY": "off"})
     try:
         assert get_order_policy() is OrderPolicy.SORT
-        os.environ["GABION_ORDER_POLICY"] = "   "
-        assert get_order_policy() is OrderPolicy.SORT
-        os.environ["GABION_ORDER_POLICY"] = "on"
-        assert get_order_policy() is OrderPolicy.ENFORCE
+        blank_previous = env_scope({"GABION_ORDER_POLICY": "   "})
+        try:
+            assert get_order_policy() is OrderPolicy.SORT
+        finally:
+            restore_env(blank_previous)
+        on_previous = env_scope({"GABION_ORDER_POLICY": "on"})
+        try:
+            assert get_order_policy() is OrderPolicy.ENFORCE
+        finally:
+            restore_env(on_previous)
     finally:
         restore_env(previous)
 
@@ -224,3 +234,37 @@ def test_ordered_or_sorted_accepts_string_policy() -> None:
     with order_policy(OrderPolicy.TRUST):
         ordered = ordered_or_sorted(["a", "b"], source="string-policy", policy="enforce")
     assert ordered == ["a", "b"]
+
+
+def test_ordered_or_sorted_deadline_probe_paths(env_scope, restore_env) -> None:
+    previous = env_scope(
+        {
+            "GABION_ORDER_DEADLINE_PROBE": "1",
+            "GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST": "1",
+        }
+    )
+    try:
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            with deadline_clock_scope(GasMeter(limit=10_000)):
+                ordered_or_sorted(["b", "a"], source="deadline-probe.default")
+                ordered_or_sorted(
+                    ["b", "a"],
+                    source="canonical_type_key.deadline_probe",
+                    policy="sort",
+                )
+                ordered_or_sorted(
+                    ["b", "a"],
+                    source="deadline-probe.check",
+                    policy=OrderPolicy.CHECK,
+                )
+    finally:
+        restore_env(previous)
+
+
+def test_order_deadline_tick_budget_allows_check_non_meter_clock() -> None:
+    class _Clock:
+        pass
+
+    from gabion import order_contract
+
+    assert order_contract._deadline_tick_budget_allows_check(_Clock()) is True

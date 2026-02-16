@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion import server
 
     return server
-
 
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value
 def test_normalize_transparent_decorators() -> None:
@@ -21,14 +17,12 @@ def test_normalize_transparent_decorators() -> None:
     assert server._normalize_transparent_decorators([1, "a"]) == {"a"}
     assert server._normalize_transparent_decorators([]) is None
 
-
 # gabion:evidence E:function_site::server.py::gabion.server._uri_to_path
 def test_uri_to_path() -> None:
     server = _load()
     path = Path("/tmp/demo.txt")
     assert server._uri_to_path(path.as_uri()) == path
     assert server._uri_to_path("relative/path.py") == Path("relative/path.py")
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
 def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
@@ -46,7 +40,6 @@ def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
     assert diagnostics
     assert any("Implicit bundle" in diag.message for diag in diagnostics)
 
-
 # gabion:evidence E:function_site::server.py::gabion.server.start
 def test_start_uses_injected_callable() -> None:
     server = _load()
@@ -57,3 +50,12 @@ def test_start_uses_injected_callable() -> None:
 
     server.start(_start)
     assert called["value"] is True
+
+
+def test_deadline_tick_budget_allows_check_non_meter_clock() -> None:
+    server = _load()
+
+    class _Clock:
+        pass
+
+    assert server._deadline_tick_budget_allows_check(_Clock()) is True

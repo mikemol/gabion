@@ -15,6 +15,7 @@ _CALLER_SORTED_ENV = "GABION_CALLER_SORTED"
 _ORDER_POLICY_ENV = "GABION_ORDER_POLICY"
 _ORDER_TELEMETRY_ENV = "GABION_ORDER_TELEMETRY"
 _ORDER_CANONICAL_ALLOWLIST_ENV = "GABION_ENFORCE_CANONICAL_SORT_ALLOWLIST"
+_ORDER_DEADLINE_PROBE_ENV = "GABION_ORDER_DEADLINE_PROBE"
 _CANONICAL_SORT_SOURCE_ALLOWLIST: frozenset[str] = frozenset(
     {
         "_normalize_predicates.cleaned",
@@ -61,6 +62,18 @@ class OrderPolicy(str, Enum):
     ENFORCE = "enforce"
 
 
+def _deadline_tick_budget_allows_check(clock: object) -> bool:
+    limit = getattr(clock, "limit", None)
+    current = getattr(clock, "current", None)
+    if isinstance(limit, int) and isinstance(current, int):
+        return (limit - current) > 1
+    return True
+
+
+def _deadline_probe_enabled() -> bool:
+    return os.environ.get(_ORDER_DEADLINE_PROBE_ENV) == "1"
+
+
 def ordered_or_sorted(
     values: Iterable[T],
     *,
@@ -87,6 +100,18 @@ def ordered_or_sorted(
     6. default `SORT`
     """
 
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import (
+        check_deadline,
+        get_deadline,
+        get_deadline_clock,
+    )
+
+    get_deadline()
+    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+        get_deadline_clock()
+    ):
+        check_deadline(allow_frame_fallback=False)
     items = list(values)
     resolved_policy = _resolve_policy(
         policy=policy,
@@ -128,6 +153,18 @@ def _resolve_policy(
     policy: OrderPolicy | str | None,
     require_sorted: bool | None,
 ) -> OrderPolicy:
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import (
+        check_deadline,
+        get_deadline,
+        get_deadline_clock,
+    )
+
+    get_deadline()
+    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+        get_deadline_clock()
+    ):
+        check_deadline(allow_frame_fallback=False)
     if require_sorted is not None:
         return OrderPolicy.ENFORCE if require_sorted else OrderPolicy.SORT
     if policy is not None:
@@ -194,6 +231,18 @@ def order_telemetry() -> Iterator[list[dict[str, object]]]:
 
 
 def _order_policy_from_env() -> OrderPolicy | None:
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import (
+        check_deadline,
+        get_deadline,
+        get_deadline_clock,
+    )
+
+    get_deadline()
+    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+        get_deadline_clock()
+    ):
+        check_deadline(allow_frame_fallback=False)
     raw = os.environ.get(_ORDER_POLICY_ENV)
     if raw is None:
         return None
@@ -229,6 +278,18 @@ def _validate_canonical_sort_allowlist(
     policy: OrderPolicy | str | None,
     require_sorted: bool | None,
 ) -> None:
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import (
+        check_deadline,
+        get_deadline,
+        get_deadline_clock,
+    )
+
+    get_deadline()
+    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+        get_deadline_clock()
+    ):
+        check_deadline(allow_frame_fallback=False)
     if not _canonical_allowlist_enforced():
         return
     if not _explicit_sort_requested(policy=policy, require_sorted=require_sorted):
@@ -239,10 +300,15 @@ def _validate_canonical_sort_allowlist(
         allowlist.update(scoped_allowlist)
     if any(source == prefix or source.startswith(prefix) for prefix in allowlist):
         return
+    allowlisted = ordered_or_sorted(
+        allowlist,
+        source="_validate_canonical_sort_allowlist.allowlist",
+        policy=OrderPolicy.CHECK,
+    )
     never(
         "canonical sort source not allowlisted",
         source=source,
-        allowlisted=sorted(allowlist),
+        allowlisted=allowlisted,
     )
 
 
@@ -251,6 +317,18 @@ def _explicit_sort_requested(
     policy: OrderPolicy | str | None,
     require_sorted: bool | None,
 ) -> bool:
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import (
+        check_deadline,
+        get_deadline,
+        get_deadline_clock,
+    )
+
+    get_deadline()
+    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+        get_deadline_clock()
+    ):
+        check_deadline(allow_frame_fallback=False)
     if require_sorted is False:
         return True
     if policy is None:
@@ -259,10 +337,24 @@ def _explicit_sort_requested(
 
 
 def _normalize_policy(policy: OrderPolicy | str) -> OrderPolicy:
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import (
+        check_deadline,
+        get_deadline,
+        get_deadline_clock,
+    )
+
+    get_deadline()
     if isinstance(policy, OrderPolicy):
         return policy
     normalized = policy.strip().lower()
     for candidate in OrderPolicy:
+        if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+            get_deadline_clock()
+        ):
+            check_deadline(allow_frame_fallback=False)
+        else:
+            get_deadline()
         if candidate.value == normalized:
             return candidate
     never(
@@ -279,10 +371,28 @@ def _first_order_violation(
     key: Callable[[T], Any] | None = None,
     reverse: bool = False,
 ) -> tuple[int, int, Any, Any, str] | None:
+    # Lazy import avoids import cycle with timeout_context -> order_contract.
+    from gabion.analysis.timeout_context import (
+        check_deadline,
+        get_deadline,
+        get_deadline_clock,
+    )
+
+    get_deadline()
+    if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+        get_deadline_clock()
+    ):
+        check_deadline(allow_frame_fallback=False)
     previous_marker: Any | None = None
     previous_index = -1
     has_previous = False
     for index, value in enumerate(values):
+        if _deadline_probe_enabled() and _deadline_tick_budget_allows_check(
+            get_deadline_clock()
+        ):
+            check_deadline(allow_frame_fallback=False)
+        else:
+            get_deadline()
         marker = key(value) if key is not None else value
         if has_previous:
             try:
