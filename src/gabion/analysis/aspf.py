@@ -29,6 +29,10 @@ class Node:
         return self.node_id.kind
 
     def as_dict(self) -> dict[str, object]:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import check_deadline
+
+        check_deadline()
         payload = self.node_id.as_dict()
         if self.meta:
             payload["meta"] = self.meta
@@ -42,18 +46,34 @@ class Alt:
     evidence: dict[str, object] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import check_deadline
+
+        check_deadline()
+        inputs: list[dict[str, object]] = []
+        for node_id in self.inputs:
+            check_deadline()
+            inputs.append(node_id.as_dict())
         payload: dict[str, object] = {
             "kind": self.kind,
-            "inputs": [node_id.as_dict() for node_id in self.inputs],
+            "inputs": inputs,
         }
         if self.evidence:
             payload["evidence"] = self.evidence
         return payload
 
     def sort_key(self) -> tuple[str, tuple[tuple[str, tuple[str, ...]], ...]]:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import check_deadline
+
+        check_deadline()
+        inputs: list[tuple[str, tuple[str, ...]]] = []
+        for node_id in self.inputs:
+            check_deadline()
+            inputs.append(node_id.sort_key())
         return (
             self.kind,
-            tuple(node_id.sort_key() for node_id in self.inputs),
+            tuple(inputs),
         )
 
 
@@ -160,6 +180,7 @@ class Forest:
         child: NodeId,
         evidence: dict[str, object] | None = None,
     ) -> Alt:
+        # dataflow-bundle: child, parent
         return self.add_alt("SuiteContains", (parent, child), evidence=evidence)
 
     def add_spec_site(

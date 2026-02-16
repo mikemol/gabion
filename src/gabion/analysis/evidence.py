@@ -7,12 +7,14 @@ from gabion.analysis.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import ordered_or_sorted
 
+
 def normalize_bundle_key(bundle: object) -> str:
     """Canonicalize a bundle payload into a stable join key.
 
     This intentionally ignores non-string entries because bundles are defined
     over symbol names.
     """
+    check_deadline()
     if not isinstance(bundle, (list, tuple, set)):
         return ""
     values = {item.strip() for item in bundle if isinstance(item, str) and item.strip()}
@@ -67,9 +69,11 @@ class Site:
         return cls(path=path, function=function, bundle=tuple(bundle))
 
     def bundle_key(self) -> str:
+        check_deadline()
         return normalize_bundle_key(list(self.bundle))
 
     def key(self) -> tuple[str, str, str]:
+        check_deadline()
         return (self.path, self.function, self.bundle_key())
 
 

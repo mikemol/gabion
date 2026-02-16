@@ -37,6 +37,7 @@ def sorted_unique_strings(values: Iterable[object], *, source: str) -> tuple[str
 
 
 def render_cluster_heading(doc: ReportDoc, *, display: object, count: object) -> None:
+    # dataflow-bundle: count, display
     doc.line()
     doc.line(f"Cluster: {display} (count: {count})")
 

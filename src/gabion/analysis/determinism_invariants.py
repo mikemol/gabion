@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import TypeVar
 
+from gabion.analysis.timeout_context import check_deadline
 from gabion.invariants import never, proof_mode
 
 
@@ -18,6 +19,7 @@ def require_sorted(
     on_violation: Callable[[dict[str, object]], None] | None = None,
     **env: object,
 ) -> None:
+    check_deadline()
     if not proof_mode():
         return
     iterator = iter(xs)
@@ -27,6 +29,7 @@ def require_sorted(
         return
     previous_key = key(previous) if key is not None else previous
     for current in iterator:
+        check_deadline()
         current_key = key(current) if key is not None else current
         is_ordered = current_key <= previous_key if reverse else previous_key <= current_key
         if is_ordered:
@@ -53,10 +56,12 @@ def require_no_dupes(
     on_violation: Callable[[dict[str, object]], None] | None = None,
     **env: object,
 ) -> None:
+    check_deadline()
     if not proof_mode():
         return
     seen: set[object] = set()
     for item in xs:
+        check_deadline()
         entry_key = key(item) if key is not None else item
         if entry_key not in seen:
             seen.add(entry_key)
@@ -79,11 +84,13 @@ def require_canonical_multiset(
     on_violation: Callable[[dict[str, object]], None] | None = None,
     **env: object,
 ) -> None:
+    check_deadline()
     if not proof_mode():
         return
     seen_keys: set[str] = set()
     previous_key: str | None = None
     for key, count in pairs:
+        check_deadline()
         if count <= 0:
             payload: dict[str, object] = {
                 "constraint": "canonical_multiset",

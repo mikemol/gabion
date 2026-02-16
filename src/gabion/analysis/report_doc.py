@@ -6,6 +6,7 @@ from typing import Iterable, Sequence
 
 from gabion.invariants import never
 from gabion.analysis.report_markdown import render_report_markdown
+from gabion.analysis.timeout_context import check_deadline
 
 
 @dataclass
@@ -32,7 +33,9 @@ class ReportDoc:
         self._lines.append(f"{'#' * level} {title}")
 
     def bullets(self, items: Iterable[str]) -> None:
+        check_deadline()
         for item in items:
+            check_deadline()
             self._lines.append(f"- {item}")
 
     def codeblock(self, content: str | object, *, language: str = "") -> None:
@@ -46,12 +49,14 @@ class ReportDoc:
         self._lines.append("```")
 
     def table(self, headers: Sequence[str], rows: Iterable[Sequence[object]]) -> None:
+        check_deadline()
         header_cells = [str(entry) for entry in headers]
         if not header_cells:
             never("report table requires at least one header")
         self._lines.append("| " + " | ".join(header_cells) + " |")
         self._lines.append("| " + " | ".join("---" for _ in header_cells) + " |")
         for row in rows:
+            check_deadline()
             row_cells = [str(entry) for entry in row]
             if len(row_cells) != len(header_cells):
                 never(

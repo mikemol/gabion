@@ -14954,6 +14954,7 @@ def _has_followup_actions(
     include_structure_metrics: bool = False,
     include_decision_snapshot: bool = False,
 ) -> bool:
+    # dataflow-bundle: include_decision_snapshot, include_structure_metrics, include_structure_tree, include_type_audit
     return bool(
         (include_type_audit and args.type_audit)
         or args.synthesis_plan
@@ -14977,6 +14978,7 @@ def _emit_sidecar_outputs(
     fingerprint_exception_obligations_json: str | None,
     fingerprint_handledness_json: str | None,
 ) -> None:
+    # dataflow-bundle: fingerprint_coherence_json, fingerprint_deadness_json, fingerprint_exception_obligations_json, fingerprint_handledness_json, fingerprint_rewrite_plans_json
     for path, payload, require_content in deadline_loop_iter(
         (
             (args.fingerprint_synth_json, analysis.fingerprint_synth_registry, True),
@@ -16361,6 +16363,7 @@ def run(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     with _analysis_deadline_scope(args):
+        check_deadline()
         return _run_impl(args)
 
 

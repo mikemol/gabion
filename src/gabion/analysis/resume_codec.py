@@ -50,8 +50,10 @@ def mapping_sections(
     *,
     section_keys: Sequence[str],
 ) -> tuple[Mapping[str, JSONValue], ...] | None:
+    check_deadline()
     sections: list[Mapping[str, JSONValue]] = []
     for key in section_keys:
+        check_deadline()
         section = mapping_or_none(payload.get(key))
         if section is None:
             return None
@@ -210,11 +212,13 @@ def load_resume_map(
     valid_keys: set[str],
     parser: Callable[[JSONValue], _ParsedValue | None],
 ) -> dict[str, _ParsedValue]:
+    check_deadline()
     out: dict[str, _ParsedValue] = {}
     for key, raw_value in iter_valid_key_entries(
         payload=payload,
         valid_keys=valid_keys,
     ):
+        check_deadline()
         parsed = parser(raw_value)
         if parsed is None:
             continue
