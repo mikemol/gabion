@@ -726,6 +726,7 @@
         }
       },
       "tests": [
+        "tests/test_cli_payloads.py::test_check_and_raw_payloads_match_common_fields",
         "tests/test_cli_payloads.py::test_check_builds_payload",
         "tests/test_cli_payloads.py::test_check_payload_baseline_write_requires_baseline",
         "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write",
@@ -3948,6 +3949,7 @@
         "tests/test_cli_helpers.py::test_dataflow_audit_emits_structure_tree",
         "tests/test_cli_helpers.py::test_dataflow_audit_skips_type_audit_output",
         "tests/test_cli_helpers.py::test_dataflow_audit_type_audit_empty_findings",
+        "tests/test_cli_payloads.py::test_check_and_raw_payloads_match_common_fields",
         "tests/test_cli_payloads.py::test_dataflow_audit_payload_parsing",
         "tests/test_cli_payloads.py::test_dataflow_payload_baseline_and_transparent"
       ]
@@ -11900,6 +11902,38 @@
           }
         },
         {
+          "display": "E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "opts",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.build_dataflow_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_cli_payloads.py",
+      "line": 199,
+      "status": "mapped",
+      "test_id": "tests/test_cli_payloads.py::test_check_and_raw_payloads_match_common_fields"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline",
+          "key": {
+            "k": "decision_surface",
+            "m": "direct",
+            "param": "ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline",
+            "site": {
+              "path": "cli.py",
+              "qual": "gabion.cli.build_check_payload"
+            }
+          }
+        },
+        {
           "display": "E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries",
           "key": {
             "k": "decision_surface",
@@ -11987,7 +12021,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 428,
+      "line": 522,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_delta_and_baseline_write"
     },
@@ -12005,7 +12039,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 498,
+      "line": 592,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_ambiguity_state_and_path"
     },
@@ -12023,7 +12057,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 394,
+      "line": 488,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_annotation_drift_delta_and_baseline_write"
     },
@@ -12067,7 +12101,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 360,
+      "line": 454,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_delta_and_baseline_write"
     },
@@ -12085,7 +12119,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 462,
+      "line": 556,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_check_payload_rejects_obsolescence_state_and_path"
     },
@@ -12235,7 +12269,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 199,
+      "line": 293,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_dataflow_payload_resume_checkpoint_and_timeout_flags"
     },
@@ -12255,7 +12289,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 236,
+      "line": 330,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_payload_infers_bundle"
     },
@@ -12275,14 +12309,14 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 219,
+      "line": 313,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_refactor_protocol_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_payloads.py",
-      "line": 315,
+      "line": 409,
       "status": "unmapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_explicit_report_path"
     },
@@ -12314,7 +12348,7 @@
         }
       ],
       "file": "tests/test_cli_payloads.py",
-      "line": 250,
+      "line": 344,
       "status": "mapped",
       "test_id": "tests/test_cli_payloads.py::test_run_check_uses_runner_dispatch"
     },
