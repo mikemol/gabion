@@ -10878,7 +10878,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 395,
+      "line": 396,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_build_refactor_payload_input_payload_passthrough"
     },
@@ -10898,7 +10898,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 410,
+      "line": 411,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_build_refactor_payload_requires_fields"
     },
@@ -10947,21 +10947,21 @@
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 848,
+      "line": 849,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_check_timeout_no_retry_exits_with_timeout_code"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 810,
+      "line": 811,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_check_timeout_retry_branch_and_progress_artifacts"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 389,
+      "line": 390,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_cli_deadline_scope_yields"
     },
@@ -10981,42 +10981,42 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1567,
+      "line": 1568,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_cli_diff_and_reuse_commands_use_default_runner"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 296,
+      "line": 297,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_context_dependency_helpers_ignore_noncallables"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 290,
+      "line": 291,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_alias_migration_epilog_contains_map"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 221,
+      "line": 222,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_alias_matches_check_raw_args"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 201,
+      "line": 202,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_command_delegates_to_raw_runner"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 251,
+      "line": 252,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_alias_warning"
     },
@@ -11060,7 +11060,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1134,
+      "line": 1135,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_decision_snapshot"
     },
@@ -11104,7 +11104,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1164,
+      "line": 1165,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_fingerprint_outputs"
     },
@@ -11148,7 +11148,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 658,
+      "line": 659,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_lint_outputs"
     },
@@ -11192,7 +11192,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1103,
+      "line": 1104,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_structure_metrics"
     },
@@ -11236,21 +11236,21 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1079,
+      "line": 1080,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_emits_structure_tree"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 273,
+      "line": 274,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_help_does_not_emit_alias_warning"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 999,
+      "line": 1000,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_retry_uses_fresh_cli_budget"
     },
@@ -11294,35 +11294,35 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 624,
+      "line": 625,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_skips_type_audit_output"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 746,
+      "line": 747,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_timeout_progress_report_and_resume_retry"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 959,
+      "line": 960,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 931,
+      "line": 932,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_timeout_without_retry_raises_exit"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 692,
+      "line": 693,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_timeout_writes_deadline_profile"
     },
@@ -11366,7 +11366,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 639,
+      "line": 640,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dataflow_audit_type_audit_empty_findings"
     },
@@ -11381,14 +11381,14 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1486,
+      "line": 1487,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_dispatch_command_passes_timeout_ticks"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 1514,
+      "line": 1515,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_dispatch_command_preserves_existing_timeout_ms"
     },
@@ -11406,7 +11406,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1674,
+      "line": 1675,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_errors_exit"
     },
@@ -11424,21 +11424,21 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1666,
+      "line": 1667,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_decision_diff_success"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 365,
+      "line": 366,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_lint_outputs_jsonl_only"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 377,
+      "line": 378,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_lint_outputs_sarif_only"
     },
@@ -11482,7 +11482,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 349,
+      "line": 350,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_lint_outputs_writes_artifacts"
     },
@@ -11500,7 +11500,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1655,
+      "line": 1656,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_errors_exit"
     },
@@ -11518,7 +11518,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1646,
+      "line": 1647,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_diff_success"
     },
@@ -11536,7 +11536,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1692,
+      "line": 1693,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_errors_exit"
     },
@@ -11554,7 +11554,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1684,
+      "line": 1685,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_structure_reuse_success"
     },
@@ -11574,35 +11574,35 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1273,
+      "line": 1274,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_synth_outputs_lists_optional_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 1604,
+      "line": 1605,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_synth_outputs_skips_absent_optional_paths"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 728,
+      "line": 729,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_timeout_profile_artifacts_no_profile_is_noop"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 741,
+      "line": 742,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_timeout_progress_artifacts_missing_timeout_context_is_noop"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 736,
+      "line": 737,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_emit_timeout_progress_artifacts_no_progress_is_noop"
     },
@@ -11634,7 +11634,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 309,
+      "line": 310,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_lint_parsing_and_writers"
     },
@@ -11668,49 +11668,49 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1343,
+      "line": 1344,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_refactor_protocol_rejects_non_object_payload"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 917,
+      "line": 918,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 1633,
+      "line": 1634,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_render_timeout_progress_markdown_handles_non_mapping_resume_token"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 1048,
+      "line": 1049,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_render_timeout_progress_markdown_includes_incremental_obligations"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 898,
+      "line": 899,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_render_timeout_progress_markdown_includes_tick_metrics"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 876,
+      "line": 877,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_render_timeout_progress_markdown_skips_empty_resume_token_fields"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 888,
+      "line": 889,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries"
     },
@@ -11728,28 +11728,28 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1414,
+      "line": 1415,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_decision_diff_uses_runner"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 476,
+      "line": 477,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_cleans_import_state"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 525,
+      "line": 526,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_cleanup_ignores_missing_sys_path"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 550,
+      "line": 551,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_keeps_existing_sys_path_entry"
     },
@@ -11769,7 +11769,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 439,
+      "line": 440,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_missing_script"
     },
@@ -11789,35 +11789,35 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 450,
+      "line": 451,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 504,
+      "line": 505,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_restores_previous_module"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 589,
+      "line": 590,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 570,
+      "line": 571,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_returns_one_when_sppf_graph_fails"
     },
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 607,
+      "line": 608,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_returns_two_when_loader_creation_fails"
     },
@@ -11849,7 +11849,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1352,
+      "line": 1353,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_refactor_protocol_accepts_object_payload"
     },
@@ -11867,7 +11867,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1383,
+      "line": 1384,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_structure_diff_uses_runner"
     },
@@ -11887,7 +11887,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1541,
+      "line": 1542,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_structure_reuse_uses_runner"
     },
@@ -11907,7 +11907,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1239,
+      "line": 1240,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_synth_parses_optional_inputs"
     },
@@ -11927,7 +11927,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1330,
+      "line": 1331,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_synthesis_plan_rejects_non_object_payload"
     },
@@ -11947,7 +11947,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1311,
+      "line": 1312,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_synthesis_plan_without_input"
     },
@@ -11986,7 +11986,7 @@
     {
       "evidence": [],
       "file": "tests/test_cli_helpers.py",
-      "line": 336,
+      "line": 337,
       "status": "unmapped",
       "test_id": "tests/test_cli_helpers.py::test_write_lint_sarif_reuses_existing_rule"
     },
