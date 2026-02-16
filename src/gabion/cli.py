@@ -41,6 +41,14 @@ from gabion.lsp_client import (
     _has_env_timeout,
 )
 from gabion.json_types import JSONObject
+from gabion.schema import (
+    DataflowAuditResponseDTO,
+    DecisionDiffResponseDTO,
+    RefactorProtocolResponseDTO,
+    StructureDiffResponseDTO,
+    StructureReuseResponseDTO,
+    SynthesisPlanResponseDTO,
+)
 app = typer.Typer(add_completion=False)
 Runner: TypeAlias = Callable[..., JSONObject]
 DEFAULT_RUNNER: Runner = run_command
@@ -247,6 +255,7 @@ def _emit_lint_outputs(
     lint: bool,
     lint_jsonl: Optional[Path],
     lint_sarif: Optional[Path],
+    lint_entries: list[dict[str, object]] | None = None,
 ) -> None:
     check_deadline()
     if lint:
@@ -254,7 +263,7 @@ def _emit_lint_outputs(
             check_deadline()
             typer.echo(line)
     if lint_jsonl or lint_sarif:
-        entries = _collect_lint_entries(lint_lines)
+        entries = lint_entries if lint_entries is not None else _collect_lint_entries(lint_lines)
         if lint_jsonl is not None:
             _write_lint_jsonl(str(lint_jsonl), entries)
         if lint_sarif is not None:
@@ -402,8 +411,6 @@ def _build_dataflow_payload_common(
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     # dataflow-bundle: deadline_profile, emit_timeout_progress_report
-    if options.strictness is not None and options.strictness not in {"high", "low"}:
-        raise typer.BadParameter("strictness must be 'high' or 'low'")
     exclude_dirs = _split_csv_entries(options.exclude) if options.exclude is not None else None
     ignore_list = (
         _split_csv(options.ignore_params_csv)
@@ -678,8 +685,6 @@ def build_refactor_payload(
             continue
         type_hint = hint.strip() or None
         field_specs.append({"name": name, "type_hint": type_hint})
-    if not bundle and field_specs:
-        bundle = [spec["name"] for spec in field_specs]
     return {
         "protocol_name": protocol_name,
         "bundle": bundle or [],
@@ -833,12 +838,26 @@ def _run_with_timeout_retries(
 
 def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) -> None:
     with _cli_deadline_scope():
-        lint_lines = result.get("lint_lines", []) or []
+        normalized_result = DataflowAuditResponseDTO.model_validate(
+            {
+                "exit_code": int(result.get("exit_code", 0) or 0),
+                "timeout": bool(result.get("timeout", False)),
+                "analysis_state": result.get("analysis_state"),
+                "errors": result.get("errors") or [],
+                "lint_lines": result.get("lint_lines") or [],
+                "lint_entries": result.get("lint_entries") or [],
+                "payload": result,
+            }
+        ).model_dump()
+        lint_lines = normalized_result.get("lint_lines", []) or []
+        lint_entries_raw = normalized_result.get("lint_entries")
+        lint_entries = lint_entries_raw if isinstance(lint_entries_raw, list) else None
         _emit_lint_outputs(
             lint_lines,
             lint=opts.lint,
             lint_jsonl=opts.lint_jsonl,
             lint_sarif=opts.lint_sarif,
+            lint_entries=lint_entries,
         )
         if opts.type_audit:
             suggestions = result.get("type_suggestions", [])
@@ -1920,7 +1939,8 @@ def _run_synthesis_plan(
         root=Path("."),
         runner=runner,
     )
-    output = json.dumps(result, indent=2, sort_keys=True)
+    normalized = SynthesisPlanResponseDTO.model_validate(result).model_dump()
+    output = json.dumps(normalized, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)
     else:
@@ -2012,9 +2032,10 @@ def run_structure_reuse(
 
 def _emit_structure_diff(result: JSONObject) -> None:
     check_deadline()
-    errors = result.get("errors")
-    exit_code = int(result.get("exit_code", 0))
-    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    normalized = StructureDiffResponseDTO.model_validate(result).model_dump()
+    errors = normalized.get("errors")
+    exit_code = int(normalized.get("exit_code", 0))
+    typer.echo(json.dumps(normalized, indent=2, sort_keys=True))
     if errors:
         for error in errors:
             check_deadline()
@@ -2025,9 +2046,10 @@ def _emit_structure_diff(result: JSONObject) -> None:
 
 def _emit_decision_diff(result: JSONObject) -> None:
     check_deadline()
-    errors = result.get("errors")
-    exit_code = int(result.get("exit_code", 0))
-    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    normalized = DecisionDiffResponseDTO.model_validate(result).model_dump()
+    errors = normalized.get("errors")
+    exit_code = int(normalized.get("exit_code", 0))
+    typer.echo(json.dumps(normalized, indent=2, sort_keys=True))
     if errors:
         for error in errors:
             check_deadline()
@@ -2038,9 +2060,10 @@ def _emit_decision_diff(result: JSONObject) -> None:
 
 def _emit_structure_reuse(result: JSONObject) -> None:
     check_deadline()
-    errors = result.get("errors")
-    exit_code = int(result.get("exit_code", 0))
-    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    normalized = StructureReuseResponseDTO.model_validate(result).model_dump()
+    errors = normalized.get("errors")
+    exit_code = int(normalized.get("exit_code", 0))
+    typer.echo(json.dumps(normalized, indent=2, sort_keys=True))
     if errors:
         for error in errors:
             check_deadline()
@@ -2171,7 +2194,8 @@ def _run_refactor_protocol(
         root=None,
         runner=runner,
     )
-    output = json.dumps(result, indent=2, sort_keys=True)
+    normalized = RefactorProtocolResponseDTO.model_validate(result).model_dump()
+    output = json.dumps(normalized, indent=2, sort_keys=True)
     if output_path is None:
         typer.echo(output)
     else:

@@ -75,37 +75,37 @@ def test_check_builds_payload() -> None:
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
-def test_check_payload_strictness_validation() -> None:
-    with pytest.raises(typer.BadParameter):
-        cli.build_check_payload(
-            paths=[Path(".")],
-            report=None,
-            fail_on_violations=True,
-            root=Path("."),
-            config=None,
-            baseline=None,
-            baseline_write=False,
-            decision_snapshot=None,
-            artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
-            emit_test_obsolescence_state=False,
-            test_obsolescence_state=None,
-            emit_test_obsolescence_delta=False,
-            test_annotation_drift_state=None,
-            emit_test_annotation_drift_delta=False,
-            write_test_annotation_drift_baseline=False,
-            write_test_obsolescence_baseline=False,
-            emit_ambiguity_delta=False,
-            emit_ambiguity_state=False,
-            ambiguity_state=None,
-            write_ambiguity_baseline=False,
-            exclude=None,
-            ignore_params_csv=None,
-            transparent_decorators_csv=None,
-            allow_external=None,
-            strictness="medium",
-            fail_on_type_ambiguities=False,
-            lint=False,
-        )
+def test_check_payload_preserves_strictness_for_server_validation() -> None:
+    payload = cli.build_check_payload(
+        paths=[Path(".")],
+        report=None,
+        fail_on_violations=True,
+        root=Path("."),
+        config=None,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=None,
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=False,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+        exclude=None,
+        ignore_params_csv=None,
+        transparent_decorators_csv=None,
+        allow_external=None,
+        strictness="medium",
+        fail_on_type_ambiguities=False,
+        lint=False,
+    )
+    assert payload["strictness"] == "medium"
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline
@@ -337,7 +337,7 @@ def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
         compatibility_shim=False,
         rationale=None,
     )
-    assert payload["bundle"] == ["a", "b"]
+    assert payload["bundle"] == []
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_check::baseline E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline

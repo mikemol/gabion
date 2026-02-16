@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -84,4 +84,50 @@ class TextEditDTO(BaseModel):
 class RefactorResponse(BaseModel):
     edits: List[TextEditDTO] = []
     warnings: List[str] = []
+    errors: List[str] = []
+
+
+class LintEntryDTO(BaseModel):
+    path: str
+    line: int
+    col: int
+    code: str
+    message: str
+    severity: str = "warning"
+
+
+class DataflowAuditResponseDTO(BaseModel):
+    exit_code: int = 0
+    timeout: bool = False
+    analysis_state: Optional[str] = None
+    errors: List[str] = []
+    lint_lines: List[str] = []
+    lint_entries: List[LintEntryDTO] = []
+    payload: Dict[str, Any] = {}
+
+
+class SynthesisPlanResponseDTO(SynthesisResponse):
+    pass
+
+
+class RefactorProtocolResponseDTO(RefactorResponse):
+    pass
+
+
+class StructureDiffResponseDTO(BaseModel):
+    exit_code: int = 0
+    diff: Optional[Dict[str, Any]] = None
+    errors: List[str] = []
+
+
+class DecisionDiffResponseDTO(BaseModel):
+    exit_code: int = 0
+    diff: Optional[Dict[str, Any]] = None
+    errors: List[str] = []
+
+
+class StructureReuseResponseDTO(BaseModel):
+    exit_code: int = 0
+    reuse: Optional[Dict[str, Any]] = None
+    lemma_stubs: Optional[str] = None
     errors: List[str] = []
