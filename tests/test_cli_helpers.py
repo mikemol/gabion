@@ -621,45 +621,33 @@ def test_run_docflow_audit_returns_two_when_loader_creation_fails(
     assert "failed to load audit_tools module" in capsys.readouterr().err
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_audit_skips_type_audit_output() -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {"exit_code": 0}
 
-    request = cli.DataflowAuditRequest(ctx=DummyCtx(), args=["sample.py"], runner=runner)
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(["sample.py"], runner=runner)
     assert exc.value.exit_code == 0
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_audit_type_audit_empty_findings() -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {"exit_code": 0, "type_suggestions": [], "type_ambiguities": []}
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=["sample.py", "--type-audit", "--type-audit-max", "1"],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            ["sample.py", "--type-audit", "--type-audit-max", "1"],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -669,20 +657,18 @@ def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
 
     jsonl_path = tmp_path / "lint.jsonl"
     sarif_path = tmp_path / "lint.sarif"
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=[
-            "sample.py",
-            "--lint",
-            "--lint-jsonl",
-            str(jsonl_path),
-            "--lint-sarif",
-            str(sarif_path),
-        ],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            [
+                "sample.py",
+                "--lint",
+                "--lint-jsonl",
+                str(jsonl_path),
+                "--lint-sarif",
+                str(sarif_path),
+            ],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
     out = capsys.readouterr().out
     assert "GABION_CODE" in out
@@ -691,9 +677,6 @@ def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
 
 
 def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -710,13 +693,11 @@ def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
             },
         }
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=["sample.py", "--root", str(tmp_path)],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            ["sample.py", "--root", str(tmp_path)],
+            runner=runner,
+        )
     assert exc.value.exit_code == 2
     profile_json = tmp_path / "artifacts" / "out" / "deadline_profile.json"
     profile_md = tmp_path / "artifacts" / "out" / "deadline_profile.md"
@@ -745,9 +726,6 @@ def test_emit_timeout_progress_artifacts_missing_timeout_context_is_noop(tmp_pat
 
 
 def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     calls = {"count": 0}
 
     def runner(*_args, **_kwargs):
@@ -784,20 +762,18 @@ def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path)
             }
         return {"exit_code": 0}
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=[
-            "sample.py",
-            "--root",
-            str(tmp_path),
-            "--emit-timeout-progress-report",
-            "--resume-on-timeout",
-            "1",
-        ],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            [
+                "sample.py",
+                "--root",
+                str(tmp_path),
+                "--emit-timeout-progress-report",
+                "--resume-on-timeout",
+                "1",
+            ],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
     assert calls["count"] == 2
     progress_json = tmp_path / "artifacts" / "audit_reports" / "timeout_progress.json"
@@ -930,9 +906,6 @@ def test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric() ->
 
 
 def test_dataflow_audit_timeout_without_retry_raises_exit(tmp_path: Path) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         return {
             "exit_code": 2,
@@ -941,28 +914,23 @@ def test_dataflow_audit_timeout_without_retry_raises_exit(tmp_path: Path) -> Non
             "timeout_context": {"deadline_profile": {"checks_total": 1, "sites": [], "edges": []}},
         }
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=[
-            "sample.py",
-            "--root",
-            str(tmp_path),
-            "--resume-on-timeout",
-            "1",
-        ],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            [
+                "sample.py",
+                "--root",
+                str(tmp_path),
+                "--resume-on-timeout",
+                "1",
+            ],
+            runner=runner,
+        )
     assert exc.value.exit_code == 2
 
 
 def test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain(
     tmp_path: Path,
 ) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     calls = {"count": 0}
 
     def runner(*_args, **_kwargs):
@@ -979,20 +947,18 @@ def test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain(
             }
         return {"exit_code": 0}
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=[
-            "sample.py",
-            "--root",
-            str(tmp_path),
-            "--emit-timeout-progress-report",
-            "--resume-on-timeout",
-            "2",
-        ],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            [
+                "sample.py",
+                "--root",
+                str(tmp_path),
+                "--emit-timeout-progress-report",
+                "--resume-on-timeout",
+                "2",
+            ],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
     assert calls["count"] == 2
 
@@ -1002,9 +968,6 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(
     env_scope,
     restore_env,
 ) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     calls = {"count": 0}
 
     def runner(*_args, **_kwargs):
@@ -1027,19 +990,17 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(
         }
     )
     try:
-        request = cli.DataflowAuditRequest(
-            ctx=DummyCtx(),
-            args=[
-                "sample.py",
-                "--root",
-                str(tmp_path),
-                "--resume-on-timeout",
-                "1",
-            ],
-            runner=runner,
-        )
         with pytest.raises(typer.Exit) as exc:
-            cli._dataflow_audit(request)
+            cli._run_dataflow_raw_argv(
+                [
+                    "sample.py",
+                    "--root",
+                    str(tmp_path),
+                    "--resume-on-timeout",
+                    "1",
+                ],
+                runner=runner,
+            )
     finally:
         restore_env(previous)
     assert exc.value.exit_code == 0
@@ -1076,11 +1037,8 @@ def test_render_timeout_progress_markdown_includes_incremental_obligations() -> 
     assert "components" in rendered
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_audit_emits_structure_tree(capsys) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1088,23 +1046,18 @@ def test_dataflow_audit_emits_structure_tree(capsys) -> None:
             "structure_tree": {"format_version": 1, "root": ".", "files": []},
         }
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=["sample.py", "--emit-structure-tree", "-"],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            ["sample.py", "--emit-structure-tree", "-"],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
     captured = capsys.readouterr()
     assert "\"format_version\": 1" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1119,23 +1072,18 @@ def test_dataflow_audit_emits_structure_metrics(capsys) -> None:
             },
         }
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=["sample.py", "--emit-structure-metrics", "-"],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            ["sample.py", "--emit-structure-metrics", "-"],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
     captured = capsys.readouterr()
     assert "\"bundle_size_histogram\"" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1149,23 +1097,18 @@ def test_dataflow_audit_emits_decision_snapshot(capsys) -> None:
             },
         }
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=["sample.py", "--emit-decision-snapshot", "-"],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            ["sample.py", "--emit-decision-snapshot", "-"],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
     captured = capsys.readouterr()
     assert "\"decision_surfaces\"" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
-    class DummyCtx:
-        args: list[str] = []
-
     def runner(*_args: object, **_kwargs: object) -> dict[str, object]:
         # dataflow-bundle: _args, _kwargs
         return {
@@ -1201,29 +1144,27 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
             ],
         }
 
-    request = cli.DataflowAuditRequest(
-        ctx=DummyCtx(),
-        args=[
-            "sample.py",
-            "--fingerprint-synth-json",
-            "-",
-            "--fingerprint-provenance-json",
-            "-",
-            "--fingerprint-deadness-json",
-            "-",
-            "--fingerprint-coherence-json",
-            "-",
-            "--fingerprint-rewrite-plans-json",
-            "-",
-            "--fingerprint-exception-obligations-json",
-            "-",
-            "--fingerprint-handledness-json",
-            "-",
-        ],
-        runner=runner,
-    )
     with pytest.raises(typer.Exit) as exc:
-        cli._dataflow_audit(request)
+        cli._run_dataflow_raw_argv(
+            [
+                "sample.py",
+                "--fingerprint-synth-json",
+                "-",
+                "--fingerprint-provenance-json",
+                "-",
+                "--fingerprint-deadness-json",
+                "-",
+                "--fingerprint-coherence-json",
+                "-",
+                "--fingerprint-rewrite-plans-json",
+                "-",
+                "--fingerprint-exception-obligations-json",
+                "-",
+                "--fingerprint-handledness-json",
+                "-",
+            ],
+            runner=runner,
+        )
     assert exc.value.exit_code == 0
     captured = capsys.readouterr()
     assert "\"bundle\"" in captured.out

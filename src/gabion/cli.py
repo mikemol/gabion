@@ -92,13 +92,6 @@ def _cli_deadline_scope():
 
 
 @dataclass(frozen=True)
-class DataflowAuditRequest:
-    ctx: typer.Context
-    args: List[str] | None = None
-    runner: Runner | None = None
-
-
-@dataclass(frozen=True)
 class CheckArtifactFlags:
     emit_test_obsolescence: bool
     emit_test_evidence_suggestions: bool
@@ -1375,16 +1368,6 @@ def check(
             lint_sarif=lint_sarif,
         )
     raise typer.Exit(code=int(result.get("exit_code", 0)))
-
-
-def _dataflow_audit(
-    request: "DataflowAuditRequest",
-) -> None:
-    """Run the dataflow grammar audit with explicit options."""
-    with _cli_deadline_scope():
-        check_deadline()
-    argv = list(request.args or []) + list(request.ctx.args)
-    _run_dataflow_raw_argv(argv, runner=request.runner)
 
 
 @app.command(
