@@ -545,11 +545,6 @@ def build_check_payload(
     return payload
 
 
-def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
-    parser = dataflow_cli_parser()
-    return parser.parse_args(argv)
-
-
 def parse_dataflow_args_or_exit(
     argv: list[str],
     *,

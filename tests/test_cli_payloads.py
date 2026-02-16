@@ -144,7 +144,7 @@ def test_check_payload_baseline_write_requires_baseline() -> None:
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_dataflow_audit_payload_parsing() -> None:
-    opts = cli.parse_dataflow_args(
+    opts = cli.parse_dataflow_args_or_exit(
         [
             ".",
             "--strictness",
@@ -177,7 +177,7 @@ def test_dataflow_audit_payload_parsing() -> None:
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv::value E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
 def test_dataflow_payload_baseline_and_transparent() -> None:
-    opts = cli.parse_dataflow_args(
+    opts = cli.parse_dataflow_args_or_exit(
         [
             ".",
             "--baseline",
@@ -197,7 +197,7 @@ def test_dataflow_payload_baseline_and_transparent() -> None:
 
 # gabion:evidence E:function_site::cli.py::gabion.cli.build_dataflow_payload
 def test_dataflow_payload_resume_checkpoint_and_timeout_flags() -> None:
-    opts = cli.parse_dataflow_args(
+    opts = cli.parse_dataflow_args_or_exit(
         [
             ".",
             "--resume-checkpoint",
