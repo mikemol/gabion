@@ -8,6 +8,7 @@ from pathlib import Path
 
 from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 REQUIRED_FRONTMATTER_FIELDS = {
@@ -172,7 +173,12 @@ def _iter_paths(paths: list[str]) -> list[Path]:
         check_deadline()
         path = Path(raw)
         if path.is_dir():
-            resolved.extend(sorted(path.rglob("*.md")))
+            resolved.extend(
+                ordered_or_sorted(
+                    path.rglob("*.md"),
+                    source="scripts.audit_in_step_structure.iter_paths",
+                )
+            )
         else:
             resolved.append(path)
     return resolved

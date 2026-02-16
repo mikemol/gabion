@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
@@ -141,7 +142,10 @@ def main() -> int:
             print("No commits in range; nothing to sync.")
             return 0
 
-        issue_ids = sorted(_issue_ids_from_commits(commits))
+        issue_ids = ordered_or_sorted(
+            _issue_ids_from_commits(commits),
+            source="scripts.sppf_sync.issue_ids",
+        )
         if not issue_ids:
             print("No issue references found in commit messages.")
             return 0

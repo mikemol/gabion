@@ -6,6 +6,7 @@ from pathlib import Path
 
 from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 ENV_FLAG = "GABION_GATE_ORPHANED_DELTA"
@@ -37,7 +38,10 @@ def _print_summary(delta_path: Path) -> None:
     baseline = summary.get("baseline", {})
     current = summary.get("current", {})
     delta = summary.get("delta", {})
-    keys = sorted({*baseline.keys(), *current.keys(), *delta.keys()})
+    keys = ordered_or_sorted(
+        {*baseline.keys(), *current.keys(), *delta.keys()},
+        source="scripts.annotation_drift_delta_advisory.summary_keys",
+    )
     print("Annotation drift delta summary (advisory):")
     for key in keys:
         check_deadline()

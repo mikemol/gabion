@@ -20,6 +20,7 @@ from typing import Any, Iterable
 from audit_tools import _parse_frontmatter  # type: ignore
 from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
 
 
 AnchorMap = dict[str, tuple[str, int]]
@@ -47,7 +48,10 @@ def _iter_docs(paths: Iterable[str]) -> list[Path]:
             continue
         path = Path(raw)
         if path.is_dir():
-            for doc in sorted(path.rglob("*.md")):
+            for doc in ordered_or_sorted(
+                path.rglob("*.md"),
+                source="scripts.docflow_promote_sections.iter_docs",
+            ):
                 check_deadline()
                 if doc not in seen:
                     out.append(doc)
