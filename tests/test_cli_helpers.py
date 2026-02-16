@@ -3,14 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 import io
 import json
-import os
 import sys
-import time
+import types
 
 import pytest
 import typer
 
 from gabion import cli
+from gabion.analysis.timeout_context import check_deadline
+from tests.env_helpers import env_scope as _env_scope
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
@@ -212,6 +213,94 @@ def test_run_docflow_audit_cleans_import_state(tmp_path: Path) -> None:
     assert exit_code == 0
     assert scripts_root not in sys.path
     assert module_name not in sys.modules
+
+
+def test_run_docflow_audit_restores_previous_module(tmp_path: Path) -> None:
+    module_name = "gabion_repo_audit_tools"
+    module_path = tmp_path / "audit_tools.py"
+    module_path.write_text(
+        "def run_docflow_cli(argv=None):\n"
+        "    return 0\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    return 0\n"
+    )
+    previous_module = types.ModuleType(module_name)
+    existing_module = sys.modules.get(module_name)
+    sys.modules[module_name] = previous_module
+    try:
+        exit_code = cli._run_docflow_audit(
+            root=tmp_path,
+            fail_on_violations=False,
+            audit_tools_path=module_path,
+        )
+        assert exit_code == 0
+        assert sys.modules.get(module_name) is previous_module
+    finally:
+        if existing_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = existing_module
+
+
+def test_run_docflow_audit_cleanup_ignores_missing_sys_path(tmp_path: Path) -> None:
+    module_path = tmp_path / "audit_tools.py"
+    module_path.write_text(
+        "import pathlib\n"
+        "import sys\n"
+        "SCRIPTS_ROOT = str(pathlib.Path(__file__).parent)\n"
+        "def run_docflow_cli(argv=None):\n"
+        "    if SCRIPTS_ROOT in sys.path:\n"
+        "        sys.path.remove(SCRIPTS_ROOT)\n"
+        "    return 0\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    return 0\n"
+    )
+    scripts_root = str(tmp_path)
+    while scripts_root in sys.path:
+        sys.path.remove(scripts_root)
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        audit_tools_path=module_path,
+    )
+    assert exit_code == 0
+    assert scripts_root not in sys.path
+
+
+def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module_path = tmp_path / "audit_tools.py"
+    module_path.write_text(
+        "def run_docflow_cli(argv=None):\n"
+        "    return 0\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    raise RuntimeError('boom')\n"
+    )
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        audit_tools_path=module_path,
+    )
+    assert exit_code == 1
+    assert "docflow: sppf-graph failed: boom" in capsys.readouterr().err
+
+
+def test_run_docflow_audit_returns_two_when_loader_creation_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module_path = tmp_path / "audit_tools.py"
+    module_path.write_text("def run_docflow_cli(argv=None):\n    return 0\n")
+    monkeypatch.setattr(cli.importlib.util, "spec_from_file_location", lambda *_a, **_k: None)
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        audit_tools_path=module_path,
+    )
+    assert exit_code == 2
+    assert "failed to load audit_tools module" in capsys.readouterr().err
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
@@ -590,7 +679,11 @@ def test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain(
     assert calls["count"] == 2
 
 
-def test_dataflow_audit_retry_uses_fresh_cli_budget(tmp_path: Path) -> None:
+def test_dataflow_audit_retry_uses_fresh_cli_budget(
+    tmp_path: Path,
+    env_scope,
+    restore_env,
+) -> None:
     class DummyCtx:
         args: list[str] = []
 
@@ -599,7 +692,7 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         calls["count"] += 1
         if calls["count"] == 1:
-            time.sleep(0.06)
+            check_deadline()
             return {
                 "exit_code": 2,
                 "timeout": True,
@@ -607,8 +700,14 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(tmp_path: Path) -> None:
             }
         return {"exit_code": 0}
 
-    prior_timeout_ms = os.environ.get("GABION_LSP_TIMEOUT_MS")
-    os.environ["GABION_LSP_TIMEOUT_MS"] = "50"
+    previous = env_scope(
+        {
+            "GABION_LSP_TIMEOUT_TICKS": "3",
+            "GABION_LSP_TIMEOUT_TICK_NS": "1000000000",
+            "GABION_LSP_TIMEOUT_MS": None,
+            "GABION_LSP_TIMEOUT_SECONDS": None,
+        }
+    )
     try:
         request = cli.DataflowAuditRequest(
             ctx=DummyCtx(),
@@ -624,10 +723,7 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(tmp_path: Path) -> None:
         with pytest.raises(typer.Exit) as exc:
             cli._dataflow_audit(request)
     finally:
-        if prior_timeout_ms is None:
-            os.environ.pop("GABION_LSP_TIMEOUT_MS", None)
-        else:
-            os.environ["GABION_LSP_TIMEOUT_MS"] = prior_timeout_ms
+        restore_env(previous)
     assert exc.value.exit_code == 0
     assert calls["count"] == 2
 
@@ -1081,9 +1177,7 @@ def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
         proc_holder["proc"] = proc
         return proc
 
-    previous = os.environ.get("GABION_DIRECT_RUN")
-    os.environ.pop("GABION_DIRECT_RUN", None)
-    try:
+    with _env_scope({"GABION_DIRECT_RUN": None}):
         result = cli.dispatch_command(
             command=cli.STRUCTURE_DIFF_COMMAND,
             payload={"baseline": str(tmp_path / "base.json"), "current": str(tmp_path / "current.json")},
@@ -1091,11 +1185,6 @@ def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
             runner=cli.run_command,
             process_factory=factory,
         )
-    finally:
-        if previous is None:
-            os.environ.pop("GABION_DIRECT_RUN", None)
-        else:
-            os.environ["GABION_DIRECT_RUN"] = previous
     assert result == {"ok": True}
     proc = proc_holder["proc"]
     messages = _extract_rpc_messages(proc.stdin.getvalue())
