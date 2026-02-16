@@ -52,33 +52,30 @@ def test_check_rejects_unknown_profile() -> None:
 
 
 def test_check_raw_profile_delegates_with_profile_defaults(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_run(argv: list[str], *, runner=None) -> None:
+    def _fake_run(argv: list[str]) -> None:
         captured["argv"] = list(argv)
-        captured["runner"] = runner
 
-    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["check", "--profile", "raw", "sample.py"])
+    result = runner.invoke(
+        cli.app,
+        ["check", "--profile", "raw", "sample.py"],
+        obj={"run_dataflow_raw_argv": _fake_run},
+    )
     assert result.exit_code == 0
     assert captured["argv"] == ["sample.py"]
-    assert captured["runner"] is None
 
 
 def test_check_raw_profile_maps_common_flags_and_passthrough_args(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_run(argv: list[str], *, runner=None) -> None:
+    def _fake_run(argv: list[str]) -> None:
         captured["argv"] = list(argv)
-        captured["runner"] = runner
 
-    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
@@ -123,6 +120,7 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
             "-",
             "--type-audit",
         ],
+        obj={"run_dataflow_raw_argv": _fake_run},
     )
     assert result.exit_code == 0
     assert captured["argv"] == [
@@ -163,19 +161,15 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
         "--lint-sarif",
         "lint.sarif",
     ]
-    assert captured["runner"] is None
 
 
 def test_check_raw_profile_maps_no_allow_external(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_run(argv: list[str], *, runner=None) -> None:
+    def _fake_run(argv: list[str]) -> None:
         captured["argv"] = list(argv)
-        captured["runner"] = runner
 
-    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
@@ -188,10 +182,10 @@ def test_check_raw_profile_maps_no_allow_external(
             "--no-fail-on-violations",
             "--no-fail-on-type-ambiguities",
         ],
+        obj={"run_dataflow_raw_argv": _fake_run},
     )
     assert result.exit_code == 0
     assert captured["argv"] == ["sample.py", "--no-allow-external"]
-    assert captured["runner"] is None
 
 
 def test_check_raw_profile_rejects_check_only_flags() -> None:
@@ -205,76 +199,90 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
 
 
 def test_dataflow_audit_command_delegates_to_raw_runner(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_run(argv: list[str], *, runner=None) -> None:
+    def _fake_run(argv: list[str]) -> None:
         captured["argv"] = list(argv)
-        captured["runner"] = runner
 
-    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", lambda: None)
-    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
         ["dataflow-audit", "sample.py", "--dot", "-", "--root", "."],
+        obj={
+            "warn_dataflow_audit_alias": (lambda: None),
+            "run_dataflow_raw_argv": _fake_run,
+        },
     )
     assert result.exit_code == 0
     assert captured["argv"] == ["sample.py", "--dot", "-", "--root", "."]
-    assert captured["runner"] is None
 
 
 def test_dataflow_audit_alias_matches_check_raw_args(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured: list[tuple[list[str], object | None]] = []
+    captured: list[list[str]] = []
 
-    def _fake_run(argv: list[str], *, runner=None) -> None:
-        captured.append((list(argv), runner))
+    def _fake_run(argv: list[str]) -> None:
+        captured.append(list(argv))
 
-    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
-    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", lambda: None)
     runner = CliRunner()
     check_result = runner.invoke(
         cli.app,
         ["check", "--profile", "raw", "sample.py", "--dot", "-"],
+        obj={
+            "warn_dataflow_audit_alias": (lambda: None),
+            "run_dataflow_raw_argv": _fake_run,
+        },
     )
-    dataflow_result = runner.invoke(cli.app, ["dataflow-audit", "sample.py", "--dot", "-"])
+    dataflow_result = runner.invoke(
+        cli.app,
+        ["dataflow-audit", "sample.py", "--dot", "-"],
+        obj={
+            "warn_dataflow_audit_alias": (lambda: None),
+            "run_dataflow_raw_argv": _fake_run,
+        },
+    )
     assert check_result.exit_code == 0
     assert dataflow_result.exit_code == 0
     assert len(captured) == 2
     assert captured[0] == captured[1]
 
 
-def test_dataflow_audit_emits_alias_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_dataflow_audit_emits_alias_warning() -> None:
     warned = {"count": 0}
 
     def _fake_warn() -> None:
         warned["count"] += 1
 
-    def _fake_run(_argv: list[str], *, runner=None) -> None:
+    def _fake_run(_argv: list[str]) -> None:
         return None
 
-    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", _fake_warn)
-    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["dataflow-audit", "sample.py"])
+    result = runner.invoke(
+        cli.app,
+        ["dataflow-audit", "sample.py"],
+        obj={
+            "warn_dataflow_audit_alias": _fake_warn,
+            "run_dataflow_raw_argv": _fake_run,
+        },
+    )
     assert result.exit_code == 0
     assert warned["count"] == 1
 
 
 def test_dataflow_audit_help_does_not_emit_alias_warning(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     warned = {"count": 0}
 
     def _fake_warn() -> None:
         warned["count"] += 1
 
-    monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", _fake_warn)
     runner = CliRunner()
-    result = runner.invoke(cli.app, ["dataflow-audit", "--help"])
+    result = runner.invoke(
+        cli.app,
+        ["dataflow-audit", "--help"],
+        obj={"warn_dataflow_audit_alias": _fake_warn},
+    )
     assert result.exit_code == 0
     assert warned["count"] == 0
 
@@ -283,6 +291,18 @@ def test_dataflow_alias_migration_epilog_contains_map() -> None:
     epilog = cli._dataflow_alias_migration_epilog()
     assert "gabion check --profile raw" in epilog
     assert "--emit-decision-snapshot -> --decision-snapshot" in epilog
+
+
+def test_context_dependency_helpers_ignore_noncallables() -> None:
+    class DummyCtx:
+        obj = {
+            "run_dataflow_raw_argv": "not-callable",
+            "warn_dataflow_audit_alias": "not-callable",
+        }
+
+    ctx = DummyCtx()
+    assert cli._context_run_dataflow_raw_argv(ctx) is cli._run_dataflow_raw_argv
+    assert cli._context_warn_dataflow_audit_alias(ctx) is cli._warn_dataflow_audit_alias
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
@@ -591,16 +611,15 @@ def test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf(
 
 def test_run_docflow_audit_returns_two_when_loader_creation_fails(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     module_path = tmp_path / "audit_tools.py"
     module_path.write_text("def run_docflow_cli(argv=None):\n    return 0\n")
-    monkeypatch.setattr(cli.importlib.util, "spec_from_file_location", lambda *_a, **_k: None)
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
         audit_tools_path=module_path,
+        spec_from_file_location_fn=lambda *_a, **_k: None,
     )
     assert exit_code == 2
     assert "failed to load audit_tools module" in capsys.readouterr().err

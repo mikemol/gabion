@@ -1047,6 +1047,7 @@ def _run_check_raw_profile(
     lint: bool,
     lint_jsonl: Optional[Path],
     lint_sarif: Optional[Path],
+    run_dataflow_raw_argv_fn: Callable[[list[str]], None] | None = None,
 ) -> None:
     unsupported = _raw_profile_unsupported_flags(ctx)
     if unsupported:
@@ -1077,7 +1078,8 @@ def _run_check_raw_profile(
         lint_jsonl=lint_jsonl,
         lint_sarif=lint_sarif,
     )
-    _run_dataflow_raw_argv(raw_args + list(ctx.args))
+    resolved_run = run_dataflow_raw_argv_fn or _run_dataflow_raw_argv
+    resolved_run(raw_args + list(ctx.args))
 
 
 def _warn_dataflow_audit_alias() -> None:
@@ -1086,6 +1088,24 @@ def _warn_dataflow_audit_alias() -> None:
 
 def _dataflow_alias_migration_epilog() -> str:
     return _DATAFLOW_AUDIT_MIGRATION_EPILOG
+
+
+def _context_run_dataflow_raw_argv(ctx: typer.Context) -> Callable[[list[str]], None]:
+    obj = ctx.obj
+    if isinstance(obj, Mapping):
+        candidate = obj.get("run_dataflow_raw_argv")
+        if callable(candidate):
+            return candidate
+    return _run_dataflow_raw_argv
+
+
+def _context_warn_dataflow_audit_alias(ctx: typer.Context) -> Callable[[], None]:
+    obj = ctx.obj
+    if isinstance(obj, Mapping):
+        candidate = obj.get("warn_dataflow_audit_alias")
+        if callable(candidate):
+            return candidate
+    return _warn_dataflow_audit_alias
 
 
 def _run_dataflow_raw_argv(
@@ -1271,6 +1291,7 @@ def check(
     if profile_name not in {"strict", "raw"}:
         raise typer.BadParameter("profile must be 'strict' or 'raw'")
     if profile_name == "raw":
+        run_dataflow_raw_argv_fn = _context_run_dataflow_raw_argv(ctx)
         _run_check_raw_profile(
             ctx=ctx,
             paths=paths,
@@ -1293,6 +1314,7 @@ def check(
             lint=lint,
             lint_jsonl=lint_jsonl,
             lint_sarif=lint_sarif,
+            run_dataflow_raw_argv_fn=run_dataflow_raw_argv_fn,
         )
         return
     extra_tokens = list(ctx.args)
@@ -1382,8 +1404,8 @@ def dataflow_audit(
     argv = list(args or []) + list(ctx.args)
     if any(arg in {"-h", "--help"} for arg in argv):
         parse_dataflow_args_or_exit(["--help"])
-    _warn_dataflow_audit_alias()
-    _run_dataflow_raw_argv(argv)
+    _context_warn_dataflow_audit_alias(ctx)()
+    _context_run_dataflow_raw_argv(ctx)(argv)
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:
@@ -1587,6 +1609,8 @@ def _run_docflow_audit(
     root: Path,
     fail_on_violations: bool,
     audit_tools_path: Path | None = None,
+    spec_from_file_location_fn: Callable[..., object | None] = importlib.util.spec_from_file_location,
+    module_from_spec_fn: Callable[..., object] = importlib.util.module_from_spec,
 ) -> int:
     repo_root = _find_repo_root()
     module_path = audit_tools_path or (repo_root / "scripts" / "audit_tools.py")
@@ -1601,10 +1625,11 @@ def _run_docflow_audit(
     @contextmanager
     def _load_audit_tools() -> Generator[object, None, None]:
         module_name = "gabion_repo_audit_tools"
-        spec = importlib.util.spec_from_file_location(module_name, module_path)
-        if spec is None or spec.loader is None:
+        spec = spec_from_file_location_fn(module_name, module_path)
+        loader = getattr(spec, "loader", None)
+        if spec is None or loader is None:
             raise RuntimeError("failed to load audit_tools module")
-        module = importlib.util.module_from_spec(spec)
+        module = module_from_spec_fn(spec)
         scripts_root = str(module_path.parent)
         inserted_path = False
         if scripts_root not in sys.path:
@@ -1614,7 +1639,7 @@ def _run_docflow_audit(
         had_previous = module_name in sys.modules
         sys.modules[module_name] = module
         try:
-            spec.loader.exec_module(module)
+            loader.exec_module(module)
             yield module
         finally:
             if had_previous:
