@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
-from deadline_runtime import deadline_scope_from_ticks
+from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.projection_exec import apply_spec
@@ -25,6 +25,10 @@ from gabion.invariants import never
 
 _DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
 _DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_AUDIT_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_AUDIT_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_AUDIT_TIMEOUT_TICK_NS,
+)
 _DEFAULT_AUDIT_GAS_LIMIT = 50_000_000
 _AUDIT_GAS_LIMIT_ENV = "GABION_AUDIT_GAS_LIMIT"
 
@@ -44,8 +48,7 @@ def _audit_gas_limit() -> int:
 
 def _audit_deadline_scope():
     return deadline_scope_from_ticks(
-        ticks=_DEFAULT_AUDIT_TIMEOUT_TICKS,
-        tick_ns=_DEFAULT_AUDIT_TIMEOUT_TICK_NS,
+        budget=_DEFAULT_AUDIT_TIMEOUT_BUDGET,
         gas_limit=_audit_gas_limit(),
     )
 

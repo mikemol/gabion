@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from audit_tools import _parse_frontmatter  # type: ignore
-from deadline_runtime import deadline_scope_from_ticks
+from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import check_deadline
 
 
@@ -26,12 +26,15 @@ AnchorMap = dict[str, tuple[str, int]]
 
 _DEFAULT_PROMOTE_TIMEOUT_TICKS = 120_000
 _DEFAULT_PROMOTE_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_PROMOTE_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_PROMOTE_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_PROMOTE_TIMEOUT_TICK_NS,
+)
 
 
 def _promote_deadline_scope():
     return deadline_scope_from_ticks(
-        ticks=_DEFAULT_PROMOTE_TIMEOUT_TICKS,
-        tick_ns=_DEFAULT_PROMOTE_TIMEOUT_TICK_NS,
+        budget=_DEFAULT_PROMOTE_TIMEOUT_BUDGET,
     )
 
 

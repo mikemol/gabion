@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from deadline_runtime import deadline_scope_from_ticks
+from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.timeout_context import check_deadline
 from gabion.invariants import never
 
@@ -36,9 +36,13 @@ _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 _DEFAULT_POLICY_TIMEOUT_TICKS = 120_000
 _DEFAULT_POLICY_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_POLICY_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_POLICY_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_POLICY_TIMEOUT_TICK_NS,
+)
 
 
-def _policy_timeout_ticks() -> tuple[int, int]:
+def _policy_timeout_budget() -> DeadlineBudget:
     raw_ticks = os.getenv("GABION_POLICY_TIMEOUT_TICKS", "").strip()
     raw_tick_ns = os.getenv("GABION_POLICY_TIMEOUT_TICK_NS", "").strip()
     if raw_ticks or raw_tick_ns:
@@ -58,16 +62,20 @@ def _policy_timeout_ticks() -> tuple[int, int]:
             never("invalid policy timeout ticks", ticks=raw_ticks)
         if tick_ns_value <= 0:
             never("invalid policy timeout tick_ns", tick_ns=raw_tick_ns)
-        return ticks_value, tick_ns_value
-    return (
-        _DEFAULT_POLICY_TIMEOUT_TICKS,
-        _DEFAULT_POLICY_TIMEOUT_TICK_NS,
+        return DeadlineBudget(
+            ticks=ticks_value,
+            tick_ns=tick_ns_value,
+        )
+    return DeadlineBudget(
+        ticks=_DEFAULT_POLICY_TIMEOUT_BUDGET.ticks,
+        tick_ns=_DEFAULT_POLICY_TIMEOUT_BUDGET.tick_ns,
     )
 
 
 def _policy_deadline_scope():
-    ticks_value, tick_ns_value = _policy_timeout_ticks()
-    return deadline_scope_from_ticks(ticks=ticks_value, tick_ns=tick_ns_value)
+    return deadline_scope_from_ticks(
+        budget=_policy_timeout_budget(),
+    )
 
 
 @dataclass(frozen=True)

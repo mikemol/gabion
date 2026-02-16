@@ -4,19 +4,22 @@ import json
 import os
 from pathlib import Path
 
-from deadline_runtime import deadline_scope_from_lsp_env
+from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
 
 
 ENV_FLAG = "GABION_GATE_ORPHANED_DELTA"
 _DEFAULT_ADVISORY_TIMEOUT_TICKS = 120_000
 _DEFAULT_ADVISORY_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_ADVISORY_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_ADVISORY_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_ADVISORY_TIMEOUT_TICK_NS,
+)
 
 
 def _deadline_scope():
     return deadline_scope_from_lsp_env(
-        default_ticks=_DEFAULT_ADVISORY_TIMEOUT_TICKS,
-        default_tick_ns=_DEFAULT_ADVISORY_TIMEOUT_TICK_NS,
+        default_budget=_DEFAULT_ADVISORY_TIMEOUT_BUDGET,
     )
 
 

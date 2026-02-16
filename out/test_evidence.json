@@ -28195,35 +28195,42 @@
     {
       "evidence": [],
       "file": "tests/test_deadline_runtime.py",
-      "line": 107,
+      "line": 86,
+      "status": "unmapped",
+      "test_id": "tests/test_deadline_runtime.py::test_deadline_budget_rejects_non_positive_fields"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_deadline_runtime.py",
+      "line": 131,
       "status": "unmapped",
       "test_id": "tests/test_deadline_runtime.py::test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_runtime.py",
-      "line": 93,
+      "line": 112,
       "status": "unmapped",
       "test_id": "tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_rejects_invalid_gas_limit"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_runtime.py",
-      "line": 86,
+      "line": 102,
       "status": "unmapped",
       "test_id": "tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_respects_gas_limit"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_runtime.py",
-      "line": 80,
+      "line": 94,
       "status": "unmapped",
       "test_id": "tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_supports_deadline_checks"
     },
     {
       "evidence": [],
       "file": "tests/test_deadline_runtime.py",
-      "line": 100,
+      "line": 122,
       "status": "unmapped",
       "test_id": "tests/test_deadline_runtime.py::test_deadline_scope_from_ticks_unwinds_on_inner_exception"
     },
@@ -28237,7 +28244,7 @@
     {
       "evidence": [],
       "file": "tests/test_deadline_runtime.py",
-      "line": 54,
+      "line": 56,
       "status": "unmapped",
       "test_id": "tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_env_override_and_rejects_invalid"
     },

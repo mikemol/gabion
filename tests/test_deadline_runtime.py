@@ -29,7 +29,9 @@ def test_timeout_ticks_from_lsp_env_uses_defaults() -> None:
         os.environ.pop("GABION_LSP_TIMEOUT_TICK_NS", None)
         os.environ.pop("GABION_LSP_TIMEOUT_MS", None)
         os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
-        ticks, tick_ns = dr.timeout_ticks_from_lsp_env(default_ticks=7, default_tick_ns=9)
+        budget = dr.timeout_budget_from_lsp_env(
+            default_budget=dr.DeadlineBudget(ticks=7, tick_ns=9),
+        )
     finally:
         if previous_ticks is None:
             os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
@@ -47,8 +49,8 @@ def test_timeout_ticks_from_lsp_env_uses_defaults() -> None:
             os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
         else:
             os.environ["GABION_LSP_TIMEOUT_SECONDS"] = previous_seconds
-    assert ticks == 7
-    assert tick_ns == 9
+    assert budget.ticks == 7
+    assert budget.tick_ns == 9
 
 
 def test_timeout_ticks_from_lsp_env_uses_env_override_and_rejects_invalid() -> None:
@@ -58,14 +60,18 @@ def test_timeout_ticks_from_lsp_env_uses_env_override_and_rejects_invalid() -> N
     try:
         os.environ["GABION_LSP_TIMEOUT_TICKS"] = "11"
         os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = "13"
-        ticks, tick_ns = dr.timeout_ticks_from_lsp_env(default_ticks=1, default_tick_ns=1)
-        assert ticks == 11
-        assert tick_ns == 13
+        budget = dr.timeout_budget_from_lsp_env(
+            default_budget=dr.DeadlineBudget(ticks=1, tick_ns=1),
+        )
+        assert budget.ticks == 11
+        assert budget.tick_ns == 13
 
         os.environ["GABION_LSP_TIMEOUT_TICKS"] = ""
         os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = "13"
         with pytest.raises(NeverThrown):
-            dr.timeout_ticks_from_lsp_env(default_ticks=1, default_tick_ns=1)
+            dr.timeout_budget_from_lsp_env(
+                default_budget=dr.DeadlineBudget(ticks=1, tick_ns=1),
+            )
     finally:
         if previous_ticks is None:
             os.environ.pop("GABION_LSP_TIMEOUT_TICKS", None)
@@ -77,15 +83,28 @@ def test_timeout_ticks_from_lsp_env_uses_env_override_and_rejects_invalid() -> N
             os.environ["GABION_LSP_TIMEOUT_TICK_NS"] = previous_tick_ns
 
 
+def test_deadline_budget_rejects_non_positive_fields() -> None:
+    dr = _load_deadline_runtime()
+    with pytest.raises(NeverThrown):
+        dr.DeadlineBudget(ticks=0, tick_ns=1)
+    with pytest.raises(NeverThrown):
+        dr.DeadlineBudget(ticks=1, tick_ns=0)
+
+
 def test_deadline_scope_from_ticks_supports_deadline_checks() -> None:
     dr = _load_deadline_runtime()
-    with dr.deadline_scope_from_ticks(5, 1_000_000_000):
+    with dr.deadline_scope_from_ticks(
+        dr.DeadlineBudget(ticks=5, tick_ns=1_000_000_000),
+    ):
         check_deadline()
 
 
 def test_deadline_scope_from_ticks_respects_gas_limit() -> None:
     dr = _load_deadline_runtime()
-    with dr.deadline_scope_from_ticks(5, 1_000_000_000, gas_limit=1):
+    with dr.deadline_scope_from_ticks(
+        dr.DeadlineBudget(ticks=5, tick_ns=1_000_000_000),
+        gas_limit=1,
+    ):
         with pytest.raises(TimeoutExceeded):
             check_deadline()
 
@@ -93,14 +112,19 @@ def test_deadline_scope_from_ticks_respects_gas_limit() -> None:
 def test_deadline_scope_from_ticks_rejects_invalid_gas_limit() -> None:
     dr = _load_deadline_runtime()
     with pytest.raises(NeverThrown):
-        with dr.deadline_scope_from_ticks(5, 1_000_000_000, gas_limit=0):
+        with dr.deadline_scope_from_ticks(
+            dr.DeadlineBudget(ticks=5, tick_ns=1_000_000_000),
+            gas_limit=0,
+        ):
             check_deadline()
 
 
 def test_deadline_scope_from_ticks_unwinds_on_inner_exception() -> None:
     dr = _load_deadline_runtime()
     with pytest.raises(RuntimeError):
-        with dr.deadline_scope_from_ticks(5, 1_000_000_000):
+        with dr.deadline_scope_from_ticks(
+            dr.DeadlineBudget(ticks=5, tick_ns=1_000_000_000),
+        ):
             raise RuntimeError("boom")
 
 
@@ -116,8 +140,7 @@ def test_deadline_scope_from_lsp_env_uses_default_and_explicit_gas_limit() -> No
         os.environ.pop("GABION_LSP_TIMEOUT_MS", None)
         os.environ.pop("GABION_LSP_TIMEOUT_SECONDS", None)
         with dr.deadline_scope_from_lsp_env(
-            default_ticks=4,
-            default_tick_ns=1_000_000_000,
+            default_budget=dr.DeadlineBudget(ticks=4, tick_ns=1_000_000_000),
             gas_limit=2,
         ):
             check_deadline()
