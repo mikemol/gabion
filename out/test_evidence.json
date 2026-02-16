@@ -37577,6 +37577,41 @@
     },
     {
       "evidence": [],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 149,
+      "status": "unmapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 52,
+      "status": "unmapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 88,
+      "status": "unmapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 128,
+      "status": "unmapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure"
+    },
+    {
+      "evidence": [],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 45,
+      "status": "unmapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered"
+    },
+    {
+      "evidence": [],
       "file": "tests/test_schema_audit.py",
       "line": 174,
       "status": "unmapped",

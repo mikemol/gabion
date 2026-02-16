@@ -37,68 +37,40 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip uv
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
-      - name: Dataflow audit stage A (collection/hydration warmup)
-        id: dataflow_stage_a
+      - name: Dataflow audit staged retries (A->B->C)
+        id: dataflow_stage
         env:
           GABION_DIRECT_RUN: "1"
-          DATAFLOW_STAGE_ID: "a"
         run: |
-          .venv/bin/python scripts/run_dataflow_stage.py --stage-id "$DATAFLOW_STAGE_ID"
-      - name: Dataflow audit stage B (projection/post warmup)
-        id: dataflow_stage_b
-        if: steps.dataflow_stage_a.outputs.is_timeout_resume == 'true'
-        env:
-          GABION_DIRECT_RUN: "1"
-          DATAFLOW_STAGE_ID: "b"
-        run: |
-          .venv/bin/python scripts/run_dataflow_stage.py --stage-id "$DATAFLOW_STAGE_ID"
-      - name: Dataflow audit stage C (gating)
-        id: dataflow_stage_c
-        if: steps.dataflow_stage_b.outputs.is_timeout_resume == 'true'
-        env:
-          GABION_DIRECT_RUN: "1"
-          DATAFLOW_STAGE_ID: "c"
-        run: |
-          .venv/bin/python scripts/run_dataflow_stage.py --stage-id "$DATAFLOW_STAGE_ID"
+          .venv/bin/python scripts/run_dataflow_stage.py --max-attempts 3
       - name: Finalize dataflow audit outcome
         if: always()
         env:
-          STAGE_A_EXIT: ${{ steps.dataflow_stage_a.outputs.exit_code }}
-          STAGE_A_STATE: ${{ steps.dataflow_stage_a.outputs.analysis_state }}
-          STAGE_A_OUTCOME: ${{ steps.dataflow_stage_a.outcome }}
-          STAGE_B_EXIT: ${{ steps.dataflow_stage_b.outputs.exit_code }}
-          STAGE_B_STATE: ${{ steps.dataflow_stage_b.outputs.analysis_state }}
-          STAGE_B_OUTCOME: ${{ steps.dataflow_stage_b.outcome }}
-          STAGE_C_EXIT: ${{ steps.dataflow_stage_c.outputs.exit_code }}
-          STAGE_C_STATE: ${{ steps.dataflow_stage_c.outputs.analysis_state }}
-          STAGE_C_OUTCOME: ${{ steps.dataflow_stage_c.outcome }}
+          TERMINAL_EXIT: ${{ steps.dataflow_stage.outputs.exit_code }}
+          TERMINAL_STATE: ${{ steps.dataflow_stage.outputs.analysis_state }}
+          TERMINAL_STAGE: ${{ steps.dataflow_stage.outputs.terminal_stage }}
+          TERMINAL_STATUS: ${{ steps.dataflow_stage.outputs.terminal_status }}
+          ATTEMPTS_RUN: ${{ steps.dataflow_stage.outputs.attempts_run }}
         run: |
-          terminal_stage="A"
-          terminal_exit="${STAGE_A_EXIT:-}"
-          terminal_state="${STAGE_A_STATE:-}"
-          terminal_status="not_run"
-          if [ -n "${STAGE_B_EXIT:-}" ]; then
-            terminal_stage="B"
-            terminal_exit="${STAGE_B_EXIT:-}"
-            terminal_state="${STAGE_B_STATE:-}"
-          fi
-          if [ -n "${STAGE_C_EXIT:-}" ]; then
-            terminal_stage="C"
-            terminal_exit="${STAGE_C_EXIT:-}"
-            terminal_state="${STAGE_C_STATE:-}"
-          fi
+          terminal_stage="${TERMINAL_STAGE:-none}"
+          terminal_exit="${TERMINAL_EXIT:-}"
+          terminal_state="${TERMINAL_STATE:-none}"
+          terminal_status="${TERMINAL_STATUS:-unknown}"
+          attempts_run="${ATTEMPTS_RUN:-0}"
           if [ -z "$terminal_exit" ]; then
             echo "No dataflow audit stage produced an exit code."
             exit 1
           fi
-          if [ "$terminal_exit" = "0" ]; then
-            terminal_status="success"
-          elif [ "$terminal_state" = "timed_out_progress_resume" ]; then
-            terminal_status="timeout_resume"
-          else
-            terminal_status="hard_failure"
+          if [ "$terminal_status" = "unknown" ]; then
+            if [ "$terminal_exit" = "0" ]; then
+              terminal_status="success"
+            elif [ "$terminal_state" = "timed_out_progress_resume" ]; then
+              terminal_status="timeout_resume"
+            else
+              terminal_status="hard_failure"
+            fi
           fi
-          echo "terminal_stage=$terminal_stage exit_code=$terminal_exit analysis_state=${terminal_state:-none} status=$terminal_status"
+          echo "terminal_stage=$terminal_stage attempts=$attempts_run exit_code=$terminal_exit analysis_state=$terminal_state status=$terminal_status"
           if [ "$terminal_status" = "success" ]; then
             exit 0
           fi

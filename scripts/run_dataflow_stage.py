@@ -10,6 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
+from gabion.analysis.timeout_context import deadline_loop_iter
+
+_STAGE_SEQUENCE: tuple[str, ...] = ("a", "b", "c")
+
 
 @dataclass(frozen=True)
 class StageResult:
@@ -18,6 +22,25 @@ class StageResult:
     analysis_state: str
     is_timeout_resume: bool
     metrics_line: str
+
+    @property
+    def terminal_status(self) -> str:
+        if self.exit_code == 0:
+            return "success"
+        if self.is_timeout_resume:
+            return "timeout_resume"
+        return "hard_failure"
+
+
+@dataclass(frozen=True)
+class StagePaths:
+    report_path: Path
+    timeout_progress_json_path: Path
+    timeout_progress_md_path: Path
+    deadline_profile_json_path: Path
+    deadline_profile_md_path: Path
+    resume_checkpoint_path: Path
+    baseline_path: Path
 
 
 def _load_json_object(path: Path) -> dict[str, object]:
@@ -82,16 +105,14 @@ def _append_lines(path: Path | None, lines: Sequence[str]) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
-        for line in lines:
+        for line in deadline_loop_iter(lines):
             handle.write(f"{line}\n")
 
 
 def _check_command(
     *,
-    report_path: Path,
-    resume_checkpoint_path: Path,
+    paths: StagePaths,
     resume_on_timeout: int,
-    baseline_path: Path,
 ) -> list[str]:
     return [
         sys.executable,
@@ -99,79 +120,61 @@ def _check_command(
         "gabion",
         "check",
         "--report",
-        str(report_path),
+        str(paths.report_path),
         "--resume-checkpoint",
-        str(resume_checkpoint_path),
+        str(paths.resume_checkpoint_path),
         "--resume-on-timeout",
         str(max(0, int(resume_on_timeout))),
         "--emit-timeout-progress-report",
         "--baseline",
-        str(baseline_path),
+        str(paths.baseline_path),
     ]
 
 
 def run_stage(
     *,
     stage_id: str,
-    report_path: Path,
-    timeout_progress_json_path: Path,
-    timeout_progress_md_path: Path,
-    deadline_profile_json_path: Path,
-    deadline_profile_md_path: Path,
-    resume_checkpoint_path: Path,
+    paths: StagePaths,
     resume_on_timeout: int,
-    baseline_path: Path,
-    github_output_path: Path | None,
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
 ) -> StageResult:
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    deadline_profile_json_path.parent.mkdir(parents=True, exist_ok=True)
+    paths.report_path.parent.mkdir(parents=True, exist_ok=True)
+    paths.deadline_profile_json_path.parent.mkdir(parents=True, exist_ok=True)
     exit_code = int(
         run_command_fn(
             _check_command(
-                report_path=report_path,
-                resume_checkpoint_path=resume_checkpoint_path,
+                paths=paths,
                 resume_on_timeout=resume_on_timeout,
-                baseline_path=baseline_path,
             )
         )
     )
-    analysis_state = _analysis_state(timeout_progress_json_path)
+    analysis_state = _analysis_state(paths.timeout_progress_json_path)
     is_timeout_resume = analysis_state == "timed_out_progress_resume"
-    metrics_line = _metrics_line(deadline_profile_json_path)
+    metrics_line = _metrics_line(paths.deadline_profile_json_path)
 
-    _copy_if_exists(report_path, _stage_snapshot_path(report_path, stage_id))
+    _copy_if_exists(paths.report_path, _stage_snapshot_path(paths.report_path, stage_id))
     _copy_if_exists(
-        timeout_progress_json_path,
-        _stage_snapshot_path(timeout_progress_json_path, stage_id),
+        paths.timeout_progress_json_path,
+        _stage_snapshot_path(paths.timeout_progress_json_path, stage_id),
     )
     _copy_if_exists(
-        timeout_progress_md_path,
-        _stage_snapshot_path(timeout_progress_md_path, stage_id),
+        paths.timeout_progress_md_path,
+        _stage_snapshot_path(paths.timeout_progress_md_path, stage_id),
     )
     _copy_if_exists(
-        deadline_profile_json_path,
-        _stage_snapshot_path(deadline_profile_json_path, stage_id),
+        paths.deadline_profile_json_path,
+        _stage_snapshot_path(paths.deadline_profile_json_path, stage_id),
     )
     _copy_if_exists(
-        deadline_profile_md_path,
-        _stage_snapshot_path(deadline_profile_md_path, stage_id),
+        paths.deadline_profile_md_path,
+        _stage_snapshot_path(paths.deadline_profile_md_path, stage_id),
     )
 
     stage_upper = stage_id.upper()
     print(
         f"stage {stage_upper}: exit={exit_code} "
         f"analysis_state={analysis_state} {metrics_line}"
-    )
-    _append_lines(
-        github_output_path,
-        [
-            f"exit_code={exit_code}",
-            f"analysis_state={analysis_state}",
-            f"is_timeout_resume={'true' if is_timeout_resume else 'false'}",
-            f"stage_metrics={metrics_line}",
-        ],
     )
     _append_lines(
         step_summary_path,
@@ -191,11 +194,84 @@ def run_stage(
     )
 
 
+def _stage_ids(start_stage: str, max_attempts: int) -> list[str]:
+    if max_attempts <= 0:
+        return []
+    try:
+        start_idx = _STAGE_SEQUENCE.index(start_stage)
+    except ValueError:
+        start_idx = 0
+    return list(_STAGE_SEQUENCE[start_idx : start_idx + max_attempts])
+
+
+def _emit_stage_outputs(
+    output_path: Path | None,
+    results: Sequence[StageResult],
+) -> None:
+    if not results:
+        return
+    terminal = results[-1]
+    lines: list[str] = []
+    for result in deadline_loop_iter(results):
+        prefix = f"stage_{result.stage_id}"
+        lines.extend(
+            [
+                f"{prefix}_exit={result.exit_code}",
+                f"{prefix}_analysis_state={result.analysis_state}",
+                f"{prefix}_is_timeout_resume={'true' if result.is_timeout_resume else 'false'}",
+                f"{prefix}_metrics={result.metrics_line}",
+            ]
+        )
+    lines.extend(
+        [
+            f"attempts_run={len(results)}",
+            f"terminal_stage={terminal.stage_id.upper()}",
+            f"terminal_status={terminal.terminal_status}",
+            f"exit_code={terminal.exit_code}",
+            f"analysis_state={terminal.analysis_state}",
+            f"is_timeout_resume={'true' if terminal.is_timeout_resume else 'false'}",
+            f"stage_metrics={terminal.metrics_line}",
+        ]
+    )
+    _append_lines(output_path, lines)
+
+
+def run_staged(
+    *,
+    stage_ids: Sequence[str],
+    paths: StagePaths,
+    resume_on_timeout: int,
+    step_summary_path: Path | None,
+    run_command_fn: Callable[[Sequence[str]], int],
+) -> list[StageResult]:
+    results: list[StageResult] = []
+    for stage_id in deadline_loop_iter(stage_ids):
+        result = run_stage(
+            stage_id=stage_id,
+            paths=paths,
+            resume_on_timeout=resume_on_timeout,
+            step_summary_path=step_summary_path,
+            run_command_fn=run_command_fn,
+        )
+        results.append(result)
+        if result.exit_code == 0:
+            break
+        if not result.is_timeout_resume:
+            break
+    return results
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run one dataflow-audit CI stage with deterministic outputs/artifacts."
     )
-    parser.add_argument("--stage-id", required=True, choices=("a", "b", "c"))
+    parser.add_argument("--stage-id", default="a", choices=_STAGE_SEQUENCE)
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=1,
+        help="Number of staged retries to run (uses a->b->c from --stage-id).",
+    )
     parser.add_argument(
         "--report",
         type=Path,
@@ -272,20 +348,27 @@ def main() -> int:
         if summary_env_text:
             step_summary_path = Path(summary_env_text)
 
-    run_stage(
-        stage_id=args.stage_id,
+    stage_ids = _stage_ids(args.stage_id, int(args.max_attempts))
+    if not stage_ids:
+        print("No stages requested; max-attempts must be > 0.")
+        return 2
+    paths = StagePaths(
         report_path=args.report,
         timeout_progress_json_path=args.timeout_progress_json,
         timeout_progress_md_path=args.timeout_progress_md,
         deadline_profile_json_path=args.deadline_profile_json,
         deadline_profile_md_path=args.deadline_profile_md,
         resume_checkpoint_path=args.resume_checkpoint,
-        resume_on_timeout=args.resume_on_timeout,
         baseline_path=args.baseline,
-        github_output_path=github_output_path,
+    )
+    results = run_staged(
+        stage_ids=stage_ids,
+        paths=paths,
+        resume_on_timeout=args.resume_on_timeout,
         step_summary_path=step_summary_path,
         run_command_fn=_run_subprocess,
     )
+    _emit_stage_outputs(github_output_path, results)
     return 0
 
 
