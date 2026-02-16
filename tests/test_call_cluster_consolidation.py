@@ -1,23 +1,8 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from gabion.analysis import call_cluster_consolidation, evidence_keys
-
-
-def _write_evidence_payload(
-    path: Path,
-    *,
-    entries: list[dict[str, object]],
-) -> None:
-    payload = {
-        "schema_version": 2,
-        "scope": {"root": ".", "include": ["tests"], "exclude": []},
-        "tests": entries,
-        "evidence_index": [],
-    }
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def _call_footprint_display(*, test_id: str, file: str, targets: list[tuple[str, str]]) -> str:
@@ -31,10 +16,12 @@ def _call_footprint_display(*, test_id: str, file: str, targets: list[tuple[str,
 
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.render_markdown
-def test_call_cluster_consolidation_payload_and_render(tmp_path: Path) -> None:
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-    evidence_path = out_dir / "test_evidence.json"
+def test_call_cluster_consolidation_payload_and_render(
+    tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
+    evidence_path = test_evidence_path
     shared_targets = [("sample.py", "pkg.fn")]
     display_one = _call_footprint_display(
         test_id="tests/test_sample.py::test_one",
@@ -83,7 +70,7 @@ def test_call_cluster_consolidation_payload_and_render(tmp_path: Path) -> None:
             "status": "mapped",
         },
     ]
-    _write_evidence_payload(evidence_path, entries=entries)
+    write_test_evidence_payload(evidence_path, entries=entries)
 
     payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
         evidence_path=evidence_path,
@@ -109,10 +96,10 @@ def test_call_cluster_consolidation_render_empty() -> None:
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
 def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
     tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
 ) -> None:
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-    evidence_path = out_dir / "test_evidence.json"
+    evidence_path = test_evidence_path
     display_empty = _call_footprint_display(
         test_id="tests/test_sample.py::test_empty",
         file="tests/test_sample.py",
@@ -134,7 +121,7 @@ def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
             "status": "mapped",
         },
     ]
-    _write_evidence_payload(evidence_path, entries=entries)
+    write_test_evidence_payload(evidence_path, entries=entries)
 
     payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
         evidence_path=evidence_path,
@@ -148,10 +135,10 @@ def test_call_cluster_consolidation_skips_unparseable_and_empty_targets(
 # gabion:evidence E:function_site::call_cluster_consolidation.py::gabion.analysis.call_cluster_consolidation.build_call_cluster_consolidation_payload
 def test_call_cluster_consolidation_skips_multiple_target_sets(
     tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
 ) -> None:
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-    evidence_path = out_dir / "test_evidence.json"
+    evidence_path = test_evidence_path
     display_one = _call_footprint_display(
         test_id="tests/test_sample.py::test_multi",
         file="tests/test_sample.py",
@@ -171,10 +158,97 @@ def test_call_cluster_consolidation_skips_multiple_target_sets(
             "status": "mapped",
         }
     ]
-    _write_evidence_payload(evidence_path, entries=entries)
+    write_test_evidence_payload(evidence_path, entries=entries)
 
     payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
         evidence_path=evidence_path,
+        min_cluster_size=2,
+    )
+    assert payload["summary"]["clusters"] == 0
+    assert payload["summary"]["tests"] == 0
+
+
+def test_call_cluster_consolidation_accepts_call_cluster_tokens_in_evidence(
+    tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
+    evidence_path = test_evidence_path
+    cluster_key = evidence_keys.make_call_cluster_key(
+        targets=[{"path": "sample.py", "qual": "pkg.fn"}]
+    )
+    cluster_display = evidence_keys.render_display(evidence_keys.normalize_key(cluster_key))
+    entries = [
+        {
+            "test_id": "tests/test_sample.py::test_cluster_only",
+            "file": "tests/test_sample.py",
+            "line": 10,
+            "evidence": [cluster_display],
+            "status": "mapped",
+        }
+    ]
+    write_test_evidence_payload(evidence_path, entries=entries)
+
+    payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
+        evidence_path=evidence_path,
+        min_cluster_size=2,
+    )
+    assert payload["summary"]["clusters"] == 0
+    assert payload["summary"]["tests"] == 0
+
+
+def test_call_cluster_consolidation_ignores_non_cluster_kinds_with_targets(
+    tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
+    evidence_path = test_evidence_path
+    unknown_display = evidence_keys.render_display(
+        {
+            "k": "custom_kind",
+            "targets": [{"path": "sample.py", "qual": "pkg.fn"}],
+        }
+    )
+    entries = [
+        {
+            "test_id": "tests/test_sample.py::test_custom",
+            "file": "tests/test_sample.py",
+            "line": 10,
+            "evidence": [unknown_display],
+            "status": "mapped",
+        }
+    ]
+    write_test_evidence_payload(evidence_path, entries=entries)
+
+    payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
+        evidence_path=evidence_path,
+        min_cluster_size=2,
+    )
+    assert payload["summary"]["clusters"] == 0
+    assert payload["summary"]["tests"] == 0
+
+
+def test_call_cluster_consolidation_takes_call_cluster_branch_via_payload(
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
+    key = evidence_keys.make_call_cluster_key(
+        targets=[{"path": "sample.py", "qual": "pkg.fn"}]
+    )
+    write_test_evidence_payload(
+        test_evidence_path,
+        entries=[
+            {
+                "test_id": "tests/test_sample.py::test_call_cluster",
+                "file": "tests/test_sample.py",
+                "line": 10,
+                "evidence": [evidence_keys.render_display(key)],
+                "status": "mapped",
+            }
+        ],
+    )
+    payload = call_cluster_consolidation.build_call_cluster_consolidation_payload(
+        evidence_path=test_evidence_path,
         min_cluster_size=2,
     )
     assert payload["summary"]["clusters"] == 0
@@ -225,3 +299,47 @@ def test_call_cluster_consolidation_write_creates_file(tmp_path: Path) -> None:
         payload, output_path=output_path
     )
     assert output_path.exists()
+
+
+def test_call_cluster_consolidation_render_accepts_non_list_clusters() -> None:
+    markdown = call_cluster_consolidation.render_markdown(
+        {
+            "summary": {"clusters": 1},
+            "clusters": {"unexpected": True},
+            "plan": [
+                {
+                    "cluster_identity": "cluster-1",
+                    "cluster_display": "Cluster",
+                    "cluster_count": 1,
+                    "test_id": "tests/test_sample.py::test_one",
+                    "file": "tests/test_sample.py",
+                    "line": 12,
+                    "replace": [],
+                    "with": {"display": "Cluster"},
+                }
+            ],
+        }
+    )
+    assert "Cluster: Cluster (count: 1)" in markdown
+
+
+def test_call_cluster_consolidation_render_skips_empty_cluster_identity() -> None:
+    markdown = call_cluster_consolidation.render_markdown(
+        {
+            "summary": {"clusters": 1},
+            "clusters": [{"identity": "", "display": "ignored", "count": 2}],
+            "plan": [
+                {
+                    "cluster_identity": "cluster-x",
+                    "cluster_display": "fallback",
+                    "cluster_count": 2,
+                    "test_id": "tests/test_sample.py::test_one",
+                    "file": "tests/test_sample.py",
+                    "line": 12,
+                    "replace": [],
+                    "with": {"display": "fallback"},
+                }
+            ],
+        }
+    )
+    assert "Cluster: fallback (count: 2)" in markdown

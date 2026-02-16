@@ -6,6 +6,12 @@ from typing import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_evidence_suggestions
 from gabion.analysis.baseline_io import write_json
+from gabion.analysis.call_cluster_shared import (
+    cluster_identity_from_key,
+    render_cluster_heading,
+    render_string_codeblock,
+    sorted_unique_strings,
+)
 from gabion.analysis.dataflow_audit import AuditConfig
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
@@ -17,7 +23,6 @@ from gabion.analysis.projection_spec import ProjectionSpec
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
-from gabion.order_contract import ordered_or_sorted
 
 CALL_CLUSTER_VERSION = 1
 
@@ -54,16 +59,16 @@ def build_call_clusters_payload(
         targets = footprints.get(entry.test_id)
         if not targets:
             continue
-        key = evidence_keys.make_call_cluster_key(targets=targets)
-        identity = evidence_keys.key_identity(key)
+        metadata = cluster_identity_from_key(
+            evidence_keys.make_call_cluster_key(targets=targets)
+        )
+        identity = metadata.identity
         cluster = clusters.get(identity)
         if cluster is None:
-            normalized = evidence_keys.normalize_key(key)
-            display = evidence_keys.render_display(normalized)
             cluster = {
-                "identity": identity,
-                "key": normalized,
-                "display": display,
+                "identity": metadata.identity,
+                "key": metadata.key,
+                "display": metadata.display,
                 "tests": [],
             }
             clusters[identity] = cluster
@@ -72,8 +77,8 @@ def build_call_clusters_payload(
     cluster_rows: list[dict[str, JSONValue]] = []
     for cluster in clusters.values():
         check_deadline()
-        tests = ordered_or_sorted(
-            {str(test_id) for test_id in cluster["tests"]},
+        tests = sorted_unique_strings(
+            cluster["tests"],
             source="build_call_clusters_payload.cluster.tests",
         )
         cluster["tests"] = tests
@@ -148,15 +153,10 @@ def render_markdown(
             continue
         display = str(entry.get("display", "") or "")
         count = entry.get("count", 0)
-        doc.line()
-        doc.line(f"Cluster: {display} (count: {count})")
+        render_cluster_heading(doc, display=display, count=count)
         tests = entry.get("tests", [])
         if isinstance(tests, list) and tests:
-            rendered_tests: list[str] = []
-            for test_id in tests:
-                check_deadline()
-                rendered_tests.append(str(test_id))
-            doc.codeblock("\n".join(rendered_tests))
+            render_string_codeblock(doc, tests)
     return doc.emit()
 
 

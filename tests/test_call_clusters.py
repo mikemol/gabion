@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from gabion.analysis import call_clusters
@@ -9,7 +8,11 @@ from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.render_markdown
-def test_call_clusters_payload_and_render(tmp_path: Path) -> None:
+def test_call_clusters_payload_and_render(
+    tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
     src_dir = tmp_path / "src" / "pkg"
     src_dir.mkdir(parents=True)
     (src_dir / "__init__.py").write_text("")
@@ -21,30 +24,22 @@ def test_call_clusters_payload_and_render(tmp_path: Path) -> None:
         "from pkg.core import helper\n\ndef test_helper():\n    assert helper(1) == 1\n"
     )
 
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-    evidence_payload = {
-        "schema_version": 2,
-        "scope": {"root": ".", "include": ["tests"], "exclude": []},
-        "tests": [
-            {
-                "test_id": "tests/test_core.py::test_helper",
-                "file": "tests/test_core.py",
-                "line": 1,
-                "evidence": [],
-                "status": "unmapped",
-            }
-        ],
-        "evidence_index": [],
-    }
-    (out_dir / "test_evidence.json").write_text(
-        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
-    )
+    evidence_path = test_evidence_path
+    entries = [
+        {
+            "test_id": "tests/test_core.py::test_helper",
+            "file": "tests/test_core.py",
+            "line": 1,
+            "evidence": [],
+            "status": "unmapped",
+        }
+    ]
+    write_test_evidence_payload(evidence_path, entries=entries)
 
     payload = call_clusters.build_call_clusters_payload(
         [tests_dir, tmp_path / "src"],
         root=tmp_path,
-        evidence_path=out_dir / "test_evidence.json",
+        evidence_path=evidence_path,
     )
     assert payload["summary"]["clusters"] == 1
     assert payload["summary"]["tests"] == 1
@@ -57,35 +52,31 @@ def test_call_clusters_payload_and_render(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
-def test_call_clusters_payload_handles_empty_targets(tmp_path: Path) -> None:
+def test_call_clusters_payload_handles_empty_targets(
+    tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
     (tests_dir / "test_empty.py").write_text("def test_empty():\n    assert True\n")
 
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-    evidence_payload = {
-        "schema_version": 2,
-        "scope": {"root": ".", "include": ["tests"], "exclude": []},
-        "tests": [
-            {
-                "test_id": "tests/test_empty.py::test_empty",
-                "file": "tests/test_empty.py",
-                "line": 1,
-                "evidence": [],
-                "status": "unmapped",
-            }
-        ],
-        "evidence_index": [],
-    }
-    (out_dir / "test_evidence.json").write_text(
-        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
-    )
+    evidence_path = test_evidence_path
+    entries = [
+        {
+            "test_id": "tests/test_empty.py::test_empty",
+            "file": "tests/test_empty.py",
+            "line": 1,
+            "evidence": [],
+            "status": "unmapped",
+        }
+    ]
+    write_test_evidence_payload(evidence_path, entries=entries)
 
     payload = call_clusters.build_call_clusters_payload(
         [tests_dir],
         root=tmp_path,
-        evidence_path=out_dir / "test_evidence.json",
+        evidence_path=evidence_path,
     )
     assert payload["summary"]["clusters"] == 0
     assert payload["summary"]["tests"] == 0
@@ -94,6 +85,8 @@ def test_call_clusters_payload_handles_empty_targets(tmp_path: Path) -> None:
 # gabion:evidence E:function_site::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
 def test_call_clusters_payload_projection_skips_unknown_identity(
     tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
 ) -> None:
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -104,25 +97,17 @@ def test_call_clusters_payload_projection_skips_unknown_identity(
         "from mod import helper\n\ndef test_helper():\n    helper(1)\n"
     )
 
-    out_dir = tmp_path / "out"
-    out_dir.mkdir()
-    evidence_payload = {
-        "schema_version": 2,
-        "scope": {"root": ".", "include": ["tests"], "exclude": []},
-        "tests": [
-            {
-                "test_id": "tests/test_mod.py::test_helper",
-                "file": "tests/test_mod.py",
-                "line": 1,
-                "evidence": [],
-                "status": "unmapped",
-            }
-        ],
-        "evidence_index": [],
-    }
-    (out_dir / "test_evidence.json").write_text(
-        json.dumps(evidence_payload, indent=2, sort_keys=True) + "\n"
-    )
+    evidence_path = test_evidence_path
+    entries = [
+        {
+            "test_id": "tests/test_mod.py::test_helper",
+            "file": "tests/test_mod.py",
+            "line": 1,
+            "evidence": [],
+            "status": "unmapped",
+        }
+    ]
+    write_test_evidence_payload(evidence_path, entries=entries)
 
     spec = ProjectionSpec(
         spec_version=1,
@@ -134,7 +119,7 @@ def test_call_clusters_payload_projection_skips_unknown_identity(
     payload = call_clusters.build_call_clusters_payload(
         [tests_dir, src_dir],
         root=tmp_path,
-        evidence_path=out_dir / "test_evidence.json",
+        evidence_path=evidence_path,
         summary_spec=spec,
     )
     assert payload["summary"]["clusters"] == 0
@@ -177,3 +162,55 @@ def test_call_clusters_render_uses_payload_spec_metadata() -> None:
     markdown = call_clusters.render_markdown(payload)
     assert "generated_by_spec_id: custom-spec-id" in markdown
     assert 'generated_by_spec: {"name":"custom","spec_version":99}' in markdown
+
+
+def test_call_clusters_payload_merges_repeated_cluster_identity(
+    tmp_path: Path,
+    write_test_evidence_payload,
+    test_evidence_path: Path,
+) -> None:
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "mod.py").write_text("def helper(x):\n    return x\n")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "test_mod.py").write_text(
+        "from mod import helper\n\n"
+        "def test_one():\n    helper(1)\n\n"
+        "def test_two():\n    helper(2)\n"
+    )
+    evidence_path = test_evidence_path
+    entries = [
+        {
+            "test_id": "tests/test_mod.py::test_one",
+            "file": "tests/test_mod.py",
+            "line": 1,
+            "evidence": [],
+            "status": "unmapped",
+        },
+        {
+            "test_id": "tests/test_mod.py::test_two",
+            "file": "tests/test_mod.py",
+            "line": 1,
+            "evidence": [],
+            "status": "unmapped",
+        },
+    ]
+    write_test_evidence_payload(evidence_path, entries=entries)
+    payload = call_clusters.build_call_clusters_payload(
+        [tests_dir, src_dir],
+        root=tmp_path,
+        evidence_path=evidence_path,
+    )
+    assert payload["summary"]["clusters"] == 1
+    assert payload["summary"]["tests"] == 2
+
+
+def test_call_clusters_render_handles_empty_tests_list() -> None:
+    markdown = call_clusters.render_markdown(
+        {
+            "summary": {"clusters": 1, "tests": 0},
+            "clusters": [{"display": "Cluster", "count": 0, "tests": []}],
+        }
+    )
+    assert "Cluster: Cluster (count: 0)" in markdown

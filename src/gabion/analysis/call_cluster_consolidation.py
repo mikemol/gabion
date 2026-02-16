@@ -5,6 +5,11 @@ from typing import Iterable, Mapping
 
 from gabion.analysis import evidence_keys, test_evidence_suggestions
 from gabion.analysis.baseline_io import write_json
+from gabion.analysis.call_cluster_shared import (
+    cluster_identity_from_key,
+    render_cluster_heading,
+    sorted_unique_strings,
+)
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_registry import (
     CALL_CLUSTER_CONSOLIDATION_SPEC,
@@ -69,7 +74,7 @@ def build_call_cluster_consolidation_payload(
                 continue
             if kind == "call_footprint":
                 call_footprints.append((targets, token))
-            elif kind == "call_cluster":
+            elif kind == "call_cluster":  # pragma: no branch
                 call_clusters.add(targets)
         if not call_footprints:
             continue
@@ -79,17 +84,18 @@ def build_call_cluster_consolidation_payload(
         target_signature = next(iter(target_sets))
         if target_signature in call_clusters:
             continue
-        cluster_key = evidence_keys.make_call_cluster_key(
-            targets=_targets_payload(target_signature)
+        metadata = cluster_identity_from_key(
+            evidence_keys.make_call_cluster_key(
+                targets=_targets_payload(target_signature)
+            )
         )
-        normalized_cluster_key = evidence_keys.normalize_key(cluster_key)
-        cluster_identity = evidence_keys.key_identity(normalized_cluster_key)
-        cluster_display = evidence_keys.render_display(normalized_cluster_key)
+        cluster_identity = metadata.identity
+        cluster_display = metadata.display
         cluster = clusters.get(cluster_identity)
         if cluster is None:
             cluster = {
                 "identity": cluster_identity,
-                "key": normalized_cluster_key,
+                "key": metadata.key,
                 "display": cluster_display,
                 "tests": set(),
             }
@@ -107,18 +113,16 @@ def build_call_cluster_consolidation_payload(
                 replace=tuple(replace_tokens),
                 cluster_identity=cluster_identity,
                 cluster_display=cluster_display,
-                cluster_key=normalized_cluster_key,
+                cluster_key=metadata.key,
             )
         )
 
     cluster_summaries: list[ClusterSummary] = []
     for cluster in clusters.values():
         check_deadline()
-        tests = tuple(
-            ordered_or_sorted(
-                {str(test_id) for test_id in cluster["tests"]},
-                source="build_call_cluster_consolidation_payload.cluster.tests",
-            )
+        tests = sorted_unique_strings(
+            cluster["tests"],
+            source="build_call_cluster_consolidation_payload.cluster.tests",
         )
         cluster_summaries.append(
             ClusterSummary(
@@ -232,8 +236,7 @@ def render_markdown(
             cluster = cluster_index.get(identity, {})
             display = str(cluster.get("display", "") or entry.get("cluster_display", ""))
             count = cluster.get("count", entry.get("cluster_count", 0))
-            doc.line()
-            doc.line(f"Cluster: {display} (count: {count})")
+            render_cluster_heading(doc, display=display, count=count)
         test_id = str(entry.get("test_id", "") or "")
         file_path = str(entry.get("file", "") or "")
         line = entry.get("line", 0)
