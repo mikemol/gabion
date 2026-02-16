@@ -2,16 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit
 
     return dataflow_audit
-
 
 def _write_sample_module(path: Path) -> None:
     path.write_text(
@@ -47,7 +43,6 @@ def _write_sample_module(path: Path) -> None:
         "    return 1\n"
     )
 
-
 def _write_config(path: Path) -> None:
     # Two identical glossary entries (pair_a/pair_b) create an ambiguity witness,
     # which drives coherence + rewrite-plan artifacts.
@@ -58,7 +53,6 @@ def _write_config(path: Path) -> None:
         "user_context = [\"int\"]\n"
         "synth_min_occurrences = 2\n"
     )
-
 
 def _run_with_artifacts(
     dataflow_audit,
@@ -107,7 +101,6 @@ def _run_with_artifacts(
     for path in paths.values():
         assert path.exists()
     return paths
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: Path) -> None:

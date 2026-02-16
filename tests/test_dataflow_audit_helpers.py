@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 import ast
-import sys
 
 import pytest
 
@@ -15,18 +14,14 @@ from gabion.analysis.timeout_context import (
     pack_call_stack,
 )
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
 
-
 def _write(path: Path, content: str) -> None:
     path.write_text(content)
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._extract_invariant_from_expr::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._invariant_term::expr,params
 def test_extract_invariant_from_expr_edges() -> None:
@@ -46,7 +41,6 @@ def test_extract_invariant_from_expr_edges() -> None:
         da._extract_invariant_from_expr(expr, {"a", "b"}, scope="s", source="src")
         is None
     )
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._scope_path::root
 def test_invariant_collector_skips_nested_defs_and_lambda(tmp_path: Path) -> None:
@@ -69,7 +63,6 @@ def test_invariant_collector_skips_nested_defs_and_lambda(tmp_path: Path) -> Non
     )
     assert len(props) == 1
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._scope_path::root
 def test_collect_invariant_emitters_type_error(tmp_path: Path) -> None:
     da = _load()
@@ -87,7 +80,6 @@ def test_collect_invariant_emitters_type_error(tmp_path: Path) -> None:
             emitters=[bad_emitter],
         )
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._format_invariant_proposition::prop
 def test_format_invariant_proposition_variants() -> None:
     da = _load()
@@ -98,7 +90,6 @@ def test_format_invariant_proposition_variants() -> None:
     other = da.InvariantProposition(form="LessThan", terms=("a",), scope="", source="")
     assert "LessThan" in da._format_invariant_proposition(other)
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._mark_param_roots::params
 def test_decision_helpers_cover_paths() -> None:
     da = _load()
@@ -108,7 +99,6 @@ def test_decision_helpers_cover_paths() -> None:
     da._mark_param_roots(ast.parse("user['id']").body[0].value, {"user"}, found)
     assert "user" in found
     assert da._contains_boolish(ast.parse("not flag").body[0].value)
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
 def test_decision_surface_params_match_ifexp_and_match() -> None:
@@ -124,7 +114,6 @@ def test_decision_surface_params_match_ifexp_and_match() -> None:
     fn = tree.body[0]
     params = da._decision_surface_params(fn, ignore_params=set())
     assert "b" in params
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._mark_param_roots::params
 def test_value_encoded_decision_params_branches() -> None:
@@ -142,7 +131,6 @@ def test_value_encoded_decision_params_branches() -> None:
     assert "min/max" in reasons
     assert "bitmask" in reasons
     assert "boolean arithmetic" in reasons
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_decision_surfaces_repo::forest,require_tiers E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decision_tier_for::tier_map
 def test_analyze_decision_surfaces_repo_warnings(tmp_path: Path) -> None:
@@ -192,7 +180,6 @@ def test_analyze_decision_surfaces_repo_warnings(tmp_path: Path) -> None:
     assert any("GABION_DECISION_TIER" in line for line in lint_lines)
     assert any("GABION_DECISION_SURFACE" in line for line in lint_lines)
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_value_encoded_decisions_repo::forest,require_tiers E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_test_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decision_tier_for::tier_map
 def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
     da = _load()
@@ -235,7 +222,6 @@ def test_analyze_value_encoded_decisions_repo_warnings(tmp_path: Path) -> None:
     assert any("tier-2 value-encoded" in warning for warning in warnings)
     assert any("GABION_VALUE_DECISION_TIER" in line for line in lint_lines)
     assert any("GABION_VALUE_DECISION_SURFACE" in line for line in lint_lines)
-
 
 def test_decision_surface_metafactory_parity(tmp_path: Path) -> None:
     da = _load()
@@ -309,7 +295,6 @@ def test_decision_surface_metafactory_parity(tmp_path: Path) -> None:
     assert direct_repo == (direct_helper[0], direct_helper[1], direct_helper[3])
     assert value_repo == value_helper
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_annotations::fn,ignore_params
 def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:
     da = _load()
@@ -324,7 +309,6 @@ def test_param_annotations_by_path_skips_parse_errors(tmp_path: Path) -> None:
     assert bad not in result
     assert parse_failures
     assert parse_failures[0]["stage"] == "param_annotations"
-
 
 def test_parse_failure_stage_taxonomy_is_canonical(tmp_path: Path) -> None:
     da = _load()
@@ -390,7 +374,6 @@ def test_parse_failure_stage_taxonomy_is_canonical(tmp_path: Path) -> None:
     expected = {stage.value for stage in da._ParseModuleStage}
     assert seen == expected
 
-
 def test_parse_witness_contract_violations_detect_nullable_signature() -> None:
     da = _load()
     source = (
@@ -406,7 +389,6 @@ def test_parse_witness_contract_violations_detect_nullable_signature() -> None:
         "virtual_dataflow_audit.py:_build_call_graph parse_sink_contract parse_failure_witnesses must be total list[JSONObject]",
         "virtual_dataflow_audit.py:_build_call_graph parse_sink_contract parse_failure_witnesses must not default to None",
     ]
-
 
 def test_build_call_graph_reuses_prebuilt_analysis_index(tmp_path: Path) -> None:
     da = _load()
@@ -440,7 +422,6 @@ def test_build_call_graph_reuses_prebuilt_analysis_index(tmp_path: Path) -> None
     assert by_name is analysis_index.by_name
     assert by_qual is analysis_index.by_qual
     assert transitive_callers.get("module.callee") == {"module.caller"}
-
 
 def test_constant_flow_accepts_prebuilt_analysis_index(tmp_path: Path) -> None:
     da = _load()
@@ -481,7 +462,6 @@ def test_constant_flow_accepts_prebuilt_analysis_index(tmp_path: Path) -> None:
     )
     assert with_index == without_index
     assert any("callee.x only observed constant 1" in line for line in with_index)
-
 
 def test_analysis_index_resolved_call_edges_cache_and_transparency(tmp_path: Path) -> None:
     da = _load()
@@ -532,9 +512,10 @@ def test_analysis_index_resolved_call_edges_cache_and_transparency(tmp_path: Pat
         project_root=tmp_path,
         require_transparent=True,
     ) is transparent_edges
-    assert sorted(edge.callee.name for edge in all_edges) == ["blocked", "open_"]
+    all_edge_names = [edge.callee.name for edge in all_edges]
+    assert len(all_edge_names) == 2
+    assert set(all_edge_names) == {"blocked", "open_"}
     assert [edge.callee.name for edge in transparent_edges] == ["open_"]
-
 
 def test_analysis_index_module_trees_reuses_cached_tree_across_stages(
     tmp_path: Path,
@@ -564,7 +545,6 @@ def test_analysis_index_module_trees_reuses_cached_tree_across_stages(
     assert parse_failures == []
     assert deadline_trees[module] is not None
     assert call_trees[module] is deadline_trees[module]
-
 
 def test_analysis_index_module_trees_replays_parse_failure_by_stage(
     tmp_path: Path,
@@ -598,7 +578,6 @@ def test_analysis_index_module_trees_replays_parse_failure_by_stage(
         da._ParseModuleStage.CALL_NODES.value,
     ]
     assert bad in analysis_index.module_parse_errors_by_path
-
 
 def test_build_module_artifacts_parses_each_path_once_across_specs(
     tmp_path: Path,
@@ -641,7 +620,6 @@ def test_build_module_artifacts_parses_each_path_once_across_specs(
     assert first == ("first:module.py",)
     assert second == ("second:module.py",)
 
-
 def test_build_analysis_index_module_artifact_parse_stages(tmp_path: Path) -> None:
     da = _load()
     bad = tmp_path / "bad.py"
@@ -663,7 +641,6 @@ def test_build_analysis_index_module_artifact_parse_stages(tmp_path: Path) -> No
         da._ParseModuleStage.SYMBOL_TABLE.value,
         da._ParseModuleStage.CLASS_INDEX.value,
     ]
-
 
 def test_build_analysis_index_module_artifact_parity(tmp_path: Path) -> None:
     da = _load()
@@ -719,7 +696,6 @@ def test_build_analysis_index_module_artifact_parity(tmp_path: Path) -> None:
         == symbol_table.module_export_map
     )
 
-
 def test_analysis_index_stage_cache_factory_reuses_builder(tmp_path: Path) -> None:
     da = _load()
     module = tmp_path / "module.py"
@@ -758,7 +734,6 @@ def test_analysis_index_stage_cache_factory_reuses_builder(tmp_path: Path) -> No
     assert parse_failures == []
     assert first[module] == second[module]
     assert build_calls == 1
-
 
 def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
     tmp_path: Path,
@@ -803,7 +778,6 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
     assert ("config_fields",) in analysis_index.stage_cache_by_key
     assert ("dataclass_registry", str(tmp_path)) in analysis_index.stage_cache_by_key
 
-
 def test_run_indexed_pass_hydrates_index_and_sink() -> None:
     da = _load()
     sentinel_index = da.AnalysisIndex(
@@ -837,7 +811,6 @@ def test_run_indexed_pass_hydrates_index_and_sink() -> None:
     assert calls == 1
     assert result == (True, True)
 
-
 def test_run_indexed_pass_reuses_prebuilt_index() -> None:
     da = _load()
     sentinel_index = da.AnalysisIndex(
@@ -869,7 +842,6 @@ def test_run_indexed_pass_reuses_prebuilt_index() -> None:
         ),
     )
     assert result == (True, True)
-
 
 def test_reduce_resolved_call_edges_respects_transparency_filter(tmp_path: Path) -> None:
     da = _load()
@@ -926,7 +898,6 @@ def test_reduce_resolved_call_edges_respects_transparency_filter(tmp_path: Path)
     )
     assert all_count == 2
     assert transparent_count == 1
-
 
 def test_iter_resolved_edge_param_events_low_strict_variadic_modes() -> None:
     da = _load()
@@ -992,7 +963,6 @@ def test_iter_resolved_edge_param_events_low_strict_variadic_modes() -> None:
         not event.countable for event in with_variadics if event.param in {"rest", "kwargs"}
     )
 
-
 def test_execution_pattern_suggestions_detect_indexed_pass_ingress() -> None:
     da = _load()
     source = (
@@ -1019,7 +989,6 @@ def test_execution_pattern_suggestions_detect_indexed_pass_ingress() -> None:
     )
     suggestions = da._execution_pattern_suggestions(source=source)
     assert any("indexed_pass_ingress" in line for line in suggestions)
-
 
 def test_pattern_schema_suggestions_include_execution_and_dataflow_axes() -> None:
     da = _load()
@@ -1061,7 +1030,6 @@ def test_pattern_schema_suggestions_include_execution_and_dataflow_axes() -> Non
         for line in suggestions
     )
 
-
 def test_pattern_schema_residue_entries_cover_both_axes() -> None:
     da = _load()
     source = (
@@ -1096,7 +1064,6 @@ def test_pattern_schema_residue_entries_cover_both_axes() -> None:
     residue_lines = da._pattern_schema_residue_lines(residue_entries)
     assert any("reason=unreified_metafactory" in line for line in residue_lines)
     assert any("reason=unreified_protocol" in line for line in residue_lines)
-
 
 def test_constant_and_deadness_projections_share_constant_details(
     tmp_path: Path,
@@ -1151,7 +1118,6 @@ def test_constant_and_deadness_projections_share_constant_details(
         analysis_index=analysis_index,
     )
 
-
 def test_caller_param_bindings_for_call_covers_low_strict_star_paths() -> None:
     da = _load()
     callee = da.FunctionInfo(
@@ -1188,7 +1154,6 @@ def test_caller_param_bindings_for_call_covers_low_strict_star_paths() -> None:
     assert low["b"] == {"sx", "sk"}
     assert low["rest"] == {"sx", "sk"}
     assert low["kwargs"] == {"sx", "sk"}
-
 
 def test_lint_rows_materialize_and_project_from_forest() -> None:
     da = _load()
@@ -1231,7 +1196,6 @@ def test_lint_rows_materialize_and_project_from_forest() -> None:
     ]
     assert facets
 
-
 def test_compute_lint_lines_uses_forest_projection() -> None:
     da = _load()
     forest = da.Forest()
@@ -1256,7 +1220,6 @@ def test_compute_lint_lines_uses_forest_projection() -> None:
     finding_nodes = [node for node in forest.nodes if node.kind == "LintFinding"]
     assert finding_nodes
 
-
 def test_project_report_section_lines_roundtrip() -> None:
     da = _load()
     forest = da.Forest()
@@ -1274,7 +1237,6 @@ def test_project_report_section_lines_roundtrip() -> None:
         if alt.kind == "SpecFacet" and alt.evidence.get("spec_name") == "report_section_lines"
     ]
     assert spec_facets
-
 
 def test_emit_report_materializes_report_section_specs(tmp_path: Path) -> None:
     da = _load()
@@ -1312,7 +1274,6 @@ def test_emit_report_materializes_report_section_specs(tmp_path: Path) -> None:
     ]
     assert spec_facets
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path
 def test_resolve_synth_registry_path_latest(tmp_path: Path) -> None:
     da = _load()
@@ -1337,7 +1298,6 @@ def test_resolve_synth_registry_path_latest(tmp_path: Path) -> None:
     assert da._resolve_synth_registry_path(" ", root) is None
     assert da._resolve_synth_registry_path(None, root) is None
 
-
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::index
 def test_compute_fingerprint_matches_skips_missing_types() -> None:
     da = _load()
@@ -1357,7 +1317,6 @@ def test_compute_fingerprint_matches_skips_missing_types() -> None:
     )
     assert matches == []
 
-
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint::fingerprint E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::index
 def test_compute_fingerprint_matches_skips_missing_params() -> None:
     da = _load()
@@ -1375,7 +1334,6 @@ def test_compute_fingerprint_matches_skips_missing_params() -> None:
     )
     assert matches == []
 
-
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::index E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_compute_fingerprint_provenance_skips_none_types() -> None:
     da = _load()
@@ -1390,7 +1348,6 @@ def test_compute_fingerprint_provenance_skips_none_types() -> None:
         index={},
     )
     assert entries == []
-
 
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::index E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_compute_fingerprint_provenance_skips_missing_params() -> None:
@@ -1407,12 +1364,10 @@ def test_compute_fingerprint_provenance_skips_missing_params() -> None:
     )
     assert entries == []
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::entries,max_examples
 def test_summarize_fingerprint_provenance_empty() -> None:
     da = _load()
     assert da._summarize_fingerprint_provenance([]) == []
-
 
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences
 def test_compute_fingerprint_synth_skips_none_types() -> None:
@@ -1433,7 +1388,6 @@ def test_compute_fingerprint_synth_skips_none_types() -> None:
     assert lines == []
     assert payload is None
 
-
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences
 def test_compute_fingerprint_synth_skips_missing_params() -> None:
     da = _load()
@@ -1452,7 +1406,6 @@ def test_compute_fingerprint_synth_skips_missing_params() -> None:
     )
     assert lines == []
     assert payload is None
-
 
 # gabion:evidence E:decision_surface/direct::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::ctor_registry E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences
 def test_compute_fingerprint_synth_includes_ctor_keys() -> None:
@@ -1474,7 +1427,6 @@ def test_compute_fingerprint_synth_includes_ctor_keys() -> None:
     )
     assert payload is not None
     assert any("ctor=" in line for line in lines)
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_render_structure_snapshot_skips_invalid_invariant_scope(tmp_path: Path) -> None:
@@ -1499,7 +1451,6 @@ def test_render_structure_snapshot_skips_invalid_invariant_scope(tmp_path: Path)
     assert functions
     assert "invariants" in functions[0]
 
-
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_decision_snapshot
 def test_load_decision_snapshot_errors(tmp_path: Path) -> None:
     da = _load()
@@ -1511,7 +1462,6 @@ def test_load_decision_snapshot_errors(tmp_path: Path) -> None:
     not_obj.write_text("[]")
     with pytest.raises(ValueError):
         da.load_decision_snapshot(not_obj)
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans::exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_synth::existing,min_occurrences E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_decision_surfaces_repo::forest,require_tiers E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_value_encoded_decisions_repo::forest,require_tiers E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::include_bundle_forest,include_decision_surfaces,include_never_invariants,include_value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::index E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::index E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::index E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
@@ -1552,7 +1502,6 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
     assert any(entry["status"] == "UNKNOWN" for entry in obligations)
     assert any(entry["status"] == "HANDLED" for entry in obligations)
     assert analysis.handledness_witnesses
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload::file_paths,include_invariant_propositions,payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::collection_resume,file_paths_override,on_collection_progress
 def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
@@ -1615,7 +1564,6 @@ def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
     assert resumed.bundle_sites_by_path == baseline.bundle_sites_by_path
     assert resumed.invariant_propositions == baseline.invariant_propositions
 
-
 def test_collection_resume_roundtrip_preserves_analysis_index_resume_payload() -> None:
     da = _load()
     payload = da._build_analysis_collection_resume_payload(
@@ -1652,7 +1600,6 @@ def test_collection_resume_roundtrip_preserves_analysis_index_resume_payload() -
     )
     assert isinstance(analysis_index_resume, dict)
     assert analysis_index_resume.get("hydrated_paths_count") == 1
-
 
 def test_build_analysis_index_resumes_hydrated_payload(tmp_path: Path) -> None:
     da = _load()
@@ -1696,7 +1643,6 @@ def test_build_analysis_index_resumes_hydrated_payload(tmp_path: Path) -> None:
     assert baseline.symbol_table.imports == resumed.symbol_table.imports
     assert baseline.class_index.keys() == resumed.class_index.keys()
 
-
 def test_build_collection_resume_rejects_path_order_regression() -> None:
     da = _load()
     with pytest.raises(NeverThrown):
@@ -1712,7 +1658,6 @@ def test_build_collection_resume_rejects_path_order_regression() -> None:
             },
         )
 
-
 def test_iter_monotonic_paths_rejects_path_order_regression() -> None:
     da = _load()
     with pytest.raises(NeverThrown):
@@ -1721,7 +1666,6 @@ def test_iter_monotonic_paths_rejects_path_order_regression() -> None:
             source="test",
         )
 
-
 def test_iter_monotonic_paths_accepts_monotonic_order() -> None:
     da = _load()
     ordered = da._iter_monotonic_paths(
@@ -1729,7 +1673,6 @@ def test_iter_monotonic_paths_accepts_monotonic_order() -> None:
         source="test",
     )
     assert ordered == [Path("a.py"), Path("b.py")]
-
 
 def test_analyze_paths_rejects_unsorted_file_paths_override(tmp_path: Path) -> None:
     da = _load()
@@ -1758,7 +1701,6 @@ def test_analyze_paths_rejects_unsorted_file_paths_override(tmp_path: Path) -> N
             file_paths_override=[second, first],
         )
 
-
 def test_extract_report_sections_parses_marked_sections() -> None:
     da = _load()
     report = "\n".join(
@@ -1776,7 +1718,6 @@ def test_extract_report_sections_parses_marked_sections() -> None:
     assert sections["intro"] == ["header"]
     assert sections["components"] == ["component-a", "component-b"]
     assert sections["violations"] == ["violation-1"]
-
 
 def test_report_projection_specs_rows() -> None:
     da = _load()
@@ -1804,7 +1745,6 @@ def test_report_projection_specs_rows() -> None:
     )
     assert fingerprint_warnings_row["has_preview"] is True
 
-
 def test_report_projection_specs_are_topologically_ordered() -> None:
     da = _load()
     rows = da.report_projection_spec_rows()
@@ -1821,7 +1761,6 @@ def test_report_projection_specs_are_topologically_ordered() -> None:
                 continue
             assert dep in index_by_section, (section_id, dep)
             assert index_by_section[dep] < idx, (section_id, dep)
-
 
 def test_project_report_sections_preview_only() -> None:
     da = _load()
@@ -1849,7 +1788,6 @@ def test_project_report_sections_preview_only() -> None:
         "Constant-propagation smells preview"
     )
 
-
 def test_report_projection_phase_rank_order() -> None:
     da = _load()
     assert da.report_projection_phase_rank("collection") < da.report_projection_phase_rank(
@@ -1861,7 +1799,6 @@ def test_report_projection_phase_rank_order() -> None:
     assert da.report_projection_phase_rank("edge") < da.report_projection_phase_rank(
         "post"
     )
-
 
 def test_resume_map_harness_uses_injected_parser() -> None:
     da = _load()
@@ -1881,7 +1818,6 @@ def test_resume_map_harness_uses_injected_parser() -> None:
     assert seen == ["keep", "drop"]
     assert out == {"k1": 1}
 
-
 def test_iter_valid_resume_entries_and_str_sequence_helpers() -> None:
     da = _load()
     entries = list(
@@ -1894,7 +1830,6 @@ def test_iter_valid_resume_entries_and_str_sequence_helpers() -> None:
     assert da.str_list_from_sequence(["a", 1, "b"]) == ["a", "b"]
     assert da.str_list_from_sequence("bad") == []
     assert da.str_tuple_from_sequence(["a", 1, "b"]) == ("a", "b")
-
 
 def test_deserialize_param_use_filters_malformed_values() -> None:
     da = _load()
@@ -1918,7 +1853,6 @@ def test_deserialize_param_use_filters_malformed_values() -> None:
     assert use.current_aliases == {"a", "b"}
     assert use.non_forward is True
     assert use.forward_sites[("callee", "slot")] == {(1, 2, 3, 4), (4, 5, 6, 7)}
-
 
 def test_deserialize_call_args_handles_invalid_shapes() -> None:
     da = _load()
@@ -1948,7 +1882,6 @@ def test_deserialize_call_args_handles_invalid_shapes() -> None:
     assert call.star_kw == ["kw"]
     assert call.span is None
     assert call.is_test is True
-
 
 def test_serialize_call_and_function_info_resume_omit_optional_spans(tmp_path: Path) -> None:
     da = _load()
@@ -1981,7 +1914,6 @@ def test_serialize_call_and_function_info_resume_omit_optional_spans(tmp_path: P
     info_payload = da._serialize_function_info_for_resume(info)
     assert "function_span" not in info_payload
 
-
 def test_deserialize_call_args_list_skips_non_call_mappings() -> None:
     da = _load()
     calls = da._deserialize_call_args_list(
@@ -1992,7 +1924,6 @@ def test_deserialize_call_args_list_skips_non_call_mappings() -> None:
         ]
     )
     assert [call.callee for call in calls] == ["m.ok"]
-
 
 def test_deserialize_function_info_for_resume_filters_malformed_fields(tmp_path: Path) -> None:
     da = _load()
@@ -2052,7 +1983,6 @@ def test_deserialize_function_info_for_resume_filters_malformed_fields(tmp_path:
     assert info.param_spans == {"a": (1, 2, 3, 4)}
     assert info.function_span is None
 
-
 def test_deserialize_symbol_table_for_resume_filters_malformed_entries() -> None:
     da = _load()
     table = da._deserialize_symbol_table_for_resume(
@@ -2071,7 +2001,6 @@ def test_deserialize_symbol_table_for_resume_filters_malformed_entries() -> None
     assert table.star_imports == {"mod": {"a"}}
     assert table.module_exports == {"mod": {"x"}}
     assert table.module_export_map == {"mod": {"a": "b"}}
-
 
 def test_load_file_scan_resume_state_handles_invalid_shapes() -> None:
     da = _load()
@@ -2100,7 +2029,6 @@ def test_load_file_scan_resume_state_handles_invalid_shapes() -> None:
         )
         == empty
     )
-
 
 def test_load_file_scan_resume_state_parses_valid_entries() -> None:
     da = _load()
@@ -2134,7 +2062,6 @@ def test_load_file_scan_resume_state_parses_valid_entries() -> None:
     assert fn_class_names == {"f": None}
     assert opaque_callees == {"f"}
 
-
 def test_load_file_scan_resume_state_filters_class_name_and_opaque_shapes() -> None:
     da = _load()
     payload = {
@@ -2152,7 +2079,6 @@ def test_load_file_scan_resume_state_filters_class_name_and_opaque_shapes() -> N
     assert result[6] == {}
     assert result[7] == set()
 
-
 def test_deserialize_invariants_for_resume_filters_malformed_entries() -> None:
     da = _load()
     invariants = da._deserialize_invariants_for_resume(
@@ -2169,7 +2095,6 @@ def test_deserialize_invariants_for_resume_filters_malformed_entries() -> None:
     assert invariant.terms == ("a",)
     assert invariant.scope == "s"
     assert invariant.source == "src"
-
 
 def test_load_analysis_collection_resume_payload_invalid_shapes() -> None:
     da = _load()
@@ -2218,7 +2143,6 @@ def test_load_analysis_collection_resume_payload_invalid_shapes() -> None:
         )
         == empty
     )
-
 
 def test_load_analysis_collection_resume_payload_filters_entries(tmp_path: Path) -> None:
     da = _load()
@@ -2274,7 +2198,6 @@ def test_load_analysis_collection_resume_payload_filters_entries(tmp_path: Path)
     assert isinstance(analysis_index_resume, dict)
     assert analysis_index_resume["phase"] == "analysis_index_hydration"
 
-
 def test_load_analysis_collection_resume_payload_handles_non_sequence_completion_and_invariants(
     tmp_path: Path,
 ) -> None:
@@ -2295,7 +2218,6 @@ def test_load_analysis_collection_resume_payload_handles_non_sequence_completion
     )
     assert loaded[4] == set()
     assert loaded[3] == []
-
 
 def test_runtime_obligation_violation_lines_and_preview_helpers() -> None:
     da = _load()
@@ -2326,7 +2248,6 @@ def test_runtime_obligation_violation_lines_and_preview_helpers() -> None:
     assert lines[0] == "Resumability obligations preview (provisional)."
     assert any("`violations`: `1`" in line for line in lines)
     assert any("sample_violation" in line for line in lines)
-
 
 def test_known_violation_and_preview_violations_sections() -> None:
     da = _load()
@@ -2364,7 +2285,6 @@ def test_known_violation_and_preview_violations_sections() -> None:
     empty_preview = da._preview_violations_section(empty_report, {})
     assert "- none observed yet" in empty_preview
 
-
 def test_preview_parse_failure_witnesses_section_counts_stage() -> None:
     da = _load()
     report = da.ReportCarrier(
@@ -2379,7 +2299,6 @@ def test_preview_parse_failure_witnesses_section_counts_stage() -> None:
     assert lines[0] == "Parse failure witnesses preview (provisional)."
     assert any("stage[parse]" in line for line in lines)
     assert any("stage[unknown]" in line for line in lines)
-
 
 def test_load_analysis_index_resume_payload_filters_entries(tmp_path: Path) -> None:
     da = _load()
@@ -2444,7 +2363,6 @@ def test_load_analysis_index_resume_payload_filters_entries(tmp_path: Path) -> N
     assert symbol_table.imports == {("m", "n"): "m.n"}
     assert set(class_index) == {"m.C"}
 
-
 def test_report_projection_spec_topology_guards() -> None:
     da = _load()
     first = da._report_section_spec(section_id="intro", phase="collection")
@@ -2483,7 +2401,6 @@ def test_report_projection_spec_topology_guards() -> None:
             )
         )
 
-
 def test_report_preview_helpers_cover_samples() -> None:
     da = _load()
     report = da.ReportCarrier(
@@ -2517,7 +2434,6 @@ def test_report_preview_helpers_cover_samples() -> None:
     assert any("`pending`: `1`" in line for line in obligations_preview)
     assert da._report_section_no_violations(["x"]) == []
 
-
 def test_parse_witness_contract_violations_read_and_parse_errors(tmp_path: Path) -> None:
     da = _load()
     missing = da._parse_witness_contract_violations(source_path=tmp_path / "missing.py")
@@ -2527,7 +2443,6 @@ def test_parse_witness_contract_violations_read_and_parse_errors(tmp_path: Path)
         source_path=tmp_path / "broken.py",
     )
     assert parse_error and "parse_error" in parse_error[0]
-
 
 def test_parse_witness_contract_violations_missing_helper_and_param(tmp_path: Path) -> None:
     da = _load()
@@ -2545,7 +2460,6 @@ def test_parse_witness_contract_violations_missing_helper_and_param(tmp_path: Pa
     assert any("missing helper definition" in line for line in violations)
     assert any("missing parse_failure_witnesses" in line for line in violations)
 
-
 def test_annotation_allows_none_and_parameter_default_map_edges() -> None:
     da = _load()
     assert da._annotation_allows_none(None) is True
@@ -2560,7 +2474,6 @@ def test_annotation_allows_none_and_parameter_default_map_edges() -> None:
     assert mapping["b"] is not None
     assert mapping["c"] is not None
     assert mapping["d"] is not None
-
 
 def test_raw_sorted_contract_violations_strict_and_baseline(tmp_path: Path) -> None:
     da = _load()
@@ -2582,7 +2495,6 @@ def test_raw_sorted_contract_violations_strict_and_baseline(tmp_path: Path) -> N
         baseline_counts={baseline_key: 0},
     )
     assert any("raw_sorted exceeded baseline" in line for line in exceeds)
-
 
 def test_report_projection_render_paths_and_dedup_dep_edges(tmp_path: Path) -> None:
     da = _load()
@@ -2611,7 +2523,6 @@ def test_report_projection_render_paths_and_dedup_dep_edges(tmp_path: Path) -> N
         )
     )
     assert [spec.section_id for spec in ordered] == ["root", "child"]
-
 
 def test_decision_surface_indexed_rewrite_guard_and_annotation_unparse_failure() -> None:
     da = _load()
@@ -2653,7 +2564,6 @@ def test_decision_surface_indexed_rewrite_guard_and_annotation_unparse_failure()
         is True
     )
 
-
 def test_raw_sorted_key_and_callsite_count_non_py(tmp_path: Path) -> None:
     da = _load()
     src_path = tmp_path / "src" / "pkg" / "mod.py"
@@ -2664,7 +2574,6 @@ def test_raw_sorted_key_and_callsite_count_non_py(tmp_path: Path) -> None:
     txt.write_text("sorted([1])\n")
     counts = da._raw_sorted_callsite_counts([txt], parse_failure_witnesses=[])
     assert counts == {}
-
 
 def test_detect_execution_pattern_matches_read_and_parse_and_filter_paths(
     tmp_path: Path,
@@ -2688,7 +2597,6 @@ def test_detect_execution_pattern_matches_read_and_parse_and_filter_paths(
         source_path=tmp_path / "m.py",
     )
     assert filtered == []
-
 
 def test_lint_and_report_section_projection_edge_filters() -> None:
     da = _load()
@@ -2733,7 +2641,6 @@ def test_lint_and_report_section_projection_edge_filters() -> None:
     section_forest = da.Forest()
     assert da._project_report_section_lines(forest=section_forest, section_key=key, lines=[]) == []
 
-
 def test_suite_order_and_suite_span_and_async_for_materialization(tmp_path: Path) -> None:
     da = _load()
     forest = da.Forest()
@@ -2765,7 +2672,6 @@ def test_suite_order_and_suite_span_and_async_for_materialization(tmp_path: Path
         parent_suite=parent,
     )
     assert any(alt.kind == "SuiteContains" for alt in forest.alts)
-
 
 def test_materialize_statement_suite_contains_handles_all_statement_kinds() -> None:
     da = _load()
@@ -2824,7 +2730,6 @@ def test_materialize_statement_suite_contains_handles_all_statement_kinds() -> N
     assert expected_kinds.issubset(suite_kinds)
     assert any(alt.kind == "SuiteContains" for alt in forest.alts)
 
-
 def test_parse_failure_and_runtime_summary_edges() -> None:
     da = _load()
     assert da._summarize_parse_failure_witnesses([]) == []
@@ -2847,7 +2752,6 @@ def test_parse_failure_and_runtime_summary_edges() -> None:
         max_entries=2,
     )
     assert any("more" in line for line in runtime)
-
 
 def test_resume_deserialize_helpers_cover_invalid_rows(tmp_path: Path) -> None:
     da = _load()
@@ -2889,7 +2793,6 @@ def test_resume_deserialize_helpers_cover_invalid_rows(tmp_path: Path) -> None:
     assert info.param_spans == {}
     assert da._deserialize_class_info_for_resume({"qual": 1, "module": "m"}) is None
 
-
 def test_resume_payload_loaders_and_serializers_cover_edges(tmp_path: Path) -> None:
     da = _load()
     first = tmp_path / "a.py"
@@ -2920,7 +2823,6 @@ def test_resume_payload_loaders_and_serializers_cover_edges(tmp_path: Path) -> N
     assert da._serialize_invariants_for_resume(
         [da.InvariantProposition(form="Equal", terms=("a", "b"), scope="s", source="src")]
     )
-
 
 def test_analysis_index_cache_and_build_edges(tmp_path: Path) -> None:
     da = _load()
@@ -2953,7 +2855,6 @@ def test_analysis_index_cache_and_build_edges(tmp_path: Path) -> None:
         require_transparent=True,
     ) == {"m.f": ()}
 
-
 def test_deadline_function_facts_cache_and_tree_path_edges(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "m.py"
@@ -2976,7 +2877,6 @@ def test_deadline_function_facts_cache_and_tree_path_edges(tmp_path: Path) -> No
     )
     assert isinstance(facts, dict)
 
-
 def test_call_edge_helper_filters_and_report_line_filters() -> None:
     da = _load()
     forest = da.Forest()
@@ -2994,7 +2894,6 @@ def test_call_edge_helper_filters_and_report_line_filters() -> None:
     report_node = report_forest.add_node("Other", ("x",), {})
     report_forest.add_alt("ReportSectionLine", (da.NodeId("FileSite", ("<report>",)), report_node), evidence={"run_id": "r", "section": "s"})
     assert da._report_section_line_relation(forest=report_forest, section_key=key) == []
-
 
 def test_materialize_call_candidates_span_requirements_and_duplicate_edges() -> None:
     da = _load()
@@ -3067,7 +2966,6 @@ def test_materialize_call_candidates_span_requirements_and_duplicate_edges() -> 
     )
     assert len([alt for alt in seen_forest.alts if alt.kind == "CallCandidate"]) == 1
 
-
 def test_build_analysis_index_timeout_and_resolve_outcome_edges(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "m.py"
@@ -3129,7 +3027,6 @@ def test_build_analysis_index_timeout_and_resolve_outcome_edges(tmp_path: Path) 
         resolve_callee_fn=lambda *_args, **_kwargs: None,
     )
     assert outcome.status == "unresolved_internal"
-
 
 def test_constant_flow_and_dataclass_registry_cache_none_edges() -> None:
     da = _load()
@@ -3196,7 +3093,6 @@ def test_constant_flow_and_dataclass_registry_cache_none_edges() -> None:
         stage_cache_fn=lambda *_args, **_kwargs: {Path("x.py"): None},
     ) == {}
 
-
 def test_resume_payload_loader_format_v1_invalid_rows(tmp_path: Path) -> None:
     da = _load()
     file_path = tmp_path / "a.py"
@@ -3229,7 +3125,6 @@ def test_resume_payload_loader_format_v1_invalid_rows(tmp_path: Path) -> None:
     assert in_progress == {}
     assert analysis_index_resume is None
 
-
 def test_detection_and_node_identity_and_graph_cycle_edges(tmp_path: Path) -> None:
     da = _load()
     noisy_source = (
@@ -3247,7 +3142,6 @@ def test_detection_and_node_identity_and_graph_cycle_edges(tmp_path: Path) -> No
 
     graph = {"a": {"b"}, "b": {"a"}}
     assert da._reachable_from_roots(graph, {"a"}) == {"a", "b"}
-
 
 def test_lint_and_report_relation_skip_rows_edges() -> None:
     da = _load()
@@ -3269,7 +3163,6 @@ def test_lint_and_report_relation_skip_rows_edges() -> None:
     )
     report_forest.add_alt("ReportSectionLine", (report_forest.add_file_site("<report>"), line_node), evidence={"run_id": "r", "section": "s"})
     assert da._report_section_line_relation(forest=report_forest, section_key=section_key) == []
-
 
 def test_suite_span_none_and_lint_render_filter_edges() -> None:
     da = _load()
@@ -3307,7 +3200,6 @@ def test_suite_span_none_and_lint_render_filter_edges() -> None:
     assert isinstance(rendered, list)
     assert da._parse_failure_violation_lines([{"path": "a.py", "stage": "parse", "error_type": "SyntaxError"}])
 
-
 def test_emit_report_parse_contract_section_and_marker_edges() -> None:
     da = _load()
     assert da._parse_report_section_marker("missing marker") is None
@@ -3319,7 +3211,6 @@ def test_emit_report_parse_contract_section_and_marker_edges() -> None:
     )
     assert "Parse witness contract violations:" in lines
     assert violations
-
 
 def test_resume_payload_loader_edge_rows_and_in_progress_defaults(tmp_path: Path) -> None:
     da = _load()
@@ -3351,7 +3242,6 @@ def test_resume_payload_loader_edge_rows_and_in_progress_defaults(tmp_path: Path
     assert spans[file_path]["f"]["x"] == (1, 2, 3, 4)
     assert sites[file_path] == {"f": [[]]}
     assert in_progress == {}
-
 
 def test_resume_index_and_collection_loader_additional_edge_rows(tmp_path: Path) -> None:
     da = _load()
@@ -3390,7 +3280,6 @@ def test_resume_index_and_collection_loader_additional_edge_rows(tmp_path: Path)
         include_invariant_propositions=False,
     )
     assert loaded[4] == set()
-
 
 def test_call_resolution_and_lint_compute_filter_edges() -> None:
     da = _load()
@@ -3433,7 +3322,6 @@ def test_call_resolution_and_lint_compute_filter_edges() -> None:
     )
     assert rendered == []
 
-
 def test_statement_suite_contains_body_without_span_and_parse_marker_suffix() -> None:
     da = _load()
     parent = da.Forest().add_suite_site("m.py", "m.f", "function_body", span=(1, 1, 1, 2))
@@ -3449,7 +3337,6 @@ def test_statement_suite_contains_body_without_span_and_parse_marker_suffix() ->
     )
     assert da._parse_report_section_marker("text") is None
     assert da._parse_report_section_marker("<!-- report-section:intro") is None
-
 
 def test_lint_and_report_relations_skip_missing_nodes_and_bad_payloads() -> None:
     da = _load()
@@ -3486,7 +3373,6 @@ def test_lint_and_report_relations_skip_missing_nodes_and_bad_payloads() -> None
     )
     assert da._report_section_line_relation(forest=report_forest, section_key=section_key) == []
 
-
 def test_resume_loaders_skip_invalid_function_and_class_rows(tmp_path: Path) -> None:
     da = _load()
     file_path = tmp_path / "m.py"
@@ -3519,7 +3405,6 @@ def test_resume_loaders_skip_invalid_function_and_class_rows(tmp_path: Path) -> 
     )
     assert loaded[4] == set()
 
-
 def test_analyze_file_internal_timeout_re_emits_scan_progress(
     tmp_path: Path,
 ) -> None:
@@ -3545,7 +3430,6 @@ def test_analyze_file_internal_timeout_re_emits_scan_progress(
             )
     assert emitted
 
-
 def test_analyze_file_internal_emits_scan_progress_on_interval(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -3567,7 +3451,6 @@ def test_analyze_file_internal_emits_scan_progress_on_interval(tmp_path: Path) -
         )
 
     assert len(emitted) >= 2
-
 
 def test_suite_span_and_statement_suite_contains_no_span_branches() -> None:
     da = _load()
@@ -3624,7 +3507,6 @@ def test_suite_span_and_statement_suite_contains_no_span_branches() -> None:
     # Bodies without spans should not produce suite containment edges.
     assert [alt for alt in forest.alts if alt.kind == "SuiteContains"] == []
 
-
 def test_fallback_deadline_arg_info_vararg_kwarg_and_low_strictness_edges() -> None:
     da = _load()
     call = da.CallArgs(
@@ -3658,7 +3540,6 @@ def test_fallback_deadline_arg_info_vararg_kwarg_and_low_strictness_edges() -> N
     assert info_map["rest"].kind == "param"
     assert info_map["kwargs"].kind == "param"
     assert "k0" not in info_map
-
 
 def test_collect_deadline_obligations_call_node_lookup_edge_cases(tmp_path: Path) -> None:
     da = _load()
@@ -3747,7 +3628,6 @@ def test_collect_deadline_obligations_call_node_lookup_edge_cases(tmp_path: Path
     )
     assert obligations == []
 
-
 def test_collect_deadline_obligations_unknown_kind_fallthrough(tmp_path: Path) -> None:
     da = _load()
     caller = da.FunctionInfo(
@@ -3822,7 +3702,6 @@ def test_collect_deadline_obligations_unknown_kind_fallthrough(tmp_path: Path) -
     )
     assert obligations == []
 
-
 def test_resolve_class_candidates_symbol_table_and_module_edge_cases() -> None:
     da = _load()
     class_index = {
@@ -3848,7 +3727,6 @@ def test_resolve_class_candidates_symbol_table_and_module_edge_cases() -> None:
         class_index=class_index,
     ) == ["Local"]
 
-
 def test_callsite_evidence_for_bundle_skips_non_bundle_slots() -> None:
     da = _load()
     call = da.CallArgs(
@@ -3866,7 +3744,6 @@ def test_callsite_evidence_for_bundle_skips_non_bundle_slots() -> None:
     )
     evidence = da._callsite_evidence_for_bundle([call], {"bundle_only"})
     assert evidence == []
-
 
 def test_collect_never_invariants_dead_env_edge_cases(tmp_path: Path) -> None:
     da = _load()

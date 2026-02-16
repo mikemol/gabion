@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import evidence
 
     return evidence
-
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_bundle_key::bundle
 def test_normalize_bundle_key_accepts_lists_tuples_and_sets() -> None:
@@ -21,7 +17,6 @@ def test_normalize_bundle_key_accepts_lists_tuples_and_sets() -> None:
     assert evidence.normalize_bundle_key(["b", "a", "a", "", 1]) == "a,b"
     assert evidence.normalize_bundle_key(("a", "b")) == "a,b"
     assert evidence.normalize_bundle_key({"b", "a"}) == "a,b"
-
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value
 def test_normalize_string_list_handles_multiple_payload_shapes() -> None:
@@ -34,7 +29,6 @@ def test_normalize_string_list_handles_multiple_payload_shapes() -> None:
     assert evidence.normalize_string_list({"b", "a"}) == ["a", "b"]
     assert evidence.normalize_string_list({"a,b", "c"}) == ["a", "b", "c"]
     assert evidence.normalize_string_list(123) == []
-
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::evidence.py::gabion.analysis.evidence.normalize_string_list::value
 def test_site_from_payload_filters_and_normalizes() -> None:

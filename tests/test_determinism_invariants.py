@@ -13,16 +13,16 @@ from gabion.invariants import proof_mode_scope
 
 
 def test_require_invariants_noop_when_proof_mode_disabled() -> None:
-    require_sorted("sorted", [2, 1])
-    require_no_dupes("dupes", ["a", "a"])
-    require_canonical_multiset("ms", [("a", 0)])
-    require_no_python_hash("hash")
+    assert require_sorted("sorted", [2, 1]) is None
+    assert require_no_dupes("dupes", ["a", "a"]) is None
+    assert require_canonical_multiset("ms", [("a", 0)]) is None
+    assert require_no_python_hash("hash") is None
 
 
 def test_require_sorted_allows_reverse_sorted_in_reverse_mode() -> None:
     with proof_mode_scope(True):
-        require_sorted("descending", [3, 2, 2, 1], reverse=True)
-        require_sorted("empty", [])
+        assert require_sorted("descending", [3, 2, 2, 1], reverse=True) is None
+        assert require_sorted("empty", []) is None
 
 
 def test_require_sorted_raises_and_reports_payload() -> None:
@@ -121,5 +121,5 @@ def test_require_invariants_raise_without_callbacks() -> None:
 
 def test_require_invariants_accept_empty_iterables_in_proof_mode() -> None:
     with proof_mode_scope(True):
-        require_no_dupes("dupes", [])
-        require_canonical_multiset("ms", [])
+        assert require_no_dupes("dupes", []) is None
+        assert require_canonical_multiset("ms", []) is None

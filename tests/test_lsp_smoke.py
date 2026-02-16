@@ -4,17 +4,14 @@ import importlib.util
 import io
 import json
 from pathlib import Path
-import sys
 
 import pytest
 
 _TIMEOUT_TICKS = 5_000
 _TIMEOUT_TICK_NS = 1_000_000
 
-
 def _has_pygls() -> bool:
     return importlib.util.find_spec("pygls") is not None
-
 
 class _FakeProcess:
     def __init__(self, stdout_bytes: bytes, on_start=None) -> None:
@@ -28,14 +25,13 @@ class _FakeProcess:
     def communicate(self, timeout: float | None = None) -> tuple[bytes, bytes]:
         return (b"", b"")
 
-
 def _rpc_response(msg_id: int, result: dict) -> bytes:
+    # dataflow-bundle: msg_id, result
     payload = json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": result}).encode(
         "utf-8"
     )
     header = f"Content-Length: {len(payload)}\r\n\r\n".encode("utf-8")
     return header + payload
-
 
 def _fake_process_factory(stdout_bytes: bytes, on_start=None):
     def _factory(*_args, **_kwargs):
@@ -43,12 +39,10 @@ def _fake_process_factory(stdout_bytes: bytes, on_start=None):
 
     return _factory
 
-
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_lsp_execute_command(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     sample = tmp_path / "sample.py"
     sample.write_text("def alpha(x):\n    return x\n")
     from gabion.lsp_client import CommandRequest, run_command
@@ -123,12 +117,10 @@ def test_lsp_execute_command(tmp_path: Path) -> None:
     )
     assert "protocols" in synth_result
 
-
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_lsp_execute_command_writes_structure_snapshot(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.lsp_client import CommandRequest, run_command
 
     sample = tmp_path / "sample.py"

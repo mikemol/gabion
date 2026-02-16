@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_bundle_evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location
 def test_lint_location_parser_and_bundle_lines() -> None:
@@ -28,7 +24,6 @@ def test_lint_location_parser_and_bundle_lines() -> None:
     assert lines == ["mod.py:10:4: GABION_BUNDLE_UNDOC f -> g forwards a,b"]
     assert da._parse_lint_location("bad line") is None
     assert da._parse_lint_location("mod.py:x:y: nope") is None
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_lint_lines E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_type_evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_exception_path_id
 def test_lint_lines_from_type_and_exception_evidence() -> None:
@@ -51,7 +46,6 @@ def test_lint_lines_from_type_and_exception_evidence() -> None:
     assert lint_lines == [
         "mod.py:3:1: GABION_EXC_NEVER never-throw exception NeverRaise (status=FORBIDDEN)"
     ]
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_unused_arg_smells
 def test_lint_lines_from_constant_and_unused_smells() -> None:

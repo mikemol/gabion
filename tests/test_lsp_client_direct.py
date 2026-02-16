@@ -82,6 +82,7 @@ def test_wait_readable_returns_when_stream_is_ready() -> None:
             writer.write(b"x")
             writer.flush()
             _wait_readable(reader, time.monotonic_ns() + 1_000_000_000)
+            assert reader.read(1) == b"x"
     finally:
         try:
             os.close(write_fd)

@@ -1,21 +1,17 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import json
-import sys
 
 import pytest
 
 from gabion.exceptions import NeverThrown
+from tests.env_helpers import env_scope
 
 def _load_audit_tools():
-    repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "scripts"))
-    import audit_tools
+    from scripts import audit_tools
 
     return audit_tools
-
 
 def _write_decision_snapshot(path: Path, *, include_forest: bool = False) -> None:
     payload = {
@@ -28,7 +24,6 @@ def _write_decision_snapshot(path: Path, *, include_forest: bool = False) -> Non
     if include_forest:
         payload["forest"] = {"format_version": 1, "nodes": [], "alts": []}
     path.write_text(json.dumps(payload))
-
 
 # gabion:evidence E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._write_decision_snapshot
 def test_consolidation_requires_forest_in_strict_mode(tmp_path: Path) -> None:
@@ -54,7 +49,6 @@ def test_consolidation_requires_forest_in_strict_mode(tmp_path: Path) -> None:
             ]
         )
     assert "forest-only mode enabled" in str(exc.value)
-
 
 # gabion:evidence E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._write_decision_snapshot
 def test_consolidation_allows_fallback_in_permissive_mode(tmp_path: Path) -> None:
@@ -82,33 +76,17 @@ def test_consolidation_allows_fallback_in_permissive_mode(tmp_path: Path) -> Non
     report_text = output_path.read_text()
     assert "FOREST_FALLBACK_USED" in report_text
 
-
 def test_audit_tools_gas_limit_env_override() -> None:
     audit_tools = _load_audit_tools()
-    previous = os.environ.get("GABION_AUDIT_GAS_LIMIT")
-    try:
-        os.environ["GABION_AUDIT_GAS_LIMIT"] = "12345"
+    with env_scope({"GABION_AUDIT_GAS_LIMIT": "12345"}):
         assert audit_tools._audit_gas_limit() == 12345
-    finally:
-        if previous is None:
-            os.environ.pop("GABION_AUDIT_GAS_LIMIT", None)
-        else:
-            os.environ["GABION_AUDIT_GAS_LIMIT"] = previous
-
 
 @pytest.mark.parametrize("value", ["", "0", "-1", "bad"])
 def test_audit_tools_gas_limit_env_rejects_invalid(value: str) -> None:
     audit_tools = _load_audit_tools()
-    previous = os.environ.get("GABION_AUDIT_GAS_LIMIT")
-    try:
-        os.environ["GABION_AUDIT_GAS_LIMIT"] = value
+    with env_scope({"GABION_AUDIT_GAS_LIMIT": value}):
         if value == "":
             assert audit_tools._audit_gas_limit() == audit_tools._DEFAULT_AUDIT_GAS_LIMIT
         else:
             with pytest.raises(NeverThrown):
                 audit_tools._audit_gas_limit()
-    finally:
-        if previous is None:
-            os.environ.pop("GABION_AUDIT_GAS_LIMIT", None)
-        else:
-            os.environ["GABION_AUDIT_GAS_LIMIT"] = previous

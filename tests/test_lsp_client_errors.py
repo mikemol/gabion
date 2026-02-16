@@ -4,14 +4,11 @@ import importlib.util
 import io
 import json
 from pathlib import Path
-import sys
 
 import pytest
 
-
 def _has_pygls() -> bool:
     return importlib.util.find_spec("pygls") is not None
-
 
 class _FakeProcess:
     def __init__(self, stdout_bytes: bytes) -> None:
@@ -23,7 +20,6 @@ class _FakeProcess:
     def communicate(self, timeout: float | None = None) -> tuple[bytes, bytes]:
         return (b"", b"")
 
-
 def _rpc_response(msg_id: int, payload: dict) -> bytes:
     message = {"jsonrpc": "2.0", "id": msg_id}
     message.update(payload)
@@ -31,19 +27,16 @@ def _rpc_response(msg_id: int, payload: dict) -> bytes:
     header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
     return header + body
 
-
 def _fake_process_factory(stdout_bytes: bytes):
     def _factory(*_args, **_kwargs):
         return _FakeProcess(stdout_bytes)
 
     return _factory
 
-
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_run_command_unknown_command_raises() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.lsp_client import CommandRequest, LspClientError, run_command
 
     stdout_bytes = b"".join(

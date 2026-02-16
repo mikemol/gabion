@@ -1,19 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 import textwrap
 
 from gabion.analysis.timeout_context import Deadline, deadline_scope
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._internal_broad_type_lint_lines::annot
 def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
@@ -60,7 +56,6 @@ def test_internal_broad_type_str_linted(tmp_path: Path) -> None:
         )
     assert any("GABION_BROAD_TYPE" in line for line in analysis.lint_lines)
 
-
 def test_internal_broad_type_int_linted(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -104,7 +99,6 @@ def test_internal_broad_type_int_linted(tmp_path: Path) -> None:
             config=config,
         )
     assert any("broad type 'int'" in line for line in analysis.lint_lines)
-
 
 def test_internal_node_id_not_linted(tmp_path: Path) -> None:
     da = _load()
@@ -152,7 +146,6 @@ def test_internal_node_id_not_linted(tmp_path: Path) -> None:
         )
     assert not any("GABION_BROAD_TYPE" in line for line in analysis.lint_lines)
 
-
 def test_broad_type_helpers_cover_edges(tmp_path: Path) -> None:
     da = _load()
     assert da._normalize_type_name("typing.Any") == "Any"
@@ -161,7 +154,6 @@ def test_broad_type_helpers_cover_edges(tmp_path: Path) -> None:
     assert da._is_broad_internal_type("Literal['x']") is True
     assert da._is_broad_internal_type("object") is True
     assert da._is_broad_internal_type("CustomType") is False
-
 
 def test_internal_broad_type_skips_tests(tmp_path: Path) -> None:
     da = _load()

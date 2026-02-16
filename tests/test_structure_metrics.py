@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest
 def test_compute_structure_metrics_counts(tmp_path: Path) -> None:

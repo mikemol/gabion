@@ -19,11 +19,9 @@ from lsprotocol.types import (
     TextDocumentItem,
 )
 
-
 # gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_entrypoint_invokes_app::__main__.py::gabion.__main__
 def test_main_entrypoint_invokes_app() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     old_argv = sys.argv[:]
     sys.argv = ["gabion", "--help"]
     try:
@@ -33,19 +31,15 @@ def test_main_entrypoint_invokes_app() -> None:
     finally:
         sys.argv = old_argv
 
-
 # gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_main_module_import::__main__.py::gabion.__main__
 def test_main_module_import() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     module = __import__("gabion.__main__", fromlist=["main"])
     assert hasattr(module, "main")
-
 
 # gabion:evidence E:call_footprint::tests/test_misc_coverage.py::test_analysis_engine_and_model_defaults::engine.py::gabion.analysis.engine.GabionEngine::model.py::gabion.analysis.model.CallArgs::model.py::gabion.analysis.model.ClassInfo::model.py::gabion.analysis.model.DispatchTable::model.py::gabion.analysis.model.FunctionInfo::model.py::gabion.analysis.model.ParamUse::model.py::gabion.analysis.model.SymbolTable::schema.py::gabion.schema.AnalysisResponse
 def test_analysis_engine_and_model_defaults() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.engine import GabionEngine
     from gabion.analysis.model import CallArgs, ClassInfo, DispatchTable, FunctionInfo, ParamUse, SymbolTable
     from gabion.schema import AnalysisResponse
@@ -69,11 +63,9 @@ def test_analysis_engine_and_model_defaults() -> None:
     param_use = ParamUse(direct_forward=set(), non_forward=False, current_aliases=set())
     assert param_use.current_aliases == set()
 
-
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
 def test_lsp_client_rpc_roundtrip() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.lsp_client import LspClientError, _read_response, _read_rpc, _write_rpc
 
     payload = {"jsonrpc": "2.0", "id": 1, "result": {"ok": True}}
@@ -107,11 +99,9 @@ def test_lsp_client_rpc_roundtrip() -> None:
     assert out_value.startswith(b"Content-Length:")
     assert data in out_value
 
-
 # gabion:evidence E:decision_surface/direct::server.py::gabion.server.did_open::ls E:decision_surface/direct::server.py::gabion.server.did_save::ls
 def test_server_code_actions_and_diagnostics(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion import server
 
     sample = tmp_path / "sample.py"

@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-import sys
 import types
 
 import pytest
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import (
         CallArgs,
         ParamUse,
@@ -30,7 +27,6 @@ def _load():
         ParentAnnotator,
         UseVisitor,
     )
-
 
 def _make_use_visitor(
     code: str,
@@ -73,7 +69,6 @@ def _make_use_visitor(
     )
     return tree, visitor, use_map, call_args
 
-
 # gabion:evidence E:function_site::test_visitors_edges.py::tests.test_visitors_edges._load
 def test_import_visitor_relative_and_star() -> None:
     (
@@ -103,7 +98,6 @@ def test_import_visitor_relative_and_star() -> None:
     assert table.star_imports["pkg.mod"] == {"utils"}
     assert table.imports[("pkg.mod", "tool")] == "pkg.helpers.tool"
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_alias_from_call_branches() -> None:
     code = "def f(a, b):\n    return a\n"
@@ -127,7 +121,6 @@ def test_alias_from_call_branches() -> None:
     assert visitor._alias_from_call(call) == ["a"]
     visitor.visit(tree)
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_sequence_and_return_alias_assignment() -> None:
     code = (
@@ -148,7 +141,6 @@ def test_bind_sequence_and_return_alias_assignment() -> None:
     assert "alias" in visitor.alias_to_param
     assert use_map["a"].current_aliases
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_star_args_strictness() -> None:
     code = "def f(a, b):\n    foo(*a)\n    foo(**b)\n"
@@ -160,7 +152,6 @@ def test_star_args_strictness() -> None:
     visitor.visit(tree)
     assert ("args[*]", "arg[*]") in use_map["a"].direct_forward
     assert ("kwargs[*]", "kw[*]") in use_map["b"].direct_forward
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_attribute_and_subscript_aliases() -> None:
@@ -183,7 +174,6 @@ def test_attribute_and_subscript_aliases() -> None:
     assert any(slot == "arg[0]" for _, slot in use_map["b"].direct_forward)
     assert use_map["a"].non_forward is True
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_check_write_clears_attr_and_key_aliases() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
@@ -194,7 +184,6 @@ def test_check_write_clears_attr_and_key_aliases() -> None:
     assert ("obj", "field") not in visitor._attr_alias_to_param
     assert ("data", "k") not in visitor._key_alias_to_param
     assert use_map["a"].non_forward is True
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_sequence_edge_cases() -> None:
@@ -228,7 +217,6 @@ def test_bind_sequence_edge_cases() -> None:
     )
     assert visitor._bind_sequence(nested_target, nested_rhs) is True
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_starred_list_literal_records_forward_without_site() -> None:
     code = "def f(a):\n    return [*a]\n"
@@ -236,7 +224,6 @@ def test_starred_list_literal_records_forward_without_site() -> None:
     visitor.visit(tree)
     assert ("args[*]", "arg[*]") in use_map["a"].direct_forward
     assert use_map["a"].forward_sites == {}
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_record_forward_skips_call_without_span() -> None:
@@ -255,7 +242,6 @@ def test_record_forward_skips_call_without_span() -> None:
     )
     assert visitor._bind_sequence(mismatch_target, mismatch_rhs) is True
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_alias_from_call_keyword_branches() -> None:
     tree, visitor, _, _ = _make_use_visitor(
@@ -271,7 +257,6 @@ def test_alias_from_call_keyword_branches() -> None:
     assert visitor._alias_from_call(call) is None
     visitor.visit(tree)
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_alias_from_call_positional_and_kw_aliases() -> None:
     tree, visitor, _, _ = _make_use_visitor(
@@ -284,7 +269,6 @@ def test_alias_from_call_positional_and_kw_aliases() -> None:
     call = ast.parse("identity(x=a)").body[0].value
     assert visitor._alias_from_call(call) == ["a"]
     visitor.visit(tree)
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_return_alias_rejects_invalid_targets() -> None:
@@ -302,7 +286,6 @@ def test_bind_return_alias_rejects_invalid_targets() -> None:
     assert visitor._bind_return_alias([tuple_target], ["a", "b"]) is False
     assert visitor._bind_return_alias([ast.Constant(value=1)], ["a"]) is False
     visitor.visit(tree)
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_annassign_edges() -> None:
@@ -334,7 +317,6 @@ def test_annassign_edges() -> None:
             simple=0,
         )
     )
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_visit_name_attribute_subscript_edges() -> None:
@@ -403,13 +385,11 @@ def test_visit_name_attribute_subscript_edges() -> None:
         )
     )
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_collect_alias_sources_default() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     assert visitor._collect_alias_sources(ast.Constant(value=1)) == set()
     visitor.visit(tree)
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_attr_and_subscript_slot_fallbacks_with_aliases() -> None:
@@ -425,14 +405,12 @@ def test_attr_and_subscript_slot_fallbacks_with_aliases() -> None:
     assert ("foo", "arg[?]") in use_map["a"].direct_forward
     assert ("bar", "arg[?]") in use_map["a"].direct_forward
 
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_subscript_non_name_root_sets_non_forward() -> None:
     code = "def f(a):\n    foo(a.b['k'])\n"
     tree, visitor, use_map, _ = _make_use_visitor(code, ["a"])
     visitor.visit(tree)
     assert use_map["a"].non_forward is True
-
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_subscript_and_attribute_slot_fallbacks() -> None:
@@ -441,9 +419,10 @@ def test_subscript_and_attribute_slot_fallbacks() -> None:
         "    foo(**data['k'])\n"
         "    bar(**obj.attr)\n"
     )
-    tree, visitor, _, _ = _make_use_visitor(code, ["a", "data", "obj"])
+    tree, visitor, use_map, _ = _make_use_visitor(code, ["a", "data", "obj"])
     visitor.visit(tree)
-
+    assert ("foo", "arg[?]") not in use_map["a"].direct_forward
+    assert ("bar", "arg[?]") not in use_map["a"].direct_forward
 
 def test_check_write_missing_use_map_entries() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
@@ -455,7 +434,6 @@ def test_check_write_missing_use_map_entries() -> None:
     visitor._check_write(ast.Name(id="data", ctx=ast.Store()))
     assert "missing" not in use_map
     visitor.visit(tree)
-
 
 def test_bind_sequence_nested_mismatch_and_missing_use_map() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
@@ -488,7 +466,6 @@ def test_bind_sequence_nested_mismatch_and_missing_use_map() -> None:
     assert visitor._bind_sequence(lhs, rhs) is True
     visitor.visit(tree)
 
-
 def test_bind_sequence_nested_match_branch_and_mark_non_forward_suspended() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     lhs_nested = ast.Tuple(
@@ -516,7 +493,6 @@ def test_bind_sequence_nested_match_branch_and_mark_non_forward_suspended() -> N
     assert use_map["a"].non_forward is False
     visitor.visit(tree)
 
-
 def test_bind_return_alias_and_annassign_missing_use_map_entries() -> None:
     _, visitor, _, _ = _make_use_visitor(
         "def f(a):\n    x: int = identity(a)\n",
@@ -534,7 +510,6 @@ def test_bind_return_alias_and_annassign_missing_use_map_entries() -> None:
     assert isinstance(annassign, ast.AnnAssign)
     with pytest.raises(KeyError):
         visitor.visit_AnnAssign(annassign)
-
 
 def test_attribute_and_subscript_non_forward_when_not_suspended() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
@@ -583,7 +558,6 @@ def test_attribute_and_subscript_non_forward_when_not_suspended() -> None:
     )
     assert use_map["a"].non_forward is True
     visitor.visit(tree)
-
 
 def test_subscript_positional_slot_detection() -> None:
     code = (

@@ -6,6 +6,7 @@ import pytest
 
 from gabion.analysis import schema_audit as sa
 from gabion.exceptions import NeverThrown
+from tests.order_helpers import contract_sorted
 
 
 # gabion:evidence E:decision_surface/direct::schema_audit.py::gabion.analysis.schema_audit._normalize_path::root
@@ -66,7 +67,7 @@ def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> No
     syntax_error = tmp_path / "broken.py"
     syntax_error.write_text("def f(x: dict[str, object]) -> None\n    return None\n")
 
-    ordered_paths = sorted(
+    ordered_paths = contract_sorted(
         [test_prefixed, nested, dotfile, missing, syntax_error],
         key=lambda path: str(path),
     )

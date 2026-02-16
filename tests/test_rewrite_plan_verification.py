@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches
 def test_glossary_match_strata_classification() -> None:
@@ -20,7 +16,6 @@ def test_glossary_match_strata_classification() -> None:
     assert da._glossary_match_strata(["x"]) == "exact"
     assert da._glossary_match_strata(["x", "y"]) == "ambiguous"
 
-
 # gabion:evidence E:function_site::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load
 def test_normalize_bundle_key_covers_edges() -> None:
     da = _load()
@@ -28,7 +23,6 @@ def test_normalize_bundle_key_covers_edges() -> None:
     assert da.normalize_bundle_key([]) == ""
     assert da.normalize_bundle_key(["a", 1, None]) == "a"
     assert da.normalize_bundle_key(["a", "b"]) == "a,b"
-
 
 def _plan(**overrides: object) -> dict[str, object]:
     plan: dict[str, object] = {
@@ -45,7 +39,6 @@ def _plan(**overrides: object) -> dict[str, object]:
     plan.update(overrides)
     return plan
 
-
 def _post_entry(**overrides: object) -> dict[str, object]:
     entry: dict[str, object] = {
         "path": "a.py",
@@ -58,7 +51,6 @@ def _post_entry(**overrides: object) -> dict[str, object]:
     }
     entry.update(overrides)
     return entry
-
 
 # gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload
 def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
@@ -87,14 +79,12 @@ def test_find_provenance_entry_for_site_covers_misses_and_hit() -> None:
         is None
     )
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_missing_post_entry() -> None:
     da = _load()
     result = da.verify_rewrite_plan(_plan(), post_provenance=[])
     assert result["accepted"] is False
     assert "missing post provenance entry for site" in result["issues"]
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_accepts_happy_path_and_list_helper() -> None:
@@ -107,7 +97,6 @@ def test_verify_rewrite_plan_accepts_happy_path_and_list_helper() -> None:
     results = da.verify_rewrite_plans([plan], post_provenance=post)
     assert results[0]["accepted"] is True
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_detects_candidate_mismatch() -> None:
     da = _load()
@@ -115,7 +104,6 @@ def test_verify_rewrite_plan_detects_candidate_mismatch() -> None:
     post = [_post_entry(glossary_matches=["not-a-candidate"])]
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_detects_remainder_regression() -> None:
@@ -125,7 +113,6 @@ def test_verify_rewrite_plan_detects_remainder_regression() -> None:
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
     assert any(r.get("kind") == "remainder_non_regression" and not r.get("passed") for r in result["predicate_results"])
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_handles_non_dict_fields() -> None:
@@ -140,14 +127,12 @@ def test_verify_rewrite_plan_handles_non_dict_fields() -> None:
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
 
-
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_rejects_missing_or_invalid_site() -> None:
     da = _load()
     result = da.verify_rewrite_plan(_plan(site="nope"), post_provenance=[_post_entry()])
     assert result["accepted"] is False
     assert "missing or invalid plan site" in result["issues"]
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
@@ -159,7 +144,6 @@ def test_verify_rewrite_plan_handles_non_dict_remainder_and_params() -> None:
     post = [_post_entry(remainder="oops")]
     result = da.verify_rewrite_plan(plan, post_provenance=post)
     assert result["accepted"] is False
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_requested() -> None:
@@ -231,7 +215,6 @@ def test_verify_rewrite_plan_enforces_exception_obligation_non_regression_when_r
         post_exception_obligations=regression,
     )
     assert result["accepted"] is False
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors() -> None:

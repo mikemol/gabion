@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import (
         _build_symbol_table,
         _collect_dataclass_registry,
@@ -14,7 +11,6 @@ def _load():
     )
 
     return _iter_dataclass_call_bundles, _build_symbol_table, _collect_dataclass_registry
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_dataclass_call_bundles_accepts_expression_values(tmp_path: Path) -> None:
@@ -30,14 +26,12 @@ class Payload:
     beta: int
     gamma: int
 
-
 def build(alpha, beta, gamma):
     return Payload(alpha, beta + 1, gamma=make_gamma())
 """
     )
     bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=[])
     assert ("alpha", "beta", "gamma") in bundles
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles._resolve_fields::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataclass_registry,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map,module_name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root E:decision_surface/value_encoded::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::import_map
 def test_dataclass_call_bundles_resolve_cross_file(tmp_path: Path) -> None:

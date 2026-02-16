@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import CallArgs, _callsite_evidence_for_bundle
 
     return CallArgs, _callsite_evidence_for_bundle
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle
 def test_callsite_evidence_skips_calls_without_span() -> None:
@@ -29,7 +25,6 @@ def test_callsite_evidence_skips_calls_without_span() -> None:
         span=None,
     )
     assert _callsite_evidence_for_bundle([call], {"a", "b"}) == []
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle
 def test_callsite_evidence_records_star_args_and_star_kwargs() -> None:
@@ -50,7 +45,6 @@ def test_callsite_evidence_records_star_args_and_star_kwargs() -> None:
     evidence = _callsite_evidence_for_bundle([call], {"a", "b"})
     assert evidence
     assert evidence[0]["slots"] == ["arg[0]*", "kw[**]"]
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle
 def test_callsite_evidence_dedupes_duplicate_calls() -> None:

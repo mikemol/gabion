@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import argparse
 import ast
-import os
 import pytest
 from pathlib import Path
 
 from gabion.analysis import dataflow_audit as da
 from gabion.exceptions import NeverThrown
+from tests.env_helpers import env_scope
 
 
 def _load():
@@ -485,16 +485,9 @@ def test_bundle_projection_and_emitters(tmp_path: Path) -> None:
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery
 def test_forbid_adhoc_bundle_discovery_guard() -> None:
     da = _load()
-    prev = os.environ.get("GABION_FORBID_ADHOC_BUNDLES")
-    os.environ["GABION_FORBID_ADHOC_BUNDLES"] = "1"
-    try:
+    with env_scope({"GABION_FORBID_ADHOC_BUNDLES": "1"}):
         with pytest.raises(AssertionError):
             da._forbid_adhoc_bundle_discovery("test")
-    finally:
-        if prev is None:
-            os.environ.pop("GABION_FORBID_ADHOC_BUNDLES", None)
-        else:
-            os.environ["GABION_FORBID_ADHOC_BUNDLES"] = prev
 
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_warnings

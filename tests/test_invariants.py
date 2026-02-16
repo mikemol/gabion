@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 import pytest
 
 from gabion import invariants
 from gabion.exceptions import NeverThrown
+from tests.env_helpers import env_scope
 
 
 # gabion:evidence E:function_site::invariants.py::gabion.invariants.never
@@ -24,14 +24,6 @@ def test_require_not_none_strict_raises() -> None:
 
 
 def test_require_not_none_env_strict() -> None:
-    key = "GABION_PROOF_MODE"
-    previous = os.environ.get(key)
-    os.environ[key] = "strict"
-    try:
+    with env_scope({"GABION_PROOF_MODE": "strict"}):
         with pytest.raises(NeverThrown):
             invariants.require_not_none(None)
-    finally:
-        if previous is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = previous

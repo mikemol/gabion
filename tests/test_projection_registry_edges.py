@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from gabion.analysis.projection_registry import (
@@ -40,8 +38,11 @@ def test_projection_registry_gas_limit_default_and_env_override(
     previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": None})
     try:
         assert _projection_registry_gas_limit() > 0
-        os.environ["GABION_PROJECTION_REGISTRY_GAS_LIMIT"] = "12345"
-        assert _projection_registry_gas_limit() == 12_345
+        nested_previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "12345"})
+        try:
+            assert _projection_registry_gas_limit() == 12_345
+        finally:
+            restore_env(nested_previous)
     finally:
         restore_env(previous)
 
@@ -52,12 +53,18 @@ def test_projection_registry_gas_limit_rejects_invalid_env(
 ) -> None:
     previous = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": None})
     try:
-        os.environ["GABION_PROJECTION_REGISTRY_GAS_LIMIT"] = "0"
-        with pytest.raises(NeverThrown):
-            _projection_registry_gas_limit()
-        os.environ["GABION_PROJECTION_REGISTRY_GAS_LIMIT"] = "bad"
-        with pytest.raises(NeverThrown):
-            _projection_registry_gas_limit()
+        invalid_zero = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "0"})
+        try:
+            with pytest.raises(NeverThrown):
+                _projection_registry_gas_limit()
+        finally:
+            restore_env(invalid_zero)
+        invalid_text = env_scope({"GABION_PROJECTION_REGISTRY_GAS_LIMIT": "bad"})
+        try:
+            with pytest.raises(NeverThrown):
+                _projection_registry_gas_limit()
+        finally:
+            restore_env(invalid_text)
     finally:
         restore_env(previous)
 

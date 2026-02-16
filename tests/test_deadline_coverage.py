@@ -2,18 +2,14 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-import sys
 import textwrap
 import pytest
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
-
 
 def _make_fn_info(
     da,
@@ -62,7 +58,6 @@ def _make_fn_info(
         function_span=(0, 0, 0, 1),
     )
 
-
 def test_deadline_helper_classification_and_unparse_error() -> None:
     da = _load()
     bad_call = ast.Call(func=ast.Name(id=None, ctx=ast.Load()), args=[], keywords=[])
@@ -97,7 +92,6 @@ def test_deadline_helper_classification_and_unparse_error() -> None:
     )
     assert info_origin.kind == "origin"
 
-
 def test_deadline_collector_handles_missing_span_and_orelse() -> None:
     da = _load()
     source = """
@@ -118,7 +112,6 @@ def test_deadline_collector_handles_missing_span_and_orelse() -> None:
     collector._record_call_span(call)
     collector._loop_stack.pop()
     assert not loop_fact.call_spans
-
 
 def test_deadline_local_info_aliasing() -> None:
     da = _load()
@@ -159,7 +152,6 @@ def test_deadline_local_info_aliasing() -> None:
     assert "origin_alias" in info.origin_vars
     assert info.alias_to_param.get("alias") == "deadline"
 
-
 def test_deadline_function_facts_parse_error_and_scopes(tmp_path: Path) -> None:
     da = _load()
     valid = tmp_path / "mod.py"
@@ -192,7 +184,6 @@ def test_deadline_function_facts_parse_error_and_scopes(tmp_path: Path) -> None:
     assert invalid not in call_nodes
     assert any(entry["stage"] == "call_nodes" for entry in parse_failures)
 
-
 def test_collect_call_nodes_handles_missing_span(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "dummy.py"
@@ -204,7 +195,6 @@ def test_collect_call_nodes_handles_missing_span(tmp_path: Path) -> None:
         parse_failure_witnesses=[],
     )
     assert result[path] == {}
-
 
 def test_collect_call_edges_and_recursive_helpers() -> None:
     da = _load()
@@ -249,7 +239,6 @@ def test_collect_call_edges_and_recursive_helpers() -> None:
         {"a": {"a"}, "b": {"c"}, "c": {"b"}}
     )
     assert recursive == {"a", "b", "c"}
-
 
 def test_deadline_loop_forwarded_params_branches() -> None:
     da = _load()
@@ -312,7 +301,6 @@ def test_deadline_loop_forwarded_params_branches() -> None:
         call_infos=call_infos,
     )
     assert forwarded == set()
-
 
 def test_deadline_arg_info_binding_and_fallback() -> None:
     da = _load()
@@ -396,7 +384,6 @@ def test_deadline_arg_info_binding_and_fallback() -> None:
         strictness="low",
     )
     assert arg_map
-
 
 def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     da = _load()
@@ -678,7 +665,6 @@ def test_collect_deadline_obligations_full_matrix(tmp_path: Path) -> None:
     assert "Deadline propagation:" in report
     assert violations
 
-
 def test_deadline_obligations_include_call_resolution_requirement(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -723,7 +709,6 @@ def test_deadline_obligations_include_call_resolution_requirement(tmp_path: Path
     assert hits
     assert hits[0].get("status") == "OBLIGATION"
     assert "requires resolution" in str(hits[0].get("detail", ""))
-
 
 def test_call_resolution_obligation_is_discharged_by_call_candidate(
     tmp_path: Path,
@@ -781,7 +766,6 @@ def test_call_resolution_obligation_is_discharged_by_call_candidate(
         entry.get("kind") == "call_resolution_required" for entry in obligations
     )
 
-
 def test_call_edges_include_resolution_obligation_candidates() -> None:
     da = _load()
     caller = _make_fn_info(da, name="root", qual="mod.root", path=Path("mod.py"))
@@ -810,7 +794,6 @@ def test_call_edges_include_resolution_obligation_candidates() -> None:
     caller_id = da.NodeId("SuiteSite", (caller.path.name, caller.qual, "function"))
     callee_id = da.NodeId("SuiteSite", (callee.path.name, callee.qual, "function"))
     assert edges[caller_id] == {callee_id}
-
 
 # gabion:evidence E:deadline/call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates
 def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> None:
@@ -857,7 +840,6 @@ def test_materialized_call_candidates_target_function_suites(tmp_path: Path) -> 
         for node in call_candidate_targets
     )
 
-
 def test_deadline_summary_handles_bad_span() -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -876,7 +858,6 @@ def test_deadline_summary_handles_bad_span() -> None:
         da._summarize_deadline_obligations(
             entries, max_entries=1, forest=da.Forest()
         )
-
 
 def test_deadline_summary_materializes_spec_facets() -> None:
     da = _load()
@@ -901,7 +882,6 @@ def test_deadline_summary_materializes_spec_facets() -> None:
     assert spec_sites
     assert any(alt.kind == "SpecFacet" for alt in forest.alts)
 
-
 def test_suite_order_spec_materializes_spec_facets() -> None:
     da = _load()
     forest = da.Forest()
@@ -919,7 +899,6 @@ def test_suite_order_spec_materializes_spec_facets() -> None:
     assert spec_facets
     assert any("order_key" in alt.evidence for alt in spec_facets)
 
-
 def test_suite_order_relation_skips_spec_sites() -> None:
     da = _load()
     forest = da.Forest()
@@ -932,7 +911,6 @@ def test_suite_order_relation_skips_spec_sites() -> None:
     relation, suite_index = da._suite_order_relation(forest)
     assert relation == []
     assert suite_index == {}
-
 
 def test_suite_order_relation_requires_path_and_qual() -> None:
     da = _load()
@@ -947,7 +925,6 @@ def test_suite_order_relation_requires_path_and_qual() -> None:
     with pytest.raises(NeverThrown):
         da._suite_order_relation(forest)
 
-
 def test_suite_order_relation_requires_span() -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -960,7 +937,6 @@ def test_suite_order_relation_requires_span() -> None:
     )
     with pytest.raises(NeverThrown):
         da._suite_order_relation(forest)
-
 
 def test_suite_order_relation_requires_int_span_fields() -> None:
     da = _load()
@@ -975,7 +951,6 @@ def test_suite_order_relation_requires_int_span_fields() -> None:
     with pytest.raises(NeverThrown):
         da._suite_order_relation(forest)
 
-
 def test_suite_order_row_to_site_rejects_missing_fields() -> None:
     da = _load()
     suite_index = {}
@@ -983,7 +958,6 @@ def test_suite_order_row_to_site_rejects_missing_fields() -> None:
         {"suite_path": "", "suite_qual": "q", "suite_kind": "loop"},
         suite_index,
     ) is None
-
 
 def test_suite_order_row_to_site_rejects_invalid_span() -> None:
     da = _load()
@@ -1001,7 +975,6 @@ def test_suite_order_row_to_site_rejects_invalid_span() -> None:
         suite_index,
     ) is None
 
-
 def test_spec_row_span_handles_invalid_and_valid() -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -1016,14 +989,12 @@ def test_spec_row_span_handles_invalid_and_valid() -> None:
         {"span_line": 1, "span_col": 2, "span_end_line": 3, "span_end_col": 4}
     ) == (1, 2, 3, 4)
 
-
 def test_spec_row_span_raises_on_none() -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
 
     with pytest.raises(NeverThrown):
         da._spec_row_span({"span_line": None})
-
 
 def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> None:
     da = _load()
@@ -1042,7 +1013,6 @@ def test_materialize_projection_spec_rows_handles_empty_and_missing_site() -> No
         row_to_site=lambda row: None,
     )
     assert not any(alt.kind == "SpecFacet" for alt in forest.alts)
-
 
 def test_deadline_summary_row_to_site_handles_missing_path() -> None:
     da = _load()
@@ -1072,7 +1042,6 @@ def test_deadline_summary_row_to_site_handles_missing_path() -> None:
     ]
     summary = da._summarize_deadline_obligations(entries, max_entries=1, forest=forest)
     assert summary
-
 
 def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> None:
     da = _load()
@@ -1163,7 +1132,6 @@ def test_deadline_obligation_span_fallbacks_param_and_facts(tmp_path: Path) -> N
         for entry in obligations
     )
 
-
 def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> None:
     da = _load()
     from gabion.exceptions import NeverThrown
@@ -1234,7 +1202,6 @@ def test_deadline_obligation_span_fallback_missing_raises(tmp_path: Path) -> Non
             parse_failure_witnesses=[],
         )
 
-
 def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1267,7 +1234,6 @@ def test_collect_deadline_obligations_strictness_low_star(tmp_path: Path) -> Non
         parse_failure_witnesses=[],
     )
     assert obligations is not None
-
 
 def test_deadline_obligations_emit_suite_sites(tmp_path: Path) -> None:
     da = _load()
@@ -1304,7 +1270,6 @@ def test_deadline_obligations_emit_suite_sites(tmp_path: Path) -> None:
     assert any(alt.kind == "DeadlineObligation" for alt in forest.alts)
     assert any(alt.kind == "SuiteSiteInFunction" for alt in forest.alts)
 
-
 def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1335,7 +1300,6 @@ def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
     )
     assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
-
 def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1365,7 +1329,6 @@ def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
         parse_failure_witnesses=[],
     )
     assert any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
-
 
 def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
     da = _load()
@@ -1399,7 +1362,6 @@ def test_deadline_recursion_loop_ambient_no_carrier(tmp_path: Path) -> None:
     )
     assert not any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
-
 def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1432,7 +1394,6 @@ def test_deadline_recursion_loop_ambient_with_carrier(tmp_path: Path) -> None:
     )
     assert not any(entry.get("kind") == "unchecked_deadline" for entry in obligations)
 
-
 def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"
@@ -1463,7 +1424,6 @@ def test_deadline_recursion_skips_missing_facts(tmp_path: Path) -> None:
         parse_failure_witnesses=[],
     )
     assert obligations is not None
-
 
 def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
     da = _load()
@@ -1502,7 +1462,6 @@ def test_deadline_exempt_prefix_is_skipped(tmp_path: Path) -> None:
         parse_failure_witnesses=[],
     )
     assert obligations is not None
-
 
 def test_deadline_loop_requires_check_in_body(tmp_path: Path) -> None:
     da = _load()

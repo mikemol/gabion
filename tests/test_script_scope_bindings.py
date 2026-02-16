@@ -1,17 +1,12 @@
 from __future__ import annotations
 
 import importlib
-from pathlib import Path
-import sys
 
-from gabion.analysis.timeout_context import check_deadline
-
+from gabion.analysis.aspf import Forest
+from gabion.analysis.timeout_context import check_deadline, get_deadline_clock, get_forest
 
 def _import_script_module(name: str):
-    scripts_dir = Path(__file__).resolve().parents[1] / "scripts"
-    sys.path.insert(0, str(scripts_dir))
-    return importlib.import_module(name)
-
+    return importlib.import_module(f"scripts.{name}")
 
 def test_script_scope_helpers_bind_deadline_clock_and_forest() -> None:
     scope_functions = [
@@ -35,4 +30,8 @@ def test_script_scope_helpers_bind_deadline_clock_and_forest() -> None:
         module = _import_script_module(module_name)
         scope = getattr(module, scope_name)
         with scope():
+            assert isinstance(get_forest(), Forest)
+            start_mark = get_deadline_clock().get_mark()
             check_deadline()
+            end_mark = get_deadline_clock().get_mark()
+            assert end_mark >= start_mark

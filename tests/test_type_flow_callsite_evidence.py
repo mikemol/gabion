@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import (
         CallArgs,
         Forest,
@@ -26,7 +23,6 @@ def _load():
         analyze_type_flow_repo_with_evidence,
         render_report,
     )
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._format_type_flow_site::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
@@ -76,7 +72,6 @@ def test_format_type_flow_site_handles_missing_span(tmp_path: Path) -> None:
         project_root=tmp_path,
     )
     assert rendered.startswith("mod.py:caller:")
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_type_flow::strictness
 def test_type_flow_evidence_in_report(tmp_path: Path) -> None:

@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import _iter_config_fields
 
     return _iter_config_fields
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields
 def test_iter_config_fields_expands_config_dataclass(tmp_path: Path) -> None:

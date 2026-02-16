@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root
 def test_render_and_diff_decision_snapshots() -> None:
@@ -47,7 +43,6 @@ def test_render_and_diff_decision_snapshots() -> None:
     ]
     assert "baseline_forest_signature" in diff
     assert "current_forest_signature" in diff
-
 
 def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
     da = _load()

@@ -2,22 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import sys
 import textwrap
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.refactor.engine import RefactorEngine
     from gabion.refactor.model import FieldSpec, RefactorRequest
 
     return RefactorEngine, FieldSpec, RefactorRequest
 
-
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", "", text)
-
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
@@ -44,7 +39,6 @@ def test_refactor_engine_emits_protocol_stub(tmp_path: Path) -> None:
     assert "class BundleProtocol" in replacement
     assert "alpha: object" in replacement
     assert "beta: object" in replacement
-
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
@@ -74,7 +68,6 @@ def test_refactor_engine_preserves_type_hints(tmp_path: Path) -> None:
     replacement = plan.edits[0].replacement
     assert "alpha: int" in replacement
     assert "beta: str" in replacement
-
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None:
@@ -107,7 +100,6 @@ def test_refactor_engine_rewrites_signature_and_preamble(tmp_path: Path) -> None
     assert "a = bundle.a" in replacement
     assert "b = bundle.b" in replacement
 
-
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize
 def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
@@ -138,7 +130,6 @@ def test_refactor_engine_rewrites_call_sites(tmp_path: Path) -> None:
     assert plan.edits
     replacement = _normalize(plan.edits[0].replacement)
     assert "returnfoo(BundleProtocol(a=x,b=y))" in replacement
-
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load E:function_site::test_refactor_engine.py::tests.test_refactor_engine._normalize
 def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
@@ -184,7 +175,6 @@ def test_refactor_engine_rewrites_imported_call_sites(tmp_path: Path) -> None:
     caller_replacement = _normalize(edits_by_path["caller.py"])
     assert "frompkg.modimportBundleProtocol" in caller_replacement
     assert "returnfoo(BundleProtocol(a=x,b=y))" in caller_replacement
-
 
 # gabion:evidence E:function_site::test_refactor_engine.py::tests.test_refactor_engine._load
 def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:

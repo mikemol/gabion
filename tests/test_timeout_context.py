@@ -158,7 +158,9 @@ def test_deadline_expired_raises() -> None:
 
 def test_deadline_check_noop_when_not_expired() -> None:
     deadline = Deadline.from_timeout_ms(1_000)
+    assert deadline.expired() is False
     deadline.check(lambda: TimeoutContext(call_stack=pack_call_stack([])))
+    assert deadline.expired() is False
 
 
 # gabion:evidence E:function_site::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout
@@ -469,12 +471,14 @@ def test_consume_deadline_ticks_requires_clock_scope() -> None:
 
 
 def test_check_deadline_ignores_wall_deadline_when_gas_clock_present() -> None:
+    clock = GasMeter(limit=3)
     with _deadline_test_scope(
         deadline=Deadline(deadline_ns=0),
-        clock=GasMeter(limit=3),
+        clock=clock,
     ):
         check_deadline()
         check_deadline()
+    assert clock.current == 2
 
 
 def test_render_deadline_profile_markdown() -> None:
@@ -677,11 +681,13 @@ def test_build_timeout_context_skips_unmatched_frames() -> None:
 
 
 def test_check_deadline_accepts_explicit_deadline_argument() -> None:
+    clock = GasMeter(limit=5)
     with _deadline_test_scope(
         deadline=Deadline.from_timeout_ms(100),
-        clock=GasMeter(limit=5),
+        clock=clock,
     ):
         check_deadline(deadline=Deadline.from_timeout_ms(100))
+    assert clock.current == 1
 
 
 class _DummyClock:

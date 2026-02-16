@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 import textwrap
-
 
 def _load_config_module():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.config import dataflow_defaults, merge_payload
 
     return dataflow_defaults, merge_payload
-
 
 # gabion:evidence E:decision_surface/direct::config.py::gabion.config.load_config::config_path,root
 def test_dataflow_defaults_reads_toml(tmp_path: Path) -> None:
@@ -39,7 +35,6 @@ def test_dataflow_defaults_reads_toml(tmp_path: Path) -> None:
     assert defaults["type_audit"] is True
     assert defaults["fail_on_type_ambiguities"] is True
 
-
 # gabion:evidence E:function_site::config.py::gabion.config.merge_payload
 def test_merge_payload_prefers_explicit_values(tmp_path: Path) -> None:
     dataflow_defaults, merge_payload = _load_config_module()
@@ -61,10 +56,8 @@ def test_merge_payload_prefers_explicit_values(tmp_path: Path) -> None:
     assert merged["strictness"] == "high"
     assert merged["allow_external"] is True
 
-
 def test_dataflow_deadline_roots_validation() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     import gabion.analysis  # pre-load to avoid config/analysis import cycle
     from gabion.config import dataflow_deadline_roots
 

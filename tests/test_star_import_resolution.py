@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 import textwrap
-
 
 def _write(tmp_path: Path, rel: str, content: str) -> Path:
     path = tmp_path / rel
@@ -11,14 +9,11 @@ def _write(tmp_path: Path, rel: str, content: str) -> Path:
     path.write_text(textwrap.dedent(content))
     return path
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import analyze_unused_arg_flow_repo
 
     return analyze_unused_arg_flow_repo
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_star_import_resolution_disambiguates(tmp_path: Path) -> None:
@@ -60,7 +55,6 @@ def test_star_import_resolution_disambiguates(tmp_path: Path) -> None:
         smell.startswith("b.py:") and "passes param x to unused a.py:helper.a" in smell
         for smell in smells
     )
-
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo._format::call E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
 def test_star_import_resolves_reexport(tmp_path: Path) -> None:

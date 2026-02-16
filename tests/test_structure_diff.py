@@ -2,22 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import sys
 
 import pytest
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
 
-
 def _write_snapshot(path: Path, snapshot: dict) -> None:
     path.write_text(json.dumps(snapshot))
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
 def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
@@ -27,7 +22,6 @@ def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         da.load_structure_snapshot(target)
 
-
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
 def test_load_structure_snapshot_non_object(tmp_path: Path) -> None:
     da = _load()
@@ -35,7 +29,6 @@ def test_load_structure_snapshot_non_object(tmp_path: Path) -> None:
     target.write_text("[1, 2, 3]")
     with pytest.raises(ValueError):
         da.load_structure_snapshot(target)
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_counts_from_snapshot
 def test_bundle_counts_skips_invalid_entries() -> None:
@@ -56,7 +49,6 @@ def test_bundle_counts_skips_invalid_entries() -> None:
     }
     counts = da._bundle_counts_from_snapshot(snapshot)
     assert counts == {("a", "b"): 1, ("c",): 1}
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshots
 def test_diff_structure_snapshots_counts_and_summary() -> None:
@@ -84,7 +76,6 @@ def test_diff_structure_snapshots_counts_and_summary() -> None:
     assert diff["added"][0]["bundle"] == ["d"]
     assert diff["removed"][0]["bundle"] == ["c"]
     assert diff["changed"][0]["bundle"] == ["a", "b"]
-
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files
 def test_diff_structure_snapshot_files(tmp_path: Path) -> None:
