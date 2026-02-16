@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Mapping
 
 from gabion.analysis.timeout_context import check_deadline
@@ -19,13 +20,18 @@ def format_delta(value: object) -> str:
     return f"{sign}{normalized}"
 
 
+@dataclass(frozen=True)
+class TransitionPair:
+    baseline: object
+    current: object
+
+
 def format_transition(
-    baseline: object,
-    current: object,
+    pair: TransitionPair,
     delta: object | None = None,
 ) -> str:
-    base = coerce_int(baseline, 0)
-    curr = coerce_int(current, 0)
+    base = coerce_int(pair.baseline, 0)
+    curr = coerce_int(pair.current, 0)
     if delta is None:
         delta_value = curr - base
     else:

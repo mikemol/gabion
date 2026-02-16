@@ -12,6 +12,7 @@ from gabion.analysis.baseline_io import (
     parse_version,
     write_json,
 )
+from gabion.analysis.delta_tools import TransitionPair
 from gabion.analysis.delta_tools import coerce_int, format_delta
 from gabion.analysis.delta_tools import format_transition
 from gabion.analysis.projection_registry import (
@@ -277,12 +278,19 @@ def render_markdown(delta_payload: Mapping[str, JSONValue]) -> str:
             doc.line(f"- current_spec_id: {current_spec}")
 
     for key in _class_keys():
-        doc.line(
-            f"- {key}: {format_transition(baseline_counts.get(key, 0), current_counts.get(key, 0), delta_counts.get(key, 0))}"
+        pair = TransitionPair(
+            baseline=baseline_counts.get(key, 0),
+            current=current_counts.get(key, 0),
         )
+        doc.line(
+            f"- {key}: {format_transition(pair, delta_counts.get(key, 0))}"
+        )
+    opaque_pair = TransitionPair(
+        baseline=opaque.get("baseline", 0),
+        current=opaque.get("current", 0),
+    )
     opaque_line = format_transition(
-        opaque.get("baseline", 0),
-        opaque.get("current", 0),
+        opaque_pair,
         opaque.get("delta", 0),
     )
     doc.line(f"- opaque_evidence_count: {opaque_line}")

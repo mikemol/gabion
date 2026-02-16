@@ -9345,7 +9345,7 @@
         }
       ],
       "file": "tests/test_analysis_shared_helpers.py",
-      "line": 25,
+      "line": 26,
       "status": "mapped",
       "test_id": "tests/test_analysis_shared_helpers.py::test_baseline_io_helpers_roundtrip"
     },
@@ -9363,7 +9363,7 @@
         }
       ],
       "file": "tests/test_analysis_shared_helpers.py",
-      "line": 52,
+      "line": 53,
       "status": "mapped",
       "test_id": "tests/test_analysis_shared_helpers.py::test_baseline_io_load_json_rejects_non_object"
     },
@@ -9381,7 +9381,7 @@
         }
       ],
       "file": "tests/test_analysis_shared_helpers.py",
-      "line": 40,
+      "line": 41,
       "status": "mapped",
       "test_id": "tests/test_analysis_shared_helpers.py::test_baseline_io_parse_version_rejects_bad_version"
     },
@@ -9429,7 +9429,7 @@
         }
       ],
       "file": "tests/test_analysis_shared_helpers.py",
-      "line": 60,
+      "line": 61,
       "status": "mapped",
       "test_id": "tests/test_analysis_shared_helpers.py::test_delta_tools_helpers"
     },
@@ -9447,7 +9447,7 @@
         }
       ],
       "file": "tests/test_analysis_shared_helpers.py",
-      "line": 73,
+      "line": 74,
       "status": "mapped",
       "test_id": "tests/test_analysis_shared_helpers.py::test_report_doc_emit_renders_markdown"
     },
@@ -9475,7 +9475,7 @@
         }
       ],
       "file": "tests/test_analysis_shared_helpers.py",
-      "line": 91,
+      "line": 92,
       "status": "mapped",
       "test_id": "tests/test_analysis_shared_helpers.py::test_report_doc_guards_invalid_table_or_header"
     },
@@ -46155,7 +46155,7 @@
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 373,
+      "line": 377,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_from_paths_calls_obsolescence_pipeline"
     },
@@ -46213,7 +46213,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 11,
+      "line": 12,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_baseline_payload_roundtrip"
     },
@@ -46241,14 +46241,14 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 167,
+      "line": 171,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_evidence_index_merges_displays"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 397,
+      "line": 401,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order"
     },
@@ -46276,7 +46276,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 41,
+      "line": 42,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_delta_payload_detects_changes"
     },
@@ -46314,7 +46314,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 153,
+      "line": 154,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_helpers_cover_edge_cases"
     },
@@ -46332,7 +46332,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 145,
+      "line": 146,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_load_baseline_rejects_non_object"
     },
@@ -46350,14 +46350,14 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 270,
+      "line": 274,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_filters_invalid_entries"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 284,
+      "line": 288,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_ignores_non_list_tests_payload"
     },
@@ -46375,7 +46375,7 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 139,
+      "line": 140,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_rejects_bad_version"
     },
@@ -46403,28 +46403,28 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 196,
+      "line": 200,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_merges_duplicates"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 314,
+      "line": 318,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_parse_evidence_index_prefers_existing_display_when_new_display_missing"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 299,
+      "line": 303,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_handles_non_mapping_summary_and_meta_sections"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 358,
+      "line": 362,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_baseline_path_when_present"
     },
@@ -46452,14 +46452,14 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 120,
+      "line": 121,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_includes_spec_metadata"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 324,
+      "line": 328,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_skips_empty_baseline_and_current_spec_ids"
     },
@@ -46487,14 +46487,14 @@
         }
       ],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 209,
+      "line": 213,
       "status": "mapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_render_markdown_with_entries"
     },
     {
       "evidence": [],
       "file": "tests/test_test_obsolescence_delta.py",
-      "line": 340,
+      "line": 344,
       "status": "unmapped",
       "test_id": "tests/test_test_obsolescence_delta.py::test_resolve_baseline_path_and_write_baseline"
     },

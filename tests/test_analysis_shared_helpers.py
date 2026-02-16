@@ -16,6 +16,7 @@ from gabion.analysis.delta_tools import (
     count_delta,
     format_delta,
     format_transition,
+    TransitionPair,
 )
 from gabion.analysis.projection_registry import TEST_ANNOTATION_DRIFT_DELTA_SPEC
 from gabion.analysis.report_doc import ReportDoc
@@ -61,7 +62,7 @@ def test_delta_tools_helpers() -> None:
     assert coerce_int("nope", 7) == 7
     assert format_delta(3) == "+3"
     assert format_delta(-2) == "-2"
-    assert format_transition(1, 4, None) == "1 -> 4 (+3)"
+    assert format_transition(TransitionPair(1, 4), None) == "1 -> 4 (+3)"
     delta = count_delta({"a": 1, "b": "bad"}, {"a": 2, "c": "5"})
     assert delta["baseline"]["a"] == 1
     assert delta["baseline"]["b"] == 0

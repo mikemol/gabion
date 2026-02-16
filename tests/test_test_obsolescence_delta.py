@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from gabion.analysis import evidence_keys, test_obsolescence, test_obsolescence_delta
+from gabion.analysis.delta_tools import TransitionPair
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.render_display E:function_site::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_payload
@@ -160,7 +161,10 @@ def test_helpers_cover_edge_cases() -> None:
     assert test_obsolescence_delta._tests_from_candidates(["bad", {"test_id": " ", "class": "x"}]) == []
     assert test_obsolescence_delta._section_list("nope", "added") == []
     assert test_obsolescence_delta._section_list({"added": "nope"}, "added") == []
-    assert test_obsolescence_delta.format_transition(1, 2, None) == "1 -> 2 (+1)"
+    assert (
+        test_obsolescence_delta.format_transition(TransitionPair(1, 2), None)
+        == "1 -> 2 (+1)"
+    )
 
 
 # gabion:evidence E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.key_identity E:function_site::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key
