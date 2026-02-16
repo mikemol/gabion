@@ -1077,7 +1077,7 @@ def _run_check_raw_profile(
         lint_jsonl=lint_jsonl,
         lint_sarif=lint_sarif,
     )
-    _dataflow_audit(DataflowAuditRequest(ctx=ctx, args=raw_args))
+    _run_dataflow_raw_argv(raw_args + list(ctx.args))
 
 
 def _warn_dataflow_audit_alias() -> None:
@@ -1086,6 +1086,29 @@ def _warn_dataflow_audit_alias() -> None:
 
 def _dataflow_alias_migration_epilog() -> str:
     return _DATAFLOW_AUDIT_MIGRATION_EPILOG
+
+
+def _run_dataflow_raw_argv(
+    argv: list[str],
+    *,
+    runner: Runner | None = None,
+) -> None:
+    opts = parse_dataflow_args_or_exit(argv)
+    payload = build_dataflow_payload(opts)
+    resolved_runner = runner or run_command
+    result = _run_with_timeout_retries(
+        run_once=lambda: dispatch_command(
+            command=DATAFLOW_COMMAND,
+            payload=payload,
+            root=Path(opts.root),
+            runner=resolved_runner,
+        ),
+        root=Path(opts.root),
+        emit_timeout_progress_report=opts.emit_timeout_progress_report,
+        resume_on_timeout=max(int(opts.resume_on_timeout), 0),
+    )
+    _emit_dataflow_result_outputs(result, opts)
+    raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
 @app.command(
@@ -1344,22 +1367,7 @@ def _dataflow_audit(
     with _cli_deadline_scope():
         check_deadline()
     argv = list(request.args or []) + list(request.ctx.args)
-    opts = parse_dataflow_args_or_exit(argv)
-    payload = build_dataflow_payload(opts)
-    runner = request.runner or run_command
-    result = _run_with_timeout_retries(
-        run_once=lambda: dispatch_command(
-            command=DATAFLOW_COMMAND,
-            payload=payload,
-            root=Path(opts.root),
-            runner=runner,
-        ),
-        root=Path(opts.root),
-        emit_timeout_progress_report=opts.emit_timeout_progress_report,
-        resume_on_timeout=max(int(opts.resume_on_timeout), 0),
-    )
-    _emit_dataflow_result_outputs(result, opts)
-    raise typer.Exit(code=int(result.get("exit_code", 0)))
+    _run_dataflow_raw_argv(argv, runner=request.runner)
 
 
 @app.command(
@@ -1375,11 +1383,7 @@ def dataflow_audit(
     if any(arg in {"-h", "--help"} for arg in argv):
         parse_dataflow_args_or_exit(["--help"])
     _warn_dataflow_audit_alias()
-    check(
-        ctx=ctx,
-        paths=[Path(value) for value in (args or [])],
-        profile="raw",
-    )
+    _run_dataflow_raw_argv(argv)
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:

@@ -56,16 +56,16 @@ def test_check_raw_profile_delegates_with_profile_defaults(
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
-        captured["args"] = list(request.args or [])
-        captured["ctx_args"] = list(request.ctx.args)
+    def _fake_run(argv: list[str], *, runner=None) -> None:
+        captured["argv"] = list(argv)
+        captured["runner"] = runner
 
-    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(cli.app, ["check", "--profile", "raw", "sample.py"])
     assert result.exit_code == 0
-    assert captured["args"] == ["sample.py"]
-    assert captured["ctx_args"] == []
+    assert captured["argv"] == ["sample.py"]
+    assert captured["runner"] is None
 
 
 def test_check_raw_profile_maps_common_flags_and_passthrough_args(
@@ -74,12 +74,11 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
-        captured["args"] = list(request.args or [])
-        captured["ctx_args"] = list(request.ctx.args)
-        raise typer.Exit(code=0)
+    def _fake_run(argv: list[str], *, runner=None) -> None:
+        captured["argv"] = list(argv)
+        captured["runner"] = runner
 
-    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
@@ -126,7 +125,7 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
         ],
     )
     assert result.exit_code == 0
-    assert captured["args"] == [
+    assert captured["argv"] == [
         "sample.py",
         "--dot",
         "-",
@@ -164,7 +163,7 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
         "--lint-sarif",
         "lint.sarif",
     ]
-    assert captured["ctx_args"] == []
+    assert captured["runner"] is None
 
 
 def test_check_raw_profile_maps_no_allow_external(
@@ -172,11 +171,11 @@ def test_check_raw_profile_maps_no_allow_external(
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
-        captured["args"] = list(request.args or [])
-        raise typer.Exit(code=0)
+    def _fake_run(argv: list[str], *, runner=None) -> None:
+        captured["argv"] = list(argv)
+        captured["runner"] = runner
 
-    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
@@ -191,7 +190,8 @@ def test_check_raw_profile_maps_no_allow_external(
         ],
     )
     assert result.exit_code == 0
-    assert captured["args"] == ["sample.py", "--no-allow-external"]
+    assert captured["argv"] == ["sample.py", "--no-allow-external"]
+    assert captured["runner"] is None
 
 
 def test_check_raw_profile_rejects_check_only_flags() -> None:
@@ -204,40 +204,36 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
     assert "--profile raw does not support check-only options" in result.output
 
 
-def test_dataflow_audit_command_delegates_to_check_raw(
+def test_dataflow_audit_command_delegates_to_raw_runner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_check(*, ctx, paths, profile, **_kwargs):  # type: ignore[no-untyped-def]
-        captured["profile"] = profile
-        captured["paths"] = [str(path) for path in (paths or [])]
-        captured["ctx_args"] = list(ctx.args)
-        raise typer.Exit(code=0)
+    def _fake_run(argv: list[str], *, runner=None) -> None:
+        captured["argv"] = list(argv)
+        captured["runner"] = runner
 
     monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", lambda: None)
-    monkeypatch.setattr(cli, "check", _fake_check)
+    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(
         cli.app,
         ["dataflow-audit", "sample.py", "--dot", "-", "--root", "."],
     )
     assert result.exit_code == 0
-    assert captured["profile"] == "raw"
-    assert captured["paths"] == ["sample.py", "--dot", "-", "--root", "."]
-    assert captured["ctx_args"] == []
+    assert captured["argv"] == ["sample.py", "--dot", "-", "--root", "."]
+    assert captured["runner"] is None
 
 
 def test_dataflow_audit_alias_matches_check_raw_args(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured: list[tuple[list[str], list[str]]] = []
+    captured: list[tuple[list[str], object | None]] = []
 
-    def _fake_dataflow_audit(request: cli.DataflowAuditRequest) -> None:
-        captured.append((list(request.args or []), list(request.ctx.args)))
-        raise typer.Exit(code=0)
+    def _fake_run(argv: list[str], *, runner=None) -> None:
+        captured.append((list(argv), runner))
 
-    monkeypatch.setattr(cli, "_dataflow_audit", _fake_dataflow_audit)
+    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", lambda: None)
     runner = CliRunner()
     check_result = runner.invoke(
@@ -257,11 +253,11 @@ def test_dataflow_audit_emits_alias_warning(monkeypatch: pytest.MonkeyPatch) -> 
     def _fake_warn() -> None:
         warned["count"] += 1
 
-    def _fake_check(*, ctx, paths, profile, **_kwargs):  # type: ignore[no-untyped-def]
-        raise typer.Exit(code=0)
+    def _fake_run(_argv: list[str], *, runner=None) -> None:
+        return None
 
     monkeypatch.setattr(cli, "_warn_dataflow_audit_alias", _fake_warn)
-    monkeypatch.setattr(cli, "check", _fake_check)
+    monkeypatch.setattr(cli, "_run_dataflow_raw_argv", _fake_run)
     runner = CliRunner()
     result = runner.invoke(cli.app, ["dataflow-audit", "sample.py"])
     assert result.exit_code == 0
