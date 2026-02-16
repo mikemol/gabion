@@ -13,9 +13,11 @@ jobs:
   dataflow-audit:
     if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
     runs-on: ubuntu-latest
+    timeout-minutes: 70
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
-      GABION_LSP_TIMEOUT_TICKS: "4000000"
+      # ~= 1 hour at current CI throughput (~18k ticks/ms in timeout profiles).
+      GABION_LSP_TIMEOUT_TICKS: "65000000"
       GABION_LSP_TIMEOUT_TICK_NS: "1000000"
     steps:
       # Allow-listed actions: actions/checkout, jdx/mise-action
