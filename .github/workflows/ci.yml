@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
-      GABION_LSP_TIMEOUT_TICKS: "2000000"
+      GABION_LSP_TIMEOUT_TICKS: "4000000"
       GABION_LSP_TIMEOUT_TICK_NS: "1000000"
     steps:
       # Allow-listed actions: actions/checkout, jdx/mise-action
