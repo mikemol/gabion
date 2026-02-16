@@ -25,6 +25,7 @@ from collections import Counter, defaultdict, deque
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, cast
 import re
@@ -1042,35 +1043,42 @@ def report_projection_phase_rank(phase: ReportProjectionPhase) -> int:
 def _topologically_order_report_projection_specs(
     specs: tuple[ReportProjectionSpec[list[str]], ...],
 ) -> tuple[ReportProjectionSpec[list[str]], ...]:
-    by_id: dict[str, ReportProjectionSpec[list[str]]] = {}
-    declaration_index: dict[str, int] = {}
-    for idx, spec in enumerate(specs):
-        if spec.section_id in by_id:
-            never(
-                "duplicate report projection section_id",
-                section_id=spec.section_id,
-            )
-        by_id[spec.section_id] = spec
-        declaration_index[spec.section_id] = idx
-    edges: dict[str, set[str]] = {spec.section_id: set() for spec in specs}
-    indegree: dict[str, int] = {spec.section_id: 0 for spec in specs}
-    for spec in specs:
-        for dep in spec.deps:
-            if dep not in by_id:
-                never(
-                    "report projection dependency missing",
-                    section_id=spec.section_id,
-                    missing_dep=dep,
-                )
-            if dep == spec.section_id:
-                never(
-                    "report projection self dependency",
-                    section_id=spec.section_id,
-                )
-            if spec.section_id in edges[dep]:
-                continue
-            edges[dep].add(spec.section_id)
-            indegree[spec.section_id] += 1
+    by_id = {spec.section_id: spec for spec in specs}
+    if len(by_id) != len(specs):
+        duplicate_id = next(
+            section_id
+            for section_id, count in Counter(spec.section_id for spec in specs).items()
+            if count > 1
+        )
+        never("duplicate report projection section_id", section_id=duplicate_id)
+    declaration_index = {
+        spec.section_id: idx for idx, spec in enumerate(specs)
+    }
+    dep_pairs = tuple(
+        (spec.section_id, dep)
+        for spec in specs
+        for dep in spec.deps
+    )
+    missing_dep = next(
+        ((section_id, dep) for section_id, dep in dep_pairs if dep not in by_id),
+        None,
+    )
+    if missing_dep is not None:
+        section_id, dep = missing_dep
+        never(
+            "report projection dependency missing",
+            section_id=section_id,
+            missing_dep=dep,
+        )
+    self_dep_section = next(
+        (section_id for section_id, dep in dep_pairs if dep == section_id),
+        None,
+    )
+    if self_dep_section is not None:
+        never(
+            "report projection self dependency",
+            section_id=self_dep_section,
+        )
 
     def _order_key(section_id: str) -> tuple[int, int, str]:
         spec = by_id[section_id]
@@ -1080,32 +1088,26 @@ def _topologically_order_report_projection_specs(
             section_id,
         )
 
-    ready: list[str] = [
-        section_id for section_id, degree in indegree.items() if degree == 0
-    ]
-    ready.sort(key=_order_key)
-    ordered: list[ReportProjectionSpec[list[str]]] = []
-    while ready:
-        section_id = ready.pop(0)
-        ordered.append(by_id[section_id])
-        for dependent in sorted(edges[section_id], key=_order_key):
-            indegree[dependent] -= 1
-            if indegree[dependent] == 0:
-                ready.append(dependent)
-        ready.sort(key=_order_key)
-
-    if len(ordered) != len(specs):
+    prioritized_ids = tuple(sorted(by_id, key=_order_key))
+    predecessor_graph = {
+        section_id: tuple(
+            dict.fromkeys(sorted(by_id[section_id].deps, key=_order_key))
+        )
+        for section_id in prioritized_ids
+    }
+    try:
+        ordered_ids = tuple(TopologicalSorter(predecessor_graph).static_order())
+    except CycleError as exc:
+        cycle = exc.args[1] if len(exc.args) > 1 else ()
         unresolved = [
-            section_id
-            for section_id, degree in indegree.items()
-            if degree > 0
+            str(item)
+            for item in (cycle if isinstance(cycle, (tuple, list)) else ())
         ]
         never(
             "report projection dependency cycle",
             unresolved=unresolved,
         )
-
-    return tuple(ordered)
+    return tuple(by_id[section_id] for section_id in ordered_ids)
 
 
 _REPORT_PROJECTION_SPECS = _topologically_order_report_projection_specs(
@@ -1118,17 +1120,15 @@ def report_projection_specs() -> tuple[ReportProjectionSpec[list[str]], ...]:
 
 
 def report_projection_spec_rows() -> list[JSONObject]:
-    rows: list[JSONObject] = []
-    for spec in _REPORT_PROJECTION_SPECS:
-        rows.append(
-            {
-                "section_id": spec.section_id,
-                "phase": spec.phase,
-                "deps": list(spec.deps),
-                "has_preview": spec.preview_build is not None,
-            }
-        )
-    return rows
+    return [
+        {
+            "section_id": spec.section_id,
+            "phase": spec.phase,
+            "deps": list(spec.deps),
+            "has_preview": spec.preview_build is not None,
+        }
+        for spec in _REPORT_PROJECTION_SPECS
+    ]
 
 
 def project_report_sections(
@@ -1147,20 +1147,29 @@ def project_report_sections(
             report=report,
         )
         extracted = extract_report_sections(rendered)
-    selected: dict[str, list[str]] = {}
     max_rank: int | None = None
     if max_phase is not None:
         max_rank = report_projection_phase_rank(max_phase)
-    for spec in _REPORT_PROJECTION_SPECS:
-        if max_rank is not None and report_projection_phase_rank(spec.phase) > max_rank:
-            continue
+
+    def _include_spec(spec: ReportProjectionSpec[list[str]]) -> bool:
+        if max_rank is None:
+            return True
+        return report_projection_phase_rank(spec.phase) <= max_rank
+
+    eligible_specs = tuple(spec for spec in _REPORT_PROJECTION_SPECS if _include_spec(spec))
+
+    def _resolve_spec_lines(spec: ReportProjectionSpec[list[str]]) -> list[str]:
         lines = extracted.get(spec.section_id, [])
         if not lines and include_previews and spec.preview_build is not None:
             preview = spec.preview_build(report, groups_by_path)
             lines = spec.render(preview or [])
-        if lines:
-            selected[spec.section_id] = lines
-    return selected
+        return lines
+
+    return {
+        spec.section_id: lines
+        for spec in eligible_specs
+        if (lines := _resolve_spec_lines(spec))
+    }
 
 
 @dataclass(frozen=True)
