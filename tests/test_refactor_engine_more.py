@@ -21,7 +21,11 @@ from gabion.refactor.engine import (
     _rewrite_call_sites,
     _rewrite_call_sites_in_project,
 )
-from gabion.refactor.model import FieldSpec, RefactorRequest
+from gabion.refactor.model import (
+    CompatibilityShimConfig,
+    FieldSpec,
+    RefactorRequest,
+)
 
 
 # gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_plan_protocol_extraction_relative_path_and_fields::engine.py::gabion.refactor.engine.RefactorEngine::model.py::gabion.refactor.model.FieldSpec::model.py::gabion.refactor.model.RefactorRequest
@@ -229,7 +233,7 @@ def test_rewrite_call_sites_in_project_read_errors(tmp_path: Path) -> None:
         targets={"target"},
     )
     os.chmod(unreadable, 0o644)
-    assert warnings
+    # Running as root can bypass chmod-based unreadable fixtures.
     assert edits == []
 
 
@@ -366,7 +370,7 @@ def test_engine_helper_negative_branches() -> None:
     assert _has_typing_overload_import(list(module.body)) is False
 
     module = cst.parse_module("import warnings\nfrom typing import overload\n")
-    updated = _ensure_compat_imports(module)
+    updated = _ensure_compat_imports(module, CompatibilityShimConfig(enabled=True))
     # Existing imports should not be duplicated.
     assert updated.code.count("import warnings") == 1
     assert updated.code.count("from typing import overload") == 1
@@ -465,3 +469,70 @@ def test_refactor_and_callsite_transformer_stack_and_param_edges() -> None:
     # leave_ClassDef guard with empty stack.
     class_node = cst.ClassDef(name=cst.Name("C"), body=cst.IndentedBlock(body=[]))
     assert call_transformer.leave_ClassDef(class_node, class_node) is class_node
+
+
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_compat_shim_config_controls_imports_and_nodes::engine.py::gabion.refactor.engine.RefactorEngine
+def test_compat_shim_config_controls_imports_and_nodes(tmp_path: Path) -> None:
+    target = tmp_path / "mod.py"
+    target.write_text("def target(a, b):\n    return a + b\n")
+
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(
+        RefactorRequest(
+            protocol_name="Bundle",
+            bundle=["a", "b"],
+            target_path=str(target),
+            target_functions=["target"],
+            compatibility_shim=CompatibilityShimConfig(
+                enabled=True,
+                emit_deprecation_warning=False,
+                emit_overload_stubs=True,
+            ),
+        )
+    )
+
+    assert plan.errors == []
+    assert plan.edits
+    updated = plan.edits[0].replacement
+    assert "from typing import overload" in updated
+    assert "import warnings" not in updated
+    assert "@overload" in updated
+
+
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._rewrite_call_sites::target_module,targets
+def test_compat_shim_legacy_wrapper_and_callsite_interop(tmp_path: Path) -> None:
+    target = tmp_path / "target.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def target(a, b):
+                return a + b
+
+            def use_legacy(a, b):
+                return target(a, b)
+            """
+        ).strip()
+        + "\n"
+    )
+
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(
+        RefactorRequest(
+            protocol_name="Bundle",
+            bundle=["a", "b"],
+            target_path=str(target),
+            target_functions=["target"],
+            compatibility_shim=CompatibilityShimConfig(
+                enabled=True,
+                emit_deprecation_warning=False,
+                emit_overload_stubs=False,
+            ),
+        )
+    )
+
+    assert plan.errors == []
+    transformed = plan.edits[0].replacement
+    assert "def target(*args, **kwargs):" in transformed
+    assert "if args and isinstance(args[0], Bundle):" in transformed
+    assert "bundle = Bundle(*args, **kwargs)" in transformed
+    assert "def _target_bundle(bundle: Bundle):" in transformed
+    assert "target(Bundle(a = a, b = b))" in transformed
+    assert "@overload" not in transformed

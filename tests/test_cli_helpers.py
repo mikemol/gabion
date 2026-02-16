@@ -412,6 +412,8 @@ def test_build_refactor_payload_input_payload_passthrough() -> None:
         target_path=None,
         target_functions=None,
         compatibility_shim=False,
+        compatibility_shim_warnings=True,
+        compatibility_shim_overloads=True,
         rationale=None,
     ) == payload
 
@@ -426,6 +428,8 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
             target_path=None,
             target_functions=None,
             compatibility_shim=False,
+            compatibility_shim_warnings=True,
+            compatibility_shim_overloads=True,
             rationale=None,
         )
 
@@ -436,6 +440,8 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
         target_path=tmp_path / "target.py",
         target_functions=None,
         compatibility_shim=False,
+        compatibility_shim_warnings=True,
+        compatibility_shim_overloads=True,
         rationale=None,
     )
     assert payload["bundle"] == []
@@ -1322,6 +1328,8 @@ def test_run_refactor_protocol_accepts_object_payload(tmp_path: Path) -> None:
         target_path=None,
         target_functions=None,
         compatibility_shim=False,
+        compatibility_shim_warnings=True,
+        compatibility_shim_overloads=True,
         rationale=None,
         runner=runner,
     )

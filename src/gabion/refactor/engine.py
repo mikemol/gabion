@@ -5,7 +5,14 @@ from pathlib import Path
 
 import libcst as cst
 
-from gabion.refactor.model import FieldSpec, RefactorPlan, RefactorRequest, TextEdit
+from gabion.refactor.model import (
+    CompatibilityShimConfig,
+    FieldSpec,
+    RefactorPlan,
+    RefactorRequest,
+    TextEdit,
+    normalize_compatibility_shim,
+)
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import ordered_or_sorted
 
@@ -121,9 +128,9 @@ class RefactorEngine:
         bundle_fields = [spec.name for spec in field_specs]
         protocol_hint = protocol
         if targets:
-            compat_shim = bool(request.compatibility_shim)
-            if compat_shim:
-                new_module = _ensure_compat_imports(new_module)
+            compat_shim = normalize_compatibility_shim(request.compatibility_shim)
+            if compat_shim.enabled:
+                new_module = _ensure_compat_imports(new_module, compat_shim)
             transformer = _RefactorTransformer(
                 targets=targets,
                 bundle_fields=bundle_fields,
@@ -320,10 +327,12 @@ def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
     return False
 
 
-def _ensure_compat_imports(module: cst.Module) -> cst.Module:
+def _ensure_compat_imports(
+    module: cst.Module, shim: CompatibilityShimConfig
+) -> cst.Module:
     body = list(module.body)
     insert_idx = _find_import_insert_index(body)
-    if not _has_warnings_import(body):
+    if shim.emit_deprecation_warning and not _has_warnings_import(body):
         body.insert(
             insert_idx,
             cst.SimpleStatementLine(
@@ -331,7 +340,7 @@ def _ensure_compat_imports(module: cst.Module) -> cst.Module:
             ),
         )
         insert_idx += 1
-    if not _has_typing_overload_import(body):
+    if shim.emit_overload_stubs and not _has_typing_overload_import(body):
         body.insert(
             insert_idx,
             cst.SimpleStatementLine(
@@ -546,7 +555,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         targets: set[str],
         bundle_fields: list[str],
         protocol_hint: str,
-        compat_shim: bool = False,
+        compat_shim: CompatibilityShimConfig = CompatibilityShimConfig(enabled=False),
     ) -> None:
         # dataflow-bundle: bundle_fields, compat_shim, protocol_hint, targets
         self.targets = targets
@@ -623,7 +632,7 @@ class _RefactorTransformer(cst.CSTTransformer):
             updated_node.body, bundle_param_name, target_fields
         )
         updated_impl = updated_node.with_changes(params=new_params, body=new_body)
-        if not self.compat_shim:
+        if not self.compat_shim.enabled:
             return updated_impl
         impl_name = f"_{name}_bundle"
         impl_node = updated_impl.with_changes(
@@ -650,16 +659,6 @@ class _RefactorTransformer(cst.CSTTransformer):
         overload_decorators = [cst.Decorator(cst.Name("overload")), *decorators]
         bundle_params = self._build_parameters(self_param, bundle_param)
         legacy_params = original_node.params
-        bundle_stub = self._build_overload_stub(
-            original_node=original_node,
-            params=bundle_params,
-            decorators=overload_decorators,
-        )
-        legacy_stub = self._build_overload_stub(
-            original_node=original_node,
-            params=legacy_params,
-            decorators=overload_decorators,
-        )
         wrapper_params = self._build_shim_parameters(self_param)
         wrapper_body = self._build_shim_body(
             impl_name=impl_name,
@@ -674,7 +673,21 @@ class _RefactorTransformer(cst.CSTTransformer):
             body=wrapper_body,
             decorators=decorators,
         )
-        return [bundle_stub, legacy_stub, wrapper]
+        shim_nodes: list[cst.CSTNode] = []
+        if self.compat_shim.emit_overload_stubs:
+            bundle_stub = self._build_overload_stub(
+                original_node=original_node,
+                params=bundle_params,
+                decorators=overload_decorators,
+            )
+            legacy_stub = self._build_overload_stub(
+                original_node=original_node,
+                params=legacy_params,
+                decorators=overload_decorators,
+            )
+            shim_nodes.extend([bundle_stub, legacy_stub])
+        shim_nodes.append(wrapper)
+        return shim_nodes
 
     def _build_overload_stub(
         self,
@@ -737,20 +750,17 @@ class _RefactorTransformer(cst.CSTTransformer):
             f"        raise TypeError(\"{public_name}() bundle call expects a single {bundle_type} argument\")\n"
             f"    {return_prefix} {impl_call}(args[0])\n"
         )
-        warn = (
-            f"warnings.warn(\"{public_name}() is deprecated; use {public_name}({bundle_type}(...))\", "
-            "DeprecationWarning, stacklevel=2)"
-        )
         build = f"bundle = {bundle_type}(*args, **kwargs)"
         tail = f"{return_prefix} {impl_call}(bundle)"
-        return cst.IndentedBlock(
-            body=[
-                cst.parse_statement(guard),
-                cst.parse_statement(warn),
-                cst.parse_statement(build),
-                cst.parse_statement(tail),
-            ]
-        )
+        body: list[cst.BaseStatement] = [cst.parse_statement(guard)]
+        if self.compat_shim.emit_deprecation_warning:
+            warn = (
+                f"warnings.warn(\"{public_name}() is deprecated; use {public_name}({bundle_type}(...))\", "
+                "DeprecationWarning, stacklevel=2)"
+            )
+            body.append(cst.parse_statement(warn))
+        body.extend([cst.parse_statement(build), cst.parse_statement(tail)])
+        return cst.IndentedBlock(body=body)
 
     def _ordered_param_names(self, params: cst.Parameters) -> list[str]:
         check_deadline()

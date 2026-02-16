@@ -667,6 +667,8 @@ def build_refactor_payload(
     target_path: Optional[Path],
     target_functions: Optional[List[str]],
     compatibility_shim: bool,
+    compatibility_shim_warnings: bool,
+    compatibility_shim_overloads: bool,
     rationale: Optional[str],
 ) -> JSONObject:
     check_deadline()
@@ -685,13 +687,24 @@ def build_refactor_payload(
             continue
         type_hint = hint.strip() or None
         field_specs.append({"name": name, "type_hint": type_hint})
+    if not bundle and field_specs:
+        bundle = [spec["name"] for spec in field_specs]
+    compatibility_shim_payload: bool | dict[str, bool]
+    if compatibility_shim:
+        compatibility_shim_payload = {
+            "enabled": True,
+            "emit_deprecation_warning": compatibility_shim_warnings,
+            "emit_overload_stubs": compatibility_shim_overloads,
+        }
+    else:
+        compatibility_shim_payload = False
     return {
         "protocol_name": protocol_name,
         "bundle": bundle or [],
         "fields": field_specs,
         "target_path": str(target_path),
         "target_functions": target_functions or [],
-        "compatibility_shim": compatibility_shim,
+        "compatibility_shim": compatibility_shim_payload,
         "rationale": rationale,
     }
 
@@ -2138,6 +2151,12 @@ def refactor_protocol(
     compatibility_shim: bool = typer.Option(
         False, "--compat-shim/--no-compat-shim"
     ),
+    compatibility_shim_warnings: bool = typer.Option(
+        True, "--compat-shim-warnings/--no-compat-shim-warnings"
+    ),
+    compatibility_shim_overloads: bool = typer.Option(
+        True, "--compat-shim-overloads/--no-compat-shim-overloads"
+    ),
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
@@ -2151,6 +2170,8 @@ def refactor_protocol(
             target_path=target_path,
             target_functions=target_functions,
             compatibility_shim=compatibility_shim,
+            compatibility_shim_warnings=compatibility_shim_warnings,
+            compatibility_shim_overloads=compatibility_shim_overloads,
             rationale=rationale,
         )
 
@@ -2165,6 +2186,8 @@ def _run_refactor_protocol(
     target_path: Optional[Path],
     target_functions: Optional[List[str]],
     compatibility_shim: bool,
+    compatibility_shim_warnings: bool,
+    compatibility_shim_overloads: bool,
     rationale: Optional[str],
     runner: Runner = run_command,
 ) -> None:
@@ -2186,6 +2209,8 @@ def _run_refactor_protocol(
         target_path=target_path,
         target_functions=target_functions,
         compatibility_shim=compatibility_shim,
+        compatibility_shim_warnings=compatibility_shim_warnings,
+        compatibility_shim_overloads=compatibility_shim_overloads,
         rationale=rationale,
     )
     result = dispatch_command(

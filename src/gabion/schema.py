@@ -64,13 +64,19 @@ class RefactorFieldDTO(BaseModel):
     type_hint: Optional[str] = None
 
 
+class RefactorCompatibilityShimDTO(BaseModel):
+    enabled: bool = True
+    emit_deprecation_warning: bool = True
+    emit_overload_stubs: bool = True
+
+
 class RefactorRequest(BaseModel):
     protocol_name: str
     bundle: List[str]
     fields: List[RefactorFieldDTO] = []
     target_path: str
     target_functions: List[str] = []
-    compatibility_shim: bool = False
+    compatibility_shim: bool | RefactorCompatibilityShimDTO = False
     rationale: Optional[str] = None
 
 

@@ -116,6 +116,7 @@ from gabion.analysis.type_fingerprints import (
 from gabion.refactor import (
     FieldSpec,
     RefactorEngine,
+    RefactorCompatibilityShimConfig,
     RefactorRequest as RefactorRequestModel,
 )
 from gabion.schema import (
@@ -4505,6 +4506,15 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
             project_root = Path(ls.workspace.root_path)
         engine = RefactorEngine(project_root=project_root)
         normalized_bundle = request.bundle or [field.name for field in request.fields or []]
+        compatibility_shim = request.compatibility_shim
+        if isinstance(compatibility_shim, bool):
+            normalized_shim: bool | RefactorCompatibilityShimConfig = compatibility_shim
+        else:
+            normalized_shim = RefactorCompatibilityShimConfig(
+                enabled=compatibility_shim.enabled,
+                emit_deprecation_warning=compatibility_shim.emit_deprecation_warning,
+                emit_overload_stubs=compatibility_shim.emit_overload_stubs,
+            )
         plan = engine.plan_protocol_extraction(
             RefactorRequestModel(
                 protocol_name=request.protocol_name,
@@ -4515,7 +4525,7 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
                 ],
                 target_path=request.target_path,
                 target_functions=request.target_functions,
-                compatibility_shim=request.compatibility_shim,
+                compatibility_shim=normalized_shim,
                 rationale=request.rationale,
             )
         )
