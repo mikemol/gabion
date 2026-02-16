@@ -14,7 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List, Tuple, TypeAlias
 
-from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.projection_exec import apply_spec
@@ -3080,7 +3083,10 @@ def _git_diff_paths(rev_range: str) -> list[str]:
 def _sppf_sync_warnings(root: Path) -> List[str]:
     warnings: List[str] = []
     try:
-        import sppf_sync
+        try:
+            from scripts import sppf_sync
+        except ModuleNotFoundError:
+            import sppf_sync
     except Exception:
         return warnings
 

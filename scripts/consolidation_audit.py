@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from audit_tools import run_consolidation_cli
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.audit_tools import run_consolidation_cli
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from audit_tools import run_consolidation_cli
 
 
 if __name__ == "__main__":

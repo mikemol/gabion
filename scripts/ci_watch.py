@@ -6,7 +6,10 @@ import subprocess
 import sys
 from typing import Any
 
-from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
 
 _DEFAULT_TIMEOUT_TICKS = 120_000
