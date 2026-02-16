@@ -101,6 +101,29 @@ class CheckArtifactFlags:
 
 
 @dataclass(frozen=True)
+class DataflowPayloadCommonOptions:
+    paths: list[Path]
+    root: Path
+    config: Path | None
+    report: Path | None
+    fail_on_violations: bool
+    fail_on_type_ambiguities: bool
+    baseline: Path | None
+    baseline_write: bool | None
+    decision_snapshot: Path | None
+    exclude: list[str] | None
+    ignore_params_csv: str | None
+    transparent_decorators_csv: str | None
+    allow_external: bool | None
+    strictness: str | None
+    lint: bool
+    resume_checkpoint: Path | None
+    emit_timeout_progress_report: bool
+    resume_on_timeout: int
+    deadline_profile: bool = True
+
+
+@dataclass(frozen=True)
 class SnapshotDiffRequest:
     baseline: Path
     current: Path
@@ -375,57 +398,47 @@ def _emit_timeout_progress_artifacts(
 
 def _build_dataflow_payload_common(
     *,
-    paths: list[Path],
-    root: Path,
-    config: Path | None,
-    report: Path | None,
-    fail_on_violations: bool,
-    fail_on_type_ambiguities: bool,
-    baseline: Path | None,
-    baseline_write: bool | None,
-    decision_snapshot: Path | None,
-    exclude: list[str] | None,
-    ignore_params_csv: str | None,
-    transparent_decorators_csv: str | None,
-    allow_external: bool | None,
-    strictness: str | None,
-    lint: bool,
-    resume_checkpoint: Path | None,
-    emit_timeout_progress_report: bool,
-    resume_on_timeout: int,
-    deadline_profile: bool = True,
+    options: DataflowPayloadCommonOptions,
 ) -> JSONObject:
     # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     # dataflow-bundle: deadline_profile, emit_timeout_progress_report
-    if strictness is not None and strictness not in {"high", "low"}:
+    if options.strictness is not None and options.strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
-    exclude_dirs = _split_csv_entries(exclude) if exclude is not None else None
-    ignore_list = _split_csv(ignore_params_csv) if ignore_params_csv is not None else None
+    exclude_dirs = _split_csv_entries(options.exclude) if options.exclude is not None else None
+    ignore_list = (
+        _split_csv(options.ignore_params_csv)
+        if options.ignore_params_csv is not None
+        else None
+    )
     transparent_list = (
-        _split_csv(transparent_decorators_csv)
-        if transparent_decorators_csv is not None
+        _split_csv(options.transparent_decorators_csv)
+        if options.transparent_decorators_csv is not None
         else None
     )
     payload: JSONObject = {
-        "paths": [str(p) for p in paths],
-        "root": str(root),
-        "config": str(config) if config is not None else None,
-        "report": str(report) if report is not None else None,
-        "fail_on_violations": fail_on_violations,
-        "fail_on_type_ambiguities": fail_on_type_ambiguities,
-        "baseline": str(baseline) if baseline is not None else None,
-        "baseline_write": baseline_write,
-        "decision_snapshot": str(decision_snapshot) if decision_snapshot is not None else None,
+        "paths": [str(p) for p in options.paths],
+        "root": str(options.root),
+        "config": str(options.config) if options.config is not None else None,
+        "report": str(options.report) if options.report is not None else None,
+        "fail_on_violations": options.fail_on_violations,
+        "fail_on_type_ambiguities": options.fail_on_type_ambiguities,
+        "baseline": str(options.baseline) if options.baseline is not None else None,
+        "baseline_write": options.baseline_write,
+        "decision_snapshot": str(options.decision_snapshot)
+        if options.decision_snapshot is not None
+        else None,
         "exclude": exclude_dirs,
         "ignore_params": ignore_list,
         "transparent_decorators": transparent_list,
-        "allow_external": allow_external,
-        "strictness": strictness,
-        "lint": lint,
-        "resume_checkpoint": str(resume_checkpoint) if resume_checkpoint is not None else None,
-        "emit_timeout_progress_report": bool(emit_timeout_progress_report),
-        "resume_on_timeout": int(resume_on_timeout),
-        "deadline_profile": bool(deadline_profile),
+        "allow_external": options.allow_external,
+        "strictness": options.strictness,
+        "lint": options.lint,
+        "resume_checkpoint": str(options.resume_checkpoint)
+        if options.resume_checkpoint is not None
+        else None,
+        "emit_timeout_progress_report": bool(options.emit_timeout_progress_report),
+        "resume_on_timeout": int(options.resume_on_timeout),
+        "deadline_profile": bool(options.deadline_profile),
     }
     return payload
 
@@ -488,24 +501,26 @@ def build_check_payload(
         )
     baseline_write_value = bool(baseline is not None and baseline_write)
     payload = _build_dataflow_payload_common(
-        paths=paths,
-        root=root,
-        config=config,
-        report=report,
-        fail_on_violations=fail_on_violations,
-        fail_on_type_ambiguities=fail_on_type_ambiguities,
-        baseline=baseline,
-        baseline_write=baseline_write_value,
-        decision_snapshot=decision_snapshot,
-        exclude=exclude,
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
-        allow_external=allow_external,
-        strictness=strictness,
-        lint=lint,
-        resume_checkpoint=resume_checkpoint,
-        emit_timeout_progress_report=emit_timeout_progress_report,
-        resume_on_timeout=resume_on_timeout,
+        options=DataflowPayloadCommonOptions(
+            paths=paths,
+            root=root,
+            config=config,
+            report=report,
+            fail_on_violations=fail_on_violations,
+            fail_on_type_ambiguities=fail_on_type_ambiguities,
+            baseline=baseline,
+            baseline_write=baseline_write_value,
+            decision_snapshot=decision_snapshot,
+            exclude=exclude,
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+            allow_external=allow_external,
+            strictness=strictness,
+            lint=lint,
+            resume_checkpoint=resume_checkpoint,
+            emit_timeout_progress_report=emit_timeout_progress_report,
+            resume_on_timeout=resume_on_timeout,
+        )
     )
     payload.update(
         {
@@ -555,28 +570,30 @@ def parse_dataflow_args_or_exit(
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
     payload = _build_dataflow_payload_common(
-        paths=opts.paths,
-        root=Path(opts.root),
-        config=Path(opts.config) if opts.config is not None else None,
-        report=Path(opts.report) if opts.report else None,
-        fail_on_violations=opts.fail_on_violations,
-        fail_on_type_ambiguities=opts.fail_on_type_ambiguities,
-        baseline=Path(opts.baseline) if opts.baseline else None,
-        baseline_write=opts.baseline_write if opts.baseline else None,
-        decision_snapshot=Path(opts.emit_decision_snapshot)
-        if opts.emit_decision_snapshot
-        else None,
-        exclude=opts.exclude,
-        ignore_params_csv=opts.ignore_params,
-        transparent_decorators_csv=opts.transparent_decorators,
-        allow_external=opts.allow_external,
-        strictness=opts.strictness,
-        lint=bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
-        resume_checkpoint=Path(opts.resume_checkpoint)
-        if opts.resume_checkpoint
-        else None,
-        emit_timeout_progress_report=bool(opts.emit_timeout_progress_report),
-        resume_on_timeout=max(int(opts.resume_on_timeout), 0),
+        options=DataflowPayloadCommonOptions(
+            paths=opts.paths,
+            root=Path(opts.root),
+            config=Path(opts.config) if opts.config is not None else None,
+            report=Path(opts.report) if opts.report else None,
+            fail_on_violations=opts.fail_on_violations,
+            fail_on_type_ambiguities=opts.fail_on_type_ambiguities,
+            baseline=Path(opts.baseline) if opts.baseline else None,
+            baseline_write=opts.baseline_write if opts.baseline else None,
+            decision_snapshot=Path(opts.emit_decision_snapshot)
+            if opts.emit_decision_snapshot
+            else None,
+            exclude=opts.exclude,
+            ignore_params_csv=opts.ignore_params,
+            transparent_decorators_csv=opts.transparent_decorators,
+            allow_external=opts.allow_external,
+            strictness=opts.strictness,
+            lint=bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
+            resume_checkpoint=Path(opts.resume_checkpoint)
+            if opts.resume_checkpoint
+            else None,
+            emit_timeout_progress_report=bool(opts.emit_timeout_progress_report),
+            resume_on_timeout=max(int(opts.resume_on_timeout), 0),
+        )
     )
     payload.update(
         {

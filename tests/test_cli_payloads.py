@@ -195,6 +195,100 @@ def test_dataflow_payload_baseline_and_transparent() -> None:
     assert payload["fail_on_type_ambiguities"] is True
 
 
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+def test_check_and_raw_payloads_match_common_fields() -> None:
+    check_payload = cli.build_check_payload(
+        paths=[Path("sample.py")],
+        report=Path("report.md"),
+        fail_on_violations=True,
+        root=Path("."),
+        config=Path("cfg.toml"),
+        baseline=Path("baseline.txt"),
+        baseline_write=True,
+        decision_snapshot=Path("decision.json"),
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=False,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+        exclude=["a,b"],
+        ignore_params_csv="x,y",
+        transparent_decorators_csv="d1,d2",
+        allow_external=True,
+        strictness="low",
+        fail_on_type_ambiguities=True,
+        lint=True,
+        resume_checkpoint=Path("resume.json"),
+        emit_timeout_progress_report=True,
+        resume_on_timeout=2,
+    )
+    raw_opts = cli.parse_dataflow_args_or_exit(
+        [
+            "sample.py",
+            "--root",
+            ".",
+            "--config",
+            "cfg.toml",
+            "--report",
+            "report.md",
+            "--fail-on-violations",
+            "--fail-on-type-ambiguities",
+            "--baseline",
+            "baseline.txt",
+            "--baseline-write",
+            "--emit-decision-snapshot",
+            "decision.json",
+            "--exclude",
+            "a,b",
+            "--ignore-params",
+            "x,y",
+            "--transparent-decorators",
+            "d1,d2",
+            "--allow-external",
+            "--strictness",
+            "low",
+            "--lint",
+            "--resume-checkpoint",
+            "resume.json",
+            "--emit-timeout-progress-report",
+            "--resume-on-timeout",
+            "2",
+        ]
+    )
+    raw_payload = cli.build_dataflow_payload(raw_opts)
+    common_keys = [
+        "paths",
+        "root",
+        "config",
+        "report",
+        "fail_on_violations",
+        "fail_on_type_ambiguities",
+        "baseline",
+        "baseline_write",
+        "decision_snapshot",
+        "exclude",
+        "ignore_params",
+        "transparent_decorators",
+        "allow_external",
+        "strictness",
+        "lint",
+        "resume_checkpoint",
+        "emit_timeout_progress_report",
+        "resume_on_timeout",
+        "deadline_profile",
+    ]
+    assert {key: check_payload[key] for key in common_keys} == {
+        key: raw_payload[key] for key in common_keys
+    }
+
+
 # gabion:evidence E:function_site::cli.py::gabion.cli.build_dataflow_payload
 def test_dataflow_payload_resume_checkpoint_and_timeout_flags() -> None:
     opts = cli.parse_dataflow_args_or_exit(
