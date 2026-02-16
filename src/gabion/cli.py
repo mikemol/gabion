@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import ExitStack, contextmanager
-from typing import Callable, Generator, List, Mapping, Optional, TypeAlias
+from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias
 import argparse
 import importlib.util
 import json
@@ -1611,6 +1611,8 @@ def _run_docflow_audit(
     audit_tools_path: Path | None = None,
     spec_from_file_location_fn: Callable[..., object | None] = importlib.util.spec_from_file_location,
     module_from_spec_fn: Callable[..., object] = importlib.util.module_from_spec,
+    sys_path_list: list[str] | None = None,
+    sys_modules_map: MutableMapping[str, object] | None = None,
 ) -> int:
     repo_root = _find_repo_root()
     module_path = audit_tools_path or (repo_root / "scripts" / "audit_tools.py")
@@ -1631,24 +1633,26 @@ def _run_docflow_audit(
             raise RuntimeError("failed to load audit_tools module")
         module = module_from_spec_fn(spec)
         scripts_root = str(module_path.parent)
+        path_list = sys_path_list if sys_path_list is not None else sys.path
+        modules = sys_modules_map if sys_modules_map is not None else sys.modules
         inserted_path = False
-        if scripts_root not in sys.path:
-            sys.path.insert(0, scripts_root)
+        if scripts_root not in path_list:
+            path_list.insert(0, scripts_root)
             inserted_path = True
-        previous_module = sys.modules.get(module_name)
-        had_previous = module_name in sys.modules
-        sys.modules[module_name] = module
+        previous_module = modules.get(module_name)
+        had_previous = module_name in modules
+        modules[module_name] = module
         try:
             loader.exec_module(module)
             yield module
         finally:
             if had_previous:
-                sys.modules[module_name] = previous_module  # type: ignore[assignment]
+                modules[module_name] = previous_module  # type: ignore[assignment]
             else:
-                sys.modules.pop(module_name, None)
+                modules.pop(module_name, None)
             if inserted_path:
                 try:
-                    sys.path.remove(scripts_root)
+                    path_list.remove(scripts_root)
                 except ValueError:
                     pass
 

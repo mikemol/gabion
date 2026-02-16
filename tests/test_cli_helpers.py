@@ -483,18 +483,22 @@ def test_run_docflow_audit_cleans_import_state(tmp_path: Path) -> None:
         "    return 0\n"
     )
     scripts_root = str(tmp_path)
-    assert scripts_root not in sys.path
-    assert module_name not in sys.modules
+    sys_path_list: list[str] = []
+    sys_modules_map: dict[str, object] = {}
+    assert scripts_root not in sys_path_list
+    assert module_name not in sys_modules_map
 
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
         audit_tools_path=module_path,
+        sys_path_list=sys_path_list,
+        sys_modules_map=sys_modules_map,
     )
 
     assert exit_code == 0
-    assert scripts_root not in sys.path
-    assert module_name not in sys.modules
+    assert scripts_root not in sys_path_list
+    assert module_name not in sys_modules_map
 
 
 def test_run_docflow_audit_restores_previous_module(tmp_path: Path) -> None:
@@ -507,46 +511,40 @@ def test_run_docflow_audit_restores_previous_module(tmp_path: Path) -> None:
         "    return 0\n"
     )
     previous_module = types.ModuleType(module_name)
-    existing_module = sys.modules.get(module_name)
-    sys.modules[module_name] = previous_module
-    try:
-        exit_code = cli._run_docflow_audit(
-            root=tmp_path,
-            fail_on_violations=False,
-            audit_tools_path=module_path,
-        )
-        assert exit_code == 0
-        assert sys.modules.get(module_name) is previous_module
-    finally:
-        if existing_module is None:
-            sys.modules.pop(module_name, None)
-        else:
-            sys.modules[module_name] = existing_module
+    sys_modules_map: dict[str, object] = {module_name: previous_module}
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        audit_tools_path=module_path,
+        sys_modules_map=sys_modules_map,
+    )
+    assert exit_code == 0
+    assert sys_modules_map.get(module_name) is previous_module
 
 
 def test_run_docflow_audit_cleanup_ignores_missing_sys_path(tmp_path: Path) -> None:
     module_path = tmp_path / "audit_tools.py"
     module_path.write_text(
-        "import pathlib\n"
-        "import sys\n"
-        "SCRIPTS_ROOT = str(pathlib.Path(__file__).parent)\n"
         "def run_docflow_cli(argv=None):\n"
-        "    if SCRIPTS_ROOT in sys.path:\n"
-        "        sys.path.remove(SCRIPTS_ROOT)\n"
         "    return 0\n"
         "def run_sppf_graph_cli(argv=None):\n"
         "    return 0\n"
     )
     scripts_root = str(tmp_path)
-    while scripts_root in sys.path:
-        sys.path.remove(scripts_root)
+    class _PathList(list[str]):
+        def remove(self, value: str) -> None:  # pragma: no cover - exercised in test
+            super().remove(value)
+            raise ValueError("simulated missing sys.path entry")
+
+    sys_path_list: list[str] = _PathList()
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
         audit_tools_path=module_path,
+        sys_path_list=sys_path_list,
     )
     assert exit_code == 0
-    assert scripts_root not in sys.path
+    assert scripts_root not in sys_path_list
 
 
 def test_run_docflow_audit_keeps_existing_sys_path_entry(tmp_path: Path) -> None:
@@ -558,18 +556,15 @@ def test_run_docflow_audit_keeps_existing_sys_path_entry(tmp_path: Path) -> None
         "    return 0\n"
     )
     scripts_root = str(tmp_path)
-    sys.path.insert(0, scripts_root)
-    try:
-        exit_code = cli._run_docflow_audit(
-            root=tmp_path,
-            fail_on_violations=False,
-            audit_tools_path=module_path,
-        )
-        assert exit_code == 0
-        assert scripts_root in sys.path
-    finally:
-        while scripts_root in sys.path:
-            sys.path.remove(scripts_root)
+    sys_path_list = [scripts_root]
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        audit_tools_path=module_path,
+        sys_path_list=sys_path_list,
+    )
+    assert exit_code == 0
+    assert sys_path_list == [scripts_root]
 
 
 def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
