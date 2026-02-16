@@ -130,6 +130,29 @@ from .projection_registry import (
     spec_metadata_payload,
 )
 from .wl_refinement import emit_wl_refinement_facets
+from .dataflow_decision_surfaces import (
+    compute_fingerprint_coherence as _ds_compute_fingerprint_coherence,
+    compute_fingerprint_rewrite_plans as _ds_compute_fingerprint_rewrite_plans,
+    extract_smell_sample as _ds_extract_smell_sample,
+    lint_lines_from_bundle_evidence as _ds_lint_lines_from_bundle_evidence,
+    lint_lines_from_constant_smells as _ds_lint_lines_from_constant_smells,
+    lint_lines_from_type_evidence as _ds_lint_lines_from_type_evidence,
+    lint_lines_from_unused_arg_smells as _ds_lint_lines_from_unused_arg_smells,
+    parse_lint_location as _ds_parse_lint_location,
+    summarize_coherence_witnesses as _ds_summarize_coherence_witnesses,
+    summarize_deadness_witnesses as _ds_summarize_deadness_witnesses,
+    summarize_rewrite_plans as _ds_summarize_rewrite_plans,
+)
+from .dataflow_exception_obligations import (
+    exception_param_names as _exc_exception_param_names,
+    exception_type_name as _exc_exception_type_name,
+    handler_is_broad as _exc_handler_is_broad,
+    handler_label as _exc_handler_label,
+    node_in_try_body as _exc_node_in_try_body,
+)
+from .dataflow_report_rendering import (
+    render_synthesis_section as _report_render_synthesis_section,
+)
 from gabion.schema import SynthesisResponse
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
@@ -3271,27 +3294,11 @@ def _summarize_deadness_witnesses(
     *,
     max_entries: int = 10,
 ) -> list[str]:
-    check_deadline()
-    if not entries:
-        return []
-    lines: list[str] = []
-    for entry in entries[:max_entries]:
-        check_deadline()
-        path = entry.get("path", "?")
-        function = entry.get("function", "?")
-        bundle = entry.get("bundle", [])
-        predicate = entry.get("predicate", "")
-        environment = entry.get("environment", {})
-        result = entry.get("result", "UNKNOWN")
-        core = entry.get("core", [])
-        core_count = len(core) if isinstance(core, list) else 0
-        lines.append(
-            f"{path}:{function} bundle {bundle} result={result} "
-            f"predicate={predicate} env={environment} core={core_count}"
-        )
-    if len(entries) > max_entries:
-        lines.append(f"... {len(entries) - max_entries} more")
-    return lines
+    return _ds_summarize_deadness_witnesses(
+        entries,
+        max_entries=max_entries,
+        check_deadline=check_deadline,
+    )
 
 
 def _compute_fingerprint_coherence(
@@ -3299,53 +3306,11 @@ def _compute_fingerprint_coherence(
     *,
     synth_version: str,
 ) -> list[JSONObject]:
-    check_deadline()
-    witnesses: list[JSONObject] = []
-    for entry in entries:
-        check_deadline()
-        matches = entry.get("glossary_matches") or []
-        if not isinstance(matches, list) or len(matches) < 2:
-            continue
-        path = entry.get("path")
-        function = entry.get("function")
-        bundle = entry.get("bundle")
-        provenance_id = entry.get("provenance_id")
-        base_keys = entry.get("base_keys") or []
-        ctor_keys = entry.get("ctor_keys") or []
-        bundle_key = ",".join(bundle or [])
-        witnesses.append(
-            {
-                "coherence_id": f"{path}:{function}:{bundle_key}:glossary-ambiguity",
-                "site": {
-                    "path": path,
-                    "function": function,
-                    "bundle": bundle,
-                },
-                "boundary": {
-                    "base_keys": base_keys,
-                    "ctor_keys": ctor_keys,
-                    "synth_version": synth_version,
-                },
-                "alternatives": ordered_or_sorted(
-                    set(str(m) for m in matches),
-                    source="_compute_fingerprint_coherence.alternatives",
-                ),
-                "fork_signature": "glossary-ambiguity",
-                "frack_path": ["provenance", "glossary"],
-                "result": "UNKNOWN",
-                "remainder": {"glossary_matches": matches},
-                "provenance_id": provenance_id,
-            }
-        )
-    return ordered_or_sorted(
-        witnesses,
-        source="_compute_fingerprint_coherence.witnesses",
-        key=lambda entry: (
-            str(entry.get("site", {}).get("path", "")),
-            str(entry.get("site", {}).get("function", "")),
-            ",".join(entry.get("site", {}).get("bundle", []) or []),
-            str(entry.get("fork_signature", "")),
-        ),
+    return _ds_compute_fingerprint_coherence(
+        entries,
+        synth_version=synth_version,
+        check_deadline=check_deadline,
+        ordered_or_sorted=ordered_or_sorted,
     )
 
 
@@ -3354,26 +3319,11 @@ def _summarize_coherence_witnesses(
     *,
     max_entries: int = 10,
 ) -> list[str]:
-    check_deadline()
-    if not entries:
-        return []
-    lines: list[str] = []
-    for entry in entries[:max_entries]:
-        check_deadline()
-        site = entry.get("site", {})
-        path = site.get("path", "?")
-        function = site.get("function", "?")
-        bundle = site.get("bundle", [])
-        result = entry.get("result", "UNKNOWN")
-        fork_signature = entry.get("fork_signature", "")
-        alternatives = entry.get("alternatives", [])
-        lines.append(
-            f"{path}:{function} bundle {bundle} result={result} "
-            f"fork={fork_signature} alternatives={alternatives}"
-        )
-    if len(entries) > max_entries:
-        lines.append(f"... {len(entries) - max_entries} more")
-    return lines
+    return _ds_summarize_coherence_witnesses(
+        entries,
+        max_entries=max_entries,
+        check_deadline=check_deadline,
+    )
 
 
 def _compute_fingerprint_rewrite_plans(
@@ -3383,146 +3333,15 @@ def _compute_fingerprint_rewrite_plans(
     synth_version: str,
     exception_obligations: list[JSONObject] | None = None,
 ) -> list[JSONObject]:
-    check_deadline()
-    coherence_map: dict[tuple[str, str, str], JSONObject] = {}
-    for entry in coherence:
-        check_deadline()
-        raw_site = entry.get("site", {}) or {}
-        site = Site.from_payload(raw_site)
-        if site is None:
-            continue
-        coherence_map[site.key()] = entry
-
-    include_exception_predicates = exception_obligations is not None
-    exception_summary_map: dict[tuple[str, str, str], dict[str, int]] = {}
-    if exception_obligations is not None:
-        for entry in exception_obligations:
-            check_deadline()
-            raw_site = entry.get("site", {}) or {}
-            site = Site.from_payload(raw_site)
-            if site is None:
-                continue
-            if not site.path or not site.function:
-                continue
-            summary = exception_summary_map.setdefault(
-                site.key(),
-                {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
-            )
-            status = str(entry.get("status", "UNKNOWN") or "UNKNOWN")
-            if status not in {"UNKNOWN", "DEAD", "HANDLED"}:
-                status = "UNKNOWN"
-            summary[status] += 1
-            summary["total"] += 1
-
-    plans: list[JSONObject] = []
-    for entry in provenance:
-        check_deadline()
-        matches = entry.get("glossary_matches") or []
-        if not isinstance(matches, list) or len(matches) < 2:
-            continue
-        site = Site.from_payload(entry)
-        if site is None or not site.path or not site.function:
-            continue
-        bundle_key = site.bundle_key()
-        coherence_entry = coherence_map.get(site.key())
-        coherence_id = None
-        if coherence_entry:
-            coherence_id = coherence_entry.get("coherence_id")
-        plan_id = f"rewrite:{site.path}:{site.function}:{bundle_key}:glossary-ambiguity"
-        candidates = ordered_or_sorted(
-            set(str(m) for m in matches),
-            source="_compute_fingerprint_rewrite_plans.candidates",
-        )
-        pre_exception_summary: dict[str, int] | None = None
-        if include_exception_predicates:
-            pre_exception_summary = exception_summary_map.get(
-                site.key(),
-                {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
-            )
-        plans.append(
-            {
-                "plan_id": plan_id,
-                "status": "UNVERIFIED",
-                "site": {
-                    "path": site.path,
-                    "function": site.function,
-                    "bundle": list(site.bundle),
-                },
-                "pre": {
-                    "base_keys": entry.get("base_keys") or [],
-                    "ctor_keys": entry.get("ctor_keys") or [],
-                    "glossary_matches": matches,
-                    "remainder": entry.get("remainder") or {},
-                    "synth_version": synth_version,
-                    **(
-                        {"exception_obligations_summary": pre_exception_summary}
-                        if pre_exception_summary is not None
-                        else {}
-                    ),
-                },
-                "rewrite": {
-                    "kind": "BUNDLE_ALIGN",
-                    "selector": {"bundle": list(site.bundle)},
-                    "parameters": {"candidates": candidates},
-                },
-                "evidence": {
-                    "provenance_id": entry.get("provenance_id"),
-                    "coherence_id": coherence_id,
-                },
-                "post_expectation": {
-                    "match_strata": "exact",
-                    "base_conservation": True,
-                    "ctor_coherence": True,
-                },
-                "verification": {
-                    "mode": "re-audit",
-                    "status": "UNVERIFIED",
-                    # Minimal executable predicate set (see in/in-26.md §6).
-                    # The evaluator (`verify_rewrite_plan`) intentionally treats transport
-                    # details as erased; only the semantic payloads matter.
-                    "predicates": [
-                        {
-                            "kind": "base_conservation",
-                            "expect": True,
-                        },
-                        {
-                            "kind": "ctor_coherence",
-                            "expect": True,
-                        },
-                        {
-                            "kind": "match_strata",
-                            "expect": "exact",
-                            "candidates": candidates,
-                        },
-                        {
-                            "kind": "remainder_non_regression",
-                            "expect": "no-new-remainder",
-                        },
-                        *(
-                            [
-                                {
-                                    "kind": "exception_obligation_non_regression",
-                                    "expect": "XV1",
-                                }
-                            ]
-                            if include_exception_predicates
-                            else []
-                        ),
-                    ],
-                },
-            }
-        )
-    return ordered_or_sorted(
-        plans,
-        source="_compute_fingerprint_rewrite_plans.plans",
-        key=lambda plan: (
-            str(plan.get("site", {}).get("path", "")),
-            str(plan.get("site", {}).get("function", "")),
-            ",".join(plan.get("site", {}).get("bundle", []) or []),
-            str(plan.get("plan_id", "")),
-        ),
+    return _ds_compute_fingerprint_rewrite_plans(
+        provenance,
+        coherence,
+        synth_version=synth_version,
+        exception_obligations=exception_obligations,
+        check_deadline=check_deadline,
+        ordered_or_sorted=ordered_or_sorted,
+        site_from_payload=Site.from_payload,
     )
-
 
 def _glossary_match_strata(matches: object) -> str:
     if not isinstance(matches, list) or not matches:
@@ -3802,26 +3621,11 @@ def _summarize_rewrite_plans(
     *,
     max_entries: int = 10,
 ) -> list[str]:
-    check_deadline()
-    if not entries:
-        return []
-    lines: list[str] = []
-    for entry in entries[:max_entries]:
-        check_deadline()
-        plan_id = entry.get("plan_id", "?")
-        site = entry.get("site", {})
-        path = site.get("path", "?")
-        function = site.get("function", "?")
-        bundle = site.get("bundle", [])
-        kind = entry.get("rewrite", {}).get("kind", "?")
-        status = entry.get("status", "UNVERIFIED")
-        lines.append(
-            f"{plan_id} {path}:{function} bundle={bundle} kind={kind} status={status}"
-        )
-    if len(entries) > max_entries:
-        lines.append(f"... {len(entries) - max_entries} more")
-    return lines
-
+    return _ds_summarize_rewrite_plans(
+        entries,
+        max_entries=max_entries,
+        check_deadline=check_deadline,
+    )
 
 def _enclosing_function_node(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
@@ -3837,27 +3641,10 @@ def _enclosing_function_node(
 
 
 def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
-    check_deadline()
-    if expr is None:
-        return []
-    names: set[str] = set()
-    for node in ast.walk(expr):
-        check_deadline()
-        if isinstance(node, ast.Name) and node.id in params:
-            names.add(node.id)
-    return ordered_or_sorted(
-        names,
-        source="_exception_param_names.names",
-    )
-
+    return _exc_exception_param_names(expr, params, check_deadline=check_deadline)
 
 def _exception_type_name(expr: ast.AST | None) -> str | None:
-    if expr is None:
-        return None
-    if isinstance(expr, ast.Call):
-        return _decorator_name(expr.func)
-    return _decorator_name(expr)
-
+    return _exc_exception_type_name(expr, decorator_name=_decorator_name)
 
 def _exception_path_id(
     *,
@@ -3872,36 +3659,13 @@ def _exception_path_id(
 
 
 def _handler_is_broad(handler: ast.ExceptHandler) -> bool:
-    if handler.type is None:
-        return True
-    if isinstance(handler.type, ast.Name):
-        return handler.type.id in {"Exception", "BaseException"}
-    if isinstance(handler.type, ast.Attribute):
-        return handler.type.attr in {"Exception", "BaseException"}
-    return False
-
+    return _exc_handler_is_broad(handler)
 
 def _handler_label(handler: ast.ExceptHandler) -> str:
-    if handler.type is None:
-        return "except:"
-    try:
-        return f"except {ast.unparse(handler.type)}"
-    except _AST_UNPARSE_ERROR_TYPES:
-        return "except <unknown>"
-
+    return _exc_handler_label(handler)
 
 def _node_in_try_body(node: ast.AST, try_node: ast.Try) -> bool:
-    check_deadline()
-    for stmt in try_node.body:
-        check_deadline()
-        if node is stmt:
-            return True
-        for child in ast.walk(stmt):
-            check_deadline()
-            if node is child:
-                return True
-    return False
-
+    return _exc_node_in_try_body(node, try_node, check_deadline=check_deadline)
 
 def _find_handling_try(
     node: ast.AST, parents: dict[ast.AST, ast.AST]
@@ -7010,20 +6774,7 @@ def _exception_protocol_evidence(entries: list[JSONObject]) -> list[str]:
 
 
 def _parse_lint_location(line: str) -> tuple[str, int, int, str] | None:
-    match = re.match(r"^(?P<path>[^:]+):(?P<line>\d+):(?P<col>\d+)", line)
-    if not match:
-        return None
-    path = match.group("path")
-    lineno = int(match.group("line"))
-    col = int(match.group("col"))
-    remainder = line[match.end() :].lstrip(": ").strip()
-    if remainder.startswith("-"):
-        trimmed = remainder[1:]
-        range_match = re.match(r"^(\d+):(\d+)(:)?\s*", trimmed)
-        if range_match:
-            remainder = trimmed[range_match.end() :].strip()
-    return path, lineno, col, remainder
-
+    return _ds_parse_lint_location(line)
 
 def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
     return f"{path}:{line}:{col}: {code} {message}".strip()
@@ -8219,32 +7970,18 @@ def _emit_call_ambiguities(
 
 
 def _lint_lines_from_bundle_evidence(evidence: Iterable[str]) -> list[str]:
-    check_deadline()
-    lines: list[str] = []
-    for entry in evidence:
-        check_deadline()
-        parsed = _parse_lint_location(entry)
-        if not parsed:
-            continue
-        path, lineno, col, remainder = parsed
-        message = remainder or "undocumented bundle"
-        lines.append(_lint_line(path, lineno, col, "GABION_BUNDLE_UNDOC", message))
-    return lines
-
+    return _ds_lint_lines_from_bundle_evidence(
+        evidence,
+        check_deadline=check_deadline,
+        lint_line=_lint_line,
+    )
 
 def _lint_lines_from_type_evidence(evidence: Iterable[str]) -> list[str]:
-    check_deadline()
-    lines: list[str] = []
-    for entry in evidence:
-        check_deadline()
-        parsed = _parse_lint_location(entry)
-        if not parsed:
-            continue
-        path, lineno, col, remainder = parsed
-        message = remainder or "type-flow evidence"
-        lines.append(_lint_line(path, lineno, col, "GABION_TYPE_FLOW", message))
-    return lines
-
+    return _ds_lint_lines_from_type_evidence(
+        evidence,
+        check_deadline=check_deadline,
+        lint_line=_lint_line,
+    )
 
 def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str]:
     check_deadline()
@@ -8272,42 +8009,21 @@ def _lint_lines_from_call_ambiguities(entries: Iterable[JSONObject]) -> list[str
 
 
 def _lint_lines_from_unused_arg_smells(smells: Iterable[str]) -> list[str]:
-    check_deadline()
-    lines: list[str] = []
-    for entry in smells:
-        check_deadline()
-        parsed = _parse_lint_location(entry)
-        if not parsed:
-            continue
-        path, lineno, col, remainder = parsed
-        message = remainder or "unused argument flow"
-        lines.append(_lint_line(path, lineno, col, "GABION_UNUSED_ARG", message))
-    return lines
-
+    return _ds_lint_lines_from_unused_arg_smells(
+        smells,
+        check_deadline=check_deadline,
+        lint_line=_lint_line,
+    )
 
 def _extract_smell_sample(entry: str) -> str | None:
-    match = re.search(r"\(e\.g\.\s*([^)]+)\)", entry)
-    if not match:
-        return None
-    return match.group(1).strip()
-
+    return _ds_extract_smell_sample(entry)
 
 def _lint_lines_from_constant_smells(smells: Iterable[str]) -> list[str]:
-    check_deadline()
-    lines: list[str] = []
-    for entry in smells:
-        check_deadline()
-        parsed = _parse_lint_location(entry)
-        if not parsed:
-            sample = _extract_smell_sample(entry)
-            if sample:
-                parsed = _parse_lint_location(sample)
-        if not parsed:
-            continue
-        path, lineno, col, _ = parsed
-        lines.append(_lint_line(path, lineno, col, "GABION_CONST_FLOW", entry))
-    return lines
-
+    return _ds_lint_lines_from_constant_smells(
+        smells,
+        check_deadline=check_deadline,
+        lint_line=_lint_line,
+    )
 
 def _parse_exception_path_id(value: str) -> tuple[str, int, int] | None:
     parts = value.split(":", 5)
@@ -14587,55 +14303,7 @@ def build_synthesis_plan(
 
 
 def render_synthesis_section(plan: JSONObject) -> str:
-    check_deadline()
-    protocols = plan.get("protocols", [])
-    warnings = plan.get("warnings", [])
-    errors = plan.get("errors", [])
-    lines = ["", "## Synthesis plan (prototype)", ""]
-    if not protocols:
-        lines.append("No protocol candidates.")
-    else:
-        evidence_counts: Counter[str] = Counter()
-        for spec in protocols:
-            check_deadline()
-            name = spec.get("name", "Bundle")
-            tier = spec.get("tier", "?")
-            fields = spec.get("fields", [])
-            parts = []
-            for field in fields:
-                check_deadline()
-                fname = field.get("name", "")
-                type_hint = field.get("type_hint") or "Any"
-                if fname:
-                    parts.append(f"{fname}: {type_hint}")
-            field_list = ", ".join(parts) if parts else "(no fields)"
-            evidence = spec.get("evidence", [])
-            if evidence:
-                evidence_str = ", ".join(sorted(evidence))
-                lines.append(f"- {name} (tier {tier}; evidence: {evidence_str}): {field_list}")
-                evidence_counts.update(evidence)
-            else:
-                lines.append(f"- {name} (tier {tier}): {field_list}")
-        if evidence_counts:
-            summary = ", ".join(
-                f"{key}={count}" for key, count in evidence_counts.most_common()
-            )
-            lines.append("")
-            lines.append(f"Evidence summary: {summary}")
-    if warnings:
-        lines.append("")
-        lines.append("Warnings:")
-        lines.append("```")
-        lines.extend(str(w) for w in warnings)
-        lines.append("```")
-    if errors:
-        lines.append("")
-        lines.append("Errors:")
-        lines.append("```")
-        lines.extend(str(e) for e in errors)
-        lines.append("```")
-    return "\n".join(lines)
-
+    return _report_render_synthesis_section(plan, check_deadline=check_deadline)
 
 def render_protocol_stubs(plan: JSONObject, kind: str = "dataclass") -> str:
     check_deadline()
