@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import io
 import json
+import re
 import sys
 import types
 
@@ -13,6 +14,13 @@ from typer.testing import CliRunner
 from gabion import cli
 from gabion.analysis.timeout_context import check_deadline
 from tests.env_helpers import env_scope as _env_scope
+
+
+_ANSI_ESCAPE = re.compile(r"\x1B\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_ESCAPE.sub("", text)
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
@@ -194,9 +202,10 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
         cli.app,
         ["check", "--profile", "raw", "sample.py", "--emit-test-obsolescence"],
     )
+    normalized_output = _strip_ansi(result.output)
     assert result.exit_code != 0
-    assert "check-only options" in result.output
-    assert "--emit-test-obsolescence" in result.output
+    assert "check-only options" in normalized_output
+    assert "--emit-test-obsolescence" in normalized_output
 
 
 def test_dataflow_audit_command_delegates_to_raw_runner(
