@@ -108,6 +108,14 @@ def test_cli_dataflow_audit_requires_paths() -> None:
     assert result.exit_code != 0
 
 
+def test_cli_dataflow_audit_help_uses_dataflow_parser() -> None:
+    runner = CliRunner()
+    result = _invoke(runner, ["dataflow-audit", "--help"])
+    assert result.exit_code == 0
+    assert "usage:" in result.output.lower()
+    assert "--type-audit" in result.output
+
+
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_synth_and_synthesis_plan(tmp_path: Path) -> None:

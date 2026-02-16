@@ -23,6 +23,19 @@ def test_split_csv_helpers() -> None:
     assert cli._split_csv(" ,") == []
 
 
+def test_parse_dataflow_args_or_exit_routes_help_to_parser(capsys) -> None:
+    with pytest.raises(typer.Exit) as exc:
+        cli.parse_dataflow_args_or_exit(["--help"])
+    assert exc.value.exit_code == 0
+    assert "usage:" in capsys.readouterr().out.lower()
+
+
+def test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit() -> None:
+    with pytest.raises(typer.Exit) as exc:
+        cli.parse_dataflow_args_or_exit([])
+    assert exc.value.exit_code == 2
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
 def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     good_line = "mod.py:10:2: GABION_CODE something happened"
@@ -267,6 +280,29 @@ def test_run_docflow_audit_cleanup_ignores_missing_sys_path(tmp_path: Path) -> N
     assert scripts_root not in sys.path
 
 
+def test_run_docflow_audit_keeps_existing_sys_path_entry(tmp_path: Path) -> None:
+    module_path = tmp_path / "audit_tools.py"
+    module_path.write_text(
+        "def run_docflow_cli(argv=None):\n"
+        "    return 0\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    return 0\n"
+    )
+    scripts_root = str(tmp_path)
+    sys.path.insert(0, scripts_root)
+    try:
+        exit_code = cli._run_docflow_audit(
+            root=tmp_path,
+            fail_on_violations=False,
+            audit_tools_path=module_path,
+        )
+        assert exit_code == 0
+        assert scripts_root in sys.path
+    finally:
+        while scripts_root in sys.path:
+            sys.path.remove(scripts_root)
+
+
 def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -284,6 +320,24 @@ def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     )
     assert exit_code == 1
     assert "docflow: sppf-graph failed: boom" in capsys.readouterr().err
+
+
+def test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "audit_tools.py"
+    module_path.write_text(
+        "def run_docflow_cli(argv=None):\n"
+        "    return 7\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    raise RuntimeError('should not run')\n"
+    )
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        audit_tools_path=module_path,
+    )
+    assert exit_code == 7
 
 
 def test_run_docflow_audit_returns_two_when_loader_creation_fails(

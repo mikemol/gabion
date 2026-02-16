@@ -89,6 +89,15 @@ class DataflowAuditRequest:
 
 
 @dataclass(frozen=True)
+class CheckArtifactFlags:
+    emit_test_obsolescence: bool
+    emit_test_evidence_suggestions: bool
+    emit_call_clusters: bool
+    emit_call_cluster_consolidation: bool
+    emit_test_annotation_drift: bool
+
+
+@dataclass(frozen=True)
 class SnapshotDiffRequest:
     baseline: Path
     current: Path
@@ -361,6 +370,63 @@ def _emit_timeout_progress_artifacts(
     typer.echo(f"Wrote timeout progress markdown: {progress_md_path}")
 
 
+def _build_dataflow_payload_common(
+    *,
+    paths: list[Path],
+    root: Path,
+    config: Path | None,
+    report: Path | None,
+    fail_on_violations: bool,
+    fail_on_type_ambiguities: bool,
+    baseline: Path | None,
+    baseline_write: bool | None,
+    decision_snapshot: Path | None,
+    exclude: list[str] | None,
+    ignore_params_csv: str | None,
+    transparent_decorators_csv: str | None,
+    allow_external: bool | None,
+    strictness: str | None,
+    lint: bool,
+    resume_checkpoint: Path | None,
+    emit_timeout_progress_report: bool,
+    resume_on_timeout: int,
+    deadline_profile: bool = True,
+) -> JSONObject:
+    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
+    # dataflow-bundle: deadline_profile, emit_timeout_progress_report
+    if strictness is not None and strictness not in {"high", "low"}:
+        raise typer.BadParameter("strictness must be 'high' or 'low'")
+    exclude_dirs = _split_csv_entries(exclude) if exclude is not None else None
+    ignore_list = _split_csv(ignore_params_csv) if ignore_params_csv is not None else None
+    transparent_list = (
+        _split_csv(transparent_decorators_csv)
+        if transparent_decorators_csv is not None
+        else None
+    )
+    payload: JSONObject = {
+        "paths": [str(p) for p in paths],
+        "root": str(root),
+        "config": str(config) if config is not None else None,
+        "report": str(report) if report is not None else None,
+        "fail_on_violations": fail_on_violations,
+        "fail_on_type_ambiguities": fail_on_type_ambiguities,
+        "baseline": str(baseline) if baseline is not None else None,
+        "baseline_write": baseline_write,
+        "decision_snapshot": str(decision_snapshot) if decision_snapshot is not None else None,
+        "exclude": exclude_dirs,
+        "ignore_params": ignore_list,
+        "transparent_decorators": transparent_list,
+        "allow_external": allow_external,
+        "strictness": strictness,
+        "lint": lint,
+        "resume_checkpoint": str(resume_checkpoint) if resume_checkpoint is not None else None,
+        "emit_timeout_progress_report": bool(emit_timeout_progress_report),
+        "resume_on_timeout": max(int(resume_on_timeout), 0),
+        "deadline_profile": bool(deadline_profile),
+    }
+    return payload
+
+
 def build_check_payload(
     *,
     paths: Optional[List[Path]],
@@ -371,14 +437,10 @@ def build_check_payload(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
-    emit_test_obsolescence: bool,
+    artifact_flags: CheckArtifactFlags,
     emit_test_obsolescence_state: bool,
     test_obsolescence_state: Optional[Path],
     emit_test_obsolescence_delta: bool,
-    emit_test_evidence_suggestions: bool,
-    emit_call_clusters: bool,
-    emit_call_cluster_consolidation: bool,
-    emit_test_annotation_drift: bool,
     test_annotation_drift_state: Optional[Path],
     emit_test_annotation_drift_delta: bool,
     write_test_annotation_drift_baseline: bool,
@@ -399,11 +461,8 @@ def build_check_payload(
     resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
 ) -> JSONObject:
-    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
     if not paths:
         paths = [Path(".")]
-    if strictness is not None and strictness not in {"high", "low"}:
-        raise typer.BadParameter("strictness must be 'high' or 'low'")
     if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
         raise typer.BadParameter(
             "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
@@ -424,59 +483,55 @@ def build_check_payload(
         raise typer.BadParameter(
             "Use --emit-ambiguity-state or --ambiguity-state, not both."
         )
-    exclude_dirs = _split_csv_entries(exclude) if exclude is not None else None
-    ignore_list = _split_csv(ignore_params_csv) if ignore_params_csv is not None else None
-    transparent_list = (
-        _split_csv(transparent_decorators_csv)
-        if transparent_decorators_csv is not None
-        else None
-    )
     baseline_write_value = bool(baseline is not None and baseline_write)
-    payload = {
-        "paths": [str(p) for p in paths],
-        "report": str(report) if report is not None else None,
-        "fail_on_violations": fail_on_violations,
-        "fail_on_type_ambiguities": fail_on_type_ambiguities,
-        "root": str(root),
-        "config": str(config) if config is not None else None,
-        "baseline": str(baseline) if baseline is not None else None,
-        "baseline_write": baseline_write_value,
-        "decision_snapshot": str(decision_snapshot) if decision_snapshot else None,
-        "emit_test_obsolescence": emit_test_obsolescence,
-        "emit_test_obsolescence_state": emit_test_obsolescence_state,
-        "test_obsolescence_state": str(test_obsolescence_state)
-        if test_obsolescence_state is not None
-        else None,
-        "emit_test_obsolescence_delta": emit_test_obsolescence_delta,
-        "emit_test_evidence_suggestions": emit_test_evidence_suggestions,
-        "emit_call_clusters": emit_call_clusters,
-        "emit_call_cluster_consolidation": emit_call_cluster_consolidation,
-        "emit_test_annotation_drift": emit_test_annotation_drift,
-        "test_annotation_drift_state": str(test_annotation_drift_state)
-        if test_annotation_drift_state is not None
-        else None,
-        "emit_test_annotation_drift_delta": emit_test_annotation_drift_delta,
-        "write_test_annotation_drift_baseline": write_test_annotation_drift_baseline,
-        "write_test_obsolescence_baseline": write_test_obsolescence_baseline,
-        "emit_ambiguity_delta": emit_ambiguity_delta,
-        "emit_ambiguity_state": emit_ambiguity_state,
-        "ambiguity_state": str(ambiguity_state) if ambiguity_state is not None else None,
-        "write_ambiguity_baseline": write_ambiguity_baseline,
-        "exclude": exclude_dirs,
-        "ignore_params": ignore_list,
-        "transparent_decorators": transparent_list,
-        "allow_external": allow_external,
-        "strictness": strictness,
-        "type_audit": True if fail_on_type_ambiguities else None,
-        "lint": lint,
-        "resume_checkpoint": str(resume_checkpoint) if resume_checkpoint else None,
-        "emit_timeout_progress_report": bool(emit_timeout_progress_report),
-        "resume_on_timeout": max(int(resume_on_timeout), 0),
-        "deadline_profile": True,
-        "analysis_tick_limit": int(analysis_tick_limit)
-        if analysis_tick_limit is not None
-        else None,
-    }
+    payload = _build_dataflow_payload_common(
+        paths=paths,
+        root=root,
+        config=config,
+        report=report,
+        fail_on_violations=fail_on_violations,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+        baseline=baseline,
+        baseline_write=baseline_write_value,
+        decision_snapshot=decision_snapshot,
+        exclude=exclude,
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
+        allow_external=allow_external,
+        strictness=strictness,
+        lint=lint,
+        resume_checkpoint=resume_checkpoint,
+        emit_timeout_progress_report=emit_timeout_progress_report,
+        resume_on_timeout=resume_on_timeout,
+    )
+    payload.update(
+        {
+            "emit_test_obsolescence": artifact_flags.emit_test_obsolescence,
+            "emit_test_obsolescence_state": emit_test_obsolescence_state,
+            "test_obsolescence_state": str(test_obsolescence_state)
+            if test_obsolescence_state is not None
+            else None,
+            "emit_test_obsolescence_delta": emit_test_obsolescence_delta,
+            "emit_test_evidence_suggestions": artifact_flags.emit_test_evidence_suggestions,
+            "emit_call_clusters": artifact_flags.emit_call_clusters,
+            "emit_call_cluster_consolidation": artifact_flags.emit_call_cluster_consolidation,
+            "emit_test_annotation_drift": artifact_flags.emit_test_annotation_drift,
+            "test_annotation_drift_state": str(test_annotation_drift_state)
+            if test_annotation_drift_state is not None
+            else None,
+            "emit_test_annotation_drift_delta": emit_test_annotation_drift_delta,
+            "write_test_annotation_drift_baseline": write_test_annotation_drift_baseline,
+            "write_test_obsolescence_baseline": write_test_obsolescence_baseline,
+            "emit_ambiguity_delta": emit_ambiguity_delta,
+            "emit_ambiguity_state": emit_ambiguity_state,
+            "ambiguity_state": str(ambiguity_state) if ambiguity_state is not None else None,
+            "write_ambiguity_baseline": write_ambiguity_baseline,
+            "type_audit": True if fail_on_type_ambiguities else None,
+            "analysis_tick_limit": int(analysis_tick_limit)
+            if analysis_tick_limit is not None
+            else None,
+        }
+    )
     return payload
 
 
@@ -485,43 +540,54 @@ def parse_dataflow_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def parse_dataflow_args_or_exit(
+    argv: list[str],
+    *,
+    parser_fn: Callable[[], argparse.ArgumentParser] | None = None,
+) -> argparse.Namespace:
+    parser = (parser_fn or dataflow_cli_parser)()
+    if any(arg in {"-h", "--help"} for arg in argv):
+        parser.print_help()
+        raise typer.Exit(code=0)
+    try:
+        return parser.parse_args(argv)
+    except SystemExit as exc:
+        raise typer.Exit(code=int(exc.code))
+
+
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
-    exclude_dirs = _split_csv_entries(opts.exclude) if opts.exclude is not None else None
-    ignore_list = _split_csv(opts.ignore_params) if opts.ignore_params is not None else None
-    transparent_list = (
-        _split_csv(opts.transparent_decorators)
-        if opts.transparent_decorators is not None
-        else None
+    payload = _build_dataflow_payload_common(
+        paths=opts.paths,
+        root=Path(opts.root),
+        config=Path(opts.config) if opts.config is not None else None,
+        report=Path(opts.report) if opts.report else None,
+        fail_on_violations=opts.fail_on_violations,
+        fail_on_type_ambiguities=opts.fail_on_type_ambiguities,
+        baseline=Path(opts.baseline) if opts.baseline else None,
+        baseline_write=opts.baseline_write if opts.baseline else None,
+        decision_snapshot=Path(opts.emit_decision_snapshot)
+        if opts.emit_decision_snapshot
+        else None,
+        exclude=opts.exclude,
+        ignore_params_csv=opts.ignore_params,
+        transparent_decorators_csv=opts.transparent_decorators,
+        allow_external=opts.allow_external,
+        strictness=opts.strictness,
+        lint=bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
+        resume_checkpoint=Path(opts.resume_checkpoint)
+        if opts.resume_checkpoint
+        else None,
+        emit_timeout_progress_report=bool(opts.emit_timeout_progress_report),
+        resume_on_timeout=max(int(opts.resume_on_timeout), 0),
     )
-    payload: JSONObject = {
-        "paths": [str(p) for p in opts.paths],
-        "root": str(opts.root),
-        "config": str(opts.config) if opts.config is not None else None,
-        "report": str(opts.report) if opts.report else None,
+    payload.update(
+        {
         "dot": opts.dot,
-        "fail_on_violations": opts.fail_on_violations,
-        "fail_on_type_ambiguities": opts.fail_on_type_ambiguities,
-        "baseline": str(opts.baseline) if opts.baseline else None,
-        "baseline_write": opts.baseline_write if opts.baseline else None,
         "no_recursive": opts.no_recursive,
         "max_components": opts.max_components,
         "type_audit": opts.type_audit,
         "type_audit_report": opts.type_audit_report,
         "type_audit_max": opts.type_audit_max,
-        "lint": bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
-        "decision_snapshot": str(opts.emit_decision_snapshot)
-        if opts.emit_decision_snapshot
-        else None,
-        "exclude": exclude_dirs,
-        "ignore_params": ignore_list,
-        "transparent_decorators": transparent_list,
-        "allow_external": opts.allow_external,
-        "strictness": opts.strictness,
-        "resume_checkpoint": str(opts.resume_checkpoint)
-        if opts.resume_checkpoint
-        else None,
-        "emit_timeout_progress_report": bool(opts.emit_timeout_progress_report),
-        "resume_on_timeout": max(int(opts.resume_on_timeout), 0),
         "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
         "synthesis_report": opts.synthesis_report,
         "synthesis_max_tier": opts.synthesis_max_tier,
@@ -565,8 +631,8 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
         "structure_metrics": str(opts.emit_structure_metrics)
         if opts.emit_structure_metrics
         else None,
-        "deadline_profile": True,
-    }
+        }
+    )
     return payload
 
 
@@ -655,14 +721,10 @@ def run_check(
     baseline: Optional[Path],
     baseline_write: bool,
     decision_snapshot: Optional[Path],
-    emit_test_obsolescence: bool,
+    artifact_flags: CheckArtifactFlags,
     emit_test_obsolescence_state: bool,
     test_obsolescence_state: Optional[Path],
     emit_test_obsolescence_delta: bool,
-    emit_test_evidence_suggestions: bool,
-    emit_call_clusters: bool,
-    emit_call_cluster_consolidation: bool,
-    emit_test_annotation_drift: bool,
     test_annotation_drift_state: Optional[Path],
     emit_test_annotation_drift_delta: bool,
     write_test_annotation_drift_baseline: bool,
@@ -696,14 +758,10 @@ def run_check(
         baseline=baseline,
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
-        emit_test_obsolescence=emit_test_obsolescence,
+        artifact_flags=artifact_flags,
         emit_test_obsolescence_state=emit_test_obsolescence_state,
         test_obsolescence_state=test_obsolescence_state,
         emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-        emit_test_evidence_suggestions=emit_test_evidence_suggestions,
-        emit_call_clusters=emit_call_clusters,
-        emit_call_cluster_consolidation=emit_call_cluster_consolidation,
-        emit_test_annotation_drift=emit_test_annotation_drift,
         test_annotation_drift_state=test_annotation_drift_state,
         emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
         write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
@@ -921,14 +979,16 @@ def check(
             baseline=baseline,
             baseline_write=baseline_write,
             decision_snapshot=decision_snapshot,
-            emit_test_obsolescence=emit_test_obsolescence,
+            artifact_flags=CheckArtifactFlags(
+                emit_test_obsolescence=emit_test_obsolescence,
+                emit_test_evidence_suggestions=emit_test_evidence_suggestions,
+                emit_call_clusters=emit_call_clusters,
+                emit_call_cluster_consolidation=emit_call_cluster_consolidation,
+                emit_test_annotation_drift=emit_test_annotation_drift,
+            ),
             emit_test_obsolescence_state=emit_test_obsolescence_state,
             test_obsolescence_state=test_obsolescence_state,
             emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-            emit_test_evidence_suggestions=emit_test_evidence_suggestions,
-            emit_call_clusters=emit_call_clusters,
-            emit_call_cluster_consolidation=emit_call_cluster_consolidation,
-            emit_test_annotation_drift=emit_test_annotation_drift,
             test_annotation_drift_state=test_annotation_drift_state,
             emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
             write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
@@ -971,9 +1031,7 @@ def _dataflow_audit(
     with _cli_deadline_scope():
         check_deadline()
     argv = list(request.args or []) + list(request.ctx.args)
-    if not argv:
-        argv = []
-    opts = parse_dataflow_args(argv)
+    opts = parse_dataflow_args_or_exit(argv)
     payload = build_dataflow_payload(opts)
     runner = request.runner or run_command
     result = _run_with_timeout_retries(
@@ -1086,6 +1144,7 @@ def _dataflow_audit(
 
 @app.command(
     "dataflow-audit",
+    add_help_option=False,
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
 def dataflow_audit(
