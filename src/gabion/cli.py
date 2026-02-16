@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import ExitStack, contextmanager
-from typing import Callable, List, Mapping, Optional, TypeAlias
+from typing import Callable, Generator, List, Mapping, Optional, TypeAlias
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -1279,22 +1280,71 @@ def _run_docflow_audit(
     *,
     root: Path,
     fail_on_violations: bool,
-    script: Path | None = None,
+    audit_tools_path: Path | None = None,
 ) -> int:
     repo_root = _find_repo_root()
-    script_path = script or (repo_root / "scripts" / "docflow_audit.py")
-    if not script_path.exists():
+    module_path = audit_tools_path or (repo_root / "scripts" / "audit_tools.py")
+    if not module_path.exists():
         typer.secho(
-            "docflow audit script not found; repository layout required",
+            "audit_tools.py not found; repository layout required",
             err=True,
             fg=typer.colors.RED,
         )
         return 2
-    args = ["--root", str(root)]
-    if fail_on_violations:
-        args.append("--fail-on-violations")
-    result = subprocess.run([sys.executable, str(script_path), *args], check=False)
-    return result.returncode
+
+    @contextmanager
+    def _load_audit_tools() -> Generator[object, None, None]:
+        module_name = "gabion_repo_audit_tools"
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("failed to load audit_tools module")
+        module = importlib.util.module_from_spec(spec)
+        scripts_root = str(module_path.parent)
+        inserted_path = False
+        if scripts_root not in sys.path:
+            sys.path.insert(0, scripts_root)
+            inserted_path = True
+        previous_module = sys.modules.get(module_name)
+        had_previous = module_name in sys.modules
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+            yield module
+        finally:
+            if had_previous:
+                sys.modules[module_name] = previous_module  # type: ignore[assignment]
+            else:
+                sys.modules.pop(module_name, None)
+            if inserted_path:
+                try:
+                    sys.path.remove(scripts_root)
+                except ValueError:
+                    pass
+
+    try:
+        with _load_audit_tools() as module:
+            args = ["--root", str(root)]
+            if fail_on_violations:
+                args.append("--fail-on-violations")
+            status = int(module.run_docflow_cli(args))
+            if status == 0:
+                try:
+                    status = int(module.run_sppf_graph_cli([]))
+                except Exception as exc:
+                    typer.secho(
+                        f"docflow: sppf-graph failed: {exc}",
+                        err=True,
+                        fg=typer.colors.RED,
+                    )
+                    return 1
+            return status
+    except Exception as exc:
+        typer.secho(
+            f"failed to load audit_tools module: {exc}",
+            err=True,
+            fg=typer.colors.RED,
+        )
+        return 2
 
 
 @app.command("docflow-audit")

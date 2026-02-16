@@ -4,6 +4,7 @@ from pathlib import Path
 import io
 import json
 import os
+import sys
 import time
 
 import pytest
@@ -157,21 +158,60 @@ def test_run_docflow_audit_missing_script(tmp_path: Path) -> None:
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
-        script=missing,
+        audit_tools_path=missing,
     )
     assert exit_code == 2
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_docflow_audit::fail_on_violations
 def test_run_docflow_audit_passes_flags(tmp_path: Path) -> None:
-    script = tmp_path / "docflow.py"
-    script.write_text("import sys\nsys.exit(0)\n")
+    module_path = tmp_path / "audit_tools.py"
+    calls_path = tmp_path / "docflow_calls.txt"
+    module_path.write_text(
+        f"calls_path = {str(calls_path)!r}\n"
+        "def _record(label, argv):\n"
+        "    with open(calls_path, 'a', encoding='utf-8') as handle:\n"
+        "        handle.write(label + ':' + '|'.join(argv or []) + '\\n')\n"
+        "def run_docflow_cli(argv=None):\n"
+        "    _record('docflow', argv)\n"
+        "    return 0\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    _record('sppf', argv)\n"
+        "    return 0\n"
+    )
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=True,
-        script=script,
+        audit_tools_path=module_path,
     )
     assert exit_code == 0
+    lines = calls_path.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == f"docflow:--root|{tmp_path}|--fail-on-violations"
+    assert lines[1] == "sppf:"
+
+
+def test_run_docflow_audit_cleans_import_state(tmp_path: Path) -> None:
+    module_name = "gabion_repo_audit_tools"
+    module_path = tmp_path / "audit_tools.py"
+    module_path.write_text(
+        "def run_docflow_cli(argv=None):\n"
+        "    return 0\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    return 0\n"
+    )
+    scripts_root = str(tmp_path)
+    assert scripts_root not in sys.path
+    assert module_name not in sys.modules
+
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        audit_tools_path=module_path,
+    )
+
+    assert exit_code == 0
+    assert scripts_root not in sys.path
+    assert module_name not in sys.modules
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts E:decision_surface/value_encoded::cli.py::gabion.cli._dataflow_audit::request
