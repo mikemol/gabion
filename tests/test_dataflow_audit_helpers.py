@@ -1106,6 +1106,46 @@ def test_pattern_schema_residue_is_deterministic_for_fixed_fixture() -> None:
     assert any("reason=unreified_protocol" in line for line in first)
 
 
+def test_pattern_schema_normalize_signature_handles_nested_dict_values() -> None:
+    from gabion.analysis import pattern_schema
+
+    normalized = pattern_schema.normalize_signature(
+        {
+            "z": {"b": 2, "a": 1},
+            "a": [{"b": 2, "a": 1}, {"d": 4, "c": 3}],
+        }
+    )
+    assert list(normalized) == ["a", "z"]
+    z_block = normalized["z"]
+    assert isinstance(z_block, dict)
+    assert list(z_block) == ["a", "b"]
+    list_block = normalized["a"]
+    assert isinstance(list_block, list)
+    assert list_block == [
+        {"a": 1, "b": 2},
+        {"c": 3, "d": 4},
+    ]
+
+
+def test_pattern_schema_normalize_signature_keeps_unsortable_list_order() -> None:
+    from gabion.analysis import pattern_schema
+
+    normalized = pattern_schema.normalize_signature(
+        {
+            "items": [
+                {"x": 1, "a": 2},
+                {"b": 3, "a": 4},
+            ],
+        }
+    )
+    items = normalized["items"]
+    assert isinstance(items, list)
+    assert items == [
+        {"a": 2, "x": 1},
+        {"a": 4, "b": 3},
+    ]
+
+
 def test_constant_and_deadness_projections_share_constant_details(
     tmp_path: Path,
 ) -> None:

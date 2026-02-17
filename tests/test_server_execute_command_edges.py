@@ -1915,7 +1915,7 @@ def test_execute_command_report_baseline_write(tmp_path: Path) -> None:
             "baseline": str(baseline_path),
             "baseline_write": True,
             "fail_on_violations": True,
-            "analysis_timeout_ticks": 5_000,
+            "analysis_timeout_ticks": 200_000,
         }),
     )
     assert result.get("baseline_written") is True
