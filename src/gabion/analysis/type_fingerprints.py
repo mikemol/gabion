@@ -255,9 +255,43 @@ class PrimeRegistry:
 class FingerprintDimension:
     product: int = 1
     mask: int = 0
+    # Sparse exponent-vector sidecar keyed by normalized registry key.
+    # Kept out of equality/hash for compatibility with persisted payloads that
+    # may not carry sidecars yet.
+    exponents: tuple[tuple[str, int], ...] = field(
+        default_factory=tuple,
+        compare=False,
+    )
 
     def is_empty(self) -> bool:
         return self.product in (0, 1) and self.mask == 0
+
+    def keys_with_remainder(
+        self,
+        registry: PrimeRegistry,
+    ) -> tuple[list[str], int]:
+        """Decode this dimension, preferring the sparse exponent sidecar."""
+        check_deadline()
+        if not self.exponents:
+            return fingerprint_to_type_keys_with_remainder(self.product, registry)
+        keys: list[str] = []
+        for key, exponent in self.exponents:
+            check_deadline()
+            if exponent <= 0:
+                continue
+            keys.extend([key] * exponent)
+        sidecar_product = 1
+        for key in keys:
+            check_deadline()
+            prime = registry.prime_for(key)
+            if prime is None:
+                # Incomplete registry basis: preserve soundness by falling back.
+                return fingerprint_to_type_keys_with_remainder(self.product, registry)
+            sidecar_product *= prime
+        if sidecar_product != self.product:
+            # Product remains source-of-truth; sidecar is an optimization.
+            return fingerprint_to_type_keys_with_remainder(self.product, registry)
+        return keys, 1
 
 
 @dataclass(frozen=True)
@@ -485,16 +519,28 @@ def _dimension_from_keys(keys: Iterable[str], registry: PrimeRegistry) -> Finger
     check_deadline()
     product = 1
     mask = 0
+    exponents: dict[str, int] = {}
     for key in keys:
         check_deadline()
         if not key:
             continue
         prime = registry.get_or_assign(key)
         product *= prime
+        exponents[key] = exponents.get(key, 0) + 1
         bit = registry.bit_for(key)
         if bit is not None:
             mask |= 1 << bit
-    return FingerprintDimension(product=product, mask=mask)
+    return FingerprintDimension(
+        product=product,
+        mask=mask,
+        exponents=tuple(
+            ordered_or_sorted(
+                exponents.items(),
+                source="_dimension_from_keys.exponents",
+                policy=OrderPolicy.SORT,
+            )
+        ),
+    )
 
 
 def _ctor_dimension_from_names(
@@ -504,6 +550,7 @@ def _ctor_dimension_from_names(
     check_deadline()
     product = 1
     mask = 0
+    exponents: dict[str, int] = {}
     for name in names:
         check_deadline()
         if not name:
@@ -511,10 +558,21 @@ def _ctor_dimension_from_names(
         key = _raw_key(TYPE_CTOR_NAMESPACE, _normalize_base(name))
         prime = registry.get_or_assign(key)
         product *= prime
+        exponents[key] = exponents.get(key, 0) + 1
         bit = registry.bit_for(key)
         if bit is not None:
             mask |= 1 << bit
-    return FingerprintDimension(product=product, mask=mask)
+    return FingerprintDimension(
+        product=product,
+        mask=mask,
+        exponents=tuple(
+            ordered_or_sorted(
+                exponents.items(),
+                source="_ctor_dimension_from_names.exponents",
+                policy=OrderPolicy.SORT,
+            )
+        ),
+    )
 
 
 def format_fingerprint(fingerprint: Fingerprint) -> str:
@@ -561,7 +619,7 @@ class SynthRegistry:
         key = _synth_key(self.version, fingerprint)
         bit = self.registry.bit_for(key)
         mask = 0 if bit is None else 1 << bit
-        return FingerprintDimension(product=prime, mask=mask)
+        return FingerprintDimension(product=prime, mask=mask, exponents=((key, 1),))
 
 
 def build_synth_registry(
