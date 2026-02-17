@@ -6,6 +6,7 @@ from gabion.analysis.aspf import Forest
 from gabion.analysis.forest_signature import (
     build_forest_signature,
     build_forest_signature_from_groups,
+    build_forest_signature_payload,
     _path_name,
     _normalize_key,
 )
@@ -32,6 +33,22 @@ def test_forest_signature_from_groups() -> None:
     signature = build_forest_signature_from_groups(groups_by_path)
     assert signature["nodes"]["count"] > 0
     assert signature["alts"]["count"] > 0
+
+
+def test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads() -> None:
+    forest = Forest()
+    forest.add_site("a.py", "f")
+
+    signature = build_forest_signature_payload(
+        forest,
+        include_legacy_intern=True,
+        include_fingerprint_intern=True,
+    )
+
+    assert "intern" in signature["nodes"]
+    assert "intern_fingerprint" in signature["nodes"]
+    assert signature["nodes"]["count"] == len(signature["nodes"]["intern"])
+    assert signature["nodes"]["count"] == len(signature["nodes"]["intern_fingerprint"])
 
 
 def test_forest_signature_from_groups_rejects_path_order_regression() -> None:
