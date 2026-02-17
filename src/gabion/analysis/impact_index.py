@@ -866,14 +866,15 @@ def _inferred_targets_from_body(
 
 
 def _attribute_path(node: ast.Attribute) -> list[str]:
-    parts: list[str] = []
-    current: ast.expr = node
-    while isinstance(current, ast.Attribute):
-        parts.append(current.attr)
-        current = current.value
-    if isinstance(current, ast.Name):
-        parts.append(current.id)
-        return list(reversed(parts))
+    check_deadline()
+    value = node.value
+    if isinstance(value, ast.Name):
+        return [value.id, node.attr]
+    if isinstance(value, ast.Attribute):
+        prefix = _attribute_path(value)
+        if not prefix:
+            return []
+        return [*prefix, node.attr]
     return []
 
 

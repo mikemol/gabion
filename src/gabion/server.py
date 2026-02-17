@@ -81,6 +81,7 @@ from gabion.analysis.timeout_context import (
     GasMeter,
     TimeoutExceeded,
     check_deadline,
+    deadline_loop_iter,
     get_deadline,
     get_deadline_clock,
     record_deadline_io,
@@ -4804,20 +4805,20 @@ def _impact_collect_edges(
     by_path_qual: dict[tuple[str, str], ImpactFunction] = {
         (fn.path, fn.qual): fn for fn in functions_by_qual.values()
     }
-    for fn in functions_by_qual.values():
+    for fn in deadline_loop_iter(functions_by_qual.values()):
         check_deadline()
         by_name[fn.name].append(fn)
-    for entries in by_name.values():
+    for entries in deadline_loop_iter(by_name.values()):
         entries.sort(key=lambda fn: (fn.path, fn.qual))
     edges: list[ImpactEdge] = []
-    for path, tree in trees_by_path.items():
+    for path, tree in deadline_loop_iter(trees_by_path.items()):
         check_deadline()
-        for fn in _impact_functions_from_tree(path, tree):
+        for fn in deadline_loop_iter(_impact_functions_from_tree(path, tree)):
             check_deadline()
             caller = by_path_qual.get((fn.path, fn.qual))
             if caller is None:
                 continue
-            for node in ast.walk(tree):
+            for node in deadline_loop_iter(ast.walk(tree)):
                 check_deadline()
                 if not isinstance(node, ast.Call):
                     continue
@@ -4835,7 +4836,7 @@ def _impact_collect_edges(
                     continue
                 inferred = len(candidates) > 1
                 confidence = 1.0 if not inferred else max(0.1, 1.0 / float(len(candidates)))
-                for callee in candidates:
+                for callee in deadline_loop_iter(candidates):
                     check_deadline()
                     edges.append(
                         ImpactEdge(
@@ -4898,7 +4899,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
         changes: list[ImpactSpan] = []
         raw_changes = payload.get("changes")
         if isinstance(raw_changes, Sequence) and not isinstance(raw_changes, (str, bytes)):
-            for entry in raw_changes:
+            for entry in deadline_loop_iter(raw_changes):
                 parsed = _normalize_impact_change_entry(entry)
                 if parsed is not None:
                     changes.append(parsed)
@@ -4911,10 +4912,14 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                 "errors": ["Provide at least one change span or git diff"],
             }
 
-        py_paths = sorted(root.rglob("*.py"))
+        py_paths = ordered_or_sorted(
+            root.rglob("*.py"),
+            source="_execute_impact_total.py_paths",
+            key=lambda path: str(path),
+        )
         trees_by_path: dict[str, ast.AST] = {}
         functions: dict[str, ImpactFunction] = {}
-        for py_path in py_paths:
+        for py_path in deadline_loop_iter(py_paths):
             check_deadline()
             rel_path = str(py_path.relative_to(root)).replace("\\", "/")
             try:
@@ -4922,18 +4927,20 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             except (OSError, SyntaxError):
                 continue
             trees_by_path[rel_path] = tree
-            for fn in _impact_functions_from_tree(rel_path, tree):
+            for fn in deadline_loop_iter(_impact_functions_from_tree(rel_path, tree)):
                 check_deadline()
                 functions[fn.qual] = fn
 
         reverse_edges: dict[str, list[ImpactEdge]] = defaultdict(list)
-        for edge in _impact_collect_edges(functions_by_qual=functions, trees_by_path=trees_by_path):
+        for edge in deadline_loop_iter(
+            _impact_collect_edges(functions_by_qual=functions, trees_by_path=trees_by_path)
+        ):
             check_deadline()
             reverse_edges[edge.callee].append(edge)
 
         seed_functions: set[str] = set()
         normalized_changes: list[dict[str, object]] = []
-        for change in changes:
+        for change in deadline_loop_iter(changes):
             check_deadline()
             normalized_path = change.path.replace("\\", "/")
             normalized_changes.append(
@@ -4943,7 +4950,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                     "end_line": change.end_line,
                 }
             )
-            for fn in functions.values():
+            for fn in deadline_loop_iter(functions.values()):
                 check_deadline()
                 if fn.path != normalized_path:
                     continue
@@ -4951,12 +4958,19 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
                     seed_functions.add(fn.qual)
 
         queue: deque[tuple[str, int, bool, float]] = deque(
-            (qual, 0, False, 1.0) for qual in sorted(seed_functions)
+            (qual, 0, False, 1.0)
+            for qual in ordered_or_sorted(
+                seed_functions,
+                source="_execute_impact_total.seed_functions",
+            )
         )
         seen_state: set[tuple[str, bool]] = set()
         must_tests: dict[str, dict[str, object]] = {}
         likely_tests: dict[str, dict[str, object]] = {}
-        while queue:
+        max_queue_steps = max((len(functions) * 2) + len(seed_functions), 1)
+        for _ in deadline_loop_iter(range(max_queue_steps)):
+            if not queue:
+                break
             check_deadline()
             current, depth, has_inferred, path_confidence = queue.popleft()
             state_key = (current, has_inferred)
@@ -4965,7 +4979,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             seen_state.add(state_key)
             if isinstance(max_call_depth, int) and depth >= max_call_depth:
                 continue
-            for edge in reverse_edges.get(current, []):
+            for edge in deadline_loop_iter(reverse_edges.get(current, [])):
                 check_deadline()
                 caller_fn = functions.get(edge.caller)
                 if caller_fn is None:  # pragma: no cover - edges are derived from known functions
@@ -4988,18 +5002,31 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
 
         filtered_likely = [
             item
-            for item in sorted(likely_tests.values(), key=lambda x: str(x["id"]))
+            for item in ordered_or_sorted(
+                likely_tests.values(),
+                source="_execute_impact_total.likely_tests",
+                key=lambda item: str(item["id"]),
+            )
             if float(item.get("confidence", 0.0)) >= confidence_threshold
         ]
         docs: list[dict[str, object]] = []
         impacted_names = {functions[qual].name for qual in seed_functions if qual in functions}
-        for md_path in sorted(root.rglob("*.md")):
+        for md_path in deadline_loop_iter(
+            ordered_or_sorted(
+                root.rglob("*.md"),
+                source="_execute_impact_total.md_paths",
+                key=lambda path: str(path),
+            )
+        ):
             check_deadline()
             rel_path = str(md_path.relative_to(root)).replace("\\", "/")
-            for heading, text in _impact_parse_doc_sections(md_path):
+            for heading, text in deadline_loop_iter(_impact_parse_doc_sections(md_path)):
                 check_deadline()
                 lowered = text.lower()
-                matches = sorted(name for name in impacted_names if name.lower() in lowered)
+                matches = ordered_or_sorted(
+                    {name for name in impacted_names if name.lower() in lowered},
+                    source="_execute_impact_total.doc_matches",
+                )
                 if not matches:
                     continue
                 docs.append({"path": rel_path, "section": heading, "symbols": matches})
@@ -5007,9 +5034,16 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
         return {
             "exit_code": 0,
             "changes": normalized_changes,
-            "seed_functions": sorted(seed_functions),
+            "seed_functions": ordered_or_sorted(
+                seed_functions,
+                source="_execute_impact_total.seed_functions_out",
+            ),
             "must_run_tests": [
-                must_tests[key] for key in sorted(must_tests)
+                must_tests[key]
+                for key in ordered_or_sorted(
+                    must_tests,
+                    source="_execute_impact_total.must_tests",
+                )
             ],
             "likely_run_tests": filtered_likely,
             "impacted_docs": docs,

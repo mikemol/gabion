@@ -5637,3 +5637,48 @@ def test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_gua
     assert result.get("exit_code") == 0
     must = result.get("must_run_tests") or []
     assert len(must) == 1
+
+
+def test_execute_impact_handles_change_without_seed_functions(tmp_path: Path) -> None:
+    (tmp_path / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    result = server.execute_impact(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["module.py:1-1"],
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    assert result.get("seed_functions") == []
+    assert result.get("must_run_tests") == []
+    assert result.get("likely_run_tests") == []
+
+
+def test_execute_impact_bfs_step_limit_handles_dense_reverse_edges(tmp_path: Path) -> None:
+    module = tmp_path / "module.py"
+    module.write_text(
+        "def seed(v):\n"
+        "    return fan1(v) + fan2(v) + fan3(v) + fan4(v)\n"
+        "def fan1(v):\n"
+        "    return seed(v) + fan2(v) + fan3(v) + fan4(v)\n"
+        "def fan2(v):\n"
+        "    return seed(v) + fan1(v) + fan3(v) + fan4(v)\n"
+        "def fan3(v):\n"
+        "    return seed(v) + fan1(v) + fan2(v) + fan4(v)\n"
+        "def fan4(v):\n"
+        "    return seed(v) + fan1(v) + fan2(v) + fan3(v)\n",
+        encoding="utf-8",
+    )
+    result = server.execute_impact(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["module.py:1-2"],
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    assert "seed" in (result.get("seed_functions") or [])
