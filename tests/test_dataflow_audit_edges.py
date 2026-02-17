@@ -846,6 +846,9 @@ def test_iter_dataclass_call_bundles_dynamic_starred_records_unresolved(tmp_path
             def build(dynamic_vals, dynamic_kwargs):
                 Bundle(*vals)
                 Bundle(**kws)
+                Bundle(*[1, 2, 3])
+                Bundle(**{1: 2})
+                Bundle(c=3)
                 Bundle(*dynamic_vals)
                 Bundle(**dynamic_kwargs)
                 Bundle(**{**kws})
@@ -865,7 +868,15 @@ def test_iter_dataclass_call_bundles_dynamic_starred_records_unresolved(tmp_path
         for entry in witnesses
         if entry.get("error_type") == "UnresolvedStarredArgument"
     ]
-    assert len(unresolved) == 5
+    assert len(unresolved) == 7
+    assert any(
+        "positional_arity_overflow" in str(entry.get("error", ""))
+        for entry in unresolved
+    )
+    assert any(
+        "non-string literal key in ** dict" in str(entry.get("error", ""))
+        for entry in unresolved
+    )
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::merge.py::gabion.synthesis.merge.merge_bundles::min_overlap E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::strictness
 def test_build_synthesis_plan_skips_empty_members(tmp_path: Path) -> None:
