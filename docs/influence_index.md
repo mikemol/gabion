@@ -1,5 +1,5 @@
 ---
-doc_revision: 48
+doc_revision: 49
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -130,8 +130,8 @@ Status legend:
 - in/in-30.md — **partial** (SuiteSite carrier + loop-scoped deadlines design; implementation in progress; SPPF/GH-85.)
 - in/in-31.md — **partial** (projection carriers + meet-boundary ordering semantics; convergence in progress.)
 - in/in-32.md — **queued** (hypothetical/non-normative Gödel-numbering exploration; acknowledged, but not a controlling contract for implementation or CI at this time.)
-- in/in-33.md — **untriaged** (new inbox entry; pending review and classification.)
-- in/in-34.md — **untriaged** (new inbox entry; pending review and classification.)
-- in/in-35.md — **untriaged** (new inbox entry; pending review and classification.)
-- in/in-36.md — **untriaged** (new inbox entry; pending review and classification.)
-- in/in-37.md — **untriaged** (new inbox entry; pending review and classification.)
+- in/in-33.md — [**partial**](docs/sppf_checklist.md#in-33-pattern-schema-unification) (PatternSchema carriers exist for both dataflow and execution pattern instances with shared residue reporting, but execution-pattern coverage is intentionally narrow and metafactory reification remains open.)
+- in/in-34.md — [**partial**](docs/sppf_checklist.md#in-34-lambda-callable-sites) (synthetic lambda function sites are indexed and used for direct/bound lambda call resolution, while broader closure/alias cases still fall back conservatively.)
+- in/in-35.md — [**partial**](docs/sppf_checklist.md#in-35-dict-key-carrier-tracking) (dict key normalization now supports name-bound constants and records explicit unknown-key carrier evidence for non-recoverable keys; supported key grammar remains deliberately conservative.)
+- in/in-36.md — [**adopted**](docs/sppf_checklist.md#in-36-starred-dataclass-call-bundles) (dataclass call-bundle extraction now decodes deterministic starred literals for `*` and `**` and emits unresolved-starred witnesses for dynamic payloads.)
+- in/in-37.md — [**adopted**](docs/sppf_checklist.md#in-37-dynamic-dispatch-uncertainty) (callee resolution now distinguishes `unresolved_dynamic` from unresolved internal/external states and emits a dedicated `unresolved_dynamic_callee` obligation kind.)
