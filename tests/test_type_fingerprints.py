@@ -652,3 +652,63 @@ def test_build_fingerprint_registry_skips_empty_entries_with_valid() -> None:
     )
     assert registry.prime_for("int") is not None
     assert any("valid" in names for names in index.values())
+
+def test_prime_registry_seed_payload_roundtrip_with_namespaces() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+    registry.get_or_assign("int")
+    registry.get_or_assign("str")
+    registry.get_or_assign("ctor:list")
+    seed = registry.seed_payload()
+
+    loaded = tf.PrimeRegistry()
+    loaded.load_seed_payload(seed)
+
+    assert loaded.prime_for("int") == registry.prime_for("int")
+    assert loaded.prime_for("str") == registry.prime_for("str")
+    assert loaded.prime_for("ctor:list") == registry.prime_for("ctor:list")
+    assert loaded.bit_for("ctor:list") == registry.bit_for("ctor:list")
+
+
+def test_build_fingerprint_registry_seed_is_stable_under_reordered_inputs() -> None:
+    tf = _load()
+    spec_a = {
+        "alpha": ["int", "list[str]"],
+        "beta": ["dict[str, int]"],
+    }
+    spec_b = {
+        "beta": ["dict[str, int]"],
+        "alpha": ["list[str]", "int"],
+    }
+    seed_a = {
+        "namespaces": {
+            "type_ctor": {
+                "primes": {"dict": 17, "list": 13},
+                "bit_positions": {"dict": 3, "list": 2},
+            },
+            "type_base": {
+                "primes": {"str": 5, "int": 2},
+                "bit_positions": {"str": 1, "int": 0},
+            },
+        }
+    }
+    seed_b = {
+        "namespaces": {
+            "type_base": {
+                "bit_positions": {"int": 0, "str": 1},
+                "primes": {"int": 2, "str": 5},
+            },
+            "type_ctor": {
+                "bit_positions": {"list": 2, "dict": 3},
+                "primes": {"list": 13, "dict": 17},
+            },
+        }
+    }
+
+    reg_a, _ = tf.build_fingerprint_registry(spec_a, registry_seed=seed_a)
+    reg_b, _ = tf.build_fingerprint_registry(spec_b, registry_seed=seed_b)
+
+    assert reg_a.primes == reg_b.primes
+    assert reg_a.bit_positions == reg_b.bit_positions
+    assert reg_a.prime_for("int") == 2
+    assert reg_a.prime_for("ctor:list") == 13

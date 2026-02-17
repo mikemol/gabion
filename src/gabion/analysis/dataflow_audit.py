@@ -16149,6 +16149,7 @@ def _run_impl(
     synth_min_occurrences = 0
     synth_version = "synth@1"
     synth_registry_path: str | None = None
+    fingerprint_seed_path: str | None = None
     try:
         synth_min_occurrences = int(
             fingerprint_section.get("synth_min_occurrences", 0) or 0
@@ -16159,6 +16160,9 @@ def _run_impl(
         fingerprint_section.get("synth_version", synth_version) or synth_version
     )
     synth_registry_path = fingerprint_section.get("synth_registry_path")
+    fingerprint_seed_path = fingerprint_section.get("seed_registry_path")
+    if fingerprint_seed_path is None:
+        fingerprint_seed_path = fingerprint_section.get("fingerprint_seed_path")
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
     constructor_registry: TypeConstructorRegistry | None = None
@@ -16168,10 +16172,27 @@ def _run_impl(
     fingerprint_spec: dict[str, JSONValue] = {
         key: value
         for key, value in fingerprint_section.items()
-        if not str(key).startswith("synth_")
+        if (
+            not str(key).startswith("synth_")
+            and not str(key).startswith("seed_")
+            and str(key) != "fingerprint_seed_path"
+        )
     }
     if fingerprint_spec:
-        registry, index = build_fingerprint_registry(fingerprint_spec)
+        seed_payload: object = None
+        if fingerprint_seed_path:
+            resolved_seed = _resolve_synth_registry_path(
+                str(fingerprint_seed_path), Path(args.root)
+            )
+            if resolved_seed is not None:
+                try:
+                    seed_payload = load_json(resolved_seed)
+                except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+                    seed_payload = None
+        registry, index = build_fingerprint_registry(
+            fingerprint_spec,
+            registry_seed=seed_payload,
+        )
         if index:
             fingerprint_registry = registry
             fingerprint_index = index
