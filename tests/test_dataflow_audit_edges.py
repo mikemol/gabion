@@ -1192,7 +1192,11 @@ def test_collect_call_edges_and_obligations_from_forest() -> None:
     forest.add_alt("CallResolutionObligation", (non_call_suite,), evidence={"callee": "target"})
     forest.add_alt("CallResolutionObligation", (call_suite,), evidence={})
     forest.add_alt("CallResolutionObligation", (call_suite,), evidence={"callee": "target"})
-    forest.add_alt("CallResolutionObligation", (call_suite,), evidence={"callee": "target"})
+    forest.add_alt(
+        "CallResolutionObligation",
+        (call_suite,),
+        evidence={"callee": "target", "source": "duplicate"},
+    )
     by_name = {
         "target": [
             da.FunctionInfo(
