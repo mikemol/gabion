@@ -73,7 +73,6 @@ from gabion.analysis.type_fingerprints import (
     bundle_fingerprint_dimensional,
     format_fingerprint,
     fingerprint_carrier_soundness,
-    fingerprint_to_type_keys_with_remainder,
     synth_registry_payload,
 )
 from .forest_signature import (
@@ -2949,12 +2948,8 @@ def _compute_fingerprint_warnings(
                 soundness_issues = _fingerprint_soundness_issues(fingerprint)
                 names = index.get(fingerprint)
 
-                base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
-                    fingerprint.base.product, registry
-                )
-                ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
-                    fingerprint.ctor.product, registry
-                )
+                base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
+                ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
                 ctor_keys = [
                     key[len("ctor:") :] if key.startswith("ctor:") else key
                     for key in ctor_keys
@@ -3028,12 +3023,8 @@ def _compute_fingerprint_matches(
                 names = index.get(fingerprint)
                 if not names:
                     continue
-                base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
-                    fingerprint.base.product, registry
-                )
-                ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
-                    fingerprint.ctor.product, registry
-                )
+                base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
+                ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
                 ctor_keys = [
                     key[len("ctor:") :] if key.startswith("ctor:") else key
                     for key in ctor_keys
@@ -3129,12 +3120,8 @@ def _compute_fingerprint_provenance(
                     ctor_registry,
                 )
                 soundness_issues = _fingerprint_soundness_issues(fingerprint)
-                base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
-                    fingerprint.base.product, registry
-                )
-                ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
-                    fingerprint.ctor.product, registry
-                )
+                base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
+                ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
                 ctor_keys = [
                     key[len("ctor:") :] if key.startswith("ctor:") else key
                     for key in ctor_keys
@@ -8939,12 +8926,8 @@ def _build_synth_registry_payload(
     entries: list[JSONObject] = []
     for prime, tail in sorted(synth_registry.tails.items()):
         check_deadline()
-        base_keys, base_remaining = fingerprint_to_type_keys_with_remainder(
-            tail.base.product, registry
-        )
-        ctor_keys, ctor_remaining = fingerprint_to_type_keys_with_remainder(
-            tail.ctor.product, registry
-        )
+        base_keys, base_remaining = tail.base.keys_with_remainder(registry)
+        ctor_keys, ctor_remaining = tail.ctor.keys_with_remainder(registry)
         ctor_keys = [
             key[len("ctor:") :] if key.startswith("ctor:") else key
             for key in ctor_keys
