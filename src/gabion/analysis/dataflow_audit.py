@@ -9703,6 +9703,7 @@ class FunctionInfo:
     kwarg: str | None = None
     param_spans: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
     function_span: tuple[int, int, int, int] | None = None
+    local_lambda_bindings: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass
@@ -10078,13 +10079,30 @@ def _accumulate_function_index_for_tree(
     parents.visit(tree)
     parent_map = parents.parents
     module = _module_name(path, project_root)
+    lambda_infos = _collect_lambda_function_infos(
+        tree,
+        path=path,
+        module=module,
+        parent_map=parent_map,
+        ignore_params=ignore_params,
+    )
+    lambda_bindings_by_caller = _collect_lambda_bindings_by_caller(
+        tree,
+        module=module,
+        parent_map=parent_map,
+        lambda_infos=lambda_infos,
+    )
+    direct_lambda_callee_by_call_span = _direct_lambda_callee_by_call_span(
+        tree,
+        lambda_infos=lambda_infos,
+    )
     return_aliases = _collect_return_aliases(funcs, parent_map, ignore_params=ignore_params)
     for fn in funcs:
         check_deadline()
         class_name = _enclosing_class(fn, parent_map)
         scopes = _enclosing_scopes(fn, parent_map)
         lexical_scopes = _enclosing_function_scopes(fn, parent_map)
-        use_map, call_args = _analyze_function(
+        use_map, raw_call_args = _analyze_function(
             fn,
             parent_map,
             is_test=_is_test_path(path),
@@ -10092,6 +10110,10 @@ def _accumulate_function_index_for_tree(
             strictness=strictness,
             class_name=class_name,
             return_aliases=return_aliases,
+        )
+        call_args = _materialize_direct_lambda_callees(
+            raw_call_args,
+            direct_lambda_callee_by_call_span=direct_lambda_callee_by_call_span,
         )
         unused_params, unknown_key_carriers = _unused_params(use_map)
         value_params, value_reasons = _value_encoded_decision_params(fn, ignore_params)
@@ -10140,9 +10162,180 @@ def _accumulate_function_index_for_tree(
             kwarg=kwarg,
             param_spans=_param_spans(fn, ignore_params),
             function_span=_node_span(fn),
+            local_lambda_bindings=lambda_bindings_by_caller.get(qual, {}),
         )
         acc.by_name[fn.name].append(info)
         acc.by_qual[info.qual] = info
+    for info in lambda_infos:
+        check_deadline()
+        acc.by_name[info.name].append(info)
+        acc.by_qual[info.qual] = info
+
+
+def _synthetic_lambda_name(
+    *,
+    path: Path,
+    lexical_scope: Sequence[str],
+    span: tuple[int, int, int, int],
+) -> str:
+    check_deadline()
+    lexical = ".".join(lexical_scope) if lexical_scope else "<module>"
+    stable_payload = f"{path.as_posix()}|{lexical}|{span[0]}:{span[1]}:{span[2]}:{span[3]}"
+    digest = hashlib.sha1(stable_payload.encode("utf-8")).hexdigest()[:12]
+    return f"<lambda:{digest}>"
+
+
+def _collect_lambda_function_infos(
+    tree: ast.AST,
+    *,
+    path: Path,
+    module: str,
+    parent_map: Mapping[ast.AST, ast.AST],
+    ignore_params: set[str],
+) -> list[FunctionInfo]:
+    check_deadline()
+    lambda_infos: list[FunctionInfo] = []
+    for node in ast.walk(tree):
+        check_deadline()
+        if not isinstance(node, ast.Lambda):
+            continue
+        span = _node_span(node)
+        if span is None:
+            continue
+        lexical_scopes = _enclosing_function_scopes(node, parent_map)
+        scopes = _enclosing_scopes(node, parent_map)
+        class_name = _enclosing_class(node, parent_map)
+        synthetic_name = _synthetic_lambda_name(
+            path=path,
+            lexical_scope=lexical_scopes,
+            span=span,
+        )
+        qual_parts = [module] if module else []
+        if scopes:
+            qual_parts.extend(scopes)
+        qual_parts.append(synthetic_name)
+        qual = ".".join(qual_parts)
+        params = [arg.arg for arg in (node.args.posonlyargs + node.args.args + node.args.kwonlyargs)]
+        if ignore_params:
+            params = [name for name in params if name not in ignore_params]
+        lambda_infos.append(
+            FunctionInfo(
+                name=synthetic_name,
+                qual=qual,
+                path=path,
+                params=params,
+                annots={name: None for name in params},
+                calls=[],
+                unused_params=set(),
+                class_name=class_name,
+                scope=tuple(scopes),
+                lexical_scope=tuple(lexical_scopes),
+                positional_params=tuple(params),
+                function_span=span,
+            )
+        )
+    return lambda_infos
+
+
+def _collect_lambda_bindings_by_caller(
+    tree: ast.AST,
+    *,
+    module: str,
+    parent_map: Mapping[ast.AST, ast.AST],
+    lambda_infos: Sequence[FunctionInfo],
+) -> dict[str, dict[str, tuple[str, ...]]]:
+    check_deadline()
+    lambda_qual_by_span: dict[tuple[int, int, int, int], str] = {
+        require_not_none(info.function_span, reason="lambda function site requires span", strict=True): info.qual
+        for info in lambda_infos
+    }
+    binding_sets: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+
+    for node in ast.walk(tree):
+        check_deadline()
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        value = node.value
+        if value is None:
+            continue
+        fn_scope = _enclosing_scopes(node, parent_map)
+        if not fn_scope:
+            continue
+        qual_parts = [module] if module else []
+        qual_parts.extend(fn_scope)
+        caller_key = ".".join(qual_parts)
+
+        assigned_quals: set[str] = set()
+        value_span = _node_span(value)
+        if isinstance(value, ast.Lambda) and value_span is not None:
+            qual = lambda_qual_by_span.get(value_span)
+            if qual is not None:
+                assigned_quals.add(qual)
+        elif isinstance(value, ast.Name):
+            assigned_quals.update(binding_sets.get(caller_key, {}).get(value.id, set()))
+
+        for target in targets:
+            check_deadline()
+            for name in _target_names(target):
+                check_deadline()
+                if assigned_quals:
+                    binding_sets[caller_key][name].update(assigned_quals)
+                else:
+                    binding_sets[caller_key].pop(name, None)
+
+    out: dict[str, dict[str, tuple[str, ...]]] = {}
+    for caller_key, mapping in binding_sets.items():
+        check_deadline()
+        non_empty = {
+            symbol: tuple(sorted(quals))
+            for symbol, quals in mapping.items()
+            if quals
+        }
+        if non_empty:
+            out[caller_key] = non_empty
+    return out
+
+
+def _direct_lambda_callee_by_call_span(
+    tree: ast.AST,
+    *,
+    lambda_infos: Sequence[FunctionInfo],
+) -> dict[tuple[int, int, int, int], str]:
+    check_deadline()
+    lambda_qual_by_span = {
+        info.function_span: info.qual
+        for info in lambda_infos
+        if info.function_span is not None
+    }
+    mapping: dict[tuple[int, int, int, int], str] = {}
+    for node in ast.walk(tree):
+        check_deadline()
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Lambda):
+            continue
+        call_span = _node_span(node)
+        lambda_span = _node_span(node.func)
+        if call_span is None or lambda_span is None:
+            continue
+        callee = lambda_qual_by_span.get(lambda_span)
+        if callee is not None:
+            mapping[call_span] = callee
+    return mapping
+
+
+def _materialize_direct_lambda_callees(
+    call_args: Sequence[CallArgs],
+    *,
+    direct_lambda_callee_by_call_span: Mapping[tuple[int, int, int, int], str],
+) -> list[CallArgs]:
+    out: list[CallArgs] = []
+    for call in call_args:
+        check_deadline()
+        if call.span is not None and call.span in direct_lambda_callee_by_call_span:
+            out.append(replace(call, callee=direct_lambda_callee_by_call_span[call.span]))
+            continue
+        out.append(call)
+    return out
 
 
 def _function_index_module_artifact_spec(
@@ -10217,14 +10410,35 @@ def _resolve_callee(
     call: CallArgs | None = None,
     ambiguity_sink: Callable[[FunctionInfo, CallArgs | None, list[FunctionInfo], str, str], None]
     | None = None,
+    local_lambda_bindings: Mapping[str, tuple[str, ...]] | None = None,
 ) -> FunctionInfo | None:
     check_deadline()
     # dataflow-bundle: by_name, caller
     if not callee_key:
         return None
     caller_module = _module_name(caller.path, project_root=project_root)
+    lambda_bindings = local_lambda_bindings
+    if lambda_bindings is None:
+        lambda_bindings = caller.local_lambda_bindings
     candidates = by_name.get(_callee_key(callee_key), [])
     if "." not in callee_key:
+        bound_lambda_quals = tuple(lambda_bindings.get(callee_key, ()))
+        if len(bound_lambda_quals) == 1:
+            bound = by_qual.get(bound_lambda_quals[0])
+            if bound is not None:
+                return bound
+        elif len(bound_lambda_quals) > 1:
+            bound_candidates = [
+                by_qual[qual]
+                for qual in bound_lambda_quals
+                if qual in by_qual
+            ]
+            if len(bound_candidates) == 1:
+                return bound_candidates[0]
+            if bound_candidates and ambiguity_sink is not None:
+                ambiguity_sink(caller, call, bound_candidates, "local_lambda_binding", callee_key)
+            if bound_candidates:
+                return None
         ambiguous = False
         effective_scope = list(caller.lexical_scope) + [caller.name]
         while True:
@@ -10353,6 +10567,7 @@ def _resolve_callee_outcome(
     project_root: Path | None = None,
     class_index: dict[str, ClassInfo] | None = None,
     call: CallArgs | None = None,
+    local_lambda_bindings: Mapping[str, tuple[str, ...]] | None = None,
     resolve_callee_fn: Callable[..., FunctionInfo | None] = _resolve_callee,
 ) -> _CalleeResolutionOutcome:
     check_deadline()
@@ -10384,6 +10599,7 @@ def _resolve_callee_outcome(
         class_index=class_index,
         call=call,
         ambiguity_sink=_sink,
+        local_lambda_bindings=local_lambda_bindings,
     )
     if resolved is not None:
         return _CalleeResolutionOutcome(
@@ -10400,9 +10616,17 @@ def _resolve_callee_outcome(
             callee_key=ambiguity_callee_key,
             candidates=ambiguous,
         )
-    internal_candidates = _dedupe_resolution_candidates(
-        by_name.get(_callee_key(callee_key), [])
-    )
+    internal_pool = list(by_name.get(_callee_key(callee_key), []))
+    lambda_bindings = local_lambda_bindings
+    if lambda_bindings is None:
+        lambda_bindings = caller.local_lambda_bindings
+    if "." not in callee_key:
+        for qual in lambda_bindings.get(callee_key, ()):
+            check_deadline()
+            candidate = by_qual.get(qual)
+            if candidate is not None:
+                internal_pool.append(candidate)
+    internal_candidates = _dedupe_resolution_candidates(internal_pool)
     if internal_candidates:
         return _CalleeResolutionOutcome(
             status="unresolved_internal",
