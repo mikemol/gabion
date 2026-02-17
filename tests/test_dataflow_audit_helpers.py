@@ -1564,7 +1564,23 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
         "    try:\n"
         "        raise ValueError(c)\n"
         "    except CustomError:\n"
-        "        return c\n",
+        "        return c\n"
+        "\n"
+        "def j(d):\n"
+        "    try:\n"
+        "        raise ValueError(d)\n"
+        "    except CustomError:\n"
+        "        return d\n"
+        "    except ValueError:\n"
+        "        return d\n"
+        "\n"
+        "def k(e):\n"
+        "    try:\n"
+        "        raise e\n"
+        "    except ValueError:\n"
+        "        return e\n"
+        "    except TypeError:\n"
+        "        return e\n",
     )
     config = da.AuditConfig(
         project_root=tmp_path,
@@ -1598,12 +1614,22 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
     assert witnesses_by_function["g"]["type_compatibility"] == "compatible"
     assert witnesses_by_function["h"]["result"] == "UNKNOWN"
     assert witnesses_by_function["h"]["type_compatibility"] == "unknown"
+    assert witnesses_by_function["j"]["result"] == "HANDLED"
+    assert witnesses_by_function["j"]["type_compatibility"] == "compatible"
+    assert witnesses_by_function["j"]["handler_boundary"] == "except ValueError"
+    assert witnesses_by_function["j"]["handler_types"] == ["ValueError"]
+    assert witnesses_by_function["k"]["result"] == "UNKNOWN"
+    assert witnesses_by_function["k"]["type_compatibility"] == "unknown"
+    assert witnesses_by_function["k"]["handler_boundary"] == "except ValueError"
+    assert witnesses_by_function["k"]["handler_types"] == ["ValueError"]
     obligations_by_function = {
         str(entry.get("site", {}).get("function", "")): entry
         for entry in obligations
     }
     assert obligations_by_function["g"]["status"] == "HANDLED"
     assert obligations_by_function["h"]["status"] == "UNKNOWN"
+    assert obligations_by_function["j"]["status"] == "HANDLED"
+    assert obligations_by_function["k"]["status"] == "UNKNOWN"
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload::file_paths,include_invariant_propositions,payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::collection_resume,file_paths_override,on_collection_progress
 def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:

@@ -3848,11 +3848,15 @@ def _collect_handledness_witnesses(
             witness_result = "HANDLED" if compatibility == "compatible" else "UNKNOWN"
             handler_type_names: tuple[str, ...] = ()
             if try_node is not None and handler_kind == "catch":
+                handler_types_by_label: dict[str, tuple[str, ...]] = {}
                 for handler in try_node.handlers:
                     check_deadline()
-                    if _handler_label(handler) == handler_boundary:
-                        handler_type_names = _handler_type_names(handler.type)
-                        break
+                    handler_types_by_label[_handler_label(handler)] = _handler_type_names(
+                        handler.type
+                    )
+                handler_type_names = handler_types_by_label.get(
+                    str(handler_boundary), ()
+                )
             witnesses.append(
                 {
                     "handledness_id": handledness_id,
@@ -3999,11 +4003,10 @@ def _collect_exception_obligations(
                     status = "HANDLED"
                     remainder = {}
                 else:
-                    if isinstance(remainder, dict):
-                        remainder["handledness_result"] = witness_result or "UNKNOWN"
-                        remainder["type_compatibility"] = str(
-                            handled.get("type_compatibility", "unknown")
-                        )
+                    remainder["handledness_result"] = witness_result or "UNKNOWN"
+                    remainder["type_compatibility"] = str(
+                        handled.get("type_compatibility", "unknown")
+                    )
                 witness_ref = handled.get("handledness_id")
                 environment_ref = handled.get("environment") or {}
             if status != "HANDLED":

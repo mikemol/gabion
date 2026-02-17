@@ -124,3 +124,64 @@ def test_exception_handler_compatibility_edges() -> None:
         )
         == "unknown"
     )
+
+
+def test_exception_handler_compatibility_additional_edges() -> None:
+    named_broad = ast.ExceptHandler(
+        type=ast.Name(id="Exception", ctx=ast.Load()),
+        name=None,
+        body=[],
+    )
+    assert handler_is_broad(named_broad) is True
+    assert handler_type_names(
+        None,
+        decorator_name=_decorator_name,
+        check_deadline=_check_deadline,
+    ) == ()
+    assert handler_type_names(
+        ast.Tuple(
+            elts=[
+                ast.Name(id="ValueError", ctx=ast.Load()),
+                ast.Constant(value=42),
+            ],
+            ctx=ast.Load(),
+        ),
+        decorator_name=_decorator_name,
+        check_deadline=_check_deadline,
+    ) == ("ValueError",)
+    assert (
+        exception_handler_compatibility(
+            "ValueError",
+            ast.parse("42").body[0].value,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "unknown"
+    )
+    assert (
+        exception_handler_compatibility(
+            None,
+            ast.parse("ValueError").body[0].value,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "unknown"
+    )
+    assert (
+        exception_handler_compatibility(
+            "DefinitelyNotBuiltinError",
+            ast.parse("ValueError").body[0].value,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "unknown"
+    )
+    assert (
+        exception_handler_compatibility(
+            "ValueError",
+            ast.parse("int").body[0].value,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "unknown"
+    )
