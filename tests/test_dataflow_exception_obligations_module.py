@@ -3,10 +3,12 @@ from __future__ import annotations
 import ast
 
 from gabion.analysis.dataflow_exception_obligations import (
+    exception_handler_compatibility,
     exception_param_names,
     exception_type_name,
     handler_is_broad,
     handler_label,
+    handler_type_names,
     node_in_try_body,
 )
 
@@ -58,3 +60,67 @@ def test_exception_obligation_module_edges() -> None:
     assert node_in_try_body(call_node, try_node, check_deadline=_check_deadline) is True
     other_call = ast.parse("bar()").body[0].value
     assert node_in_try_body(other_call, try_node, check_deadline=_check_deadline) is False
+
+
+def test_exception_handler_compatibility_edges() -> None:
+    broad = ast.ExceptHandler(type=None, name=None, body=[])
+    assert (
+        exception_handler_compatibility(
+            "ValueError",
+            broad.type,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "compatible"
+    )
+
+    typed = ast.ExceptHandler(type=ast.parse("ValueError").body[0].value, name=None, body=[])
+    assert handler_type_names(typed.type, decorator_name=_decorator_name, check_deadline=_check_deadline) == ("ValueError",)
+    assert (
+        exception_handler_compatibility(
+            "RuntimeError",
+            typed.type,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "incompatible"
+    )
+
+    tuple_handler = ast.ExceptHandler(
+        type=ast.Tuple(
+            elts=[ast.Name(id="ValueError", ctx=ast.Load()), ast.Name(id="TypeError", ctx=ast.Load())],
+            ctx=ast.Load(),
+        ),
+        name=None,
+        body=[],
+    )
+    assert handler_type_names(tuple_handler.type, decorator_name=_decorator_name, check_deadline=_check_deadline) == ("ValueError", "TypeError")
+    assert (
+        exception_handler_compatibility(
+            "RuntimeError",
+            tuple_handler.type,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "incompatible"
+    )
+    assert (
+        exception_handler_compatibility(
+            "UnicodeError",
+            tuple_handler.type,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "compatible"
+    )
+
+    unresolved = ast.ExceptHandler(type=ast.parse("pkg.CustomError").body[0].value, name=None, body=[])
+    assert (
+        exception_handler_compatibility(
+            "ValueError",
+            unresolved.type,
+            decorator_name=_decorator_name,
+            check_deadline=_check_deadline,
+        )
+        == "unknown"
+    )

@@ -1557,7 +1557,13 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
         "    try:\n"
         "        raise RuntimeError('oops')\n"
         "    except Exception:\n"
-        "        return b\n",
+        "        return b\n"
+        "\n"
+        "def h(c):\n"
+        "    try:\n"
+        "        raise ValueError(c)\n"
+        "    except CustomError:\n"
+        "        return c\n",
     )
     config = da.AuditConfig(
         project_root=tmp_path,
@@ -1583,6 +1589,20 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
     assert any(entry["status"] == "UNKNOWN" for entry in obligations)
     assert any(entry["status"] == "HANDLED" for entry in obligations)
     assert analysis.handledness_witnesses
+    witnesses_by_function = {
+        str(entry.get("site", {}).get("function", "")): entry
+        for entry in analysis.handledness_witnesses
+    }
+    assert witnesses_by_function["g"]["result"] == "HANDLED"
+    assert witnesses_by_function["g"]["type_compatibility"] == "compatible"
+    assert witnesses_by_function["h"]["result"] == "UNKNOWN"
+    assert witnesses_by_function["h"]["type_compatibility"] == "unknown"
+    obligations_by_function = {
+        str(entry.get("site", {}).get("function", "")): entry
+        for entry in obligations
+    }
+    assert obligations_by_function["g"]["status"] == "HANDLED"
+    assert obligations_by_function["h"]["status"] == "UNKNOWN"
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload::file_paths,include_invariant_propositions,payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::collection_resume,file_paths_override,on_collection_progress
 def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:

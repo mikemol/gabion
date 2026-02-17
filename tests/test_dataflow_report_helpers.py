@@ -376,7 +376,14 @@ def test_emit_report_handledness_summary(tmp_path: Path) -> None:
         {
             "site": {"path": str(path), "function": "f", "bundle": ["a"]},
             "handler_boundary": "except Exception",
-        }
+            "result": "HANDLED",
+        },
+        {
+            "site": {"path": str(path), "function": "g", "bundle": ["a"]},
+            "handler_boundary": "except TypeError",
+            "result": "UNKNOWN",
+            "type_compatibility": "incompatible",
+        },
     ]
     report, _ = da._emit_report(
         groups_by_path,
@@ -388,6 +395,7 @@ def test_emit_report_handledness_summary(tmp_path: Path) -> None:
     )
     assert "Handledness evidence" in report
     assert "except Exception" in report
+    assert "except TypeError" in report
 
 # gabion:evidence E:call_cluster::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_anonymous_schema_surfaces(tmp_path: Path) -> None:
