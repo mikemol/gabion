@@ -356,3 +356,16 @@ def test_ambiguity_span_normalization_edges() -> None:
     assert evidence_keys.parse_display("E:ambiguity_set::{") is None
     assert evidence_keys.parse_display("E:partition_witness::") is None
     assert evidence_keys.parse_display("E:partition_witness::{") is None
+
+
+def test_fingerprint_identity_is_compact_and_stable() -> None:
+    key_a = evidence_keys.make_call_cluster_key(targets=[("a.py", "mod.f")])
+    key_b = {"targets": [{"qual": "mod.f", "path": "a.py"}], "k": "call_cluster"}
+
+    assert evidence_keys.key_fingerprint_identity(key_a) == evidence_keys.key_fingerprint_identity(
+        key_b
+    )
+    assert evidence_keys.key_fingerprint_identity(key_a).startswith("ekf:")
+    assert len(evidence_keys.key_fingerprint_identity(key_a)) < len(
+        evidence_keys.key_identity(key_a)
+    )

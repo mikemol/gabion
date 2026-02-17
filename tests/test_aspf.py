@@ -135,3 +135,16 @@ def test_add_alt_requires_deadline_clock_scope() -> None:
 
     with pytest.raises(NeverThrown):
         Context().run(_run)
+
+
+def test_add_alt_interns_structural_duplicates() -> None:
+    forest = Forest()
+    left = forest.add_site("mod.py", "mod.left")
+    right = forest.add_site("mod.py", "mod.right")
+    with forest_scope(forest):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            with deadline_clock_scope(GasMeter(limit=32)):
+                first = forest.add_alt("Edge", (left, right), evidence={"b": 2, "a": 1})
+                second = forest.add_alt(" Edge ", (left, right), evidence={"a": 1, "b": 2})
+    assert first is second
+    assert len([alt for alt in forest.alts if alt.kind == "Edge"]) == 1

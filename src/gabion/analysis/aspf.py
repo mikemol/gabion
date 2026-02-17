@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from typing import Iterable
 
 
@@ -90,6 +91,7 @@ def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
 class Forest:
     nodes: dict[NodeId, Node] = field(default_factory=dict)
     alts: list[Alt] = field(default_factory=list)
+    _alt_index: dict[tuple[str, tuple[NodeId, ...], str], Alt] = field(default_factory=dict)
 
     def _intern_node(self, node_id: NodeId, meta: dict[str, object] | None) -> NodeId:
         if node_id in self.nodes:
@@ -217,9 +219,28 @@ class Forest:
         self._require_deadline_clock_scope("Forest.add_alt")
         # Lazy import avoids module-cycle during timeout_context bootstrap.
         from gabion.analysis.timeout_context import consume_deadline_ticks
+
         consume_deadline_ticks()
-        alt = Alt(kind=kind, inputs=tuple(inputs), evidence=evidence or {})
+        normalized_kind = str(kind).strip()
+        normalized_inputs = tuple(inputs)
+        normalized_evidence = evidence or {}
+        evidence_identity = json.dumps(
+            normalized_evidence,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
+        structural_key = (normalized_kind, normalized_inputs, evidence_identity)
+        interned = self._alt_index.get(structural_key)
+        if interned is not None:
+            return interned
+        alt = Alt(
+            kind=normalized_kind,
+            inputs=normalized_inputs,
+            evidence=normalized_evidence,
+        )
         self.alts.append(alt)
+        self._alt_index[structural_key] = alt
         return alt
 
     @staticmethod
