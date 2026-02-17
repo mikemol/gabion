@@ -273,7 +273,6 @@ def test_resolve_callee_self_class_candidates() -> None:
     )
     assert resolved is method
 
-
 def _index_for_source(tmp_path: Path, source: str):
     da = _load()
     mod = tmp_path / "pkg" / "mod.py"
@@ -505,3 +504,55 @@ def test_resolve_callee_outcome_adds_internal_candidates_from_bindings() -> None
     )
     assert outcome.status == "unresolved_internal"
     assert tuple(outcome.candidates) == (bound,)
+
+
+def test_resolve_callee_outcome_resolved_and_ambiguous() -> None:
+    da = _load()
+    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=Path("pkg/mod.py"))
+    candidate = _fn(da, name="target", qual="pkg.mod.target", path=Path("pkg/mod.py"))
+
+    resolved = da._resolve_callee_outcome(
+        "target",
+        caller,
+        {"target": [candidate]},
+        {caller.qual: caller, candidate.qual: candidate},
+        resolve_callee_fn=lambda *_args, **_kwargs: candidate,
+    )
+    assert resolved.status == "resolved"
+
+    def _ambiguous(*_args, ambiguity_sink, **_kwargs):
+        ambiguity_sink(caller, None, [candidate, candidate], "local_resolution", "target")
+        return None
+
+    ambiguous = da._resolve_callee_outcome(
+        "target",
+        caller,
+        {"target": [candidate]},
+        {caller.qual: caller, candidate.qual: candidate},
+        resolve_callee_fn=_ambiguous,
+    )
+    assert ambiguous.status == "ambiguous"
+
+
+def test_resolve_callee_outcome_unresolved_internal_and_dynamic() -> None:
+    da = _load()
+    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=Path("pkg/mod.py"))
+    internal = _fn(da, name="target", qual="pkg.mod.target", path=Path("pkg/mod.py"))
+
+    unresolved_internal = da._resolve_callee_outcome(
+        "target",
+        caller,
+        {"target": [internal]},
+        {caller.qual: caller, internal.qual: internal},
+        resolve_callee_fn=lambda *_args, **_kwargs: None,
+    )
+    assert unresolved_internal.status == "unresolved_internal"
+
+    unresolved_dynamic = da._resolve_callee_outcome(
+        "getattr(handler, name)",
+        caller,
+        {},
+        {caller.qual: caller},
+        resolve_callee_fn=lambda *_args, **_kwargs: None,
+    )
+    assert unresolved_dynamic.status == "unresolved_dynamic"

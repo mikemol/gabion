@@ -3460,3 +3460,68 @@ def test_emit_sidecar_outputs_dispatches_expected_paths(
     )
     assert not synth_skip.exists()
     assert not prov_skip.exists()
+
+def test_materialize_call_candidates_distinguishes_dynamic_unresolved() -> None:
+    da = _load()
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.mod.caller",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[
+            da.CallArgs(callee="target", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=(1, 0, 1, 6)),
+            da.CallArgs(callee="missing", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=(2, 0, 2, 7)),
+            da.CallArgs(callee="getattr(handler, name)", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=(3, 0, 3, 20)),
+            da.CallArgs(callee="maybe", pos_map={}, kw_map={}, const_pos={}, const_kw={}, non_const_pos=set(), non_const_kw=set(), star_pos=[], star_kw=[], is_test=False, span=(4, 0, 4, 5)),
+        ],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    target = da.FunctionInfo(
+        name="target",
+        qual="pkg.mod.target",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    maybe = da.FunctionInfo(
+        name="maybe",
+        qual="pkg.mod.maybe",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+
+    outcomes = {
+        "target": da._CalleeResolutionOutcome("resolved", "resolved", "target", (target,)),
+        "missing": da._CalleeResolutionOutcome("unresolved_internal", "unresolved_internal", "missing", (target,)),
+        "getattr(handler, name)": da._CalleeResolutionOutcome("unresolved_dynamic", "unresolved_dynamic", "getattr(handler, name)", ()),
+        "maybe": da._CalleeResolutionOutcome("ambiguous", "local_resolution", "maybe", (maybe,)),
+    }
+
+    forest = da.Forest()
+    da._materialize_call_candidates(
+        forest=forest,
+        by_name={"caller": [caller], "target": [target], "maybe": [maybe]},
+        by_qual={caller.qual: caller, target.qual: target, maybe.qual: maybe},
+        symbol_table=da.SymbolTable(),
+        project_root=Path("."),
+        class_index={},
+        resolve_callee_outcome_fn=lambda callee, *_args, **_kwargs: outcomes[callee],
+    )
+
+    obligation_kinds = {
+        str(alt.evidence.get("kind", ""))
+        for alt in forest.alts
+        if alt.kind == "CallResolutionObligation"
+    }
+    assert "unresolved_internal_callee" in obligation_kinds
+    assert "unresolved_dynamic_callee" in obligation_kinds
+    assert len([alt for alt in forest.alts if alt.kind == "CallCandidate"]) == 2

@@ -4812,6 +4812,41 @@ def _collect_call_resolution_obligations_from_forest(
     return obligations
 
 
+def _collect_call_resolution_obligation_details_from_forest(
+    forest: Forest,
+) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]]:
+    records: list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]] = []
+    for caller_id, suite_id, span, callee_key in _collect_call_resolution_obligations_from_forest(
+        forest
+    ):
+        check_deadline()
+        evidence = _call_resolution_obligation_evidence(forest, suite_id=suite_id, callee_key=callee_key)
+        obligation_kind = str(evidence.get("kind", "") or "")
+        if not obligation_kind:
+            obligation_kind = "unresolved_internal_callee"
+        records.append((caller_id, suite_id, span, callee_key, obligation_kind))
+    return records
+
+
+def _call_resolution_obligation_evidence(
+    forest: Forest,
+    *,
+    suite_id: NodeId,
+    callee_key: str,
+) -> JSONObject:
+    check_deadline()
+    for alt in forest.alts:
+        check_deadline()
+        if alt.kind != "CallResolutionObligation" or not alt.inputs:
+            continue
+        if alt.inputs[0] != suite_id:
+            continue
+        if str(alt.evidence.get("callee", "") or "") != callee_key:
+            continue
+        return alt.evidence
+    return {}
+
+
 def _collect_unresolved_call_sites_from_forest(
     forest: Forest,
     collect_call_resolution_obligations_from_forest_fn: Callable[
@@ -4935,7 +4970,12 @@ def _materialize_call_candidates(
                             },
                         )
                     continue
-                if resolution.status != "unresolved_internal":
+                obligation_kind_by_status = {
+                    "unresolved_internal": "unresolved_internal_callee",
+                    "unresolved_dynamic": "unresolved_dynamic_callee",
+                }
+                obligation_kind = obligation_kind_by_status.get(resolution.status)
+                if obligation_kind is None:
                     continue
                 if suite_id in obligation_seen:
                     continue
@@ -4946,7 +4986,7 @@ def _materialize_call_candidates(
                     evidence={
                         "phase": resolution.phase,
                         "callee": call.callee,
-                        "kind": "unresolved_internal_callee",
+                        "kind": obligation_kind,
                     },
                 )
 
@@ -5652,7 +5692,26 @@ def _collect_deadline_obligations(
                 )
 
     edges = collect_call_edges_from_forest_fn(forest, by_name=by_name)
-    resolution_obligations = collect_call_resolution_obligations_from_forest_fn(forest)
+    raw_resolution_obligations = collect_call_resolution_obligations_from_forest_fn(forest)
+    resolution_obligation_kind_by_site: dict[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str], str] = {}
+    for caller_id, suite_id, span, callee_key, obligation_kind in _collect_call_resolution_obligation_details_from_forest(
+        forest
+    ):
+        check_deadline()
+        resolution_obligation_kind_by_site[(caller_id, suite_id, span, callee_key)] = obligation_kind
+    resolution_obligations = [
+        (
+            caller_id,
+            suite_id,
+            span,
+            callee_key,
+            resolution_obligation_kind_by_site.get(
+                (caller_id, suite_id, span, callee_key),
+                "unresolved_internal_callee",
+            ),
+        )
+        for caller_id, suite_id, span, callee_key in raw_resolution_obligations
+    ]
     recursive_nodes = collect_recursive_nodes_fn(edges)
     def _deadline_exempt(qual: str) -> bool:
         return any(qual.startswith(prefix) for prefix in _DEADLINE_EXEMPT_PREFIXES)
@@ -5679,13 +5738,14 @@ def _collect_deadline_obligations(
             continue
         resolved_call_suites.add(suite_id)
 
-    for caller_id, suite_id, span, callee_key in sorted(
+    for caller_id, suite_id, span, callee_key, obligation_kind in sorted(
         resolution_obligations,
         key=lambda entry: (
             entry[0].sort_key(),
             entry[1].sort_key(),
             entry[2] or (-1, -1, -1, -1),
             entry[3],
+            entry[4],
         ),
     ):
         check_deadline()
@@ -5703,13 +5763,27 @@ def _collect_deadline_obligations(
         caller_info = by_qual.get(caller_qual)
         if caller_info is None or _is_test_path(caller_info.path):
             continue
+        obligation_detail_by_kind = {
+            "unresolved_dynamic_callee": (
+                "call_dynamic_resolution_required",
+                f"call '{callee_key}' appears to use dynamic dispatch; add explicit routing evidence",
+            ),
+            "unresolved_internal_callee": (
+                "call_resolution_required",
+                f"call '{callee_key}' requires resolution",
+            ),
+        }
+        output_kind, detail = obligation_detail_by_kind.get(
+            obligation_kind,
+            ("call_resolution_required", f"call '{callee_key}' requires resolution"),
+        )
         _add_obligation(
             path=_normalize_snapshot_path(caller_info.path, project_root),
             function=caller_qual,
             param=None,
             status="OBLIGATION",
-            kind="call_resolution_required",
-            detail=f"call '{callee_key}' requires resolution",
+            kind=output_kind,
+            detail=detail,
             span=span,
             caller=caller_qual,
             callee=callee_key,
@@ -10537,6 +10611,27 @@ def _resolve_callee(
     return None
 
 
+def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
+    """Classify obvious syntax-level dynamic-dispatch call shapes."""
+    check_deadline()
+    text = callee_key.strip()
+    if not text:
+        return False
+    if text.startswith("getattr("):
+        return True
+    if "." not in text:
+        return False
+    base, _, _ = text.partition(".")
+    base = base.strip()
+    if not base or base in {"self", "cls"}:
+        return False
+    if any(token in base for token in ("(", "[", "{")):
+        return True
+    if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", base) is None:
+        return True
+    return False
+
+
 @dataclass(frozen=True)
 class _CalleeResolutionOutcome:
     status: str
@@ -10633,6 +10728,13 @@ def _resolve_callee_outcome(
             phase="unresolved_internal",
             callee_key=callee_key,
             candidates=internal_candidates,
+        )
+    if _is_dynamic_dispatch_callee_key(callee_key):
+        return _CalleeResolutionOutcome(
+            status="unresolved_dynamic",
+            phase="unresolved_dynamic",
+            callee_key=callee_key,
+            candidates=(),
         )
     return _CalleeResolutionOutcome(
         status="unresolved_external",
