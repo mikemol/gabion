@@ -3877,3 +3877,77 @@ def test_collect_never_invariants_dead_env_edge_cases(tmp_path: Path) -> None:
     by_reason = {str(entry.get("reason", "")): entry for entry in invariants}
     assert by_reason["const-false"]["status"] == "OBLIGATION"
     assert "undecidable_reason" not in by_reason["undecidable-with-env"]
+
+
+def test_resolve_callee_outcome_classifies_dynamic_dispatch_deterministically() -> None:
+    da = _load()
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    outcome1 = da._resolve_callee_outcome(
+        "getattr(service, name)",
+        caller,
+        {},
+        {caller.qual: caller},
+        resolve_callee_fn=lambda *_args, **_kwargs: None,
+    )
+    outcome2 = da._resolve_callee_outcome(
+        "getattr(service, name)",
+        caller,
+        {},
+        {caller.qual: caller},
+        resolve_callee_fn=lambda *_args, **_kwargs: None,
+    )
+    assert outcome1.status == "unresolved_dynamic"
+    assert outcome1 == outcome2
+
+
+def test_pattern_schema_matches_are_stable_across_repeated_runs() -> None:
+    da = _load()
+    groups_by_path = {Path("pkg/mod.py"): {"f": [{"a", "b"}, {"a", "b"}]}}
+    source = (
+        "def one(paths, strictness, project_root):\n"
+        "    return _build_analysis_index(paths, strictness, project_root)\n"
+        "def two(paths, strictness, project_root):\n"
+        "    return _build_call_graph(paths, strictness, project_root)\n"
+        "def three(paths, strictness, project_root):\n"
+        "    return _build_analysis_index(paths, strictness, project_root)\n"
+    )
+    first = da._pattern_schema_snapshot_entries(
+        da._pattern_schema_matches(groups_by_path=groups_by_path, source=source)
+    )
+    second = da._pattern_schema_snapshot_entries(
+        da._pattern_schema_matches(groups_by_path=groups_by_path, source=source)
+    )
+    assert first == second
+
+
+def test_build_function_index_indexes_lambda_sites_deterministically(tmp_path: Path) -> None:
+    da = _load()
+    mod = tmp_path / "mod.py"
+    mod.write_text(
+        "def outer(x):\n"
+        "    f = lambda y: y\n"
+        "    return f(x), (lambda z: z)(x)\n"
+    )
+    args = dict(
+        paths=[mod],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        parse_failure_witnesses=[],
+    )
+    by_name1, by_qual1 = da._build_function_index(**args)
+    by_name2, by_qual2 = da._build_function_index(**args)
+    assert "f" in by_name1
+    all_infos = [info for infos in by_name1.values() for info in infos]
+    assert any(info.name == "f" for info in all_infos)
+    assert any(info.name.startswith("<lambda@") for info in all_infos)
+    assert sorted(by_qual1) == sorted(by_qual2)

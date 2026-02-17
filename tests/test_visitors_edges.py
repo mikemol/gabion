@@ -581,3 +581,18 @@ def test_subscript_positional_slot_detection() -> None:
     tree, visitor, use_map, _ = _make_use_visitor(code, ["a"], strictness="low")
     visitor.visit(tree)
     assert ("sink", "arg[0]") in use_map["a"].direct_forward
+
+
+def test_subscript_name_bound_key_tracks_forward_and_unknown_key_state() -> None:
+    code = (
+        "def f(a):\n"
+        "    k = 'k'\n"
+        "    data = {}\n"
+        "    data[k] = a\n"
+        "    sink(data[k])\n"
+        "    sink(data[get_key()])\n"
+    )
+    tree, visitor, use_map, _ = _make_use_visitor(code, ["a"], strictness="low")
+    visitor.visit(tree)
+    assert ("sink", "arg[0]") in use_map["a"].direct_forward
+    assert use_map["a"].unknown_key_carrier is True
