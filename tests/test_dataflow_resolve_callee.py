@@ -556,3 +556,10 @@ def test_resolve_callee_outcome_unresolved_internal_and_dynamic() -> None:
         resolve_callee_fn=lambda *_args, **_kwargs: None,
     )
     assert unresolved_dynamic.status == "unresolved_dynamic"
+
+
+def test_dynamic_dispatch_classifier_rejects_empty_and_self_base() -> None:
+    da = _load()
+    assert da._is_dynamic_dispatch_callee_key("") is False
+    assert da._is_dynamic_dispatch_callee_key("self.run") is False
+    assert da._is_dynamic_dispatch_callee_key("cls.run") is False

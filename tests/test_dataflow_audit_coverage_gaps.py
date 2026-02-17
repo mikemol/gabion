@@ -3525,3 +3525,22 @@ def test_materialize_call_candidates_distinguishes_dynamic_unresolved() -> None:
     assert "unresolved_internal_callee" in obligation_kinds
     assert "unresolved_dynamic_callee" in obligation_kinds
     assert len([alt for alt in forest.alts if alt.kind == "CallCandidate"]) == 2
+
+
+def test_call_resolution_obligation_evidence_returns_empty_on_mismatch() -> None:
+    da = _load()
+    forest = da.Forest()
+    suite = da.NodeId("SuiteSite", ("pkg/mod.py", "pkg.mod.caller"))
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite,),
+        evidence={"callee": "target", "kind": "unresolved_internal_callee"},
+    )
+    assert (
+        da._call_resolution_obligation_evidence(
+            forest,
+            suite_id=suite,
+            callee_key="other",
+        )
+        == {}
+    )
