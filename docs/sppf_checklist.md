@@ -1,5 +1,5 @@
 ---
-doc_revision: 148
+doc_revision: 149
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -205,6 +205,10 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [~] SuiteSite carriers + loop-scoped deadline obligations. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@24}
 - [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server). (in-30, GH-87) sppf{doc=partial; impl=done; doc_ref=in-30@24}
 - [~] Structural ambiguity as CallCandidate alts (SuiteSite) with virtual AmbiguitySet. (in-30, GH-88) sppf{doc=partial; impl=done; doc_ref=in-30@24}
+- [~] Lambda/closure callable site indexing (synthetic lambda FunctionSite inventory + bound/direct lambda callee mapping). (in-34, GH-90) sppf{doc=partial; impl=done; doc_ref=in-34@1}
+- [~] Dict key uncertainty carrier semantics (deterministic key normalization + unknown-key carrier evidence, with conservative unresolved fallback). (in-35, GH-91) sppf{doc=partial; impl=done; doc_ref=in-35@1}
+- [~] Conservative starred dataclass argument handling (literal-star decoding + unresolved starred witnesses for dynamic payloads). (in-36, GH-92) sppf{doc=partial; impl=done; doc_ref=in-36@1}
+- [~] Unresolved dynamic dispatch classification (explicit unresolved_dynamic outcome + CallResolutionObligation kinding). (in-37, GH-93) sppf{doc=partial; impl=done; doc_ref=in-37@1}
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
