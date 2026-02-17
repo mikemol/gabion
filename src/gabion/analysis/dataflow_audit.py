@@ -11514,6 +11514,108 @@ def _iter_dataclass_call_bundles(
                             return dataclass_registry[candidate]
         return None
 
+    def _unresolved_starred_witness(
+        call: ast.Call,
+        *,
+        category: str,
+        detail: str,
+    ) -> JSONObject:
+        return {
+            "path": str(path),
+            "stage": _ParseModuleStage.DATACLASS_CALL_BUNDLES.value,
+            "error_type": "UnresolvedStarredArgument",
+            "error": f"{category}: {detail}",
+            "line": int(getattr(call, "lineno", 0) or 0),
+            "col": int(getattr(call, "col_offset", 0) or 0),
+        }
+
+    def _decode_dataclass_constructor_args(
+        call: ast.Call,
+        fields: Sequence[str],
+    ) -> tuple[list[str] | None, list[JSONObject]]:
+        resolved: list[str] = []
+        unresolved: list[JSONObject] = []
+        position = 0
+        field_set = set(fields)
+
+        def _append_positional(count: int, *, source: str) -> bool:
+            nonlocal position
+            for _ in range(count):
+                check_deadline()
+                if position >= len(fields):
+                    unresolved.append(
+                        _unresolved_starred_witness(
+                            call,
+                            category="positional_arity_overflow",
+                            detail=f"source={source} exceeds dataclass field count",
+                        )
+                    )
+                    return False
+                resolved.append(fields[position])
+                position += 1
+            return True
+
+        for arg in call.args:
+            check_deadline()
+            if not isinstance(arg, ast.Starred):
+                if not _append_positional(1, source="arg"):
+                    return None, unresolved
+                continue
+            value = arg.value
+            if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+                if not _append_positional(len(value.elts), source=f"*{type(value).__name__}"):
+                    return None, unresolved
+                continue
+            unresolved.append(
+                _unresolved_starred_witness(
+                    call,
+                    category="dynamic_star_args",
+                    detail=f"unsupported * payload={type(value).__name__}",
+                )
+            )
+            return None, unresolved
+
+        for kw in call.keywords:
+            check_deadline()
+            if kw.arg is not None:
+                resolved.append(kw.arg)
+                continue
+            mapping_node = kw.value
+            if not isinstance(mapping_node, ast.Dict):
+                unresolved.append(
+                    _unresolved_starred_witness(
+                        call,
+                        category="dynamic_star_kwargs",
+                        detail=f"unsupported ** payload={type(mapping_node).__name__}",
+                    )
+                )
+                return None, unresolved
+            for key in mapping_node.keys:
+                check_deadline()
+                if key is None:
+                    unresolved.append(
+                        _unresolved_starred_witness(
+                            call,
+                            category="dynamic_star_kwargs",
+                            detail="dict unpack inside ** literal is dynamic",
+                        )
+                    )
+                    return None, unresolved
+                if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
+                    unresolved.append(
+                        _unresolved_starred_witness(
+                            call,
+                            category="dynamic_star_kwargs",
+                            detail="non-string literal key in ** dict",
+                        )
+                    )
+                    return None, unresolved
+                resolved.append(key.value)
+
+        if any(name not in field_set for name in resolved):
+            return None, unresolved
+        return resolved, unresolved
+
     for node in ast.walk(tree):
         check_deadline()
         if not isinstance(node, ast.Call):
@@ -11521,27 +11623,9 @@ def _iter_dataclass_call_bundles(
         fields = _resolve_fields(node)
         if not fields:
             continue
-        names: list[str] = []
-        ok = True
-        for idx, arg in enumerate(node.args):
-            check_deadline()
-            if isinstance(arg, ast.Starred):
-                ok = False
-                break
-            if idx < len(fields):
-                names.append(fields[idx])
-            else:
-                ok = False
-                break
-        if not ok:
-            continue
-        for kw in node.keywords:
-            check_deadline()
-            if kw.arg is None:
-                ok = False
-                break
-            names.append(kw.arg)
-        if not ok or len(names) < 2:
+        names, unresolved = _decode_dataclass_constructor_args(node, fields)
+        parse_failure_witnesses.extend(unresolved)
+        if names is None or len(names) < 2:
             continue
         bundles.add(tuple(sorted(names)))
     return bundles

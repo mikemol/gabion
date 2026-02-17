@@ -772,6 +772,10 @@ def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
             def build():
                 Bundle(1, 2, 3)
                 Bundle(a=1, b=2)
+                Bundle(*[1, 2])
+                Bundle(1, *[2])
+                Bundle(**{"a": 1, "b": 2})
+                Bundle(1, **{"b": 2})
                 mod.Bundle(1, 2)
             """
         ).strip()
@@ -821,6 +825,47 @@ def test_iter_dataclass_call_bundles(tmp_path: Path) -> None:
         parse_failure_witnesses=[],
     )
     assert ("a", "b") in bundles
+
+
+def test_iter_dataclass_call_bundles_dynamic_starred_records_unresolved(tmp_path: Path) -> None:
+    da = _load()
+    mod = tmp_path / "mod.py"
+    mod.write_text(
+        textwrap.dedent(
+            """
+            from dataclasses import dataclass
+
+            @dataclass
+            class Bundle:
+                a: int
+                b: int
+
+            vals = [1, 2]
+            kws = {"a": 1, "b": 2}
+
+            def build(dynamic_vals, dynamic_kwargs):
+                Bundle(*vals)
+                Bundle(**kws)
+                Bundle(*dynamic_vals)
+                Bundle(**dynamic_kwargs)
+                Bundle(**{**kws})
+            """
+        ).strip()
+        + "\n"
+    )
+    witnesses: list[dict[str, object]] = []
+    bundles = da._iter_dataclass_call_bundles(
+        mod,
+        project_root=tmp_path,
+        parse_failure_witnesses=witnesses,
+    )
+    assert bundles == set()
+    unresolved = [
+        entry
+        for entry in witnesses
+        if entry.get("error_type") == "UnresolvedStarredArgument"
+    ]
+    assert len(unresolved) == 5
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::groups_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_function_index::ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::knob_names E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::merge.py::gabion.synthesis.merge.merge_bundles::min_overlap E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::strictness
 def test_build_synthesis_plan_skips_empty_members(tmp_path: Path) -> None:
