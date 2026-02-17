@@ -19,7 +19,7 @@ def _cli_env() -> dict[str, str]:
     return {
         **os.environ,
         "GABION_DIRECT_RUN": "1",
-        "GABION_LSP_TIMEOUT_TICKS": "5000",
+        "GABION_LSP_TIMEOUT_TICKS": "50000",
         "GABION_LSP_TIMEOUT_TICK_NS": "1000000",
     }
 

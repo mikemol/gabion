@@ -3455,6 +3455,30 @@ def test_resume_index_and_collection_loader_additional_edge_rows(tmp_path: Path)
     )
     assert loaded[4] == set()
 
+
+def test_load_analysis_index_resume_payload_rejects_projection_identity_mismatch(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    file_path = tmp_path / "m.py"
+    payload = {
+        "format_version": 1,
+        "index_cache_identity": "index-ok",
+        "projection_cache_identity": "projection-old",
+        "hydrated_paths": [str(file_path)],
+    }
+    hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload=payload,
+        file_paths=[file_path],
+        expected_index_cache_identity="index-ok",
+        expected_projection_cache_identity="projection-new",
+    )
+    assert hydrated_paths == set()
+    assert by_qual == {}
+    assert symbol_table.imports == {}
+    assert class_index == {}
+
+
 def test_call_resolution_and_lint_compute_filter_edges() -> None:
     da = _load()
     forest = da.Forest()
@@ -4036,4 +4060,4 @@ def test_build_function_index_indexes_lambda_sites_deterministically(tmp_path: P
     all_infos = [info for infos in by_name1.values() for info in infos]
     lambda_infos = [info for info in all_infos if info.name.startswith("<lambda:")]
     assert len(lambda_infos) >= 2
-    assert sorted(by_qual1) == sorted(by_qual2)
+    assert tuple(by_qual1) == tuple(by_qual2)

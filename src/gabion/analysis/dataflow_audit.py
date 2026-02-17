@@ -4454,6 +4454,7 @@ def _collect_deadline_function_facts(
     stage_cache_fn: Callable[..., dict[Path, dict[str, "_DeadlineFunctionFacts"] | None]] | None = None,
 ) -> dict[str, _DeadlineFunctionFacts]:
     check_deadline()
+    ignore_param_names = set(ignore_params or ())
     if stage_cache_fn is None:
         stage_cache_fn = _analysis_index_stage_cache
     if analysis_index is not None and trees is None:
@@ -4464,11 +4465,10 @@ def _collect_deadline_function_facts(
                 stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
                 cache_key=_parse_stage_cache_key(
                     stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
-                    forest_spec_id=None,
-                    fingerprint_seed_revision=None,
+                    cache_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
                     config_subset={
                         "project_root": str(project_root) if project_root is not None else "",
-                        "ignore_params": list(_sorted_text(ignore_params)),
+                        "ignore_params": list(_sorted_text(ignore_param_names)),
                     },
                     detail="deadline_function_facts",
                 ),
@@ -4476,7 +4476,7 @@ def _collect_deadline_function_facts(
                     path,
                     tree,
                     project_root=project_root,
-                    ignore_params=ignore_params,
+                    ignore_params=ignore_param_names,
                 ),
             ),
             parse_failure_witnesses=parse_failure_witnesses,
@@ -4506,7 +4506,7 @@ def _collect_deadline_function_facts(
                 path,
                 tree,
                 project_root=project_root,
-                ignore_params=ignore_params,
+                ignore_params=ignore_param_names,
             )
         )
     return facts
@@ -4565,8 +4565,7 @@ def _collect_call_nodes_by_path(
                 stage=_ParseModuleStage.CALL_NODES,
                 cache_key=_parse_stage_cache_key(
                     stage=_ParseModuleStage.CALL_NODES,
-                    forest_spec_id=None,
-                    fingerprint_seed_revision=None,
+                    cache_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
                     config_subset={},
                     detail="call_nodes",
                 ),
@@ -7218,6 +7217,15 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
     build: Callable[[ast.Module, Path], _StageCacheValue]
 
 
+@dataclass(frozen=True)
+class _CacheSemanticContext:
+    forest_spec_id: str | None = None
+    fingerprint_seed_revision: str | None = None
+
+
+_EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
+
+
 def _sorted_text(values: Iterable[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
@@ -7228,14 +7236,13 @@ def _sorted_text(values: Iterable[str] | None) -> tuple[str, ...]:
 def _canonical_cache_identity(
     *,
     stage: Literal["parse", "index", "projection"],
-    forest_spec_id: str | None,
-    fingerprint_seed_revision: str | None,
+    cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
 ) -> str:
     payload: dict[str, JSONValue] = {
         "stage": stage,
-        "forest_spec_id": str(forest_spec_id or ""),
-        "fingerprint_seed_revision": str(fingerprint_seed_revision or ""),
+        "forest_spec_id": str(cache_context.forest_spec_id or ""),
+        "fingerprint_seed_revision": str(cache_context.fingerprint_seed_revision or ""),
         "config_subset": {str(key): config_subset[key] for key in sorted(config_subset)},
     }
     return hashlib.sha1(
@@ -7246,8 +7253,7 @@ def _canonical_cache_identity(
 def _parse_stage_cache_key(
     *,
     stage: _ParseModuleStage,
-    forest_spec_id: str | None,
-    fingerprint_seed_revision: str | None,
+    cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
     detail: Hashable,
 ) -> tuple[str, str, str, Hashable]:
@@ -7256,8 +7262,7 @@ def _parse_stage_cache_key(
         stage.value,
         _canonical_cache_identity(
             stage="parse",
-            forest_spec_id=forest_spec_id,
-            fingerprint_seed_revision=fingerprint_seed_revision,
+            cache_context=cache_context,
             config_subset=config_subset,
         ),
         detail,
@@ -7266,28 +7271,24 @@ def _parse_stage_cache_key(
 
 def _index_stage_cache_identity(
     *,
-    forest_spec_id: str | None,
-    fingerprint_seed_revision: str | None,
+    cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
 ) -> str:
     return _canonical_cache_identity(
         stage="index",
-        forest_spec_id=forest_spec_id,
-        fingerprint_seed_revision=fingerprint_seed_revision,
+        cache_context=cache_context,
         config_subset=config_subset,
     )
 
 
 def _projection_stage_cache_identity(
     *,
-    forest_spec_id: str | None,
-    fingerprint_seed_revision: str | None,
+    cache_context: _CacheSemanticContext,
     config_subset: Mapping[str, JSONValue],
 ) -> str:
     return _canonical_cache_identity(
         stage="projection",
-        forest_spec_id=forest_spec_id,
-        fingerprint_seed_revision=fingerprint_seed_revision,
+        cache_context=cache_context,
         config_subset=config_subset,
     )
 
@@ -7358,26 +7359,29 @@ def _build_analysis_index(
     normalized_ignore = _sorted_text(ignore_params)
     normalized_transparent = _sorted_text(transparent_decorators)
     normalized_decision_ignore = _sorted_text(decision_ignore_params)
+    cache_context = _CacheSemanticContext(
+        forest_spec_id=forest_spec_id,
+        fingerprint_seed_revision=fingerprint_seed_revision,
+    )
+    # dataflow-bundle: decision_require_tiers, external_filter
     index_config_subset: dict[str, JSONValue] = {
         "ignore_params": list(normalized_ignore),
         "strictness": str(strictness),
         "transparent_decorators": list(normalized_transparent),
-        "external_filter": bool(external_filter),
+        "external_filter": external_filter,
         "decision_ignore_params": list(normalized_decision_ignore),
-        "decision_require_tiers": bool(decision_require_tiers),
+        "decision_require_tiers": decision_require_tiers,
     }
     index_cache_identity = _index_stage_cache_identity(
-        forest_spec_id=forest_spec_id,
-        fingerprint_seed_revision=fingerprint_seed_revision,
+        cache_context=cache_context,
         config_subset=index_config_subset,
     )
     projection_cache_identity = _projection_stage_cache_identity(
-        forest_spec_id=forest_spec_id,
-        fingerprint_seed_revision=fingerprint_seed_revision,
+        cache_context=cache_context,
         config_subset={
             "strictness": str(strictness),
-            "external_filter": bool(external_filter),
-            "decision_require_tiers": bool(decision_require_tiers),
+            "external_filter": external_filter,
+            "decision_require_tiers": decision_require_tiers,
         },
     )
     ordered_paths = _iter_monotonic_paths(
@@ -11731,8 +11735,7 @@ def _collect_config_bundles(
                 stage=_ParseModuleStage.CONFIG_FIELDS,
                 cache_key=_parse_stage_cache_key(
                     stage=_ParseModuleStage.CONFIG_FIELDS,
-                    forest_spec_id=None,
-                    fingerprint_seed_revision=None,
+                    cache_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
                     config_subset={},
                     detail="config_fields",
                 ),
@@ -11807,8 +11810,7 @@ def _collect_dataclass_registry(
                 stage=_ParseModuleStage.DATACLASS_REGISTRY,
                 cache_key=_parse_stage_cache_key(
                     stage=_ParseModuleStage.DATACLASS_REGISTRY,
-                    forest_spec_id=None,
-                    fingerprint_seed_revision=None,
+                    cache_context=_EMPTY_CACHE_SEMANTIC_CONTEXT,
                     config_subset={
                         "project_root": str(project_root) if project_root is not None else "",
                     },

@@ -463,6 +463,49 @@ def test_run_seed_registry_path_blank_value_is_ignored(tmp_path: Path) -> None:
     )
     assert code == 0
 
+
+def test_run_registry_seed_revision_fallback_is_applied(tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "registry_seed_revision = 17\n"
+    )
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+        ]
+    )
+    assert code == 0
+
+
+def test_run_seed_revision_is_applied_without_fallback(tmp_path: Path) -> None:
+    dataflow_audit = _load()
+    sample = tmp_path / "typed.py"
+    _write_typed_bundle_code(sample)
+    config_path = tmp_path / "gabion.toml"
+    config_path.write_text(
+        "[fingerprints]\n"
+        "seed_revision = 23\n"
+    )
+    code = dataflow_audit.run(
+        [
+            str(sample),
+            "--root",
+            str(tmp_path),
+            "--config",
+            str(config_path),
+        ]
+    )
+    assert code == 0
+
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::bundle_sites_by_path,coherence_witnesses,constant_smells,context_suggestions,deadness_witnesses,decision_surfaces,decision_warnings,exception_obligations,fingerprint_matches,fingerprint_provenance,fingerprint_synth,fingerprint_warnings,forest,groups_by_path,handledness_witnesses,invariant_propositions,max_components,never_invariants,rewrite_plans,type_ambiguities,type_callsite_evidence,type_suggestions,unused_arg_smells,value_decision_rewrites,value_decision_surfaces E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_paths::config E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_baseline_path::path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_synth_registry_path::path E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::value
 def test_run_synth_registry_path_missing_latest(tmp_path: Path) -> None:
     dataflow_audit = _load()
