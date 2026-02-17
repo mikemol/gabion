@@ -6827,13 +6827,22 @@ def _lint_rows_from_lines(
     return rows
 
 
+def _add_interned_alt(
+    *,
+    forest: Forest,
+    kind: str,
+    inputs: Iterable[NodeId],
+    evidence: dict[str, object] | None = None,
+) -> Alt:
+    return forest.add_alt(kind, inputs, evidence=evidence)
+
+
 def _materialize_lint_rows(
     *,
     forest: Forest,
     rows: Iterable[Mapping[str, JSONValue]],
 ) -> None:
     check_deadline()
-    seen: set[tuple[NodeId, NodeId, str]] = set()
     for row in rows:
         check_deadline()
         path = str(row.get("path", "") or "")
@@ -6867,11 +6876,12 @@ def _materialize_lint_rows(
             },
         )
         file_node = forest.add_file_site(path)
-        dedupe_key = (file_node, lint_node, source)
-        if dedupe_key in seen:
-            continue
-        seen.add(dedupe_key)
-        forest.add_alt("LintFinding", (file_node, lint_node), evidence={"source": source})
+        _add_interned_alt(
+            forest=forest,
+            kind="LintFinding",
+            inputs=(file_node, lint_node),
+            evidence={"source": source},
+        )
 
 
 def _lint_relation_from_forest(forest: Forest) -> list[dict[str, JSONValue]]:
@@ -6966,9 +6976,10 @@ def _materialize_report_section_lines(
                 "text": text_value,
             },
         )
-        forest.add_alt(
-            "ReportSectionLine",
-            (report_file, line_node),
+        _add_interned_alt(
+            forest=forest,
+            kind="ReportSectionLine",
+            inputs=(report_file, line_node),
             evidence={
                 "run_id": section_key.run_id,
                 "section": section_key.section,
@@ -7940,9 +7951,10 @@ def _emit_call_ambiguities(
                 forest=forest,
                 candidate=candidate,
             )
-            forest.add_alt(
-                "CallCandidate",
-                (suite_id, candidate_id),
+            _add_interned_alt(
+                forest=forest,
+                kind="CallCandidate",
+                inputs=(suite_id, candidate_id),
                 evidence={
                     "kind": entry.kind,
                     "phase": entry.phase,
@@ -7968,9 +7980,10 @@ def _emit_call_ambiguities(
             (witness_identity,),
             meta={"evidence_key": witness_key},
         )
-        forest.add_alt(
-            "PartitionWitness",
-            (suite_id, witness_node),
+        _add_interned_alt(
+            forest=forest,
+            kind="PartitionWitness",
+            inputs=(suite_id, witness_node),
             evidence={
                 "kind": entry.kind,
                 "phase": entry.phase,
@@ -8473,19 +8486,12 @@ def _populate_bundle_forest(
             parse_failure_witnesses=parse_failure_witnesses,
             analysis_index=index,
         )
-    seen: set[tuple[str, tuple[NodeId, ...], tuple[tuple[str, str], ...]]] = set()
-
     def _add_alt(
         kind: str,
         inputs: Iterable[NodeId],
         evidence: dict[str, object] | None = None,
     ) -> None:
-        items = tuple(sorted((k, str(v)) for k, v in (evidence or {}).items()))
-        key = (kind, tuple(inputs), items)
-        if key in seen:
-            return
-        seen.add(key)
-        forest.add_alt(kind, inputs, evidence)
+        _add_interned_alt(forest=forest, kind=kind, inputs=inputs, evidence=evidence)
 
     progress_since_emit = 0
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Callable, Iterable, Mapping, Sequence
 from gabion.analysis.timeout_context import check_deadline
@@ -349,6 +350,18 @@ def normalize_key(key: Mapping[str, object]) -> dict[str, object]:
 def key_identity(key: Mapping[str, object]) -> str:
     normalized = normalize_key(key)
     return json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+
+
+def normalized_fingerprint_identity(normalized: Mapping[str, object]) -> str:
+    payload = json.dumps(dict(normalized), sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    digest = hashlib.blake2s(payload, digest_size=12).hexdigest()
+    return f"ekf:{digest}"
+
+
+def key_fingerprint_identity(key: Mapping[str, object]) -> str:
+    return normalized_fingerprint_identity(normalize_key(key))
 
 
 def render_display(
