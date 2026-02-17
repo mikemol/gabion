@@ -13677,6 +13677,160 @@ _COLLECTION_PROGRESS_EMIT_INTERVAL = 8
 _ANALYSIS_INDEX_PROGRESS_EMIT_INTERVAL = 4
 
 
+@dataclass(frozen=True)
+class _PartialWorkerCarrierOutput:
+    violations: tuple[str, ...] = ()
+    witnesses: tuple[JSONObject, ...] = ()
+    deltas: tuple[JSONObject, ...] = ()
+    snapshots: tuple[JSONObject, ...] = ()
+
+
+def _canonical_json_bytes(value: JSONValue) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _path_key_from_violation(violation: str) -> str | None:
+    path_prefix, separator, _ = violation.partition(":")
+    if separator and path_prefix.endswith(".py"):
+        return path_prefix
+    return None
+
+
+def _path_key_from_payload(payload: Mapping[str, JSONValue]) -> str | None:
+    for key in ("path", "module_path", "file", "baseline_path", "current_path"):
+        raw_value = payload.get(key)
+        if isinstance(raw_value, str) and raw_value:
+            return raw_value
+    return None
+
+
+def _canonicalize_worker_violations(
+    violations: Iterable[str],
+    *,
+    source: str,
+) -> list[str]:
+    by_path: dict[str, dict[str, str]] = defaultdict(dict)
+    no_path: dict[str, str] = {}
+    for violation in violations:
+        check_deadline()
+        canonical = _canonical_json_bytes(violation)
+        path_key = _path_key_from_violation(violation)
+        if path_key is None:
+            no_path.setdefault(canonical, violation)
+            continue
+        by_path[path_key].setdefault(canonical, violation)
+    ordered_paths = _iter_monotonic_paths(
+        ordered_or_sorted(
+            (Path(path_key) for path_key in by_path),
+            source=f"{source}.paths",
+            key=str,
+        ),
+        source=f"{source}.paths_monotonic",
+    )
+    ordered: list[str] = []
+    for path in ordered_paths:
+        check_deadline()
+        path_key = str(path)
+        entries = by_path.get(path_key, {})
+        for canonical in ordered_or_sorted(
+            entries,
+            source=f"{source}.path_entries",
+        ):
+            check_deadline()
+            ordered.append(entries[canonical])
+    for canonical in ordered_or_sorted(
+        no_path,
+        source=f"{source}.no_path_entries",
+    ):
+        check_deadline()
+        ordered.append(no_path[canonical])
+    return ordered
+
+
+def _canonicalize_worker_structured_entries(
+    entries: Iterable[JSONObject],
+    *,
+    source: str,
+) -> list[JSONObject]:
+    by_path: dict[str, dict[str, JSONObject]] = defaultdict(dict)
+    no_path: dict[str, JSONObject] = {}
+    for entry in entries:
+        check_deadline()
+        canonical = _canonical_json_bytes(entry)
+        path_key = _path_key_from_payload(entry)
+        if path_key is None:
+            no_path.setdefault(canonical, entry)
+            continue
+        by_path[path_key].setdefault(canonical, entry)
+    ordered_paths = _iter_monotonic_paths(
+        ordered_or_sorted(
+            (Path(path_key) for path_key in by_path),
+            source=f"{source}.paths",
+            key=str,
+        ),
+        source=f"{source}.paths_monotonic",
+    )
+    ordered: list[JSONObject] = []
+    for path in ordered_paths:
+        check_deadline()
+        path_key = str(path)
+        path_entries = by_path.get(path_key, {})
+        for canonical in ordered_or_sorted(
+            path_entries,
+            source=f"{source}.path_entries",
+        ):
+            check_deadline()
+            ordered.append(path_entries[canonical])
+    for canonical in ordered_or_sorted(
+        no_path,
+        source=f"{source}.no_path_entries",
+    ):
+        check_deadline()
+        ordered.append(no_path[canonical])
+    return ordered
+
+
+def _merge_worker_carriers(
+    partials: Sequence[_PartialWorkerCarrierOutput],
+) -> _PartialWorkerCarrierOutput:
+    combined_violations: list[str] = []
+    combined_witnesses: list[JSONObject] = []
+    combined_deltas: list[JSONObject] = []
+    combined_snapshots: list[JSONObject] = []
+    for partial in partials:
+        check_deadline()
+        combined_violations.extend(partial.violations)
+        combined_witnesses.extend(partial.witnesses)
+        combined_deltas.extend(partial.deltas)
+        combined_snapshots.extend(partial.snapshots)
+    return _PartialWorkerCarrierOutput(
+        violations=tuple(
+            _canonicalize_worker_violations(
+                combined_violations,
+                source="_merge_worker_carriers.violations",
+            )
+        ),
+        witnesses=tuple(
+            _canonicalize_worker_structured_entries(
+                combined_witnesses,
+                source="_merge_worker_carriers.witnesses",
+            )
+        ),
+        deltas=tuple(
+            _canonicalize_worker_structured_entries(
+                combined_deltas,
+                source="_merge_worker_carriers.deltas",
+            )
+        ),
+        snapshots=tuple(
+            _canonicalize_worker_structured_entries(
+                combined_snapshots,
+                source="_merge_worker_carriers.snapshots",
+            )
+        ),
+    )
+
+
 def _analysis_collection_resume_path_key(path: Path) -> str:
     return str(path)
 
