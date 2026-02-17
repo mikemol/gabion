@@ -51,6 +51,21 @@ def test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads() -> N
     assert signature["nodes"]["count"] == len(signature["nodes"]["intern_fingerprint"])
 
 
+def test_forest_signature_can_emit_fingerprint_intern_without_legacy_intern() -> None:
+    forest = Forest()
+    forest.add_site("a.py", "f")
+
+    signature = build_forest_signature_payload(
+        forest,
+        include_legacy_intern=False,
+        include_fingerprint_intern=True,
+    )
+
+    assert "intern" not in signature["nodes"]
+    assert "intern_fingerprint" in signature["nodes"]
+    assert signature["nodes"]["count"] == len(signature["nodes"]["intern_fingerprint"])
+
+
 def test_forest_signature_from_groups_rejects_path_order_regression() -> None:
     with pytest.raises(NeverThrown):
         build_forest_signature_from_groups(

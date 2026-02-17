@@ -4,7 +4,7 @@ from contextvars import Context
 
 import pytest
 
-from gabion.analysis.aspf import Forest
+from gabion.analysis.aspf import Forest, NodeId
 from gabion.analysis.timeout_context import (
     Deadline,
     TimeoutExceeded,
@@ -147,4 +147,16 @@ def test_node_intern_uses_fingerprint_identity_with_legacy_keys() -> None:
     assert len(forest.nodes) == 1
     assert forest.has_node("Sentinel", (1, True, "1"))
 
+
+def test_node_fingerprint_covers_float_none_and_repr_fallback() -> None:
+    class Dummy:
+        def __repr__(self) -> str:
+            return "dummy-token"
+
+    node_id = NodeId(kind="Sentinel", key=(1.5, None, Dummy()))
+
+    assert node_id.fingerprint() == (
+        "Sentinel",
+        ("float:1.5", "none:null", "repr:dummy-token"),
+    )
 
