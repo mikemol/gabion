@@ -196,11 +196,11 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Fingerprint arithmetic ops (gcd/lcm/subtyping checks). (GH-68)
 - [x] Glossary fingerprint matching + CI warnings. (GH-68)
 - [x] Hybrid fingerprint representation (prime products + bitmask existence checks). (GH-68)
-- [~] Deterministic fingerprint registry seeding (sorted key interning for primes/bits). (in-22, GH-68) sppf{doc=partial; impl=done; doc_ref=in-22@1}
+- [~] Deterministic fingerprint registry seeding (sorted key interning for primes/bits). (in-22, GH-68) sppf{doc=partial; impl=done; doc_ref=in-22@2}
 - [x] Nested type constructor registry (dimensional prime mapping). (GH-68)
 - [x] Fingerprint reverse mapping for synthesis (factorization → type keys). (GH-68)
-- [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70) sppf{doc=partial; impl=done; doc_ref=in-22@1}
-- [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71) sppf{doc=partial; impl=done; doc_ref=in-22@1}
+- [~] ASPF dimensional fingerprints (base/ctor carriers + soundness invariants). (in-22, GH-70) sppf{doc=partial; impl=done; doc_ref=in-22@2}
+- [~] ASPF provenance mapping to SPPF (packed-forest derivation reporting + invariants; base/ctor keys + JSON artifact + report summary). (in-22, GH-71) sppf{doc=partial; impl=done; doc_ref=in-22@2}
 - [x] ASPF carrier obligations formalized (determinism, base conservation, ctor coherence, synth tail reversibility, provenance completeness, snapshot reproducibility). (in-23, GH-73) sppf{doc=done; impl=done; doc_ref=in-23@8}
 - [~] SuiteSite carriers + loop-scoped deadline obligations. (in-30, GH-85) sppf{doc=partial; impl=partial; doc_ref=in-30@24}
 - [~] Deadline propagation as gas (ticks-based carriers across LSP/CLI/server). (in-30, GH-87) sppf{doc=partial; impl=done; doc_ref=in-30@24}
@@ -266,7 +266,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
-- [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@1}
+- [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
 - [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@9}
 - [ ] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE). (in-26, GH-78) sppf{doc=partial; impl=planned; doc_ref=in-26@9}
 - [~] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79) sppf{doc=partial; impl=done; doc_ref=in-27@7}
