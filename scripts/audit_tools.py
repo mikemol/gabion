@@ -24,6 +24,7 @@ from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_json, spec_hash
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis import evidence_keys
+from gabion.analysis.impact_index import build_impact_index
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
 
@@ -1621,6 +1622,24 @@ def _evidence_rows_from_test_evidence(payload: dict[str, object]) -> list[dict[s
     return rows
 
 
+def _impact_rows(root: Path) -> list[dict[str, object]]:
+    index = build_impact_index(root=root)
+    rows: list[dict[str, object]] = []
+    for link in index.links:
+        check_deadline()
+        rows.append(
+            {
+                "row_kind": "impact_link",
+                "path": link.source,
+                "qual": link.source,
+                "impact_source_kind": link.source_kind,
+                "impact_target": link.target,
+                "impact_confidence": link.confidence,
+            }
+        )
+    return rows
+
+
 def _format_docflow_violation(row: Mapping[str, JSONValue]) -> str:
     path = str(row.get("path", "?") or "?")
     kind = str(row.get("row_kind", "") or "")
@@ -2994,6 +3013,7 @@ def _docflow_audit_context(
         invariant_rows.extend(_evidence_rows_from_test_evidence(evidence_payload))
     else:
         warnings.append("docflow: missing test_evidence.json; evidence compliance skipped")
+    invariant_rows.extend(_impact_rows(root))
     warnings.extend(invariant_warnings)
     invariants = _collect_docflow_invariants(docs)
     violations.extend(_evaluate_docflow_invariants(invariant_rows, invariants=invariants))
