@@ -5,6 +5,7 @@ from gabion.analysis.dataflow_audit import (
     _compute_fingerprint_provenance,
 )
 from gabion.analysis.type_fingerprints import (
+    FingerprintDimension,
     PrimeRegistry,
     TypeConstructorRegistry,
     bundle_fingerprint_dimensional,
@@ -60,6 +61,33 @@ def test_dimension_sidecar_falls_back_to_product_when_inconsistent() -> None:
 
     assert inconsistent.keys_with_remainder(registry) == fingerprint_to_type_keys_with_remainder(
         fingerprint.base.product,
+        registry,
+    )
+
+
+def test_dimension_sidecar_skips_non_positive_exponents() -> None:
+    registry = PrimeRegistry()
+    int_prime = registry.get_or_assign("int")
+    dimension = FingerprintDimension(
+        product=int_prime,
+        mask=0,
+        exponents=(("int", 0), ("int", 1), ("int", -2)),
+    )
+
+    assert dimension.keys_with_remainder(registry) == (["int"], 1)
+
+
+def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
+    registry = PrimeRegistry()
+    int_prime = registry.get_or_assign("int")
+    inconsistent = FingerprintDimension(
+        product=int_prime,
+        mask=0,
+        exponents=(("int", 2),),
+    )
+
+    assert inconsistent.keys_with_remainder(registry) == fingerprint_to_type_keys_with_remainder(
+        inconsistent.product,
         registry,
     )
 
