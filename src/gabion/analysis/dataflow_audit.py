@@ -29,6 +29,12 @@ from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from typing import Callable, Generic, Hashable, Iterable, Iterator, Literal, Mapping, Sequence, TypeVar, cast
 import re
+from gabion.analysis.pattern_schema import (
+    PatternAxis,
+    PatternInstance,
+    PatternResidue,
+    PatternSchema,
+)
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 from gabion.analysis.evidence import (
@@ -229,36 +235,6 @@ class _ParseModuleStage(StrEnum):
 
 
 ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
-
-
-class _PatternAxis(StrEnum):
-    DATAFLOW = "dataflow"
-    EXECUTION = "execution"
-    DUAL = "dual"
-
-
-@dataclass(frozen=True)
-class PatternSchema:
-    schema_id: str
-    axis: _PatternAxis
-    kind: str
-    signature: JSONObject
-    normalization: JSONObject
-
-
-@dataclass(frozen=True)
-class PatternResidue:
-    schema_id: str
-    reason: str
-    payload: JSONObject
-
-
-@dataclass(frozen=True)
-class PatternInstance:
-    schema: PatternSchema
-    members: tuple[str, ...]
-    suggestion: str
-    residue: tuple[PatternResidue, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -2607,25 +2583,6 @@ def _detect_execution_pattern_matches(
     return matches
 
 
-def _pattern_schema_id(
-    *,
-    axis: _PatternAxis,
-    kind: str,
-    signature: Mapping[str, JSONValue],
-) -> str:
-    canonical = json.dumps(
-        {
-            "axis": axis.value,
-            "kind": kind,
-            "signature": signature,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
-    return f"{axis.value}:{kind}:{digest}"
-
-
 def _execution_pattern_instances(
     *,
     source: str | None = None,
@@ -2641,19 +2598,14 @@ def _execution_pattern_instances(
             "pattern_id": match.pattern_id,
             "members": list(match.members),
         }
-        schema = PatternSchema(
-            schema_id=_pattern_schema_id(
-                axis=_PatternAxis.EXECUTION,
-                kind=match.pattern_id,
-                signature=signature,
-            ),
-            axis=_PatternAxis.EXECUTION,
+        schema = PatternSchema.build(
+            axis=PatternAxis.EXECUTION,
             kind=match.pattern_id,
             signature=signature,
             normalization={"members": list(match.members)},
         )
         instances.append(
-            PatternInstance(
+            PatternInstance.build(
                 schema=schema,
                 members=match.members,
                 suggestion=(
@@ -2716,19 +2668,14 @@ def _bundle_pattern_instances(
             "tier": 2 if count > 1 else 3,
             "site_count": count,
         }
-        schema = PatternSchema(
-            schema_id=_pattern_schema_id(
-                axis=_PatternAxis.DATAFLOW,
-                kind="bundle_signature",
-                signature=signature,
-            ),
-            axis=_PatternAxis.DATAFLOW,
+        schema = PatternSchema.build(
+            axis=PatternAxis.DATAFLOW,
             kind="bundle_signature",
             signature=signature,
             normalization={"bundle": list(bundle_key)},
         )
         instances.append(
-            PatternInstance(
+            PatternInstance.build(
                 schema=schema,
                 members=members,
                 suggestion=(
@@ -2853,13 +2800,13 @@ def _pattern_schema_snapshot_entries(
         check_deadline()
         serialized_instances.append(
             {
-                "schema": {
-                    "schema_id": instance.schema.schema_id,
-                    "axis": instance.schema.axis.value,
-                    "kind": instance.schema.kind,
-                    "signature": instance.schema.signature,
-                    "normalization": instance.schema.normalization,
-                },
+                    "schema": {
+                        "schema_id": instance.schema.schema_id,
+                        "axis": instance.schema.axis.value,
+                        "kind": instance.schema.kind,
+                        "signature": instance.schema.normalized_signature,
+                        "normalization": instance.schema.normalization,
+                    },
                 "members": list(instance.members),
                 "suggestion": instance.suggestion,
                 "residue": [
@@ -12270,7 +12217,7 @@ def _emit_report(
         violations.extend(raw_sorted_violations)
     pattern_instances = _pattern_schema_matches(
         groups_by_path=groups_by_path,
-        include_execution=False,
+        include_execution=True,
     )
     if execution_pattern_suggestions is None:
         execution_pattern_suggestions = _pattern_schema_suggestions_from_instances(
@@ -12550,7 +12497,7 @@ def render_decision_snapshot(
     if instances is None:
         instances = _pattern_schema_matches(
             groups_by_path=groups_by_path,
-            include_execution=False,
+            include_execution=True,
         )
     schema_instances, schema_residue = _pattern_schema_snapshot_entries(instances)
     snapshot: JSONObject = {

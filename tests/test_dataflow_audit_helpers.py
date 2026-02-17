@@ -1065,6 +1065,47 @@ def test_pattern_schema_residue_entries_cover_both_axes() -> None:
     assert any("reason=unreified_metafactory" in line for line in residue_lines)
     assert any("reason=unreified_protocol" in line for line in residue_lines)
 
+
+def test_pattern_schema_identity_is_stable_for_permuted_fixtures() -> None:
+    da = _load()
+    groups_a = {
+        Path("a.py"): {"f": [set(["b", "a"])], "g": [set(["a", "b"])]},
+    }
+    groups_b = {
+        Path("a.py"): {"g": [set(["b", "a"])], "f": [set(["a", "b"])]},
+    }
+    instances_a = da._pattern_schema_matches(groups_by_path=groups_a, include_execution=False)
+    instances_b = da._pattern_schema_matches(groups_by_path=groups_b, include_execution=False)
+    ids_a = [entry.schema.schema_id for entry in instances_a]
+    ids_b = [entry.schema.schema_id for entry in instances_b]
+    assert ids_a == ids_b
+    assert [entry.schema.normalized_signature for entry in instances_a] == [
+        entry.schema.normalized_signature for entry in instances_b
+    ]
+
+
+def test_pattern_schema_residue_is_deterministic_for_fixed_fixture() -> None:
+    da = _load()
+    groups_by_path = {
+        Path("mod.py"): {
+            "f": [set(["b", "a"])],
+            "g": [set(["a", "b"])],
+        }
+    }
+    first = da._pattern_schema_residue_lines(
+        da._pattern_schema_residue_entries(
+            da._pattern_schema_matches(groups_by_path=groups_by_path, include_execution=False)
+        )
+    )
+    second = da._pattern_schema_residue_lines(
+        da._pattern_schema_residue_entries(
+            da._pattern_schema_matches(groups_by_path=groups_by_path, include_execution=False)
+        )
+    )
+    assert first == second
+    assert any("reason=unreified_protocol" in line for line in first)
+
+
 def test_constant_and_deadness_projections_share_constant_details(
     tmp_path: Path,
 ) -> None:
