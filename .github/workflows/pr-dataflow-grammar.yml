@@ -88,6 +88,76 @@ jobs:
           PY
       - name: Install package
         run: mise exec -- python -m pip install -e .
+      - name: Select impacted tests
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p artifacts/audit_reports artifacts/test_runs
+          mise exec -- python scripts/impact_select_tests.py \
+            --root . \
+            --diff-base "$GITHUB_BASE_SHA" \
+            --diff-head "$GITHUB_HEAD_SHA" \
+            --out artifacts/audit_reports/impact_selection.json \
+            --confidence-threshold 0.6
+      - name: Run impacted tests first (fallback to full)
+        env:
+          IMPACT_GATE_MUST_RUN: ${{ vars.IMPACT_GATE_MUST_RUN || 'false' }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import shlex
+          import subprocess
+
+          report = pathlib.Path("artifacts/audit_reports/impact_selection.json")
+          payload = json.loads(report.read_text(encoding="utf-8"))
+          mode = str(payload.get("mode", "full"))
+          selection = payload.get("selection") or {}
+          if not isinstance(selection, dict):
+              selection = {}
+          impacted = [str(item) for item in selection.get("impacted_tests", []) if str(item).strip()]
+          must_run = [str(item) for item in selection.get("must_run_impacted_tests", []) if str(item).strip()]
+          gate_must_run = os.environ.get("IMPACT_GATE_MUST_RUN", "false").lower() in {"1", "true", "yes"}
+          pytest_base = [
+              "mise",
+              "exec",
+              "--",
+              "python",
+              "-m",
+              "pytest",
+              "--cov=src/gabion",
+              "--cov-report=term-missing",
+              "--cov-report=xml:artifacts/test_runs/coverage.xml",
+              "--cov-report=html:artifacts/test_runs/htmlcov",
+              "--cov-fail-under=100",
+              "--junitxml",
+              "artifacts/test_runs/junit.xml",
+              "--log-file",
+              "artifacts/test_runs/pytest.log",
+              "--log-file-level=INFO",
+          ]
+
+          def run_pytest(extra):
+              cmd = [*pytest_base, *extra]
+              print("running:", " ".join(shlex.quote(part) for part in cmd))
+              return subprocess.run(cmd, check=False).returncode
+
+          if mode == "targeted" and impacted:
+              if must_run:
+                  rc = run_pytest(must_run)
+                  if rc != 0 and gate_must_run:
+                      raise SystemExit(rc)
+              rc = run_pytest(impacted)
+              if rc != 0:
+                  raise SystemExit(rc)
+          else:
+              rc = run_pytest([])
+              if rc != 0:
+                  raise SystemExit(rc)
+          PY
       - name: Render dataflow grammar report
         env:
           GABION_LSP_TIMEOUT_SECONDS: "300"
@@ -104,6 +174,102 @@ jobs:
         with:
           name: dataflow-grammar
           path: artifacts/dataflow_grammar
+      - name: Upload impact selection artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: impact-selection
+          path: artifacts/audit_reports/impact_selection.json
+      - name: Comment on PR with impact selection
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import urllib.request
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo = os.environ["REPO"]
+          issue = os.environ["PR_NUMBER"]
+          run_url = os.environ["RUN_URL"]
+          marker = "<!-- impact-selection -->"
+
+          report_path = pathlib.Path("artifacts/audit_reports/impact_selection.json")
+          payload = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
+          selection = payload.get("selection") if isinstance(payload, dict) else {}
+          if not isinstance(selection, dict):
+              selection = {}
+          impacted_tests = [str(item) for item in selection.get("impacted_tests", [])][:20]
+          impacted_docs = [str(item) for item in selection.get("impacted_docs", [])][:20]
+          mode = payload.get("mode", "full") if isinstance(payload, dict) else "full"
+          confidence = payload.get("confidence") if isinstance(payload, dict) else None
+          fallback_reasons = payload.get("fallback_reasons") if isinstance(payload, dict) else []
+          if not isinstance(fallback_reasons, list):
+              fallback_reasons = []
+
+          lines = [
+              marker,
+              "## Impact-based test selection",
+              f"- Mode: `{mode}`",
+              f"- Confidence: `{confidence}`",
+              f"- Fallback reasons: `{', '.join(str(item) for item in fallback_reasons) or 'none'}`",
+              "",
+              "### Impacted tests (first 20)",
+          ]
+          if impacted_tests:
+              lines.extend(f"- `{item}`" for item in impacted_tests)
+          else:
+              lines.append("- _(none)_")
+          lines.append("")
+          lines.append("### Impacted docs (first 20)")
+          if impacted_docs:
+              lines.extend(f"- `{item}`" for item in impacted_docs)
+          else:
+              lines.append("- _(none)_")
+          lines.extend(["", f"- Artifact: impact-selection", f"- Download: {run_url}"])
+          body = "\n".join(lines)
+
+          def request(url, method="GET", payload=None):
+              data = None if payload is None else json.dumps(payload).encode("utf-8")
+              req = urllib.request.Request(
+                  url,
+                  data=data,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                  },
+                  method=method,
+              )
+              with urllib.request.urlopen(req) as resp:
+                  return json.loads(resp.read().decode("utf-8"))
+
+          comments = []
+          page = 1
+          while True:
+              url = (
+                  f"https://api.github.com/repos/{repo}/issues/{issue}/comments"
+                  f"?per_page=100&page={page}"
+              )
+              batch = request(url)
+              if not batch:
+                  break
+              comments.extend(batch)
+              page += 1
+
+          existing = next((c for c in comments if marker in (c.get("body") or "")), None)
+          if existing:
+              request(existing["url"], method="PATCH", payload={"body": body})
+          else:
+              url = f"https://api.github.com/repos/{repo}/issues/{issue}/comments"
+              request(url, method="POST", payload={"body": body})
+          PY
       - name: Comment on PR with report
         if: github.event.pull_request.head.repo.full_name == github.repository
         env:
