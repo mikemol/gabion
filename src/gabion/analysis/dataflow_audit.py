@@ -298,6 +298,7 @@ class ParamUse:
     forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = field(
         default_factory=dict
     )
+    unknown_key_carrier: bool = False
 
 
 @dataclass(frozen=True)
@@ -1206,6 +1207,8 @@ class CallAmbiguity:
 
 
 def _callee_name(call: ast.Call) -> str:
+    if isinstance(call.func, ast.Lambda):
+        return _lambda_site_name(call.func)
     try:
         return ast.unparse(call.func)
     except _AST_UNPARSE_ERROR_TYPES:
@@ -4986,18 +4989,23 @@ def _materialize_call_candidates(
                             },
                         )
                     continue
-                if resolution.status != "unresolved_internal":
+                if resolution.status not in {"unresolved_internal", "unresolved_dynamic"}:
                     continue
                 if suite_id in obligation_seen:
                     continue
                 obligation_seen.add(suite_id)
+                obligation_kind = (
+                    "unresolved_dynamic_dispatch"
+                    if resolution.status == "unresolved_dynamic"
+                    else "unresolved_internal_callee"
+                )
                 forest.add_alt(
                     "CallResolutionObligation",
                     (suite_id,),
                     evidence={
                         "phase": resolution.phase,
                         "callee": call.callee,
-                        "kind": "unresolved_internal_callee",
+                        "kind": obligation_kind,
                     },
                 )
 
@@ -10150,6 +10158,98 @@ def _accumulate_function_index_for_tree(
         acc.by_name[fn.name].append(info)
         acc.by_qual[info.qual] = info
 
+    lambda_infos = _collect_lambda_function_infos(
+        tree,
+        parent_map=parent_map,
+        module=module,
+        path=path,
+        ignore_params=ignore_params,
+    )
+    for info in lambda_infos:
+        check_deadline()
+        acc.by_name[info.name].append(info)
+        acc.by_qual[info.qual] = info
+
+
+def _lambda_site_name(node: ast.Lambda) -> str:
+    line = int(getattr(node, "lineno", 1))
+    col = int(getattr(node, "col_offset", 0))
+    return f"<lambda@{line}:{col}>"
+
+
+def _collect_lambda_bindings(
+    tree: ast.Module,
+) -> dict[int, str]:
+    bindings: dict[int, str] = {}
+    for node in ast.walk(tree):
+        check_deadline()
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Lambda):
+            for target in node.targets:
+                check_deadline()
+                if isinstance(target, ast.Name):
+                    bindings[id(node.value)] = target.id
+                    break
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and isinstance(node.value, ast.Lambda)
+        ):
+            bindings[id(node.value)] = node.target.id
+    return bindings
+
+
+def _collect_lambda_function_infos(
+    tree: ast.Module,
+    *,
+    parent_map: Mapping[ast.AST, ast.AST],
+    module: str,
+    path: Path,
+    ignore_params: set[str],
+) -> list[FunctionInfo]:
+    out: list[FunctionInfo] = []
+    bindings = _collect_lambda_bindings(tree)
+    for node in ast.walk(tree):
+        check_deadline()
+        if not isinstance(node, ast.Lambda):
+            continue
+        scopes = _enclosing_scopes(node, parent_map)
+        lexical_scopes = _enclosing_function_scopes(node, parent_map)
+        class_name = _enclosing_class(node, parent_map)
+        bind_name = bindings.get(id(node))
+        name = bind_name or _lambda_site_name(node)
+        qual_parts = [module] if module else []
+        if scopes:
+            qual_parts.extend(scopes)
+        qual_parts.append(name)
+        params = _lambda_param_names(node, ignore_params)
+        out.append(
+            FunctionInfo(
+                name=name,
+                qual=".".join(qual_parts),
+                path=path,
+                params=params,
+                annots={param: None for param in params},
+                calls=[],
+                unused_params=set(params),
+                defaults=set(),
+                transparent=True,
+                class_name=class_name,
+                scope=tuple(scopes),
+                lexical_scope=tuple(lexical_scopes),
+                positional_params=tuple(params),
+                param_spans={},
+                function_span=_node_span(node),
+            )
+        )
+    return out
+
+
+def _lambda_param_names(node: ast.Lambda, ignore_params: set[str]) -> list[str]:
+    names = [a.arg for a in (node.args.posonlyargs + node.args.args)]
+    if ignore_params:
+        names = [name for name in names if name not in ignore_params]
+    return names
+
 
 def _function_index_module_artifact_spec(
     *,
@@ -10416,12 +10516,29 @@ def _resolve_callee_outcome(
             callee_key=callee_key,
             candidates=internal_candidates,
         )
+    if _is_dynamic_dispatch_callee_key(callee_key):
+        return _CalleeResolutionOutcome(
+            status="unresolved_dynamic",
+            phase="unresolved_dynamic",
+            callee_key=callee_key,
+            candidates=(),
+        )
     return _CalleeResolutionOutcome(
         status="unresolved_external",
         phase="unresolved_external",
         callee_key=callee_key,
         candidates=(),
     )
+
+
+def _is_dynamic_dispatch_callee_key(callee_key: str) -> bool:
+    if not callee_key:
+        return False
+    if callee_key.startswith("getattr("):
+        return True
+    if "(" in callee_key and ")" in callee_key:
+        return True
+    return "[" in callee_key and "]" in callee_key
 
 
 def _format_type_flow_site(
@@ -11514,6 +11631,76 @@ def _iter_dataclass_call_bundles(
                             return dataclass_registry[candidate]
         return None
 
+    def _starred_list_arity(node: ast.AST) -> int | None:
+        if not isinstance(node, (ast.List, ast.Tuple)):
+            return None
+        return len(node.elts)
+
+    def _starred_dict_keys(node: ast.AST) -> list[str] | None:
+        if not isinstance(node, ast.Dict):
+            return None
+        keys: list[str] = []
+        for key in node.keys:
+            check_deadline()
+            if key is None:
+                return None
+            if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
+                return None
+            keys.append(key.value)
+        return keys
+
+    def _record_unresolved_dataclass_call(*, call: ast.Call, reason: str) -> None:
+        parse_failure_witnesses.append(
+            {
+                "stage": "dataclass_call_bundles",
+                "path": str(path),
+                "line": int(getattr(call, "lineno", 1)),
+                "col": int(getattr(call, "col_offset", 0)),
+                "reason": reason,
+            }
+        )
+
+    def _resolve_dataclass_call_names(call: ast.Call, fields: Sequence[str]) -> list[str] | None:
+        names: list[str] = []
+        positional_index = 0
+        for arg in call.args:
+            check_deadline()
+            if isinstance(arg, ast.Starred):
+                arity = _starred_list_arity(arg.value)
+                if arity is None:
+                    _record_unresolved_dataclass_call(call=call, reason="unresolved_starred_positional")
+                    return None
+                if positional_index + arity > len(fields):
+                    _record_unresolved_dataclass_call(call=call, reason="invalid_starred_positional_arity")
+                    return None
+                names.extend(fields[positional_index : positional_index + arity])
+                positional_index += arity
+                continue
+            if positional_index >= len(fields):
+                _record_unresolved_dataclass_call(call=call, reason="too_many_positional_args")
+                return None
+            names.append(fields[positional_index])
+            positional_index += 1
+
+        for kw in call.keywords:
+            check_deadline()
+            if kw.arg is None:
+                star_keys = _starred_dict_keys(kw.value)
+                if star_keys is None:
+                    _record_unresolved_dataclass_call(call=call, reason="unresolved_starred_keyword")
+                    return None
+                names.extend(star_keys)
+                continue
+            names.append(kw.arg)
+
+        if len(names) != len(set(names)):
+            _record_unresolved_dataclass_call(call=call, reason="duplicate_field_assignment")
+            return None
+        if any(name not in fields for name in names):
+            _record_unresolved_dataclass_call(call=call, reason="unknown_field_assignment")
+            return None
+        return names
+
     for node in ast.walk(tree):
         check_deadline()
         if not isinstance(node, ast.Call):
@@ -11521,27 +11708,8 @@ def _iter_dataclass_call_bundles(
         fields = _resolve_fields(node)
         if not fields:
             continue
-        names: list[str] = []
-        ok = True
-        for idx, arg in enumerate(node.args):
-            check_deadline()
-            if isinstance(arg, ast.Starred):
-                ok = False
-                break
-            if idx < len(fields):
-                names.append(fields[idx])
-            else:
-                ok = False
-                break
-        if not ok:
-            continue
-        for kw in node.keywords:
-            check_deadline()
-            if kw.arg is None:
-                ok = False
-                break
-            names.append(kw.arg)
-        if not ok or len(names) < 2:
+        names = _resolve_dataclass_call_names(node, fields)
+        if names is None or len(names) < 2:
             continue
         bundles.add(tuple(sorted(names)))
     return bundles
@@ -12968,6 +13136,7 @@ def _serialize_param_use(value: ParamUse) -> JSONObject:
             [callee, slot] for callee, slot in sorted(value.direct_forward)
         ],
         "non_forward": bool(value.non_forward),
+        "unknown_key_carrier": bool(value.unknown_key_carrier),
         "current_aliases": sorted(value.current_aliases),
         "forward_sites": [
             {
@@ -13002,11 +13171,13 @@ def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
             span_set.add(span)
         forward_sites[(callee, slot)] = span_set
     non_forward = bool(payload.get("non_forward"))
+    unknown_key_carrier = bool(payload.get("unknown_key_carrier"))
     return ParamUse(
         direct_forward=direct_forward,
         non_forward=non_forward,
         current_aliases=current_aliases,
         forward_sites=forward_sites,
+        unknown_key_carrier=unknown_key_carrier,
     )
 
 

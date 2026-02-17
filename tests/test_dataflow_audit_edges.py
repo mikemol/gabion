@@ -1443,3 +1443,35 @@ def test_analyze_paths_timeout_flushes_phase_emitters_best_effort(
     assert "forest" in callback_state["phases"]
     assert "edge" in callback_state["phases"]
     assert "post" in callback_state["phases"]
+
+
+def test_materialize_call_candidates_emits_dynamic_obligation_kind() -> None:
+    da = _load()
+    forest = da.Forest()
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[_call(da, callee="getattr(svc, name)", span=(1, 1, 1, 8))],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    da._materialize_call_candidates(
+        forest=forest,
+        by_name={"caller": [caller]},
+        by_qual={caller.qual: caller},
+        symbol_table=da.SymbolTable(),
+        project_root=Path("."),
+        class_index={},
+        resolve_callee_outcome_fn=lambda *_args, **_kwargs: da._CalleeResolutionOutcome(
+            status="unresolved_dynamic",
+            phase="unresolved_dynamic",
+            callee_key="getattr(svc, name)",
+            candidates=(),
+        ),
+    )
+    obligations = [alt for alt in forest.alts if alt.kind == "CallResolutionObligation"]
+    assert obligations
+    assert obligations[0].evidence.get("kind") == "unresolved_dynamic_dispatch"

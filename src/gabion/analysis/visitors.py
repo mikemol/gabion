@@ -95,6 +95,7 @@ class UseVisitor(ProjectVisitor):
         self._suspend_non_forward: set[str] = set()
         self._attr_alias_to_param: dict[tuple[str, str], str] = {}
         self._key_alias_to_param: dict[tuple[str, str], str] = {}
+        self._constant_key_aliases: dict[str, str] = {}
 
     @staticmethod
     def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
@@ -124,6 +125,35 @@ class UseVisitor(ProjectVisitor):
             return False
         self.use_map[param_name].non_forward = True
         return True
+
+    @staticmethod
+    def _constant_key_value(node: ast.AST) -> str | None:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            parts: list[str] = []
+            for value in node.values:
+                check_deadline()
+                if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+                    return None
+                parts.append(value.value)
+            return "".join(parts)
+        return None
+
+    def _normalize_key_token(self, node: ast.AST) -> str | None:
+        key = self._constant_key_value(node)
+        if key is not None:
+            return key
+        if isinstance(node, ast.Name):
+            return self._constant_key_aliases.get(node.id)
+        return None
+
+    def _mark_unknown_key_carrier(self, base_name: str) -> None:
+        for (carrier_name, _), param_name in self._key_alias_to_param.items():
+            check_deadline()
+            if carrier_name != base_name:
+                continue
+            self.use_map[param_name].unknown_key_carrier = True
 
     @staticmethod
     def _slot_for_call_node(call: ast.Call, node: ast.AST) -> str:
@@ -347,6 +377,16 @@ class UseVisitor(ProjectVisitor):
         if isinstance(node.value, ast.Name) and node.value.id in self.alias_to_param:
             rhs_param = self.alias_to_param[node.value.id]
 
+        constant_key = self._constant_key_value(node.value)
+        for target in node.targets:
+            check_deadline()
+            if not isinstance(target, ast.Name):
+                continue
+            if constant_key is None:
+                self._constant_key_aliases.pop(target.id, None)
+            else:
+                self._constant_key_aliases[target.id] = constant_key
+
         handled_alias = False
         for target in node.targets:
             check_deadline()
@@ -362,15 +402,11 @@ class UseVisitor(ProjectVisitor):
                     self._attr_alias_to_param[(target.value.id, target.attr)] = rhs_param
                     handled_alias = True
             elif rhs_param and isinstance(target, ast.Subscript):
-                if (
-                    isinstance(target.value, ast.Name)
-                    and isinstance(target.slice, ast.Constant)
-                    and isinstance(target.slice.value, str)
-                ):
-                    self._key_alias_to_param[
-                        (target.value.id, target.slice.value)
-                    ] = rhs_param
-                    handled_alias = True
+                if isinstance(target.value, ast.Name):
+                    key_value = self._normalize_key_token(target.slice)
+                    if key_value is not None:
+                        self._key_alias_to_param[(target.value.id, key_value)] = rhs_param
+                        handled_alias = True
             else:
                 self._check_write(target)
 
@@ -394,6 +430,13 @@ class UseVisitor(ProjectVisitor):
                     self.use_map[param].current_aliases.add(node.target.id)
                 self.visit(node.value)
                 return
+        if isinstance(node.target, ast.Name):
+            constant_key = self._constant_key_value(node.value)
+            if constant_key is None:
+                self._constant_key_aliases.pop(node.target.id, None)
+            else:
+                self._constant_key_aliases[node.target.id] = constant_key
+
         rhs_param = None
         if isinstance(node.value, ast.Name) and node.value.id in self.alias_to_param:
             rhs_param = self.alias_to_param[node.value.id]
@@ -499,13 +542,13 @@ class UseVisitor(ProjectVisitor):
                 self._mark_non_forward(param_name)
             self.generic_visit(node)
             return
-        key_value = None
-        if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
-            key_value = node.slice.value
+        key_value = self._normalize_key_token(node.slice)
         if key_value is None:
             if node.value.id in self.alias_to_param:
                 param_name = self.alias_to_param[node.value.id]
                 self._mark_non_forward(param_name)
+                self.use_map[param_name].unknown_key_carrier = True
+            self._mark_unknown_key_carrier(node.value.id)
             self.visit(node.slice)
             return
         key = (node.value.id, key_value)
@@ -513,6 +556,8 @@ class UseVisitor(ProjectVisitor):
             if node.value.id in self.alias_to_param:
                 param_name = self.alias_to_param[node.value.id]
                 self._mark_non_forward(param_name)
+                self.use_map[param_name].unknown_key_carrier = True
+            self._mark_unknown_key_carrier(node.value.id)
             self.visit(node.slice)
             return
         param_name = self._key_alias_to_param[key]

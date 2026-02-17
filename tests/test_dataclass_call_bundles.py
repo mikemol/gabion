@@ -78,3 +78,43 @@ def build(alpha, beta, gamma):
         parse_failure_witnesses=parse_failure_witnesses,
     )
     assert ("alpha", "beta", "gamma") in bundles
+
+
+def test_dataclass_call_bundles_support_literal_star_args(tmp_path: Path) -> None:
+    _iter_dataclass_call_bundles, _, _ = _load()
+    source = tmp_path / "starred.py"
+    source.write_text(
+        "from dataclasses import dataclass\n"
+        "@dataclass\n"
+        "class Payload:\n"
+        "    x: int\n"
+        "    y: int\n"
+        "def build():\n"
+        "    Payload(*[1, 2])\n"
+        "    Payload(**{'x': 1, 'y': 2})\n"
+    )
+    first_witnesses: list[dict[str, object]] = []
+    first = _iter_dataclass_call_bundles(source, parse_failure_witnesses=first_witnesses)
+    second_witnesses: list[dict[str, object]] = []
+    second = _iter_dataclass_call_bundles(source, parse_failure_witnesses=second_witnesses)
+    assert ("x", "y") in first
+    assert first == second
+    assert first_witnesses == second_witnesses == []
+
+
+def test_dataclass_call_bundles_emit_unresolved_starred_evidence(tmp_path: Path) -> None:
+    _iter_dataclass_call_bundles, _, _ = _load()
+    source = tmp_path / "dynamic_starred.py"
+    source.write_text(
+        "from dataclasses import dataclass\n"
+        "@dataclass\n"
+        "class Payload:\n"
+        "    x: int\n"
+        "    y: int\n"
+        "def build(values):\n"
+        "    Payload(*values)\n"
+    )
+    witnesses: list[dict[str, object]] = []
+    bundles = _iter_dataclass_call_bundles(source, parse_failure_witnesses=witnesses)
+    assert bundles == set()
+    assert any(w.get("reason") == "unresolved_starred_positional" for w in witnesses)
