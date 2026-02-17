@@ -3140,8 +3140,17 @@ def _execute_command_total(
         last_collection_report_flush_completed = -1
         phase_progress_signatures: dict[str, tuple[int, ...]] = {}
         phase_progress_last_flush_ns: dict[str, int] = {}
+        profiling_stage_ns: dict[str, int] = {
+            "server.analysis_call": 0,
+            "server.projection_emit": 0,
+        }
+        profiling_counters: dict[str, int] = {
+            "server.collection_resume_persist_calls": 0,
+            "server.projection_emit_calls": 0,
+        }
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
+            profiling_counters["server.collection_resume_persist_calls"] += 1
             nonlocal last_collection_resume_payload
             nonlocal semantic_progress_cumulative
             nonlocal last_collection_intro_signature
@@ -3337,6 +3346,7 @@ def _execute_command_total(
             nonlocal report_sections_cache_reason
             if not report_output_path or not projection_rows:
                 return
+            projection_started_ns = time.monotonic_ns()
             phase_signature = _projection_phase_signature(
                 phase,
                 groups_by_path,
@@ -3399,6 +3409,10 @@ def _execute_command_total(
                 witness_digest=report_section_witness_digest,
                 phases=phase_checkpoint_state,
             )
+            profiling_stage_ns["server.projection_emit"] += (
+                time.monotonic_ns() - projection_started_ns
+            )
+            profiling_counters["server.projection_emit_calls"] += 1
 
         if needs_analysis and file_paths_for_run is not None:
             bootstrap_collection_resume = collection_resume_payload
@@ -3412,6 +3426,7 @@ def _execute_command_total(
             _persist_collection_resume(bootstrap_collection_resume)
 
         if needs_analysis:
+            analysis_started_ns = time.monotonic_ns()
             analysis = execute_deps.analyze_paths_fn(
                 paths,
                 forest=forest,
@@ -3445,6 +3460,9 @@ def _execute_command_total(
                     if enable_phase_projection_checkpoints
                     else None
                 ),
+            )
+            profiling_stage_ns["server.analysis_call"] += (
+                time.monotonic_ns() - analysis_started_ns
             )
         else:
             analysis = AnalysisResult(
@@ -3500,6 +3518,18 @@ def _execute_command_total(
                     analysis_resume_total_files - analysis_resume_reused_files, 0
                 ),
             }
+        profiling_v1: JSONObject = {
+            "format_version": 1,
+            "server": {
+                "stage_ns": profiling_stage_ns,
+                "counters": profiling_counters,
+            },
+        }
+        if isinstance(analysis.profiling_v1, Mapping):
+            profiling_v1["analysis"] = {
+                str(key): analysis.profiling_v1[key] for key in analysis.profiling_v1
+            }
+        response["profiling_v1"] = profiling_v1
         if lint:
             response["lint_lines"] = analysis.lint_lines
 

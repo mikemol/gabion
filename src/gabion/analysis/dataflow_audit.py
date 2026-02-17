@@ -21,6 +21,7 @@ import json
 import hashlib
 import os
 import sys
+import time
 from collections import Counter, defaultdict, deque
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
@@ -444,6 +445,18 @@ class AnalysisResult:
     deadline_obligations: list[JSONObject] = field(default_factory=list)
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     forest_spec: ForestSpec | None = None
+    profiling_v1: JSONObject | None = None
+
+
+_ANALYSIS_PROFILING_FORMAT_VERSION = 1
+
+
+def _profiling_v1_payload(*, stage_ns: Mapping[str, int], counters: Mapping[str, int]) -> JSONObject:
+    return {
+        "format_version": _ANALYSIS_PROFILING_FORMAT_VERSION,
+        "stage_ns": {str(key): int(stage_ns[key]) for key in stage_ns},
+        "counters": {str(key): int(counters[key]) for key in counters},
+    }
 
 
 @dataclass
@@ -7469,6 +7482,23 @@ def _build_analysis_index(
         function_index_acc.by_qual[qual] = info
         function_index_acc.by_name[info.name].append(info)
     progress_since_emit = 0
+    profile_stage_ns: dict[str, int] = {
+        "analysis_index.parse_module": 0,
+        "analysis_index.function_index": 0,
+        "analysis_index.symbol_table": 0,
+        "analysis_index.class_index": 0,
+    }
+    profile_counters: Counter[str] = Counter(
+        {
+            "analysis_index.paths_total": len(ordered_paths),
+            "analysis_index.paths_hydrated": len(hydrated_paths),
+            "analysis_index.paths_parsed": 0,
+            "analysis_index.parse_errors": 0,
+        }
+    )
+
+    def _index_profile_payload() -> JSONObject:
+        return _profiling_v1_payload(stage_ns=profile_stage_ns, counters=profile_counters)
 
     def _emit_index_progress(*, force: bool = False) -> None:
         nonlocal progress_since_emit
@@ -7489,6 +7519,7 @@ def _build_analysis_index(
                 class_index=class_index,
                 index_cache_identity=index_cache_identity,
                 projection_cache_identity=projection_cache_identity,
+                profiling_v1=_index_profile_payload(),
             )
         )
 
@@ -7497,9 +7528,14 @@ def _build_analysis_index(
             check_deadline()
             if path in hydrated_paths:
                 continue
+            parse_started_ns = time.monotonic_ns()
             try:
                 tree = _parse_module_source(path)
             except _PARSE_MODULE_ERROR_TYPES as exc:
+                profile_stage_ns["analysis_index.parse_module"] += (
+                    time.monotonic_ns() - parse_started_ns
+                )
+                profile_counters["analysis_index.parse_errors"] += 1
                 _record_parse_failure_witness(
                     sink=parse_failure_witnesses,
                     path=path,
@@ -7519,6 +7555,11 @@ def _build_analysis_index(
                     error=exc,
                 )
                 continue
+            profile_stage_ns["analysis_index.parse_module"] += (
+                time.monotonic_ns() - parse_started_ns
+            )
+            profile_counters["analysis_index.paths_parsed"] += 1
+            function_started_ns = time.monotonic_ns()
             accumulate_function_index_for_tree_fn(
                 function_index_acc,
                 path,
@@ -7528,19 +7569,31 @@ def _build_analysis_index(
                 strictness=strictness,
                 transparent_decorators=transparent_decorators,
             )
+            profile_stage_ns["analysis_index.function_index"] += (
+                time.monotonic_ns() - function_started_ns
+            )
+            symbol_started_ns = time.monotonic_ns()
             _accumulate_symbol_table_for_tree(
                 symbol_table,
                 path,
                 tree,
                 project_root=project_root,
             )
+            profile_stage_ns["analysis_index.symbol_table"] += (
+                time.monotonic_ns() - symbol_started_ns
+            )
+            class_started_ns = time.monotonic_ns()
             _accumulate_class_index_for_tree(
                 class_index,
                 path,
                 tree,
                 project_root=project_root,
             )
+            profile_stage_ns["analysis_index.class_index"] += (
+                time.monotonic_ns() - class_started_ns
+            )
             hydrated_paths.add(path)
+            profile_counters["analysis_index.paths_hydrated"] = len(hydrated_paths)
             _emit_index_progress()
     except TimeoutExceeded:
         _emit_index_progress(force=True)
@@ -9567,6 +9620,7 @@ def _analyze_file_internal(
     config: AuditConfig | None = None,
     resume_state: Mapping[str, JSONValue] | None = None,
     on_progress: Callable[[JSONObject], None] | None = None,
+    on_profile: Callable[[JSONObject], None] | None = None,
     analyze_function_fn: Callable[..., tuple[dict[str, set[str]], list[CallArgs]]] | None = None,
 ) -> tuple[
     dict[str, list[set[str]]],
@@ -9578,13 +9632,36 @@ def _analyze_file_internal(
         analyze_function_fn = _analyze_function
     if config is None:
         config = AuditConfig()
+    profile_stage_ns: dict[str, int] = {
+        "file_scan.read_parse": 0,
+        "file_scan.parent_annotation": 0,
+        "file_scan.collect_functions": 0,
+        "file_scan.function_scan": 0,
+        "file_scan.resolve_local_calls": 0,
+        "file_scan.resolve_local_methods": 0,
+        "file_scan.grouping": 0,
+        "file_scan.propagation": 0,
+        "file_scan.bundle_sites": 0,
+    }
+    profile_counters: Counter[str] = Counter()
+    parse_started_ns = time.monotonic_ns()
     tree = ast.parse(path.read_text())
+    profile_stage_ns["file_scan.read_parse"] += time.monotonic_ns() - parse_started_ns
+    parent_started_ns = time.monotonic_ns()
     parent = ParentAnnotator()
     parent.visit(tree)
+    profile_stage_ns["file_scan.parent_annotation"] += (
+        time.monotonic_ns() - parent_started_ns
+    )
     parents = parent.parents
     is_test = _is_test_path(path)
 
+    collect_started_ns = time.monotonic_ns()
     funcs = _collect_functions(tree)
+    profile_stage_ns["file_scan.collect_functions"] += (
+        time.monotonic_ns() - collect_started_ns
+    )
+    profile_counters["file_scan.functions_total"] = len(funcs)
     fn_keys_in_file: set[str] = set()
     for function_node in funcs:
         check_deadline()
@@ -9611,20 +9688,31 @@ def _analyze_file_internal(
     def _emit_scan_progress() -> None:
         if on_progress is None:
             return
-        on_progress(
-            _serialize_file_scan_resume_state(
-                fn_use=fn_use,
-                fn_calls=fn_calls,
-                fn_param_orders=fn_param_orders,
-                fn_param_spans=fn_param_spans,
-                fn_names=fn_names,
-                fn_lexical_scopes=fn_lexical_scopes,
-                fn_class_names=fn_class_names,
-                opaque_callees=opaque_callees,
-            )
+        progress_payload = _serialize_file_scan_resume_state(
+            fn_use=fn_use,
+            fn_calls=fn_calls,
+            fn_param_orders=fn_param_orders,
+            fn_param_spans=fn_param_spans,
+            fn_names=fn_names,
+            fn_lexical_scopes=fn_lexical_scopes,
+            fn_class_names=fn_class_names,
+            opaque_callees=opaque_callees,
+        )
+        progress_payload["profiling_v1"] = _profiling_v1_payload(
+            stage_ns=profile_stage_ns,
+            counters=profile_counters,
+        )
+        on_progress(progress_payload)
+
+    def _emit_file_profile() -> None:
+        if on_profile is None:
+            return
+        on_profile(
+            _profiling_v1_payload(stage_ns=profile_stage_ns, counters=profile_counters)
         )
 
     try:
+        scan_started_ns = time.monotonic_ns()
         for f in funcs:
             check_deadline()
             class_name = _enclosing_class(f, parents)
@@ -9663,8 +9751,10 @@ def _analyze_file_internal(
             if scanned_since_emit >= _FILE_SCAN_PROGRESS_EMIT_INTERVAL:
                 _emit_scan_progress()
                 scanned_since_emit = 0
+        profile_stage_ns["file_scan.function_scan"] += time.monotonic_ns() - scan_started_ns
     except TimeoutExceeded:
         _emit_scan_progress()
+        _emit_file_profile()
         raise
     if scanned_since_emit > 0:
         _emit_scan_progress()
@@ -9699,6 +9789,7 @@ def _analyze_file_internal(
             effective_scope = effective_scope[:-1]
         return None
 
+    local_resolve_started_ns = time.monotonic_ns()
     for caller_key, calls in list(fn_calls.items()):
         check_deadline()
         resolved_calls: list[CallArgs] = []
@@ -9710,9 +9801,14 @@ def _analyze_file_internal(
             else:
                 resolved_calls.append(call)
         fn_calls[caller_key] = resolved_calls
+    profile_stage_ns["file_scan.resolve_local_calls"] += (
+        time.monotonic_ns() - local_resolve_started_ns
+    )
 
     class_bases = _collect_local_class_bases(tree, parents)
+    profile_counters["file_scan.class_bases_count"] = len(class_bases)
     if class_bases:
+        method_resolve_started_ns = time.monotonic_ns()
         local_functions = set(fn_use.keys())
 
         def _resolve_local_method(callee: str) -> str | None:
@@ -9737,10 +9833,17 @@ def _analyze_file_internal(
                         continue
                 resolved_calls.append(call)
             fn_calls[caller_key] = resolved_calls
+        profile_stage_ns["file_scan.resolve_local_methods"] += (
+            time.monotonic_ns() - method_resolve_started_ns
+        )
 
+    grouping_started_ns = time.monotonic_ns()
     groups_by_fn = {fn: _group_by_signature(use_map) for fn, use_map in fn_use.items()}
+    profile_stage_ns["file_scan.grouping"] += time.monotonic_ns() - grouping_started_ns
+    profile_counters["file_scan.functions_scanned"] = len(fn_use)
 
     if not recursive:
+        bundle_started_ns = time.monotonic_ns()
         bundle_sites_by_fn: dict[str, list[list[JSONObject]]] = {}
         for fn_key, bundles in groups_by_fn.items():
             check_deadline()
@@ -9748,8 +9851,11 @@ def _analyze_file_internal(
             bundle_sites_by_fn[fn_key] = [
                 _callsite_evidence_for_bundle(calls, bundle) for bundle in bundles
             ]
+        profile_stage_ns["file_scan.bundle_sites"] += time.monotonic_ns() - bundle_started_ns
+        _emit_file_profile()
         return groups_by_fn, fn_param_spans, bundle_sites_by_fn
 
+    propagation_started_ns = time.monotonic_ns()
     changed = True
     while changed:
         check_deadline()
@@ -9769,6 +9875,10 @@ def _analyze_file_internal(
             if combined != groups_by_fn.get(fn, []):
                 groups_by_fn[fn] = combined
                 changed = True
+    profile_stage_ns["file_scan.propagation"] += (
+        time.monotonic_ns() - propagation_started_ns
+    )
+    bundle_started_ns = time.monotonic_ns()
     bundle_sites_by_fn: dict[str, list[list[JSONObject]]] = {}
     for fn_key, bundles in groups_by_fn.items():
         check_deadline()
@@ -9776,6 +9886,8 @@ def _analyze_file_internal(
         bundle_sites_by_fn[fn_key] = [
             _callsite_evidence_for_bundle(calls, bundle) for bundle in bundles
         ]
+    profile_stage_ns["file_scan.bundle_sites"] += time.monotonic_ns() - bundle_started_ns
+    _emit_file_profile()
     return groups_by_fn, fn_param_spans, bundle_sites_by_fn
 
 
@@ -13984,6 +14096,7 @@ def _serialize_analysis_index_resume_payload(
     class_index: Mapping[str, ClassInfo],
     index_cache_identity: str,
     projection_cache_identity: str,
+    profiling_v1: Mapping[str, JSONValue] | None = None,
 ) -> JSONObject:
     hydrated_path_keys = sorted(
         _analysis_collection_resume_path_key(path) for path in hydrated_paths
@@ -14011,7 +14124,7 @@ def _serialize_analysis_index_resume_payload(
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
-    return {
+    payload: JSONObject = {
         "format_version": 1,
         "phase": "analysis_index_hydration",
         "resume_digest": resume_digest,
@@ -14031,6 +14144,9 @@ def _serialize_analysis_index_resume_payload(
             for qual, class_info in ordered_class_items
         },
     }
+    if isinstance(profiling_v1, Mapping):
+        payload["profiling_v1"] = {str(key): profiling_v1[key] for key in profiling_v1}
+    return payload
 
 
 def _load_analysis_index_resume_payload(
@@ -14460,6 +14576,7 @@ def _build_analysis_collection_resume_payload(
     completed_paths: set[Path],
     in_progress_scan_by_path: Mapping[Path, JSONObject],
     analysis_index_resume: Mapping[str, JSONValue] | None = None,
+    file_stage_timings_v1_by_path: Mapping[Path, Mapping[str, JSONValue]] | None = None,
 ) -> JSONObject:
     check_deadline()
     groups_payload: JSONObject = {}
@@ -14507,6 +14624,17 @@ def _build_analysis_collection_resume_payload(
             invariant_propositions
         ),
     }
+    if file_stage_timings_v1_by_path:
+        payload["file_stage_timings_v1_by_path"] = {
+            _analysis_collection_resume_path_key(path): {
+                str(key): value
+                for key, value in file_stage_timings_v1_by_path[path].items()
+            }
+            for path in sorted(
+                file_stage_timings_v1_by_path,
+                key=_analysis_collection_resume_path_key,
+            )
+        }
     if isinstance(analysis_index_resume, Mapping):
         payload["analysis_index_resume"] = {
             str(key): analysis_index_resume[key] for key in analysis_index_resume
@@ -15488,11 +15616,37 @@ def analyze_paths(
             file_paths=file_paths,
             include_invariant_propositions=include_invariant_propositions,
         )
+        file_stage_timings_v1_by_path: dict[Path, JSONObject] = {}
+        if isinstance(collection_resume, Mapping):
+            raw_stage_timings = collection_resume.get("file_stage_timings_v1_by_path")
+            if isinstance(raw_stage_timings, Mapping):
+                for path in file_paths:
+                    path_key = _analysis_collection_resume_path_key(path)
+                    raw_entry = raw_stage_timings.get(path_key)
+                    if isinstance(raw_entry, Mapping):
+                        file_stage_timings_v1_by_path[path] = {
+                            str(key): raw_entry[key] for key in raw_entry
+                        }
         forest_spec: ForestSpec | None = None
         planned_forest_spec_id: str | None = None
         ambiguity_witnesses: list[JSONObject] = []
         parse_failure_witnesses: list[JSONObject] = []
         analysis_index: AnalysisIndex | None = None
+        analysis_profile_stage_ns: dict[str, int] = {
+            "analysis.collection": 0,
+            "analysis.analysis_index": 0,
+            "analysis.forest": 0,
+            "analysis.edge": 0,
+            "analysis.post": 0,
+        }
+        analysis_profile_counters: Counter[str] = Counter(
+            {
+                "analysis.files_total": len(file_paths),
+                "analysis.files_completed": len(completed_paths),
+                "analysis.collection_progress_emits": 0,
+                "analysis.phase_progress_emits": 0,
+            }
+        )
 
         def _deadline_check(*, allow_frame_fallback: bool) -> None:
             forest_spec_id = None
@@ -15544,6 +15698,7 @@ def analyze_paths(
             nonlocal analysis_index
             nonlocal analysis_index_resume_payload
             if analysis_index is None:
+                index_started_ns = time.monotonic_ns()
                 def _on_analysis_index_progress(progress_payload: JSONObject) -> None:
                     nonlocal analysis_index_resume_payload
                     analysis_index_resume_payload = {
@@ -15570,6 +15725,9 @@ def analyze_paths(
                     decision_ignore_params=config.decision_ignore_params,
                     decision_require_tiers=config.decision_require_tiers,
                 )
+                analysis_profile_stage_ns["analysis.analysis_index"] += (
+                    time.monotonic_ns() - index_started_ns
+                )
             return analysis_index
 
         collection_progress_since_emit = 0
@@ -15585,6 +15743,7 @@ def analyze_paths(
             ):
                 return
             collection_progress_since_emit = 0
+            analysis_profile_counters["analysis.collection_progress_emits"] += 1
             on_collection_progress(
                 _build_analysis_collection_resume_payload(
                     groups_by_path=groups_by_path,
@@ -15594,6 +15753,7 @@ def analyze_paths(
                     completed_paths=completed_paths,
                     in_progress_scan_by_path=in_progress_scan_by_path,
                     analysis_index_resume=analysis_index_resume_payload,
+                    file_stage_timings_v1_by_path=file_stage_timings_v1_by_path,
                 )
             )
 
@@ -15604,12 +15764,14 @@ def analyze_paths(
         ) -> None:
             if on_phase_progress is None:
                 return
+            analysis_profile_counters["analysis.phase_progress_emits"] += 1
             on_phase_progress(
                 phase,
                 groups_by_path,
                 report_carrier,
             )
 
+        collection_started_ns = time.monotonic_ns()
         for path in file_paths:
             check_deadline()
             if path in completed_paths:
@@ -15623,12 +15785,18 @@ def analyze_paths(
                 in_progress_scan_by_path[path] = progress_state
                 _emit_collection_progress()
 
+            def _on_file_scan_profile(profile_payload: JSONObject) -> None:
+                file_stage_timings_v1_by_path[path] = {
+                    str(key): profile_payload[key] for key in profile_payload
+                }
+
             groups, spans, sites = _analyze_file_internal(
                 path,
                 recursive=recursive,
                 config=config,
                 resume_state=in_progress_scan_by_path.get(path),
                 on_progress=_on_file_scan_progress,
+                on_profile=_on_file_scan_profile,
             )
             groups_by_path[path] = groups
             param_spans_by_path[path] = spans
@@ -15644,8 +15812,12 @@ def analyze_paths(
                     )
                 )
             completed_paths.add(path)
+            analysis_profile_counters["analysis.files_completed"] = len(completed_paths)
             _emit_collection_progress(force=True)
 
+        analysis_profile_stage_ns["analysis.collection"] += (
+            time.monotonic_ns() - collection_started_ns
+        )
         _emit_phase_progress(
             "collection",
             report_carrier=ReportCarrier(
@@ -15668,6 +15840,7 @@ def analyze_paths(
                 ),
             )
 
+        forest_started_ns = time.monotonic_ns()
         if (
             include_bundle_forest
             or include_decision_surfaces
@@ -15741,6 +15914,9 @@ def analyze_paths(
             _materialize_ambiguity_virtual_set_spec(forest=forest)
             _emit_forest_phase_progress()
 
+        analysis_profile_stage_ns["analysis.forest"] += (
+            time.monotonic_ns() - forest_started_ns
+        )
         type_suggestions: list[str] = []
         type_ambiguities: list[str] = []
         type_callsite_evidence: list[str] = []
@@ -15766,6 +15942,7 @@ def analyze_paths(
                 ),
             )
 
+        edge_started_ns = time.monotonic_ns()
         if type_audit or type_audit_report:
             _deadline_check(allow_frame_fallback=False)
             type_suggestions, type_ambiguities, type_callsite_evidence = analyze_type_flow_repo_with_evidence(
@@ -15819,6 +15996,7 @@ def analyze_paths(
             _emit_edge_phase_progress()
 
         _emit_edge_phase_progress()
+        analysis_profile_stage_ns["analysis.edge"] += time.monotonic_ns() - edge_started_ns
 
         deadline_obligations: list[JSONObject] = []
         decision_surfaces: list[str] = []
@@ -15872,6 +16050,7 @@ def analyze_paths(
                 ),
             )
 
+        post_started_ns = time.monotonic_ns()
         if include_deadline_obligations:
             deadline_obligations = _collect_deadline_obligations(
                 file_paths,
@@ -16041,6 +16220,18 @@ def analyze_paths(
             _emit_post_phase_progress()
 
         _emit_post_phase_progress()
+        analysis_profile_stage_ns["analysis.post"] += time.monotonic_ns() - post_started_ns
+        profiling_v1 = _profiling_v1_payload(
+            stage_ns=analysis_profile_stage_ns,
+            counters=analysis_profile_counters,
+        )
+        profiling_v1["file_stage_timings_v1_by_path"] = {
+            _analysis_collection_resume_path_key(path): file_stage_timings_v1_by_path[path]
+            for path in sorted(
+                file_stage_timings_v1_by_path,
+                key=_analysis_collection_resume_path_key,
+            )
+        }
 
         return AnalysisResult(
             groups_by_path=groups_by_path,
@@ -16074,6 +16265,7 @@ def analyze_paths(
             deadline_obligations=deadline_obligations,
             parse_failure_witnesses=parse_failure_witnesses,
             forest_spec=forest_spec,
+            profiling_v1=profiling_v1,
         )
     except TimeoutExceeded:
         emit_collection_progress = locals().get("_emit_collection_progress")

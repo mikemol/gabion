@@ -1771,8 +1771,6 @@ def test_build_analysis_index_resumes_hydrated_payload(tmp_path: Path) -> None:
     assert baseline.symbol_table.imports == resumed.symbol_table.imports
     assert baseline.class_index.keys() == resumed.class_index.keys()
 
-
-
 def test_build_analysis_index_resume_stable_under_hydrated_path_reorder(tmp_path: Path) -> None:
     da = _load()
     module_a = tmp_path / "a.py"
@@ -1852,6 +1850,47 @@ def test_build_analysis_index_resume_misses_on_semantic_key_change(tmp_path: Pat
     )
     assert calls == 1
 
+def test_collection_resume_payload_persists_file_stage_timings() -> None:
+    da = _load()
+    payload = da._build_analysis_collection_resume_payload(
+        groups_by_path={},
+        param_spans_by_path={},
+        bundle_sites_by_path={},
+        invariant_propositions=[],
+        completed_paths=set(),
+        in_progress_scan_by_path={},
+        file_stage_timings_v1_by_path={
+            Path("a.py"): {
+                "format_version": 1,
+                "stage_ns": {"file_scan.read_parse": 11},
+                "counters": {"file_scan.functions_total": 1},
+            }
+        },
+    )
+    stored = payload.get("file_stage_timings_v1_by_path")
+    assert isinstance(stored, dict)
+    assert stored["a.py"]["stage_ns"]["file_scan.read_parse"] == 11
+
+
+def test_analyze_paths_emits_profiling_v1(tmp_path: Path) -> None:
+    da = _load()
+    sample = tmp_path / "sample.py"
+    _write(sample, "def f(a, b):\n    return a + b\n")
+    analysis = da.analyze_paths(
+        forest=da.Forest(),
+        paths=[tmp_path],
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_invariant_propositions=False,
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    assert isinstance(analysis.profiling_v1, dict)
+    assert analysis.profiling_v1.get("format_version") == 1
+    assert "file_stage_timings_v1_by_path" in analysis.profiling_v1
 
 def test_build_collection_resume_rejects_path_order_regression() -> None:
     da = _load()
