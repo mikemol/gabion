@@ -7,7 +7,7 @@ import tokenize
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from gabion.analysis.dataflow_audit import report_projection_spec_rows
 from gabion.analysis.projection_registry import REGISTERED_SPECS
@@ -659,9 +659,15 @@ def _section_node_id(path: str, anchor: str) -> str:
     return f"doc_section:{path}#{anchor}"
 
 
-def _emit_registry_sections(graph: ImpactIndexGraph) -> list[str]:
+def _emit_registry_sections(
+    graph: ImpactIndexGraph,
+    *,
+    rows: Iterable[dict[str, object]] | None = None,
+    specs: Iterable[Any] | None = None,
+) -> list[str]:
     section_ids: list[str] = []
-    for row in report_projection_spec_rows():
+    row_iter = rows if rows is not None else report_projection_spec_rows()
+    for row in row_iter:
         check_deadline()
         section_id = str(row.get("section_id") or "")
         if not section_id:
@@ -678,7 +684,8 @@ def _emit_registry_sections(graph: ImpactIndexGraph) -> list[str]:
             },
         )
         section_ids.append(node_id)
-    for spec in REGISTERED_SPECS.values():
+    spec_iter = specs if specs is not None else REGISTERED_SPECS.values()
+    for spec in spec_iter:
         check_deadline()
         key = f"projection:{spec.name}"
         node_id = graph.add_node(

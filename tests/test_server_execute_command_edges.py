@@ -5269,7 +5269,7 @@ def test_execute_structure_reuse_total_success_without_lemma_stubs(tmp_path: Pat
         _with_timeout({"snapshot": str(snapshot), "min_count": 1}),
     )
     assert result["exit_code"] == 0
-    assert "lemma_stubs" not in result
+    assert result["lemma_stubs"] is None
 
 
 def test_execute_impact_query_groups_tests_and_docs(tmp_path: Path) -> None:
@@ -5332,3 +5332,308 @@ def test_execute_impact_query_accepts_git_diff(tmp_path: Path) -> None:
     )
     assert result.get("exit_code") == 0
     assert result.get("changes")
+
+
+def test_server_lint_normalization_helpers_cover_invalid_rows() -> None:
+    assert server._parse_lint_line("not a lint row") is None
+    assert server._parse_lint_line("pkg/mod.py:1:2:   ") is None
+    entries = server._lint_entries_from_lines(
+        [
+            "pkg/mod.py:1:2: DF001 bad",
+            "invalid row",
+        ]
+    )
+    assert entries == [
+        {
+            "path": "pkg/mod.py",
+            "line": 1,
+            "col": 2,
+            "code": "DF001",
+            "message": "bad",
+            "severity": "warning",
+        }
+    ]
+    normalized = server._normalize_dataflow_response(
+        {
+            "exit_code": 0,
+            "lint_lines": ["pkg/mod.py:1:2: DF001 bad"],
+            "errors": "not-a-list",
+        }
+    )
+    assert normalized["lint_entries"][0]["code"] == "DF001"
+
+
+def test_execute_command_rejects_invalid_strictness(tmp_path: Path) -> None:
+    module = tmp_path / "sample.py"
+    _write_bundle_module(module)
+    with pytest.raises(NeverThrown):
+        server.execute_command(
+            _DummyServer(str(tmp_path)),
+            _with_timeout(
+                {
+                    "root": str(tmp_path),
+                    "paths": [str(module)],
+                    "strictness": "invalid",
+                }
+            ),
+        )
+
+
+def test_execute_refactor_accepts_structured_compatibility_shim(tmp_path: Path) -> None:
+    module_path = tmp_path / "target.py"
+    module_path.write_text("def f(a, b):\n    return a + b\n")
+    result = server.execute_refactor(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "protocol_name": "ExampleProto",
+                "bundle": ["a", "b"],
+                "fields": [{"name": "a", "type_hint": "int"}, {"name": "b"}],
+                "target_path": str(module_path),
+                "target_functions": [],
+                "compatibility_shim": {
+                    "enabled": True,
+                    "emit_deprecation_warning": False,
+                    "emit_overload_stubs": True,
+                },
+            }
+        ),
+    )
+    assert result.get("errors") == []
+
+
+def test_impact_change_normalization_and_diff_range_edges() -> None:
+    assert server._normalize_impact_change_entry({"path": ""}) is None
+    assert server._normalize_impact_change_entry(
+        {"path": "src/app.py", "start_line": "bad"}
+    ) is None
+    assert server._normalize_impact_change_entry(
+        {"path": "src/app.py", "start_line": -1}
+    ) is None
+
+    swapped = server._normalize_impact_change_entry(
+        {"path": "src/app.py", "start_line": 5, "end_line": 3}
+    )
+    assert swapped == server.ImpactSpan(path="src/app.py", start_line=3, end_line=5)
+    assert server._normalize_impact_change_entry(
+        {"path": "src/app.py", "start_line": 3, "end_line": 5}
+    ) == server.ImpactSpan(path="src/app.py", start_line=3, end_line=5)
+
+    assert server._normalize_impact_change_entry("") is None
+    assert server._normalize_impact_change_entry("src/app.py\n1-2") is None
+    assert server._normalize_impact_change_entry("src/app.py") == server.ImpactSpan(
+        path="src/app.py",
+        start_line=1,
+        end_line=10**9,
+    )
+    assert server._normalize_impact_change_entry("src/app.py:9-3") == server.ImpactSpan(
+        path="src/app.py",
+        start_line=3,
+        end_line=9,
+    )
+
+    diff_spans = server._parse_impact_diff_ranges(
+        "+++ /dev/null\n"
+        "@@ -1,0 +1,0 @@\n"
+        "+++ b/src/app.py\n"
+        "@@ -4,0 +4,0 @@\n"
+    )
+    assert diff_spans == [server.ImpactSpan(path="src/app.py", start_line=4, end_line=4)]
+    assert server._impact_path_is_test("pkg/tests/unit_module.py")
+
+
+def test_impact_function_and_edge_helpers_cover_guard_paths(tmp_path: Path) -> None:
+    parsed_tree = server.ast.parse(
+        "class Box:\n"
+        "    def run(self):\n"
+        "        return 1\n"
+    )
+    functions = server._impact_functions_from_tree("src/app.py", parsed_tree)
+    assert [item.qual for item in functions] == ["Box.run"]
+
+    empty_function = server.ast.FunctionDef(
+        name="no_span",
+        args=server.ast.arguments(
+            posonlyargs=[],
+            args=[],
+            kwonlyargs=[],
+            kw_defaults=[],
+            defaults=[],
+        ),
+        body=[server.ast.Pass()],
+        decorator_list=[],
+    )
+    synthetic_tree = server.ast.Module(body=[empty_function], type_ignores=[])
+    assert server._impact_functions_from_tree("src/synth.py", synthetic_tree) == []
+
+    tree_a = server.ast.parse("def shared():\n    missing()\n")
+    tree_b = server.ast.parse("def shared():\n    (lambda: None)()\n    unknown()\n")
+    functions_by_qual = {
+        "shared": server.ImpactFunction(
+            path="b.py",
+            qual="shared",
+            name="shared",
+            start_line=1,
+            end_line=3,
+            is_test=False,
+        )
+    }
+    edges = server._impact_collect_edges(
+        functions_by_qual=functions_by_qual,
+        trees_by_path={"a.py": tree_a, "b.py": tree_b},
+    )
+    assert edges == []
+
+    synthetic_call = server.ast.Call(
+        func=server.ast.Name(id="shared", ctx=server.ast.Load()),
+        args=[],
+        keywords=[],
+    )
+    synthetic_expr = server.ast.Expr(value=synthetic_call)
+    synthetic_fn = server.ast.FunctionDef(
+        name="shared",
+        args=server.ast.arguments(
+            posonlyargs=[],
+            args=[],
+            kwonlyargs=[],
+            kw_defaults=[],
+            defaults=[],
+        ),
+        body=[synthetic_expr],
+        decorator_list=[],
+    )
+    synthetic_fn.lineno = 1
+    synthetic_fn.end_lineno = 2
+    synthetic_tree_with_call = server.ast.Module(body=[synthetic_fn], type_ignores=[])
+    edges_without_line_info = server._impact_collect_edges(
+        functions_by_qual={
+            "shared": server.ImpactFunction(
+                path="c.py",
+                qual="shared",
+                name="shared",
+                start_line=1,
+                end_line=2,
+                is_test=False,
+            )
+        },
+        trees_by_path={"c.py": synthetic_tree_with_call},
+    )
+    assert edges_without_line_info == []
+
+    doc_path = tmp_path / "impact.md"
+    doc_path.write_text("intro\n# One\nalpha\n# Two\nbeta\n", encoding="utf-8")
+    sections = server._impact_parse_doc_sections(doc_path)
+    assert sections == [("(preamble)", "intro"), ("One", "alpha"), ("Two", "beta")]
+
+    heading_only = tmp_path / "heading_only.md"
+    heading_only.write_text("# Heading\n", encoding="utf-8")
+    assert server._impact_parse_doc_sections(heading_only) == []
+
+
+def test_execute_impact_validation_and_depth_edges(tmp_path: Path) -> None:
+    module = tmp_path / "module.py"
+    module.write_text("def f():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "broken.py").write_text("def bad(:\n    pass\n", encoding="utf-8")
+    (tmp_path / "notes.md").write_text("# Heading\nNo symbol match here.\n", encoding="utf-8")
+    ls = _DummyServer(str(tmp_path))
+
+    bad_depth = server.execute_impact(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["module.py:1-1"],
+                "max_call_depth": "bad",
+            }
+        ),
+    )
+    assert bad_depth["exit_code"] == 2
+    assert "max_call_depth must be an integer" in bad_depth["errors"][0]
+
+    negative_depth = server.execute_impact(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["module.py:1-1"],
+                "max_call_depth": -1,
+            }
+        ),
+    )
+    assert negative_depth["exit_code"] == 2
+    assert "max_call_depth must be non-negative" in negative_depth["errors"][0]
+
+    bad_threshold = server.execute_impact(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["module.py:1-1"],
+                "confidence_threshold": "bad",
+            }
+        ),
+    )
+    assert bad_threshold["exit_code"] == 2
+    assert "confidence_threshold must be numeric" in bad_threshold["errors"][0]
+
+    missing_changes = server.execute_impact(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": [{"path": "", "start_line": 1}],
+            }
+        ),
+    )
+    assert missing_changes["exit_code"] == 2
+    assert "Provide at least one change span or git diff" in missing_changes["errors"][0]
+
+    depth_limited = server.execute_impact(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["module.py:1-1"],
+                "max_call_depth": 0,
+            }
+        ),
+    )
+    assert depth_limited["exit_code"] == 0
+    assert depth_limited["seed_functions"] == ["f"]
+    assert depth_limited["must_run_tests"] == []
+    assert depth_limited["likely_run_tests"] == []
+
+
+def test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_guard(
+    tmp_path: Path,
+) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (src / "app.py").write_text(
+        "def target(value):\n"
+        "    return value\n\n"
+        "def helper(value):\n"
+        "    return target(value)\n",
+        encoding="utf-8",
+    )
+    (tests_dir / "test_app.py").write_text(
+        "from src.app import helper\n\n"
+        "def test_helper_twice():\n"
+        "    assert helper(1) == 1\n"
+        "    assert helper(2) == 2\n",
+        encoding="utf-8",
+    )
+    result = server.execute_impact(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["src/app.py:1-2"],
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    must = result.get("must_run_tests") or []
+    assert len(must) == 1

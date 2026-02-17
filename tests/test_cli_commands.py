@@ -24,8 +24,8 @@ def _cli_env() -> dict[str, str]:
     }
 
 
-def _invoke(runner: CliRunner, args: list[str]):
-    return runner.invoke(cli.app, args, env=_cli_env())
+def _invoke(runner: CliRunner, args: list[str], *, input_text: str | None = None):
+    return runner.invoke(cli.app, args, env=_cli_env(), input=input_text)
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
@@ -118,6 +118,66 @@ def test_cli_impact_json(tmp_path: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert "must_run_tests" in payload
+
+
+@pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_cli_impact_reads_git_diff_file(tmp_path: Path) -> None:
+    module = tmp_path / "module.py"
+    module.write_text("def f():\n    return 1\n")
+    diff_path = tmp_path / "changes.diff"
+    diff_path.write_text(
+        "diff --git a/module.py b/module.py\n"
+        "+++ b/module.py\n"
+        "@@ -1,1 +1,2 @@\n"
+        " def f():\n"
+        "+    return 2\n"
+    )
+
+    runner = CliRunner()
+    result = _invoke(
+        runner,
+        [
+            "impact",
+            "--git-diff",
+            str(diff_path),
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["changes"][0]["path"] == "module.py"
+
+
+@pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_cli_impact_reads_git_diff_stdin(tmp_path: Path) -> None:
+    module = tmp_path / "module.py"
+    module.write_text("def f():\n    return 1\n")
+    diff_text = (
+        "diff --git a/module.py b/module.py\n"
+        "+++ b/module.py\n"
+        "@@ -1,1 +1,2 @@\n"
+        " def f():\n"
+        "+    return 2\n"
+    )
+
+    runner = CliRunner()
+    result = _invoke(
+        runner,
+        [
+            "impact",
+            "--git-diff",
+            "-",
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+        input_text=diff_text,
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["changes"][0]["path"] == "module.py"
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app

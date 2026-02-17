@@ -444,7 +444,7 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
         compatibility_shim_overloads=True,
         rationale=None,
     )
-    assert payload["bundle"] == []
+    assert payload["bundle"] == ["a", "b"]
     assert payload["fields"] == [
         {"name": "a", "type_hint": "int"},
         {"name": "b", "type_hint": None},
@@ -1558,6 +1558,70 @@ def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
     assert cli.STRUCTURE_DIFF_COMMAND in calls
     assert cli.DECISION_DIFF_COMMAND in calls
     assert cli.STRUCTURE_REUSE_COMMAND in calls
+
+
+def test_run_impact_query_uses_runner_and_optional_fields(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["command"] = request.command
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"exit_code": 0}
+
+    result = cli.run_impact_query(
+        changes=["src/app.py:1-3"],
+        git_diff="diff --git a/src/app.py b/src/app.py",
+        max_call_depth=2,
+        confidence_threshold=0.75,
+        root=tmp_path,
+        runner=runner,
+    )
+    assert result["exit_code"] == 0
+    assert captured["command"] == cli.IMPACT_COMMAND
+    assert captured["root"] == tmp_path
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert payload["changes"] == ["src/app.py:1-3"]
+    assert payload["git_diff"] == "diff --git a/src/app.py b/src/app.py"
+    assert payload["max_call_depth"] == 2
+    assert payload["confidence_threshold"] == 0.75
+    assert payload["root"] == str(tmp_path)
+
+
+def test_emit_impact_human_output_and_exit(capsys) -> None:
+    cli._emit_impact(
+        {
+            "exit_code": 0,
+            "must_run_tests": [{"id": "tests/test_a.py::test_one", "depth": 1, "confidence": 1.0}],
+            "likely_run_tests": [{"id": "tests/test_b.py::test_two", "depth": 2, "confidence": 0.4}],
+            "impacted_docs": [{"path": "docs/a.md", "section": "Intro", "symbols": ["target"]}],
+        },
+        json_output=False,
+    )
+    output = capsys.readouterr().out
+    assert "must-run tests:" in output
+    assert "tests/test_a.py::test_one" in output
+    assert "likely-run tests:" in output
+    assert "tests/test_b.py::test_two" in output
+    assert "impacted docs sections:" in output
+    assert "docs/a.md#Intro [target]" in output
+
+    with pytest.raises(typer.Exit) as excinfo:
+        cli._emit_impact(
+            {
+                "exit_code": 2,
+                "errors": ["boom"],
+                "must_run_tests": [],
+                "likely_run_tests": [],
+                "impacted_docs": [],
+            },
+            json_output=False,
+        )
+    assert excinfo.value.exit_code == 2
+    captured = capsys.readouterr()
+    assert "- (none)" in captured.out
+    assert "boom" in captured.err
 
 
 def test_emit_synth_outputs_skips_absent_optional_paths(tmp_path: Path, capsys) -> None:

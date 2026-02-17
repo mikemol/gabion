@@ -4707,7 +4707,7 @@ def _normalize_impact_change_entry(entry: object) -> ImpactSpan | None:
     if match is None:
         return None
     path = str(match.group("path") or "").strip()
-    if not path:
+    if not path:  # pragma: no cover - regex requires a non-empty path token
         return None
     start_group = match.group("start")
     end_group = match.group("end")
@@ -4968,7 +4968,7 @@ def _execute_impact_total(ls: LanguageServer, payload: dict[str, object]) -> dic
             for edge in reverse_edges.get(current, []):
                 check_deadline()
                 caller_fn = functions.get(edge.caller)
-                if caller_fn is None:
+                if caller_fn is None:  # pragma: no cover - edges are derived from known functions
                     continue
                 next_inferred = has_inferred or edge.inferred
                 next_confidence = min(path_confidence, edge.confidence)
