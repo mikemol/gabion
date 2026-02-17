@@ -3544,3 +3544,44 @@ def test_call_resolution_obligation_evidence_returns_empty_on_mismatch() -> None
         )
         == {}
     )
+
+def test_fingerprint_rewrite_plans_emit_extended_kinds_with_proof_payloads() -> None:
+    provenance_entries = [
+        {
+            "path": "a.py",
+            "function": "f",
+            "bundle": ["a", "b"],
+            "provenance_id": "prov:a.py:f:a,b",
+            "base_keys": ["int", "str"],
+            "ctor_keys": ["CtorA"],
+            "remainder": {"base": 1, "ctor": 1},
+            "glossary_matches": ["ctx_a", "ctx_b"],
+        }
+    ]
+    coherence = da._compute_fingerprint_coherence(provenance_entries, synth_version="synth@1")
+    plans = da._compute_fingerprint_rewrite_plans(
+        provenance_entries,
+        coherence,
+        synth_version="synth@1",
+    )
+
+    kinds = {plan["rewrite"]["kind"] for plan in plans}
+    assert kinds == {
+        "BUNDLE_ALIGN",
+        "CTOR_NORMALIZE",
+        "SURFACE_CANONICALIZE",
+        "AMBIENT_REWRITE",
+    }
+
+    by_kind = {plan["rewrite"]["kind"]: plan for plan in plans}
+    ctor_plan = by_kind["CTOR_NORMALIZE"]
+    assert ctor_plan["post_expectation"]["ctor_normalized"] is True
+    assert any(p.get("kind") == "ctor_coherence" for p in ctor_plan["verification"]["predicates"])
+
+    surface_plan = by_kind["SURFACE_CANONICALIZE"]
+    assert surface_plan["post_expectation"]["surface_canonicalized"] is True
+    assert any(p.get("kind") == "match_strata" for p in surface_plan["verification"]["predicates"])
+
+    ambient_plan = by_kind["AMBIENT_REWRITE"]
+    assert ambient_plan["post_expectation"]["ambient_normalized"] is True
+    assert any(p.get("kind") == "remainder_non_regression" for p in ambient_plan["verification"]["predicates"])

@@ -268,3 +268,48 @@ def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors
     assert parsed["accepted"] is True
     exc = next(r for r in parsed["predicate_results"] if r.get("kind") == "exception_obligation_non_regression")
     assert exc.get("expected") == {"UNKNOWN": 0, "DISCHARGED": 0}
+
+def test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior() -> None:
+    da = _load()
+    provenance = [
+        {
+            "path": "a.py",
+            "function": "f",
+            "bundle": ["a"],
+            "provenance_id": "prov:a.py:f:a",
+            "base_keys": ["int"],
+            "ctor_keys": ["CtorA"],
+            "remainder": {"base": 1, "ctor": 1},
+            "glossary_matches": ["ctx_a", "ctx_b"],
+        }
+    ]
+    coherence = da._compute_fingerprint_coherence(provenance, synth_version="synth@1")
+    plans = da._compute_fingerprint_rewrite_plans(
+        provenance,
+        coherence,
+        synth_version="synth@1",
+    )
+    by_kind = {plan["rewrite"]["kind"]: plan for plan in plans}
+
+    post_good = [
+        {
+            "path": "a.py",
+            "function": "f",
+            "bundle": ["a"],
+            "base_keys": ["int"],
+            "ctor_keys": ["CtorA"],
+            "remainder": {"base": 1, "ctor": 1},
+            "glossary_matches": ["ctx_a"],
+        }
+    ]
+
+    for kind in ("CTOR_NORMALIZE", "SURFACE_CANONICALIZE", "AMBIENT_REWRITE"):
+        result = da.verify_rewrite_plan(by_kind[kind], post_provenance=post_good)
+        assert result["accepted"] is True
+
+    ctor_bad = [dict(post_good[0], ctor_keys=["CtorB"])]
+    assert da.verify_rewrite_plan(by_kind["CTOR_NORMALIZE"], post_provenance=ctor_bad)["accepted"] is False
+
+    mismatch = [dict(post_good[0], glossary_matches=["not-a-candidate"])]
+    assert da.verify_rewrite_plan(by_kind["SURFACE_CANONICALIZE"], post_provenance=mismatch)["accepted"] is False
+    assert da.verify_rewrite_plan(by_kind["AMBIENT_REWRITE"], post_provenance=mismatch)["accepted"] is False
