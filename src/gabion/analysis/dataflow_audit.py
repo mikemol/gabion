@@ -377,6 +377,7 @@ class AuditConfig:
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = field(default_factory=dict)
     constructor_registry: TypeConstructorRegistry | None = None
+    fingerprint_seed_revision: str | None = None
     fingerprint_synth_min_occurrences: int = 0
     fingerprint_synth_version: str = "synth@1"
     fingerprint_synth_registry: SynthRegistry | None = None
@@ -4474,10 +4475,15 @@ def _collect_deadline_function_facts(
             paths,
             spec=_StageCacheSpec(
                 stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
-                cache_key=(
-                    "deadline_function_facts",
-                    str(project_root) if project_root is not None else "",
-                    tuple(sorted(ignore_params)),
+                cache_key=_parse_stage_cache_key(
+                    stage=_ParseModuleStage.DEADLINE_FUNCTION_FACTS,
+                    forest_spec_id=None,
+                    fingerprint_seed_revision=None,
+                    config_subset={
+                        "project_root": str(project_root) if project_root is not None else "",
+                        "ignore_params": list(_sorted_text(ignore_params)),
+                    },
+                    detail="deadline_function_facts",
                 ),
                 build=lambda tree, path: _deadline_function_facts_for_tree(
                     path,
@@ -4570,7 +4576,13 @@ def _collect_call_nodes_by_path(
             paths,
             spec=_StageCacheSpec(
                 stage=_ParseModuleStage.CALL_NODES,
-                cache_key=("call_nodes",),
+                cache_key=_parse_stage_cache_key(
+                    stage=_ParseModuleStage.CALL_NODES,
+                    forest_spec_id=None,
+                    fingerprint_seed_revision=None,
+                    config_subset={},
+                    detail="call_nodes",
+                ),
                 build=lambda tree, _path: _call_nodes_for_tree(tree),
             ),
             parse_failure_witnesses=parse_failure_witnesses,
@@ -7135,6 +7147,8 @@ class AnalysisIndex:
     parsed_modules_by_path: dict[Path, ast.Module] = field(default_factory=dict)
     module_parse_errors_by_path: dict[Path, Exception] = field(default_factory=dict)
     stage_cache_by_key: dict[Hashable, dict[Path, object]] = field(default_factory=dict)
+    index_cache_identity: str = ""
+    projection_cache_identity: str = ""
     transitive_callers: dict[str, set[str]] | None = None
     resolved_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
     resolved_transparent_call_edges: tuple["_ResolvedCallEdge", ...] | None = None
@@ -7206,6 +7220,80 @@ class _StageCacheSpec(Generic[_StageCacheValue]):
     build: Callable[[ast.Module, Path], _StageCacheValue]
 
 
+def _sorted_text(values: Iterable[str] | None) -> tuple[str, ...]:
+    if values is None:
+        return ()
+    cleaned = {str(value).strip() for value in values if str(value).strip()}
+    return tuple(sorted(cleaned))
+
+
+def _canonical_cache_identity(
+    *,
+    stage: Literal["parse", "index", "projection"],
+    forest_spec_id: str | None,
+    fingerprint_seed_revision: str | None,
+    config_subset: Mapping[str, JSONValue],
+) -> str:
+    payload: dict[str, JSONValue] = {
+        "stage": stage,
+        "forest_spec_id": str(forest_spec_id or ""),
+        "fingerprint_seed_revision": str(fingerprint_seed_revision or ""),
+        "config_subset": {str(key): config_subset[key] for key in sorted(config_subset)},
+    }
+    return hashlib.sha1(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _parse_stage_cache_key(
+    *,
+    stage: _ParseModuleStage,
+    forest_spec_id: str | None,
+    fingerprint_seed_revision: str | None,
+    config_subset: Mapping[str, JSONValue],
+    detail: Hashable,
+) -> tuple[str, str, str, Hashable]:
+    return (
+        "parse",
+        stage.value,
+        _canonical_cache_identity(
+            stage="parse",
+            forest_spec_id=forest_spec_id,
+            fingerprint_seed_revision=fingerprint_seed_revision,
+            config_subset=config_subset,
+        ),
+        detail,
+    )
+
+
+def _index_stage_cache_identity(
+    *,
+    forest_spec_id: str | None,
+    fingerprint_seed_revision: str | None,
+    config_subset: Mapping[str, JSONValue],
+) -> str:
+    return _canonical_cache_identity(
+        stage="index",
+        forest_spec_id=forest_spec_id,
+        fingerprint_seed_revision=fingerprint_seed_revision,
+        config_subset=config_subset,
+    )
+
+
+def _projection_stage_cache_identity(
+    *,
+    forest_spec_id: str | None,
+    fingerprint_seed_revision: str | None,
+    config_subset: Mapping[str, JSONValue],
+) -> str:
+    return _canonical_cache_identity(
+        stage="projection",
+        forest_spec_id=forest_spec_id,
+        fingerprint_seed_revision=fingerprint_seed_revision,
+        config_subset=config_subset,
+    )
+
+
 def _parse_module_source(path: Path) -> ast.Module:
     return ast.parse(path.read_text())
 
@@ -7261,10 +7349,39 @@ def _build_analysis_index(
     resume_payload: Mapping[str, JSONValue] | None = None,
     on_progress: Callable[[JSONObject], None] | None = None,
     accumulate_function_index_for_tree_fn: Callable[..., None] | None = None,
+    forest_spec_id: str | None = None,
+    fingerprint_seed_revision: str | None = None,
+    decision_ignore_params: set[str] | None = None,
+    decision_require_tiers: bool = False,
 ) -> AnalysisIndex:
     check_deadline()
     if accumulate_function_index_for_tree_fn is None:
         accumulate_function_index_for_tree_fn = _accumulate_function_index_for_tree
+    normalized_ignore = _sorted_text(ignore_params)
+    normalized_transparent = _sorted_text(transparent_decorators)
+    normalized_decision_ignore = _sorted_text(decision_ignore_params)
+    index_config_subset: dict[str, JSONValue] = {
+        "ignore_params": list(normalized_ignore),
+        "strictness": str(strictness),
+        "transparent_decorators": list(normalized_transparent),
+        "external_filter": bool(external_filter),
+        "decision_ignore_params": list(normalized_decision_ignore),
+        "decision_require_tiers": bool(decision_require_tiers),
+    }
+    index_cache_identity = _index_stage_cache_identity(
+        forest_spec_id=forest_spec_id,
+        fingerprint_seed_revision=fingerprint_seed_revision,
+        config_subset=index_config_subset,
+    )
+    projection_cache_identity = _projection_stage_cache_identity(
+        forest_spec_id=forest_spec_id,
+        fingerprint_seed_revision=fingerprint_seed_revision,
+        config_subset={
+            "strictness": str(strictness),
+            "external_filter": bool(external_filter),
+            "decision_require_tiers": bool(decision_require_tiers),
+        },
+    )
     ordered_paths = _iter_monotonic_paths(
         paths,
         source="_build_analysis_index.paths",
@@ -7277,6 +7394,8 @@ def _build_analysis_index(
     ) = _load_analysis_index_resume_payload(
         payload=resume_payload,
         file_paths=ordered_paths,
+        expected_index_cache_identity=index_cache_identity,
+        expected_projection_cache_identity=projection_cache_identity,
     )
     symbol_table.external_filter = external_filter
     function_index_acc = _FunctionIndexAccumulator(
@@ -7310,6 +7429,8 @@ def _build_analysis_index(
                 by_qual=function_index_acc.by_qual,
                 symbol_table=symbol_table,
                 class_index=class_index,
+                index_cache_identity=index_cache_identity,
+                projection_cache_identity=projection_cache_identity,
             )
         )
 
@@ -7372,6 +7493,8 @@ def _build_analysis_index(
         by_qual=function_index_acc.by_qual,
         symbol_table=symbol_table,
         class_index=class_index,
+        index_cache_identity=index_cache_identity,
+        projection_cache_identity=projection_cache_identity,
     )
 
 
@@ -7473,7 +7596,8 @@ def _analysis_index_stage_cache(
         stage=spec.stage,
         parse_failure_witnesses=parse_failure_witnesses,
     )
-    cache = analysis_index.stage_cache_by_key.setdefault(spec.cache_key, {})
+    scoped_cache_key = (analysis_index.index_cache_identity, spec.cache_key)
+    cache = analysis_index.stage_cache_by_key.setdefault(scoped_cache_key, {})
     results: dict[Path, _StageCacheValue | None] = {}
     for path in paths:
         check_deadline()
@@ -11616,7 +11740,13 @@ def _collect_config_bundles(
             paths,
             spec=_StageCacheSpec(
                 stage=_ParseModuleStage.CONFIG_FIELDS,
-                cache_key=("config_fields",),
+                cache_key=_parse_stage_cache_key(
+                    stage=_ParseModuleStage.CONFIG_FIELDS,
+                    forest_spec_id=None,
+                    fingerprint_seed_revision=None,
+                    config_subset={},
+                    detail="config_fields",
+                ),
                 build=lambda tree, path: _iter_config_fields(
                     path,
                     tree=tree,
@@ -11686,9 +11816,14 @@ def _collect_dataclass_registry(
             paths,
             spec=_StageCacheSpec(
                 stage=_ParseModuleStage.DATACLASS_REGISTRY,
-                cache_key=(
-                    "dataclass_registry",
-                    str(project_root) if project_root is not None else "",
+                cache_key=_parse_stage_cache_key(
+                    stage=_ParseModuleStage.DATACLASS_REGISTRY,
+                    forest_spec_id=None,
+                    fingerprint_seed_revision=None,
+                    config_subset={
+                        "project_root": str(project_root) if project_root is not None else "",
+                    },
+                    detail="dataclass_registry",
                 ),
                 build=lambda tree, path: _dataclass_registry_for_tree(
                     path,
@@ -13800,6 +13935,8 @@ def _serialize_analysis_index_resume_payload(
     by_qual: Mapping[str, FunctionInfo],
     symbol_table: SymbolTable,
     class_index: Mapping[str, ClassInfo],
+    index_cache_identity: str,
+    projection_cache_identity: str,
 ) -> JSONObject:
     hydrated_path_keys = sorted(
         _analysis_collection_resume_path_key(path) for path in hydrated_paths
@@ -13831,6 +13968,8 @@ def _serialize_analysis_index_resume_payload(
         "format_version": 1,
         "phase": "analysis_index_hydration",
         "resume_digest": resume_digest,
+        "index_cache_identity": index_cache_identity,
+        "projection_cache_identity": projection_cache_identity,
         "hydrated_paths": hydrated_path_keys,
         "hydrated_paths_count": len(hydrated_path_keys),
         "function_count": len(by_qual),
@@ -13851,6 +13990,8 @@ def _load_analysis_index_resume_payload(
     *,
     payload: Mapping[str, JSONValue] | None,
     file_paths: Sequence[Path],
+    expected_index_cache_identity: str | None = None,
+    expected_projection_cache_identity: str | None = None,
 ) -> tuple[set[Path], dict[str, FunctionInfo], SymbolTable, dict[str, ClassInfo]]:
     hydrated_paths: set[Path] = set()
     by_qual: dict[str, FunctionInfo] = {}
@@ -13859,6 +14000,14 @@ def _load_analysis_index_resume_payload(
     payload = payload_with_format(payload, format_version=1)
     if payload is None:
         return hydrated_paths, by_qual, symbol_table, class_index
+    if expected_index_cache_identity is not None:
+        resume_identity = str(payload.get("index_cache_identity", "") or "")
+        if resume_identity != expected_index_cache_identity:
+            return hydrated_paths, by_qual, symbol_table, class_index
+    if expected_projection_cache_identity is not None:
+        projection_identity = str(payload.get("projection_cache_identity", "") or "")
+        if projection_identity != expected_projection_cache_identity:
+            return hydrated_paths, by_qual, symbol_table, class_index
     allowed_paths = allowed_path_lookup(
         file_paths,
         key_fn=_analysis_collection_resume_path_key,
@@ -15293,6 +15442,7 @@ def analyze_paths(
             include_invariant_propositions=include_invariant_propositions,
         )
         forest_spec: ForestSpec | None = None
+        planned_forest_spec_id: str | None = None
         ambiguity_witnesses: list[JSONObject] = []
         parse_failure_witnesses: list[JSONObject] = []
         analysis_index: AnalysisIndex | None = None
@@ -15307,6 +15457,40 @@ def analyze_paths(
                 project_root=config.project_root,
                 forest_spec_id=str(forest_spec_id) if forest_spec_id else None,
                 allow_frame_fallback=allow_frame_fallback,
+            )
+
+        if (
+            include_bundle_forest
+            or include_decision_surfaces
+            or include_value_decision_surfaces
+            or include_lint_lines
+            or include_never_invariants
+            or include_wl_refinement
+            or include_deadline_obligations
+            or include_ambiguities
+        ):
+            planned_spec = build_forest_spec(
+                include_bundle_forest=True,
+                include_decision_surfaces=include_decision_surfaces,
+                include_value_decision_surfaces=include_value_decision_surfaces,
+                include_never_invariants=include_never_invariants,
+                include_wl_refinement=include_wl_refinement,
+                include_ambiguities=include_ambiguities,
+                include_deadline_obligations=include_deadline_obligations,
+                include_lint_findings=include_lint_lines,
+                include_all_sites=True,
+                ignore_params=config.ignore_params,
+                decision_ignore_params=config.decision_ignore_params
+                or config.ignore_params,
+                transparent_decorators=config.transparent_decorators,
+                strictness=config.strictness,
+                decision_tiers=config.decision_tiers,
+                require_tiers=config.decision_require_tiers,
+                external_filter=config.external_filter,
+            )
+            planned_forest_spec_id = str(
+                forest_spec_metadata(planned_spec).get("generated_by_forest_spec_id", "")
+                or ""
             )
 
         def _require_analysis_index() -> AnalysisIndex:
@@ -15334,6 +15518,10 @@ def analyze_paths(
                         if on_collection_progress is not None
                         else None
                     ),
+                    forest_spec_id=planned_forest_spec_id,
+                    fingerprint_seed_revision=config.fingerprint_seed_revision,
+                    decision_ignore_params=config.decision_ignore_params,
+                    decision_require_tiers=config.decision_require_tiers,
                 )
             return analysis_index
 
@@ -16161,6 +16349,7 @@ def _run_impl(
     synth_registry_path = fingerprint_section.get("synth_registry_path")
     fingerprint_registry: PrimeRegistry | None = None
     fingerprint_index: dict[Fingerprint, set[str]] = {}
+    fingerprint_seed_revision: str | None = None
     constructor_registry: TypeConstructorRegistry | None = None
     synth_registry: SynthRegistry | None = None
     # The [fingerprints] section mixes bundle specs with synth settings.
@@ -16170,6 +16359,11 @@ def _run_impl(
         for key, value in fingerprint_section.items()
         if not str(key).startswith("synth_")
     }
+    seed_revision = fingerprint_section.get("seed_revision")
+    if seed_revision is None:
+        seed_revision = fingerprint_section.get("registry_seed_revision")
+    if seed_revision is not None:
+        fingerprint_seed_revision = str(seed_revision)
     if fingerprint_spec:
         registry, index = build_fingerprint_registry(fingerprint_spec)
         if index:
@@ -16229,6 +16423,7 @@ def _run_impl(
         fingerprint_registry=fingerprint_registry,
         fingerprint_index=fingerprint_index,
         constructor_registry=constructor_registry,
+        fingerprint_seed_revision=fingerprint_seed_revision,
         fingerprint_synth_min_occurrences=synth_min_occurrences,
         fingerprint_synth_version=synth_version,
         fingerprint_synth_registry=synth_registry,
