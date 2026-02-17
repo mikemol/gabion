@@ -5,6 +5,36 @@ from typing import Iterable
 
 
 NodeKey = tuple[object, ...]
+NodeFingerprint = tuple[str, tuple[str, ...]]
+
+
+def _fingerprint_part(part: object) -> str:
+    if isinstance(part, str):
+        return f"str:{part}"
+    if isinstance(part, bool):
+        return f"bool:{part}"
+    if isinstance(part, int):
+        return f"int:{part}"
+    if isinstance(part, float):
+        return f"float:{part!r}"
+    if part is None:
+        return "none:null"
+    return f"repr:{part!r}"
+
+
+def fingerprint_identity(kind: str, key: NodeKey) -> NodeFingerprint:
+    return (kind, tuple(_fingerprint_part(part) for part in key))
+
+
+@dataclass(frozen=True)
+class _InternIdentity:
+    node_id: NodeId
+    fingerprint: NodeFingerprint
+
+
+def _canonicalize_intern_identity(kind: str, key: NodeKey) -> _InternIdentity:
+    node_id = NodeId(kind=kind, key=key)
+    return _InternIdentity(node_id=node_id, fingerprint=fingerprint_identity(kind, key))
 
 
 @dataclass(frozen=True)
@@ -17,6 +47,9 @@ class NodeId:
 
     def sort_key(self) -> tuple[str, tuple[str, ...]]:
         return (self.kind, tuple(str(part) for part in self.key))
+
+    def fingerprint(self) -> NodeFingerprint:
+        return fingerprint_identity(self.kind, self.key)
 
 
 @dataclass(frozen=True)
@@ -90,12 +123,20 @@ def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
 class Forest:
     nodes: dict[NodeId, Node] = field(default_factory=dict)
     alts: list[Alt] = field(default_factory=list)
+    _nodes_by_fingerprint: dict[NodeFingerprint, NodeId] = field(default_factory=dict)
 
     def _intern_node(self, node_id: NodeId, meta: dict[str, object] | None) -> NodeId:
-        if node_id in self.nodes:
-            return node_id
-        self.nodes[node_id] = Node(node_id=node_id, meta=meta or {})
-        return node_id
+        identity = _canonicalize_intern_identity(node_id.kind, node_id.key)
+        existing = self._nodes_by_fingerprint.get(identity.fingerprint)
+        if existing is not None:
+            return existing
+        self.nodes[identity.node_id] = Node(node_id=identity.node_id, meta=meta or {})
+        self._nodes_by_fingerprint[identity.fingerprint] = identity.node_id
+        return identity.node_id
+
+    def has_node(self, kind: str, key: NodeKey) -> bool:
+        identity = _canonicalize_intern_identity(kind, key)
+        return identity.fingerprint in self._nodes_by_fingerprint
 
     def add_file_site(self, path: str) -> NodeId:
         key = (path,)
@@ -125,7 +166,7 @@ class Forest:
         meta: dict[str, object] = {"path": path, "qual": qual}
         if span is not None:
             meta["span"] = list(span)
-        existed = node_id in self.nodes
+        existed = self.has_node(node_id.kind, node_id.key)
         site_id = self._intern_node(node_id, meta)
         if not existed:
             self.add_alt("FunctionSiteInFile", (site_id, file_id), evidence={"path": path})
@@ -152,7 +193,7 @@ class Forest:
         }
         if span is not None:
             meta["span"] = list(span)
-        existed = node_id in self.nodes
+        existed = self.has_node(node_id.kind, node_id.key)
         suite_id = self._intern_node(node_id, meta)
         if not existed:
             func_id = self.add_site(path, qual)

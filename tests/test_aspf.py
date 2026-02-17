@@ -135,3 +135,16 @@ def test_add_alt_requires_deadline_clock_scope() -> None:
 
     with pytest.raises(NeverThrown):
         Context().run(_run)
+
+
+def test_node_intern_uses_fingerprint_identity_with_legacy_keys() -> None:
+    forest = Forest()
+
+    first = forest.add_node("Sentinel", (1, True, "1"))
+    second = forest.add_node("Sentinel", (1, True, "1"))
+
+    assert first == second
+    assert len(forest.nodes) == 1
+    assert forest.has_node("Sentinel", (1, True, "1"))
+
+

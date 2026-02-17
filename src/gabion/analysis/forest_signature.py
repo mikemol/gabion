@@ -24,14 +24,28 @@ class ForestSignature:
 
 
 def build_forest_signature(forest: Forest) -> dict[str, JSONValue]:
+    return build_forest_signature_payload(forest)
+
+
+def build_forest_signature_payload(
+    forest: Forest,
+    *,
+    include_legacy_intern: bool = True,
+    include_fingerprint_intern: bool = False,
+) -> dict[str, JSONValue]:
     check_deadline()
     nodes = sorted(forest.nodes.keys(), key=lambda node_id: node_id.sort_key())
     node_intern: list[list[JSONValue]] = []
+    fingerprint_intern: list[list[JSONValue]] = []
     node_index: dict[NodeId, int] = {}
     for idx, node_id in enumerate(nodes):
         check_deadline()
         node_index[node_id] = idx
-        node_intern.append([node_id.kind, _normalize_key(node_id.key)])
+        if include_legacy_intern:
+            node_intern.append([node_id.kind, _normalize_key(node_id.key)])
+        if include_fingerprint_intern:
+            fingerprint_kind, fingerprint_key = node_id.fingerprint()
+            fingerprint_intern.append([fingerprint_kind, list(fingerprint_key)])
 
     alt_kinds = sorted({alt.kind for alt in forest.alts})
     alt_kind_index = {kind: idx for idx, kind in enumerate(alt_kinds)}
@@ -43,12 +57,17 @@ def build_forest_signature(forest: Forest) -> dict[str, JSONValue]:
         inputs = [node_index[node_id] for node_id in alt.inputs]
         alt_edges.append([kind_idx, inputs])
 
+    nodes_payload: dict[str, JSONValue] = {
+        "count": len(nodes),
+    }
+    if include_legacy_intern:
+        nodes_payload["intern"] = node_intern
+    if include_fingerprint_intern:
+        nodes_payload["intern_fingerprint"] = fingerprint_intern
+
     signature = ForestSignature(
         version=1,
-        nodes={
-            "intern": node_intern,
-            "count": len(node_intern),
-        },
+        nodes=nodes_payload,
         alts={
             "kinds": alt_kinds,
             "edges": alt_edges,
