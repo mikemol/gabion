@@ -15621,12 +15621,15 @@ def analyze_paths(
             raw_stage_timings = collection_resume.get("file_stage_timings_v1_by_path")
             if isinstance(raw_stage_timings, Mapping):
                 for path in file_paths:
+                    check_deadline()
                     path_key = _analysis_collection_resume_path_key(path)
                     raw_entry = raw_stage_timings.get(path_key)
                     if isinstance(raw_entry, Mapping):
-                        file_stage_timings_v1_by_path[path] = {
-                            str(key): raw_entry[key] for key in raw_entry
-                        }
+                        normalized_entry: JSONObject = {}
+                        for key, value in raw_entry.items():
+                            check_deadline()
+                            normalized_entry[str(key)] = value
+                        file_stage_timings_v1_by_path[path] = normalized_entry
         forest_spec: ForestSpec | None = None
         planned_forest_spec_id: str | None = None
         ambiguity_witnesses: list[JSONObject] = []
