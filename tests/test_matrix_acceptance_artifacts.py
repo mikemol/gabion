@@ -41,6 +41,14 @@ def _write_sample_module(path: Path) -> None:
         "    except Exception:\n"
         "        return 0\n"
         "    return 1\n"
+        "\n"
+        "def typed_mismatch(x: int) -> int:\n"
+        "    try:\n"
+        "        if x:\n"
+        "            raise ValueError('boom')\n"
+        "    except CustomError:\n"
+        "        return 0\n"
+        "    return 1\n"
     )
 
 def _write_config(path: Path) -> None:
@@ -169,7 +177,7 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     handledness = json.loads(bytes_a["handledness"])
     assert isinstance(handledness, list) and handledness
     handled_entry = handledness[0]
-    for field in ("handledness_id", "exception_path_id", "site", "handler_kind", "handler_boundary", "environment", "core", "result"):
+    for field in ("handledness_id", "exception_path_id", "site", "handler_kind", "handler_boundary", "handler_types", "type_compatibility", "environment", "core", "result"):
         assert field in handled_entry
 
     # Evidence linkage: IDs referenced by higher-level artifacts must exist.
@@ -201,8 +209,15 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
         assert exception_id in exception_ids
         obligation = obligations_by_id.get(exception_id)
         assert obligation is not None
-        assert obligation.get("status") == "HANDLED"
         assert str(obligation.get("witness_ref")) == str(witness.get("handledness_id"))
+        if witness.get("result") == "HANDLED":
+            assert obligation.get("status") == "HANDLED"
+        else:
+            assert witness.get("result") == "UNKNOWN"
+            assert obligation.get("status") == "UNKNOWN"
+
+    assert any(witness.get("result") == "HANDLED" for witness in handledness)
+    assert any(witness.get("result") == "UNKNOWN" for witness in handledness)
 
     dead = [entry for entry in exception_obligations if entry.get("status") == "DEAD"]
     assert dead

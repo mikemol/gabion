@@ -473,3 +473,42 @@ def test_execute_synthesis_minimal_payload() -> None:
 def test_execute_refactor_invalid_payload() -> None:
     result = server.execute_refactor(None, _with_timeout({}))
     assert result["errors"]
+
+
+
+def test_execute_command_emits_typed_handledness_to_lsp_response(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text(
+        "def handled(x):\n"
+        "    try:\n"
+        "        raise ValueError(x)\n"
+        "    except Exception:\n"
+        "        return 0\n"
+        "\n"
+        "def typed_unknown(x):\n"
+        "    try:\n"
+        "        raise ValueError(x)\n"
+        "    except CustomError:\n"
+        "        return 0\n"
+        "    return 1\n"
+    )
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_command(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "fingerprint_exception_obligations_json": "-",
+                "fingerprint_handledness_json": "-",
+            }
+        ),
+    )
+    obligations = result.get("fingerprint_exception_obligations", [])
+    handledness = result.get("fingerprint_handledness", [])
+    assert obligations
+    assert handledness
+    assert any(entry.get("status") == "HANDLED" for entry in obligations)
+    assert any(entry.get("status") == "UNKNOWN" for entry in obligations)
+    assert any(entry.get("result") == "HANDLED" for entry in handledness)
+    assert any(entry.get("result") == "UNKNOWN" for entry in handledness)

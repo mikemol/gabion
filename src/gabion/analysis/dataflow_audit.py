@@ -149,7 +149,9 @@ from .dataflow_decision_surfaces import (
     summarize_rewrite_plans as _ds_summarize_rewrite_plans,
 )
 from .dataflow_exception_obligations import (
+    exception_handler_compatibility as _exc_exception_handler_compatibility,
     exception_param_names as _exc_exception_param_names,
+    handler_type_names as _exc_handler_type_names,
     exception_type_name as _exc_exception_type_name,
     handler_is_broad as _exc_handler_is_broad,
     handler_label as _exc_handler_label,
@@ -3583,6 +3585,26 @@ def _exception_param_names(expr: ast.AST | None, params: set[str]) -> list[str]:
 def _exception_type_name(expr: ast.AST | None) -> str | None:
     return _exc_exception_type_name(expr, decorator_name=_decorator_name)
 
+
+def _handler_type_names(handler_type: ast.AST | None) -> tuple[str, ...]:
+    return _exc_handler_type_names(
+        handler_type,
+        decorator_name=_decorator_name,
+        check_deadline=check_deadline,
+    )
+
+
+def _exception_handler_compatibility(
+    exception_name: str | None,
+    handler_type: ast.AST | None,
+) -> str:
+    return _exc_exception_handler_compatibility(
+        exception_name,
+        handler_type,
+        decorator_name=_decorator_name,
+        check_deadline=check_deadline,
+    )
+
 def _exception_path_id(
     *,
     path: str,
@@ -3798,18 +3820,39 @@ def _collect_handledness_witnesses(
             handledness_id = f"handled:{exception_id}"
             handler_kind = None
             handler_boundary = None
+            compatibility = "incompatible"
             if try_node is not None:
-                handler = next(
-                    (h for h in try_node.handlers if _handler_is_broad(h)), None
-                )
-                if handler is not None:
+                unknown_handler: ast.ExceptHandler | None = None
+                for handler in try_node.handlers:
+                    check_deadline()
+                    compatibility = _exception_handler_compatibility(
+                        exception_name,
+                        handler.type,
+                    )
+                    if compatibility == "compatible":
+                        handler_kind = "catch"
+                        handler_boundary = _handler_label(handler)
+                        break
+                    if compatibility == "unknown" and unknown_handler is None:
+                        unknown_handler = handler
+                if handler_kind is None and unknown_handler is not None:
                     handler_kind = "catch"
-                    handler_boundary = _handler_label(handler)
+                    handler_boundary = _handler_label(unknown_handler)
+                    compatibility = "unknown"
             if handler_kind is None and exception_name == "SystemExit":
                 handler_kind = "convert"
                 handler_boundary = "process exit"
+                compatibility = "compatible"
             if handler_kind is None:
                 continue
+            witness_result = "HANDLED" if compatibility == "compatible" else "UNKNOWN"
+            handler_type_names: tuple[str, ...] = ()
+            if try_node is not None and handler_kind == "catch":
+                for handler in try_node.handlers:
+                    check_deadline()
+                    if _handler_label(handler) == handler_boundary:
+                        handler_type_names = _handler_type_names(handler.type)
+                        break
             witnesses.append(
                 {
                     "handledness_id": handledness_id,
@@ -3821,13 +3864,15 @@ def _collect_handledness_witnesses(
                     },
                     "handler_kind": handler_kind,
                     "handler_boundary": handler_boundary,
+                    "handler_types": list(handler_type_names),
+                    "type_compatibility": compatibility,
                     "environment": {},
                     "core": (
                         [f"enclosed by {handler_boundary}"]
                         if handler_kind == "catch"
                         else ["converted to process exit"]
                     ),
-                    "result": "HANDLED",
+                    "result": witness_result,
                 }
             )
     return sorted(
@@ -3949,11 +3994,19 @@ def _collect_exception_obligations(
             remainder: JSONObject | None = {"exception_kind": kind}
             environment_ref: JSONObject | None = None
             if handled:
-                status = "HANDLED"
+                witness_result = str(handled.get("result", ""))
+                if witness_result == "HANDLED":
+                    status = "HANDLED"
+                    remainder = {}
+                else:
+                    if isinstance(remainder, dict):
+                        remainder["handledness_result"] = witness_result or "UNKNOWN"
+                        remainder["type_compatibility"] = str(
+                            handled.get("type_compatibility", "unknown")
+                        )
                 witness_ref = handled.get("handledness_id")
-                remainder = {}
                 environment_ref = handled.get("environment") or {}
-            else:
+            if status != "HANDLED":
                 env_entries = dead_env_map.get((path_value, function), {})
                 if env_entries:
                     env = {name: value for name, (value, _) in env_entries.items()}
