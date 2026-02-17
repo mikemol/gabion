@@ -181,7 +181,6 @@ def compute_fingerprint_rewrite_plans(
         bundle_key = site.bundle_key()
         coherence_entry = coherence_map.get(site.key())
         coherence_id = coherence_entry.get("coherence_id") if coherence_entry else None
-        plan_id = f"rewrite:{site.path}:{site.function}:{bundle_key}:glossary-ambiguity"
         candidates = ordered_or_sorted(
             set(str(m) for m in matches),
             source="_compute_fingerprint_rewrite_plans.candidates",
@@ -192,69 +191,211 @@ def compute_fingerprint_rewrite_plans(
                 site.key(),
                 {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0},
             )
-        plans.append(
+        pre_payload: JSONObject = {
+            "base_keys": entry.get("base_keys") or [],
+            "ctor_keys": entry.get("ctor_keys") or [],
+            "glossary_matches": matches,
+            "remainder": entry.get("remainder") or {},
+            "synth_version": synth_version,
+            **(
+                {"exception_obligations_summary": pre_exception_summary}
+                if pre_exception_summary is not None
+                else {}
+            ),
+        }
+        verification_predicates: list[JSONObject] = [
+            {"kind": "base_conservation", "expect": True},
+            {"kind": "ctor_coherence", "expect": True},
             {
-                "plan_id": plan_id,
+                "kind": "match_strata",
+                "expect": "exact",
+                "candidates": candidates,
+            },
+            {
+                "kind": "remainder_non_regression",
+                "expect": "no-new-remainder",
+            },
+            *(
+                [
+                    {
+                        "kind": "exception_obligation_non_regression",
+                        "expect": "XV1",
+                    }
+                ]
+                if include_exception_predicates
+                else []
+            ),
+        ]
+
+        def _make_plan(
+            *,
+            kind: str,
+            suffix: str,
+            selector: JSONObject,
+            parameters: JSONObject,
+            post_expectation: JSONObject,
+            predicates: list[JSONObject],
+        ) -> JSONObject:
+            return {
+                "plan_id": (
+                    f"rewrite:{site.path}:{site.function}:{bundle_key}:"
+                    f"glossary-ambiguity:{suffix}"
+                ),
                 "status": "UNVERIFIED",
                 "site": {
                     "path": site.path,
                     "function": site.function,
                     "bundle": list(site.bundle),
                 },
-                "pre": {
-                    "base_keys": entry.get("base_keys") or [],
-                    "ctor_keys": entry.get("ctor_keys") or [],
-                    "glossary_matches": matches,
-                    "remainder": entry.get("remainder") or {},
-                    "synth_version": synth_version,
-                    **(
-                        {"exception_obligations_summary": pre_exception_summary}
-                        if pre_exception_summary is not None
-                        else {}
-                    ),
-                },
+                "pre": dict(pre_payload),
                 "rewrite": {
-                    "kind": "BUNDLE_ALIGN",
-                    "selector": {"bundle": list(site.bundle)},
-                    "parameters": {"candidates": candidates},
+                    "kind": kind,
+                    "selector": selector,
+                    "parameters": parameters,
                 },
                 "evidence": {
                     "provenance_id": entry.get("provenance_id"),
                     "coherence_id": coherence_id,
                 },
-                "post_expectation": {
+                "post_expectation": post_expectation,
+                "verification": {
+                    "mode": "re-audit",
+                    "status": "UNVERIFIED",
+                    "predicates": predicates,
+                },
+            }
+
+        plans.append(
+            _make_plan(
+                kind="BUNDLE_ALIGN",
+                suffix="bundle-align",
+                selector={"bundle": list(site.bundle)},
+                parameters={"candidates": candidates},
+                post_expectation={
                     "match_strata": "exact",
                     "base_conservation": True,
                     "ctor_coherence": True,
                 },
-                "verification": {
-                    "mode": "re-audit",
-                    "status": "UNVERIFIED",
-                    "predicates": [
-                        {"kind": "base_conservation", "expect": True},
-                        {"kind": "ctor_coherence", "expect": True},
-                        {
-                            "kind": "match_strata",
-                            "expect": "exact",
-                            "candidates": candidates,
-                        },
-                        {
-                            "kind": "remainder_non_regression",
-                            "expect": "no-new-remainder",
-                        },
-                        *(
-                            [
-                                {
-                                    "kind": "exception_obligation_non_regression",
-                                    "expect": "XV1",
-                                }
-                            ]
-                            if include_exception_predicates
-                            else []
-                        ),
-                    ],
+                predicates=list(verification_predicates),
+            )
+        )
+
+        plans.append(
+            _make_plan(
+                kind="CTOR_NORMALIZE",
+                suffix="ctor-normalize",
+                selector={"bundle": list(site.bundle)},
+                parameters={
+                    "target_ctor_keys": list(entry.get("ctor_keys") or []),
+                    "candidates": candidates,
                 },
-            }
+                post_expectation={
+                    "ctor_normalized": True,
+                    "match_strata": "exact",
+                    "base_conservation": True,
+                },
+                predicates=[
+                    {"kind": "base_conservation", "expect": True},
+                    {"kind": "ctor_coherence", "expect": True},
+                    {
+                        "kind": "match_strata",
+                        "expect": "exact",
+                        "candidates": candidates,
+                    },
+                    {
+                        "kind": "remainder_non_regression",
+                        "expect": "no-new-remainder",
+                    },
+                    *(
+                        [
+                            {
+                                "kind": "exception_obligation_non_regression",
+                                "expect": "XV1",
+                            }
+                        ]
+                        if include_exception_predicates
+                        else []
+                    ),
+                ],
+            )
+        )
+
+        plans.append(
+            _make_plan(
+                kind="SURFACE_CANONICALIZE",
+                suffix="surface-canonicalize",
+                selector={"bundle": list(site.bundle), "glossary_matches": matches},
+                parameters={
+                    "canonical_candidate": candidates[0] if candidates else "",
+                    "candidates": candidates,
+                },
+                post_expectation={
+                    "match_strata": "exact",
+                    "surface_canonicalized": True,
+                    "base_conservation": True,
+                },
+                predicates=[
+                    {"kind": "base_conservation", "expect": True},
+                    {
+                        "kind": "match_strata",
+                        "expect": "exact",
+                        "candidates": candidates,
+                    },
+                    {
+                        "kind": "remainder_non_regression",
+                        "expect": "no-new-remainder",
+                    },
+                    *(
+                        [
+                            {
+                                "kind": "exception_obligation_non_regression",
+                                "expect": "XV1",
+                            }
+                        ]
+                        if include_exception_predicates
+                        else []
+                    ),
+                ],
+            )
+        )
+
+        plans.append(
+            _make_plan(
+                kind="AMBIENT_REWRITE",
+                suffix="ambient-rewrite",
+                selector={"bundle": list(site.bundle)},
+                parameters={
+                    "strategy": "context-explicit",
+                    "candidates": candidates,
+                },
+                post_expectation={
+                    "match_strata": "exact",
+                    "ambient_normalized": True,
+                    "base_conservation": True,
+                },
+                predicates=[
+                    {"kind": "base_conservation", "expect": True},
+                    {
+                        "kind": "match_strata",
+                        "expect": "exact",
+                        "candidates": candidates,
+                    },
+                    {
+                        "kind": "remainder_non_regression",
+                        "expect": "no-new-remainder",
+                    },
+                    *(
+                        [
+                            {
+                                "kind": "exception_obligation_non_regression",
+                                "expect": "XV1",
+                            }
+                        ]
+                        if include_exception_predicates
+                        else []
+                    ),
+                ],
+            )
         )
     return ordered_or_sorted(
         plans,
