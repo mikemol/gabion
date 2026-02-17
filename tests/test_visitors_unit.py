@@ -7,10 +7,17 @@ import pytest
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    from gabion.analysis.dataflow_audit import CallArgs, ParamUse, _call_context, _callee_name, _const_repr
+    from gabion.analysis.dataflow_audit import (
+        CallArgs,
+        ParamUse,
+        _call_context,
+        _callee_name,
+        _const_repr,
+        _normalize_key_expr,
+    )
     from gabion.analysis.visitors import ParentAnnotator, UseVisitor
 
-    return CallArgs, ParamUse, _call_context, _callee_name, _const_repr, ParentAnnotator, UseVisitor
+    return CallArgs, ParamUse, _call_context, _callee_name, _const_repr, _normalize_key_expr, ParentAnnotator, UseVisitor
 
 def _call_args_factory(**kwargs):
     CallArgs, *_ = _load()
@@ -22,7 +29,7 @@ def _make_visitor(
     *,
     return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
 ):
-    CallArgs, ParamUse, _call_context, _callee_name, _const_repr, ParentAnnotator, UseVisitor = _load()
+    CallArgs, ParamUse, _call_context, _callee_name, _const_repr, _normalize_key_expr, ParentAnnotator, UseVisitor = _load()
     annotator = ParentAnnotator()
     annotator.visit(tree)
     use_map = {
@@ -49,6 +56,7 @@ def _make_visitor(
         call_args_factory=_call_args_factory,
         call_context=_call_context,
         return_aliases=return_aliases,
+        normalize_key_expr=_normalize_key_expr,
     )
     return visitor, use_map, alias_to_param, call_args
 
@@ -226,3 +234,39 @@ def test_project_visitor_node_entry_respects_gas_meter() -> None:
                 with pytest.raises(TimeoutExceeded):
                     ParentAnnotator().visit(tree)
     assert meter.current == 1
+
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+def test_subscript_forwarding_normalizes_const_keys() -> None:
+    tree = ast.parse(
+        "def f(a, b):\n"
+        "    record = a\n"
+        "    KEY = 'key'\n"
+        "    IDX = 1\n"
+        "    PAIR = ('x', 1)\n"
+        "    record[KEY] = b\n"
+        "    record[IDX] = b\n"
+        "    record[PAIR] = b\n"
+        "    g(record['key'])\n"
+        "    h(record[1])\n"
+        "    i(record[('x', 1)])\n"
+    )
+    visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
+    visitor.visit(tree)
+    assert ("g", "arg[0]") in use_map["b"].direct_forward
+    assert ("h", "arg[0]") in use_map["b"].direct_forward
+    assert ("i", "arg[0]") in use_map["b"].direct_forward
+
+
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+def test_subscript_dynamic_key_marks_uncertainty() -> None:
+    tree = ast.parse(
+        "def f(a, b, k):\n"
+        "    record = a\n"
+        "    record[k] = b\n"
+        "    g(record[k])\n"
+    )
+    visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
+    visitor.visit(tree)
+    assert ("g", "arg[0]") not in use_map["b"].direct_forward
+    assert use_map["b"].unknown_key_carrier is True
+    assert use_map["b"].unknown_key_sites

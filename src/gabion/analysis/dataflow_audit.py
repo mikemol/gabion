@@ -298,6 +298,8 @@ class ParamUse:
     forward_sites: dict[tuple[str, str], set[tuple[int, int, int, int]]] = field(
         default_factory=dict
     )
+    unknown_key_carrier: bool = False
+    unknown_key_sites: set[tuple[int, int, int, int]] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
@@ -9081,6 +9083,44 @@ def _const_repr(node: ast.AST) -> str | None:
     return None
 
 
+def _normalize_key_expr(
+    node: ast.AST,
+    *,
+    const_bindings: Mapping[str, ast.AST],
+) -> Hashable | None:
+    """Normalize deterministic subscript key forms.
+
+    Recognizes literal string/int keys, constant-bound names resolving to
+    literals, and literal tuples composed from those forms.
+    """
+    check_deadline()
+    if isinstance(node, ast.Constant) and isinstance(node.value, (str, int)):
+        return ("literal", type(node.value).__name__, node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        try:
+            value = ast.literal_eval(node)
+        except _LITERAL_EVAL_ERROR_TYPES:
+            return None
+        if isinstance(value, int):
+            return ("literal", "int", value)
+        return None
+    if isinstance(node, ast.Name):
+        bound = const_bindings.get(node.id)
+        if bound is None:
+            return None
+        return _normalize_key_expr(bound, const_bindings=const_bindings)
+    if isinstance(node, ast.Tuple):
+        items: list[Hashable] = []
+        for elt in node.elts:
+            check_deadline()
+            normalized = _normalize_key_expr(elt, const_bindings=const_bindings)
+            if normalized is None:
+                return None
+            items.append(normalized)
+        return ("tuple", tuple(items))
+    return None
+
+
 def _type_from_const_repr(value: str) -> str | None:
     try:
         literal = ast.literal_eval(value)
@@ -9144,22 +9184,27 @@ def _analyze_function(
         call_args_factory=CallArgs,
         call_context=_call_context,
         return_aliases=return_aliases,
+        normalize_key_expr=_normalize_key_expr,
     )
     visitor.visit(fn)
     return use_map, call_args
 
 
-def _unused_params(use_map: dict[str, ParamUse]) -> set[str]:
+def _unused_params(use_map: dict[str, ParamUse]) -> tuple[set[str], set[str]]:
     check_deadline()
     unused: set[str] = set()
+    unknown_key_carriers: set[str] = set()
     for name, info in use_map.items():
         check_deadline()
         if info.non_forward:
             continue
         if info.direct_forward:
             continue
+        if info.unknown_key_carrier:
+            unknown_key_carriers.add(name)
+            continue
         unused.add(name)
-    return unused
+    return unused, unknown_key_carriers
 
 
 def _group_by_signature(use_map: dict[str, ParamUse]) -> list[set[str]]:
@@ -9696,6 +9741,7 @@ class FunctionInfo:
     annots: dict[str, str | None]
     calls: list[CallArgs]
     unused_params: set[str]
+    unknown_key_carriers: set[str] = field(default_factory=set)
     defaults: set[str] = field(default_factory=set)
     transparent: bool = True
     class_name: str | None = None
@@ -10100,7 +10146,7 @@ def _accumulate_function_index_for_tree(
             class_name=class_name,
             return_aliases=return_aliases,
         )
-        unused_params = _unused_params(use_map)
+        unused_params, unknown_key_carriers = _unused_params(use_map)
         value_params, value_reasons = _value_encoded_decision_params(fn, ignore_params)
         pos_args = [a.arg for a in (fn.args.posonlyargs + fn.args.args)]
         kwonly_args = [a.arg for a in fn.args.kwonlyargs]
@@ -10133,6 +10179,7 @@ def _accumulate_function_index_for_tree(
             defaults=_param_defaults(fn, ignore_params),
             calls=call_args,
             unused_params=unused_params,
+            unknown_key_carriers=unknown_key_carriers,
             transparent=_decorators_transparent(fn, transparent_decorators),
             class_name=class_name,
             scope=tuple(scopes),
@@ -11044,6 +11091,7 @@ def _analyze_unused_arg_flow_indexed(
         callee_param: str,
         arg_desc: str,
         *,
+        category: Literal["unused", "unknown_key_carrier"] = "unused",
         call: CallArgs | None = None,
     ) -> str:
         # dataflow-bundle: callee_info, caller
@@ -11051,9 +11099,15 @@ def _analyze_unused_arg_flow_indexed(
         if call is not None and call.span is not None:
             line, col, _, _ = call.span
             prefix = f"{caller.path.name}:{line + 1}:{col + 1}:{caller.name}"
+        if category == "unknown_key_carrier":
+            return (
+                f"{prefix} passes {arg_desc} to {callee_info.path.name}:{callee_info.name}.{callee_param} "
+                f"(unknown key carrier)"
+            )
         return (
             f"{prefix} passes {arg_desc} "
-            f"to unused {callee_info.path.name}:{callee_info.name}.{callee_param}"
+            f"to unused {callee_info.path.name}:{callee_info.name}.{callee_param} "
+            f"(no forwarding use)"
         )
 
     for edge in resolved_edges:
@@ -11061,7 +11115,7 @@ def _analyze_unused_arg_flow_indexed(
         info = edge.caller
         call = edge.call
         callee = edge.callee
-        if not callee.unused_params:
+        if not callee.unused_params and not callee.unknown_key_carriers:
             continue
         callee_params = callee.params
         mapped_params = set()
@@ -11087,13 +11141,18 @@ def _analyze_unused_arg_flow_indexed(
             if idx >= len(callee_params):
                 continue
             callee_param = callee_params[idx]
-            if callee_param in callee.unused_params:
+            if callee_param in callee.unused_params | callee.unknown_key_carriers:
                 smells.add(
                     _format(
                         info,
                         callee,
                         callee_param,
                         f"param {caller_param}",
+                        category=(
+                            "unknown_key_carrier"
+                            if callee_param in callee.unknown_key_carriers
+                            else "unused"
+                        ),
                         call=call,
                     )
                 )
@@ -11103,13 +11162,18 @@ def _analyze_unused_arg_flow_indexed(
             if idx >= len(callee_params):
                 continue
             callee_param = callee_params[idx]
-            if callee_param in callee.unused_params:
+            if callee_param in callee.unused_params | callee.unknown_key_carriers:
                 smells.add(
                     _format(
                         info,
                         callee,
                         callee_param,
                         f"non-constant arg at position {idx}",
+                        category=(
+                            "unknown_key_carrier"
+                            if callee_param in callee.unknown_key_carriers
+                            else "unused"
+                        ),
                         call=call,
                     )
                 )
@@ -11117,13 +11181,18 @@ def _analyze_unused_arg_flow_indexed(
             check_deadline()
             if kw not in callee_params:
                 continue
-            if kw in callee.unused_params:
+            if kw in callee.unused_params | callee.unknown_key_carriers:
                 smells.add(
                     _format(
                         info,
                         callee,
                         kw,
                         f"param {caller_param}",
+                        category=(
+                            "unknown_key_carrier"
+                            if kw in callee.unknown_key_carriers
+                            else "unused"
+                        ),
                         call=call,
                     )
                 )
@@ -11131,13 +11200,18 @@ def _analyze_unused_arg_flow_indexed(
             check_deadline()
             if kw not in callee_params:
                 continue
-            if kw in callee.unused_params:
+            if kw in callee.unused_params | callee.unknown_key_carriers:
                 smells.add(
                     _format(
                         info,
                         callee,
                         kw,
                         f"non-constant kw '{kw}'",
+                        category=(
+                            "unknown_key_carrier"
+                            if kw in callee.unknown_key_carriers
+                            else "unused"
+                        ),
                         call=call,
                     )
                 )
@@ -11145,26 +11219,36 @@ def _analyze_unused_arg_flow_indexed(
             if len(call.star_pos) == 1:
                 for idx, param in remaining:
                     check_deadline()
-                    if param in callee.unused_params:
+                    if param in callee.unused_params | callee.unknown_key_carriers:
                         smells.add(
                             _format(
                                 info,
                                 callee,
                                 param,
                                 f"non-constant arg at position {idx}",
+                                category=(
+                                    "unknown_key_carrier"
+                                    if param in callee.unknown_key_carriers
+                                    else "unused"
+                                ),
                                 call=call,
                             )
                         )
             if len(call.star_kw) == 1:
                 for _, param in remaining:
                     check_deadline()
-                    if param in callee.unused_params:
+                    if param in callee.unused_params | callee.unknown_key_carriers:
                         smells.add(
                             _format(
                                 info,
                                 callee,
                                 param,
                                 f"non-constant kw '{param}'",
+                                category=(
+                                    "unknown_key_carrier"
+                                    if param in callee.unknown_key_carriers
+                                    else "unused"
+                                ),
                                 call=call,
                             )
                         )
@@ -12977,6 +13061,8 @@ def _serialize_param_use(value: ParamUse) -> JSONObject:
             }
             for (callee, slot), spans in sorted(value.forward_sites.items())
         ],
+        "unknown_key_carrier": bool(value.unknown_key_carrier),
+        "unknown_key_sites": [list(span) for span in sorted(value.unknown_key_sites)],
     }
 
 
@@ -13002,11 +13088,21 @@ def _deserialize_param_use(payload: Mapping[str, JSONValue]) -> ParamUse:
             span_set.add(span)
         forward_sites[(callee, slot)] = span_set
     non_forward = bool(payload.get("non_forward"))
+    unknown_key_carrier = bool(payload.get("unknown_key_carrier"))
+    unknown_key_sites: set[tuple[int, int, int, int]] = set()
+    for raw_span in sequence_or_none(payload.get("unknown_key_sites")) or ():
+        check_deadline()
+        span = int_tuple4_or_none(raw_span)
+        if span is None:
+            continue
+        unknown_key_sites.add(span)
     return ParamUse(
         direct_forward=direct_forward,
         non_forward=non_forward,
         current_aliases=current_aliases,
         forward_sites=forward_sites,
+        unknown_key_carrier=unknown_key_carrier,
+        unknown_key_sites=unknown_key_sites,
     )
 
 
@@ -13097,6 +13193,7 @@ def _serialize_function_info_for_resume(info: FunctionInfo) -> JSONObject:
         "annots": {param: info.annots[param] for param in sorted(info.annots)},
         "calls": _serialize_call_args_list(info.calls),
         "unused_params": sorted(info.unused_params),
+        "unknown_key_carriers": sorted(info.unknown_key_carriers),
         "defaults": sorted(info.defaults),
         "transparent": bool(info.transparent),
         "class_name": info.class_name,
@@ -13151,6 +13248,7 @@ def _deserialize_function_info_for_resume(
     raw_calls = payload.get("calls")
     calls = _deserialize_call_args_list(sequence_or_none(raw_calls) or [])
     unused_params = str_set_from_sequence(payload.get("unused_params"))
+    unknown_key_carriers = str_set_from_sequence(payload.get("unknown_key_carriers"))
     defaults = str_set_from_sequence(payload.get("defaults"))
     class_name = payload.get("class_name")
     if class_name is not None and not isinstance(class_name, str):
@@ -13184,6 +13282,7 @@ def _deserialize_function_info_for_resume(
         annots=annots,
         calls=calls,
         unused_params=unused_params,
+        unknown_key_carriers=unknown_key_carriers,
         defaults=defaults,
         transparent=bool(payload.get("transparent", True)),
         class_name=cast(str | None, class_name),
