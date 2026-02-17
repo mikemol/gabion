@@ -271,3 +271,62 @@ def test_resolve_callee_self_class_candidates() -> None:
         class_index=class_index,
     )
     assert resolved is method
+
+
+def _index_for_source(tmp_path: Path, source: str):
+    da = _load()
+    mod = tmp_path / "pkg" / "mod.py"
+    mod.parent.mkdir(parents=True, exist_ok=True)
+    mod.write_text(source)
+    by_name, by_qual = da._build_function_index(
+        [mod],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        parse_failure_witnesses=[],
+    )
+    caller = by_qual["pkg.mod.caller"]
+    return da, by_name, by_qual, caller
+
+
+def test_resolve_callee_direct_lambda_call(tmp_path: Path) -> None:
+    da, by_name, by_qual, caller = _index_for_source(
+        tmp_path,
+        "def caller():\n    return (lambda value: value)(1)\n",
+    )
+    call = caller.calls[0]
+    resolved = da._resolve_callee(call.callee, caller, by_name, by_qual)
+    assert resolved is not None
+    assert resolved.name.startswith("<lambda:")
+    assert resolved.qual == call.callee
+
+
+def test_resolve_callee_bound_lambda_call(tmp_path: Path) -> None:
+    da, by_name, by_qual, caller = _index_for_source(
+        tmp_path,
+        "def caller():\n    fn = lambda value: value\n    return fn(1)\n",
+    )
+    call = caller.calls[0]
+    outcome = da._resolve_callee_outcome(call.callee, caller, by_name, by_qual)
+    assert outcome.status == "resolved"
+    assert len(outcome.candidates) == 1
+    assert outcome.candidates[0].name.startswith("<lambda:")
+
+
+def test_resolve_callee_bound_lambda_ambiguous_aliasing(tmp_path: Path) -> None:
+    da, by_name, by_qual, caller = _index_for_source(
+        tmp_path,
+        (
+            "def caller(flag):\n"
+            "    if flag:\n"
+            "        fn = lambda value: value\n"
+            "    else:\n"
+            "        fn = lambda value: value + 1\n"
+            "    return fn(1)\n"
+        ),
+    )
+    call = caller.calls[0]
+    outcome = da._resolve_callee_outcome(call.callee, caller, by_name, by_qual)
+    assert outcome.status == "ambiguous"
+    assert outcome.phase == "local_lambda_binding"
+    assert len(outcome.candidates) == 2
