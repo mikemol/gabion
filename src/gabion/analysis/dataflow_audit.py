@@ -10191,7 +10191,7 @@ def _collect_lambda_function_infos(
     path: Path,
     module: str,
     parent_map: Mapping[ast.AST, ast.AST],
-    ignore_params: set[str],
+    ignore_params: set[str] | None,
 ) -> list[FunctionInfo]:
     check_deadline()
     lambda_infos: list[FunctionInfo] = []

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 def _load():
@@ -330,3 +331,177 @@ def test_resolve_callee_bound_lambda_ambiguous_aliasing(tmp_path: Path) -> None:
     assert outcome.status == "ambiguous"
     assert outcome.phase == "local_lambda_binding"
     assert len(outcome.candidates) == 2
+
+
+def test_collect_lambda_function_infos_ignores_missing_span_nodes() -> None:
+    da = _load()
+    tree = ast.Module(
+        body=[
+            ast.Expr(
+                value=ast.Lambda(
+                    args=ast.arguments(
+                        posonlyargs=[],
+                        args=[ast.arg(arg="x")],
+                        kwonlyargs=[],
+                        kw_defaults=[],
+                        defaults=[],
+                    ),
+                    body=ast.Name(id="x", ctx=ast.Load()),
+                )
+            )
+        ],
+        type_ignores=[],
+    )
+    parent_map: dict[ast.AST, ast.AST] = {}
+    da.ParentAnnotator().visit(tree)
+    infos = da._collect_lambda_function_infos(
+        tree,
+        path=Path("pkg/mod.py"),
+        module="pkg.mod",
+        parent_map=parent_map,
+        ignore_params=None,
+    )
+    assert infos == []
+
+
+def test_collect_lambda_function_infos_applies_ignore_params(tmp_path: Path) -> None:
+    da = _load()
+    mod = tmp_path / "pkg" / "mod.py"
+    mod.parent.mkdir(parents=True, exist_ok=True)
+    tree = ast.parse("def caller():\n    fn = lambda skip, keep: keep\n    return fn(skip=1, keep=2)\n")
+    parents = da.ParentAnnotator()
+    parents.visit(tree)
+    infos = da._collect_lambda_function_infos(
+        tree,
+        path=mod,
+        module="pkg.mod",
+        parent_map=parents.parents,
+        ignore_params={"skip"},
+    )
+    assert len(infos) == 1
+    assert infos[0].params == ["keep"]
+
+
+def test_collect_lambda_bindings_ignores_unmapped_lambda_spans() -> None:
+    da = _load()
+    tree = ast.parse("def caller():\n    fn = lambda x: x\n")
+    parents = da.ParentAnnotator()
+    parents.visit(tree)
+    bindings = da._collect_lambda_bindings_by_caller(
+        tree,
+        module="pkg.mod",
+        parent_map=parents.parents,
+        lambda_infos=[],
+    )
+    assert bindings == {}
+
+
+def test_direct_lambda_mapping_skips_missing_and_unmapped_spans() -> None:
+    da = _load()
+    locationless_tree = ast.Module(
+        body=[
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Lambda(
+                        args=ast.arguments(
+                            posonlyargs=[],
+                            args=[ast.arg(arg="x")],
+                            kwonlyargs=[],
+                            kw_defaults=[],
+                            defaults=[],
+                        ),
+                        body=ast.Name(id="x", ctx=ast.Load()),
+                    ),
+                    args=[ast.Constant(value=1)],
+                    keywords=[],
+                )
+            )
+        ],
+        type_ignores=[],
+    )
+    assert da._direct_lambda_callee_by_call_span(locationless_tree, lambda_infos=[]) == {}
+
+    parsed_tree = ast.parse("def caller():\n    return (lambda x: x)(1)\n")
+    assert da._direct_lambda_callee_by_call_span(parsed_tree, lambda_infos=[]) == {}
+
+
+def test_resolve_callee_single_missing_local_binding_falls_back_to_global() -> None:
+    da = _load()
+    path = Path("pkg/mod.py")
+    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
+    global_candidate = _fn(da, name="fn", qual="pkg.mod.fn", path=path)
+    resolved = da._resolve_callee(
+        "fn",
+        caller,
+        {"fn": [global_candidate]},
+        {global_candidate.qual: global_candidate},
+        local_lambda_bindings={"fn": ("pkg.mod.<lambda:missing>",)},
+    )
+    assert resolved is global_candidate
+
+
+def test_resolve_callee_multi_bindings_with_one_present_returns_bound() -> None:
+    da = _load()
+    path = Path("pkg/mod.py")
+    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
+    bound = _fn(da, name="<lambda:bound>", qual="pkg.mod.<lambda:bound>", path=path)
+    resolved = da._resolve_callee(
+        "fn",
+        caller,
+        {},
+        {bound.qual: bound},
+        local_lambda_bindings={"fn": ("pkg.mod.<lambda:missing>", bound.qual)},
+    )
+    assert resolved is bound
+
+
+def test_resolve_callee_multi_bindings_without_sink_returns_none() -> None:
+    da = _load()
+    path = Path("pkg/mod.py")
+    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
+    bound_a = _fn(da, name="<lambda:a>", qual="pkg.mod.<lambda:a>", path=path)
+    bound_b = _fn(da, name="<lambda:b>", qual="pkg.mod.<lambda:b>", path=path)
+    resolved = da._resolve_callee(
+        "fn",
+        caller,
+        {},
+        {bound_a.qual: bound_a, bound_b.qual: bound_b},
+        local_lambda_bindings={"fn": (bound_a.qual, bound_b.qual)},
+    )
+    assert resolved is None
+
+
+def test_resolve_callee_multi_missing_bindings_fall_back() -> None:
+    da = _load()
+    path = Path("pkg/mod.py")
+    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
+    global_candidate = _fn(da, name="fn", qual="pkg.mod.fn", path=path)
+    resolved = da._resolve_callee(
+        "fn",
+        caller,
+        {"fn": [global_candidate]},
+        {global_candidate.qual: global_candidate},
+        local_lambda_bindings={"fn": ("pkg.mod.<lambda:missing1>", "pkg.mod.<lambda:missing2>")},
+    )
+    assert resolved is global_candidate
+
+
+def test_resolve_callee_outcome_adds_internal_candidates_from_bindings() -> None:
+    da = _load()
+    path = Path("pkg/mod.py")
+    caller = _fn(da, name="caller", qual="pkg.mod.caller", path=path)
+    bound = _fn(da, name="<lambda:bound>", qual="pkg.mod.<lambda:bound>", path=path)
+
+    def _always_none(*_: object, **__: object):
+        return None
+
+    outcome = da._resolve_callee_outcome(
+        "fn",
+        caller,
+        {},
+        {bound.qual: bound},
+        local_lambda_bindings={"fn": ("pkg.mod.<lambda:missing>", bound.qual)},
+        resolve_callee_fn=_always_none,
+    )
+    assert outcome.status == "unresolved_internal"
+    assert tuple(outcome.candidates) == (bound,)
