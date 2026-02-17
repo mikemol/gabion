@@ -85,6 +85,41 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     assert "Type ambiguities" in result.output
 
 
+# gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls
+@pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_cli_impact_json(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (src / "sample.py").write_text(
+        "def target(v):\n"
+        "    return v\n\n"
+        "def bridge(v):\n"
+        "    return target(v)\n"
+    )
+    (tests_dir / "test_sample.py").write_text(
+        "from src.sample import bridge\n\n"
+        "def test_bridge():\n"
+        "    assert bridge(1) == 1\n"
+    )
+    runner = CliRunner()
+    result = _invoke(
+        runner,
+        [
+            "impact",
+            "--change",
+            "src/sample.py:1-2",
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert "must_run_tests" in payload
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app
 def test_cli_docflow_audit() -> None:
     repo_root = Path(__file__).resolve().parents[1]

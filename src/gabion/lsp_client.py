@@ -409,4 +409,6 @@ def run_command_direct(
         return server.execute_synthesis(ls, payload)
     if request.command == server.REFACTOR_COMMAND:
         return server.execute_refactor(ls, payload)
+    if request.command == server.IMPACT_COMMAND:
+        return server.execute_impact(ls, payload)
     raise LspClientError(f"Unsupported direct command: {request.command}")

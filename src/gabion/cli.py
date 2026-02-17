@@ -33,6 +33,7 @@ REFACTOR_COMMAND = "gabion.refactorProtocol"
 STRUCTURE_DIFF_COMMAND = "gabion.structureDiff"
 STRUCTURE_REUSE_COMMAND = "gabion.structureReuse"
 DECISION_DIFF_COMMAND = "gabion.decisionDiff"
+IMPACT_COMMAND = "gabion.impactQuery"
 from gabion.lsp_client import (
     CommandRequest,
     run_command,
@@ -2010,6 +2011,109 @@ def run_structure_reuse(
     )
 
 
+
+
+def run_impact_query(
+    *,
+    changes: list[str],
+    git_diff: str | None,
+    max_call_depth: int | None,
+    confidence_threshold: float | None,
+    root: Path | None = None,
+    runner: Runner | None = None,
+) -> JSONObject:
+    payload: JSONObject = {"changes": list(changes)}
+    if git_diff is not None:
+        payload["git_diff"] = git_diff
+    if max_call_depth is not None:
+        payload["max_call_depth"] = int(max_call_depth)
+    if confidence_threshold is not None:
+        payload["confidence_threshold"] = float(confidence_threshold)
+    runner = runner or DEFAULT_RUNNER
+    root_path = root or Path(".")
+    payload["root"] = str(root_path)
+    return dispatch_command(
+        command=IMPACT_COMMAND,
+        payload=payload,
+        root=root_path,
+        runner=runner,
+    )
+
+
+def _emit_impact(result: JSONObject, *, json_output: bool) -> None:
+    check_deadline()
+    errors = result.get("errors")
+    exit_code = int(result.get("exit_code", 0))
+    if json_output:
+        typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        must = result.get("must_run_tests") or []
+        likely = result.get("likely_run_tests") or []
+        docs = result.get("impacted_docs") or []
+        typer.echo("must-run tests:")
+        if must:
+            for entry in must:
+                check_deadline()
+                typer.echo(f"- {entry.get('id')} (depth={entry.get('depth')}, confidence={entry.get('confidence')})")
+        else:
+            typer.echo("- (none)")
+        typer.echo("likely-run tests:")
+        if likely:
+            for entry in likely:
+                check_deadline()
+                typer.echo(f"- {entry.get('id')} (depth={entry.get('depth')}, confidence={entry.get('confidence')})")
+        else:
+            typer.echo("- (none)")
+        typer.echo("impacted docs sections:")
+        if docs:
+            for entry in docs:
+                check_deadline()
+                symbols = ",".join(str(s) for s in entry.get("symbols", []))
+                typer.echo(f"- {entry.get('path')}#{entry.get('section')} [{symbols}]")
+        else:
+            typer.echo("- (none)")
+    if errors:
+        for error in errors:
+            check_deadline()
+            typer.secho(str(error), err=True, fg=typer.colors.RED)
+    if exit_code:
+        raise typer.Exit(code=exit_code)
+
+
+@app.command("impact")
+def impact(
+    change: Optional[List[str]] = typer.Option(
+        None,
+        "--change",
+        help="Changed span as path:start-end (repeatable).",
+    ),
+    diff: Optional[Path] = typer.Option(
+        None,
+        "--git-diff",
+        help="Path to unified git diff; use '-' for stdin.",
+    ),
+    max_call_depth: Optional[int] = typer.Option(None, "--max-call-depth"),
+    confidence_threshold: Optional[float] = typer.Option(None, "--confidence-threshold"),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON."),
+    root: Optional[Path] = typer.Option(None, "--root"),
+) -> None:
+    """Query reverse impact from changed spans to tests/docs."""
+    with _cli_deadline_scope():
+        changes = list(change or [])
+        diff_text: str | None = None
+        if diff is not None:
+            if str(diff) == "-":
+                diff_text = sys.stdin.read()
+            else:
+                diff_text = diff.read_text(encoding="utf-8")
+        result = run_impact_query(
+            changes=changes,
+            git_diff=diff_text,
+            max_call_depth=max_call_depth,
+            confidence_threshold=confidence_threshold,
+            root=root,
+        )
+        _emit_impact(result, json_output=json_output)
 def _emit_structure_diff(result: JSONObject) -> None:
     check_deadline()
     errors = result.get("errors")
