@@ -670,6 +670,48 @@ def test_prime_registry_seed_payload_roundtrip_with_namespaces() -> None:
     assert loaded.bit_for("ctor:list") == registry.bit_for("ctor:list")
 
 
+def test_prime_registry_load_seed_payload_accepts_flat_legacy_payload() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+
+    registry.load_seed_payload(
+        {
+            "primes": {"int": 2},
+            "bit_positions": {"int": 0},
+        }
+    )
+
+    assert registry.prime_for("int") == 2
+    assert registry.bit_for("int") == 0
+
+
+def test_prime_registry_load_seed_payload_ignores_invalid_namespace_entries() -> None:
+    tf = _load()
+    registry = tf.PrimeRegistry()
+
+    registry.load_seed_payload(
+        {
+            "namespaces": {
+                "type_base": {
+                    "primes": {"int": 2, "bad": "x", 3: 5},
+                    "bit_positions": {"int": 0, "bad": "x", 4: 1},
+                },
+                "type_ctor": {
+                    "primes": ["not-a-dict"],
+                    "bit_positions": "not-a-dict",
+                },
+                "invalid_namespace": "not-a-dict",
+                7: {"primes": {"ignored": 13}},
+            }
+        }
+    )
+
+    assert registry.prime_for("int") == 2
+    assert registry.bit_for("int") == 0
+    assert registry.prime_for("bad") is None
+    assert registry.bit_for("bad") is None
+
+
 def test_build_fingerprint_registry_seed_is_stable_under_reordered_inputs() -> None:
     tf = _load()
     spec_a = {
