@@ -19,9 +19,34 @@ def _load():
 
     return CallArgs, ParamUse, _call_context, _callee_name, _const_repr, _normalize_key_expr, ParentAnnotator, UseVisitor
 
-def _call_args_factory(**kwargs):
+def _call_args_factory(
+    *,
+    callee: str,
+    pos_map: dict[str, str],
+    kw_map: dict[str, str],
+    const_pos: dict[str, str],
+    const_kw: dict[str, str],
+    non_const_pos: set[str],
+    non_const_kw: set[str],
+    star_pos: list[tuple[int, str]],
+    star_kw: list[str],
+    is_test: bool,
+    span: tuple[int, int, int, int] | None = None,
+):
     CallArgs, *_ = _load()
-    return CallArgs(**kwargs)
+    return CallArgs(
+        callee=callee,
+        pos_map=pos_map,
+        kw_map=kw_map,
+        const_pos=const_pos,
+        const_kw=const_kw,
+        non_const_pos=non_const_pos,
+        non_const_kw=non_const_kw,
+        star_pos=star_pos,
+        star_kw=star_kw,
+        is_test=is_test,
+        span=span,
+    )
 
 def _make_visitor(
     tree: ast.AST,
@@ -270,3 +295,11 @@ def test_subscript_dynamic_key_marks_uncertainty() -> None:
     assert ("g", "arg[0]") not in use_map["b"].direct_forward
     assert use_map["b"].unknown_key_carrier is True
     assert use_map["b"].unknown_key_sites
+
+
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+def test_normalize_key_returns_none_without_normalizer() -> None:
+    tree = ast.parse("def f(a):\n    return a\n")
+    visitor, _, _, _ = _make_visitor(tree, strictness="high")
+    visitor.normalize_key_expr = None
+    assert visitor._normalize_key(ast.Constant(value="k")) is None

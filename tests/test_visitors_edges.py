@@ -14,6 +14,7 @@ def _load():
         _callee_name,
         _call_context,
         _const_repr,
+        _normalize_key_expr,
     )
     from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
 
@@ -23,6 +24,7 @@ def _load():
         _callee_name,
         _call_context,
         _const_repr,
+        _normalize_key_expr,
         ImportVisitor,
         ParentAnnotator,
         UseVisitor,
@@ -41,6 +43,7 @@ def _make_use_visitor(
         _callee_name,
         _call_context,
         _const_repr,
+        _normalize_key_expr,
         _,
         ParentAnnotator,
         UseVisitor,
@@ -66,12 +69,14 @@ def _make_use_visitor(
         call_args_factory=CallArgs,
         call_context=_call_context,
         return_aliases=return_aliases,
+        normalize_key_expr=_normalize_key_expr,
     )
     return tree, visitor, use_map, call_args
 
 # gabion:evidence E:function_site::test_visitors_edges.py::tests.test_visitors_edges._load
 def test_import_visitor_relative_and_star() -> None:
     (
+        _,
         _,
         _,
         _,
@@ -367,7 +372,7 @@ def test_visit_name_attribute_subscript_edges() -> None:
             ctx=ast.Load(),
         )
     )
-    visitor._key_alias_to_param[("a", "k")] = "a"
+    visitor._key_alias_to_param[("a", ("literal", "str", "k"))] = "a"
     visitor._suspend_non_forward.add("a")
     visitor.visit_Subscript(
         ast.Subscript(
@@ -384,6 +389,13 @@ def test_visit_name_attribute_subscript_edges() -> None:
             ctx=ast.Store(),
         )
     )
+
+
+def test_record_unknown_key_without_span_marks_carrier_only() -> None:
+    _, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
+    visitor._record_unknown_key("a", ast.Name(id="dynamic", ctx=ast.Load()))
+    assert use_map["a"].unknown_key_carrier is True
+    assert use_map["a"].unknown_key_sites == set()
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_collect_alias_sources_default() -> None:

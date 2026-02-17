@@ -1918,7 +1918,9 @@ def test_deserialize_param_use_filters_malformed_values() -> None:
         {
             "direct_forward": [["callee", "slot"], ["bad"], [1, 2], ["callee2", 3]],
             "non_forward": 1,
+            "unknown_key_carrier": True,
             "current_aliases": ["a", 2, "b"],
+            "unknown_key_sites": [[9, 8, 7, 6], [1, 2, 3], [1, 2, 3, "x"]],
             "forward_sites": [
                 {
                     "callee": "callee",
@@ -1933,7 +1935,15 @@ def test_deserialize_param_use_filters_malformed_values() -> None:
     assert ("callee", "slot") in use.direct_forward
     assert use.current_aliases == {"a", "b"}
     assert use.non_forward is True
+    assert use.unknown_key_carrier is True
+    assert use.unknown_key_sites == {(9, 8, 7, 6)}
     assert use.forward_sites[("callee", "slot")] == {(1, 2, 3, 4), (4, 5, 6, 7)}
+
+
+def test_normalize_key_expr_unary_non_int_literal_is_none() -> None:
+    da = _load()
+    node = ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=1.5))
+    assert da._normalize_key_expr(node, const_bindings={}) is None
 
 def test_deserialize_call_args_handles_invalid_shapes() -> None:
     da = _load()
