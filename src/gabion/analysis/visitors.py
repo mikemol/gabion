@@ -134,6 +134,13 @@ class UseVisitor(ProjectVisitor):
             return None
         return self.normalize_key_expr(node, const_bindings=self._const_bindings)
 
+    def _mark_unknown_key_carrier(self, base_name: str, node: ast.AST) -> None:
+        for (carrier_name, _), param_name in self._key_alias_to_param.items():
+            check_deadline()
+            if carrier_name != base_name:
+                continue
+            self._record_unknown_key(param_name, node)
+
     def _mark_non_forward(self, param_name: str) -> bool:
         if param_name in self._suspend_non_forward:
             return False
@@ -542,6 +549,7 @@ class UseVisitor(ProjectVisitor):
             for param_name in unknown_params:
                 check_deadline()
                 self._record_unknown_key(param_name, node.slice)
+            self._mark_unknown_key_carrier(node.value.id, node.slice)
             if node.value.id in self.alias_to_param:
                 param_name = self.alias_to_param[node.value.id]
                 self._mark_non_forward(param_name)

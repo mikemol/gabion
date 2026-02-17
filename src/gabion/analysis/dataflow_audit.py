@@ -11877,9 +11877,15 @@ def _iter_dataclass_call_bundles(
         category: str,
         detail: str,
     ) -> JSONObject:
+        reason_by_category = {
+            "dynamic_star_args": "unresolved_starred_positional",
+            "positional_arity_overflow": "invalid_starred_positional_arity",
+            "dynamic_star_kwargs": "unresolved_starred_keyword",
+        }
         return {
             "path": str(path),
             "stage": _ParseModuleStage.DATACLASS_CALL_BUNDLES.value,
+            "reason": reason_by_category.get(category, category),
             "error_type": "UnresolvedStarredArgument",
             "error": f"{category}: {detail}",
             "line": int(getattr(call, "lineno", 0) or 0),

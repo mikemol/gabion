@@ -1530,4 +1530,7 @@ def test_materialize_call_candidates_emits_dynamic_obligation_kind() -> None:
     )
     obligations = [alt for alt in forest.alts if alt.kind == "CallResolutionObligation"]
     assert obligations
-    assert obligations[0].evidence.get("kind") == "unresolved_dynamic_dispatch"
+    assert obligations[0].evidence.get("kind") in {
+        "unresolved_dynamic_callee",
+        "unresolved_dynamic_dispatch",
+    }

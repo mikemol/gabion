@@ -3946,8 +3946,11 @@ def test_build_function_index_indexes_lambda_sites_deterministically(tmp_path: P
     )
     by_name1, by_qual1 = da._build_function_index(**args)
     by_name2, by_qual2 = da._build_function_index(**args)
-    assert "f" in by_name1
+    caller1 = by_qual1["mod.outer"]
+    caller2 = by_qual2["mod.outer"]
+    assert "f" in caller1.local_lambda_bindings
+    assert caller1.local_lambda_bindings["f"] == caller2.local_lambda_bindings["f"]
     all_infos = [info for infos in by_name1.values() for info in infos]
-    assert any(info.name == "f" for info in all_infos)
-    assert any(info.name.startswith("<lambda@") for info in all_infos)
+    lambda_infos = [info for info in all_infos if info.name.startswith("<lambda:")]
+    assert len(lambda_infos) >= 2
     assert sorted(by_qual1) == sorted(by_qual2)
