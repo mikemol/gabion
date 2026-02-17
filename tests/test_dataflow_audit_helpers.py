@@ -1892,6 +1892,119 @@ def test_analyze_paths_emits_profiling_v1(tmp_path: Path) -> None:
     assert analysis.profiling_v1.get("format_version") == 1
     assert "file_stage_timings_v1_by_path" in analysis.profiling_v1
 
+
+def test_analyze_paths_hydrates_file_stage_timings_from_resume(tmp_path: Path) -> None:
+    da = _load()
+    sample = tmp_path / "sample.py"
+    _write(sample, "def f(a, b):\n    return a + b\n")
+    resume_payload = da._build_analysis_collection_resume_payload(
+        groups_by_path={},
+        param_spans_by_path={},
+        bundle_sites_by_path={},
+        invariant_propositions=[],
+        completed_paths={sample},
+        in_progress_scan_by_path={},
+        file_stage_timings_v1_by_path={
+            sample: {
+                "format_version": 1,
+                "stage_ns": {"file_scan.read_parse": 11},
+                "counters": {"file_scan.functions_total": 1},
+            }
+        },
+    )
+    raw_timings = resume_payload.get("file_stage_timings_v1_by_path")
+    assert isinstance(raw_timings, dict)
+    sample_key = str(sample)
+    assert isinstance(raw_timings.get(sample_key), dict)
+    raw_timings[sample_key][7] = "sentinel"
+    analysis = da.analyze_paths(
+        forest=da.Forest(),
+        paths=[tmp_path],
+        file_paths_override=[sample],
+        collection_resume=resume_payload,
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_invariant_propositions=False,
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    assert isinstance(analysis.profiling_v1, dict)
+    timings_by_path = analysis.profiling_v1.get("file_stage_timings_v1_by_path")
+    assert isinstance(timings_by_path, dict)
+    assert sample_key in timings_by_path
+    assert timings_by_path[sample_key]["7"] == "sentinel"
+
+
+def test_analyze_paths_ignores_non_mapping_stage_timing_entries(tmp_path: Path) -> None:
+    da = _load()
+    sample = tmp_path / "sample.py"
+    _write(sample, "def f(a, b):\n    return a + b\n")
+    resume_payload = da._build_analysis_collection_resume_payload(
+        groups_by_path={},
+        param_spans_by_path={},
+        bundle_sites_by_path={},
+        invariant_propositions=[],
+        completed_paths={sample},
+        in_progress_scan_by_path={},
+        file_stage_timings_v1_by_path={},
+    )
+    resume_payload["file_stage_timings_v1_by_path"] = {str(sample): 5}
+    analysis = da.analyze_paths(
+        forest=da.Forest(),
+        paths=[tmp_path],
+        file_paths_override=[sample],
+        collection_resume=resume_payload,
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_invariant_propositions=False,
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    assert isinstance(analysis.profiling_v1, dict)
+    timings_by_path = analysis.profiling_v1.get("file_stage_timings_v1_by_path")
+    assert isinstance(timings_by_path, dict)
+    assert str(sample) not in timings_by_path
+
+
+def test_analyze_paths_ignores_non_mapping_stage_timing_table(tmp_path: Path) -> None:
+    da = _load()
+    sample = tmp_path / "sample.py"
+    _write(sample, "def f(a, b):\n    return a + b\n")
+    resume_payload = da._build_analysis_collection_resume_payload(
+        groups_by_path={},
+        param_spans_by_path={},
+        bundle_sites_by_path={},
+        invariant_propositions=[],
+        completed_paths={sample},
+        in_progress_scan_by_path={},
+        file_stage_timings_v1_by_path={},
+    )
+    resume_payload["file_stage_timings_v1_by_path"] = []
+    analysis = da.analyze_paths(
+        forest=da.Forest(),
+        paths=[tmp_path],
+        file_paths_override=[sample],
+        collection_resume=resume_payload,
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=0,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_invariant_propositions=False,
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    assert isinstance(analysis.profiling_v1, dict)
+    timings_by_path = analysis.profiling_v1.get("file_stage_timings_v1_by_path")
+    assert isinstance(timings_by_path, dict)
+    assert str(sample) not in timings_by_path
+
 def test_build_collection_resume_rejects_path_order_regression() -> None:
     da = _load()
     with pytest.raises(NeverThrown):
@@ -3562,6 +3675,22 @@ def test_load_analysis_index_resume_payload_rejects_projection_identity_mismatch
     assert by_qual == {}
     assert symbol_table.imports == {}
     assert class_index == {}
+
+
+def test_serialize_analysis_index_resume_payload_omits_non_mapping_profiling() -> None:
+    da = _load()
+    payload = da._serialize_analysis_index_resume_payload(
+        hydrated_paths={Path("a.py")},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        index_cache_identity="index-id",
+        projection_cache_identity="projection-id",
+        profiling_v1=None,
+    )
+    assert payload["index_cache_identity"] == "index-id"
+    assert payload["projection_cache_identity"] == "projection-id"
+    assert "profiling_v1" not in payload
 
 
 def test_call_resolution_and_lint_compute_filter_edges() -> None:

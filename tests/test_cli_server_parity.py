@@ -229,6 +229,7 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
         strictness="high",
         fail_on_type_ambiguities=False,
         lint=True,
+        runner=cli.run_command_direct,
     )
     payload = cli.build_check_payload(
         paths=[module],
