@@ -1442,7 +1442,6 @@ def test_render_incremental_report_marks_missing_dep_and_policy() -> None:
             {"section_id": "violations", "phase": "post", "deps": []},
         ],
         sections={"intro": ["ready"]},
-        completed_phase="collection",
     )
     assert "Section `intro`" in report_text
     assert pending["components"] == "missing_dep"
@@ -3519,7 +3518,6 @@ def test_render_incremental_report_handles_missing_and_invalid_phases() -> None:
             {"section_id": "blocked", "phase": "post", "deps": ["missing"]},
         ],
         sections={"intro": ["ready"]},
-        completed_phase="collection",
     )
     assert "## Section `intro`" in report
     assert "`retry_recommended`: `False`" in report
@@ -3925,6 +3923,27 @@ def test_bootstrap_incremental_artifacts_existing_reason_policy(tmp_path: Path) 
     )
     payload = json.loads(journal_path.read_text())
     assert payload["sections"]["components"]["reason"] == "policy"
+
+
+def test_bootstrap_incremental_artifacts_skips_non_string_deps(tmp_path: Path) -> None:
+    report_path = tmp_path / "report.md"
+    journal_path = tmp_path / "report_sections.json"
+    phase_path = tmp_path / "report_phases.json"
+    projection_rows = [
+        {"section_id": "components", "phase": "forest", "deps": ["intro", 1, None]}
+    ]
+    server._write_bootstrap_incremental_artifacts(
+        report_output_path=report_path,
+        report_section_journal_path=journal_path,
+        report_phase_checkpoint_path=phase_path,
+        witness_digest="w",
+        root=tmp_path,
+        paths_requested=1,
+        projection_rows=projection_rows,
+        phase_checkpoint_state={},
+    )
+    payload = json.loads(journal_path.read_text())
+    assert payload["sections"]["components"]["deps"] == ["intro"]
 
 
 def test_execute_command_timeout_context_payload_fallback(tmp_path: Path) -> None:
@@ -4997,6 +5016,24 @@ def test_collection_progress_intro_lines_skip_non_numeric_optional_metrics() -> 
     assert any("hydrated_paths_count" in line for line in lines)
     assert all("hydrated_function_count" not in line for line in lines)
     assert all("hydrated_class_count" not in line for line in lines)
+
+
+def test_collection_progress_intro_lines_skips_non_string_scan_entries() -> None:
+    lines = server._collection_progress_intro_lines(
+        collection_resume={
+            "completed_paths": [],
+            "in_progress_scan_by_path": {
+                "module.py": {
+                    "phase": "scan_pending",
+                    "processed_functions": ["fn", 1],
+                    "fn_names": {"fn": [], 2: []},
+                }
+            },
+        },
+        total_files=1,
+    )
+    assert any("processed_functions=1" in line for line in lines)
+    assert any("function_count=1" in line for line in lines)
 
 
 def test_incremental_progress_obligations_ignore_non_boolean_semantic_flags() -> None:

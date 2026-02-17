@@ -8406,7 +8406,7 @@ def _collect_bundle_evidence_lines(
     if not groups_by_path or not _has_bundles(groups_by_path):
         return []
     file_paths = _iter_monotonic_paths(
-        groups_by_path,
+        groups_by_path.keys(),
         source="_collect_bundle_evidence_lines.groups_by_path",
     )
     projection = _bundle_projection_from_forest(forest, file_paths=file_paths)
@@ -8659,19 +8659,20 @@ def _materialize_structured_suite_sites(
     analysis_index: AnalysisIndex | None = None,
 ) -> None:
     check_deadline()
+    ordered_file_paths = _iter_monotonic_paths(
+        file_paths,
+        source="_materialize_structured_suite_sites.file_paths",
+    )
     if analysis_index is not None:
         trees = _analysis_index_module_trees(
             analysis_index,
-            file_paths,
+            ordered_file_paths,
             stage=_ParseModuleStage.SUITE_CONTAINMENT,
             parse_failure_witnesses=parse_failure_witnesses,
         )
     else:
         trees = {}
-        for path in _iter_monotonic_paths(
-            file_paths,
-            source="_materialize_structured_suite_sites.file_paths",
-        ):
+        for path in ordered_file_paths:
             check_deadline()
             tree = _parse_module_tree(
                 path,
@@ -8712,13 +8713,17 @@ def _populate_bundle_forest(
     check_deadline()
     if not groups_by_path:
         return
+    ordered_file_paths = _iter_monotonic_paths(
+        file_paths,
+        source="_populate_bundle_forest.file_paths",
+    )
     if on_progress is not None:
         on_progress()
     index = analysis_index
     if include_all_sites:
         if index is None:
             index = _build_analysis_index(
-                file_paths,
+                ordered_file_paths,
                 project_root=project_root,
                 ignore_params=ignore_params or set(),
                 strictness=strictness,
@@ -8733,7 +8738,7 @@ def _populate_bundle_forest(
                 continue
             forest.add_site(info.path.name, info.qual)
         non_test_file_paths = [
-            path for path in file_paths if not _is_test_path(path)
+            path for path in ordered_file_paths if not _is_test_path(path)
         ]
         _materialize_structured_suite_sites(
             forest=forest,
@@ -8789,7 +8794,7 @@ def _populate_bundle_forest(
         _emit_progress()
 
     config_bundles_by_path = _collect_config_bundles(
-        file_paths,
+        ordered_file_paths,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
     )
@@ -8810,7 +8815,7 @@ def _populate_bundle_forest(
         _emit_progress()
 
     dataclass_registry = _collect_dataclass_registry(
-        file_paths,
+        ordered_file_paths,
         project_root=project_root,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
@@ -8828,17 +8833,14 @@ def _populate_bundle_forest(
 
     if index is None or not index.symbol_table.external_filter:
         symbol_table = _build_symbol_table(
-            file_paths,
+            ordered_file_paths,
             project_root,
             external_filter=True,
             parse_failure_witnesses=parse_failure_witnesses,
         )
     else:
         symbol_table = index.symbol_table
-    for path in _iter_monotonic_paths(
-        file_paths,
-        source="_populate_bundle_forest.file_paths",
-    ):
+    for path in ordered_file_paths:
         check_deadline()
         for bundle in sorted(_iter_documented_bundles(path)):
             check_deadline()
@@ -12280,7 +12282,7 @@ def _emit_report(
     # audits don't accidentally ingest virtualenvs or unrelated files.
     file_paths = (
         ordered_or_sorted(
-            groups_by_path,
+            groups_by_path.keys(),
             source="_emit_report.file_paths",
             key=lambda path: str(path),
         )

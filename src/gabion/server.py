@@ -685,7 +685,20 @@ def _analysis_input_witness(
             return {"_py": "ellipsis"}
         return {"_py": type(value).__name__, "repr": repr(value)}
 
-    def _normalize_ast_value(value: object) -> JSONValue:
+    _ASTWitnessValue = (
+        ast.AST
+        | JSONValue
+        | list[object]
+        | tuple[object, ...]
+        | dict[object, object]
+        | set[object]
+        | frozenset[object]
+        | bytes
+        | complex
+        | type(Ellipsis)
+    )
+
+    def _normalize_ast_value(value: _ASTWitnessValue) -> JSONValue:
         check_deadline()
         if isinstance(value, ast.AST):
             fields: JSONObject = {}
@@ -896,7 +909,7 @@ def _write_analysis_resume_checkpoint(
         "input_manifest_digest": manifest_digest,
         "collection_resume": externalized_collection_resume,
     }
-    analysis_index_summary = _analysis_index_resume_summary(collection_resume)
+    analysis_index_summary = _analysis_index_resume_summary_payload(collection_resume)
     if analysis_index_summary is not None:
         payload["analysis_index_hydration"] = analysis_index_summary
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -928,9 +941,17 @@ def _clear_analysis_resume_checkpoint(path: Path) -> None:
 
 def _analysis_resume_progress(
     *,
-    collection_resume: Mapping[str, JSONValue],
+    collection_resume: Mapping[str, JSONValue] | None,
     total_files: int,
 ) -> dict[str, int]:
+    if not isinstance(collection_resume, Mapping):
+        normalized_total_files = max(total_files, 0)
+        return {
+            "completed_files": 0,
+            "in_progress_files": 0,
+            "remaining_files": normalized_total_files,
+            "total_files": normalized_total_files,
+        }
     completed_paths = collection_resume.get("completed_paths")
     completed = 0
     if isinstance(completed_paths, list):
@@ -1120,6 +1141,15 @@ def _analysis_index_resume_summary(
 ) -> JSONObject | None:
     if not isinstance(collection_resume, Mapping):
         return None
+    normalized_resume: JSONObject = {
+        str(key): collection_resume[key] for key in collection_resume
+    }
+    return _analysis_index_resume_summary_payload(normalized_resume)
+
+
+def _analysis_index_resume_summary_payload(
+    collection_resume: JSONObject,
+) -> JSONObject | None:
     raw_resume = collection_resume.get("analysis_index_resume")
     if not isinstance(raw_resume, Mapping):
         return None
@@ -1146,7 +1176,7 @@ def _analysis_index_resume_summary(
 
 def _collection_semantic_witness(
     *,
-    collection_resume: Mapping[str, JSONValue],
+    collection_resume: Mapping[str, JSONValue] | None,
 ) -> JSONObject:
     states = _in_progress_scan_states(collection_resume)
     state_rows: list[JSONObject] = []
@@ -1208,18 +1238,9 @@ def _collection_semantic_progress(
     previous_states = _in_progress_scan_states(previous_collection_resume)
     current_states = _in_progress_scan_states(collection_resume)
     current_completed_paths = _completed_path_set(collection_resume)
-    prev_progress = (
-        _analysis_resume_progress(
-            collection_resume=previous_collection_resume,
-            total_files=total_files,
-        )
-        if isinstance(previous_collection_resume, Mapping)
-        else {
-            "completed_files": 0,
-            "in_progress_files": 0,
-            "remaining_files": max(total_files, 0),
-            "total_files": total_files,
-        }
+    prev_progress = _analysis_resume_progress(
+        collection_resume=previous_collection_resume,
+        total_files=total_files,
     )
     current_progress = _analysis_resume_progress(
         collection_resume=collection_resume,
@@ -1738,7 +1759,6 @@ def _render_incremental_report(
     progress_payload: Mapping[str, JSONValue] | None,
     projection_rows: Sequence[Mapping[str, JSONValue]],
     sections: Mapping[str, list[str]],
-    completed_phase: str | None = None,
 ) -> tuple[str, dict[str, str]]:
     lines = [
         "<!-- dataflow-grammar -->",
@@ -2219,9 +2239,11 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     return best_phase
 
 
-def _require_payload(payload: object, *, command: str) -> dict[str, object]:
-    if payload is None:
-        never("missing command payload", command=command)
+def _require_payload(
+    payload: dict[str, object],
+    *,
+    command: str,
+) -> dict[str, object]:
     if not isinstance(payload, dict):
         never(
             "invalid command payload type",
@@ -2229,6 +2251,16 @@ def _require_payload(payload: object, *, command: str) -> dict[str, object]:
             payload_type=type(payload).__name__,
         )
     return payload
+
+
+def _require_optional_payload(
+    payload: dict[str, object] | None,
+    *,
+    command: str,
+) -> dict[str, object]:
+    if payload is None:
+        never("missing command payload", command=command)
+    return _require_payload(payload, command=command)
 
 
 def _truthy_flag(value: object) -> bool:
@@ -2266,7 +2298,7 @@ def _server_deadline_overhead_ns(
     return overhead
 
 
-def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
+def _analysis_timeout_total_ns(payload: dict[str, object]) -> int:
     timeout_ticks = payload.get("analysis_timeout_ticks")
     timeout_tick_ns = payload.get("analysis_timeout_tick_ns")
     timeout_ms = payload.get("analysis_timeout_ms")
@@ -2318,7 +2350,7 @@ def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
     )
 
 
-def _analysis_timeout_total_ticks(payload: Mapping[str, object]) -> int:
+def _analysis_timeout_total_ticks(payload: dict[str, object]) -> int:
     timeout_ticks = payload.get("analysis_timeout_ticks")
     timeout_ms = payload.get("analysis_timeout_ms")
     timeout_seconds = payload.get("analysis_timeout_seconds")
@@ -2358,7 +2390,11 @@ def _analysis_timeout_total_ticks(payload: Mapping[str, object]) -> int:
     )
 
 
-def _analysis_timeout_grace_ns(payload: Mapping[str, object], *, total_ns: int) -> int:
+def _analysis_timeout_grace_ns(
+    payload: dict[str, object],
+    *,
+    total_ns: int,
+) -> int:
     if total_ns <= 1:
         return 0
     grace_cap_ns = max(
@@ -2411,7 +2447,9 @@ def _analysis_timeout_grace_ns(payload: Mapping[str, object], *, total_ns: int) 
     return max(1, min(total_ns - 1, grace_cap_ns, provided_grace_ns))
 
 
-def _analysis_timeout_budget_ns(payload: Mapping[str, object]) -> tuple[int, int, int]:
+def _analysis_timeout_budget_ns(
+    payload: dict[str, object],
+) -> tuple[int, int, int]:
     total_ns = _analysis_timeout_total_ns(payload)
     cleanup_grace_ns = _analysis_timeout_grace_ns(payload, total_ns=total_ns)
     analysis_ns = max(1, total_ns - cleanup_grace_ns)
@@ -2419,7 +2457,7 @@ def _analysis_timeout_budget_ns(payload: Mapping[str, object]) -> tuple[int, int
     return total_ns, analysis_ns, cleanup_ns
 
 
-def _deadline_from_payload(payload: dict) -> Deadline:
+def _deadline_from_payload(payload: dict[str, object]) -> Deadline:
     total_ns = _analysis_timeout_total_ns(payload)
     overhead_ns = _server_deadline_overhead_ns(total_ns)
     analysis_ns = max(1, total_ns - overhead_ns)
@@ -2427,8 +2465,8 @@ def _deadline_from_payload(payload: dict) -> Deadline:
 
 
 @contextmanager
-def _deadline_scope_from_payload(payload: object):
-    normalized_payload = _require_payload(payload, command="deadline_scope")
+def _deadline_scope_from_payload(payload: dict[str, object] | None):
+    normalized_payload = _require_optional_payload(payload, command="deadline_scope")
     deadline = _deadline_from_payload(normalized_payload)
     base_ticks = _analysis_timeout_total_ticks(normalized_payload)
     tick_limit = base_ticks
@@ -2593,7 +2631,7 @@ def execute_command(
     ls: LanguageServer,
     payload: dict | None = None,
 ) -> dict:
-    normalized_payload = _require_payload(payload, command=DATAFLOW_COMMAND)
+    normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
     return _execute_command_total(ls, normalized_payload)
 
 
@@ -2603,7 +2641,7 @@ def execute_command_with_deps(
     *,
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
-    normalized_payload = _require_payload(payload, command=DATAFLOW_COMMAND)
+    normalized_payload = _require_optional_payload(payload, command=DATAFLOW_COMMAND)
     return _execute_command_total(ls, normalized_payload, deps=deps)
 
 
@@ -3144,7 +3182,6 @@ def _execute_command_total(
                 progress_payload=persisted_progress_payload,
                 projection_rows=projection_rows,
                 sections=sections,
-                completed_phase="collection",
             )
             pending_reasons.pop("intro", None)
             _apply_journal_pending_reason(
@@ -3258,7 +3295,6 @@ def _execute_command_total(
                 progress_payload={"phase": phase},
                 projection_rows=projection_rows,
                 sections=sections,
-                completed_phase=phase,
             )
             _apply_journal_pending_reason(
                 projection_rows=projection_rows,
@@ -4241,13 +4277,11 @@ def _execute_command_total(
                         ]
                     )
                     resolved_sections.setdefault("intro", intro_lines)
-                    completed_phase = _latest_report_phase(phase_checkpoint_state)
                     partial_report, pending_reasons = _render_incremental_report(
                         analysis_state=analysis_state,
                         progress_payload=progress_payload,
                         projection_rows=projection_rows,
                         sections=resolved_sections,
-                        completed_phase=completed_phase,
                     )
                     _apply_journal_pending_reason(
                         projection_rows=projection_rows,
@@ -4274,7 +4308,7 @@ def _execute_command_total(
                         "analysis_state": analysis_state,
                         "section_ids": sorted(resolved_sections),
                         "resolved_sections": len(resolved_sections),
-                        "completed_phase": completed_phase,
+                        "completed_phase": _latest_report_phase(phase_checkpoint_state),
                     }
                     _write_report_phase_checkpoint(
                         path=report_phase_checkpoint_path,
@@ -4318,8 +4352,11 @@ def _execute_command_total(
 
 
 @server.command(SYNTHESIS_COMMAND)
-def execute_synthesis(ls: LanguageServer, payload: dict | None = None) -> dict:
-    normalized_payload = _require_payload(payload, command=SYNTHESIS_COMMAND)
+def execute_synthesis(
+    ls: LanguageServer,
+    payload: dict | None = None,
+) -> dict:
+    normalized_payload = _require_optional_payload(payload, command=SYNTHESIS_COMMAND)
     return _execute_synthesis_total(ls, normalized_payload)
 
 
@@ -4384,8 +4421,11 @@ def _execute_synthesis_total(
 
 
 @server.command(REFACTOR_COMMAND)
-def execute_refactor(ls: LanguageServer, payload: dict | None = None) -> dict:
-    normalized_payload = _require_payload(payload, command=REFACTOR_COMMAND)
+def execute_refactor(
+    ls: LanguageServer,
+    payload: dict | None = None,
+) -> dict:
+    normalized_payload = _require_optional_payload(payload, command=REFACTOR_COMMAND)
     return _execute_refactor_total(ls, normalized_payload)
 
 
@@ -4432,8 +4472,11 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
 
 
 @server.command(STRUCTURE_DIFF_COMMAND)
-def execute_structure_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
-    normalized_payload = _require_payload(payload, command=STRUCTURE_DIFF_COMMAND)
+def execute_structure_diff(
+    ls: LanguageServer,
+    payload: dict | None = None,
+) -> dict:
+    normalized_payload = _require_optional_payload(payload, command=STRUCTURE_DIFF_COMMAND)
     return _execute_structure_diff_total(ls, normalized_payload)
 
 
@@ -4458,8 +4501,11 @@ def _execute_structure_diff_total(
 
 
 @server.command(STRUCTURE_REUSE_COMMAND)
-def execute_structure_reuse(ls: LanguageServer, payload: dict | None = None) -> dict:
-    normalized_payload = _require_payload(payload, command=STRUCTURE_REUSE_COMMAND)
+def execute_structure_reuse(
+    ls: LanguageServer,
+    payload: dict | None = None,
+) -> dict:
+    normalized_payload = _require_optional_payload(payload, command=STRUCTURE_REUSE_COMMAND)
     return _execute_structure_reuse_total(ls, normalized_payload)
 
 
@@ -4495,8 +4541,11 @@ def _execute_structure_reuse_total(
 
 
 @server.command(DECISION_DIFF_COMMAND)
-def execute_decision_diff(ls: LanguageServer, payload: dict | None = None) -> dict:
-    normalized_payload = _require_payload(payload, command=DECISION_DIFF_COMMAND)
+def execute_decision_diff(
+    ls: LanguageServer,
+    payload: dict | None = None,
+) -> dict:
+    normalized_payload = _require_optional_payload(payload, command=DECISION_DIFF_COMMAND)
     return _execute_decision_diff_total(ls, normalized_payload)
 
 
