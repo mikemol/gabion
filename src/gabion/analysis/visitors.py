@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Callable, TYPE_CHECKING, cast
+from typing import Callable, Hashable, TYPE_CHECKING, cast
 from gabion.analysis.timeout_context import check_deadline
 
 if TYPE_CHECKING:
@@ -79,6 +79,7 @@ class UseVisitor(ProjectVisitor):
         call_args_factory: Callable[..., CallArgs],
         call_context: Callable[[ast.AST, dict[ast.AST, ast.AST]], tuple[ast.Call | None, bool]],
         return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
+        normalize_key_expr: Callable[[ast.AST, dict[str, ast.AST]], Hashable | None] | None = None,
     ) -> None:
         # dataflow-bundle: alias_to_param, call_args, call_args_factory, call_context, callee_name, const_repr, is_test, parents, strictness, use_map
         self.parents = parents
@@ -92,9 +93,12 @@ class UseVisitor(ProjectVisitor):
         self.call_args_factory = call_args_factory
         self.call_context = call_context
         self.return_aliases = return_aliases or {}
+        self.normalize_key_expr = normalize_key_expr
         self._suspend_non_forward: set[str] = set()
         self._attr_alias_to_param: dict[tuple[str, str], str] = {}
-        self._key_alias_to_param: dict[tuple[str, str], str] = {}
+        self._key_alias_to_param: dict[tuple[str, Hashable], str] = {}
+        self._unknown_key_alias_to_param: dict[str, set[str]] = {}
+        self._const_bindings: dict[str, ast.AST] = {}
 
     @staticmethod
     def _node_span(node: ast.AST) -> tuple[int, int, int, int] | None:
@@ -118,6 +122,17 @@ class UseVisitor(ProjectVisitor):
             return
         sites = self.use_map[param_name].forward_sites.setdefault((callee, slot), set())
         sites.add(span)
+
+    def _record_unknown_key(self, param_name: str, node: ast.AST) -> None:
+        span = self._node_span(node)
+        self.use_map[param_name].unknown_key_carrier = True
+        if span is not None:
+            self.use_map[param_name].unknown_key_sites.add(span)
+
+    def _normalize_key(self, node: ast.AST) -> Hashable | None:
+        if self.normalize_key_expr is None:
+            return None
+        return self.normalize_key_expr(node, const_bindings=self._const_bindings)
 
     def _mark_non_forward(self, param_name: str) -> bool:
         if param_name in self._suspend_non_forward:
@@ -229,6 +244,8 @@ class UseVisitor(ProjectVisitor):
                     param = self._key_alias_to_param.pop(key, None)
                     if param in self.use_map:
                         self.use_map[param].non_forward = True
+                self._unknown_key_alias_to_param.pop(name, None)
+                self._const_bindings.pop(name, None)
 
     def _bind_sequence(self, target: ast.AST, rhs: ast.AST) -> bool:
         check_deadline()
@@ -364,15 +381,29 @@ class UseVisitor(ProjectVisitor):
             elif rhs_param and isinstance(target, ast.Subscript):
                 if (
                     isinstance(target.value, ast.Name)
-                    and isinstance(target.slice, ast.Constant)
-                    and isinstance(target.slice.value, str)
+                    and self._normalize_key(target.slice) is not None
                 ):
+                    key_value = self._normalize_key(target.slice)
+                    assert key_value is not None
                     self._key_alias_to_param[
-                        (target.value.id, target.slice.value)
+                        (target.value.id, key_value)
                     ] = rhs_param
+                    handled_alias = True
+                elif isinstance(target.value, ast.Name):
+                    self._unknown_key_alias_to_param.setdefault(target.value.id, set()).add(
+                        rhs_param
+                    )
+                    self._record_unknown_key(rhs_param, target.slice)
                     handled_alias = True
             else:
                 self._check_write(target)
+
+            if isinstance(target, ast.Name):
+                normalized_const = self._normalize_key(node.value)
+                if normalized_const is None:
+                    self._const_bindings.pop(target.id, None)
+                else:
+                    self._const_bindings[target.id] = node.value
 
         if handled_alias:
             sources = self._collect_alias_sources(node.value)
@@ -404,6 +435,12 @@ class UseVisitor(ProjectVisitor):
             handled_alias = True
         else:
             self._check_write(node.target)
+        if isinstance(node.target, ast.Name):
+            normalized_const = self._normalize_key(node.value)
+            if normalized_const is None:
+                self._const_bindings.pop(node.target.id, None)
+            else:
+                self._const_bindings[node.target.id] = node.value
         if handled_alias:
             sources = self._collect_alias_sources(node.value)
             self._suspend_non_forward.update(sources)
@@ -499,10 +536,12 @@ class UseVisitor(ProjectVisitor):
                 self._mark_non_forward(param_name)
             self.generic_visit(node)
             return
-        key_value = None
-        if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
-            key_value = node.slice.value
+        key_value = self._normalize_key(node.slice)
         if key_value is None:
+            unknown_params = self._unknown_key_alias_to_param.get(node.value.id, set())
+            for param_name in unknown_params:
+                check_deadline()
+                self._record_unknown_key(param_name, node.slice)
             if node.value.id in self.alias_to_param:
                 param_name = self.alias_to_param[node.value.id]
                 self._mark_non_forward(param_name)

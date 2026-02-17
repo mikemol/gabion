@@ -184,3 +184,52 @@ def test_unused_arg_edge_branches(tmp_path: Path) -> None:
         external_filter=True,
     )
     assert any("callee.x" in smell for smell in smells)
+
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
+def test_unused_arg_reports_no_forwarding_use_category(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "sample.py",
+        """
+        def callee(x, y):
+            return y
+
+        def caller(foo):
+            return callee(foo, 1)
+        """,
+    )
+    analyze_unused_arg_flow_repo = _load_analyzer()
+    smells = analyze_unused_arg_flow_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+    )
+    assert any("(no forwarding use)" in smell for smell in smells)
+
+
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_unused_arg_flow_repo::strictness
+def test_unused_arg_reports_unknown_key_carrier_category(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "sample.py",
+        """
+        def callee(x, key, y):
+            holder = {}
+            holder[key] = x
+            return y
+
+        def caller(foo, key):
+            return callee(foo, key, 1)
+        """,
+    )
+    analyze_unused_arg_flow_repo = _load_analyzer()
+    smells = analyze_unused_arg_flow_repo(
+        [path],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+    )
+    assert any("callee.x" in smell and "(unknown key carrier)" in smell for smell in smells)
