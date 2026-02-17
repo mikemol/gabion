@@ -9,6 +9,34 @@ from gabion.analysis.timeout_context import check_deadline
 from gabion.analysis.timeout_context import consume_deadline_ticks
 from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
+TYPE_BASE_NAMESPACE = "type_base"
+TYPE_CTOR_NAMESPACE = "type_ctor"
+EVIDENCE_KIND_NAMESPACE = "evidence_kind"
+SITE_KIND_NAMESPACE = "site_kind"
+SYNTH_NAMESPACE = "synth"
+
+_NAMESPACE_TO_PREFIX: dict[str, str] = {
+    TYPE_BASE_NAMESPACE: "",
+    TYPE_CTOR_NAMESPACE: "ctor:",
+    EVIDENCE_KIND_NAMESPACE: "evidence:",
+    SITE_KIND_NAMESPACE: "site:",
+    SYNTH_NAMESPACE: "synth:",
+}
+
+
+def _namespace_key(key: str) -> tuple[str, str]:
+    check_deadline()
+    for namespace, prefix in _NAMESPACE_TO_PREFIX.items():
+        check_deadline()
+        if prefix and key.startswith(prefix):
+            return namespace, key[len(prefix) :]
+    return TYPE_BASE_NAMESPACE, key
+
+
+def _raw_key(namespace: str, key: str) -> str:
+    prefix = _NAMESPACE_TO_PREFIX.get(namespace, "")
+    return f"{prefix}{key}"
+
 def _split_top_level(value: str, sep: str) -> list[str]:
     check_deadline()
     parts: list[str] = []
@@ -162,6 +190,66 @@ class PrimeRegistry:
     def bit_for(self, key: str) -> int | None:
         return self.bit_positions.get(key)
 
+    def seed_payload(self) -> JSONObject:
+        check_deadline()
+        namespace_payload: dict[str, JSONObject] = {}
+
+        def _entry(namespace: str) -> JSONObject:
+            payload = namespace_payload.get(namespace)
+            if payload is None:
+                payload = {"primes": {}, "bit_positions": {}}
+                namespace_payload[namespace] = payload
+            return payload
+
+        for key, prime in ordered_or_sorted(
+            self.primes.items(),
+            source="PrimeRegistry.seed_payload.primes",
+            policy=OrderPolicy.SORT,
+        ):
+            check_deadline()
+            namespace, local_key = _namespace_key(key)
+            _entry(namespace)["primes"][local_key] = int(prime)
+        for key, bit in ordered_or_sorted(
+            self.bit_positions.items(),
+            source="PrimeRegistry.seed_payload.bit_positions",
+            policy=OrderPolicy.SORT,
+        ):
+            check_deadline()
+            namespace, local_key = _namespace_key(key)
+            _entry(namespace)["bit_positions"][local_key] = int(bit)
+        return {
+            "version": "prime-registry-seed@1",
+            "namespaces": namespace_payload,
+        }
+
+    def load_seed_payload(self, payload: object) -> None:
+        check_deadline()
+        if not isinstance(payload, dict):
+            return
+        namespaces = payload.get("namespaces")
+        if not isinstance(namespaces, dict):
+            _apply_registry_payload(payload, self)
+            return
+        flat_primes: dict[str, int] = {}
+        flat_bits: dict[str, int] = {}
+        for namespace, section in namespaces.items():
+            check_deadline()
+            if not isinstance(namespace, str) or not isinstance(section, dict):
+                continue
+            primes = section.get("primes")
+            bits = section.get("bit_positions")
+            if isinstance(primes, dict):
+                for key, value in primes.items():
+                    check_deadline()
+                    if isinstance(key, str) and isinstance(value, int):
+                        flat_primes[_raw_key(namespace, key)] = value
+            if isinstance(bits, dict):
+                for key, value in bits.items():
+                    check_deadline()
+                    if isinstance(key, str) and isinstance(value, int):
+                        flat_bits[_raw_key(namespace, key)] = value
+        _apply_registry_payload({"primes": flat_primes, "bit_positions": flat_bits}, self)
+
 
 @dataclass(frozen=True)
 class FingerprintDimension:
@@ -207,7 +295,7 @@ class TypeConstructorRegistry:
         prime = self.constructors.get(key)
         if prime is not None:
             return prime
-        prime = self.registry.get_or_assign(f"ctor:{key}")
+        prime = self.registry.get_or_assign(_raw_key(TYPE_CTOR_NAMESPACE, key))
         self.constructors[key] = prime
         return prime
 
@@ -420,7 +508,7 @@ def _ctor_dimension_from_names(
         check_deadline()
         if not name:
             continue
-        key = f"ctor:{_normalize_base(name)}"
+        key = _raw_key(TYPE_CTOR_NAMESPACE, _normalize_base(name))
         prime = registry.get_or_assign(key)
         product *= prime
         bit = registry.bit_for(key)
@@ -577,22 +665,7 @@ def synth_registry_payload(
                 },
             }
         )
-    primes_payload = {
-        key: int(value)
-        for key, value in ordered_or_sorted(
-            registry.primes.items(),
-            source="synth_registry_payload.registry.primes",
-            policy=OrderPolicy.SORT,
-        )
-    }
-    bit_positions_payload = {
-        key: int(value)
-        for key, value in ordered_or_sorted(
-            registry.bit_positions.items(),
-            source="synth_registry_payload.registry.bit_positions",
-            policy=OrderPolicy.SORT,
-        )
-    }
+    seed_payload = registry.seed_payload()
     return {
         "version": synth_registry.version,
         "min_occurrences": min_occurrences,
@@ -600,8 +673,23 @@ def synth_registry_payload(
         # Registry basis for deterministic reload across runs/snapshots.
         # This turns the synth registry artifact into a reproducible basis.
         "registry": {
-            "primes": primes_payload,
-            "bit_positions": bit_positions_payload,
+            "primes": {
+                key: int(value)
+                for key, value in ordered_or_sorted(
+                    registry.primes.items(),
+                    source="synth_registry_payload.registry.primes",
+                    policy=OrderPolicy.SORT,
+                )
+            },
+            "bit_positions": {
+                key: int(value)
+                for key, value in ordered_or_sorted(
+                    registry.bit_positions.items(),
+                    source="synth_registry_payload.registry.bit_positions",
+                    policy=OrderPolicy.SORT,
+                )
+            },
+            "seed": seed_payload,
         },
     }
 
@@ -622,7 +710,10 @@ def build_synth_registry_from_payload(
     registry: PrimeRegistry,
 ) -> SynthRegistry:
     check_deadline()
-    _apply_registry_payload(payload.get("registry"), registry)
+    registry_payload = payload.get("registry")
+    if isinstance(registry_payload, dict):
+        registry.load_seed_payload(registry_payload.get("seed"))
+    _apply_registry_payload(registry_payload, registry)
     entries, version, _ = load_synth_registry_payload(payload)
     synth_registry = SynthRegistry(registry=registry, version=version)
     for entry in entries:
@@ -840,9 +931,12 @@ def fingerprint_hybrid(types: Iterable[str], registry: PrimeRegistry) -> tuple[i
 
 def build_fingerprint_registry(
     spec: dict[str, JSONValue],
+    *,
+    registry_seed: object = None,
 ) -> tuple[PrimeRegistry, dict[Fingerprint, set[str]]]:
     check_deadline()
     registry = PrimeRegistry()
+    registry.load_seed_payload(registry_seed)
     ctor_registry = TypeConstructorRegistry(registry)
     base_keys: set[str] = set()
     constructor_keys: set[str] = set()
