@@ -1,5 +1,5 @@
 ---
-doc_revision: 47
+doc_revision: 48
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -130,3 +130,8 @@ Status legend:
 - in/in-30.md — **partial** (SuiteSite carrier + loop-scoped deadlines design; implementation in progress; SPPF/GH-85.)
 - in/in-31.md — **partial** (projection carriers + meet-boundary ordering semantics; convergence in progress.)
 - in/in-32.md — **queued** (hypothetical/non-normative Gödel-numbering exploration; acknowledged, but not a controlling contract for implementation or CI at this time.)
+- in/in-33.md — **untriaged** (new inbox entry; pending review and classification.)
+- in/in-34.md — **untriaged** (new inbox entry; pending review and classification.)
+- in/in-35.md — **untriaged** (new inbox entry; pending review and classification.)
+- in/in-36.md — **untriaged** (new inbox entry; pending review and classification.)
+- in/in-37.md — **untriaged** (new inbox entry; pending review and classification.)
