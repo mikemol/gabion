@@ -775,8 +775,9 @@ def test_collect_config_and_dataclass_stage_caches_reuse_analysis_index(
     assert "AppConfig" in bundles[module]
     assert "module.AppConfig" in registry
     assert "module.Payload" in registry
-    assert ("config_fields",) in analysis_index.stage_cache_by_key
-    assert ("dataclass_registry", str(tmp_path)) in analysis_index.stage_cache_by_key
+    cache_keys = {key[1] for key in analysis_index.stage_cache_by_key}
+    assert any(isinstance(key, tuple) and key[-1] == "config_fields" for key in cache_keys)
+    assert any(isinstance(key, tuple) and key[-1] == "dataclass_registry" for key in cache_keys)
 
 def test_run_indexed_pass_hydrates_index_and_sink() -> None:
     da = _load()
@@ -1723,6 +1724,88 @@ def test_build_analysis_index_resumes_hydrated_payload(tmp_path: Path) -> None:
     assert baseline.by_qual.keys() == resumed.by_qual.keys()
     assert baseline.symbol_table.imports == resumed.symbol_table.imports
     assert baseline.class_index.keys() == resumed.class_index.keys()
+
+
+
+def test_build_analysis_index_resume_stable_under_hydrated_path_reorder(tmp_path: Path) -> None:
+    da = _load()
+    module_a = tmp_path / "a.py"
+    module_b = tmp_path / "b.py"
+    _write(module_a, "def fa(x):\n    return x\n")
+    _write(module_b, "def fb(y):\n    return y\n")
+    progress_payloads: list[dict[str, object]] = []
+    da._build_analysis_index(
+        [module_a, module_b],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=set(),
+        parse_failure_witnesses=[],
+        on_progress=progress_payloads.append,
+    )
+    resume_payload = dict(progress_payloads[-1])
+    hydrated = list(resume_payload.get("hydrated_paths", []))
+    resume_payload["hydrated_paths"] = list(reversed(hydrated))
+    calls = 0
+
+    def _accumulate(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return da._accumulate_function_index_for_tree(*args, **kwargs)
+
+    da._build_analysis_index(
+        [module_a, module_b],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=set(),
+        parse_failure_witnesses=[],
+        resume_payload=resume_payload,
+        accumulate_function_index_for_tree_fn=_accumulate,
+    )
+    assert calls == 0
+
+
+def test_build_analysis_index_resume_misses_on_semantic_key_change(tmp_path: Path) -> None:
+    da = _load()
+    module = tmp_path / "sample.py"
+    _write(module, "def f(x):\n    return x\n")
+    progress_payloads: list[dict[str, object]] = []
+    da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=set(),
+        parse_failure_witnesses=[],
+        on_progress=progress_payloads.append,
+        fingerprint_seed_revision="rev-1",
+    )
+    resume_payload = dict(progress_payloads[-1])
+    calls = 0
+
+    def _accumulate(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return da._accumulate_function_index_for_tree(*args, **kwargs)
+
+    da._build_analysis_index(
+        [module],
+        project_root=tmp_path,
+        ignore_params={"x"},
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=set(),
+        parse_failure_witnesses=[],
+        resume_payload=resume_payload,
+        accumulate_function_index_for_tree_fn=_accumulate,
+        fingerprint_seed_revision="rev-2",
+    )
+    assert calls == 1
+
 
 def test_build_collection_resume_rejects_path_order_regression() -> None:
     da = _load()
