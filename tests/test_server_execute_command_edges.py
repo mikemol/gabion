@@ -5270,3 +5270,65 @@ def test_execute_structure_reuse_total_success_without_lemma_stubs(tmp_path: Pat
     )
     assert result["exit_code"] == 0
     assert "lemma_stubs" not in result
+
+
+def test_execute_impact_query_groups_tests_and_docs(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (src / "app.py").write_text(
+        "def target(value):\n"
+        "    return value\n\n"
+        "def helper(value):\n"
+        "    return target(value)\n"
+    )
+    (tests_dir / "test_app.py").write_text(
+        "from src.app import helper\n\n"
+        "def test_helper():\n"
+        "    assert helper(1) == 1\n"
+    )
+    (docs_dir / "impact.md").write_text(
+        "# Impact\n"
+        "The target function powers helper and tests.\n"
+    )
+    ls = _DummyServer(str(tmp_path))
+    result = server.execute_impact(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "changes": ["src/app.py:1-2"],
+                "confidence_threshold": 0.2,
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    must = result.get("must_run_tests") or []
+    assert any("tests/test_app.py::test_helper" in str(entry.get("id")) for entry in must)
+    docs = result.get("impacted_docs") or []
+    assert any(str(entry.get("path")) == "docs/impact.md" for entry in docs)
+
+
+def test_execute_impact_query_accepts_git_diff(tmp_path: Path) -> None:
+    (tmp_path / "module.py").write_text("def f():\n    return 1\n")
+    ls = _DummyServer(str(tmp_path))
+    diff_text = """diff --git a/module.py b/module.py
++++ b/module.py
+@@ -1,1 +1,2 @@
+ def f():
++    return 2
+"""
+    result = server.execute_impact(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "git_diff": diff_text,
+            }
+        ),
+    )
+    assert result.get("exit_code") == 0
+    assert result.get("changes")
