@@ -345,7 +345,7 @@ def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
         compatibility_shim_overloads=True,
         rationale=None,
     )
-    assert payload["bundle"] == []
+    assert payload["bundle"] == ["a", "b"]
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_check::baseline E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline
