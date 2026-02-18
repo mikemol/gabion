@@ -381,7 +381,7 @@ def test_resolve_star_external_filtered() -> None:
     table.internal_roots.add("pkg")
     assert table.resolve_star("pkg.mod", "Foo") is None
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases._alias_from_expr::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_defaults::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_defaults::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
 def test_param_defaults_and_return_aliases() -> None:
     da = _load()
     tree = ast.parse(
@@ -402,7 +402,7 @@ def test_param_defaults_and_return_aliases() -> None:
     alias = da._return_aliases(fn)
     assert alias == ["a"]
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases._alias_from_expr::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
 def test_return_aliases_tuple_and_conflict() -> None:
     da = _load()
     tree = ast.parse(
@@ -440,7 +440,7 @@ def test_collect_return_aliases_conflict() -> None:
     aliases = da._collect_return_aliases(funcs, parents, ignore_params=None)
     assert "foo" not in aliases
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases._alias_from_expr::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._return_aliases E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params
 def test_return_aliases_bare_return() -> None:
     da = _load()
     tree = ast.parse(
