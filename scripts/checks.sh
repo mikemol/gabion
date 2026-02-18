@@ -43,6 +43,7 @@ if $run_dataflow; then
 fi
 if $run_docflow; then
   mise exec -- python -m gabion docflow-audit
+  mise exec -- python scripts/sppf_status_audit.py --root .
 fi
 if $run_tests; then
   test_dir="${TEST_ARTIFACTS_DIR:-artifacts/test_runs}"
