@@ -155,9 +155,9 @@ strictness, external-filter mode, fingerprint seed revision, and forest spec).
 Change those knobs only when needed; otherwise you can invalidate hydration
 reuse and force larger reparse/index work.
 
-Run the dataflow grammar audit (prototype):
+Run the dataflow grammar audit in raw profile mode (prototype):
 ```
-mise exec -- python -m gabion dataflow-audit path/to/project
+mise exec -- python -m gabion check --profile raw path/to/project
 ```
 Repo defaults are driven by `gabion.toml` (see `[dataflow]`).
 By default, `in/` (inspiration) is excluded from enforcement there.
@@ -184,15 +184,13 @@ mise exec -- python -m gabion synth path/to/project
 
 Run the docflow audit (governance docs; `in/` is included for dependency resolution):
 ```
-mise exec -- python -m gabion docflow-audit
+mise exec -- python -m gabion docflow
 ```
 Run governance graph/status checks through the same CLI entrypoint:
 ```
 mise exec -- python -m gabion sppf-graph
 mise exec -- python -m gabion status-consistency --fail-on-violations
 ```
-Legacy wrappers remain available for transition-only CI/hooks (`scripts/docflow_audit.py`,
-`scripts/sppf_graph.py`, `scripts/status_consistency.py`).
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
@@ -249,7 +247,7 @@ GitHub-hosted CI runs `gabion check`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
 
-The `dataflow-audit` job now performs a best-effort warm-cache restore of
+The `dataflow-grammar` job now performs a best-effort warm-cache restore of
 `dataflow_resume_checkpoint_ci.json` from a prior same-branch push artifact
 before running staged retries. When available, this primes Gabion's resume
 mechanism and reduces repeated parsing/indexing of unchanged paths.

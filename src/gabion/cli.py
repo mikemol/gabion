@@ -71,15 +71,6 @@ _DEFAULT_CHECK_REPORT_REL_PATH = Path("artifacts/audit_reports/dataflow_report.m
 _DEFAULT_TIMEOUT_PROGRESS_REPORT_REL_PATH = Path(
     "artifacts/audit_reports/timeout_progress.md"
 )
-_DATAFLOW_AUDIT_ALIAS_MESSAGE = (
-    "`dataflow-audit` is deprecated; use `check --profile raw`."
-)
-_DATAFLOW_AUDIT_MIGRATION_EPILOG = (
-    f"DEPRECATION: {_DATAFLOW_AUDIT_ALIAS_MESSAGE}\n"
-    "Migration map:\n"
-    "  gabion dataflow-audit <paths> -> gabion check --profile raw <paths>\n"
-    "  --emit-decision-snapshot -> --decision-snapshot"
-)
 _SPPF_GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 _SPPF_KEYWORD_REF_RE = re.compile(
     r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
@@ -1471,12 +1462,39 @@ def _run_check_raw_profile(
     resolved_run(raw_args + list(ctx.args))
 
 
-def _warn_dataflow_audit_alias() -> None:
-    typer.echo(_DATAFLOW_AUDIT_ALIAS_MESSAGE, err=True)
+def _nonzero_exit_causes(result: JSONObject) -> list[str]:
+    causes: list[str] = []
+    if bool(result.get("timeout", False)):
+        analysis_state = str(result.get("analysis_state") or "unknown")
+        causes.append(f"timeout (analysis_state={analysis_state})")
+    violations = int(result.get("violations", 0) or 0)
+    if violations > 0:
+        causes.append(f"policy violations={violations}")
+    type_ambiguities_raw = result.get("type_ambiguities")
+    if isinstance(type_ambiguities_raw, list) and type_ambiguities_raw:
+        causes.append(f"type ambiguities={len(type_ambiguities_raw)}")
+    errors_raw = result.get("errors")
+    if isinstance(errors_raw, list) and errors_raw:
+        first_error = str(errors_raw[0])
+        if len(errors_raw) > 1:
+            causes.append(f"errors={len(errors_raw)} (first: {first_error})")
+        else:
+            causes.append(f"error: {first_error}")
+    if not causes:
+        analysis_state = str(result.get("analysis_state") or "unknown")
+        causes.append(
+            "no explicit violations/type ambiguities/errors were returned; "
+            f"analysis_state={analysis_state}"
+        )
+    return causes
 
 
-def _dataflow_alias_migration_epilog() -> str:
-    return _DATAFLOW_AUDIT_MIGRATION_EPILOG
+def _emit_nonzero_exit_causes(result: JSONObject) -> None:
+    exit_code = int(result.get("exit_code", 0) or 0)
+    if exit_code == 0:
+        return
+    causes = "; ".join(_nonzero_exit_causes(result))
+    typer.echo(f"Non-zero exit ({exit_code}) cause(s): {causes}", err=True)
 
 
 def _context_run_dataflow_raw_argv(ctx: typer.Context) -> Callable[[list[str]], None]:
@@ -1486,15 +1504,6 @@ def _context_run_dataflow_raw_argv(ctx: typer.Context) -> Callable[[list[str]], 
         if callable(candidate):
             return candidate
     return _run_dataflow_raw_argv
-
-
-def _context_warn_dataflow_audit_alias(ctx: typer.Context) -> Callable[[], None]:
-    obj = ctx.obj
-    if isinstance(obj, Mapping):
-        candidate = obj.get("warn_dataflow_audit_alias")
-        if callable(candidate):
-            return candidate
-    return _warn_dataflow_audit_alias
 
 
 def _run_dataflow_raw_argv(
@@ -1517,6 +1526,7 @@ def _run_dataflow_raw_argv(
         resume_on_timeout=max(int(opts.resume_on_timeout), 0),
     )
     _emit_dataflow_result_outputs(result, opts)
+    _emit_nonzero_exit_causes(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
 
@@ -1772,29 +1782,13 @@ def check(
             lint_jsonl=lint_jsonl,
             lint_sarif=lint_sarif,
         )
+    _emit_nonzero_exit_causes(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
-
-
-@app.command(
-    "dataflow-audit",
-    add_help_option=False,
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-)
-def dataflow_audit(
-    ctx: typer.Context,
-    args: List[str] = typer.Argument(None),
-) -> None:
-    argv = list(args or []) + list(ctx.args)
-    if any(arg in {"-h", "--help"} for arg in argv):
-        parse_dataflow_args_or_exit(["--help"])
-    _context_warn_dataflow_audit_alias(ctx)()
-    _context_run_dataflow_raw_argv(ctx)(argv)
 
 
 def dataflow_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run dataflow grammar audit in raw profile mode.",
-        epilog=_dataflow_alias_migration_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("paths", nargs="+")
@@ -2330,8 +2324,8 @@ def sppf_sync(
         raise typer.Exit(code=exit_code)
 
 
-@app.command("docflow-audit")
-def docflow_audit(
+@app.command("docflow")
+def docflow(
     root: Path = typer.Option(Path("."), "--root"),
     fail_on_violations: bool = typer.Option(
         True, "--fail-on-violations/--no-fail-on-violations"

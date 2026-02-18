@@ -26,7 +26,7 @@ done
 if $list_only; then
   echo "Checks to run:" >&2
   $run_dataflow && echo "- dataflow (gabion check)" >&2
-  $run_docflow && echo "- docflow (gabion docflow-audit --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
+  $run_docflow && echo "- docflow (gabion docflow --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
   $run_tests && echo "- tests (pytest)" >&2
   exit 0
 fi
@@ -48,7 +48,7 @@ if $run_docflow; then
   if [ "$docflow_mode" = "advisory" ]; then
     echo "WARNING: running docflow in advisory GH-reference mode (local debugging only)." >&2
   fi
-  mise exec -- python -m gabion docflow-audit "${docflow_args[@]}"
+  mise exec -- python -m gabion docflow "${docflow_args[@]}"
   mise exec -- python scripts/sppf_status_audit.py --root .
 fi
 if $run_tests; then

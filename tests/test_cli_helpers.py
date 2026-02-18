@@ -209,111 +209,38 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
     assert "--emit-test-obsolescence" in normalized_output
 
 
-def test_dataflow_audit_command_delegates_to_raw_runner(
-) -> None:
-    captured: dict[str, object] = {}
+def test_dataflow_audit_nonzero_exit_reports_explicit_causes(capsys: pytest.CaptureFixture[str]) -> None:
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {"exit_code": 1, "analysis_state": "succeeded", "violations": 2}
 
-    def _fake_run(argv: list[str]) -> None:
-        captured["argv"] = list(argv)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
-        ["dataflow-audit", "sample.py", "--dot", "-", "--root", "."],
-        obj={
-            "warn_dataflow_audit_alias": (lambda: None),
-            "run_dataflow_raw_argv": _fake_run,
-        },
-    )
-    assert result.exit_code == 0
-    assert captured["argv"] == ["sample.py", "--dot", "-", "--root", "."]
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(["sample.py"], runner=runner)
+    assert exc.value.exit_code == 1
+    assert "Non-zero exit (1) cause(s):" in capsys.readouterr().err
 
 
-def test_dataflow_audit_alias_matches_check_raw_args(
-) -> None:
-    captured: list[list[str]] = []
+def test_dataflow_audit_nonzero_exit_fallback_is_explicit(capsys: pytest.CaptureFixture[str]) -> None:
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {"exit_code": 1, "analysis_state": "succeeded"}
 
-    def _fake_run(argv: list[str]) -> None:
-        captured.append(list(argv))
-
-    runner = CliRunner()
-    check_result = runner.invoke(
-        cli.app,
-        ["check", "--profile", "raw", "sample.py", "--dot", "-"],
-        obj={
-            "warn_dataflow_audit_alias": (lambda: None),
-            "run_dataflow_raw_argv": _fake_run,
-        },
-    )
-    dataflow_result = runner.invoke(
-        cli.app,
-        ["dataflow-audit", "sample.py", "--dot", "-"],
-        obj={
-            "warn_dataflow_audit_alias": (lambda: None),
-            "run_dataflow_raw_argv": _fake_run,
-        },
-    )
-    assert check_result.exit_code == 0
-    assert dataflow_result.exit_code == 0
-    assert len(captured) == 2
-    assert captured[0] == captured[1]
-
-
-def test_dataflow_audit_emits_alias_warning() -> None:
-    warned = {"count": 0}
-
-    def _fake_warn() -> None:
-        warned["count"] += 1
-
-    def _fake_run(_argv: list[str]) -> None:
-        return None
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
-        ["dataflow-audit", "sample.py"],
-        obj={
-            "warn_dataflow_audit_alias": _fake_warn,
-            "run_dataflow_raw_argv": _fake_run,
-        },
-    )
-    assert result.exit_code == 0
-    assert warned["count"] == 1
-
-
-def test_dataflow_audit_help_does_not_emit_alias_warning(
-) -> None:
-    warned = {"count": 0}
-
-    def _fake_warn() -> None:
-        warned["count"] += 1
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli.app,
-        ["dataflow-audit", "--help"],
-        obj={"warn_dataflow_audit_alias": _fake_warn},
-    )
-    assert result.exit_code == 0
-    assert warned["count"] == 0
-
-
-def test_dataflow_alias_migration_epilog_contains_map() -> None:
-    epilog = cli._dataflow_alias_migration_epilog()
-    assert "gabion check --profile raw" in epilog
-    assert "--emit-decision-snapshot -> --decision-snapshot" in epilog
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(["sample.py"], runner=runner)
+    assert exc.value.exit_code == 1
+    err = capsys.readouterr().err
+    assert "no explicit violations/type ambiguities/errors were returned" in err
+    assert "analysis_state=succeeded" in err
 
 
 def test_context_dependency_helpers_ignore_noncallables() -> None:
     class DummyCtx:
         obj = {
             "run_dataflow_raw_argv": "not-callable",
-            "warn_dataflow_audit_alias": "not-callable",
         }
 
     ctx = DummyCtx()
     assert cli._context_run_dataflow_raw_argv(ctx) is cli._run_dataflow_raw_argv
-    assert cli._context_warn_dataflow_audit_alias(ctx) is cli._warn_dataflow_audit_alias
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target

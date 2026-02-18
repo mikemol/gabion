@@ -163,7 +163,7 @@ jobs:
           GABION_LSP_TIMEOUT_SECONDS: "300"
         run: |
           mkdir -p artifacts/dataflow_grammar
-          mise exec -- python -m gabion dataflow-audit . \
+          mise exec -- python -m gabion check --profile raw . \
             --root . \
             --report artifacts/dataflow_grammar/report.md \
             --dot artifacts/dataflow_grammar/dataflow_graph.dot \

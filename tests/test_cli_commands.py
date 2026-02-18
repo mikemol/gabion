@@ -60,7 +60,9 @@ def test_cli_check_and_dataflow_audit(tmp_path: Path) -> None:
     result = _invoke(
         runner,
         [
-            "dataflow-audit",
+            "check",
+            "--profile",
+            "raw",
             str(module),
             "--root",
             str(tmp_path),
@@ -181,13 +183,13 @@ def test_cli_impact_reads_git_diff_stdin(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_docflow_audit::cli.py::gabion.cli.app
-def test_cli_docflow_audit() -> None:
+def test_cli_docflow() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     runner = CliRunner()
     result = _invoke(
         runner,
         [
-            "docflow-audit",
+            "docflow",
             "--root",
             str(repo_root),
             "--no-fail-on-violations",
@@ -234,19 +236,10 @@ def test_cli_sppf_graph_and_status_consistency(tmp_path: Path) -> None:
     assert status_json.exists()
 
 
-def test_cli_dataflow_audit_requires_paths() -> None:
-    runner = CliRunner()
-    result = _invoke(runner, ["dataflow-audit"])
-    assert result.exit_code != 0
-
-
-def test_cli_dataflow_audit_help_uses_dataflow_parser() -> None:
+def test_cli_dataflow_audit_command_is_removed() -> None:
     runner = CliRunner()
     result = _invoke(runner, ["dataflow-audit", "--help"])
-    assert result.exit_code == 0
-    assert "usage:" in result.output.lower()
-    assert "--type-audit" in result.output
-    assert "check --profile raw" in result.output
+    assert result.exit_code != 0
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls

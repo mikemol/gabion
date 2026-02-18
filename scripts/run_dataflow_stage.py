@@ -500,7 +500,7 @@ def run_staged(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run one dataflow-audit CI stage with deterministic outputs/artifacts."
+        description="Run one dataflow grammar CI stage with deterministic outputs/artifacts."
     )
     parser.add_argument("--stage-id", default="a", choices=_STAGE_SEQUENCE)
     parser.add_argument(
