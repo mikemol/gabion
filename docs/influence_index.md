@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 50
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -127,10 +127,10 @@ Status legend:
 - in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; exception-aware rewrite acceptance predicates implemented; remaining handledness refinement tracked; SPPF/GH-77, GH-80.)
 - in/in-28.md — **adopted** (in_step template discipline enforced; docflow structure and review requirements codified.)
 - in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)
-- in/in-30.md — **partial** (SuiteSite carrier + loop-scoped deadlines design; implementation in progress; SPPF/GH-85.)
-- in/in-31.md — **partial** (projection carriers + meet-boundary ordering semantics; convergence in progress.)
+- in/in-30.md — **partial** (implemented: suite ambiguity projections + suite-order SpecFacet path + tick-budget deadline propagation; open: SuiteSite-native loop obligation enforcement; deferred: phase-3/4 decision-surface migration; SPPF/GH-85, GH-87, GH-88.)
+- in/in-31.md — **partial** (implemented: suite-order ProjectionSpec/SpecFacet quotient path; open: explicit quotient/internment regression harness; deferred: internal broad-type lint tightening impact; SPPF/GH-85, GH-89.)
 - in/in-32.md — **queued** (hypothetical/non-normative Gödel-numbering exploration; acknowledged, but not a controlling contract for implementation or CI at this time.)
-- in/in-33.md — [**partial**](docs/sppf_checklist.md#in-33-pattern-schema-unification) (PatternSchema carriers exist for both dataflow and execution pattern instances with shared residue reporting, but execution-pattern coverage is intentionally narrow and metafactory reification remains open.)
+- in/in-33.md — [**partial**](docs/sppf_checklist.md#in-33-pattern-schema-unification) (implemented: PatternSchema/PatternInstance/PatternResidue carriers + unified schema suggestion/residue pipeline; open: execution-rule coverage breadth; deferred: Tier-2 residue ratchet/metafactory reification gate.)
 - in/in-34.md — [**partial**](docs/sppf_checklist.md#in-34-lambda-callable-sites) (synthetic lambda function sites are indexed and used for direct/bound lambda call resolution, while broader closure/alias cases still fall back conservatively.)
 - in/in-35.md — [**partial**](docs/sppf_checklist.md#in-35-dict-key-carrier-tracking) (dict key normalization now supports name-bound constants and records explicit unknown-key carrier evidence for non-recoverable keys; supported key grammar remains deliberately conservative.)
 - in/in-36.md — [**adopted**](docs/sppf_checklist.md#in-36-starred-dataclass-call-bundles) (dataclass call-bundle extraction now decodes deterministic starred literals for `*` and `**` and emits unresolved-starred witnesses for dynamic payloads.)
