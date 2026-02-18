@@ -197,6 +197,43 @@ def test_cli_docflow_audit() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_dataflow_audit_requires_paths::cli.py::gabion.cli.app
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_sppf_graph_and_status_consistency::cli.py::gabion.cli.app
+def test_cli_sppf_graph_and_status_consistency(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    graph_json = tmp_path / "graph.json"
+    status_json = tmp_path / "status.json"
+
+    runner = CliRunner()
+    graph_result = _invoke(
+        runner,
+        [
+            "sppf-graph",
+            "--root",
+            str(repo_root),
+            "--json-output",
+            str(graph_json),
+        ],
+    )
+    assert graph_result.exit_code == 0
+    assert graph_json.exists()
+
+    status_result = _invoke(
+        runner,
+        [
+            "status-consistency",
+            "--root",
+            str(repo_root),
+            "--json-output",
+            str(status_json),
+            "--no-fail-on-violations",
+        ],
+    )
+    assert status_result.exit_code == 0
+    assert status_json.exists()
+
+
 def test_cli_dataflow_audit_requires_paths() -> None:
     runner = CliRunner()
     result = _invoke(runner, ["dataflow-audit"])
