@@ -22,6 +22,12 @@ class ProjectionSpec:
     params: dict[str, JSONValue] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ProjectionOpPayload:
+    op: str
+    params: dict[str, JSONValue] = field(default_factory=dict)
+
+
 def spec_to_dict(spec: ProjectionSpec) -> dict[str, JSONValue]:
     return {
         "spec_version": spec.spec_version,
@@ -51,25 +57,43 @@ def spec_from_dict(payload: Mapping[str, JSONValue]) -> ProjectionSpec:
     params_map: dict[str, JSONValue] = {}
     if isinstance(params, Mapping):
         params_map = {str(k): v for k, v in params.items()}
-    pipeline_payload = payload.get("pipeline", [])
-    ops: list[ProjectionOp] = []
-    if isinstance(pipeline_payload, list):
-        for entry in pipeline_payload:
-            check_deadline()
-            if not isinstance(entry, Mapping):
-                continue
-            op_name = str(entry.get("op", "") or "").strip()
-            if not op_name:
-                continue
-            op_params = entry.get("params")
-            op_params_map: dict[str, JSONValue] = {}
-            if isinstance(op_params, Mapping):
-                op_params_map = {str(k): v for k, v in op_params.items()}
-            ops.append(ProjectionOp(op=op_name, params=op_params_map))
+    ops = tuple(
+        ProjectionOp(op=op_payload.op, params=dict(op_payload.params))
+        for op_payload in _op_payloads_from_pipeline(payload.get("pipeline"))
+    )
     return ProjectionSpec(
         spec_version=version,
         name=name,
         domain=domain,
-        pipeline=tuple(ops),
+        pipeline=ops,
         params=params_map,
     )
+
+
+def _op_payloads_from_pipeline(
+    pipeline_payload: JSONValue | None,
+) -> tuple[ProjectionOpPayload, ...]:
+    check_deadline()
+    if not isinstance(pipeline_payload, list):
+        return ()
+    payloads: list[ProjectionOpPayload] = []
+    for entry in pipeline_payload:
+        check_deadline()
+        payload = _op_payload_from_entry(entry)
+        if payload is not None:
+            payloads.append(payload)
+    return tuple(payloads)
+
+
+def _op_payload_from_entry(entry: JSONValue) -> ProjectionOpPayload | None:
+    check_deadline()
+    if not isinstance(entry, Mapping):
+        return None
+    op_name = str(entry.get("op", "") or "").strip()
+    if not op_name:
+        return None
+    op_params = entry.get("params")
+    params: dict[str, JSONValue] = {}
+    if isinstance(op_params, Mapping):
+        params = {str(key): value for key, value in op_params.items()}
+    return ProjectionOpPayload(op=op_name, params=params)
