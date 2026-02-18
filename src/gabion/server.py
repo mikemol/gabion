@@ -307,11 +307,20 @@ def _resolve_analysis_resume_checkpoint_path(
 
 def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
     return {
-        "exclude_dirs": sorted(config.exclude_dirs),
-        "ignore_params": sorted(config.ignore_params),
+        "exclude_dirs": ordered_or_sorted(
+            config.exclude_dirs,
+            source="_analysis_witness_config_payload.exclude_dirs",
+        ),
+        "ignore_params": ordered_or_sorted(
+            config.ignore_params,
+            source="_analysis_witness_config_payload.ignore_params",
+        ),
         "strictness": config.strictness,
         "external_filter": config.external_filter,
-        "transparent_decorators": sorted(config.transparent_decorators or []),
+        "transparent_decorators": ordered_or_sorted(
+            config.transparent_decorators or [],
+            source="_analysis_witness_config_payload.transparent_decorators",
+        ),
     }
 
 
@@ -2644,8 +2653,12 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
             param_spans = span_map.get(fn_name, {})
             for bundle in group_list:
                 check_deadline()
-                message = f"Implicit bundle detected: {', '.join(sorted(bundle))}"
-                for name in sorted(bundle):
+                ordered_bundle = ordered_or_sorted(
+                    bundle,
+                    source="build_diagnostics_from_analysis_result.bundle",
+                )
+                message = f"Implicit bundle detected: {', '.join(ordered_bundle)}"
+                for name in ordered_bundle:
                     check_deadline()
                     span = param_spans.get(name)
                     if span is None:  # pragma: no cover - spans are derived from parsed params

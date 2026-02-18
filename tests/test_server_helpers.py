@@ -40,6 +40,24 @@ def test_diagnostics_for_path_reports_bundle(tmp_path: Path) -> None:
     assert diagnostics
     assert any("Implicit bundle" in diag.message for diag in diagnostics)
 
+
+# gabion:evidence E:function_site::server.py::gabion.server._analysis_witness_config_payload
+def test_analysis_witness_config_payload_is_stable() -> None:
+    server = _load()
+    config = server.AuditConfig(
+        exclude_dirs={"z", "a"},
+        ignore_params={"tail", "head"},
+        strictness="high",
+        external_filter=True,
+        transparent_decorators={"pkg.wrap", "alpha.wrap"},
+    )
+
+    payload = server._analysis_witness_config_payload(config)
+
+    assert payload["exclude_dirs"] == ["a", "z"]
+    assert payload["ignore_params"] == ["head", "tail"]
+    assert payload["transparent_decorators"] == ["alpha.wrap", "pkg.wrap"]
+
 # gabion:evidence E:function_site::server.py::gabion.server.start
 def test_start_uses_injected_callable() -> None:
     server = _load()

@@ -196,7 +196,7 @@ _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
     "src/gabion/analysis/aspf.py": 3,
     "src/gabion/analysis/call_cluster_consolidation.py": 3,
     "src/gabion/analysis/call_clusters.py": 1,
-    "src/gabion/analysis/dataflow_audit.py": 180,
+    "src/gabion/analysis/dataflow_audit.py": 179,
     "src/gabion/analysis/evidence.py": 2,
     "src/gabion/analysis/evidence_keys.py": 2,
     "src/gabion/analysis/forest_signature.py": 4,
@@ -210,11 +210,11 @@ _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
     "src/gabion/analysis/test_obsolescence.py": 6,
     "src/gabion/analysis/test_obsolescence_delta.py": 8,
     "src/gabion/analysis/timeout_context.py": 5,
-    "src/gabion/analysis/type_fingerprints.py": 18,
+    "src/gabion/analysis/type_fingerprints.py": 0,
     "src/gabion/lsp_client.py": 1,
     "src/gabion/order_contract.py": 2,
     "src/gabion/refactor/engine.py": 1,
-    "src/gabion/server.py": 16,
+    "src/gabion/server.py": 11,
     "src/gabion/synthesis/merge.py": 2,
     "src/gabion/synthesis/naming.py": 1,
     "src/gabion/synthesis/protocols.py": 1,
@@ -14252,8 +14252,12 @@ def _serialize_analysis_index_resume_payload(
     projection_cache_identity: str,
     profiling_v1: Mapping[str, JSONValue] | None = None,
 ) -> JSONObject:
-    hydrated_path_keys = sorted(
-        _analysis_collection_resume_path_key(path) for path in hydrated_paths
+    hydrated_path_keys = ordered_or_sorted(
+        (
+            _analysis_collection_resume_path_key(path)
+            for path in hydrated_paths
+        ),
+        source="_serialize_analysis_index_resume_payload.hydrated_paths",
     )
     ordered_function_items = list(
         ordered_or_sorted(

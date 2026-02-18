@@ -24,6 +24,15 @@ def test_canonical_type_key_normalizes_generics() -> None:
     assert tf.canonical_type_key("List[ str ]") == "list[str]"
     assert tf.canonical_type_key("Dict[str, List[int]]") == "dict[str, list[int]]"
 
+
+def test_canonical_type_key_union_order_stable_across_input_permutations() -> None:
+    tf = _load()
+    first = tf.canonical_type_key("str | int | None")
+    second = tf.canonical_type_key("None | str | int")
+
+    assert first == "Union[None, int, str]"
+    assert second == first
+
 # gabion:evidence E:function_site::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_prime_registry_assigns_stable_primes() -> None:
     tf = _load()
