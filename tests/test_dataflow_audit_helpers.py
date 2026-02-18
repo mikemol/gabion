@@ -1062,10 +1062,33 @@ def test_pattern_schema_residue_entries_cover_both_axes() -> None:
     residue_entries = da._pattern_schema_residue_entries(instances)
     assert any(entry.reason == "unreified_metafactory" for entry in residue_entries)
     assert any(entry.reason == "unreified_protocol" for entry in residue_entries)
+    assert all(entry.payload.get("schema_contract") == "pattern_schema.v2" for entry in residue_entries)
     residue_lines = da._pattern_schema_residue_lines(residue_entries)
     assert any("reason=unreified_metafactory" in line for line in residue_lines)
     assert any("reason=unreified_protocol" in line for line in residue_lines)
 
+
+
+
+def test_pattern_schema_id_is_shared_across_axes_for_identical_shape() -> None:
+    from gabion.analysis.pattern_schema import PatternAxis, PatternSchema
+
+    signature = {"shape": ["a", "b"], "count": 2}
+    dataflow_schema = PatternSchema.build(
+        axis=PatternAxis.DATAFLOW,
+        kind="structural_signature",
+        signature=signature,
+        normalization={"shape": ["a", "b"]},
+    )
+    execution_schema = PatternSchema.build(
+        axis=PatternAxis.EXECUTION,
+        kind="structural_signature",
+        signature=signature,
+        normalization={"shape": ["a", "b"]},
+    )
+
+    assert dataflow_schema.schema_id == execution_schema.schema_id
+    assert dataflow_schema.legacy_schema_id != execution_schema.legacy_schema_id
 
 def test_pattern_schema_identity_is_stable_for_permuted_fixtures() -> None:
     da = _load()
@@ -1106,6 +1129,36 @@ def test_pattern_schema_residue_is_deterministic_for_fixed_fixture() -> None:
     assert first == second
     assert any("reason=unreified_protocol" in line for line in first)
 
+
+
+
+def test_pattern_schema_near_miss_residue_is_stable_across_domains() -> None:
+    da = _load()
+    source = (
+        "def one(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_analysis_index(paths, project_root=project_root, "
+        "ignore_params=ignore_params, strictness=strictness, external_filter=external_filter, "
+        "transparent_decorators=transparent_decorators, parse_failure_witnesses=parse_failure_witnesses)\n"
+        "\n"
+        "def two(paths, *, project_root, ignore_params, strictness, external_filter, "
+        "transparent_decorators=None, parse_failure_witnesses=None, analysis_index=None):\n"
+        "    return _build_call_graph(paths, project_root=project_root, ignore_params=ignore_params, "
+        "strictness=strictness, external_filter=external_filter, transparent_decorators=transparent_decorators, "
+        "parse_failure_witnesses=parse_failure_witnesses, analysis_index=analysis_index)\n"
+    )
+    groups_by_path = {Path("mod.py"): {"f": [set(["a", "b"])], "g": [set(["x", "y"])]}}
+
+    instances = da._pattern_schema_matches(groups_by_path=groups_by_path, source=source)
+    near_miss = [
+        entry
+        for entry in da._pattern_schema_residue_entries(instances)
+        if entry.reason == "schema_contract_mismatch"
+    ]
+
+    assert near_miss
+    assert all(entry.payload.get("schema_contract") == "pattern_schema.v2" for entry in near_miss)
+    assert all("expected" in entry.payload and "observed" in entry.payload for entry in near_miss)
 
 def test_pattern_schema_normalize_signature_handles_nested_dict_values() -> None:
     from gabion.analysis import pattern_schema
@@ -4272,6 +4325,9 @@ def test_pattern_schema_matches_are_stable_across_repeated_runs() -> None:
         da._pattern_schema_matches(groups_by_path=groups_by_path, source=source)
     )
     assert first == second
+    schema_instances, _ = first
+    schema_ids = [entry["schema"]["schema_id"] for entry in schema_instances]
+    assert schema_ids == sorted(schema_ids)
 
 
 def test_build_function_index_indexes_lambda_sites_deterministically(tmp_path: Path) -> None:

@@ -35,6 +35,7 @@ from gabion.analysis.pattern_schema import (
     PatternInstance,
     PatternResidue,
     PatternSchema,
+    mismatch_residue_payload,
 )
 
 from gabion.analysis.visitors import ImportVisitor, ParentAnnotator, UseVisitor
@@ -2537,22 +2538,21 @@ def _function_param_names(node: ast.FunctionDef) -> tuple[str, ...]:
     return tuple(params)
 
 
-def _detect_execution_pattern_matches(
+def _indexed_pass_ingress_members(
     *,
     source: str | None = None,
     source_path: Path | None = None,
-) -> list[_ExecutionPatternMatch]:
+) -> tuple[str, ...]:
     module_path = source_path or Path(__file__)
     if source is None:
         try:
             source = module_path.read_text()
         except OSError:
-            return []
+            return ()
     try:
         tree = ast.parse(source)
     except _PARSE_MODULE_ERROR_TYPES:
-        return []
-    matches: list[_ExecutionPatternMatch] = []
+        return ()
     indexed_members: list[str] = []
     for node in tree.body:
         check_deadline()
@@ -2575,13 +2575,22 @@ def _detect_execution_pattern_matches(
         if not calls_index_ingress:
             continue
         indexed_members.append(node.name)
-    if len(indexed_members) >= 3:
-        members = tuple(
-            ordered_or_sorted(
-                indexed_members,
-                source="_detect_execution_pattern_matches.indexed_members",
-            )
+    return tuple(
+        ordered_or_sorted(
+            indexed_members,
+            source="_indexed_pass_ingress_members.indexed_members",
         )
+    )
+
+
+def _detect_execution_pattern_matches(
+    *,
+    source: str | None = None,
+    source_path: Path | None = None,
+) -> list[_ExecutionPatternMatch]:
+    matches: list[_ExecutionPatternMatch] = []
+    members = _indexed_pass_ingress_members(source=source, source_path=source_path)
+    if len(members) >= 3:
         matches.append(
             _ExecutionPatternMatch(
                 pattern_id=_INDEXED_PASS_INGRESS_RULE.pattern_id,
@@ -2630,10 +2639,49 @@ def _execution_pattern_instances(
                     PatternResidue(
                         schema_id=schema.schema_id,
                         reason="unreified_metafactory",
-                        payload={
-                            "candidate": "IndexedPassSpec[T]",
-                            "members": list(match.members),
-                        },
+                        payload=mismatch_residue_payload(
+                            axis=PatternAxis.EXECUTION,
+                            kind=match.pattern_id,
+                            expected={"min_members": 3, "candidate": "IndexedPassSpec[T]"},
+                            observed={"members": list(match.members), "member_count": len(match.members)},
+                        ),
+                    ),
+                ),
+            )
+        )
+    near_miss_members = _indexed_pass_ingress_members(
+        source=source,
+        source_path=source_path,
+    )
+    if len(near_miss_members) == 2:
+        signature: JSONObject = {
+            "pattern_id": _INDEXED_PASS_INGRESS_RULE.pattern_id,
+            "members": list(near_miss_members),
+        }
+        schema = PatternSchema.build(
+            axis=PatternAxis.EXECUTION,
+            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
+            signature=signature,
+            normalization={"members": list(near_miss_members)},
+        )
+        instances.append(
+            PatternInstance.build(
+                schema=schema,
+                members=near_miss_members,
+                suggestion=(
+                    "execution_pattern near_miss "
+                    + f"{_INDEXED_PASS_INGRESS_RULE.pattern_id} members={len(near_miss_members)}"
+                ),
+                residue=(
+                    PatternResidue(
+                        schema_id=schema.schema_id,
+                        reason="schema_contract_mismatch",
+                        payload=mismatch_residue_payload(
+                            axis=PatternAxis.EXECUTION,
+                            kind=_INDEXED_PASS_INGRESS_RULE.pattern_id,
+                            expected={"min_members": 3},
+                            observed={"members": list(near_miss_members), "member_count": 2},
+                        ),
                     ),
                 ),
             )
@@ -2677,6 +2725,39 @@ def _bundle_pattern_instances(
         )
         count = len(members)
         if count <= 1:
+            if count == 1:
+                schema = PatternSchema.build(
+                    axis=PatternAxis.DATAFLOW,
+                    kind="bundle_signature",
+                    signature={
+                        "bundle": list(bundle_key),
+                        "tier": 3,
+                        "site_count": count,
+                    },
+                    normalization={"bundle": list(bundle_key)},
+                )
+                instances.append(
+                    PatternInstance.build(
+                        schema=schema,
+                        members=members,
+                        suggestion=(
+                            "dataflow_pattern near_miss "
+                            + f"bundle={','.join(bundle_key)} sites={count}"
+                        ),
+                        residue=(
+                            PatternResidue(
+                                schema_id=schema.schema_id,
+                                reason="schema_contract_mismatch",
+                                payload=mismatch_residue_payload(
+                                    axis=PatternAxis.DATAFLOW,
+                                    kind="bundle_signature",
+                                    expected={"min_sites": 2, "tier": 2},
+                                    observed={"site_count": count, "tier": 3, "bundle": list(bundle_key)},
+                                ),
+                            ),
+                        ),
+                    )
+                )
             continue
         signature: JSONObject = {
             "bundle": list(bundle_key),
@@ -2702,12 +2783,19 @@ def _bundle_pattern_instances(
                     PatternResidue(
                         schema_id=schema.schema_id,
                         reason="unreified_protocol",
-                        payload={
-                            "candidate": "Protocol/dataclass reification",
-                            "bundle": list(bundle_key),
-                            "site_count": count,
-                            "tier": 2 if count > 1 else 3,
-                        },
+                        payload=mismatch_residue_payload(
+                            axis=PatternAxis.DATAFLOW,
+                            kind="bundle_signature",
+                            expected={
+                                "candidate": "Protocol/dataclass reification",
+                                "tier": 2,
+                            },
+                            observed={
+                                "bundle": list(bundle_key),
+                                "site_count": count,
+                                "tier": 2 if count > 1 else 3,
+                            },
+                        ),
                     ),
                 ),
             )
@@ -2817,6 +2905,8 @@ def _pattern_schema_snapshot_entries(
             {
                     "schema": {
                         "schema_id": instance.schema.schema_id,
+                        "legacy_schema_id": instance.schema.legacy_schema_id,
+                        "schema_contract": instance.schema.schema_contract,
                         "axis": instance.schema.axis.value,
                         "kind": instance.schema.kind,
                         "signature": instance.schema.normalized_signature,
@@ -2830,7 +2920,15 @@ def _pattern_schema_snapshot_entries(
                         "reason": residue.reason,
                         "payload": residue.payload,
                     }
-                    for residue in instance.residue
+                    for residue in ordered_or_sorted(
+                        instance.residue,
+                        source="_pattern_schema_snapshot_entries.instance_residue",
+                        key=lambda entry: (
+                            entry.schema_id,
+                            entry.reason,
+                            json.dumps(entry.payload, sort_keys=True, separators=(",", ":")),
+                        ),
+                    )
                 ],
             }
         )
