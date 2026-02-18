@@ -84,6 +84,19 @@ def test_normalize_helpers_cover_branches() -> None:
     assert _normalize_value([{"b": 2, "a": 1}]) == [{"a": 1, "b": 2}]
 
 
+def test_normalize_pipeline_stable_under_shuffled_upstream_order() -> None:
+    pipeline_a = (
+        ProjectionOp("select", {"predicates": ["beta", "alpha", "beta"]}),
+        ProjectionOp("count_by", {"fields": ["group_b", "group_a", "group_b"]}),
+    )
+    pipeline_b = (
+        ProjectionOp("select", {"predicates": ["alpha", "beta"]}),
+        ProjectionOp("count_by", {"fields": ["group_a", "group_b"]}),
+    )
+
+    assert _normalize_pipeline(pipeline_a) == _normalize_pipeline(pipeline_b)
+
+
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value
 def test_apply_spec_with_custom_normalizer_handles_invalid_ops() -> None:
     rows = [

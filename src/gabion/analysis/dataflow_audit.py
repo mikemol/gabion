@@ -201,8 +201,6 @@ _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
     "src/gabion/analysis/evidence_keys.py": 2,
     "src/gabion/analysis/forest_signature.py": 4,
     "src/gabion/analysis/forest_spec.py": 5,
-    "src/gabion/analysis/projection_exec.py": 1,
-    "src/gabion/analysis/projection_normalize.py": 3,
     "src/gabion/analysis/schema_audit.py": 1,
     "src/gabion/analysis/test_annotation_drift_delta.py": 2,
     "src/gabion/analysis/test_evidence.py": 6,
