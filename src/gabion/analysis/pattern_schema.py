@@ -67,6 +67,7 @@ def _canonical_schema_identity_payload(
     signature: Mapping[str, JSONValue],
     schema_contract: str,
 ) -> str:
+    # dataflow-bundle: kind, schema_contract
     normalized = normalize_signature(signature)
     return json.dumps(
         {
@@ -157,6 +158,7 @@ def mismatch_residue_payload(
     expected: Mapping[str, JSONValue],
     observed: Mapping[str, JSONValue],
 ) -> JSONObject:
+    # dataflow-bundle: expected, observed
     return {
         "schema_contract": PATTERN_SCHEMA_CONTRACT_VERSION,
         "axis": axis.value,

@@ -184,6 +184,7 @@ class Forest:
         *,
         parent: NodeId | None = None,
     ) -> NodeId:
+        # dataflow-bundle: path, qual, suite_kind
         file_id = self.add_file_site(path)
         key: NodeKey = (path, qual, suite_kind)
         if span is not None:
@@ -232,6 +233,7 @@ class Forest:
         suite_kind: str,
         span: tuple[int, int, int, int] | None,
     ) -> str:
+        # dataflow-bundle: path, qual, suite_kind
         payload: dict[str, object] = {
             "domain": "python",
             "kind": str(suite_kind),
