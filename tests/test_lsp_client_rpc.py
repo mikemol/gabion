@@ -134,3 +134,24 @@ def test_read_rpc_truncates_prefetched_excess_body() -> None:
     )
     message = _read_rpc(stream, time.monotonic_ns() + 1_000_000_000)
     assert message["id"] == 7
+
+
+# gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::notification_callback
+def test_read_response_dispatches_notifications() -> None:
+    notification = _rpc_message(
+        {"jsonrpc": "2.0", "method": "$/progress", "params": {"value": 1}}
+    )
+    response_msg = _rpc_message({"jsonrpc": "2.0", "id": 8, "result": {"answer": 7}})
+    stream = io.BytesIO(notification + response_msg)
+    seen: list[dict] = []
+
+    response = _read_response(
+        stream,
+        8,
+        time.monotonic_ns() + 1_000_000_000,
+        notification_callback=seen.append,
+    )
+
+    assert response["id"] == 8
+    assert len(seen) == 1
+    assert seen[0]["method"] == "$/progress"

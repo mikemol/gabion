@@ -6,6 +6,8 @@ const { LanguageClient, TransportKind } = require("vscode-languageclient/node");
 const SYNTHESIS_COMMAND = "gabion.synthesisPlan";
 const REFACTOR_COMMAND = "gabion.refactorProtocol";
 const STRUCTURE_DIFF_COMMAND = "gabion.structureDiff";
+const LSP_PROGRESS_METHOD = "$/progress";
+const LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1";
 
 let client;
 
@@ -174,6 +176,77 @@ function createCodeActionsForDiagnostic(diagnostic) {
   return [synthesize, refactor];
 }
 
+function formatProgressLine(progress) {
+  const phase = typeof progress.phase === "string" ? progress.phase : "collection";
+  const completed = Number.isInteger(progress.completed_files) ? progress.completed_files : 0;
+  const inProgress = Number.isInteger(progress.in_progress_files) ? progress.in_progress_files : 0;
+  const remaining = Number.isInteger(progress.remaining_files) ? progress.remaining_files : 0;
+  const total = Number.isInteger(progress.total_files) ? progress.total_files : 0;
+  const substantive = progress.semantic_deltas?.substantive_progress === true ? "yes" : "no";
+  return `[progress] phase=${phase} files=${completed}/${total} in_progress=${inProgress} remaining=${remaining} substantive=${substantive}`;
+}
+
+function registerProgressNotifications(context, outputChannel) {
+  const activeProgress = new Map();
+
+  const disposable = client.onNotification(LSP_PROGRESS_METHOD, (params) => {
+    if (!params || params.token !== LSP_PROGRESS_TOKEN || typeof params.value !== "object") {
+      return;
+    }
+    const progress = params.value;
+    const token = String(params.token);
+    outputChannel.appendLine(formatProgressLine(progress));
+
+    let state = activeProgress.get(token);
+    if (!state) {
+      let resolver = null;
+      const completion = new Promise((resolve) => {
+        resolver = resolve;
+      });
+      state = { resolver, completion, lastCompletedFiles: 0, progressUi: null };
+      activeProgress.set(token, state);
+      void vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: "Gabion analysis progress",
+          cancellable: false,
+        },
+        async (progressUi) => {
+          state.progressUi = progressUi;
+          progressUi.report({ increment: 0, message: formatProgressLine(progress) });
+          await completion;
+        }
+      );
+    }
+
+    const totalFiles = Number.isInteger(progress.total_files) ? progress.total_files : 0;
+    const completedFiles = Number.isInteger(progress.completed_files) ? progress.completed_files : 0;
+    const previousCompleted = Number.isInteger(state.lastCompletedFiles)
+      ? state.lastCompletedFiles
+      : 0;
+    let increment = 0;
+    if (totalFiles > 0) {
+      increment = Math.max(0, ((completedFiles - previousCompleted) / totalFiles) * 100);
+    }
+    state.lastCompletedFiles = completedFiles;
+    if (state.progressUi) {
+      state.progressUi.report({ increment, message: formatProgressLine(progress) });
+    }
+
+    const done =
+      progress.phase === "post" &&
+      Number.isInteger(progress.remaining_files) &&
+      progress.remaining_files === 0;
+    if (done && typeof state.resolver === "function") {
+      state.resolver();
+      activeProgress.delete(token);
+    }
+  });
+
+  context.subscriptions.push(disposable);
+}
+
+
 function registerGabionCommands(context, outputChannel) {
   const synthesisCommand = vscode.commands.registerCommand(
     SYNTHESIS_COMMAND,
@@ -298,6 +371,7 @@ function activate(context) {
   context.subscriptions.push(client.start(), outputChannel);
 
   registerGabionCommands(context, outputChannel);
+  registerProgressNotifications(context, outputChannel);
   registerCodeActionProvider(context);
 }
 
