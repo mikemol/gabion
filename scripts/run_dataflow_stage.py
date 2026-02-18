@@ -9,7 +9,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 
 from gabion.analysis.timeout_context import deadline_loop_iter
 
@@ -301,8 +301,9 @@ def _check_command(
     *,
     paths: StagePaths,
     resume_on_timeout: int,
+    strictness: str | None = None,
 ) -> list[str]:
-    return [
+    command = [
         sys.executable,
         "-m",
         "gabion",
@@ -317,6 +318,9 @@ def _check_command(
         "--baseline",
         str(paths.baseline_path),
     ]
+    if strictness:
+        command.extend(["--strictness", strictness])
+    return command
 
 
 def run_stage(
@@ -326,17 +330,23 @@ def run_stage(
     resume_on_timeout: int,
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
+    strictness: str | None = None,
 ) -> StageResult:
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
     paths.deadline_profile_json_path.parent.mkdir(parents=True, exist_ok=True)
     resume_metrics_line = _resume_checkpoint_metrics_line(paths.resume_checkpoint_path)
-    print(f"stage {stage_id.upper()}: {resume_metrics_line}")
-    _append_lines(step_summary_path, [f"- stage {stage_id.upper()}: {resume_metrics_line}"])
+    strictness_note = f" strictness={strictness}" if strictness else ""
+    print(f"stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}")
+    _append_lines(
+        step_summary_path,
+        [f"- stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}"],
+    )
     exit_code = int(
         run_command_fn(
             _check_command(
                 paths=paths,
                 resume_on_timeout=resume_on_timeout,
+                strictness=strictness,
             )
         )
     )
@@ -372,14 +382,14 @@ def run_stage(
     stage_upper = stage_id.upper()
     print(
         f"stage {stage_upper}: exit={exit_code} "
-        f"analysis_state={analysis_state} {metrics_line}"
+        f"analysis_state={analysis_state} {metrics_line}{strictness_note}"
     )
     _append_lines(
         step_summary_path,
         [
             (
                 f"- stage {stage_upper}: exit=`{exit_code}`, "
-                f"state=`{analysis_state}`, {metrics_line}"
+                f"state=`{analysis_state}`, {metrics_line}{strictness_note}"
             )
         ],
     )
@@ -392,6 +402,36 @@ def run_stage(
         obligation_rows=obligation_rows,
         incompleteness_markers=incompleteness_markers,
     )
+
+
+def _parse_stage_strictness_profile(
+    raw_profile: str,
+) -> dict[str, str]:
+    profile = raw_profile.strip()
+    if not profile:
+        return {}
+    mapping: dict[str, str] = {}
+    if "=" in profile:
+        for raw_part in profile.split(","):
+            part = raw_part.strip()
+            if not part or "=" not in part:
+                continue
+            stage_name, strictness = (token.strip().lower() for token in part.split("=", 1))
+            if stage_name in _STAGE_SEQUENCE and strictness in {"low", "high"}:
+                mapping[stage_name] = strictness
+        return mapping
+    values = [token.strip().lower() for token in profile.split(",") if token.strip()]
+    for stage_name, strictness in zip(_STAGE_SEQUENCE, values):
+        if strictness in {"low", "high"}:
+            mapping[stage_name] = strictness
+    return mapping
+
+
+def _stage_strictness(stage_id: str, strictness_by_stage: Mapping[str, str]) -> str | None:
+    strictness = strictness_by_stage.get(stage_id)
+    if strictness in {"low", "high"}:
+        return strictness
+    return None
 
 
 def _stage_ids(start_stage: str, max_attempts: int) -> list[str]:
@@ -458,7 +498,9 @@ def run_staged(
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
     run_gate_fn: Callable[[Sequence[str]], int] | None = None,
+    strictness_by_stage: Mapping[str, str] | None = None,
 ) -> list[StageResult]:
+    strictness_profile = dict(strictness_by_stage or {})
     results: list[StageResult] = []
     for stage_id in deadline_loop_iter(stage_ids):
         result = run_stage(
@@ -467,6 +509,7 @@ def run_staged(
             resume_on_timeout=resume_on_timeout,
             step_summary_path=step_summary_path,
             run_command_fn=run_command_fn,
+            strictness=_stage_strictness(stage_id, strictness_profile),
         )
         results.append(result)
         if result.exit_code == 0:
@@ -523,6 +566,14 @@ def _parse_args() -> argparse.Namespace:
         "--resume-on-timeout",
         type=int,
         default=1,
+    )
+    parser.add_argument(
+        "--stage-strictness-profile",
+        default="",
+        help=(
+            "Optional per-stage strictness profile. Accepts 'a=low,b=high,c=low' "
+            "or positional 'low,high,low'."
+        ),
     )
     parser.add_argument(
         "--baseline",
@@ -604,6 +655,7 @@ def main() -> int:
         resume_checkpoint_path=args.resume_checkpoint,
         baseline_path=args.baseline,
     )
+    strictness_by_stage = _parse_stage_strictness_profile(args.stage_strictness_profile)
     with deadline_scope_from_lsp_env():
         results = run_staged(
             stage_ids=stage_ids,
@@ -611,6 +663,7 @@ def main() -> int:
             resume_on_timeout=args.resume_on_timeout,
             step_summary_path=step_summary_path,
             run_command_fn=_run_subprocess,
+            strictness_by_stage=strictness_by_stage,
         )
         trace_payload = _write_obligation_trace(paths.obligation_trace_json_path, results)
         _append_markdown_summary(paths.timeout_progress_md_path, trace_payload)

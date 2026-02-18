@@ -3834,6 +3834,37 @@ def test_resume_index_and_collection_loader_additional_edge_rows(tmp_path: Path)
     assert loaded[4] == set()
 
 
+def test_load_analysis_index_resume_payload_uses_variant_for_matching_identity(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    file_path = tmp_path / "m.py"
+    payload = {
+        "format_version": 1,
+        "index_cache_identity": "index-active",
+        "projection_cache_identity": "projection-active",
+        "hydrated_paths": [],
+        "resume_variants": {
+            "index-target": {
+                "format_version": 1,
+                "index_cache_identity": "index-target",
+                "projection_cache_identity": "projection-target",
+                "hydrated_paths": [str(file_path)],
+            }
+        },
+    }
+    hydrated_paths, by_qual, symbol_table, class_index = da._load_analysis_index_resume_payload(
+        payload=payload,
+        file_paths=[file_path],
+        expected_index_cache_identity="index-target",
+        expected_projection_cache_identity="projection-target",
+    )
+    assert hydrated_paths == {file_path}
+    assert by_qual == {}
+    assert symbol_table.imports == {}
+    assert class_index == {}
+
+
 def test_load_analysis_index_resume_payload_rejects_projection_identity_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -3855,6 +3886,44 @@ def test_load_analysis_index_resume_payload_rejects_projection_identity_mismatch
     assert by_qual == {}
     assert symbol_table.imports == {}
     assert class_index == {}
+
+
+def test_serialize_analysis_index_resume_payload_keeps_recent_variants() -> None:
+    da = _load()
+    previous_payload = {
+        "format_version": 1,
+        "index_cache_identity": "index-old",
+        "projection_cache_identity": "projection-old",
+        "hydrated_paths": [],
+        "resume_variants": {
+            "index-older": {
+                "format_version": 1,
+                "index_cache_identity": "index-older",
+                "projection_cache_identity": "projection-older",
+                "hydrated_paths": [],
+            },
+            "index-old": {
+                "format_version": 1,
+                "index_cache_identity": "index-old",
+                "projection_cache_identity": "projection-old",
+                "hydrated_paths": [],
+            },
+        },
+    }
+    payload = da._serialize_analysis_index_resume_payload(
+        hydrated_paths={Path("a.py")},
+        by_qual={},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+        index_cache_identity="index-new",
+        projection_cache_identity="projection-new",
+        profiling_v1=None,
+        previous_payload=previous_payload,
+    )
+    variants = payload.get("resume_variants")
+    assert isinstance(variants, dict)
+    assert set(variants) == {"index-older", "index-old", "index-new"}
+    assert variants["index-new"]["projection_cache_identity"] == "projection-new"
 
 
 def test_serialize_analysis_index_resume_payload_omits_non_mapping_profiling() -> None:

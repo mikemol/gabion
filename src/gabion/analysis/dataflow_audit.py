@@ -7702,6 +7702,8 @@ class _CacheSemanticContext:
 
 
 _EMPTY_CACHE_SEMANTIC_CONTEXT = _CacheSemanticContext()
+_ANALYSIS_INDEX_RESUME_VARIANTS_KEY = "resume_variants"
+_ANALYSIS_INDEX_RESUME_MAX_VARIANTS = 4
 
 
 def _sorted_text(values: Iterable[str] | None) -> tuple[str, ...]:
@@ -7929,6 +7931,7 @@ def _build_analysis_index(
                 index_cache_identity=index_cache_identity,
                 projection_cache_identity=projection_cache_identity,
                 profiling_v1=_index_profile_payload(),
+                previous_payload=resume_payload,
             )
         )
 
@@ -14765,6 +14768,56 @@ def _deserialize_symbol_table_for_resume(payload: Mapping[str, JSONValue]) -> Sy
     return table
 
 
+def _analysis_index_resume_variant_payload(payload: Mapping[str, JSONValue]) -> JSONObject:
+    return {
+        str(key): payload[key]
+        for key in payload
+        if str(key) != _ANALYSIS_INDEX_RESUME_VARIANTS_KEY
+    }
+
+
+def _analysis_index_resume_variants(
+    payload: Mapping[str, JSONValue] | None,
+) -> dict[str, JSONObject]:
+    variants: dict[str, JSONObject] = {}
+    if not isinstance(payload, Mapping):
+        return variants
+    raw_variants = payload.get(_ANALYSIS_INDEX_RESUME_VARIANTS_KEY)
+    if isinstance(raw_variants, Mapping):
+        for identity, raw_variant in raw_variants.items():
+            check_deadline()
+            if not isinstance(identity, str) or not isinstance(raw_variant, Mapping):
+                continue
+            variant_payload = payload_with_format(raw_variant, format_version=1)
+            if variant_payload is None:
+                continue
+            variants[identity] = _analysis_index_resume_variant_payload(variant_payload)
+    return variants
+
+
+def _with_analysis_index_resume_variants(
+    *,
+    payload: JSONObject,
+    previous_payload: Mapping[str, JSONValue] | None,
+) -> JSONObject:
+    current_identity = str(payload.get("index_cache_identity", "") or "")
+    variants = _analysis_index_resume_variants(previous_payload)
+    if current_identity:
+        variants[current_identity] = _analysis_index_resume_variant_payload(payload)
+    if not variants:
+        return payload
+    ordered_variant_keys = sorted(variants.keys())
+    if current_identity and current_identity in ordered_variant_keys:
+        ordered_variant_keys.remove(current_identity)
+        ordered_variant_keys.append(current_identity)
+    if len(ordered_variant_keys) > _ANALYSIS_INDEX_RESUME_MAX_VARIANTS:
+        ordered_variant_keys = ordered_variant_keys[-_ANALYSIS_INDEX_RESUME_MAX_VARIANTS :]
+    payload[_ANALYSIS_INDEX_RESUME_VARIANTS_KEY] = {
+        key: variants[key] for key in ordered_variant_keys
+    }
+    return payload
+
+
 def _serialize_analysis_index_resume_payload(
     *,
     hydrated_paths: set[Path],
@@ -14774,6 +14827,7 @@ def _serialize_analysis_index_resume_payload(
     index_cache_identity: str,
     projection_cache_identity: str,
     profiling_v1: Mapping[str, JSONValue] | None = None,
+    previous_payload: Mapping[str, JSONValue] | None = None,
 ) -> JSONObject:
     hydrated_path_keys = ordered_or_sorted(
         (
@@ -14827,7 +14881,10 @@ def _serialize_analysis_index_resume_payload(
     }
     if isinstance(profiling_v1, Mapping):
         payload["profiling_v1"] = {str(key): profiling_v1[key] for key in profiling_v1}
-    return payload
+    return _with_analysis_index_resume_variants(
+        payload=payload,
+        previous_payload=previous_payload,
+    )
 
 
 def _load_analysis_index_resume_payload(
@@ -14844,12 +14901,17 @@ def _load_analysis_index_resume_payload(
     payload = payload_with_format(payload, format_version=1)
     if payload is None:
         return hydrated_paths, by_qual, symbol_table, class_index
+    selected_payload: Mapping[str, JSONValue] = payload
     if expected_index_cache_identity is not None:
         resume_identity = str(payload.get("index_cache_identity", "") or "")
         if resume_identity != expected_index_cache_identity:
-            return hydrated_paths, by_qual, symbol_table, class_index
+            variants = _analysis_index_resume_variants(payload)
+            variant = variants.get(expected_index_cache_identity)
+            if variant is None:
+                return hydrated_paths, by_qual, symbol_table, class_index
+            selected_payload = variant
     if expected_projection_cache_identity is not None:
-        projection_identity = str(payload.get("projection_cache_identity", "") or "")
+        projection_identity = str(selected_payload.get("projection_cache_identity", "") or "")
         if projection_identity != expected_projection_cache_identity:
             return hydrated_paths, by_qual, symbol_table, class_index
     allowed_paths = allowed_path_lookup(
@@ -14858,11 +14920,11 @@ def _load_analysis_index_resume_payload(
     )
     hydrated_paths = set(
         load_allowed_paths_from_sequence(
-            payload.get("hydrated_paths"),
+            selected_payload.get("hydrated_paths"),
             allowed_paths=allowed_paths,
         )
     )
-    raw_functions = payload.get("functions_by_qual")
+    raw_functions = selected_payload.get("functions_by_qual")
     if isinstance(raw_functions, Mapping):
         for qual, raw_info in raw_functions.items():
             check_deadline()
@@ -14875,10 +14937,10 @@ def _load_analysis_index_resume_payload(
             if info is None:
                 continue
             by_qual[qual] = info
-    raw_symbol_table = payload.get("symbol_table")
+    raw_symbol_table = selected_payload.get("symbol_table")
     if isinstance(raw_symbol_table, Mapping):
         symbol_table = _deserialize_symbol_table_for_resume(raw_symbol_table)
-    raw_class_index = payload.get("class_index")
+    raw_class_index = selected_payload.get("class_index")
     if isinstance(raw_class_index, Mapping):
         for qual, raw_class in raw_class_index.items():
             check_deadline()
