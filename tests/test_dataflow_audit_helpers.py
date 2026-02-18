@@ -7,6 +7,7 @@ import ast
 import pytest
 
 from gabion.exceptions import NeverThrown
+from gabion.order_contract import ordered_or_sorted
 from gabion.analysis.timeout_context import (
     Deadline,
     TimeoutContext,
@@ -4499,7 +4500,10 @@ def test_pattern_schema_matches_are_stable_across_repeated_runs() -> None:
     assert first == second
     schema_instances, _ = first
     schema_ids = [entry["schema"]["schema_id"] for entry in schema_instances]
-    assert schema_ids == sorted(schema_ids)
+    assert schema_ids == ordered_or_sorted(
+        schema_ids,
+        source="test_pattern_schema_matches_are_stable_across_repeated_runs.schema_ids",
+    )
 
 
 def test_build_function_index_indexes_lambda_sites_deterministically(tmp_path: Path) -> None:

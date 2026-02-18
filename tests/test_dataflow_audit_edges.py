@@ -13,6 +13,7 @@ from gabion.analysis.timeout_context import (
     pack_call_stack,
 )
 from gabion.exceptions import NeverThrown
+from gabion.order_contract import ordered_or_sorted
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
@@ -688,13 +689,19 @@ def test_deadline_suite_identity_stable_across_runs(tmp_path: Path) -> None:
     """
     first = _deadline_analysis(tmp_path, source, roots={"mod.root"})
     second = _deadline_analysis(tmp_path, source, roots={"mod.root"})
-    first_ids = sorted(
-        str(entry.get("site", {}).get("suite_id", ""))
-        for entry in first.deadline_obligations
+    first_ids = ordered_or_sorted(
+        [
+            str(entry.get("site", {}).get("suite_id", ""))
+            for entry in first.deadline_obligations
+        ],
+        source="test_deadline_suite_identity_stable_across_runs.first_ids",
     )
-    second_ids = sorted(
-        str(entry.get("site", {}).get("suite_id", ""))
-        for entry in second.deadline_obligations
+    second_ids = ordered_or_sorted(
+        [
+            str(entry.get("site", {}).get("suite_id", ""))
+            for entry in second.deadline_obligations
+        ],
+        source="test_deadline_suite_identity_stable_across_runs.second_ids",
     )
     assert first_ids == second_ids
     assert all(suite_id.startswith("suite:") for suite_id in first_ids)
