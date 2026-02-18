@@ -31,6 +31,12 @@ from lsprotocol.types import (
 )
 
 from gabion.json_types import JSONObject, JSONValue
+from gabion.plan import (
+    ExecutionPlan,
+    ExecutionPlanObligations,
+    ExecutionPlanPolicyMetadata,
+    write_execution_plan_artifact,
+)
 
 from gabion.analysis import (
     AnalysisResult,
@@ -2771,6 +2777,77 @@ def _timeout_context_payload(exc: TimeoutExceeded) -> JSONObject:
     }
 
 
+def _materialize_execution_plan(payload: Mapping[str, object]) -> ExecutionPlan:
+    request_value = payload.get("execution_plan_request")
+    if isinstance(request_value, Mapping):
+        req_ops = request_value.get("requested_operations")
+        requested_operations = [str(op) for op in req_ops] if isinstance(req_ops, list) else [DATAFLOW_COMMAND]
+        inputs_value = request_value.get("inputs")
+        if isinstance(inputs_value, Mapping):
+            inputs = {str(key): inputs_value[key] for key in inputs_value}
+        else:
+            inputs = {str(key): payload[key] for key in payload if key != "execution_plan_request"}
+        artifacts_value = request_value.get("derived_artifacts")
+        derived_artifacts = (
+            [str(path) for path in artifacts_value]
+            if isinstance(artifacts_value, list)
+            else ["artifacts/out/execution_plan.json"]
+        )
+        obligations_value = request_value.get("obligations")
+        preconditions: list[str] = []
+        postconditions: list[str] = []
+        if isinstance(obligations_value, Mapping):
+            pre_raw = obligations_value.get("preconditions")
+            post_raw = obligations_value.get("postconditions")
+            if isinstance(pre_raw, list):
+                preconditions = [str(item) for item in pre_raw]
+            if isinstance(post_raw, list):
+                postconditions = [str(item) for item in post_raw]
+        policy_value = request_value.get("policy_metadata")
+        policy_deadline: dict[str, int] = {}
+        policy_baseline_mode = "none"
+        policy_docflow_mode = "disabled"
+        if isinstance(policy_value, Mapping):
+            deadline_value = policy_value.get("deadline")
+            if isinstance(deadline_value, Mapping):
+                for key, value in deadline_value.items():
+                    if isinstance(value, bool):
+                        continue
+                    if isinstance(value, int):
+                        policy_deadline[str(key)] = int(value)
+            baseline_mode = policy_value.get("baseline_mode")
+            if isinstance(baseline_mode, str):
+                policy_baseline_mode = baseline_mode
+            docflow_mode = policy_value.get("docflow_mode")
+            if isinstance(docflow_mode, str):
+                policy_docflow_mode = docflow_mode
+        return ExecutionPlan(
+            requested_operations=requested_operations,
+            inputs=inputs,
+            derived_artifacts=derived_artifacts,
+            obligations=ExecutionPlanObligations(
+                preconditions=preconditions,
+                postconditions=postconditions,
+            ),
+            policy_metadata=ExecutionPlanPolicyMetadata(
+                deadline=policy_deadline,
+                baseline_mode=policy_baseline_mode,
+                docflow_mode=policy_docflow_mode,
+            ),
+        )
+    inputs = {str(key): payload[key] for key in payload}
+    return ExecutionPlan(
+        requested_operations=[DATAFLOW_COMMAND],
+        inputs=inputs,
+        derived_artifacts=["artifacts/out/execution_plan.json"],
+        obligations=ExecutionPlanObligations(
+            preconditions=["payload accepted by server"],
+            postconditions=["command response emitted"],
+        ),
+        policy_metadata=ExecutionPlanPolicyMetadata(deadline={}, baseline_mode="none", docflow_mode="disabled"),
+    )
+
+
 def _default_execute_command_deps() -> ExecuteCommandDeps:
     return ExecuteCommandDeps(
         analyze_paths_fn=analyze_paths,
@@ -2816,6 +2893,12 @@ def _execute_command_total(
     deps: ExecuteCommandDeps | None = None,
 ) -> dict:
     execute_deps = deps or _default_execute_command_deps()
+    execution_plan = _materialize_execution_plan(payload)
+    payload = dict(execution_plan.inputs)
+    write_execution_plan_artifact(
+        execution_plan,
+        root=Path(str(payload.get("root") or ls.workspace.root_path or ".")),
+    )
     profile_enabled = _truthy_flag(payload.get("deadline_profile"))
     profile_root_value = payload.get("root") or ls.workspace.root_path or "."
     initial_root = Path(str(profile_root_value))
@@ -4244,6 +4327,7 @@ def _execute_command_total(
             else:
                 response["exit_code"] = 1 if (fail_on_violations and effective_violations) else 0
         response["analysis_state"] = "succeeded"
+        response["execution_plan"] = execution_plan.as_json_dict()
         return _normalize_dataflow_response(response)
     except TimeoutExceeded as exc:
         cleanup_now_ns = time.monotonic_ns()
@@ -4526,6 +4610,7 @@ def _execute_command_total(
                     "exit_code": 2,
                     "timeout": True,
                     "analysis_state": analysis_state,
+                    "execution_plan": execution_plan.as_json_dict(),
                     "timeout_context": timeout_payload,
                 }
             )
