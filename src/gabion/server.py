@@ -1024,6 +1024,26 @@ def _analysis_resume_progress(
     }
 
 
+def _normalize_progress_work(
+    *,
+    work_done: object | None,
+    work_total: object | None,
+) -> tuple[int | None, int | None]:
+    normalized_done: int | None = None
+    normalized_total: int | None = None
+    if isinstance(work_done, int) and not isinstance(work_done, bool):
+        normalized_done = max(work_done, 0)
+    if isinstance(work_total, int) and not isinstance(work_total, bool):
+        normalized_total = max(work_total, 0)
+    if (
+        normalized_done is not None
+        and normalized_total is not None
+        and normalized_done > normalized_total
+    ):
+        normalized_done = normalized_total
+    return normalized_done, normalized_total
+
+
 def _completed_path_set(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
@@ -3341,6 +3361,8 @@ def _execute_command_total(
             phase: Literal["collection", "forest", "edge", "post"],
             collection_progress: Mapping[str, JSONValue],
             semantic_progress: Mapping[str, JSONValue] | None,
+            work_done: int | None = None,
+            work_total: int | None = None,
             include_timing: bool = False,
         ) -> None:
             semantic_payload: JSONObject = {}
@@ -3366,6 +3388,14 @@ def _execute_command_total(
                 "total_files": int(collection_progress.get("total_files", 0)),
                 "semantic_deltas": semantic_payload,
             }
+            normalized_work_done, normalized_work_total = _normalize_progress_work(
+                work_done=work_done,
+                work_total=work_total,
+            )
+            if normalized_work_done is not None:
+                progress_value["work_done"] = normalized_work_done
+            if normalized_work_total is not None:
+                progress_value["work_total"] = normalized_work_total
             if include_timing:
                 progress_value["profiling_v1"] = {
                     "format_version": 1,
@@ -3418,6 +3448,8 @@ def _execute_command_total(
                 phase="collection",
                 collection_progress=collection_progress,
                 semantic_progress=semantic_progress,
+                work_done=collection_progress.get("completed_files"),
+                work_total=collection_progress.get("total_files"),
                 include_timing=profile_enabled,
             )
             collection_intro_signature = (
@@ -3596,6 +3628,8 @@ def _execute_command_total(
                 phase=phase,
                 collection_progress=latest_collection_progress,
                 semantic_progress=semantic_progress_cumulative,
+                work_done=work_done,
+                work_total=work_total,
                 include_timing=profile_enabled,
             )
             if not report_output_path or not projection_rows:
