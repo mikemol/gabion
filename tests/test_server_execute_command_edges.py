@@ -1610,6 +1610,7 @@ def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
         ("analysis_timeout_seconds", "10"),
     ],
 )
+# dataflow-bundle: timeout_field, timeout_value
 def test_execute_command_accepts_duration_timeout_fields(
     tmp_path: Path,
     timeout_field: str,
