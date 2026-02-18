@@ -1653,6 +1653,7 @@ def _decision_surface_reason_map(
         return {}
     reason_map: dict[str, set[str]] = defaultdict(set)
     for reason, expr in _decision_surface_form_entries(fn):
+        check_deadline()
         found = _collect_param_roots(expr, params)
         for param in found:
             check_deadline()
