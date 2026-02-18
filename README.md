@@ -1,5 +1,5 @@
 ---
-doc_revision: 65
+doc_revision: 66
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -236,6 +236,15 @@ make audit-latest
 GitHub-hosted CI runs `gabion check`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
+
+The `dataflow-audit` job now performs a best-effort warm-cache restore of
+`dataflow_resume_checkpoint_ci.json` from a prior same-branch push artifact
+before running staged retries. When available, this primes Gabion's resume
+mechanism and reduces repeated parsing/indexing of unchanged paths.
+
+Cache effectiveness can be audited in CI logs and step summaries via
+`completed_paths`, `hydrated_paths`, and `paths_parsed_after_resume` emitted by
+`scripts/run_dataflow_stage.py`.
 
 Allow-listed actions are defined in `docs/allowed_actions.txt`.
 

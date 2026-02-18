@@ -1,5 +1,5 @@
 ---
-doc_revision: 85
+doc_revision: 86
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -420,6 +420,15 @@ The GitHub-hosted workflow in `.github/workflows/ci.yml` runs:
 - pytest
 
 It uses `mise` (via `gabion.toml`) to install the toolchain.
+
+For push-driven `dataflow-audit`, prefer warm caches:
+- CI restores the previous same-branch `dataflow-report` artifact's resume
+  checkpoint (`dataflow_resume_checkpoint_ci.json`) on a best-effort basis.
+- `scripts/run_dataflow_stage.py` emits resume metrics in logs/step-summary
+  (`completed_paths`, `hydrated_paths`, `paths_parsed_after_resume`) so cache
+  impact can be verified explicitly.
+- Keep resume identity stable (forest spec / fingerprint seed / strictness
+  knobs) when you expect high cache hit rates.
 
 Pull requests also run `.github/workflows/pr-dataflow-grammar.yml`, which
 uploads a dataflow report artifact and comments on same-repo PRs.
