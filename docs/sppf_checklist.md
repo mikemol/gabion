@@ -1,5 +1,5 @@
 ---
-doc_revision: 150
+doc_revision: 151
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -250,9 +250,9 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Type aggregation: conflict resolution into `Union`/`Any` guidance.
 - [x] Refactor payload: Type hint preservation (pass FieldSpec from Analysis to Engine). (GH-15)
 - [x] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
-- [~] Contextvar/ambient context rewrite suggestions. (in-15, GH-61) sppf{doc=partial; impl=partial; doc_ref=in-15@1}
+- [~] Contextvar/ambient context rewrite suggestions. (in-15, GH-61) sppf{doc=partial; impl=partial; doc_ref=in-15@2}
 - [x] Contextvar suggestion heuristics (internal decision surfaces). (GH-61)
-- [ ] Contextvar rewrite: synthesis emits ContextVar definitions + accessors. (GH-61)
+- [x] Contextvar rewrite: synthesis emits ContextVar definitions + accessors. (GH-61, tests/test_synthesis_contextvar_emission.py)
 - [ ] Contextvar rewrite: callsite replacement for ambient access. (GH-61)
 - [~] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65) sppf{doc=partial; impl=partial; doc_ref=in-17@1}
 - [x] Subtree hashing/fingerprinting for FactorizationTree reuse. (GH-65)

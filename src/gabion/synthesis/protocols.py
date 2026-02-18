@@ -38,8 +38,13 @@ class Synthesizer:
             fallback_prefix=naming_context.fallback_prefix,
         )
 
-        for bundle, tier in bundle_tiers.items():
+        for bundle in ordered_or_sorted(
+            bundle_tiers,
+            source="Synthesizer.plan.bundle_tiers",
+            key=lambda value: (len(value), tuple(sorted(value))),
+        ):
             check_deadline()
+            tier = bundle_tiers[bundle]
             bundle_set = set(bundle)
             if not self._bundle_allowed(bundle_set, tier):
                 continue

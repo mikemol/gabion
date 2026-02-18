@@ -1944,9 +1944,9 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--synthesis-protocols-kind",
-        choices=["dataclass", "protocol"],
+        choices=["dataclass", "protocol", "contextvar"],
         default="dataclass",
-        help="Emit dataclass or typing.Protocol stubs (default: dataclass).",
+        help="Emit dataclass, typing.Protocol, or ContextVar stubs (default: dataclass).",
     )
     parser.add_argument(
         "--synthesis-max-tier",
@@ -2281,9 +2281,9 @@ def _run_synth(
     ignore_list, transparent_list = resolved_filter_bundle.to_payload_lists()
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
-    if synthesis_protocols_kind not in {"dataclass", "protocol"}:
+    if synthesis_protocols_kind not in {"dataclass", "protocol", "contextvar"}:
         raise typer.BadParameter(
-            "synthesis-protocols-kind must be 'dataclass' or 'protocol'"
+            "synthesis-protocols-kind must be 'dataclass', 'protocol', or 'contextvar'"
         )
 
     output_root = out_dir
