@@ -285,8 +285,25 @@ SPPF_ALLOWED_STATUSES = {"done", "partial", "planned", "blocked", "deprecated"}
 INFLUENCE_STATUS_MAP = {
     "adopted": "done",
     "partial": "partial",
+    "queued": "planned",
     "untriaged": "planned",
     "rejected": "blocked",
+}
+STATUS_TRIPLET_OVERRIDE_MARKER = "docflow:status-triplet-override"
+CHECKLIST_STATE_MAP = {"x": "done", "~": "partial", " ": "planned"}
+DECLARATION_TO_INFLUENCE_MAP = {
+    "planned": {"queued", "untriaged"},
+    "queued": {"queued"},
+    "partial": {"partial"},
+    "adopted": {"adopted"},
+    "rejected": {"rejected"},
+}
+DECLARATION_TO_CHECKLIST_MAP = {
+    "planned": {"planned"},
+    "queued": {"planned"},
+    "partial": {"partial"},
+    "adopted": {"done"},
+    "rejected": {"blocked"},
 }
 
 
@@ -1140,13 +1157,196 @@ def _influence_statuses(root: Path) -> dict[str, str]:
     entries: dict[str, str] = {}
     for line in text.splitlines():
         check_deadline()
-        match = re.match(r"^- in/in-(\d+)\.md — \*\*(\w+)\*\*", line.strip())
+        match = re.match(r"^- in/(in-\d+)\.md\s+—\s+", line.strip())
         if not match:
             continue
-        doc_id = f"in-{match.group(1)}"
-        status = match.group(2).lower()
-        entries[doc_id] = status
+        status_match = re.search(r"\*\*(\w+)\*\*", line)
+        if not status_match:
+            continue
+        doc_id = match.group(1)
+        entries[doc_id] = status_match.group(1).lower()
     return entries
+
+
+def _extract_in_status_declaration(text: str) -> tuple[str | None, int | None, str | None, bool]:
+    lines = text.splitlines()
+    for idx, raw in enumerate(lines):
+        check_deadline()
+        line = raw.strip()
+        if line.lower().startswith("status:"):
+            payload = line.split(":", 1)[1].strip()
+            norm = _normalize_in_status_declaration(payload)
+            return norm, idx + 1, payload, STATUS_TRIPLET_OVERRIDE_MARKER in raw
+    for idx, raw in enumerate(lines):
+        check_deadline()
+        if raw.strip().lower() != "### status":
+            continue
+        cursor = idx + 1
+        while cursor < len(lines) and not lines[cursor].strip():
+            check_deadline()
+            cursor += 1
+        if cursor >= len(lines):
+            return None, idx + 1, None, STATUS_TRIPLET_OVERRIDE_MARKER in raw
+        payload = lines[cursor].strip()
+        norm = _normalize_in_status_declaration(payload)
+        window = "\n".join(lines[idx : min(cursor + 2, len(lines))])
+        return norm, cursor + 1, payload, STATUS_TRIPLET_OVERRIDE_MARKER in window
+    return None, None, None, False
+
+
+def _normalize_in_status_declaration(value: str) -> str | None:
+    lowered = value.strip().lower()
+    if not lowered:
+        return None
+    if "adopted" in lowered or "done" in lowered:
+        return "adopted"
+    if "partial" in lowered:
+        return "partial"
+    if "queued" in lowered:
+        return "queued"
+    if "rejected" in lowered or "out of scope" in lowered:
+        return "rejected"
+    if "planned" in lowered or "draft" in lowered:
+        return "planned"
+    return None
+
+
+def _collect_checklist_statuses(root: Path) -> dict[str, dict[str, object]]:
+    checklist_path = root / "docs" / "sppf_checklist.md"
+    if not checklist_path.exists():
+        return {}
+    records: dict[str, dict[str, object]] = {}
+    for lineno, raw in enumerate(checklist_path.read_text(encoding="utf-8").splitlines(), start=1):
+        check_deadline()
+        line = raw.strip()
+        match = SPPF_LINE_RE.match(line)
+        if match:
+            state_token = match.group("state")
+        else:
+            loose = re.search(r"\[(x|~| )\]", line)
+            if not loose:
+                continue
+            state_token = loose.group(1)
+        state = CHECKLIST_STATE_MAP.get(state_token)
+        if state is None:
+            continue
+        doc_ids: set[str] = set()
+        tag_match = SPPF_TAG_RE.search(line)
+        if tag_match:
+            tags = _parse_sppf_tag(tag_match.group(1))
+            ref_value = tags.get("doc_ref")
+            if ref_value:
+                for doc_id, _ in _parse_doc_ref(ref_value):
+                    check_deadline()
+                    if doc_id.startswith("in-") and doc_id[3:].isdigit():
+                        doc_ids.add(doc_id)
+        for found in re.findall(r"\bin-(\d+)\b", line):
+            check_deadline()
+            doc_ids.add(f"in-{int(found)}")
+        for doc_id in doc_ids:
+            check_deadline()
+            existing = records.get(doc_id)
+            if existing is None:
+                records[doc_id] = {
+                    "status": state,
+                    "line_no": lineno,
+                    "line": raw.strip(),
+                    "override": STATUS_TRIPLET_OVERRIDE_MARKER in raw,
+                }
+                continue
+            if existing.get("status") == state:
+                if bool(existing.get("override")) or STATUS_TRIPLET_OVERRIDE_MARKER in raw:
+                    existing["override"] = True
+                continue
+            existing["status"] = "mixed"
+            existing["line"] = f"{existing.get('line')} || {raw.strip()}"
+            existing["override"] = bool(existing.get("override")) or STATUS_TRIPLET_OVERRIDE_MARKER in raw
+    return records
+
+
+def _collect_influence_rows(root: Path) -> dict[str, dict[str, object]]:
+    index_path = root / "docs" / "influence_index.md"
+    if not index_path.exists():
+        return {}
+    rows: dict[str, dict[str, object]] = {}
+    for lineno, raw in enumerate(index_path.read_text(encoding="utf-8").splitlines(), start=1):
+        check_deadline()
+        line = raw.strip()
+        match = re.match(r"^- in/(in-\d+)\.md\s+—\s+", line)
+        if not match:
+            continue
+        status_match = re.search(r"\*\*(\w+)\*\*", raw)
+        if not status_match:
+            continue
+        rows[match.group(1)] = {
+            "status": status_match.group(1).lower(),
+            "line_no": lineno,
+            "line": raw.strip(),
+            "override": STATUS_TRIPLET_OVERRIDE_MARKER in raw,
+        }
+    return rows
+
+
+def _sppf_status_triplet_violations(root: Path) -> list[str]:
+    in_records: dict[str, dict[str, object]] = {}
+    for path in _sorted((root / "in").glob("in-*.md")):
+        check_deadline()
+        norm, line_no, raw, override = _extract_in_status_declaration(path.read_text(encoding="utf-8"))
+        in_records[path.stem] = {
+            "status": norm,
+            "line_no": line_no,
+            "line": raw,
+            "override": override,
+        }
+
+    checklist_records = _collect_checklist_statuses(root)
+    influence_records = _collect_influence_rows(root)
+    violations: list[str] = []
+
+    doc_ids = _sorted(in_records)
+    for doc_id in doc_ids:
+        check_deadline()
+        in_rec = in_records.get(doc_id)
+        checklist_rec = checklist_records.get(doc_id)
+        influence_rec = influence_records.get(doc_id)
+        if in_rec is None or checklist_rec is None or influence_rec is None:
+            continue
+        if not isinstance(in_rec.get("status"), str) or not isinstance(checklist_rec.get("status"), str):
+            continue
+        if not isinstance(influence_rec.get("status"), str):
+            continue
+        declared = str(in_rec["status"])
+        checklist_status = str(checklist_rec["status"])
+        influence_status = str(influence_rec["status"])
+        has_override = bool(in_rec.get("override")) or bool(checklist_rec.get("override")) or bool(influence_rec.get("override"))
+        if has_override:
+            continue
+
+        allowed_influence = DECLARATION_TO_INFLUENCE_MAP.get(declared, set())
+        allowed_checklist = DECLARATION_TO_CHECKLIST_MAP.get(declared, set())
+        expected_checklist = INFLUENCE_STATUS_MAP.get(influence_status)
+        consistent = (
+            influence_status in allowed_influence
+            and checklist_status in allowed_checklist
+            and (expected_checklist is None or checklist_status == expected_checklist)
+        )
+        if consistent:
+            continue
+
+        in_line = in_rec.get("line_no")
+        check_line = checklist_rec.get("line_no")
+        index_line = influence_rec.get("line_no")
+        in_ref = f"in/{doc_id}.md:{in_line}" if in_line else f"in/{doc_id}.md"
+        check_ref = f"docs/sppf_checklist.md:{check_line}" if check_line else "docs/sppf_checklist.md"
+        index_ref = f"docs/influence_index.md:{index_line}" if index_line else "docs/influence_index.md"
+        violations.append(
+            "status-triplet conflict for "
+            f"{doc_id}: {in_ref} declares={declared!r}; "
+            f"{check_ref} checklist={checklist_status!r}; "
+            f"{index_ref} summary={influence_status!r}. "
+            f"Use marker '{STATUS_TRIPLET_OVERRIDE_MARKER}' on one of these records to acknowledge an intentional divergence."
+        )
+    return violations
 
 
 def _in_doc_revisions(root: Path) -> dict[str, int]:
@@ -3021,6 +3221,7 @@ def _docflow_audit_context(
     warnings.extend(_tooling_warnings(root, docs))
     warnings.extend(_influence_warnings(root))
     violations.extend(_sppf_sync_warnings(root))
+    violations.extend(_sppf_status_triplet_violations(root))
     sppf_violations, sppf_warnings = _sppf_axis_audit(root, docs)
     violations.extend(sppf_violations)
     warnings.extend(sppf_warnings)
