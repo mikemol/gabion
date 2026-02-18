@@ -1,5 +1,5 @@
 ---
-doc_revision: 67
+doc_revision: 68
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -114,6 +114,8 @@ See `docs/doer_judge_witness.md` for optional role framing.
 - Multi-language support is out of scope (Python-first).
 
 ## Quick start
+Need practical remediation loops? See `docs/user_workflows.md#user_workflows`.
+
 Install toolchain with `mise` (once):
 ```
 mise install
@@ -291,6 +293,8 @@ scripts/latest_snapshot.sh
 ## Editor integration
 The VS Code extension stub lives in `extensions/vscode` and launches the
 Gabion LSP server over stdio. It is a thin wrapper only.
+For end-to-end editor + CLI iteration guidance, see
+`docs/user_workflows.md#user_workflows`.
 
 ## Quick commands (make)
 ```
