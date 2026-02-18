@@ -41,6 +41,11 @@ from gabion.lsp_client import (
     _env_timeout_ticks,
     _has_env_timeout,
 )
+from gabion.plan import (
+    ExecutionPlan,
+    ExecutionPlanObligations,
+    ExecutionPlanPolicyMetadata,
+)
 from gabion.json_types import JSONObject
 from gabion.schema import (
     DataflowAuditResponseDTO,
@@ -139,6 +144,27 @@ class SnapshotDiffRequest:
 
     def to_payload(self) -> JSONObject:
         return {"baseline": str(self.baseline), "current": str(self.current)}
+
+
+@dataclass(frozen=True)
+class ExecutionPlanRequest:
+    requested_operations: list[str]
+    inputs: JSONObject
+    derived_artifacts: list[str]
+    obligations: dict[str, list[str]]
+    policy_metadata: dict[str, object]
+
+    def to_payload(self) -> JSONObject:
+        return {
+            "requested_operations": list(self.requested_operations),
+            "inputs": dict(self.inputs),
+            "derived_artifacts": list(self.derived_artifacts),
+            "obligations": {
+                "preconditions": list(self.obligations.get("preconditions") or []),
+                "postconditions": list(self.obligations.get("postconditions") or []),
+            },
+            "policy_metadata": dict(self.policy_metadata),
+        }
 
 
 def _find_repo_root() -> Path:
@@ -561,6 +587,118 @@ def build_check_payload(
     return payload
 
 
+
+
+def _check_derived_artifacts(
+    *,
+    report: Path,
+    decision_snapshot: Path | None,
+    artifact_flags: CheckArtifactFlags,
+    emit_test_obsolescence_state: bool,
+    emit_test_obsolescence_delta: bool,
+    emit_test_annotation_drift_delta: bool,
+    emit_ambiguity_delta: bool,
+    emit_ambiguity_state: bool,
+) -> list[str]:
+    derived = [str(report), "artifacts/out/execution_plan.json"]
+    if decision_snapshot is not None:
+        derived.append(str(decision_snapshot))
+    if artifact_flags.emit_test_obsolescence:
+        derived.append("artifacts/out/test_obsolescence_report.json")
+    if emit_test_obsolescence_state:
+        derived.append("artifacts/out/test_obsolescence_state.json")
+    if emit_test_obsolescence_delta:
+        derived.append("artifacts/out/test_obsolescence_delta.json")
+    if artifact_flags.emit_test_evidence_suggestions:
+        derived.append("artifacts/out/test_evidence_suggestions.json")
+    if artifact_flags.emit_call_clusters:
+        derived.append("artifacts/out/call_clusters.json")
+    if artifact_flags.emit_call_cluster_consolidation:
+        derived.append("artifacts/out/call_cluster_consolidation.json")
+    if artifact_flags.emit_test_annotation_drift:
+        derived.append("artifacts/out/test_annotation_drift.json")
+    if emit_test_annotation_drift_delta:
+        derived.append("artifacts/out/test_annotation_drift_delta.json")
+    if emit_ambiguity_delta:
+        derived.append("artifacts/out/ambiguity_delta.json")
+    if emit_ambiguity_state:
+        derived.append("artifacts/out/ambiguity_state.json")
+    return derived
+
+
+def build_check_execution_plan_request(
+    *,
+    payload: JSONObject,
+    report: Path,
+    decision_snapshot: Path | None,
+    baseline: Path | None,
+    baseline_write: bool,
+    fail_on_violations: bool,
+    fail_on_type_ambiguities: bool,
+    lint: bool,
+    profile: str,
+    artifact_flags: CheckArtifactFlags,
+    emit_test_obsolescence_state: bool,
+    emit_test_obsolescence_delta: bool,
+    emit_test_annotation_drift_delta: bool,
+    emit_ambiguity_delta: bool,
+    emit_ambiguity_state: bool,
+) -> ExecutionPlanRequest:
+    operations = [DATAFLOW_COMMAND, "gabion.check"]
+    obligations = ExecutionPlanObligations(
+        preconditions=[
+            "input paths resolve under root",
+            "analysis timeout budget is configured",
+        ],
+        postconditions=[
+            "exit_code reflects policy gates",
+            "execution plan artifact is emitted",
+        ],
+    )
+    baseline_mode = "read"
+    if baseline is None:
+        baseline_mode = "none"
+    elif baseline_write:
+        baseline_mode = "write"
+    policy_metadata = ExecutionPlanPolicyMetadata(
+        deadline={
+            "analysis_timeout_ticks": int(payload.get("analysis_timeout_ticks") or 0),
+            "analysis_timeout_tick_ns": int(payload.get("analysis_timeout_tick_ns") or 0),
+        },
+        baseline_mode=baseline_mode,
+        docflow_mode="disabled",
+    )
+    plan = ExecutionPlan(
+        requested_operations=operations,
+        inputs=dict(payload),
+        derived_artifacts=_check_derived_artifacts(
+            report=report,
+            decision_snapshot=decision_snapshot,
+            artifact_flags=artifact_flags,
+            emit_test_obsolescence_state=emit_test_obsolescence_state,
+            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+            emit_ambiguity_delta=emit_ambiguity_delta,
+            emit_ambiguity_state=emit_ambiguity_state,
+        ),
+        obligations=obligations,
+        policy_metadata=policy_metadata,
+    )
+    plan_payload = plan.as_json_dict()
+    plan_payload["policy_metadata"] = dict(plan_payload["policy_metadata"])
+    plan_payload["policy_metadata"]["check_profile"] = profile
+    plan_payload["policy_metadata"]["fail_on_violations"] = bool(fail_on_violations)
+    plan_payload["policy_metadata"]["fail_on_type_ambiguities"] = bool(
+        fail_on_type_ambiguities
+    )
+    plan_payload["policy_metadata"]["lint"] = bool(lint)
+    return ExecutionPlanRequest(
+        requested_operations=list(plan_payload["requested_operations"]),
+        inputs=dict(plan_payload["inputs"]),
+        derived_artifacts=list(plan_payload["derived_artifacts"]),
+        obligations=dict(plan_payload["obligations"]),
+        policy_metadata=dict(plan_payload["policy_metadata"]),
+    )
 def parse_dataflow_args_or_exit(
     argv: list[str],
     *,
@@ -717,6 +855,7 @@ def dispatch_command(
     root: Path = Path("."),
     runner: Runner = run_command,
     process_factory: Callable[..., subprocess.Popen] | None = None,
+    execution_plan_request: ExecutionPlanRequest | None = None,
 ) -> JSONObject:
     ticks, tick_ns = _cli_timeout_ticks()
     if (
@@ -727,6 +866,28 @@ def dispatch_command(
         payload = dict(payload)
         payload["analysis_timeout_ticks"] = int(ticks)
         payload["analysis_timeout_tick_ns"] = int(tick_ns)
+    if execution_plan_request is not None:
+        payload = dict(payload)
+        execution_plan_payload = execution_plan_request.to_payload()
+        execution_plan_inputs = execution_plan_payload.get("inputs")
+        if isinstance(execution_plan_inputs, Mapping):
+            merged_inputs = dict(execution_plan_inputs)
+            merged_inputs.update(payload)
+            execution_plan_payload["inputs"] = merged_inputs
+        deadline_metadata = execution_plan_payload.get("policy_metadata")
+        if isinstance(deadline_metadata, Mapping):
+            policy_metadata = dict(deadline_metadata)
+            deadline = policy_metadata.get("deadline")
+            deadline_payload = dict(deadline) if isinstance(deadline, Mapping) else {}
+            deadline_payload["analysis_timeout_ticks"] = int(
+                payload.get("analysis_timeout_ticks") or 0
+            )
+            deadline_payload["analysis_timeout_tick_ns"] = int(
+                payload.get("analysis_timeout_tick_ns") or 0
+            )
+            policy_metadata["deadline"] = deadline_payload
+            execution_plan_payload["policy_metadata"] = policy_metadata
+        payload["execution_plan_request"] = execution_plan_payload
     request = CommandRequest(command, [payload])
     resolved = runner
     if runner is run_command:
@@ -816,7 +977,30 @@ def run_check(
         resume_on_timeout=resume_on_timeout,
         analysis_tick_limit=analysis_tick_limit,
     )
-    return dispatch_command(command=DATAFLOW_COMMAND, payload=payload, root=root, runner=runner)
+    execution_plan_request = build_check_execution_plan_request(
+        payload=payload,
+        report=resolved_report,
+        decision_snapshot=decision_snapshot,
+        baseline=baseline,
+        baseline_write=baseline_write,
+        fail_on_violations=fail_on_violations,
+        fail_on_type_ambiguities=fail_on_type_ambiguities,
+        lint=lint,
+        profile="strict",
+        artifact_flags=artifact_flags,
+        emit_test_obsolescence_state=emit_test_obsolescence_state,
+        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+        emit_ambiguity_delta=emit_ambiguity_delta,
+        emit_ambiguity_state=emit_ambiguity_state,
+    )
+    return dispatch_command(
+        command=DATAFLOW_COMMAND,
+        payload=payload,
+        root=root,
+        runner=runner,
+        execution_plan_request=execution_plan_request,
+    )
 
 
 def _run_with_timeout_retries(

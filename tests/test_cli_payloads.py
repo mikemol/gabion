@@ -411,6 +411,13 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["payload"]["emit_ambiguity_state"] is False
     assert captured["payload"]["ambiguity_state"] is None
     assert captured["payload"]["write_ambiguity_baseline"] is False
+    execution_plan_request = captured["payload"].get("execution_plan_request")
+    assert isinstance(execution_plan_request, dict)
+    assert execution_plan_request["requested_operations"] == [
+        cli.DATAFLOW_COMMAND,
+        "gabion.check",
+    ]
+    assert execution_plan_request["derived_artifacts"]
     assert captured["root"] == tmp_path
 
 

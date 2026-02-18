@@ -59,3 +59,31 @@ def test_deadline_tick_budget_allows_check_non_meter_clock() -> None:
         pass
 
     assert server._deadline_tick_budget_allows_check(_Clock()) is True
+
+
+def test_materialize_execution_plan_uses_request_payload(tmp_path: Path) -> None:
+    server = _load()
+    payload = {
+        "root": str(tmp_path),
+        "execution_plan_request": {
+            "requested_operations": ["gabion.dataflowAudit", "gabion.check"],
+            "inputs": {"root": str(tmp_path), "paths": ["."]},
+            "derived_artifacts": ["artifacts/out/execution_plan.json"],
+            "obligations": {
+                "preconditions": ["input paths resolve under root"],
+                "postconditions": ["execution plan artifact is emitted"],
+            },
+            "policy_metadata": {
+                "deadline": {"analysis_timeout_ticks": 10, "analysis_timeout_tick_ns": 1000},
+                "baseline_mode": "none",
+                "docflow_mode": "disabled",
+            },
+        },
+    }
+    plan = server._materialize_execution_plan(payload)
+    assert plan.requested_operations == ["gabion.dataflowAudit", "gabion.check"]
+    assert plan.policy_metadata.deadline["analysis_timeout_ticks"] == 10
+    artifact_path = server.write_execution_plan_artifact(plan, root=tmp_path)
+    assert artifact_path.exists()
+    contents = artifact_path.read_text()
+    assert '"requested_operations"' in contents
