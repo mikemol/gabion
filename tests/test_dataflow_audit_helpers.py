@@ -2773,6 +2773,30 @@ def test_report_projection_spec_topology_guards() -> None:
             )
         )
 
+
+def test_report_projection_spec_topology_stable_for_unsorted_deps() -> None:
+    da = _load()
+    root = da._report_section_spec(section_id="root", phase="collection")
+    left = da._report_section_spec(
+        section_id="left",
+        phase="forest",
+        deps=("root",),
+    )
+    right = da._report_section_spec(
+        section_id="right",
+        phase="forest",
+        deps=("root",),
+    )
+    sink = da._report_section_spec(
+        section_id="sink",
+        phase="post",
+        deps=("right", "left", "left"),
+    )
+
+    ordered = da._topologically_order_report_projection_specs((sink, right, left, root))
+
+    assert [spec.section_id for spec in ordered] == ["root", "right", "left", "sink"]
+
 def test_report_preview_helpers_cover_samples() -> None:
     da = _load()
     report = da.ReportCarrier(

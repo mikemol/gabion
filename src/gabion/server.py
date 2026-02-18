@@ -308,11 +308,20 @@ def _resolve_analysis_resume_checkpoint_path(
 
 def _analysis_witness_config_payload(config: AuditConfig) -> JSONObject:
     return {
-        "exclude_dirs": sorted(config.exclude_dirs),
-        "ignore_params": sorted(config.ignore_params),
+        "exclude_dirs": ordered_or_sorted(
+            config.exclude_dirs,
+            source="_analysis_witness_config_payload.exclude_dirs",
+        ),
+        "ignore_params": ordered_or_sorted(
+            config.ignore_params,
+            source="_analysis_witness_config_payload.ignore_params",
+        ),
         "strictness": config.strictness,
         "external_filter": config.external_filter,
-        "transparent_decorators": sorted(config.transparent_decorators or []),
+        "transparent_decorators": ordered_or_sorted(
+            config.transparent_decorators or [],
+            source="_analysis_witness_config_payload.transparent_decorators",
+        ),
     }
 
 

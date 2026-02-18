@@ -14285,8 +14285,12 @@ def _serialize_analysis_index_resume_payload(
     projection_cache_identity: str,
     profiling_v1: Mapping[str, JSONValue] | None = None,
 ) -> JSONObject:
-    hydrated_path_keys = sorted(
-        _analysis_collection_resume_path_key(path) for path in hydrated_paths
+    hydrated_path_keys = ordered_or_sorted(
+        (
+            _analysis_collection_resume_path_key(path)
+            for path in hydrated_paths
+        ),
+        source="_serialize_analysis_index_resume_payload.hydrated_paths",
     )
     ordered_function_items = list(
         ordered_or_sorted(
