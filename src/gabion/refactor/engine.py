@@ -10,6 +10,7 @@ from gabion.refactor.model import (
     FieldSpec,
     RefactorPlan,
     RefactorRequest,
+    RewritePlanEntry,
     TextEdit,
     normalize_compatibility_shim,
 )
@@ -83,6 +84,7 @@ class RefactorEngine:
             [cst.Expr(cst.SimpleString('"""' + "\\n".join(doc_lines) + '"""'))]
         )
         warnings: list[str] = []
+        rewrite_plans: list[RewritePlanEntry] = []
 
         def _annotation_for(hint: str | None) -> cst.BaseExpression:
             if not hint:
@@ -131,15 +133,34 @@ class RefactorEngine:
             compat_shim = normalize_compatibility_shim(request.compatibility_shim)
             if compat_shim.enabled:
                 new_module = _ensure_compat_imports(new_module, compat_shim)
-            transformer = _RefactorTransformer(
-                targets=targets,
-                bundle_fields=bundle_fields,
-                protocol_hint=protocol_hint,
-                compat_shim=compat_shim,
-            )
-            new_module = new_module.visit(transformer)
-            warnings.extend(transformer.warnings)
-        if targets:
+            if request.ambient_rewrite:
+                ambient_transformer = _AmbientRewriteTransformer(
+                    targets=targets,
+                    bundle_fields=bundle_fields,
+                    protocol_hint=protocol_hint,
+                )
+                rewritten_module = new_module.visit(ambient_transformer)
+                rewrite_plans.extend(ambient_transformer.plan_entries)
+                warnings.extend(ambient_transformer.warnings)
+                if ambient_transformer.changed:
+                    new_module = _ensure_ambient_scaffolding(
+                        rewritten_module,
+                        context_names=ambient_transformer.rewritten_context_names,
+                        protocol_hint=protocol_hint,
+                    )
+                else:
+                    new_module = rewritten_module
+            else:
+                transformer = _RefactorTransformer(
+                    targets=targets,
+                    bundle_fields=bundle_fields,
+                    protocol_hint=protocol_hint,
+                    compat_shim=compat_shim,
+                )
+                new_module = new_module.visit(transformer)
+                warnings.extend(transformer.warnings)
+
+        if targets and not request.ambient_rewrite:
             target_module = _module_name(path, self.project_root)
             call_warnings, call_edits = _rewrite_call_sites(
                 new_module,
@@ -171,7 +192,7 @@ class RefactorEngine:
             )
         ]
 
-        if targets and self.project_root:
+        if targets and self.project_root and not request.ambient_rewrite:
             extra_edits, extra_warnings = _rewrite_call_sites_in_project(
                 project_root=self.project_root,
                 target_path=path,
@@ -182,7 +203,7 @@ class RefactorEngine:
             )
             edits.extend(extra_edits)
             warnings.extend(extra_warnings)
-        return RefactorPlan(edits=edits, warnings=warnings)
+        return RefactorPlan(edits=edits, rewrite_plans=rewrite_plans, warnings=warnings)
 
 
 def _module_name(path: Path, project_root: Path | None) -> str:
@@ -547,6 +568,274 @@ def _rewrite_call_sites_in_project(
         )
     return edits, warnings
 
+
+
+
+def _ensure_ambient_scaffolding(
+    module: cst.Module,
+    *,
+    context_names: set[str],
+    protocol_hint: str,
+) -> cst.Module:
+    if not context_names:
+        return module
+    body = list(module.body)
+    insert_idx = _find_import_insert_index(body)
+    if not _has_contextvars_import(body):
+        body.insert(
+            insert_idx,
+            cst.SimpleStatementLine(
+                [
+                    cst.ImportFrom(
+                        module=cst.Name("contextvars"),
+                        names=[cst.ImportAlias(name=cst.Name("ContextVar"))],
+                    )
+                ]
+            ),
+        )
+        insert_idx += 1
+
+    existing_top_level = {
+        node.name.value
+        for node in body
+        if isinstance(node, cst.FunctionDef) and isinstance(node.name, cst.Name)
+    }
+    for context_name in sorted(context_names):
+        check_deadline()
+        ambient_name = _ambient_var_name(context_name)
+        getter = _ambient_getter_name(context_name)
+        setter = _ambient_setter_name(context_name)
+        if getter in existing_top_level and setter in existing_top_level:
+            continue
+        annotation = protocol_hint or "object"
+        statements = cst.parse_module(
+            f"""
+{ambient_name}: ContextVar[{annotation} | None] = ContextVar("{ambient_name}", default=None)
+
+def {getter}() -> {annotation}:
+    value = {ambient_name}.get()
+    if value is None:
+        raise RuntimeError("Ambient context '{context_name}' is not set.")
+    return value
+
+def {setter}(value: {annotation}) -> None:
+    {ambient_name}.set(value)
+"""
+        ).body
+        body[insert_idx:insert_idx] = statements
+        insert_idx += len(statements)
+    return module.with_changes(body=body)
+
+
+def _has_contextvars_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
+    for stmt in body:
+        check_deadline()
+        if not isinstance(stmt, cst.SimpleStatementLine):
+            continue
+        for item in stmt.body:
+            check_deadline()
+            if not isinstance(item, cst.ImportFrom):
+                continue
+            if _module_expr_to_str(item.module) != "contextvars":
+                continue
+            if not isinstance(item.names, Sequence):
+                continue
+            for alias in item.names:
+                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
+                    if alias.name.value == "ContextVar":
+                        return True
+    return False
+
+
+def _ambient_var_name(name: str) -> str:
+    return f"_AMBIENT_{name.upper()}"
+
+
+def _ambient_getter_name(name: str) -> str:
+    return f"_ambient_get_{name}"
+
+
+def _ambient_setter_name(name: str) -> str:
+    return f"_ambient_set_{name}"
+
+
+class _AmbientArgThreadingRewriter(cst.CSTTransformer):
+    def __init__(self, *, targets: set[str], context_name: str, current: str) -> None:
+        self.targets = {name.split(".")[-1] for name in targets}
+        self.context_name = context_name
+        self.current = current
+        self.changed = False
+        self.skipped_reasons: list[str] = []
+
+    def leave_Call(self, original_node: cst.Call, updated_node: cst.Call) -> cst.CSTNode:
+        func = updated_node.func
+        target_name: str | None = None
+        if isinstance(func, cst.Name):
+            target_name = func.value
+        elif isinstance(func, cst.Attribute) and isinstance(func.attr, cst.Name):
+            target_name = func.attr.value
+        if target_name not in self.targets:
+            return updated_node
+        if target_name == self.current:
+            return updated_node
+        if any(arg.star in {"*", "**"} for arg in updated_node.args):
+            self.skipped_reasons.append(
+                f"{self.current}: skipped call rewrite with dynamic star args for ambient parameter '{self.context_name}'."
+            )
+            return updated_node
+        new_args: list[cst.Arg] = []
+        removed = False
+        for arg in updated_node.args:
+            check_deadline()
+            is_name = isinstance(arg.value, cst.Name) and arg.value.value == self.context_name
+            if arg.keyword is not None and isinstance(arg.keyword, cst.Name):
+                if arg.keyword.value == self.context_name and is_name:
+                    removed = True
+                    continue
+            if arg.keyword is None and is_name and len(updated_node.args) == 1:
+                removed = True
+                continue
+            if arg.keyword is None and is_name and len(updated_node.args) > 1:
+                self.skipped_reasons.append(
+                    f"{self.current}: skipped positional ambient argument rewrite for '{self.context_name}' due to ambiguous arity."
+                )
+            new_args.append(arg)
+        if removed:
+            self.changed = True
+            return updated_node.with_changes(args=new_args)
+        return updated_node
+
+
+class _AmbientSafetyVisitor(cst.CSTVisitor):
+    def __init__(self, context_name: str) -> None:
+        self.context_name = context_name
+        self.reasons: list[str] = []
+
+    def visit_AssignTarget(self, node: cst.AssignTarget) -> None:
+        if isinstance(node.target, cst.Name) and node.target.value == self.context_name:
+            self.reasons.append(
+                f"writes to parameter '{self.context_name}' prevent a safe ambient rewrite"
+            )
+
+
+class _AmbientRewriteTransformer(cst.CSTTransformer):
+    def __init__(self, *, targets: set[str], bundle_fields: list[str], protocol_hint: str) -> None:
+        self.targets = targets
+        self.bundle_fields = bundle_fields
+        self.protocol_hint = protocol_hint
+        self.changed = False
+        self.warnings: list[str] = []
+        self.plan_entries: list[RewritePlanEntry] = []
+        self.rewritten_context_names: set[str] = set()
+
+    def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef) -> cst.CSTNode:
+        return self._rewrite_function(updated_node)
+
+    def leave_AsyncFunctionDef(
+        self, original_node: cst.AsyncFunctionDef, updated_node: cst.AsyncFunctionDef
+    ) -> cst.CSTNode:
+        return self._rewrite_function(updated_node)
+
+    def _rewrite_function(self, node: cst.FunctionDef | cst.AsyncFunctionDef) -> cst.CSTNode:
+        check_deadline()
+        name = node.name.value
+        if name not in self.targets:
+            return node
+        if not self.bundle_fields:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="skipped",
+                target=name,
+                summary="No bundle fields were provided.",
+                non_rewrite_reasons=["missing bundle field context parameter"],
+            ))
+            return node
+        context_name = self.bundle_fields[0]
+        params = list(node.params.params)
+        match_param = next((param for param in params if param.name.value == context_name), None)
+        if match_param is None:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="noop",
+                target=name,
+                summary=f"No threaded context parameter '{context_name}' found.",
+            ))
+            return node
+        if node.params.star_arg is not cst.MaybeSentinel.DEFAULT or node.params.star_kwarg is not None:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="skipped",
+                target=name,
+                summary="Dynamic argument capture prevents safe ambient rewrite.",
+                non_rewrite_reasons=["function uses *args or **kwargs"],
+            ))
+            return node
+        safety = _AmbientSafetyVisitor(context_name)
+        node.body.visit(safety)
+        if safety.reasons:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="skipped",
+                target=name,
+                summary="Aliasing/dynamic writes prevent safe ambient rewrite.",
+                non_rewrite_reasons=safety.reasons,
+            ))
+            return node
+
+        rewriter = _AmbientArgThreadingRewriter(targets=self.targets, context_name=context_name, current=name)
+        updated_body = node.body.visit(rewriter)
+        preamble = list(
+            cst.parse_module(
+                f"""if {context_name} is None:
+    {context_name} = {_ambient_getter_name(context_name)}()
+else:
+    {_ambient_setter_name(context_name)}({context_name})
+"""
+            ).body
+        )
+        if isinstance(updated_body, cst.IndentedBlock):
+            existing = list(updated_body.body)
+            insert_at = 0
+            if existing:
+                first = existing[0]
+                if isinstance(first, cst.SimpleStatementLine) and first.body:
+                    expr = first.body[0]
+                    if isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString):
+                        insert_at = 1
+            updated_body = updated_body.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
+
+        updated_params: list[cst.Param] = []
+        for param in node.params.params:
+            if param.name.value != context_name:
+                updated_params.append(param)
+                continue
+            annotation = param.annotation
+            if annotation is None:
+                try:
+                    annotation = cst.Annotation(cst.parse_expression(f"{self.protocol_hint} | None"))
+                except Exception:
+                    annotation = cst.Annotation(cst.parse_expression("object | None"))
+            updated_params.append(param.with_changes(default=cst.Name("None"), annotation=annotation))
+
+        updated_node = node.with_changes(
+            params=node.params.with_changes(params=updated_params),
+            body=updated_body,
+        )
+        self.changed = True
+        self.rewritten_context_names.add(context_name)
+        reasons = rewriter.skipped_reasons
+        summary = f"Migrated threaded parameter '{context_name}' to ambient accessor scaffold."
+        self.plan_entries.append(RewritePlanEntry(
+            kind="AMBIENT_REWRITE",
+            status="applied",
+            target=name,
+            summary=summary,
+            non_rewrite_reasons=reasons,
+        ))
+        if reasons:
+            self.warnings.extend(reasons)
+        return updated_node
 
 class _RefactorTransformer(cst.CSTTransformer):
     def __init__(

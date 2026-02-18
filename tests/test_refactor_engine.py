@@ -207,3 +207,94 @@ def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
     assert "def foo(*args, **kwargs)" in replacement
     assert "warnings.warn" in replacement
     assert "@overload" in replacement
+
+
+def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "ambient.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def sink(ctx):
+                return ctx.user_id
+
+            def route(ctx):
+                return sink(ctx)
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="CtxBundle",
+        bundle=["ctx"],
+        fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
+        target_path=str(target),
+        target_functions=["sink", "route"],
+        ambient_rewrite=True,
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert plan.edits
+    replacement = plan.edits[0].replacement
+    assert "from contextvars import ContextVar" in replacement
+    assert "_ambient_get_ctx" in replacement
+    assert "if ctx is None" in replacement
+    assert "return sink()" in replacement
+    assert any(entry.kind == "AMBIENT_REWRITE" and entry.status == "applied" for entry in plan.rewrite_plans)
+
+
+def test_refactor_engine_ambient_rewrite_partial_skip_unsafe(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "ambient_partial.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def sink(ctx):
+                return ctx.user_id
+
+            def safe(ctx):
+                return sink(ctx)
+
+            def unsafe(ctx):
+                ctx = mutate(ctx)
+                return sink(ctx)
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="CtxBundle",
+        bundle=["ctx"],
+        fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
+        target_path=str(target),
+        target_functions=["sink", "safe", "unsafe"],
+        ambient_rewrite=True,
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    entries = {entry.target: entry for entry in plan.rewrite_plans}
+    assert entries["safe"].status == "applied"
+    assert entries["unsafe"].status == "skipped"
+    assert entries["unsafe"].non_rewrite_reasons
+
+
+def test_refactor_engine_ambient_rewrite_noop_when_no_pattern(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "ambient_noop.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def sink(bundle):
+                return bundle
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="CtxBundle",
+        bundle=["ctx"],
+        fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
+        target_path=str(target),
+        target_functions=["sink"],
+        ambient_rewrite=True,
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert any(entry.status == "noop" for entry in plan.rewrite_plans)

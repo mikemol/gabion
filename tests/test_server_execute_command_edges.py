@@ -5532,3 +5532,30 @@ def test_execute_command_honors_dash_outputs_and_baseline_write(tmp_path: Path) 
     assert result.get("fingerprint_provenance") == analysis.fingerprint_provenance
     assert result.get("fingerprint_deadness") == analysis.deadness_witnesses
     assert baseline_path.exists()
+
+
+# gabion:evidence E:function_site::server.py::gabion.server.execute_refactor
+def test_execute_refactor_exposes_rewrite_plan_metadata(tmp_path: Path) -> None:
+    module_path = tmp_path / "target.py"
+    module_path.write_text(
+        "def sink(ctx):\n"
+        "    return ctx\n\n"
+        "def caller(ctx):\n"
+        "    return sink(ctx)\n"
+    )
+    result = server.execute_refactor(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "protocol_name": "CtxBundle",
+                "bundle": ["ctx"],
+                "target_path": str(module_path),
+                "target_functions": ["sink", "caller"],
+                "ambient_rewrite": True,
+            }
+        ),
+    )
+    assert result.get("errors") == []
+    rewrite_plans = result.get("rewrite_plans", [])
+    assert rewrite_plans
+    assert rewrite_plans[0].get("kind") == "AMBIENT_REWRITE"
