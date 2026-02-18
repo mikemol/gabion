@@ -26,6 +26,10 @@ from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_f
 from gabion.analysis import evidence_keys
 from gabion.analysis.impact_index import build_impact_index
 from gabion.governance_paths import GOVERNANCE_PATHS
+from gabion.analysis.obligation_registry import (
+    evaluate_obligations,
+    summarize_obligations,
+)
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
 
@@ -180,6 +184,14 @@ class DocflowAuditContext:
     revisions: dict[str, int]
     invariant_rows: list[dict[str, object]]
     invariants: list[DocflowInvariant]
+    warnings: list[str]
+    violations: list[str]
+
+
+@dataclass(frozen=True)
+class DocflowObligationResult:
+    entries: list[dict[str, JSONValue]]
+    summary: dict[str, int]
     warnings: list[str]
     violations: list[str]
 
@@ -2038,7 +2050,11 @@ def _summarize_docflow_compliance(rows: list[dict[str, object]]) -> dict[str, in
     return counts
 
 
-def _render_docflow_compliance_md(rows: list[dict[str, object]]) -> list[str]:
+def _render_docflow_compliance_md(
+    rows: list[dict[str, object]],
+    *,
+    obligations: DocflowObligationResult | None = None,
+) -> list[str]:
     summary = _summarize_docflow_compliance(rows)
     lines: list[str] = []
     lines.append("Docflow compliance report")
@@ -2046,7 +2062,29 @@ def _render_docflow_compliance_md(rows: list[dict[str, object]]) -> list[str]:
     lines.append(f"- contradicts: {summary.get('contradicts', 0)}")
     lines.append(f"- proposed: {summary.get('proposed', 0)}")
     lines.append(f"- excess: {summary.get('excess', 0)}")
+    if obligations is not None:
+        obligation_summary = obligations.summary
+        lines.append(
+            "- obligations: "
+            f"triggered={obligation_summary.get('triggered', 0)}, "
+            f"met={obligation_summary.get('met', 0)}, "
+            f"unmet_fail={obligation_summary.get('unmet_fail', 0)}, "
+            f"unmet_warn={obligation_summary.get('unmet_warn', 0)}"
+        )
     lines.append("")
+    if obligations is not None:
+        lines.append("Obligations:")
+        for entry in obligations.entries:
+            check_deadline()
+            state = "inactive"
+            if entry.get("triggered") is True:
+                state = str(entry.get("status") or "unknown")
+            lines.append(
+                "- "
+                f"{entry.get('obligation_id')}: {state} "
+                f"({entry.get('enforcement')})"
+            )
+        lines.append("")
     lines.append("Contradictions:")
     for row in rows:
         check_deadline()
@@ -2145,13 +2183,24 @@ def _emit_docflow_compliance(
     invariants: Iterable[DocflowInvariant],
     json_output: Path | None,
     md_output: Path | None,
+    obligations: DocflowObligationResult | None = None,
 ) -> None:
     compliance_rows = _docflow_compliance_rows(rows, invariants=invariants)
+    if obligations is not None:
+        compliance_rows = _decorate_compliance_rows_with_obligations(
+            compliance_rows,
+            obligations.entries,
+        )
     payload = {
         "version": 2,
         "summary": _summarize_docflow_compliance(compliance_rows),
         "rows": compliance_rows,
     }
+    if obligations is not None:
+        payload["obligations"] = {
+            "summary": obligations.summary,
+            "entries": obligations.entries,
+        }
     if json_output is not None:
         json_output.parent.mkdir(parents=True, exist_ok=True)
         json_output.write_text(
@@ -2163,7 +2212,10 @@ def _emit_docflow_compliance(
         md_output.write_text(
             _render_docflow_report_md(
                 "docflow_compliance",
-                _render_docflow_compliance_md(compliance_rows),
+                _render_docflow_compliance_md(
+                    compliance_rows,
+                    obligations=obligations,
+                ),
             )
         )
 
@@ -3386,6 +3438,122 @@ def _sppf_sync_check(
     return violations, warnings
 
 
+def _doc_status_changed(paths: Iterable[str]) -> bool:
+    tracked_docs = {"docs/sppf_checklist.md", "docs/influence_index.md"}
+    for path in paths:
+        check_deadline()
+        if path in tracked_docs:
+            return True
+        if path.startswith("in/") and path.endswith(".md"):
+            return True
+    return False
+
+
+def _has_doc_status_consistency_violations(violations: Iterable[str]) -> bool:
+    for entry in violations:
+        check_deadline()
+        if "docs/sppf_checklist.md: doc status" in entry:
+            return True
+        if "missing in docs/influence_index.md" in entry:
+            return True
+    return False
+
+
+def _evaluate_docflow_obligations(
+    *,
+    root: Path,
+    violations: list[str],
+    baseline_write_emitted: bool,
+    delta_guard_checked: bool,
+) -> DocflowObligationResult:
+    rev_range = "HEAD~1..HEAD"
+    try:
+        try:
+            from scripts import sppf_sync
+        except ModuleNotFoundError:
+            import sppf_sync
+
+        rev_range = sppf_sync._default_range()
+    except Exception:
+        pass
+
+    changed = _git_diff_paths(rev_range)
+    relevant_prefixes = ("src/", "in/")
+    relevant_paths = {"docs/sppf_checklist.md"}
+    sppf_relevant_changed = any(
+        path in relevant_paths or any(path.startswith(prefix) for prefix in relevant_prefixes)
+        for path in changed
+    )
+    gh_reference_validated = True
+    if sppf_relevant_changed:
+        gh_reference_validated = False
+        try:
+            try:
+                from scripts import sppf_sync
+            except ModuleNotFoundError:
+                import sppf_sync
+            commits = sppf_sync._collect_commits(rev_range)
+            issue_ids = sppf_sync._issue_ids_from_commits(commits)
+            gh_reference_validated = bool(issue_ids)
+        except Exception:
+            gh_reference_validated = False
+
+    doc_status_changed = _doc_status_changed(changed)
+    checklist_influence_consistent = not _has_doc_status_consistency_violations(violations)
+    context: dict[str, JSONValue] = {
+        "repo_root": str(root),
+        "changed_paths": changed,
+        "sppf_relevant_paths_changed": sppf_relevant_changed,
+        "gh_reference_validated": gh_reference_validated,
+        "baseline_write_emitted": baseline_write_emitted,
+        "delta_guard_checked": delta_guard_checked,
+        "doc_status_changed": doc_status_changed,
+        "checklist_influence_consistent": checklist_influence_consistent,
+    }
+    entries = evaluate_obligations(operation="docflow_plan", context=context)
+    summary = summarize_obligations(entries)
+    obligation_warnings: list[str] = []
+    obligation_violations: list[str] = []
+    for entry in entries:
+        check_deadline()
+        if entry.get("triggered") is not True or entry.get("status") != "unmet":
+            continue
+        message = (
+            f"obligation unmet [{entry.get('obligation_id')}]: "
+            f"{entry.get('description')}"
+        )
+        if entry.get("enforcement") == "fail":
+            obligation_violations.append(message)
+        else:
+            obligation_warnings.append(message)
+    return DocflowObligationResult(
+        entries=entries,
+        summary=summary,
+        warnings=obligation_warnings,
+        violations=obligation_violations,
+    )
+
+
+def _decorate_compliance_rows_with_obligations(
+    rows: list[dict[str, object]],
+    obligations: list[dict[str, JSONValue]],
+) -> list[dict[str, object]]:
+    active_ids = [
+        str(entry.get("obligation_id") or "")
+        for entry in obligations
+        if entry.get("triggered") is True
+    ]
+    if not active_ids:
+        return rows
+    decorated: list[dict[str, object]] = []
+    for row in rows:
+        check_deadline()
+        item = dict(row)
+        item["obligations"] = list(active_ids)
+        decorated.append(item)
+    return decorated
+
+
 # --- Decision tier candidate helpers ---
 
 
@@ -3863,6 +4031,14 @@ def _docflow_command(args: argparse.Namespace) -> int:
     docs = _load_docflow_docs(root=root, extra_paths=args.extra_path)
     violations = context.violations
     warnings = context.warnings
+    obligations = _evaluate_docflow_obligations(
+        root=root,
+        violations=violations,
+        baseline_write_emitted=bool(args.baseline_write_emitted),
+        delta_guard_checked=bool(args.delta_guard_checked),
+    )
+    warnings = warnings + obligations.warnings
+    violations = violations + obligations.violations
     _emit_docflow_suite_artifacts(
         root=root,
         extra_paths=args.extra_path,
@@ -3875,6 +4051,7 @@ def _docflow_command(args: argparse.Namespace) -> int:
         invariants=context.invariants,
         json_output=args.compliance_json,
         md_output=args.compliance_md,
+        obligations=obligations,
     )
     _emit_docflow_canonicality(
         root=root,
@@ -4092,6 +4269,16 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
         default="required",
         choices=("required", "advisory"),
         help="SPPF GH-reference enforcement mode (default: required).",
+    )
+    parser.add_argument(
+        "--baseline-write-emitted",
+        action="store_true",
+        help="Declare that this run emits a baseline write (for obligation checks).",
+    )
+    parser.add_argument(
+        "--delta-guard-checked",
+        action="store_true",
+        help="Declare that delta guard checks were executed before baseline write.",
     )
     parser.add_argument(
         "--issues-json",
