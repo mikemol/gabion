@@ -1,5 +1,5 @@
 ---
-doc_revision: 65
+doc_revision: 67
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -143,6 +143,18 @@ Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to ratchet existing violations and
 `--baseline-write` to generate/update the baseline file.
 
+For iterative local cleanup, keep a warm resume checkpoint between runs:
+```
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 1
+```
+Use the same checkpoint path across runs while tuning issues.
+Cache reuse is strongest when audit identity inputs stay stable (for example:
+strictness, external-filter mode, fingerprint seed revision, and forest spec).
+Change those knobs only when needed; otherwise you can invalidate hydration
+reuse and force larger reparse/index work.
+
 Run the dataflow grammar audit (prototype):
 ```
 mise exec -- python -m gabion dataflow-audit path/to/project
@@ -236,6 +248,15 @@ make audit-latest
 GitHub-hosted CI runs `gabion check`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
+
+The `dataflow-audit` job now performs a best-effort warm-cache restore of
+`dataflow_resume_checkpoint_ci.json` from a prior same-branch push artifact
+before running staged retries. When available, this primes Gabion's resume
+mechanism and reduces repeated parsing/indexing of unchanged paths.
+
+Cache effectiveness can be audited in CI logs and step summaries via
+`completed_paths`, `hydrated_paths`, and `paths_parsed_after_resume` emitted by
+`scripts/run_dataflow_stage.py`.
 
 Allow-listed actions are defined in `docs/allowed_actions.txt`.
 
