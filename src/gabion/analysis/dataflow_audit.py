@@ -48,7 +48,7 @@ from gabion.analysis.schema_audit import find_anonymous_schema_surfaces
 from gabion.analysis.aspf import Alt, Forest, Node, NodeId
 from gabion.analysis import evidence_keys
 from gabion.invariants import never, require_not_none
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import OrderPolicy, ordered_or_sorted
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -196,7 +196,7 @@ _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
     "src/gabion/analysis/aspf.py": 3,
     "src/gabion/analysis/call_cluster_consolidation.py": 3,
     "src/gabion/analysis/call_clusters.py": 1,
-    "src/gabion/analysis/dataflow_audit.py": 180,
+    "src/gabion/analysis/dataflow_audit.py": 146,
     "src/gabion/analysis/evidence.py": 2,
     "src/gabion/analysis/evidence_keys.py": 2,
     "src/gabion/analysis/forest_signature.py": 4,
@@ -210,11 +210,11 @@ _RAW_SORTED_BASELINE_COUNTS: dict[str, int] = {
     "src/gabion/analysis/test_obsolescence.py": 6,
     "src/gabion/analysis/test_obsolescence_delta.py": 8,
     "src/gabion/analysis/timeout_context.py": 5,
-    "src/gabion/analysis/type_fingerprints.py": 18,
+    "src/gabion/analysis/type_fingerprints.py": 0,
     "src/gabion/lsp_client.py": 1,
     "src/gabion/order_contract.py": 2,
     "src/gabion/refactor/engine.py": 1,
-    "src/gabion/server.py": 16,
+    "src/gabion/server.py": 13,
     "src/gabion/synthesis/merge.py": 2,
     "src/gabion/synthesis/naming.py": 1,
     "src/gabion/synthesis/protocols.py": 1,
@@ -4035,7 +4035,16 @@ def _collect_exception_obligations(
                             if isinstance(current, ast.If):
                                 names.update(_names_in_expr(current.test))
                             current = parents.get(current)
-                        for name in sorted(names):
+                        ordered_names = ordered_or_sorted(
+                            names,
+                            source="_collect_exception_obligations.names.dead",
+                            policy=OrderPolicy.SORT,
+                        )
+                        for name in ordered_or_sorted(
+                            ordered_names,
+                            source="_collect_exception_obligations.names.dead.enforce",
+                            policy=OrderPolicy.ENFORCE,
+                        ):
                             check_deadline()
                             if name not in env_entries:
                                 continue
@@ -4151,7 +4160,16 @@ def _collect_never_invariants(
                         if isinstance(current, ast.If):
                             names.update(_names_in_expr(current.test))
                         current = parents.get(current)
-                    for name in sorted(names):
+                    ordered_names = ordered_or_sorted(
+                        names,
+                        source="_collect_never_invariants.names.proven_unreachable",
+                        policy=OrderPolicy.SORT,
+                    )
+                    for name in ordered_or_sorted(
+                        ordered_names,
+                        source="_collect_never_invariants.names.proven_unreachable.enforce",
+                        policy=OrderPolicy.ENFORCE,
+                    ):
                         check_deadline()
                         if name not in env_entries:
                             continue
@@ -4173,7 +4191,11 @@ def _collect_never_invariants(
                         if isinstance(current, ast.If):
                             names.update(_names_in_expr(current.test))
                         current = parents.get(current)
-                    undecidable_params = sorted(n for n in names if n not in env_entries)
+                    undecidable_params = ordered_or_sorted(
+                        (n for n in names if n not in env_entries),
+                        source="_collect_never_invariants.undecidable_params",
+                        policy=OrderPolicy.SORT,
+                    )
                     if undecidable_params:
                         undecidable_reason = f"depends on params: {', '.join(undecidable_params)}"
             entry: JSONObject = {

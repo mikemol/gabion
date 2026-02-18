@@ -479,3 +479,27 @@ def test_merge_counts_by_knobs_merges_subset() -> None:
     counts = {("a", "b"): 1, ("a", "b", "k"): 2}
     merged = da._merge_counts_by_knobs(counts, {"k"})
     assert merged == {("a", "b", "k"): 3}
+
+
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._topologically_order_report_projection_specs
+def test_report_projection_topological_order_is_stable_for_shuffled_dep_order() -> None:
+    da = _load()
+    spec_a = da._report_section_spec(section_id="a", phase="collection")
+    spec_b = da._report_section_spec(
+        section_id="b",
+        phase="post",
+        deps=("c", "a"),
+    )
+    spec_b_shuffled = da._report_section_spec(
+        section_id="b",
+        phase="post",
+        deps=("a", "c"),
+    )
+    spec_c = da._report_section_spec(section_id="c", phase="edge", deps=("a",))
+
+    ordered = da._topologically_order_report_projection_specs((spec_a, spec_b, spec_c))
+    ordered_shuffled = da._topologically_order_report_projection_specs(
+        (spec_a, spec_b_shuffled, spec_c)
+    )
+
+    assert [spec.section_id for spec in ordered] == [spec.section_id for spec in ordered_shuffled]

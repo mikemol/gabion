@@ -96,6 +96,11 @@ def canonical_type_key(hint: str) -> str:
             source="canonical_type_key.union_parts",
             policy=OrderPolicy.SORT,
         )
+        normalized = ordered_or_sorted(
+            normalized,
+            source="canonical_type_key.union_parts.enforce",
+            policy=OrderPolicy.ENFORCE,
+        )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Optional[") and raw.endswith("]"):
         inner = raw[len("Optional[") : -1]
@@ -107,6 +112,11 @@ def canonical_type_key(hint: str) -> str:
             source="canonical_type_key.optional_parts",
             policy=OrderPolicy.SORT,
         )
+        normalized = ordered_or_sorted(
+            normalized,
+            source="canonical_type_key.optional_parts.enforce",
+            policy=OrderPolicy.ENFORCE,
+        )
         return f"Union[{', '.join(normalized)}]"
     if raw.startswith("Union[") and raw.endswith("]"):
         inner = raw[len("Union[") : -1]
@@ -115,6 +125,11 @@ def canonical_type_key(hint: str) -> str:
             (part for part in (canonical_type_key(p) for p in parts) if part),
             source="canonical_type_key.union_bracket_parts",
             policy=OrderPolicy.SORT,
+        )
+        normalized = ordered_or_sorted(
+            normalized,
+            source="canonical_type_key.union_bracket_parts.enforce",
+            policy=OrderPolicy.ENFORCE,
         )
         return f"Union[{', '.join(normalized)}]"
     if "[" in raw and raw.endswith("]"):

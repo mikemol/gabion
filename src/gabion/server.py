@@ -96,7 +96,7 @@ from gabion.analysis.timeout_context import (
     set_deadline_clock,
 )
 from gabion.invariants import never
-from gabion.order_contract import ordered_or_sorted
+from gabion.order_contract import OrderPolicy, ordered_or_sorted
 from gabion.config import (
     dataflow_defaults,
     dataflow_deadline_roots,
@@ -746,7 +746,12 @@ def _analysis_input_witness(
             }
         if isinstance(value, dict):
             normalized: JSONObject = {}
-            for key in sorted(value, key=lambda item: str(item)):
+            for key in ordered_or_sorted(
+                value,
+                source="server._normalize_ast_value.dict_keys",
+                key=lambda item: str(item),
+                policy=OrderPolicy.SORT,
+            ):
                 check_deadline()
                 normalized[str(key)] = _normalize_ast_value(value[key])
             return normalized
@@ -2644,8 +2649,17 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
             param_spans = span_map.get(fn_name, {})
             for bundle in group_list:
                 check_deadline()
-                message = f"Implicit bundle detected: {', '.join(sorted(bundle))}"
-                for name in sorted(bundle):
+                ordered_bundle = ordered_or_sorted(
+                    bundle,
+                    source="server._lint_bundles.bundle",
+                    policy=OrderPolicy.ENFORCE,
+                )
+                message = f"Implicit bundle detected: {', '.join(ordered_bundle)}"
+                for name in ordered_or_sorted(
+                    ordered_bundle,
+                    source="server._lint_bundles.bundle_loop",
+                    policy=OrderPolicy.ENFORCE,
+                ):
                     check_deadline()
                     span = param_spans.get(name)
                     if span is None:  # pragma: no cover - spans are derived from parsed params

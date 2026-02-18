@@ -754,3 +754,9 @@ def test_build_fingerprint_registry_seed_is_stable_under_reordered_inputs() -> N
     assert reg_a.bit_positions == reg_b.bit_positions
     assert reg_a.prime_for("int") == 2
     assert reg_a.prime_for("ctor:list") == 13
+
+
+# gabion:evidence E:function_site::type_fingerprints.py::gabion.analysis.type_fingerprints.canonical_type_key
+def test_canonical_type_key_is_stable_for_shuffled_union_order() -> None:
+    tf = _load()
+    assert tf.canonical_type_key("str | int | None") == tf.canonical_type_key("None | str | int")
