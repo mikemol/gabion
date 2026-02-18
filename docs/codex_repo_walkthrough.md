@@ -152,6 +152,11 @@ Current operating model:
 4. Use another LLM agent to churn through integration, coverage, and merges.
 5. Repeat until class is burned down; then move to next class.
 
+Branch guardrail (compact): routine human integration is via `stage`; `next`
+and `release` are automation-only. Treat `README.md#repo_contract` and
+`CONTRIBUTING.md#contributing_contract` as the authoritative branch/workflow
+references.
+
 Task quality bar:
 - bounded scope,
 - explicit files/modules,
