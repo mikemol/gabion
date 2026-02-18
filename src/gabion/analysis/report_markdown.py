@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from gabion.analysis.artifact_ordering import canonical_doc_scope
+
 
 def render_report_markdown(
     doc_id: str,
@@ -9,7 +11,7 @@ def render_report_markdown(
     *,
     doc_scope: Iterable[str] | None = None,
 ) -> str:
-    scope = list(doc_scope or ("repo", "artifacts"))
+    scope = canonical_doc_scope(doc_scope or ("repo", "artifacts"))
     frontmatter = [
         "---",
         "doc_revision: 1",

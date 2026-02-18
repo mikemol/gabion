@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+
 from gabion.analysis.dataflow_report_rendering import render_synthesis_section
 
 
@@ -47,3 +49,35 @@ def test_render_synthesis_section_module_evidence_summary_and_blank_fields() -> 
         "errors": [],
     }
     assert "(no fields)" in render_synthesis_section(blank_fields_plan, check_deadline=_check_deadline)
+
+
+def test_render_synthesis_section_is_byte_stable_for_shuffled_inputs() -> None:
+    baseline = None
+    base_protocols = [
+        {
+            "name": "Beta",
+            "tier": 2,
+            "fields": [{"name": "b", "type_hint": "int"}],
+            "evidence": ["decision_surface", "dataflow"],
+        },
+        {
+            "name": "Alpha",
+            "tier": 3,
+            "fields": [{"name": "a", "type_hint": "str"}],
+            "evidence": ["dataflow"],
+        },
+    ]
+    for seed in range(15):
+        rng = random.Random(seed)
+        protocols = [dict(spec) for spec in base_protocols]
+        rng.shuffle(protocols)
+        for spec in protocols:
+            evidence = list(spec.get("evidence", []))
+            rng.shuffle(evidence)
+            spec["evidence"] = evidence
+        plan = {"protocols": protocols, "warnings": [], "errors": []}
+        rendered = render_synthesis_section(plan, check_deadline=_check_deadline)
+        if baseline is None:
+            baseline = rendered
+            continue
+        assert rendered == baseline
