@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -27,6 +28,8 @@ class StageResult:
     analysis_state: str
     is_timeout_resume: bool
     metrics_line: str
+    obligation_rows: tuple[dict[str, object], ...]
+    incompleteness_markers: tuple[str, ...]
 
     @property
     def terminal_status(self) -> str:
@@ -44,6 +47,7 @@ class StagePaths:
     timeout_progress_md_path: Path
     deadline_profile_json_path: Path
     deadline_profile_md_path: Path
+    obligation_trace_json_path: Path
     resume_checkpoint_path: Path
     baseline_path: Path
 
@@ -97,6 +101,155 @@ def _copy_if_exists(source: Path, destination: Path) -> None:
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(source.read_bytes())
+
+
+def _obligation_required_action(kind: str) -> str:
+    actions = {
+        "classification_matches_resume_support": "align timeout classification with resume support semantics",
+        "progress_monotonicity": "preserve monotonic semantic progress",
+        "substantive_progress_required": "emit substantive progress only when resumable timeout progress exists",
+        "checkpoint_present_when_resumable": "persist a resume checkpoint for resumable timeout progress",
+        "restart_required_on_witness_mismatch": "restart projection when witness mismatch is detected",
+        "no_projection_progress": "resolve at least one projected report section",
+        "partial_report_emitted": "emit a partial report during timeout handling",
+        "section_projection_state": "reuse or regenerate projected section content according to policy",
+    }
+    return actions.get(kind, "satisfy contract obligation")
+
+
+def _normalize_obligation_status(raw_status: str, detail: str) -> str:
+    if raw_status == "SATISFIED":
+        return "satisfied"
+    if raw_status == "VIOLATION":
+        return "unsatisfied"
+    if raw_status == "OBLIGATION" and detail in {"policy", "stale_input"}:
+        return "skipped_by_policy"
+    return "unsatisfied"
+
+
+def _obligation_id(stage_id: str, contract: str, kind: str, section_id: str, phase: str) -> str:
+    material = "|".join((stage_id, contract, kind, section_id, phase))
+    digest = hashlib.sha1(material.encode("utf-8")).hexdigest()
+    return f"obl-{digest[:12]}"
+
+
+def _obligation_rows_from_timeout_payload(
+    *, stage_id: str, analysis_state: str, timeout_payload: dict[str, object]
+) -> tuple[tuple[dict[str, object], ...], tuple[str, ...]]:
+    incremental = timeout_payload.get("incremental_obligations")
+    if not isinstance(incremental, list):
+        markers = (
+            ("missing_incremental_obligations",)
+            if analysis_state.startswith("timed_out_")
+            else ()
+        )
+        return (), markers
+    rows: list[dict[str, object]] = []
+    for raw_entry in deadline_loop_iter(incremental):
+        if not isinstance(raw_entry, dict):
+            continue
+        contract = str(raw_entry.get("contract", "") or "")
+        kind = str(raw_entry.get("kind", "") or "")
+        if not contract or not kind:
+            continue
+        section_id = str(raw_entry.get("section_id", "") or "")
+        phase = str(raw_entry.get("phase", "") or "")
+        detail = str(raw_entry.get("detail", "") or "")
+        raw_status = str(raw_entry.get("status", "") or "")
+        rows.append(
+            {
+                "id": _obligation_id(stage_id, contract, kind, section_id, phase),
+                "stage_id": stage_id,
+                "rule_evaluated": f"{contract}:{kind}",
+                "trigger_evidence": detail,
+                "required_action": _obligation_required_action(kind),
+                "status": _normalize_obligation_status(raw_status, detail),
+                "raw_status": raw_status,
+                "contract": contract,
+                "kind": kind,
+                "section_id": section_id,
+                "phase": phase,
+            }
+        )
+    rows.sort(key=lambda row: str(row["id"]))
+    markers: list[str] = []
+    if timeout_payload.get("cleanup_truncated"):
+        markers.append("cleanup_truncated")
+    return tuple(rows), tuple(markers)
+
+
+def _obligation_trace_payload(results: Sequence[StageResult]) -> dict[str, object]:
+    obligations = [
+        row
+        for result in deadline_loop_iter(results)
+        for row in deadline_loop_iter(result.obligation_rows)
+    ]
+    obligations.sort(key=lambda row: (str(row.get("id", "")), str(row.get("stage_id", ""))))
+    markers = {
+        marker
+        for result in deadline_loop_iter(results)
+        for marker in deadline_loop_iter(result.incompleteness_markers)
+    }
+    if results and results[-1].terminal_status != "success":
+        markers.add("terminal_non_success")
+    if any(result.is_timeout_resume for result in results):
+        markers.add("timeout_or_partial_run")
+
+    summary = {
+        "total": len(obligations),
+        "satisfied": sum(1 for row in obligations if row.get("status") == "satisfied"),
+        "unsatisfied": sum(1 for row in obligations if row.get("status") == "unsatisfied"),
+        "skipped_by_policy": sum(
+            1 for row in obligations if row.get("status") == "skipped_by_policy"
+        ),
+    }
+    return {
+        "trace_version": 1,
+        "complete": not markers,
+        "incompleteness_markers": sorted(markers),
+        "summary": summary,
+        "obligations": obligations,
+    }
+
+
+def _write_obligation_trace(path: Path, results: Sequence[StageResult]) -> dict[str, object]:
+    payload = _obligation_trace_payload(results)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return payload
+
+
+def _obligation_trace_summary_lines(trace_payload: dict[str, object]) -> list[str]:
+    summary = trace_payload.get("summary")
+    if not isinstance(summary, dict):
+        return []
+    markers = trace_payload.get("incompleteness_markers")
+    marker_text = (
+        ", ".join(str(marker) for marker in markers)
+        if isinstance(markers, list) and markers
+        else "none"
+    )
+    return [
+        "",
+        "## Obligation trace summary",
+        (
+            "- total="
+            f"{summary.get('total', 0)} "
+            f"satisfied={summary.get('satisfied', 0)} "
+            f"unsatisfied={summary.get('unsatisfied', 0)} "
+            f"skipped_by_policy={summary.get('skipped_by_policy', 0)}"
+        ),
+        f"- complete={trace_payload.get('complete', False)}",
+        f"- incompleteness_markers={marker_text}",
+    ]
+
+
+def _append_markdown_summary(path: Path, trace_payload: dict[str, object]) -> None:
+    if not path.exists():
+        return
+    with path.open("a", encoding="utf-8") as handle:
+        for line in deadline_loop_iter(_obligation_trace_summary_lines(trace_payload)):
+            handle.write(f"{line}\n")
 
 
 def _stage_snapshot_path(path: Path, stage_id: str) -> Path:
@@ -176,6 +329,13 @@ def run_stage(
         _stage_snapshot_path(paths.deadline_profile_md_path, stage_id),
     )
 
+    timeout_payload = _load_json_object(paths.timeout_progress_json_path)
+    obligation_rows, incompleteness_markers = _obligation_rows_from_timeout_payload(
+        stage_id=stage_id,
+        analysis_state=analysis_state,
+        timeout_payload=timeout_payload,
+    )
+
     stage_upper = stage_id.upper()
     print(
         f"stage {stage_upper}: exit={exit_code} "
@@ -196,6 +356,8 @@ def run_stage(
         analysis_state=analysis_state,
         is_timeout_resume=is_timeout_resume,
         metrics_line=metrics_line,
+        obligation_rows=obligation_rows,
+        incompleteness_markers=incompleteness_markers,
     )
 
 
@@ -318,6 +480,11 @@ def _parse_args() -> argparse.Namespace:
         default=Path("artifacts/out/deadline_profile.md"),
     )
     parser.add_argument(
+        "--obligation-trace-json",
+        type=Path,
+        default=Path("artifacts/out/obligation_trace.json"),
+    )
+    parser.add_argument(
         "--github-output",
         type=Path,
         default=None,
@@ -363,6 +530,7 @@ def main() -> int:
         timeout_progress_md_path=args.timeout_progress_md,
         deadline_profile_json_path=args.deadline_profile_json,
         deadline_profile_md_path=args.deadline_profile_md,
+        obligation_trace_json_path=args.obligation_trace_json,
         resume_checkpoint_path=args.resume_checkpoint,
         baseline_path=args.baseline,
     )
@@ -374,6 +542,10 @@ def main() -> int:
             step_summary_path=step_summary_path,
             run_command_fn=_run_subprocess,
         )
+        trace_payload = _write_obligation_trace(paths.obligation_trace_json_path, results)
+        _append_markdown_summary(paths.timeout_progress_md_path, trace_payload)
+        _append_markdown_summary(paths.deadline_profile_md_path, trace_payload)
+        _append_lines(step_summary_path, _obligation_trace_summary_lines(trace_payload))
         _emit_stage_outputs(github_output_path, results)
     return 0
 
