@@ -9,8 +9,9 @@ import pytest
 from scripts import refresh_baselines
 
 
-def test_run_check_includes_timeout_diagnostics_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_check_includes_timeout_diagnostics_flags() -> None:
     captured: dict[str, object] = {}
+    timeout_env = refresh_baselines._refresh_lsp_timeout_env(None, None)
 
     def _fake_run(cmd, *, check, timeout, env):
         captured["cmd"] = cmd
@@ -18,14 +19,14 @@ def test_run_check_includes_timeout_diagnostics_flags(monkeypatch: pytest.Monkey
         captured["timeout"] = timeout
         captured["env"] = env
 
-    monkeypatch.setattr(refresh_baselines.subprocess, "run", _fake_run)
-
     refresh_baselines._run_check(
         "--emit-test-obsolescence-delta",
         timeout=17,
+        timeout_env=timeout_env,
         resume_on_timeout=1,
         resume_checkpoint=Path("artifacts/out/refresh_baselines_resume.json"),
         extra=["--foo", "bar"],
+        run_fn=_fake_run,
     )
 
     assert captured["check"] is True
@@ -44,18 +45,20 @@ def test_run_check_includes_timeout_diagnostics_flags(monkeypatch: pytest.Monkey
     assert cmd[-2:] == ["--foo", "bar"]
 
 
-def test_run_check_formats_called_process_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_check_formats_called_process_error() -> None:
+    timeout_env = refresh_baselines._refresh_lsp_timeout_env(None, None)
+
     def _raise_run(*_args, **_kwargs):
         raise subprocess.CalledProcessError(returncode=2, cmd=["gabion", "check"])
-
-    monkeypatch.setattr(refresh_baselines.subprocess, "run", _raise_run)
 
     with pytest.raises(subprocess.CalledProcessError) as exc_info:
         refresh_baselines._run_check(
             "--write-ambiguity-baseline",
             timeout=None,
+            timeout_env=timeout_env,
             resume_on_timeout=2,
             resume_checkpoint=None,
+            run_fn=_raise_run,
         )
 
     notes = getattr(exc_info.value, "__notes__", [])

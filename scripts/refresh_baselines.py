@@ -310,8 +310,17 @@ def _guard_docflow_delta(
         )
 
 
-def main() -> int:
-    with _deadline_scope():
+def main(
+    argv: list[str] | None = None,
+    *,
+    deadline_scope_factory=_deadline_scope,
+    run_check_fn=_run_check,
+    guard_obsolescence_delta_fn=_guard_obsolescence_delta,
+    guard_annotation_drift_delta_fn=_guard_annotation_drift_delta,
+    guard_ambiguity_delta_fn=_guard_ambiguity_delta,
+    guard_docflow_delta_fn=_guard_docflow_delta,
+) -> int:
+    with deadline_scope_factory():
         parser = argparse.ArgumentParser(
             description="Refresh baseline carriers via gabion check.",
         )
@@ -379,7 +388,7 @@ def main() -> int:
                 "set to 'none' to disable explicitly."
             ),
         )
-        args = parser.parse_args()
+        args = parser.parse_args(argv)
         timeout_env = _refresh_lsp_timeout_env(
             args.lsp_timeout_ticks,
             args.lsp_timeout_tick_ns,
@@ -400,13 +409,13 @@ def main() -> int:
             args.all = True
 
         if args.all or args.obsolescence:
-            _guard_obsolescence_delta(
+            guard_obsolescence_delta_fn(
                 args.timeout,
                 timeout_env,
                 resume_on_timeout=args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
             )
-            _run_check(
+            run_check_fn(
                 "--write-test-obsolescence-baseline",
                 args.timeout,
                 timeout_env,
@@ -415,13 +424,13 @@ def main() -> int:
                 extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
             )
         if args.all or args.annotation_drift:
-            _guard_annotation_drift_delta(
+            guard_annotation_drift_delta_fn(
                 args.timeout,
                 timeout_env,
                 resume_on_timeout=args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
             )
-            _run_check(
+            run_check_fn(
                 "--write-test-annotation-drift-baseline",
                 args.timeout,
                 timeout_env,
@@ -432,13 +441,13 @@ def main() -> int:
                 ),
             )
         if args.all or args.ambiguity:
-            _guard_ambiguity_delta(
+            guard_ambiguity_delta_fn(
                 args.timeout,
                 timeout_env,
                 resume_on_timeout=args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
             )
-            _run_check(
+            run_check_fn(
                 "--write-ambiguity-baseline",
                 args.timeout,
                 timeout_env,
@@ -447,7 +456,7 @@ def main() -> int:
                 extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
             )
         if args.all or args.docflow:
-            _guard_docflow_delta(args.timeout, timeout_env)
+            guard_docflow_delta_fn(args.timeout, timeout_env)
             if not DOCFLOW_CURRENT_PATH.exists():
                 raise FileNotFoundError(
                     f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"
