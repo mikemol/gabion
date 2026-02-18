@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from gabion.analysis.projection_exec import apply_spec
-from gabion.analysis.projection_normalize import normalize_spec, spec_hash
+from gabion.analysis.projection_normalize import (
+    _normalize_predicates,
+    normalize_spec,
+    spec_hash,
+)
 from gabion.analysis.projection_spec import (
     ProjectionOp,
     ProjectionSpec,
@@ -247,3 +251,41 @@ def test_count_by_output_stable_under_permuted_discovery_order() -> None:
         {"class": "a", "count": 2},
         {"class": "b", "count": 2},
     ]
+
+
+def test_apply_spec_params_override_replaces_normalized_params() -> None:
+    rows = [{"value": 1}, {"value": 3}, {"value": 5}]
+
+    def above_threshold(row, params):
+        return int(row.get("value", 0)) >= int(params["threshold"])
+
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="params-override",
+        domain="tests",
+        pipeline=(ProjectionOp("select", {"predicate": "above_threshold"}),),
+        params={"threshold": 4},
+    )
+    result = apply_spec(
+        spec,
+        rows,
+        op_registry={"above_threshold": above_threshold},
+        params_override={"threshold": 3},
+    )
+    assert result == [{"value": 3}, {"value": 5}]
+
+
+def test_normalize_select_predicates_drops_whitespace_entries() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="predicates-whitespace",
+        domain="tests",
+        pipeline=(ProjectionOp("select", {"predicates": ["  ", "alpha"]}),),
+    )
+    assert normalize_spec(spec)["pipeline"] == [
+        {"op": "select", "params": {"predicates": ["alpha"]}}
+    ]
+
+
+def test_normalize_predicates_skips_whitespace_only_values() -> None:
+    assert _normalize_predicates(["\t", "beta"]) == ["beta"]
