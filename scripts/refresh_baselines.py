@@ -24,6 +24,10 @@ ANNOTATION_DRIFT_STATE_PATH = Path("artifacts/out/test_annotation_drift.json")
 AMBIGUITY_STATE_PATH = Path("artifacts/out/ambiguity_state.json")
 DOCFLOW_BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 DOCFLOW_CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
+DEFAULT_CHECK_REPORT_PATH = Path("artifacts/audit_reports/dataflow_report.md")
+DEFAULT_TIMEOUT_PROGRESS_PATH = Path("artifacts/audit_reports/timeout_progress.md")
+DEFAULT_DEADLINE_PROFILE_PATH = Path("artifacts/out/deadline_profile.json")
+DEFAULT_RESUME_CHECKPOINT_PATH = Path("artifacts/out/refresh_baselines_resume.json")
 
 ENV_GATE_UNMAPPED = "GABION_GATE_UNMAPPED_DELTA"
 ENV_GATE_ORPHANED = "GABION_GATE_ORPHANED_DELTA"
@@ -42,7 +46,43 @@ def _deadline_scope():
     )
 
 
-def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -> None:
+def _default_resume_on_timeout() -> int:
+    return 1
+
+
+def _default_resume_checkpoint() -> Path | None:
+    if os.getenv("CI", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return DEFAULT_RESUME_CHECKPOINT_PATH
+    return None
+
+
+def _format_run_check_failure(
+    *,
+    cmd: list[str],
+    returncode: int,
+    report_path: Path,
+) -> str:
+    command_display = subprocess.list2cmdline(cmd)
+    return (
+        "refresh_baselines check command failed.\n"
+        f"Command: {command_display}\n"
+        f"Exit code: {returncode}\n"
+        "Expected diagnostics artifacts:\n"
+        f"- timeout progress report: {DEFAULT_TIMEOUT_PROGRESS_PATH}\n"
+        f"- deadline profile json: {DEFAULT_DEADLINE_PROFILE_PATH}\n"
+        f"- check report: {report_path}"
+    )
+
+
+def _run_check(
+    flag: str,
+    timeout: int | None,
+    resume_on_timeout: int,
+    *,
+    resume_checkpoint: Path | None,
+    report_path: Path = DEFAULT_CHECK_REPORT_PATH,
+    extra: list[str] | None = None,
+) -> None:
     cmd = [
         sys.executable,
         "-m",
@@ -51,12 +91,26 @@ def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -
         "--no-fail-on-violations",
         "--no-fail-on-type-ambiguities",
         flag,
+        "--emit-timeout-progress-report",
+        "--resume-on-timeout",
+        str(resume_on_timeout),
     ]
+    if resume_checkpoint is not None:
+        cmd.extend(["--resume-checkpoint", str(resume_checkpoint)])
     if extra:
         cmd.extend(extra)
     env = dict(os.environ)
     env["GABION_DIRECT_RUN"] = "1"
-    subprocess.run(cmd, check=True, timeout=timeout, env=env)
+    try:
+        subprocess.run(cmd, check=True, timeout=timeout, env=env)
+    except subprocess.CalledProcessError as exc:
+        message = _format_run_check_failure(
+            cmd=cmd,
+            returncode=exc.returncode,
+            report_path=report_path,
+        )
+        exc.add_note(message)
+        raise
 
 
 def _run_docflow_delta_emit(timeout: int | None) -> None:
@@ -103,19 +157,34 @@ def _ensure_delta(
     path: Path,
     timeout: int | None,
     *,
+    resume_on_timeout: int,
+    resume_checkpoint: Path | None,
     extra: list[str] | None = None,
 ) -> dict[str, object]:
-    _run_check(flag, timeout, extra)
+    _run_check(
+        flag,
+        timeout,
+        resume_on_timeout,
+        resume_checkpoint=resume_checkpoint,
+        extra=extra,
+    )
     if not path.exists():
         raise FileNotFoundError(f"Missing delta output at {path}")
     return _load_json(path)
 
 
-def _guard_obsolescence_delta(timeout: int | None) -> None:
+def _guard_obsolescence_delta(
+    timeout: int | None,
+    *,
+    resume_on_timeout: int,
+    resume_checkpoint: Path | None,
+) -> None:
     payload = _ensure_delta(
         "--emit-test-obsolescence-delta",
         OBSOLESCENCE_DELTA_PATH,
         timeout,
+        resume_on_timeout=resume_on_timeout,
+        resume_checkpoint=resume_checkpoint,
         extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
     )
     opaque_delta = _get_nested(payload, ["summary", "opaque_evidence", "delta"])
@@ -131,13 +200,20 @@ def _guard_obsolescence_delta(timeout: int | None) -> None:
             )
 
 
-def _guard_annotation_drift_delta(timeout: int | None) -> None:
+def _guard_annotation_drift_delta(
+    timeout: int | None,
+    *,
+    resume_on_timeout: int,
+    resume_checkpoint: Path | None,
+) -> None:
     if not _gate_enabled(ENV_GATE_ORPHANED):
         return
     payload = _ensure_delta(
         "--emit-test-annotation-drift-delta",
         ANNOTATION_DRIFT_DELTA_PATH,
         timeout,
+        resume_on_timeout=resume_on_timeout,
+        resume_checkpoint=resume_checkpoint,
         extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"),
     )
     orphaned_delta = _get_nested(payload, ["summary", "delta", "orphaned"])
@@ -147,13 +223,20 @@ def _guard_annotation_drift_delta(timeout: int | None) -> None:
         )
 
 
-def _guard_ambiguity_delta(timeout: int | None) -> None:
+def _guard_ambiguity_delta(
+    timeout: int | None,
+    *,
+    resume_on_timeout: int,
+    resume_checkpoint: Path | None,
+) -> None:
     if not _gate_enabled(ENV_GATE_AMBIGUITY):
         return
     payload = _ensure_delta(
         "--emit-ambiguity-delta",
         AMBIGUITY_DELTA_PATH,
         timeout,
+        resume_on_timeout=resume_on_timeout,
+        resume_checkpoint=resume_checkpoint,
         extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
     )
     total_delta = _get_nested(payload, ["summary", "total", "delta"])
@@ -215,7 +298,27 @@ def main() -> int:
             default=None,
             help="Seconds to wait for each gabion check (default: no timeout).",
         )
+        parser.add_argument(
+            "--resume-on-timeout",
+            type=int,
+            default=_default_resume_on_timeout(),
+            help="Resume budget passed to gabion check --resume-on-timeout (default: 1).",
+        )
+        parser.add_argument(
+            "--resume-checkpoint",
+            default=_default_resume_checkpoint(),
+            help=(
+                "Checkpoint path passed to gabion check --resume-checkpoint. "
+                "Defaults to artifacts/out/refresh_baselines_resume.json in CI and disabled locally; "
+                "set to 'none' to disable explicitly."
+            ),
+        )
         args = parser.parse_args()
+        resume_checkpoint = args.resume_checkpoint
+        if isinstance(resume_checkpoint, str) and resume_checkpoint.strip().lower() == "none":
+            resume_checkpoint = None
+        if isinstance(resume_checkpoint, str):
+            resume_checkpoint = Path(resume_checkpoint)
 
         if not (
             args.obsolescence
@@ -227,27 +330,45 @@ def main() -> int:
             args.all = True
 
         if args.all or args.obsolescence:
-            _guard_obsolescence_delta(args.timeout)
+            _guard_obsolescence_delta(
+                args.timeout,
+                resume_on_timeout=args.resume_on_timeout,
+                resume_checkpoint=resume_checkpoint,
+            )
             _run_check(
                 "--write-test-obsolescence-baseline",
                 args.timeout,
-                _state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
+                args.resume_on_timeout,
+                resume_checkpoint=resume_checkpoint,
+                extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
             )
         if args.all or args.annotation_drift:
-            _guard_annotation_drift_delta(args.timeout)
+            _guard_annotation_drift_delta(
+                args.timeout,
+                resume_on_timeout=args.resume_on_timeout,
+                resume_checkpoint=resume_checkpoint,
+            )
             _run_check(
                 "--write-test-annotation-drift-baseline",
                 args.timeout,
-                _state_args(
+                args.resume_on_timeout,
+                resume_checkpoint=resume_checkpoint,
+                extra=_state_args(
                     ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"
                 ),
             )
         if args.all or args.ambiguity:
-            _guard_ambiguity_delta(args.timeout)
+            _guard_ambiguity_delta(
+                args.timeout,
+                resume_on_timeout=args.resume_on_timeout,
+                resume_checkpoint=resume_checkpoint,
+            )
             _run_check(
                 "--write-ambiguity-baseline",
                 args.timeout,
-                _state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
+                args.resume_on_timeout,
+                resume_checkpoint=resume_checkpoint,
+                extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
             )
         if args.all or args.docflow:
             _guard_docflow_delta(args.timeout)
