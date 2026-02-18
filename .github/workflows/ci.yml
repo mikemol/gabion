@@ -131,6 +131,8 @@ jobs:
       # Allow-listed actions: actions/checkout, jdx/mise-action
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
       - name: Install mise
         uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
       - name: Install toolchain
