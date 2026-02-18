@@ -103,6 +103,11 @@ from .timeout_context import (
 from .projection_exec import apply_spec
 from .projection_normalize import spec_hash as projection_spec_hash
 from .baseline_io import load_json
+from .decision_flow import (
+    build_decision_tables,
+    detect_repeated_guard_bundles,
+    enforce_decision_protocol_contracts,
+)
 from .resume_codec import (
     allowed_path_lookup,
     int_str_pairs_from_sequence,
@@ -13847,6 +13852,15 @@ def render_decision_snapshot(
             include_execution=True,
         )
     schema_instances, schema_residue = _pattern_schema_snapshot_entries(instances)
+    decision_tables = build_decision_tables(
+        decision_surfaces=surfaces.decision_surfaces,
+        value_decision_surfaces=surfaces.value_decision_surfaces,
+    )
+    decision_bundles = detect_repeated_guard_bundles(decision_tables)
+    decision_protocol_violations = enforce_decision_protocol_contracts(
+        decision_tables=decision_tables,
+        decision_bundles=decision_bundles,
+    )
     snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
@@ -13854,11 +13868,17 @@ def render_decision_snapshot(
         "value_decision_surfaces": sorted(surfaces.value_decision_surfaces),
         "pattern_schema_instances": schema_instances,
         "pattern_schema_residue": schema_residue,
+        "decision_tables": decision_tables,
+        "decision_bundles": decision_bundles,
+        "decision_protocol_violations": decision_protocol_violations,
         "summary": {
             "decision_surfaces": len(surfaces.decision_surfaces),
             "value_decision_surfaces": len(surfaces.value_decision_surfaces),
             "pattern_schema_instances": len(schema_instances),
             "pattern_schema_residue": len(schema_residue),
+            "decision_tables": len(decision_tables),
+            "decision_bundles": len(decision_bundles),
+            "decision_protocol_violations": len(decision_protocol_violations),
         },
     }
     snapshot["forest"] = forest.to_json()
