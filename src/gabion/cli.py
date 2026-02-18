@@ -110,6 +110,46 @@ class CheckArtifactFlags:
 
 
 @dataclass(frozen=True)
+class CheckDeltaOptions:
+    emit_test_obsolescence_state: bool
+    test_obsolescence_state: Path | None
+    emit_test_obsolescence_delta: bool
+    test_annotation_drift_state: Path | None
+    emit_test_annotation_drift_delta: bool
+    write_test_annotation_drift_baseline: bool
+    write_test_obsolescence_baseline: bool
+    emit_ambiguity_delta: bool
+    emit_ambiguity_state: bool
+    ambiguity_state: Path | None
+    write_ambiguity_baseline: bool
+
+    def validate_or_raise(self) -> None:
+        if self.emit_test_obsolescence_delta and self.write_test_obsolescence_baseline:
+            raise typer.BadParameter(
+                "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+            )
+        if self.emit_test_obsolescence_state and self.test_obsolescence_state is not None:
+            raise typer.BadParameter(
+                "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
+            )
+        if (
+            self.emit_test_annotation_drift_delta
+            and self.write_test_annotation_drift_baseline
+        ):
+            raise typer.BadParameter(
+                "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
+            )
+        if self.emit_ambiguity_delta and self.write_ambiguity_baseline:
+            raise typer.BadParameter(
+                "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
+            )
+        if self.emit_ambiguity_state and self.ambiguity_state is not None:
+            raise typer.BadParameter(
+                "Use --emit-ambiguity-state or --ambiguity-state, not both."
+            )
+
+
+@dataclass(frozen=True)
 class DataflowPayloadCommonOptions:
     paths: list[Path]
     root: Path
@@ -462,18 +502,19 @@ def build_check_payload(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     artifact_flags: CheckArtifactFlags,
-    emit_test_obsolescence_state: bool,
-    test_obsolescence_state: Optional[Path],
-    emit_test_obsolescence_delta: bool,
-    test_annotation_drift_state: Optional[Path],
-    emit_test_annotation_drift_delta: bool,
-    write_test_annotation_drift_baseline: bool,
-    write_test_obsolescence_baseline: bool,
-    emit_ambiguity_delta: bool,
-    emit_ambiguity_state: bool,
-    ambiguity_state: Optional[Path],
-    write_ambiguity_baseline: bool,
-    exclude: Optional[List[str]],
+    delta_options: CheckDeltaOptions | None = None,
+    emit_test_obsolescence_state: bool = False,
+    test_obsolescence_state: Optional[Path] = None,
+    emit_test_obsolescence_delta: bool = False,
+    test_annotation_drift_state: Optional[Path] = None,
+    emit_test_annotation_drift_delta: bool = False,
+    write_test_annotation_drift_baseline: bool = False,
+    write_test_obsolescence_baseline: bool = False,
+    emit_ambiguity_delta: bool = False,
+    emit_ambiguity_state: bool = False,
+    ambiguity_state: Optional[Path] = None,
+    write_ambiguity_baseline: bool = False,
+    exclude: Optional[List[str]] = None,
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
@@ -487,26 +528,21 @@ def build_check_payload(
 ) -> JSONObject:
     if not paths:
         paths = [Path(".")]
-    if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
-        raise typer.BadParameter(
-            "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+    if delta_options is None:
+        delta_options = CheckDeltaOptions(
+            emit_test_obsolescence_state=emit_test_obsolescence_state,
+            test_obsolescence_state=test_obsolescence_state,
+            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+            test_annotation_drift_state=test_annotation_drift_state,
+            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+            write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+            write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+            emit_ambiguity_delta=emit_ambiguity_delta,
+            emit_ambiguity_state=emit_ambiguity_state,
+            ambiguity_state=ambiguity_state,
+            write_ambiguity_baseline=write_ambiguity_baseline,
         )
-    if emit_test_obsolescence_state and test_obsolescence_state is not None:
-        raise typer.BadParameter(
-            "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
-        )
-    if emit_test_annotation_drift_delta and write_test_annotation_drift_baseline:
-        raise typer.BadParameter(
-            "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
-        )
-    if emit_ambiguity_delta and write_ambiguity_baseline:
-        raise typer.BadParameter(
-            "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
-        )
-    if emit_ambiguity_state and ambiguity_state is not None:
-        raise typer.BadParameter(
-            "Use --emit-ambiguity-state or --ambiguity-state, not both."
-        )
+    delta_options.validate_or_raise()
     baseline_write_value = bool(baseline is not None and baseline_write)
     payload = _build_dataflow_payload_common(
         options=DataflowPayloadCommonOptions(
@@ -533,25 +569,27 @@ def build_check_payload(
     payload.update(
         {
             "emit_test_obsolescence": artifact_flags.emit_test_obsolescence,
-            "emit_test_obsolescence_state": emit_test_obsolescence_state,
-            "test_obsolescence_state": str(test_obsolescence_state)
-            if test_obsolescence_state is not None
+            "emit_test_obsolescence_state": delta_options.emit_test_obsolescence_state,
+            "test_obsolescence_state": str(delta_options.test_obsolescence_state)
+            if delta_options.test_obsolescence_state is not None
             else None,
-            "emit_test_obsolescence_delta": emit_test_obsolescence_delta,
+            "emit_test_obsolescence_delta": delta_options.emit_test_obsolescence_delta,
             "emit_test_evidence_suggestions": artifact_flags.emit_test_evidence_suggestions,
             "emit_call_clusters": artifact_flags.emit_call_clusters,
             "emit_call_cluster_consolidation": artifact_flags.emit_call_cluster_consolidation,
             "emit_test_annotation_drift": artifact_flags.emit_test_annotation_drift,
-            "test_annotation_drift_state": str(test_annotation_drift_state)
-            if test_annotation_drift_state is not None
+            "test_annotation_drift_state": str(delta_options.test_annotation_drift_state)
+            if delta_options.test_annotation_drift_state is not None
             else None,
-            "emit_test_annotation_drift_delta": emit_test_annotation_drift_delta,
-            "write_test_annotation_drift_baseline": write_test_annotation_drift_baseline,
-            "write_test_obsolescence_baseline": write_test_obsolescence_baseline,
-            "emit_ambiguity_delta": emit_ambiguity_delta,
-            "emit_ambiguity_state": emit_ambiguity_state,
-            "ambiguity_state": str(ambiguity_state) if ambiguity_state is not None else None,
-            "write_ambiguity_baseline": write_ambiguity_baseline,
+            "emit_test_annotation_drift_delta": delta_options.emit_test_annotation_drift_delta,
+            "write_test_annotation_drift_baseline": delta_options.write_test_annotation_drift_baseline,
+            "write_test_obsolescence_baseline": delta_options.write_test_obsolescence_baseline,
+            "emit_ambiguity_delta": delta_options.emit_ambiguity_delta,
+            "emit_ambiguity_state": delta_options.emit_ambiguity_state,
+            "ambiguity_state": str(delta_options.ambiguity_state)
+            if delta_options.ambiguity_state is not None
+            else None,
+            "write_ambiguity_baseline": delta_options.write_ambiguity_baseline,
             "type_audit": True if fail_on_type_ambiguities else None,
             "analysis_tick_limit": int(analysis_tick_limit)
             if analysis_tick_limit is not None
@@ -756,18 +794,19 @@ def run_check(
     baseline_write: bool,
     decision_snapshot: Optional[Path],
     artifact_flags: CheckArtifactFlags,
-    emit_test_obsolescence_state: bool,
-    test_obsolescence_state: Optional[Path],
-    emit_test_obsolescence_delta: bool,
-    test_annotation_drift_state: Optional[Path],
-    emit_test_annotation_drift_delta: bool,
-    write_test_annotation_drift_baseline: bool,
-    write_test_obsolescence_baseline: bool,
-    emit_ambiguity_delta: bool,
-    emit_ambiguity_state: bool,
-    ambiguity_state: Optional[Path],
-    write_ambiguity_baseline: bool,
-    exclude: Optional[List[str]],
+    delta_options: CheckDeltaOptions | None = None,
+    emit_test_obsolescence_state: bool = False,
+    test_obsolescence_state: Optional[Path] = None,
+    emit_test_obsolescence_delta: bool = False,
+    test_annotation_drift_state: Optional[Path] = None,
+    emit_test_annotation_drift_delta: bool = False,
+    write_test_annotation_drift_baseline: bool = False,
+    write_test_obsolescence_baseline: bool = False,
+    emit_ambiguity_delta: bool = False,
+    emit_ambiguity_state: bool = False,
+    ambiguity_state: Optional[Path] = None,
+    write_ambiguity_baseline: bool = False,
+    exclude: Optional[List[str]] = None,
     ignore_params_csv: Optional[str],
     transparent_decorators_csv: Optional[str],
     allow_external: Optional[bool],
@@ -793,6 +832,7 @@ def run_check(
         baseline_write=baseline_write if baseline is not None else False,
         decision_snapshot=decision_snapshot,
         artifact_flags=artifact_flags,
+        delta_options=delta_options,
         emit_test_obsolescence_state=emit_test_obsolescence_state,
         test_obsolescence_state=test_obsolescence_state,
         emit_test_obsolescence_delta=emit_test_obsolescence_delta,
@@ -1382,17 +1422,19 @@ def check(
                 emit_call_cluster_consolidation=emit_call_cluster_consolidation,
                 emit_test_annotation_drift=emit_test_annotation_drift,
             ),
-            emit_test_obsolescence_state=emit_test_obsolescence_state,
-            test_obsolescence_state=test_obsolescence_state,
-            emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-            test_annotation_drift_state=test_annotation_drift_state,
-            emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-            write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
-            write_test_obsolescence_baseline=write_test_obsolescence_baseline,
-            emit_ambiguity_delta=emit_ambiguity_delta,
-            emit_ambiguity_state=emit_ambiguity_state,
-            ambiguity_state=ambiguity_state,
-            write_ambiguity_baseline=write_ambiguity_baseline,
+            delta_options=CheckDeltaOptions(
+                emit_test_obsolescence_state=emit_test_obsolescence_state,
+                test_obsolescence_state=test_obsolescence_state,
+                emit_test_obsolescence_delta=emit_test_obsolescence_delta,
+                test_annotation_drift_state=test_annotation_drift_state,
+                emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
+                write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
+                write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+                emit_ambiguity_delta=emit_ambiguity_delta,
+                emit_ambiguity_state=emit_ambiguity_state,
+                ambiguity_state=ambiguity_state,
+                write_ambiguity_baseline=write_ambiguity_baseline,
+            ),
             exclude=exclude,
             ignore_params_csv=ignore_params_csv,
             transparent_decorators_csv=transparent_decorators_csv,
