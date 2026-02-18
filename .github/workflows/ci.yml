@@ -55,7 +55,7 @@ jobs:
         env:
           GABION_DIRECT_RUN: "1"
         run: |
-          .venv/bin/python scripts/run_dataflow_stage.py --max-attempts 3
+          .venv/bin/python scripts/run_dataflow_stage.py --max-attempts 3 --stage-strictness-profile "a=low,b=high,c=low"
       - name: Finalize dataflow audit outcome
         if: always()
         env:

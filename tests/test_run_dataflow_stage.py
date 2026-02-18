@@ -54,6 +54,32 @@ def test_stage_ids_are_bounded_and_ordered() -> None:
     assert run_dataflow_stage._stage_ids("a", 0) == []
 
 
+def test_parse_stage_strictness_profile_supports_named_and_positional() -> None:
+    assert run_dataflow_stage._parse_stage_strictness_profile("a=low,b=high,c=low") == {
+        "a": "low",
+        "b": "high",
+        "c": "low",
+    }
+    assert run_dataflow_stage._parse_stage_strictness_profile("low,high") == {
+        "a": "low",
+        "b": "high",
+    }
+    assert run_dataflow_stage._parse_stage_strictness_profile("a=bad,b=high") == {
+        "b": "high"
+    }
+
+
+def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None:
+    paths = _stage_paths(_base_paths(tmp_path))
+    command = run_dataflow_stage._check_command(
+        paths=paths,
+        resume_on_timeout=1,
+        strictness="low",
+    )
+    assert "--strictness" in command
+    assert "low" in command
+
+
 def test_run_stage_uses_progress_classification_fallback(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
     _write_text(paths["report"], "# report\n")
@@ -129,6 +155,33 @@ def test_run_staged_retries_until_success(tmp_path: Path) -> None:
     assert paths["report"].with_name("dataflow_report_stage_a.md").exists()
     assert paths["report"].with_name("dataflow_report_stage_b.md").exists()
     assert not paths["report"].with_name("dataflow_report_stage_c.md").exists()
+
+
+def test_run_staged_passes_stage_specific_strictness(tmp_path: Path) -> None:
+    paths = _base_paths(tmp_path)
+    _write_text(paths["timeout_md"], "timeout md\n")
+    _write_text(paths["deadline_md"], "deadline md\n")
+    observed: list[tuple[str, ...]] = []
+
+    def _run(cmd: list[str] | tuple[str, ...]) -> int:
+        observed.append(tuple(cmd))
+        _write_text(paths["report"], "# report\n")
+        _write_json(paths["timeout_json"], {"analysis_state": "hard_failure"})
+        _write_json(paths["deadline_json"], {"ticks_consumed": 1, "checks_total": 1})
+        return 1
+
+    run_dataflow_stage.run_staged(
+        stage_ids=["a"],
+        paths=_stage_paths(paths),
+        resume_on_timeout=1,
+        step_summary_path=paths["summary"],
+        run_command_fn=_run,
+        strictness_by_stage={"a": "low"},
+    )
+    assert observed
+    assert "--strictness" in observed[0]
+    strict_idx = observed[0].index("--strictness")
+    assert observed[0][strict_idx + 1] == "low"
 
 
 def test_run_staged_stops_on_hard_failure(tmp_path: Path) -> None:

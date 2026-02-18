@@ -155,6 +155,24 @@ strictness, external-filter mode, fingerprint seed revision, and forest spec).
 Change those knobs only when needed; otherwise you can invalidate hydration
 reuse and force larger reparse/index work.
 
+Gabion's resume loader checks both `index_cache_identity` and
+`projection_cache_identity` before accepting hydrated data from a checkpoint.
+This means incompatible settings are rejected safely by default: if identity
+inputs differ, the run falls back to a cold parse/index instead of reusing
+possibly-invalid cached state.
+
+Compatibility-first guidance (to maximize warm-cache reuse):
+- Reuse the same `--resume-checkpoint` path.
+- Keep `external_filter` and `decision_require_tiers` stable while iterating.
+- Keep `ignore_params` / `decision_ignore_params` / `transparent_decorators`
+  stable while iterating.
+- `strictness` can now alternate safely on the same checkpoint: Gabion keeps a
+  bounded set of recent analysis-index resume variants keyed by cache identity,
+  so switching back to a prior strictness level can reuse previously hydrated
+  index data instead of forcing a cold reparse.
+- If you intentionally change many semantics at once, consider separate
+  checkpoint files to keep each loop's cache hot.
+
 Run the dataflow grammar audit in raw profile mode (prototype):
 ```
 mise exec -- python -m gabion check --profile raw path/to/project
@@ -249,12 +267,20 @@ If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
 
 The `dataflow-grammar` job now performs a best-effort warm-cache restore of
 `dataflow_resume_checkpoint_ci.json` from a prior same-branch push artifact
-before running staged retries. When available, this primes Gabion's resume
-mechanism and reduces repeated parsing/indexing of unchanged paths.
+before running staged retries. The staged profile in CI is currently
+`A=low -> B=high -> C=low` strictness so each retry is a predictable refinement
+or fallback step while sharing a single checkpoint file. When available, this
+primes Gabion's resume mechanism and reduces repeated parsing/indexing of
+unchanged paths.
 
 Cache effectiveness can be audited in CI logs and step summaries via
 `completed_paths`, `hydrated_paths`, and `paths_parsed_after_resume` emitted by
 `scripts/run_dataflow_stage.py`.
+
+Because restore is constrained to a same-branch prior push artifact, teams can
+reuse one default checkpoint artifact safely even when each run touches a
+different chunk of the repository. The loader only hydrates paths present in
+the current run's file set *and* only when cache identities match.
 
 Allow-listed actions are defined in `docs/allowed_actions.txt`.
 
