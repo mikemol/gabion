@@ -1,5 +1,5 @@
 ---
-doc_revision: 150
+doc_revision: 151
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -289,7 +289,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Ops: Baseline/Ratchet mechanism (allowlist existing violations, block new ones). (GH-23)
 - [x] Redistributable GitHub Action wrapper (composite action for gabion check).
 - [x] Locked dependency set for CI (`requirements.lock`).
-- [ ] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests). (GH-42)
+- [~] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests; dead/duplicate mapping diagnostics). (GH-42) sppf{doc=partial; impl=partial; doc_ref=docs/coverage_semantics.md@19}
 
 ## Decision-flow tier nodes
 - [ ] Decision Table documentation for branch-heavy modules (Tier-3 evidence). (GH-47)

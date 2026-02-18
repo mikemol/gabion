@@ -124,6 +124,7 @@ class CheckArtifactFlags:
     emit_call_clusters: bool
     emit_call_cluster_consolidation: bool
     emit_test_annotation_drift: bool
+    emit_semantic_coverage_map: bool = False
 
 
 @dataclass(frozen=True)
@@ -180,6 +181,7 @@ class CheckDeltaOptions:
     emit_ambiguity_state: bool
     ambiguity_state: Path | None
     write_ambiguity_baseline: bool
+    semantic_coverage_mapping: Path | None = None
 
     def validate(self) -> None:
         if self.emit_test_obsolescence_delta and self.write_test_obsolescence_baseline:
@@ -218,6 +220,9 @@ class CheckDeltaOptions:
             else None,
             "emit_test_annotation_drift_delta": self.emit_test_annotation_drift_delta,
             "write_test_annotation_drift_baseline": self.write_test_annotation_drift_baseline,
+            "semantic_coverage_mapping": str(self.semantic_coverage_mapping)
+            if self.semantic_coverage_mapping is not None
+            else None,
             "write_test_obsolescence_baseline": self.write_test_obsolescence_baseline,
             "emit_ambiguity_delta": self.emit_ambiguity_delta,
             "emit_ambiguity_state": self.emit_ambiguity_state,
@@ -757,7 +762,11 @@ def build_check_payload(
             "emit_call_clusters": artifact_flags.emit_call_clusters,
             "emit_call_cluster_consolidation": artifact_flags.emit_call_cluster_consolidation,
             "emit_test_annotation_drift": artifact_flags.emit_test_annotation_drift,
+            "emit_semantic_coverage_map": artifact_flags.emit_semantic_coverage_map,
             "type_audit": True if fail_on_type_ambiguities else None,
+            "semantic_coverage_mapping": str(delta_options.semantic_coverage_mapping)
+            if delta_options.semantic_coverage_mapping is not None
+            else None,
             "analysis_tick_limit": int(analysis_tick_limit)
             if analysis_tick_limit is not None
             else None,
@@ -797,6 +806,8 @@ def _check_derived_artifacts(
         derived.append("artifacts/out/call_cluster_consolidation.json")
     if artifact_flags.emit_test_annotation_drift:
         derived.append("artifacts/out/test_annotation_drift.json")
+    if artifact_flags.emit_semantic_coverage_map:
+        derived.append("artifacts/out/semantic_coverage_map.json")
     if emit_test_annotation_drift_delta:
         derived.append("artifacts/out/test_annotation_drift_delta.json")
     if emit_ambiguity_delta:
@@ -1321,6 +1332,8 @@ def _raw_profile_unsupported_flags(ctx: typer.Context) -> list[str]:
         "emit_call_clusters": "--emit-call-clusters",
         "emit_call_cluster_consolidation": "--emit-call-cluster-consolidation",
         "emit_test_annotation_drift": "--emit-test-annotation-drift",
+        "emit_semantic_coverage_map": "--emit-semantic-coverage-map",
+        "semantic_coverage_mapping": "--semantic-coverage-mapping",
         "test_annotation_drift_state": "--test-annotation-drift-state",
         "emit_test_annotation_drift_delta": "--emit-test-annotation-drift-delta",
         "write_test_annotation_drift_baseline": "--write-test-annotation-drift-baseline",
@@ -1581,6 +1594,18 @@ def check(
             "Write test annotation drift report (JSON in artifacts/out, markdown in out/)."
         ),
     ),
+    emit_semantic_coverage_map: bool = typer.Option(
+        False,
+        "--emit-semantic-coverage-map/--no-emit-semantic-coverage-map",
+        help=(
+            "Write semantic coverage map report (JSON in artifacts/out, markdown in artifacts/audit_reports/)."
+        ),
+    ),
+    semantic_coverage_mapping: Optional[Path] = typer.Option(
+        None,
+        "--semantic-coverage-mapping",
+        help="Use explicit semantic coverage mapping JSON (defaults to out/semantic_coverage_mapping.json).",
+    ),
     test_annotation_drift_state: Optional[Path] = typer.Option(
         None,
         "--test-annotation-drift-state",
@@ -1732,6 +1757,7 @@ def check(
                 emit_call_clusters=emit_call_clusters,
                 emit_call_cluster_consolidation=emit_call_cluster_consolidation,
                 emit_test_annotation_drift=emit_test_annotation_drift,
+                emit_semantic_coverage_map=emit_semantic_coverage_map,
             ),
             delta_options=CheckDeltaOptions(
                 emit_test_obsolescence_state=emit_test_obsolescence_state,
@@ -1741,6 +1767,7 @@ def check(
                 emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
                 write_test_annotation_drift_baseline=write_test_annotation_drift_baseline,
                 write_test_obsolescence_baseline=write_test_obsolescence_baseline,
+                semantic_coverage_mapping=semantic_coverage_mapping,
                 emit_ambiguity_delta=emit_ambiguity_delta,
                 emit_ambiguity_state=emit_ambiguity_state,
                 ambiguity_state=ambiguity_state,
