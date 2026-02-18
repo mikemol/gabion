@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 try:  # pragma: no cover - import form depends on invocation mode
@@ -36,13 +37,54 @@ _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
 )
 
 
+@dataclass(frozen=True)
+class _RefreshLspTimeoutEnv:
+    ticks: int
+    tick_ns: int
+
+
+def _refresh_lsp_timeout_env(
+    timeout_ticks: int | None,
+    timeout_tick_ns: int | None,
+) -> _RefreshLspTimeoutEnv:
+    budget = DeadlineBudget(
+        ticks=(
+            _DEFAULT_TIMEOUT_TICKS
+            if timeout_ticks is None
+            else timeout_ticks
+        ),
+        tick_ns=(
+            _DEFAULT_TIMEOUT_TICK_NS
+            if timeout_tick_ns is None
+            else timeout_tick_ns
+        ),
+    )
+    return _RefreshLspTimeoutEnv(
+        ticks=budget.ticks,
+        tick_ns=budget.tick_ns,
+    )
+
+
 def _deadline_scope():
     return deadline_scope_from_lsp_env(
         default_budget=_DEFAULT_TIMEOUT_BUDGET,
     )
 
 
-def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -> None:
+def _refresh_subprocess_env(timeout_env: _RefreshLspTimeoutEnv) -> dict[str, str]:
+    env = dict(os.environ)
+    env["GABION_DIRECT_RUN"] = "1"
+    env["GABION_LSP_TIMEOUT_TICKS"] = str(timeout_env.ticks)
+    env["GABION_LSP_TIMEOUT_TICK_NS"] = str(timeout_env.tick_ns)
+    return env
+
+
+def _run_check(
+    flag: str,
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+    extra: list[str] | None = None,
+) -> None:
     cmd = [
         sys.executable,
         "-m",
@@ -54,19 +96,23 @@ def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -
     ]
     if extra:
         cmd.extend(extra)
-    env = dict(os.environ)
-    env["GABION_DIRECT_RUN"] = "1"
-    subprocess.run(cmd, check=True, timeout=timeout, env=env)
+    subprocess.run(
+        cmd,
+        check=True,
+        timeout=timeout,
+        env=_refresh_subprocess_env(timeout_env),
+    )
 
 
-def _run_docflow_delta_emit(timeout: int | None) -> None:
-    env = dict(os.environ)
-    env.setdefault("GABION_DIRECT_RUN", "1")
+def _run_docflow_delta_emit(
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+) -> None:
     subprocess.run(
         [sys.executable, "scripts/docflow_delta_emit.py"],
         check=True,
         timeout=timeout,
-        env=env,
+        env=_refresh_subprocess_env(timeout_env),
     )
 
 
@@ -102,20 +148,25 @@ def _ensure_delta(
     flag: str,
     path: Path,
     timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
     *,
     extra: list[str] | None = None,
 ) -> dict[str, object]:
-    _run_check(flag, timeout, extra)
+    _run_check(flag, timeout, timeout_env, extra)
     if not path.exists():
         raise FileNotFoundError(f"Missing delta output at {path}")
     return _load_json(path)
 
 
-def _guard_obsolescence_delta(timeout: int | None) -> None:
+def _guard_obsolescence_delta(
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+) -> None:
     payload = _ensure_delta(
         "--emit-test-obsolescence-delta",
         OBSOLESCENCE_DELTA_PATH,
         timeout,
+        timeout_env,
         extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
     )
     opaque_delta = _get_nested(payload, ["summary", "opaque_evidence", "delta"])
@@ -131,13 +182,17 @@ def _guard_obsolescence_delta(timeout: int | None) -> None:
             )
 
 
-def _guard_annotation_drift_delta(timeout: int | None) -> None:
+def _guard_annotation_drift_delta(
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+) -> None:
     if not _gate_enabled(ENV_GATE_ORPHANED):
         return
     payload = _ensure_delta(
         "--emit-test-annotation-drift-delta",
         ANNOTATION_DRIFT_DELTA_PATH,
         timeout,
+        timeout_env,
         extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"),
     )
     orphaned_delta = _get_nested(payload, ["summary", "delta", "orphaned"])
@@ -147,13 +202,17 @@ def _guard_annotation_drift_delta(timeout: int | None) -> None:
         )
 
 
-def _guard_ambiguity_delta(timeout: int | None) -> None:
+def _guard_ambiguity_delta(
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+) -> None:
     if not _gate_enabled(ENV_GATE_AMBIGUITY):
         return
     payload = _ensure_delta(
         "--emit-ambiguity-delta",
         AMBIGUITY_DELTA_PATH,
         timeout,
+        timeout_env,
         extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
     )
     total_delta = _get_nested(payload, ["summary", "total", "delta"])
@@ -163,8 +222,11 @@ def _guard_ambiguity_delta(timeout: int | None) -> None:
         )
 
 
-def _guard_docflow_delta(timeout: int | None) -> None:
-    _run_docflow_delta_emit(timeout)
+def _guard_docflow_delta(
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+) -> None:
+    _run_docflow_delta_emit(timeout, timeout_env)
     if not DOCFLOW_DELTA_PATH.exists():
         raise FileNotFoundError(
             f"Missing docflow delta output at {DOCFLOW_DELTA_PATH}"
@@ -182,7 +244,11 @@ def _guard_docflow_delta(timeout: int | None) -> None:
 def main() -> int:
     with _deadline_scope():
         parser = argparse.ArgumentParser(
-            description="Refresh baseline carriers via gabion check.",
+            description=(
+                "Refresh baseline carriers via gabion check using a larger, "
+                "deterministic LSP timeout budget for subprocess refresh "
+                "operations than ad hoc gabion check runs."
+            ),
         )
         parser.add_argument(
             "--obsolescence",
@@ -215,7 +281,31 @@ def main() -> int:
             default=None,
             help="Seconds to wait for each gabion check (default: no timeout).",
         )
+        parser.add_argument(
+            "--lsp-timeout-ticks",
+            type=int,
+            default=None,
+            help=(
+                "Override subprocess GABION_LSP_TIMEOUT_TICKS for refresh only "
+                f"(default: {_DEFAULT_TIMEOUT_TICKS}, tuned larger than ad hoc "
+                "gabion check)."
+            ),
+        )
+        parser.add_argument(
+            "--lsp-timeout-tick-ns",
+            type=int,
+            default=None,
+            help=(
+                "Override subprocess GABION_LSP_TIMEOUT_TICK_NS for refresh only "
+                f"(default: {_DEFAULT_TIMEOUT_TICK_NS}, paired with the refresh "
+                "timeout tick budget)."
+            ),
+        )
         args = parser.parse_args()
+        timeout_env = _refresh_lsp_timeout_env(
+            args.lsp_timeout_ticks,
+            args.lsp_timeout_tick_ns,
+        )
 
         if not (
             args.obsolescence
@@ -227,30 +317,33 @@ def main() -> int:
             args.all = True
 
         if args.all or args.obsolescence:
-            _guard_obsolescence_delta(args.timeout)
+            _guard_obsolescence_delta(args.timeout, timeout_env)
             _run_check(
                 "--write-test-obsolescence-baseline",
                 args.timeout,
+                timeout_env,
                 _state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
             )
         if args.all or args.annotation_drift:
-            _guard_annotation_drift_delta(args.timeout)
+            _guard_annotation_drift_delta(args.timeout, timeout_env)
             _run_check(
                 "--write-test-annotation-drift-baseline",
                 args.timeout,
+                timeout_env,
                 _state_args(
                     ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"
                 ),
             )
         if args.all or args.ambiguity:
-            _guard_ambiguity_delta(args.timeout)
+            _guard_ambiguity_delta(args.timeout, timeout_env)
             _run_check(
                 "--write-ambiguity-baseline",
                 args.timeout,
+                timeout_env,
                 _state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
             )
         if args.all or args.docflow:
-            _guard_docflow_delta(args.timeout)
+            _guard_docflow_delta(args.timeout, timeout_env)
             if not DOCFLOW_CURRENT_PATH.exists():
                 raise FileNotFoundError(
                     f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"
