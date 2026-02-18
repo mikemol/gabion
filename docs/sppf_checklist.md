@@ -1,5 +1,5 @@
 ---
-doc_revision: 150
+doc_revision: 151
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -228,8 +228,8 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Structural metrics export (bundle/tier/violation stats). (in-16, GH-64) sppf{doc=done; impl=done; doc_ref=in-16@1}
 - [x] Deadness evidence artifacts (constant-flow deadness witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-24, GH-74) sppf{doc=done; impl=done; doc_ref=in-24@9}
 - [x] Coherence evidence artifacts (glossary-ambiguity witnesses + JSON/report/LSP + snapshot selectors + determinism/schema tests; see `docs/matrix_acceptance.md`). (in-25, GH-75) sppf{doc=done; impl=done; doc_ref=in-25@9}
-- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77) sppf{doc=partial; impl=done; doc_ref=in-27@7}
-- [ ] Exception obligations: handledness refinement (typed except + conservative UNKNOWN). (in-27, GH-80) sppf{doc=partial; impl=planned; doc_ref=in-27@7}
+- [~] Exception obligation artifacts (E0 enumeration + JSON/report/LSP + snapshot selectors; handledness via broad try/except; deadness discharge for constant-flow guarded branches; see `docs/matrix_acceptance.md`). (in-27, GH-77) sppf{doc=partial; impl=done; doc_ref=in-27@8}
+- [x] Exception obligations: handledness refinement (typed except matching, explicit broad catch reasoning, conservative UNKNOWN for unresolved dynamic paths). (in-27, GH-80) sppf{doc=done; impl=done; doc_ref=in-27@8}
 
 ## Synthesis + refactoring nodes
 - [x] Protocol/dataclass synthesis (tier thresholds, field typing) (prototype). (GH-11)

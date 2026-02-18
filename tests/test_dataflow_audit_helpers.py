@@ -1580,6 +1580,24 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
         "    except ValueError:\n"
         "        return e\n"
         "    except TypeError:\n"
+        "        return e\n"
+        "\n"
+        "def l(x):\n"
+        "    try:\n"
+        "        raise ValueError(x)\n"
+        "    except TypeError:\n"
+        "        return x\n"
+        "\n"
+        "def m(y):\n"
+        "    try:\n"
+        "        raise ValueError(y)\n"
+        "    except:\n"
+        "        return y\n"
+        "\n"
+        "def n(e: ValueError | TypeError):\n"
+        "    try:\n"
+        "        raise e\n"
+        "    except ValueError:\n"
         "        return e\n",
     )
     config = da.AuditConfig(
@@ -1612,6 +1630,7 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
     }
     assert witnesses_by_function["g"]["result"] == "HANDLED"
     assert witnesses_by_function["g"]["type_compatibility"] == "compatible"
+    assert witnesses_by_function["g"]["handledness_reason_code"] == "TYPED_MATCH"
     assert witnesses_by_function["h"]["result"] == "UNKNOWN"
     assert witnesses_by_function["h"]["type_compatibility"] == "unknown"
     assert witnesses_by_function["j"]["result"] == "HANDLED"
@@ -1622,14 +1641,98 @@ def test_exception_obligations_enum_and_handledness(tmp_path: Path) -> None:
     assert witnesses_by_function["k"]["type_compatibility"] == "unknown"
     assert witnesses_by_function["k"]["handler_boundary"] == "except ValueError"
     assert witnesses_by_function["k"]["handler_types"] == ["ValueError"]
+    assert witnesses_by_function["k"]["handledness_reason_code"] == "TYPE_UNRESOLVED"
+    assert witnesses_by_function["l"]["result"] == "UNKNOWN"
+    assert witnesses_by_function["l"]["type_compatibility"] == "incompatible"
+    assert witnesses_by_function["l"]["handledness_reason_code"] == "TYPED_MISMATCH"
+    assert "consider except ValueError" in str(
+        witnesses_by_function["l"]["type_refinement_opportunity"]
+    )
+    assert witnesses_by_function["m"]["result"] == "HANDLED"
+    assert witnesses_by_function["m"]["handledness_reason_code"] == "BROAD_EXCEPT"
+    assert witnesses_by_function["n"]["result"] == "UNKNOWN"
+    assert witnesses_by_function["n"]["handledness_reason_code"] == "TYPE_UNRESOLVED"
+    assert witnesses_by_function["n"]["exception_type_source"] == "PARAM_ANNOTATION_AMBIGUOUS"
+    assert witnesses_by_function["n"]["type_refinement_opportunity"]
     obligations_by_function = {
         str(entry.get("site", {}).get("function", "")): entry
         for entry in obligations
     }
     assert obligations_by_function["g"]["status"] == "HANDLED"
+    assert obligations_by_function["g"]["handledness_reason_code"] == "TYPED_MATCH"
     assert obligations_by_function["h"]["status"] == "UNKNOWN"
     assert obligations_by_function["j"]["status"] == "HANDLED"
     assert obligations_by_function["k"]["status"] == "UNKNOWN"
+    assert obligations_by_function["k"]["handledness_reason_code"] == "TYPE_UNRESOLVED"
+    assert obligations_by_function["l"]["status"] == "UNKNOWN"
+    assert obligations_by_function["l"]["handledness_reason_code"] == "TYPED_MISMATCH"
+    assert "consider except ValueError" in str(
+        obligations_by_function["l"]["type_refinement_opportunity"]
+    )
+    assert obligations_by_function["m"]["status"] == "HANDLED"
+    assert obligations_by_function["m"]["handledness_reason_code"] == "BROAD_EXCEPT"
+    assert obligations_by_function["n"]["status"] == "UNKNOWN"
+    assert obligations_by_function["n"]["handledness_reason_code"] == "TYPE_UNRESOLVED"
+    assert obligations_by_function["n"]["exception_type_source"] == "PARAM_ANNOTATION_AMBIGUOUS"
+    assert obligations_by_function["n"]["type_refinement_opportunity"]
+
+
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses
+def test_exception_summary_includes_handledness_reason_codes() -> None:
+    da = _load()
+    obligation_lines = da._summarize_exception_obligations(
+        [
+            {
+                "site": {"path": "mod.py", "function": "f", "bundle": []},
+                "source_kind": "E0",
+                "status": "HANDLED",
+                "handledness_reason_code": "BROAD_EXCEPT",
+                "exception_name": "ValueError",
+            }
+        ]
+    )
+    assert obligation_lines
+    assert "reason=BROAD_EXCEPT" in obligation_lines[0]
+
+    obligation_lines_with_refine = da._summarize_exception_obligations(
+        [
+            {
+                "site": {"path": "mod.py", "function": "f", "bundle": []},
+                "source_kind": "E0",
+                "status": "UNKNOWN",
+                "handledness_reason_code": "TYPED_MISMATCH",
+                "type_refinement_opportunity": "consider except ValueError",
+                "exception_name": "ValueError",
+            }
+        ]
+    )
+    assert "refine=consider except ValueError" in obligation_lines_with_refine[0]
+
+    handled_lines = da._summarize_handledness_witnesses(
+        [
+            {
+                "site": {"path": "mod.py", "function": "f", "bundle": []},
+                "handler_boundary": "except:",
+                "result": "HANDLED",
+                "handledness_reason_code": "BROAD_EXCEPT",
+            }
+        ]
+    )
+    assert handled_lines
+    assert "reason=BROAD_EXCEPT" in handled_lines[0]
+
+    handled_lines_with_refine = da._summarize_handledness_witnesses(
+        [
+            {
+                "site": {"path": "mod.py", "function": "f", "bundle": []},
+                "handler_boundary": "except TypeError",
+                "result": "UNKNOWN",
+                "handledness_reason_code": "TYPED_MISMATCH",
+                "type_refinement_opportunity": "consider except ValueError",
+            }
+        ]
+    )
+    assert "refine=consider except ValueError" in handled_lines_with_refine[0]
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._build_analysis_collection_resume_payload::bundle_sites_by_path,completed_paths,groups_by_path,invariant_propositions,param_spans_by_path E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_collection_resume_payload::file_paths,include_invariant_propositions,payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::collection_resume,file_paths_override,on_collection_progress
 def test_analyze_paths_collection_resume_roundtrip(tmp_path: Path) -> None:
