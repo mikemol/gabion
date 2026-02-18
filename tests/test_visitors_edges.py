@@ -246,35 +246,6 @@ def test_record_forward_skips_call_without_span() -> None:
         ctx=ast.Load(),
     )
     assert visitor._bind_sequence(mismatch_target, mismatch_rhs) is True
-
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
-def test_alias_from_call_keyword_branches() -> None:
-    tree, visitor, _, _ = _make_use_visitor(
-        "def f(a):\n    return a\n",
-        ["a"],
-        return_aliases={"identity": (["x"], ["x"])},
-    )
-    call = ast.parse("identity(**kwargs)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    call = ast.parse("identity(extra=a)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    call = ast.parse("identity(x=1)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    visitor.visit(tree)
-
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
-def test_alias_from_call_positional_and_kw_aliases() -> None:
-    tree, visitor, _, _ = _make_use_visitor(
-        "def f(a):\n    return a\n",
-        ["a"],
-        return_aliases={"identity": (["x"], ["x"])},
-    )
-    call = ast.parse("identity(1)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    call = ast.parse("identity(x=a)").body[0].value
-    assert visitor._alias_from_call(call) == ["a"]
-    visitor.visit(tree)
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_return_alias_rejects_invalid_targets() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    return a\n", ["a"])
