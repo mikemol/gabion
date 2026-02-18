@@ -32,6 +32,8 @@ def _call_args_factory(
     star_kw: list[str],
     is_test: bool,
     span: tuple[int, int, int, int] | None = None,
+    callable_kind: str = "function",
+    callable_source: str = "symbol",
 ):
     CallArgs, *_ = _load()
     return CallArgs(
@@ -46,6 +48,8 @@ def _call_args_factory(
         star_kw=star_kw,
         is_test=is_test,
         span=span,
+        callable_kind=callable_kind,
+        callable_source=callable_source,
     )
 
 def _make_visitor(

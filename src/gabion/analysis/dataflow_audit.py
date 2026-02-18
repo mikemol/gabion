@@ -10915,7 +10915,7 @@ def _collect_lambda_bindings_by_caller(
     tree: ast.AST,
     *,
     module: str,
-    parent_map: Mapping[ast.AST, ast.AST],
+    parent_map: dict[ast.AST, ast.AST],
     lambda_infos: Sequence[FunctionInfo],
 ) -> dict[str, dict[str, tuple[str, ...]]]:
     check_deadline()
@@ -10986,7 +10986,7 @@ def _collect_closure_lambda_factories(
     tree: ast.AST,
     *,
     module: str,
-    parent_map: Mapping[ast.AST, ast.AST],
+    parent_map: dict[ast.AST, ast.AST],
     lambda_qual_by_span: Mapping[tuple[int, int, int, int], str],
 ) -> dict[str, set[str]]:
     check_deadline()
@@ -11014,6 +11014,7 @@ def _collect_closure_lambda_factories(
                 for target in targets:
                     check_deadline()
                     for name in _target_names(target):
+                        check_deadline()
                         if assigned_quals:
                             local_bindings[name] = set(assigned_quals)
                         else:
