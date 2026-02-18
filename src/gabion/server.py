@@ -186,6 +186,8 @@ _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
+_LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
+_LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
 
 
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
@@ -3301,6 +3303,12 @@ def _execute_command_total(
         last_collection_report_flush_completed = -1
         phase_progress_signatures: dict[str, tuple[int, ...]] = {}
         phase_progress_last_flush_ns: dict[str, int] = {}
+        latest_collection_progress: JSONObject = {
+            "completed_files": 0,
+            "in_progress_files": 0,
+            "remaining_files": 0,
+            "total_files": analysis_resume_total_files,
+        }
         profiling_stage_ns: dict[str, int] = {
             "server.analysis_call": 0,
             "server.projection_emit": 0,
@@ -3309,6 +3317,55 @@ def _execute_command_total(
             "server.collection_resume_persist_calls": 0,
             "server.projection_emit_calls": 0,
         }
+
+        def _emit_lsp_progress(
+            *,
+            phase: Literal["collection", "forest", "edge", "post"],
+            collection_progress: Mapping[str, JSONValue],
+            semantic_progress: Mapping[str, JSONValue] | None,
+            include_timing: bool = False,
+        ) -> None:
+            semantic_payload: JSONObject = {}
+            if isinstance(semantic_progress, Mapping):
+                for raw_key, raw_value in semantic_progress.items():
+                    if not isinstance(raw_key, str):
+                        continue
+                    if raw_key == "substantive_progress" or raw_key.startswith(
+                        "cumulative_"
+                    ):
+                        semantic_payload[raw_key] = raw_value
+            if "substantive_progress" not in semantic_payload:
+                semantic_payload["substantive_progress"] = False
+            progress_value: JSONObject = {
+                "format_version": 1,
+                "schema": "gabion/dataflow_progress_v1",
+                "phase": phase,
+                "completed_files": int(collection_progress.get("completed_files", 0)),
+                "in_progress_files": int(
+                    collection_progress.get("in_progress_files", 0)
+                ),
+                "remaining_files": int(collection_progress.get("remaining_files", 0)),
+                "total_files": int(collection_progress.get("total_files", 0)),
+                "semantic_deltas": semantic_payload,
+            }
+            if include_timing:
+                progress_value["profiling_v1"] = {
+                    "format_version": 1,
+                    "server": {
+                        "stage_ns": dict(profiling_stage_ns),
+                        "counters": dict(profiling_counters),
+                    },
+                }
+            send_notification = getattr(ls, "send_notification", None)
+            if not callable(send_notification):
+                return
+            send_notification(
+                _LSP_PROGRESS_NOTIFICATION_METHOD,
+                {
+                    "token": _LSP_PROGRESS_TOKEN,
+                    "value": progress_value,
+                },
+            )
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
             profiling_counters["server.collection_resume_persist_calls"] += 1
@@ -3321,6 +3378,7 @@ def _execute_command_total(
             nonlocal last_collection_report_flush_ns
             nonlocal last_collection_report_flush_completed
             nonlocal report_sections_cache_reason
+            nonlocal latest_collection_progress
             semantic_progress = execute_deps.collection_semantic_progress_fn(
                 previous_collection_resume=last_collection_resume_payload,
                 collection_resume=progress_payload,
@@ -3336,6 +3394,13 @@ def _execute_command_total(
             collection_progress = _analysis_resume_progress(
                 collection_resume=persisted_progress_payload,
                 total_files=analysis_resume_total_files,
+            )
+            latest_collection_progress = dict(collection_progress)
+            _emit_lsp_progress(
+                phase="collection",
+                collection_progress=collection_progress,
+                semantic_progress=semantic_progress,
+                include_timing=profile_enabled,
             )
             collection_intro_signature = (
                 collection_progress["completed_files"],
@@ -3505,6 +3570,12 @@ def _execute_command_total(
             report_carrier: ReportCarrier,
         ) -> None:
             nonlocal report_sections_cache_reason
+            _emit_lsp_progress(
+                phase=phase,
+                collection_progress=latest_collection_progress,
+                semantic_progress=semantic_progress_cumulative,
+                include_timing=profile_enabled,
+            )
             if not report_output_path or not projection_rows:
                 return
             projection_started_ns = time.monotonic_ns()

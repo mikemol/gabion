@@ -262,12 +262,20 @@ def _write_rpc(stream, message: JSONObject) -> None:
 
 
 def _read_response(
-    stream, request_id: int, deadline_ns: int
+    stream,
+    request_id: int,
+    deadline_ns: int,
+    *,
+    notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
     check_deadline()
     while True:
         check_deadline()
         message = _read_rpc(stream, deadline_ns)
+        if "id" not in message:
+            if notification_callback is not None:
+                notification_callback(message)
+            continue
         if message.get("id") == request_id:
             return message
 
@@ -280,6 +288,7 @@ def run_command(
     timeout_tick_ns: int = 1_000_000,
     process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
     remaining_deadline_ns_fn: Callable[[int], int] | None = None,
+    notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
     if _has_env_timeout():
         timeout_ticks, timeout_tick_ns = _env_timeout_ticks()
@@ -332,7 +341,12 @@ def run_command(
                     "params": {"rootUri": root_uri, "capabilities": {}},
                 },
             )
-            _read_response(proc.stdout, initialize_id, deadline_ns)
+            _read_response(
+                proc.stdout,
+                initialize_id,
+                deadline_ns,
+                notification_callback=notification_callback,
+            )
             _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
             cmd_id = 2
@@ -352,14 +366,24 @@ def run_command(
                     "params": {"command": request.command, "arguments": command_args},
                 },
             )
-            response = _read_response(proc.stdout, cmd_id, deadline_ns)
+            response = _read_response(
+                proc.stdout,
+                cmd_id,
+                deadline_ns,
+                notification_callback=notification_callback,
+            )
 
             shutdown_id = 3
             _write_rpc(
                 proc.stdin,
                 {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"},
             )
-            _read_response(proc.stdout, shutdown_id, deadline_ns)
+            _read_response(
+                proc.stdout,
+                shutdown_id,
+                deadline_ns,
+                notification_callback=notification_callback,
+            )
             _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
             remaining_ns = remaining_deadline_ns(deadline_ns)
             remaining = max(1.0, remaining_ns / 1_000_000_000)
