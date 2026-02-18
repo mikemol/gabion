@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import hashlib
 import json
-from typing import Iterable
+from typing import Iterable, cast
 
 
 NodeKey = tuple[object, ...]
@@ -119,6 +119,16 @@ def canon_param(name: str) -> str:
 def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
     cleaned = {canon_param(p) for p in params if canon_param(p)}
     return tuple(sorted(cleaned))
+
+
+def _canonicalize_evidence(evidence: dict[str, object] | None) -> dict[str, object]:
+    payload = evidence or {}
+    canonical = json.loads(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    )
+    if not isinstance(canonical, dict):
+        return {}
+    return cast(dict[str, object], canonical)
 
 
 @dataclass
@@ -293,7 +303,7 @@ class Forest:
         consume_deadline_ticks()
         normalized_kind = str(kind).strip()
         normalized_inputs = tuple(inputs)
-        normalized_evidence = evidence or {}
+        normalized_evidence = _canonicalize_evidence(evidence)
         evidence_identity = json.dumps(
             normalized_evidence,
             sort_keys=True,

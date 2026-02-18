@@ -181,8 +181,8 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Unused-argument pass detection (non-test call sites).
 - [x] Analysis: Decorator transparency/unwrapping. (GH-9)
 - [x] Verification: Idempotency test (ensure Analysis(Refactor(Code)) == Stable). (GH-22)
-- [~] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60) sppf{doc=partial; impl=partial; doc_ref=in-15@1}
-- [~] Decision surface hooks in grammar (`is_decision_surface`). (GH-60)
+- [~] Decision surface detection + boundary elevation (tier enforcement). (in-15, GH-60) sppf{doc=partial; impl=partial; doc_ref=in-15@2} — impl now emits explicit classification reasons + tier-pathway evidence; glossary-tier artifacts (Decision Table/Bundle docs) remain partial.
+- [~] Decision surface hooks in grammar (`is_decision_surface`). (GH-60) — branch/guard coverage now includes `if`/`while`/`assert`/`ifexp`/`match`/comprehension guards; wider grammar harmonization still partial.
 - [x] Decision surface boundary diagnostics (API surface vs internal depth). (GH-60)
 - [x] Decision surface tier enforcement via glossary metadata. (GH-60)
 - [~] Value-encoded decision surface detection (branchless / algebraic control). (in-18, GH-66) sppf{doc=partial; impl=partial; doc_ref=in-18@1}
@@ -292,8 +292,8 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [ ] Coverage smell tracking (map tests to invariants/lemmas; track unmapped tests). (GH-42)
 
 ## Decision-flow tier nodes
-- [ ] Decision Table documentation for branch-heavy modules (Tier-3 evidence). (GH-47)
-- [ ] Decision Bundle centralization for repeated guard patterns (Tier-2 evidence). (GH-48)
+- [~] Decision Table documentation for branch-heavy modules (Tier-3 evidence). (GH-47) sppf{doc=partial; impl=partial; doc_ref=in-15@2}
+- [~] Decision Bundle centralization for repeated guard patterns (Tier-2 evidence). (GH-48) sppf{doc=partial; impl=partial; doc_ref=in-15@2}
 - [ ] Decision Protocol schema enforcement for critical decision paths (Tier-1 evidence). (GH-49)
 
 ## Explicit non-goals

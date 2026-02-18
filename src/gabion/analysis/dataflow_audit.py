@@ -1594,45 +1594,79 @@ def _decision_root_name(node: ast.AST) -> str | None:
     return None
 
 
+def is_decision_surface(node: ast.AST) -> bool:
+    return isinstance(
+        node,
+        (
+            ast.If,
+            ast.While,
+            ast.Assert,
+            ast.IfExp,
+            ast.Match,
+            ast.comprehension,
+        ),
+    )
+
+
+def _decision_surface_form_entries(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[tuple[str, ast.AST]]:
+    check_deadline()
+    entries: list[tuple[str, ast.AST]] = []
+    for node in ast.walk(fn):
+        check_deadline()
+        if not is_decision_surface(node):
+            continue
+        if isinstance(node, ast.If):
+            entries.append(("if", node.test))
+            continue
+        if isinstance(node, ast.While):
+            entries.append(("while", node.test))
+            continue
+        if isinstance(node, ast.Assert):
+            entries.append(("assert", node.test))
+            continue
+        if isinstance(node, ast.IfExp):
+            entries.append(("ifexp", node.test))
+            continue
+        if isinstance(node, ast.Match):
+            entries.append(("match_subject", node.subject))
+            for case in node.cases:
+                check_deadline()
+                if case.guard is not None:
+                    entries.append(("match_guard", case.guard))
+            continue
+        if isinstance(node, ast.comprehension):
+            for guard in node.ifs:
+                check_deadline()
+                entries.append(("comprehension_guard", guard))
+    return entries
+
+
+def _decision_surface_reason_map(
+    fn: ast.FunctionDef | ast.AsyncFunctionDef,
+    ignore_params: set[str] | None = None,
+) -> dict[str, set[str]]:
+    check_deadline()
+    params = set(_param_names(fn, ignore_params))
+    if not params:
+        return {}
+    reason_map: dict[str, set[str]] = defaultdict(set)
+    for reason, expr in _decision_surface_form_entries(fn):
+        found = _collect_param_roots(expr, params)
+        for param in found:
+            check_deadline()
+            reason_map[param].add(reason)
+    return reason_map
+
+
 def _decision_surface_params(
     fn: ast.FunctionDef | ast.AsyncFunctionDef,
     ignore_params: set[str] | None = None,
 ) -> set[str]:
     check_deadline()
-    params = set(_param_names(fn, ignore_params))
-    if not params:
-        return set()
-
-    def _mark(expr: ast.AST, out: set[str]) -> None:
-        check_deadline()
-        for node in ast.walk(expr):
-            check_deadline()
-            if isinstance(node, ast.Name) and node.id in params:
-                out.add(node.id)
-                continue
-            if isinstance(node, (ast.Attribute, ast.Subscript)):
-                root = _decision_root_name(node)
-                if root in params:
-                    out.add(root)
-
-    decision_params: set[str] = set()
-    for node in ast.walk(fn):
-        check_deadline()
-        if isinstance(node, ast.If):
-            _mark(node.test, decision_params)
-        elif isinstance(node, ast.While):
-            _mark(node.test, decision_params)
-        elif isinstance(node, ast.Assert):
-            _mark(node.test, decision_params)
-        elif isinstance(node, ast.IfExp):
-            _mark(node.test, decision_params)
-        elif isinstance(node, ast.Match):
-            _mark(node.subject, decision_params)
-            for case in node.cases:
-                check_deadline()
-                if case.guard is not None:
-                    _mark(case.guard, decision_params)
-    return decision_params
+    reason_map = _decision_surface_reason_map(fn, ignore_params)
+    return set(reason_map)
 
 
 def _mark_param_roots(expr: ast.AST, params: set[str], out: set[str]) -> None:
@@ -1738,12 +1772,53 @@ class _DecisionSurfaceSpec:
     rewrite_line: Callable[[FunctionInfo, list[str], str], str] | None = None
 
 
+def _decision_reason_summary(info: FunctionInfo, params: Iterable[str]) -> str:
+    labels: set[str] = set()
+    for param in params:
+        check_deadline()
+        labels.update(info.decision_surface_reasons.get(param, set()))
+    if not labels:
+        return "heuristic"
+    return ", ".join(
+        ordered_or_sorted(labels, source="_decision_reason_summary.labels")
+    )
+
+
+def _boundary_tier_obligation(caller_count: int) -> str:
+    if caller_count > 0:
+        return "tier-2:decision-bundle-elevation"
+    return "tier-3:decision-table-boundary"
+
+
+def _decision_surface_alt_evidence(
+    *,
+    spec: _DecisionSurfaceSpec,
+    boundary: str,
+    descriptor: str,
+    params: Iterable[str],
+    caller_count: int,
+    reason_summary: str,
+) -> JSONObject:
+    payload = dict(spec.alt_evidence(boundary, descriptor))
+    payload["classification_reason"] = reason_summary
+    payload["classification_descriptor"] = descriptor
+    payload["tier_obligation"] = _boundary_tier_obligation(caller_count)
+    payload["tier_pathway"] = "internal" if caller_count > 0 else "boundary"
+    payload["decision_params"] = ordered_or_sorted(
+        set(params),
+        source="_decision_surface_alt_evidence.params",
+    )
+    return payload
+
+
 _DIRECT_DECISION_SURFACE_SPEC = _DecisionSurfaceSpec(
     pass_id="decision_surfaces",
     alt_kind="DecisionSurface",
     surface_label="decision surface params",
     params=lambda info: info.decision_params,
-    descriptor=lambda _info, boundary: boundary,
+    descriptor=lambda info, boundary: (
+        f"{boundary}; reason={_decision_reason_summary(info, info.decision_params)}"
+    ),
     alt_evidence=lambda boundary, _descriptor: {
         "meta": boundary,
         "boundary": boundary,
@@ -1842,10 +1917,22 @@ def _analyze_decision_surface_indexed(
         descriptor = spec.descriptor(info, boundary)
         site_id = forest.add_site(info.path.name, info.qual)
         paramset_id = forest.add_paramset(params)
+        reason_summary = (
+            _decision_reason_summary(info, params)
+            if spec.pass_id == "decision_surfaces"
+            else descriptor
+        )
         forest.add_alt(
             spec.alt_kind,
             (site_id, paramset_id),
-            evidence=spec.alt_evidence(boundary, descriptor),
+            evidence=_decision_surface_alt_evidence(
+                spec=spec,
+                boundary=boundary,
+                descriptor=descriptor,
+                params=params,
+                caller_count=caller_count,
+                reason_summary=reason_summary,
+            ),
         )
         surfaces.append(
             f"{info.path.name}:{info.qual} {spec.surface_label}: "
@@ -10369,6 +10456,7 @@ class FunctionInfo:
     scope: tuple[str, ...] = ()
     lexical_scope: tuple[str, ...] = ()
     decision_params: set[str] = field(default_factory=set)
+    decision_surface_reasons: dict[str, set[str]] = field(default_factory=dict)
     value_decision_params: set[str] = field(default_factory=set)
     value_decision_reasons: set[str] = field(default_factory=set)
     positional_params: tuple[str, ...] = ()
@@ -10790,6 +10878,7 @@ def _accumulate_function_index_for_tree(
             direct_lambda_callee_by_call_span=direct_lambda_callee_by_call_span,
         )
         unused_params, unknown_key_carriers = _unused_params(use_map)
+        decision_reason_map = _decision_surface_reason_map(fn, ignore_params)
         value_params, value_reasons = _value_encoded_decision_params(fn, ignore_params)
         pos_args = [a.arg for a in (fn.args.posonlyargs + fn.args.args)]
         kwonly_args = [a.arg for a in fn.args.kwonlyargs]
@@ -10827,7 +10916,8 @@ def _accumulate_function_index_for_tree(
             class_name=class_name,
             scope=tuple(scopes),
             lexical_scope=tuple(lexical_scopes),
-            decision_params=_decision_surface_params(fn, ignore_params),
+            decision_params=set(decision_reason_map),
+            decision_surface_reasons=decision_reason_map,
             value_decision_params=value_params,
             value_decision_reasons=value_reasons,
             positional_params=tuple(pos_args),
@@ -14408,6 +14498,16 @@ def _serialize_function_info_for_resume(info: FunctionInfo) -> JSONObject:
         "scope": list(info.scope),
         "lexical_scope": list(info.lexical_scope),
         "decision_params": sorted(info.decision_params),
+        "decision_surface_reasons": {
+            param: ordered_or_sorted(
+                info.decision_surface_reasons.get(param, set()),
+                source="_serialize_function_info_for_resume.decision_surface_reasons",
+            )
+            for param in ordered_or_sorted(
+                info.decision_surface_reasons,
+                source="_serialize_function_info_for_resume.decision_surface_reason_keys",
+            )
+        },
         "value_decision_params": sorted(info.value_decision_params),
         "value_decision_reasons": sorted(info.value_decision_reasons),
         "positional_params": list(info.positional_params),
@@ -14464,6 +14564,14 @@ def _deserialize_function_info_for_resume(
     scope = str_tuple_from_sequence(payload.get("scope"))
     lexical_scope = str_tuple_from_sequence(payload.get("lexical_scope"))
     decision_params = str_set_from_sequence(payload.get("decision_params"))
+    decision_surface_reasons: dict[str, set[str]] = {}
+    for param, raw_reasons in mapping_or_empty(payload.get("decision_surface_reasons")).items():
+        check_deadline()
+        if not isinstance(param, str):
+            continue
+        reasons = str_set_from_sequence(raw_reasons)
+        if reasons:
+            decision_surface_reasons[param] = reasons
     value_decision_params = str_set_from_sequence(payload.get("value_decision_params"))
     value_decision_reasons = str_set_from_sequence(payload.get("value_decision_reasons"))
     positional_params = str_tuple_from_sequence(payload.get("positional_params"))
@@ -14497,6 +14605,7 @@ def _deserialize_function_info_for_resume(
         scope=scope,
         lexical_scope=lexical_scope,
         decision_params=decision_params,
+        decision_surface_reasons=decision_surface_reasons,
         value_decision_params=value_decision_params,
         value_decision_reasons=value_decision_reasons,
         positional_params=positional_params,
@@ -15414,6 +15523,16 @@ def build_synthesis_plan(
     by_qual = analysis_index.by_qual
     symbol_table = analysis_index.symbol_table
     class_index = analysis_index.class_index
+    _, _, transitive_callers = _build_call_graph(
+        path_list,
+        project_root=root,
+        ignore_params=audit_config.ignore_params,
+        strictness=audit_config.strictness,
+        external_filter=audit_config.external_filter,
+        transparent_decorators=audit_config.transparent_decorators,
+        parse_failure_witnesses=parse_failure_witnesses,
+        analysis_index=analysis_index,
+    )
     knob_names = _compute_knob_param_names(
         by_name=by_name,
         by_qual=by_qual,
@@ -15457,10 +15576,16 @@ def build_synthesis_plan(
     value_decision_counts: dict[tuple[str, ...], int] = defaultdict(int)
     for info in by_qual.values():
         check_deadline()
+        caller_count = len(transitive_callers.get(info.qual, set()))
         if info.decision_params:
             bundle = tuple(sorted(info.decision_params))
             decision_counts[bundle] += 1
-            bundle_evidence[frozenset(bundle)].add("decision_surface")
+            evidence = bundle_evidence[frozenset(bundle)]
+            evidence.add("decision_surface")
+            if caller_count > 0:
+                evidence.add("tier-2:decision-bundle-elevation")
+            else:
+                evidence.add("tier-3:decision-table-boundary")
         if info.value_decision_params:
             bundle = tuple(sorted(info.value_decision_params))
             value_decision_counts[bundle] += 1
