@@ -2635,6 +2635,70 @@ def _normalize_name_set(value: object) -> set[str] | None:
     return set(items)
 
 
+@dataclass(frozen=True)
+class DataflowNameFilterBundle:
+    exclude_dirs: set[str]
+    ignore_params: set[str]
+    decision_ignore_params: set[str]
+    transparent_decorators: set[str] | None
+
+    @classmethod
+    def from_payload(
+        cls,
+        *,
+        payload: Mapping[str, object],
+        defaults: Mapping[str, object],
+        decision_section: Mapping[str, object],
+    ) -> "DataflowNameFilterBundle":
+        exclude_dirs = _normalize_name_set(payload.get("exclude"))
+        if exclude_dirs is None:
+            exclude_dirs = _normalize_name_set(defaults.get("exclude"))
+        if exclude_dirs is None:
+            exclude_dirs = set()
+
+        ignore_params = _normalize_name_set(payload.get("ignore_params"))
+        if ignore_params is None:
+            ignore_params = _normalize_name_set(defaults.get("ignore_params"))
+        if ignore_params is None:
+            ignore_params = set()
+
+        decision_ignore_params = set(ignore_params)
+        decision_ignore_params.update(decision_ignore_list(decision_section))
+
+        transparent_payload = payload.get("transparent_decorators")
+        transparent_decorators = _normalize_transparent_decorators(transparent_payload)
+        if transparent_decorators is None and transparent_payload is None:
+            transparent_decorators = _normalize_transparent_decorators(
+                defaults.get("transparent_decorators")
+            )
+
+        return cls(
+            exclude_dirs=exclude_dirs,
+            ignore_params=ignore_params,
+            decision_ignore_params=decision_ignore_params,
+            transparent_decorators=transparent_decorators,
+        )
+
+
+@dataclass(frozen=True)
+class SnapshotDiffPayload:
+    baseline: Path
+    current: Path
+
+    @classmethod
+    def from_payload(
+        cls,
+        payload: Mapping[str, object],
+        *,
+        error_message: str,
+    ) -> "SnapshotDiffPayload":
+        baseline = payload.get("baseline")
+        current = payload.get("current")
+        if not baseline or not current:
+            raise ValueError(error_message)
+        return cls(baseline=Path(str(baseline)), current=Path(str(current)))
+
+
 def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
     forest = Forest()
     with forest_scope(forest):
@@ -2930,30 +2994,15 @@ def _execute_command_total(
         type_audit_max = payload.get("type_audit_max", 50)
         fail_on_type_ambiguities = payload.get("fail_on_type_ambiguities", False)
         lint = bool(payload.get("lint", False))
-        exclude_payload = payload.get("exclude")
-        exclude_dirs = _normalize_name_set(exclude_payload)
-        if exclude_dirs is None:
-            exclude_dirs = _normalize_name_set(defaults.get("exclude"))
-        if exclude_dirs is None:
-            exclude_dirs = set()
-        ignore_params_payload = payload.get("ignore_params")
-        ignore_params = _normalize_name_set(ignore_params_payload)
-        if ignore_params is None:
-            ignore_params = _normalize_name_set(defaults.get("ignore_params"))
-        if ignore_params is None:
-            ignore_params = set()
-        decision_ignore_params = set(ignore_params)
-        decision_ignore_params.update(decision_ignore_list(decision_section))
+        name_filter_bundle = DataflowNameFilterBundle.from_payload(
+            payload=payload,
+            defaults=defaults,
+            decision_section=decision_section,
+        )
         allow_external = payload.get("allow_external", False)
         strictness = payload.get("strictness", "high")
         if strictness not in {"high", "low"}:
             never("invalid strictness", strictness=str(strictness))
-        transparent_payload = payload.get("transparent_decorators")
-        transparent_decorators = _normalize_transparent_decorators(transparent_payload)
-        if transparent_decorators is None and transparent_payload is None:
-            transparent_decorators = _normalize_transparent_decorators(
-                defaults.get("transparent_decorators")
-            )
         baseline_path = resolve_baseline_path(payload.get("baseline"), Path(root))
         baseline_write = bool(payload.get("baseline_write", False)) and baseline_path is not None
         synthesis_plan_path = payload.get("synthesis_plan")
@@ -3012,12 +3061,12 @@ def _execute_command_total(
 
         config = AuditConfig(
             project_root=Path(root),
-            exclude_dirs=exclude_dirs,
-            ignore_params=ignore_params,
-            decision_ignore_params=decision_ignore_params,
+            exclude_dirs=name_filter_bundle.exclude_dirs,
+            ignore_params=name_filter_bundle.ignore_params,
+            decision_ignore_params=name_filter_bundle.decision_ignore_params,
             external_filter=not allow_external,
             strictness=strictness,
-            transparent_decorators=transparent_decorators,
+            transparent_decorators=name_filter_bundle.transparent_decorators,
             decision_tiers=decision_tiers,
             decision_require_tiers=decision_require,
             never_exceptions=never_exceptions,
@@ -4633,16 +4682,13 @@ def _execute_structure_diff_total(
     payload: dict[str, object],
 ) -> dict:
     with _deadline_scope_from_payload(payload):
-        baseline_path = payload.get("baseline")
-        current_path = payload.get("current")
-        if not baseline_path or not current_path:
-            return StructureDiffResponseDTO(
-                exit_code=2,
-                errors=["baseline and current snapshot paths are required"],
-            ).model_dump()
         try:
-            baseline = load_structure_snapshot(Path(baseline_path))
-            current = load_structure_snapshot(Path(current_path))
+            snapshot_payload = SnapshotDiffPayload.from_payload(
+                payload,
+                error_message="baseline and current snapshot paths are required",
+            )
+            baseline = load_structure_snapshot(snapshot_payload.baseline)
+            current = load_structure_snapshot(snapshot_payload.current)
         except ValueError as exc:
             return StructureDiffResponseDTO(exit_code=2, errors=[str(exc)]).model_dump()
         return StructureDiffResponseDTO(
@@ -4705,16 +4751,13 @@ def _execute_decision_diff_total(
     payload: dict[str, object],
 ) -> dict:
     with _deadline_scope_from_payload(payload):
-        baseline_path = payload.get("baseline")
-        current_path = payload.get("current")
-        if not baseline_path or not current_path:
-            return DecisionDiffResponseDTO(
-                exit_code=2,
-                errors=["baseline and current decision snapshot paths are required"],
-            ).model_dump()
         try:
-            baseline = load_decision_snapshot(Path(baseline_path))
-            current = load_decision_snapshot(Path(current_path))
+            snapshot_payload = SnapshotDiffPayload.from_payload(
+                payload,
+                error_message="baseline and current decision snapshot paths are required",
+            )
+            baseline = load_decision_snapshot(snapshot_payload.baseline)
+            current = load_decision_snapshot(snapshot_payload.current)
         except ValueError as exc:
             return DecisionDiffResponseDTO(exit_code=2, errors=[str(exc)]).model_dump()
         return DecisionDiffResponseDTO(
