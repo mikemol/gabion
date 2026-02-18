@@ -2402,6 +2402,28 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
     return best_phase
 
 
+def _latest_report_phase_without_deadline(
+    phases: Mapping[str, JSONValue] | None,
+) -> str | None:
+    if not isinstance(phases, Mapping):
+        return None
+    best_phase: str | None = None
+    best_rank = -1
+    for phase_name in phases:
+        if not isinstance(phase_name, str):
+            continue
+        try:
+            rank = report_projection_phase_rank(
+                cast(Literal["collection", "forest", "edge", "post"], phase_name)
+            )
+        except KeyError:
+            continue
+        if rank > best_rank:
+            best_rank = rank
+            best_phase = phase_name
+    return best_phase
+
+
 def _require_payload(
     payload: dict[str, object],
     *,
@@ -4691,21 +4713,9 @@ def _execute_command_total(
             classification = progress_payload.get("classification")
             if isinstance(classification, str) and classification:
                 analysis_state = classification
-            latest_phase: str | None = None
-            if isinstance(phase_checkpoint_state, Mapping):
-                best_rank = -1
-                for raw_phase_name in phase_checkpoint_state:
-                    if not isinstance(raw_phase_name, str):
-                        continue
-                    try:
-                        rank = report_projection_phase_rank(
-                            cast(Literal["collection", "forest", "edge", "post"], raw_phase_name)
-                        )
-                    except KeyError:
-                        continue
-                    if rank > best_rank:
-                        best_rank = rank
-                        latest_phase = raw_phase_name
+            latest_phase = _latest_report_phase_without_deadline(
+                phase_checkpoint_state
+            )
             if latest_phase is not None and isinstance(phase_checkpoint_state, Mapping):
                 raw_phase_payload = phase_checkpoint_state.get(latest_phase)
                 if isinstance(raw_phase_payload, Mapping):

@@ -2283,6 +2283,12 @@ def test_latest_report_phase_and_truthy_flag_edges() -> None:
     assert server._latest_report_phase(None) is None
     assert server._latest_report_phase({"post": {}, "forest": {}}) == "post"
     assert server._latest_report_phase({1: {}, "invalid": {}}) is None
+    assert server._latest_report_phase_without_deadline(None) is None
+    assert (
+        server._latest_report_phase_without_deadline({"edge": {}, "forest": {}})
+        == "edge"
+    )
+    assert server._latest_report_phase_without_deadline({1: {}, "invalid": {}}) is None
     assert server._truthy_flag(0) is False
     assert server._truthy_flag(2) is True
     assert server._truthy_flag(0.0) is False
