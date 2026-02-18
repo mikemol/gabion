@@ -42,6 +42,7 @@ from gabion.lsp_client import (
     _has_env_timeout,
 )
 from gabion.json_types import JSONObject
+from gabion.order_contract import ordered_or_sorted
 from gabion.schema import (
     DataflowAuditResponseDTO,
     DecisionDiffResponseDTO,
@@ -71,6 +72,17 @@ _DATAFLOW_AUDIT_MIGRATION_EPILOG = (
     "  gabion dataflow-audit <paths> -> gabion check --profile raw <paths>\n"
     "  --emit-decision-snapshot -> --decision-snapshot"
 )
+_SPPF_GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
+_SPPF_KEYWORD_REF_RE = re.compile(
+    r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
+)
+
+
+@dataclass(frozen=True)
+class SppfSyncCommitInfo:
+    sha: str
+    subject: str
+    body: str
 
 
 def _cli_timeout_ticks() -> tuple[int, int]:
@@ -143,6 +155,147 @@ class SnapshotDiffRequest:
 
 def _find_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _run_sppf_git(args: list[str]) -> str:
+    return subprocess.check_output(["git", *args], text=True).strip()
+
+
+def _default_sppf_rev_range() -> str:
+    try:
+        _run_sppf_git(["rev-parse", "origin/stage"])
+        return "origin/stage..HEAD"
+    except Exception:
+        return "HEAD~20..HEAD"
+
+
+def _collect_sppf_commits(rev_range: str) -> list[SppfSyncCommitInfo]:
+    try:
+        raw = subprocess.check_output(
+            [
+                "git",
+                "log",
+                "--format=%H%x1f%s%x1f%B%x1e",
+                rev_range,
+            ],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise typer.BadParameter(f"git log failed for range {rev_range}: {exc}") from exc
+
+    commits: list[SppfSyncCommitInfo] = []
+    for record in raw.split("\x1e"):
+        check_deadline()
+        if not record.strip():
+            continue
+        parts = record.split("\x1f")
+        if len(parts) < 3:
+            continue
+        sha, subject, body = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        commits.append(SppfSyncCommitInfo(sha=sha, subject=subject, body=body))
+    return commits
+
+
+def _extract_sppf_issue_ids(text: str) -> set[str]:
+    issues = set(match.group(1) for match in _SPPF_GH_REF_RE.finditer(text))
+    issues.update(match.group(1) for match in _SPPF_KEYWORD_REF_RE.finditer(text))
+    return issues
+
+
+def _issue_ids_from_sppf_commits(commits: list[SppfSyncCommitInfo]) -> set[str]:
+    issues: set[str] = set()
+    for commit in commits:
+        check_deadline()
+        issues.update(_extract_sppf_issue_ids(commit.subject))
+        issues.update(_extract_sppf_issue_ids(commit.body))
+    return issues
+
+
+def _build_sppf_comment(rev_range: str, commits: list[SppfSyncCommitInfo]) -> str:
+    lines = [f"SPPF sync from `{rev_range}`:"]
+    for commit in commits:
+        check_deadline()
+        lines.append(f"- {commit.sha[:8]} {commit.subject}")
+    return "\n".join(lines)
+
+
+def _run_sppf_gh(args: list[str], *, dry_run: bool) -> None:
+    if dry_run:
+        typer.echo("DRY RUN: " + " ".join(["gh", *args]))
+        return
+    subprocess.run(["gh", *args], check=True)
+
+
+def _run_sppf_sync(
+    *,
+    rev_range: str | None,
+    comment: bool,
+    close: bool,
+    label: str | None,
+    dry_run: bool,
+) -> int:
+    resolved_range = rev_range or _default_sppf_rev_range()
+    commits = _collect_sppf_commits(resolved_range)
+    if not commits:
+        typer.echo("No commits in range; nothing to sync.")
+        return 0
+
+    issue_ids = ordered_or_sorted(
+        _issue_ids_from_sppf_commits(commits),
+        source="gabion.cli.sppf_sync.issue_ids",
+    )
+    if not issue_ids:
+        typer.echo("No issue references found in commit messages.")
+        return 0
+
+    summary_comment = _build_sppf_comment(resolved_range, commits)
+    for issue_id in issue_ids:
+        check_deadline()
+        if close:
+            _run_sppf_gh(["issue", "close", issue_id, "-c", summary_comment], dry_run=dry_run)
+        elif comment:
+            _run_sppf_gh(["issue", "comment", issue_id, "-b", summary_comment], dry_run=dry_run)
+        if label:
+            _run_sppf_gh(["issue", "edit", issue_id, "--add-label", label], dry_run=dry_run)
+    return 0
+
+
+def run_sppf_sync_compat(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Sync SPPF-linked issues from commit messages.")
+    parser.add_argument(
+        "--range",
+        dest="rev_range",
+        default=None,
+        help="Git revision range (default: origin/stage..HEAD if available).",
+    )
+    parser.add_argument(
+        "--comment",
+        action="store_true",
+        help="Comment on each referenced issue with commit summary.",
+    )
+    parser.add_argument(
+        "--close",
+        action="store_true",
+        help="Close each referenced issue with a summary comment.",
+    )
+    parser.add_argument(
+        "--label",
+        default=None,
+        help="Apply a label to each referenced issue.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print gh commands without executing.",
+    )
+    args = parser.parse_args(argv)
+    return _run_sppf_sync(
+        rev_range=args.rev_range,
+        comment=args.comment,
+        close=args.close,
+        label=args.label,
+        dry_run=args.dry_run,
+    )
 
 
 def _split_csv_entries(entries: List[str]) -> list[str]:
@@ -1708,6 +1861,50 @@ def _run_docflow_audit(
             fg=typer.colors.RED,
         )
         return 2
+
+
+@app.command("sppf-sync")
+def sppf_sync(
+    rev_range: Optional[str] = typer.Option(
+        None,
+        "--range",
+        help="Git revision range (default: origin/stage..HEAD if available).",
+    ),
+    comment: bool = typer.Option(
+        False,
+        "--comment",
+        help="Comment on each referenced issue with commit summary.",
+    ),
+    close: bool = typer.Option(
+        False,
+        "--close",
+        help="Close each referenced issue with a summary comment.",
+    ),
+    label: Optional[str] = typer.Option(
+        None,
+        "--label",
+        help="Apply a label to each referenced issue.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Print gh commands without executing.",
+    ),
+) -> None:
+    """Sync SPPF checklist-linked GitHub issues from commit messages."""
+    with _cli_deadline_scope():
+        try:
+            exit_code = _run_sppf_sync(
+                rev_range=rev_range,
+                comment=comment,
+                close=close,
+                label=label,
+                dry_run=dry_run,
+            )
+        except (subprocess.CalledProcessError, typer.BadParameter) as exc:
+            typer.secho(str(exc), err=True, fg=typer.colors.RED)
+            raise typer.Exit(code=2) from exc
+        raise typer.Exit(code=exit_code)
 
 
 @app.command("docflow-audit")
