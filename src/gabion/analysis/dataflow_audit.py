@@ -157,6 +157,7 @@ from .dataflow_exception_obligations import (
     handler_is_broad as _exc_handler_is_broad,
     handler_label as _exc_handler_label,
     node_in_try_body as _exc_node_in_try_body,
+    _builtin_exception_class as _exc_builtin_exception_class,
 )
 from .dataflow_report_rendering import (
     render_synthesis_section as _report_render_synthesis_section,
@@ -3597,6 +3598,52 @@ def _exception_type_name(expr: ast.AST | None) -> str | None:
     return _exc_exception_type_name(expr, decorator_name=_decorator_name)
 
 
+def _annotation_exception_candidates(annotation: str | None) -> tuple[str, ...]:
+    check_deadline()
+    if not annotation:
+        return ()
+    try:
+        expr = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return ()
+    candidates: set[str] = set()
+    for node in ast.walk(expr):
+        check_deadline()
+        if isinstance(node, ast.Name):
+            cls = _exc_builtin_exception_class(node.id)
+            if cls is not None:
+                candidates.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            cls = _exc_builtin_exception_class(node.attr)
+            if cls is not None:
+                candidates.add(node.attr)
+    return tuple(
+        ordered_or_sorted(
+            candidates,
+            source="_annotation_exception_candidates.candidates",
+            policy=OrderPolicy.SORT,
+        )
+    )
+
+
+def _refine_exception_name_from_annotations(
+    expr: ast.AST | None,
+    *,
+    param_annotations: dict[str, str | None],
+) -> tuple[str | None, str | None, tuple[str, ...]]:
+    check_deadline()
+    direct_name = _exception_type_name(expr)
+    if not isinstance(expr, ast.Name):
+        return direct_name, None, ()
+    annotation = param_annotations.get(expr.id)
+    candidates = _annotation_exception_candidates(annotation)
+    if not candidates:
+        return direct_name, None, ()
+    if len(candidates) == 1:
+        return candidates[0], "PARAM_ANNOTATION", candidates
+    return direct_name, "PARAM_ANNOTATION_AMBIGUOUS", candidates
+
+
 def _handler_type_names(handler_type: ast.AST | None) -> tuple[str, ...]:
     return _exc_handler_type_names(
         handler_type,
@@ -3796,9 +3843,11 @@ def _collect_handledness_witnesses(
         parent.visit(tree)
         parents = parent.parents
         params_by_fn: dict[ast.AST, set[str]] = {}
+        param_annotations_by_fn: dict[ast.AST, dict[str, str | None]] = {}
         for fn in _collect_functions(tree):
             check_deadline()
             params_by_fn[fn] = set(_param_names(fn, ignore_params))
+            param_annotations_by_fn[fn] = _param_annotations(fn, ignore_params)
         path_value = _normalize_snapshot_path(path, project_root)
         for node in ast.walk(tree):
             check_deadline()
@@ -3811,12 +3860,21 @@ def _collect_handledness_witnesses(
             if fn_node is None:
                 function = "<module>"
                 params = set()
+                param_annotations: dict[str, str | None] = {}
             else:
                 scopes = _enclosing_scopes(fn_node, parents)
                 function = _function_key(scopes, fn_node.name)
                 params = params_by_fn.get(fn_node, set())
+                param_annotations = param_annotations_by_fn.get(fn_node, {})
             expr = node.exc if isinstance(node, ast.Raise) else node.test
-            exception_name = _exception_type_name(expr)
+            (
+                exception_name,
+                exception_type_source,
+                exception_type_candidates,
+            ) = _refine_exception_name_from_annotations(
+                expr,
+                param_annotations=param_annotations,
+            )
             bundle = _exception_param_names(expr, params)
             lineno = getattr(node, "lineno", 0)
             col = getattr(node, "col_offset", 0)
@@ -3832,8 +3890,12 @@ def _collect_handledness_witnesses(
             handler_kind = None
             handler_boundary = None
             compatibility = "incompatible"
+            handledness_reason_code = "NO_HANDLER"
+            handledness_reason = "no enclosing handler discharges this exception path"
+            type_refinement_opportunity = ""
             if try_node is not None:
                 unknown_handler: ast.ExceptHandler | None = None
+                first_incompatible_handler: ast.ExceptHandler | None = None
                 for handler in try_node.handlers:
                     check_deadline()
                     compatibility = _exception_handler_compatibility(
@@ -3843,17 +3905,54 @@ def _collect_handledness_witnesses(
                     if compatibility == "compatible":
                         handler_kind = "catch"
                         handler_boundary = _handler_label(handler)
+                        if handler.type is None:
+                            handledness_reason_code = "BROAD_EXCEPT"
+                            handledness_reason = (
+                                "handled by broad except: without a typed match proof"
+                            )
+                        else:
+                            handledness_reason_code = "TYPED_MATCH"
+                            handledness_reason = (
+                                "raised exception type matches an explicit except clause"
+                            )
                         break
                     if compatibility == "unknown" and unknown_handler is None:
                         unknown_handler = handler
+                    if (
+                        compatibility == "incompatible"
+                        and first_incompatible_handler is None
+                    ):
+                        first_incompatible_handler = handler
                 if handler_kind is None and unknown_handler is not None:
                     handler_kind = "catch"
                     handler_boundary = _handler_label(unknown_handler)
                     compatibility = "unknown"
+                    handledness_reason_code = "TYPE_UNRESOLVED"
+                    handledness_reason = (
+                        "exception or handler types are dynamic/unresolved; handledness is unknown"
+                    )
+                    if exception_type_candidates:
+                        type_refinement_opportunity = (
+                            "narrow raised exception type to a single concrete exception"
+                        )
+                elif handler_kind is None and first_incompatible_handler is not None:
+                    handler_kind = "catch"
+                    handler_boundary = _handler_label(first_incompatible_handler)
+                    compatibility = "incompatible"
+                    handledness_reason_code = "TYPED_MISMATCH"
+                    handledness_reason = (
+                        "explicit except clauses do not match the raised exception type"
+                    )
+                    if exception_name:
+                        type_refinement_opportunity = (
+                            f"consider except {exception_name} (or a supertype) to dominate this raise path"
+                        )
             if handler_kind is None and exception_name == "SystemExit":
                 handler_kind = "convert"
                 handler_boundary = "process exit"
                 compatibility = "compatible"
+                handledness_reason_code = "SYSTEM_EXIT_CONVERT"
+                handledness_reason = "SystemExit is converted to process exit"
             if handler_kind is None:
                 continue
             witness_result = "HANDLED" if compatibility == "compatible" else "UNKNOWN"
@@ -3881,6 +3980,11 @@ def _collect_handledness_witnesses(
                     "handler_boundary": handler_boundary,
                     "handler_types": list(handler_type_names),
                     "type_compatibility": compatibility,
+                    "exception_type_source": exception_type_source,
+                    "exception_type_candidates": list(exception_type_candidates),
+                    "type_refinement_opportunity": type_refinement_opportunity,
+                    "handledness_reason_code": handledness_reason_code,
+                    "handledness_reason": handledness_reason,
                     "environment": {},
                     "core": (
                         [f"enclosed by {handler_boundary}"]
@@ -4008,8 +4112,24 @@ def _collect_exception_obligations(
             witness_ref = None
             remainder: JSONObject | None = {"exception_kind": kind}
             environment_ref: JSONObject | None = None
+            handledness_reason_code = "NO_HANDLER"
+            handledness_reason = "no handledness witness"
+            exception_type_source = None
+            exception_type_candidates: list[str] = []
+            type_refinement_opportunity = ""
             if handled:
                 witness_result = str(handled.get("result", ""))
+                handledness_reason_code = str(
+                    handled.get("handledness_reason_code", "UNKNOWN_REASON")
+                )
+                handledness_reason = str(handled.get("handledness_reason", ""))
+                exception_type_source = handled.get("exception_type_source")
+                raw_candidates = handled.get("exception_type_candidates") or []
+                if isinstance(raw_candidates, list):
+                    exception_type_candidates = [str(v) for v in raw_candidates]
+                type_refinement_opportunity = str(
+                    handled.get("type_refinement_opportunity", "")
+                )
                 if witness_result == "HANDLED":
                     status = "HANDLED"
                     remainder = {}
@@ -4018,6 +4138,14 @@ def _collect_exception_obligations(
                     remainder["type_compatibility"] = str(
                         handled.get("type_compatibility", "unknown")
                     )
+                    remainder["handledness_reason_code"] = handledness_reason_code
+                    remainder["handledness_reason"] = handledness_reason
+                    if exception_type_source:
+                        remainder["exception_type_source"] = exception_type_source
+                    if exception_type_candidates:
+                        remainder["exception_type_candidates"] = exception_type_candidates
+                    if type_refinement_opportunity:
+                        remainder["type_refinement_opportunity"] = type_refinement_opportunity
                 witness_ref = handled.get("handledness_id")
                 environment_ref = handled.get("environment") or {}
             if status != "HANDLED":
@@ -4064,6 +4192,11 @@ def _collect_exception_obligations(
                     },
                     "source_kind": source_kind,
                     "status": status,
+                    "handledness_reason_code": handledness_reason_code,
+                    "handledness_reason": handledness_reason,
+                    "exception_type_source": exception_type_source,
+                    "exception_type_candidates": exception_type_candidates,
+                    "type_refinement_opportunity": type_refinement_opportunity,
                     "witness_ref": witness_ref,
                     "remainder": remainder,
                     "environment_ref": environment_ref,
@@ -6585,11 +6718,15 @@ def _summarize_exception_obligations(
         source = entry.get("source_kind", "?")
         exception_name = entry.get("exception_name")
         protocol = entry.get("protocol")
-        suffix = ""
+        reason_code = entry.get("handledness_reason_code", "UNKNOWN_REASON")
+        refinement = str(entry.get("type_refinement_opportunity", "") or "")
+        suffix = f" reason={reason_code}"
         if exception_name:
             suffix += f" exception={exception_name}"
         if protocol:
             suffix += f" protocol={protocol}"
+        if refinement:
+            suffix += f" refine={refinement}"
         lines.append(
             f"{path}:{function} bundle={bundle} source={source} status={status}{suffix}"
         )
@@ -8960,7 +9097,15 @@ def _summarize_handledness_witnesses(
         function = site.get("function", "?")
         bundle = site.get("bundle", [])
         handler = entry.get("handler_boundary", "?")
-        lines.append(f"{path}:{function} bundle={bundle} handler={handler}")
+        result = entry.get("result", "UNKNOWN")
+        reason_code = entry.get("handledness_reason_code", "UNKNOWN_REASON")
+        refinement = str(entry.get("type_refinement_opportunity", "") or "")
+        suffix = f" reason={reason_code}"
+        if refinement:
+            suffix += f" refine={refinement}"
+        lines.append(
+            f"{path}:{function} bundle={bundle} handler={handler} result={result}{suffix}"
+        )
     if len(entries) > max_entries:
         lines.append(f"... {len(entries) - max_entries} more")
     return lines
