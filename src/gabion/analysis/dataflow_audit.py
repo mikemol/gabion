@@ -13706,7 +13706,9 @@ def _path_key_from_violation(violation: str) -> str | None:
 
 
 def _path_key_from_payload(payload: Mapping[str, JSONValue]) -> str | None:
-    for key in ("path", "module_path", "file", "baseline_path", "current_path"):
+    for key in deadline_loop_iter(
+        ("path", "module_path", "file", "baseline_path", "current_path")
+    ):
         raw_value = payload.get(key)
         if isinstance(raw_value, str) and raw_value:
             return raw_value
