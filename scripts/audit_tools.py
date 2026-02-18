@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, List, Tuple, TypeAlias
+from typing import Callable, Iterable, List, Literal, Tuple, TypeAlias
 
 try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
@@ -2904,6 +2904,7 @@ def _docflow_audit_context(
     extra_paths: list[str] | None = None,
     *,
     extra_strict: bool = False,
+    sppf_gh_ref_mode: SppfGhRefMode = "required",
 ) -> DocflowAuditContext:
     violations: List[str] = []
     warnings: List[str] = []
@@ -3020,7 +3021,9 @@ def _docflow_audit_context(
 
     warnings.extend(_tooling_warnings(root, docs))
     warnings.extend(_influence_warnings(root))
-    violations.extend(_sppf_sync_warnings(root))
+    sppf_sync_violations, sppf_sync_warnings = _sppf_sync_check(root, mode=sppf_gh_ref_mode)
+    violations.extend(sppf_sync_violations)
+    warnings.extend(sppf_sync_warnings)
     sppf_violations, sppf_warnings = _sppf_axis_audit(root, docs)
     violations.extend(sppf_violations)
     warnings.extend(sppf_warnings)
@@ -3043,8 +3046,14 @@ def _docflow_audit(
     extra_paths: list[str] | None = None,
     *,
     extra_strict: bool = False,
+    sppf_gh_ref_mode: SppfGhRefMode = "required",
 ) -> Tuple[List[str], List[str]]:
-    context = _docflow_audit_context(root, extra_paths=extra_paths, extra_strict=extra_strict)
+    context = _docflow_audit_context(
+        root,
+        extra_paths=extra_paths,
+        extra_strict=extra_strict,
+        sppf_gh_ref_mode=sppf_gh_ref_mode,
+    )
     return context.violations, context.warnings
 
 
@@ -3100,7 +3109,20 @@ def _git_diff_paths(rev_range: str) -> list[str]:
     return [line.strip() for line in output.splitlines() if line.strip()]
 
 
-def _sppf_sync_warnings(root: Path) -> List[str]:
+SppfGhRefMode: TypeAlias = Literal["advisory", "required"]
+
+
+def _resolve_sppf_gh_ref_mode(raw: str | None) -> SppfGhRefMode:
+    value = (raw or "").strip().lower()
+    if value in {"", "required"}:
+        return "required"
+    if value == "advisory":
+        return "advisory"
+    raise ValueError(f"invalid SPPF GH-reference mode: {raw!r}")
+
+
+def _sppf_sync_check(root: Path, *, mode: SppfGhRefMode) -> tuple[list[str], list[str]]:
+    violations: list[str] = []
     warnings: List[str] = []
     try:
         try:
@@ -3108,16 +3130,16 @@ def _sppf_sync_warnings(root: Path) -> List[str]:
         except ModuleNotFoundError:
             import sppf_sync
     except Exception:
-        return warnings
+        return violations, warnings
 
     try:
         rev_range = sppf_sync._default_range()
     except Exception:
-        return warnings
+        return violations, warnings
 
     changed = _git_diff_paths(rev_range)
     if not changed:
-        return warnings
+        return violations, warnings
 
     relevant_prefixes = ("src/", "in/")
     relevant_paths = {"docs/sppf_checklist.md"}
@@ -3127,25 +3149,30 @@ def _sppf_sync_warnings(root: Path) -> List[str]:
         if path in relevant_paths or any(path.startswith(prefix) for prefix in relevant_prefixes)
     ]
     if not relevant:
-        return warnings
+        return violations, warnings
 
     try:
         commits = sppf_sync._collect_commits(rev_range)
     except Exception:
-        return warnings
+        return violations, warnings
     if not commits:
-        return warnings
+        return violations, warnings
 
     issue_ids = sppf_sync._issue_ids_from_commits(commits)
     if issue_ids:
-        return warnings
+        return violations, warnings
 
     sample = ", ".join(_sorted(relevant)[:5])
     suffix = f" (e.g. {sample})" if sample else ""
-    warnings.append(
-        f"sppf_sync: no GH references found in commit range {rev_range} touching SPPF-relevant paths{suffix}"
+    message = (
+        f"sppf_sync: no GH references found in commit range {rev_range} touching "
+        f"SPPF-relevant paths{suffix}"
     )
-    return warnings
+    if mode == "required":
+        violations.append(message)
+    else:
+        warnings.append(message)
+    return violations, warnings
 
 
 # --- Decision tier candidate helpers ---
@@ -3611,10 +3638,16 @@ def _summarize_lint(lines: Iterable[str]) -> dict[str, object]:
 
 def _docflow_command(args: argparse.Namespace) -> int:
     root = Path(args.root)
+    try:
+        sppf_gh_ref_mode = _resolve_sppf_gh_ref_mode(args.sppf_gh_ref_mode)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     context = _docflow_audit_context(
         root,
         extra_paths=args.extra_path,
         extra_strict=args.extra_strict,
+        sppf_gh_ref_mode=sppf_gh_ref_mode,
     )
     docs = _load_docflow_docs(root=root, extra_paths=args.extra_path)
     violations = context.violations
@@ -3795,6 +3828,12 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
         "--fail-on-violations",
         action="store_true",
         help="Exit non-zero if violations are detected",
+    )
+    parser.add_argument(
+        "--sppf-gh-ref-mode",
+        default="required",
+        choices=("required", "advisory"),
+        help="SPPF GH-reference enforcement mode (default: required).",
     )
     parser.add_argument(
         "--issues-json",

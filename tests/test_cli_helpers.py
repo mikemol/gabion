@@ -457,6 +457,7 @@ def test_run_docflow_audit_missing_script(tmp_path: Path) -> None:
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=missing,
     )
     assert exit_code == 2
@@ -481,11 +482,12 @@ def test_run_docflow_audit_passes_flags(tmp_path: Path) -> None:
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=True,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
     )
     assert exit_code == 0
     lines = calls_path.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == f"docflow:--root|{tmp_path}|--fail-on-violations"
+    assert lines[0] == f"docflow:--root|{tmp_path}|--fail-on-violations|--sppf-gh-ref-mode|required"
     assert lines[1] == "sppf:"
 
 
@@ -507,6 +509,7 @@ def test_run_docflow_audit_cleans_import_state(tmp_path: Path) -> None:
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
         sys_path_list=sys_path_list,
         sys_modules_map=sys_modules_map,
@@ -531,6 +534,7 @@ def test_run_docflow_audit_restores_previous_module(tmp_path: Path) -> None:
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
         sys_modules_map=sys_modules_map,
     )
@@ -556,6 +560,7 @@ def test_run_docflow_audit_cleanup_ignores_missing_sys_path(tmp_path: Path) -> N
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
         sys_path_list=sys_path_list,
     )
@@ -576,6 +581,7 @@ def test_run_docflow_audit_keeps_existing_sys_path_entry(tmp_path: Path) -> None
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
         sys_path_list=sys_path_list,
     )
@@ -596,6 +602,7 @@ def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
     )
     assert exit_code == 1
@@ -615,6 +622,7 @@ def test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf(
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
     )
     assert exit_code == 7
@@ -629,6 +637,7 @@ def test_run_docflow_audit_returns_two_when_loader_creation_fails(
     exit_code = cli._run_docflow_audit(
         root=tmp_path,
         fail_on_violations=False,
+        sppf_gh_ref_mode="required",
         audit_tools_path=module_path,
         spec_from_file_location_fn=lambda *_a, **_k: None,
     )
