@@ -29,6 +29,7 @@ DEFAULT_CHECK_REPORT_PATH = Path("artifacts/audit_reports/dataflow_report.md")
 DEFAULT_TIMEOUT_PROGRESS_PATH = Path("artifacts/audit_reports/timeout_progress.md")
 DEFAULT_DEADLINE_PROFILE_PATH = Path("artifacts/out/deadline_profile.json")
 DEFAULT_RESUME_CHECKPOINT_PATH = Path("artifacts/out/refresh_baselines_resume.json")
+FAILURE_ARTIFACT_PATH = Path("artifacts/out/refresh_baselines_failure.json")
 
 ENV_GATE_UNMAPPED = "GABION_GATE_UNMAPPED_DELTA"
 ENV_GATE_ORPHANED = "GABION_GATE_ORPHANED_DELTA"
@@ -39,6 +40,68 @@ _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
     ticks=_DEFAULT_TIMEOUT_TICKS,
     tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
 )
+
+_TIMEOUT_ENV_FLAGS = [
+    "GABION_LSP_TIMEOUT_TICKS",
+    "GABION_LSP_TIMEOUT_TICK_NS",
+    "GABION_LSP_TIMEOUT_MS",
+    "GABION_LSP_TIMEOUT_SECONDS",
+]
+
+
+@dataclass
+class RefreshBaselinesSubprocessFailure(RuntimeError):
+    command: list[str]
+    timeout_seconds: int | None
+    exit_code: int
+    expected_artifacts: list[Path]
+
+
+def _timeout_env_settings() -> dict[str, str | None]:
+    return {name: os.getenv(name) for name in _TIMEOUT_ENV_FLAGS}
+
+
+def _raise_subprocess_failure(
+    error: subprocess.CalledProcessError,
+    *,
+    timeout: int | None,
+    expected_artifacts: list[Path] | None = None,
+) -> None:
+    cmd = [str(part) for part in error.cmd] if isinstance(error.cmd, list) else [str(error.cmd)]
+    raise RefreshBaselinesSubprocessFailure(
+        command=cmd,
+        timeout_seconds=timeout,
+        exit_code=int(error.returncode),
+        expected_artifacts=expected_artifacts or [],
+    ) from error
+
+
+def _clear_failure_artifact() -> None:
+    if FAILURE_ARTIFACT_PATH.exists():
+        FAILURE_ARTIFACT_PATH.unlink()
+
+
+def _write_failure_artifact(
+    failure: RefreshBaselinesSubprocessFailure,
+) -> Path:
+    payload = {
+        "attempted_command": failure.command,
+        "attempted_flags": [arg for arg in failure.command if arg.startswith("-")],
+        "timeout_settings": {
+            "cli_timeout_seconds": failure.timeout_seconds,
+            "env": _timeout_env_settings(),
+        },
+        "exit_code": failure.exit_code,
+        "expected_artifacts": {
+            str(path): path.exists() for path in failure.expected_artifacts
+        },
+    }
+    FAILURE_ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    FAILURE_ARTIFACT_PATH.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return FAILURE_ARTIFACT_PATH
 
 
 @dataclass(frozen=True)
@@ -138,14 +201,20 @@ def _run_check(
             timeout=timeout,
             env=_refresh_subprocess_env(timeout_env),
         )
-    except subprocess.CalledProcessError as exc:
-        message = _format_run_check_failure(
-            cmd=cmd,
-            returncode=exc.returncode,
-            report_path=report_path,
+    except subprocess.CalledProcessError as error:
+        expected_artifacts = [
+            DEFAULT_TIMEOUT_PROGRESS_PATH,
+            DEFAULT_DEADLINE_PROFILE_PATH,
+            report_path,
+        ]
+        expected_artifacts.extend(
+            Path(arg) for arg in (extra or []) if not arg.startswith("-")
         )
-        exc.add_note(message)
-        raise
+        _raise_subprocess_failure(
+            error,
+            timeout=timeout,
+            expected_artifacts=expected_artifacts,
+        )
 
 
 def _run_docflow_delta_emit(
@@ -154,12 +223,20 @@ def _run_docflow_delta_emit(
     *,
     run_fn=subprocess.run,
 ) -> None:
-    run_fn(
-        [sys.executable, "scripts/docflow_delta_emit.py"],
-        check=True,
-        timeout=timeout,
-        env=_refresh_subprocess_env(timeout_env),
-    )
+    cmd = [sys.executable, "scripts/docflow_delta_emit.py"]
+    try:
+        run_fn(
+            cmd,
+            check=True,
+            timeout=timeout,
+            env=_refresh_subprocess_env(timeout_env),
+        )
+    except subprocess.CalledProcessError as error:
+        _raise_subprocess_failure(
+            error,
+            timeout=timeout,
+            expected_artifacts=[DOCFLOW_DELTA_PATH, DOCFLOW_CURRENT_PATH],
+        )
 
 
 def _state_args(path: Path, flag: str) -> list[str]:
@@ -322,6 +399,7 @@ def main(
     guard_docflow_delta_fn=_guard_docflow_delta,
 ) -> int:
     with deadline_scope_factory():
+        _clear_failure_artifact()
         parser = argparse.ArgumentParser(
             description="Refresh baseline carriers via gabion check.",
         )
@@ -465,8 +543,14 @@ def main(
             DOCFLOW_BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(DOCFLOW_CURRENT_PATH, DOCFLOW_BASELINE_PATH)
 
+        _clear_failure_artifact()
         return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except RefreshBaselinesSubprocessFailure as failure:
+        artifact_path = _write_failure_artifact(failure)
+        print(f"refresh_baselines failure artifact: {artifact_path}", file=sys.stderr)
+        raise SystemExit(1)

@@ -52,7 +52,7 @@ def test_run_check_formats_called_process_error() -> None:
     def _raise_run(*_args, **_kwargs):
         raise subprocess.CalledProcessError(returncode=2, cmd=["gabion", "check"])
 
-    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+    with pytest.raises(refresh_baselines.RefreshBaselinesSubprocessFailure) as exc_info:
         refresh_baselines._run_check(
             "--write-ambiguity-baseline",
             timeout=None,
@@ -61,12 +61,14 @@ def test_run_check_formats_called_process_error() -> None:
             resume_checkpoint=None,
             run_fn=_raise_run,
         )
-
-    notes = getattr(exc_info.value, "__notes__", [])
-    assert notes
-    message = "\n".join(notes)
-    assert "Command:" in message
-    assert "Exit code: 2" in message
-    assert str(refresh_baselines.DEFAULT_TIMEOUT_PROGRESS_PATH) in message
-    assert str(refresh_baselines.DEFAULT_DEADLINE_PROFILE_PATH) in message
-    assert str(refresh_baselines.DEFAULT_CHECK_REPORT_PATH) in message
+    failure = exc_info.value
+    assert failure.exit_code == 2
+    assert str(refresh_baselines.DEFAULT_TIMEOUT_PROGRESS_PATH) in {
+        str(path) for path in failure.expected_artifacts
+    }
+    assert str(refresh_baselines.DEFAULT_DEADLINE_PROFILE_PATH) in {
+        str(path) for path in failure.expected_artifacts
+    }
+    assert str(refresh_baselines.DEFAULT_CHECK_REPORT_PATH) in {
+        str(path) for path in failure.expected_artifacts
+    }
