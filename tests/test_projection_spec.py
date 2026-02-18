@@ -281,6 +281,38 @@ def test_count_by_output_stable_under_permuted_discovery_order() -> None:
     ]
 
 
+
+
+def test_count_by_accepts_legacy_single_field_param() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="count-field",
+        domain="tests",
+        pipeline=(ProjectionOp("count_by", {"field": "class"}),),
+    )
+    rows = [{"class": "b"}, {"class": "a"}, {"class": "b"}]
+    assert apply_spec(spec, rows) == [
+        {"class": "a", "count": 1},
+        {"class": "b", "count": 2},
+    ]
+
+
+def test_traverse_stringifies_merged_non_string_keys() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="traverse",
+        domain="tests",
+        pipeline=(
+            ProjectionOp(
+                "traverse",
+                {"field": "items", "merge": True, "prefix": "item_", "index": "idx"},
+            ),
+        ),
+    )
+    rows = [{"items": [{1: "x", "name": "first"}]}]
+    assert apply_spec(spec, rows) == [{"idx": 0, "item_1": "x", "item_name": "first"}]
+
+
 def test_apply_spec_params_override_replaces_normalized_params() -> None:
     rows = [{"value": 1}, {"value": 3}, {"value": 5}]
 
