@@ -59,3 +59,43 @@ def test_deadline_tick_budget_allows_check_non_meter_clock() -> None:
         pass
 
     assert server._deadline_tick_budget_allows_check(_Clock()) is True
+
+
+# gabion:evidence E:function_site::server.py::gabion.server._diagnostics_for_path
+def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order(monkeypatch) -> None:
+    server = _load()
+
+    class _Result:
+        def __init__(self, span_items: list[tuple[str, tuple[int, int, int, int]]]) -> None:
+            self.groups_by_path = {
+                "/tmp/sample.py": {
+                    "caller": [("a", "b")],
+                }
+            }
+            self.param_spans_by_path = {
+                "/tmp/sample.py": {
+                    "caller": dict(span_items)
+                }
+            }
+
+    monkeypatch.setattr(
+        server,
+        "analyze_paths",
+        lambda *args, **kwargs: _Result([
+            ("a", (1, 0, 1, 1)),
+            ("b", (1, 2, 1, 3)),
+        ]),
+    )
+    stable = server._diagnostics_for_path("/tmp/sample.py", None)
+
+    monkeypatch.setattr(
+        server,
+        "analyze_paths",
+        lambda *args, **kwargs: _Result([
+            ("b", (1, 2, 1, 3)),
+            ("a", (1, 0, 1, 1)),
+        ]),
+    )
+    shuffled = server._diagnostics_for_path("/tmp/sample.py", None)
+
+    assert [diag.message for diag in stable] == [diag.message for diag in shuffled]
