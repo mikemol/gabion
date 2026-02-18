@@ -175,7 +175,16 @@ jobs:
           if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
             rev_range="HEAD~20..HEAD"
           else
-            rev_range="$BEFORE_SHA..$AFTER_SHA"
+            if ! git cat-file -e "${AFTER_SHA}^{commit}" 2>/dev/null || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              git fetch --no-tags origin "$BEFORE_SHA" "$AFTER_SHA" || true
+            fi
+
+            if git cat-file -e "${AFTER_SHA}^{commit}" 2>/dev/null && git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              rev_range="$BEFORE_SHA..$AFTER_SHA"
+            else
+              echo "Push SHAs unavailable locally; falling back to safe local range."
+              rev_range="HEAD~20..HEAD"
+            fi
           fi
           .venv/bin/python scripts/sppf_sync.py \
             --validate \
