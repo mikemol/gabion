@@ -325,6 +325,9 @@ class InvariantProposition:
     terms: tuple[str, ...]
     scope: str | None = None
     source: str | None = None
+    invariant_id: str | None = None
+    confidence: float | None = None
+    evidence_keys: tuple[str, ...] = ()
 
     def as_dict(self) -> JSONObject:
         payload: JSONObject = {
@@ -335,7 +338,85 @@ class InvariantProposition:
             payload["scope"] = self.scope
         if self.source is not None:
             payload["source"] = self.source
+        if self.invariant_id is not None:
+            payload["invariant_id"] = self.invariant_id
+        if self.confidence is not None:
+            payload["confidence"] = self.confidence
+        if self.evidence_keys:
+            payload["evidence_keys"] = list(self.evidence_keys)
         return payload
+
+
+def _invariant_digest(payload: Mapping[str, object], *, prefix: str) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    digest = hashlib.blake2s(encoded, digest_size=12).hexdigest()
+    return f"{prefix}:{digest}"
+
+
+def _invariant_confidence(value: float | None) -> float:
+    if value is None:
+        return 1.0
+    return max(0.0, min(1.0, float(value)))
+
+
+def _compute_invariant_id(
+    *,
+    form: str,
+    terms: tuple[str, ...],
+    scope: str,
+    source: str,
+) -> str:
+    payload = {
+        "form": form,
+        "terms": list(terms),
+        "scope": scope,
+        "source": source,
+    }
+    return _invariant_digest(payload, prefix="inv")
+
+
+def _compute_invariant_evidence_key(
+    *,
+    invariant_id: str,
+    form: str,
+    terms: tuple[str, ...],
+    scope: str,
+) -> str:
+    term_display = ",".join(terms)
+    return f"E:invariant::{scope}::{form}::{term_display}::{invariant_id}"
+
+
+def _normalize_invariant_proposition(
+    proposition: InvariantProposition,
+    *,
+    default_scope: str,
+    default_source: str,
+) -> InvariantProposition:
+    scope = proposition.scope or default_scope
+    source = proposition.source or default_source
+    invariant_id = proposition.invariant_id or _compute_invariant_id(
+        form=proposition.form,
+        terms=proposition.terms,
+        scope=scope,
+        source=source,
+    )
+    evidence_keys = proposition.evidence_keys or (
+        _compute_invariant_evidence_key(
+            invariant_id=invariant_id,
+            form=proposition.form,
+            terms=proposition.terms,
+            scope=scope,
+        ),
+    )
+    return InvariantProposition(
+        form=proposition.form,
+        terms=proposition.terms,
+        scope=scope,
+        source=source,
+        invariant_id=invariant_id,
+        confidence=_invariant_confidence(proposition.confidence),
+        evidence_keys=tuple(str(key) for key in evidence_keys),
+    )
 
 @dataclass
 class SymbolTable:
@@ -1355,10 +1436,15 @@ class _InvariantCollector(ast.NodeVisitor):
             scope=self._scope,
         )
         if prop is not None:
-            key = (prop.form, prop.terms, prop.scope or "")
+            normalized = _normalize_invariant_proposition(
+                prop,
+                default_scope=self._scope,
+                default_source="assert",
+            )
+            key = (normalized.form, normalized.terms, normalized.scope or "")
             if key not in self._seen:
                 self._seen.add(key)
-                self.propositions.append(prop)
+                self.propositions.append(normalized)
         self.generic_visit(node)
 
 
@@ -1403,13 +1489,13 @@ def _collect_invariant_propositions(
                     raise TypeError(
                         "Invariant emitters must yield InvariantProposition instances."
                     )
-                normalized = InvariantProposition(
-                    form=prop.form,
-                    terms=prop.terms,
-                    scope=prop.scope or scope,
-                    source=prop.source or "emitter",
+                propositions.append(
+                    _normalize_invariant_proposition(
+                        prop,
+                        default_scope=scope,
+                        default_source="emitter",
+                    )
                 )
-                propositions.append(normalized)
     return propositions
 
 
@@ -1430,6 +1516,111 @@ def _format_invariant_propositions(
         _format_invariant_proposition(prop)
         for prop in props
     ]
+
+
+def generate_property_hook_manifest(
+    invariants: Sequence[InvariantProposition],
+    *,
+    min_confidence: float = 0.7,
+    emit_hypothesis_templates: bool = False,
+) -> JSONObject:
+    threshold = max(0.0, min(1.0, min_confidence))
+    hooks: list[JSONObject] = []
+    for proposition in sorted(
+        invariants,
+        key=lambda prop: (
+            prop.scope or "",
+            prop.form,
+            prop.terms,
+            prop.invariant_id or "",
+        ),
+    ):
+        check_deadline()
+        scope = proposition.scope or ""
+        if not scope or ":" not in scope:
+            continue
+        confidence = _invariant_confidence(proposition.confidence)
+        if confidence < threshold:
+            continue
+        normalized = _normalize_invariant_proposition(
+            proposition,
+            default_scope=scope,
+            default_source=proposition.source or "inferred",
+        )
+        hook_id = _invariant_digest(
+            {
+                "invariant_id": normalized.invariant_id,
+                "scope": normalized.scope,
+            },
+            prefix="hook",
+        )
+        path, callable_name = scope.rsplit(":", 1)
+        hook_payload: JSONObject = {
+            "hook_id": hook_id,
+            "invariant_id": normalized.invariant_id or "",
+            "callable": {
+                "path": path,
+                "qual": callable_name,
+            },
+            "form": normalized.form,
+            "terms": list(normalized.terms),
+            "confidence": confidence,
+            "source": normalized.source or "",
+            "source_invariant_evidence_keys": list(normalized.evidence_keys),
+        }
+        if emit_hypothesis_templates:
+            params = ", ".join(normalized.terms)
+            hypothesis_name = (
+                f"test_{callable_name}_{(normalized.invariant_id or '').replace(':', '_')}"
+                .replace("-", "_")
+            )
+            hook_payload["hypothesis_template"] = "\n".join(
+                [
+                    "from hypothesis import given",
+                    "",
+                    f"def {hypothesis_name}():",
+                    f"    # invariant: {normalized.form}({params})",
+                    "    # TODO: provide strategies and callable invocation.",
+                    "    pass",
+                ]
+            )
+        hooks.append(hook_payload)
+    hooks = [
+        hooks[idx]
+        for idx in sorted(
+            range(len(hooks)),
+            key=lambda idx: (
+                str(hooks[idx].get("hook_id", "")),
+                str(hooks[idx].get("invariant_id", "")),
+            ),
+        )
+    ]
+    callables: dict[str, list[str]] = defaultdict(list)
+    for hook in hooks:
+        check_deadline()
+        callable_payload = hook.get("callable")
+        if not isinstance(callable_payload, Mapping):
+            continue
+        path = str(callable_payload.get("path", "") or "")
+        qual = str(callable_payload.get("qual", "") or "")
+        if not path or not qual:
+            continue
+        callables[f"{path}:{qual}"].append(str(hook.get("hook_id", "") or ""))
+    callable_index = [
+        {
+            "scope": scope,
+            "hook_ids": sorted(hook_ids),
+        }
+        for scope, hook_ids in sorted(callables.items())
+    ]
+    return {
+        "format_version": 1,
+        "kind": "property_hook_manifest",
+        "min_confidence": threshold,
+        "emit_hypothesis_templates": emit_hypothesis_templates,
+        "hooks": hooks,
+        "callable_index": callable_index,
+    }
 
 
 def _decorator_name(node: ast.AST) -> str | None:
@@ -15176,14 +15367,27 @@ def _deserialize_invariants_for_resume(
                 normalized_terms.append(term)
         scope = entry.get("scope")
         source = entry.get("source")
-        invariants.append(
+        invariant_id = entry.get("invariant_id")
+        confidence_raw = entry.get("confidence")
+        confidence = float(confidence_raw) if isinstance(confidence_raw, (int, float)) else None
+        raw_evidence = entry.get("evidence_keys")
+        evidence_keys: tuple[str, ...] = ()
+        if isinstance(raw_evidence, Sequence) and not isinstance(raw_evidence, (str, bytes)):
+            evidence_keys = tuple(str(item) for item in raw_evidence if str(item).strip())
+        normalized = _normalize_invariant_proposition(
             InvariantProposition(
                 form=form,
                 terms=tuple(normalized_terms),
                 scope=scope if isinstance(scope, str) else None,
                 source=source if isinstance(source, str) else None,
-            )
+                invariant_id=invariant_id if isinstance(invariant_id, str) else None,
+                confidence=confidence,
+                evidence_keys=evidence_keys,
+            ),
+            default_scope=scope if isinstance(scope, str) else "",
+            default_source=source if isinstance(source, str) else "resume",
         )
+        invariants.append(normalized)
     return invariants
 
 
@@ -15651,6 +15855,9 @@ def build_synthesis_plan(
     allow_singletons: bool = False,
     merge_overlap_threshold: float | None = None,
     config: AuditConfig | None = None,
+    invariant_propositions: Sequence[InvariantProposition] = (),
+    property_hook_min_confidence: float = 0.7,
+    emit_hypothesis_templates: bool = False,
 ) -> JSONObject:
     check_deadline()
     parse_failure_witnesses: list[JSONObject] = []
@@ -15756,6 +15963,11 @@ def build_synthesis_plan(
         )
         payload = response.model_dump()
         payload.update(signature_meta)
+        payload["property_hook_manifest"] = generate_property_hook_manifest(
+            invariant_propositions,
+            min_confidence=property_hook_min_confidence,
+            emit_hypothesis_templates=emit_hypothesis_templates,
+        )
         return payload
 
     declared = _collect_declared_bundles(root)
@@ -15915,6 +16127,11 @@ def build_synthesis_plan(
     )
     payload = response.model_dump()
     payload.update(signature_meta)
+    payload["property_hook_manifest"] = generate_property_hook_manifest(
+        invariant_propositions,
+        min_confidence=property_hook_min_confidence,
+        emit_hypothesis_templates=emit_hypothesis_templates,
+    )
     return payload
 
 
@@ -17306,6 +17523,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Jaccard overlap threshold for merging bundles (0.0-1.0).",
     )
     parser.add_argument(
+        "--synthesis-property-hook-min-confidence",
+        type=float,
+        default=0.7,
+        help="Minimum invariant confidence required for property-hook emission.",
+    )
+    parser.add_argument(
+        "--synthesis-property-hook-hypothesis",
+        action="store_true",
+        help="Include optional Hypothesis skeletons in property-hook manifest output.",
+    )
+    parser.add_argument(
         "--analysis-timeout-ticks",
         type=int,
         default=60_000,
@@ -17573,7 +17801,12 @@ def _run_impl(
         include_deadline_obligations=bool(args.report) or bool(args.lint),
         include_decision_surfaces=include_decisions,
         include_value_decision_surfaces=include_decisions,
-        include_invariant_propositions=bool(args.report),
+        include_invariant_propositions=(
+            bool(args.report)
+            or bool(args.synthesis_plan)
+            or bool(args.synthesis_report)
+            or bool(args.synthesis_property_hook_hypothesis)
+        ),
         include_lint_lines=bool(args.lint),
         include_ambiguities=include_ambiguities,
         include_bundle_forest=bool(args.report)
@@ -17659,6 +17892,9 @@ def _run_impl(
             allow_singletons=args.synthesis_allow_singletons,
             merge_overlap_threshold=merge_overlap_threshold,
             config=config,
+            invariant_propositions=analysis.invariant_propositions,
+            property_hook_min_confidence=args.synthesis_property_hook_min_confidence,
+            emit_hypothesis_templates=bool(args.synthesis_property_hook_hypothesis),
         )
         if args.synthesis_plan:
             _write_json_or_stdout(args.synthesis_plan, synthesis_plan)
