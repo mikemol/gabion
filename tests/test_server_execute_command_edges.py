@@ -32,6 +32,15 @@ class _DummyServer:
         self.workspace = _DummyWorkspace(root_path)
 
 
+class _DummyNotifyingServer(_DummyServer):
+    def __init__(self, root_path: str) -> None:
+        super().__init__(root_path)
+        self.notifications: list[tuple[str, dict[str, object]]] = []
+
+    def send_notification(self, method: str, params: dict[str, object]) -> None:
+        self.notifications.append((method, params))
+
+
 @dataclass
 class _CommandResult:
     exit_code: int
@@ -139,6 +148,95 @@ def _execute_with_deps(
 ) -> dict:
     deps = server._default_execute_command_deps().with_overrides(**overrides)
     return server.execute_command_with_deps(ls, payload, deps=deps)
+
+
+def _progress_values(ls: _DummyNotifyingServer) -> list[dict[str, object]]:
+    values: list[dict[str, object]] = []
+    for method, params in ls.notifications:
+        if method != server._LSP_PROGRESS_NOTIFICATION_METHOD:
+            continue
+        if not isinstance(params, dict):
+            continue
+        if params.get("token") != server._LSP_PROGRESS_TOKEN:
+            continue
+        value = params.get("value")
+        if isinstance(value, dict):
+            values.append(value)
+    return values
+
+
+def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout({"root": str(tmp_path), "paths": [str(module_path)], "report": "-"}),
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    progress_values = _progress_values(ls)
+    assert progress_values
+    assert all(value.get("schema") == "gabion/dataflow_progress_v1" for value in progress_values)
+    assert all(value.get("format_version") == 1 for value in progress_values)
+    assert any(
+        "completed_files" in value
+        and "in_progress_files" in value
+        and "remaining_files" in value
+        and "total_files" in value
+        and "work_done" in value
+        and "work_total" in value
+        for value in progress_values
+    )
+    assert any(
+        value.get("done") is True and value.get("analysis_state") == "succeeded"
+        for value in progress_values
+    )
+
+
+def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout({"root": str(tmp_path), "paths": [str(module_path)], "report": "-"}),
+        analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            _timeout_exc(progress={"classification": "timed_out_no_progress"})
+        ),
+    )
+
+    assert result["timeout"] is True
+    progress_values = _progress_values(ls)
+    terminal_value = progress_values[-1]
+    assert terminal_value.get("done") is True
+    analysis_state = str(terminal_value.get("analysis_state", ""))
+    assert analysis_state.startswith("timed_out_")
+    timeout_progress = (result.get("timeout_context") or {}).get("progress")
+    assert isinstance(timeout_progress, dict)
+    assert terminal_value.get("classification") == timeout_progress.get("classification")
+
+
+def test_execute_command_emits_lsp_progress_failed_terminal(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    with pytest.raises(RuntimeError, match="boom"):
+        _execute_with_deps(
+            ls,
+            _with_timeout({"root": str(tmp_path), "paths": [str(module_path)], "report": "-"}),
+            analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+        )
+
+    progress_values = _progress_values(ls)
+    terminal_value = progress_values[-1]
+    assert terminal_value.get("done") is True
+    assert terminal_value.get("analysis_state") == "failed"
+    assert terminal_value.get("classification") == "failed"
 
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
