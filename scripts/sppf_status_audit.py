@@ -8,6 +8,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
+from gabion.order_contract import ordered_or_sorted
+
 
 IN_FILE_RE = re.compile(r"in-(\d+)\.md$")
 INFLUENCE_ROW_RE = re.compile(r"^-\s+in/in-(\d+)\.md\s+—\s+\*\*(\w+)\*\*", re.MULTILINE)
@@ -19,6 +26,13 @@ CHECKLIST_STATUS_NODE_RE = re.compile(r"<a\s+id=\"in-(\d+)")
 DOC_REF_IN_RE = re.compile(r"in-(\d+)@")
 STATUS_HEADING_RE = re.compile(r"^###\s+Status\s*$", re.MULTILINE)
 OVERRIDE_RE = re.compile(r"sppf-status-override\s*:\s*(in-\d+|all)", re.IGNORECASE)
+
+_DEFAULT_AUDIT_TIMEOUT_TICKS = 120_000
+_DEFAULT_AUDIT_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_AUDIT_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_AUDIT_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_AUDIT_TIMEOUT_TICK_NS,
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +84,7 @@ def _extract_in_status(path: Path) -> str | None:
         return None
     tail = text[match.end() :]
     for line in tail.splitlines():
+        check_deadline()
         line = line.strip()
         if not line:
             continue
@@ -81,10 +96,16 @@ def _extract_in_status(path: Path) -> str | None:
 
 def _collect_overrides(*texts: str) -> set[str]:
     overrides: set[str] = set()
-    for text in texts:
-        for match in OVERRIDE_RE.finditer(text):
+    for text in deadline_loop_iter(texts):
+        for match in deadline_loop_iter(OVERRIDE_RE.finditer(text)):
             overrides.add(match.group(1).lower())
     return overrides
+
+
+def _deadline_scope():
+    return deadline_scope_from_lsp_env(
+        default_budget=_DEFAULT_AUDIT_TIMEOUT_BUDGET,
+    )
 
 
 def run_audit(root: Path) -> tuple[int, list[str]]:
@@ -99,7 +120,11 @@ def run_audit(root: Path) -> tuple[int, list[str]]:
 
     records: dict[str, list[StatusRecord]] = {}
 
-    for in_file in sorted(in_dir.glob("in-*.md")):
+    for in_file in ordered_or_sorted(
+        in_dir.glob("in-*.md"),
+        source="scripts.sppf_status_audit.run_audit.in_files",
+    ):
+        check_deadline()
         if not IN_FILE_RE.search(in_file.name):
             continue
         in_id = in_file.stem
@@ -111,7 +136,7 @@ def run_audit(root: Path) -> tuple[int, list[str]]:
                 StatusRecord(category=category, source="in", detail=f"{in_file.as_posix()}")
             )
 
-    for in_num, token in INFLUENCE_ROW_RE.findall(influence_text):
+    for in_num, token in deadline_loop_iter(INFLUENCE_ROW_RE.findall(influence_text)):
         in_id = f"in-{in_num}"
         category = _normalize_influence_status(token)
         if category:
@@ -124,16 +149,16 @@ def run_audit(root: Path) -> tuple[int, list[str]]:
             )
 
     checklist_rows: dict[str, list[str]] = {}
-    for match in CHECKLIST_TAG_RE.finditer(checklist_text):
+    for match in deadline_loop_iter(CHECKLIST_TAG_RE.finditer(checklist_text)):
         line = match.group("line")
         if "sppf-status-node" not in line and not CHECKLIST_STATUS_NODE_RE.search(line):
             continue
         category = _normalize_checklist_pair(match.group("doc"), match.group("impl"))
         refs = match.group("refs")
-        for in_num in DOC_REF_IN_RE.findall(refs):
+        for in_num in deadline_loop_iter(DOC_REF_IN_RE.findall(refs)):
             checklist_rows.setdefault(f"in-{in_num}", []).append(category)
 
-    for in_id, categories in checklist_rows.items():
+    for in_id, categories in deadline_loop_iter(checklist_rows.items()):
         uniq = set(categories)
         if uniq == {"done"}:
             aggregate = "done"
@@ -145,19 +170,26 @@ def run_audit(root: Path) -> tuple[int, list[str]]:
             StatusRecord(
                 category=aggregate,
                 source="sppf_checklist",
-                detail=f"{checklist_path.as_posix()}:{sorted(uniq)}",
+                detail=(
+                    f"{checklist_path.as_posix()}:"
+                    f"{ordered_or_sorted(uniq, source='scripts.sppf_status_audit.run_audit.uniq')}"
+                ),
             )
         )
 
     errors: list[str] = []
-    for in_id, row in sorted(records.items()):
+    for in_id, row in ordered_or_sorted(
+        records.items(),
+        source="scripts.sppf_status_audit.run_audit.records",
+    ):
+        check_deadline()
         categories = {item.category for item in row}
         if len(categories) <= 1:
             continue
         if "all" in overrides or in_id in overrides:
             continue
         errors.append(f"{in_id}: status drift detected")
-        for item in row:
+        for item in deadline_loop_iter(row):
             errors.append(f"  - {item.source}: {item.category} ({item.detail})")
 
     if errors:
@@ -169,12 +201,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("."), help="Repository root")
     args = parser.parse_args(argv)
-    code, lines = run_audit(args.root.resolve())
-    stream = sys.stderr if code else sys.stdout
-    for line in lines:
-        print(line, file=stream)
-    return code
+    with _deadline_scope():
+        code, lines = run_audit(args.root.resolve())
+        stream = sys.stderr if code else sys.stdout
+        for line in deadline_loop_iter(lines):
+            print(line, file=stream)
+        return code
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
