@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: codex_repo_walkthrough
 doc_role: process
@@ -98,10 +98,18 @@ Gabion uses layered quality gates:
 - evidence-surface checks (e.g., drift checks where configured)
 - policy/docflow checks for governance and document integrity
 
-Operational commands Codex should use (repo-local tooling):
-- `mise exec -- python -m gabion check`
-- `mise exec -- python -m pytest`
-- targeted tests for changed modules first, then broader suites as needed
+### Validation lanes (selected by change scope)
+
+- **Semantic lane** (LSP-first analysis correctness and behavior confidence):
+  - `mise exec -- python -m gabion check`
+  - `mise exec -- python -m pytest`
+- **Governance lane** (governance correctness and doc/state integrity):
+  - `mise exec -- python -m gabion docflow-audit`
+  - `mise exec -- python -m gabion status-consistency --fail-on-violations`
+
+`gabion check` is the analysis gate and does **not** execute docflow governance audits.
+
+Use one or both lanes based on change scope; micro-tasks do not always require all four commands.
 
 Key point: Gabion audits itself. The same analyzer concepts (evidence carriers,
 determinism, policy constraints, dataflow grammar discipline) are applied to
