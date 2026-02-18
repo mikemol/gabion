@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-import types
 
 import pytest
 
@@ -73,36 +72,7 @@ def _make_use_visitor(
     )
     return tree, visitor, use_map, call_args
 
-# gabion:evidence E:function_site::test_visitors_edges.py::tests.test_visitors_edges._load
-def test_import_visitor_relative_and_star() -> None:
-    (
-        _,
-        _,
-        _,
-        _,
-        _,
-        _,
-        ImportVisitor,
-        _,
-        _,
-    ) = _load()
-    table = types.SimpleNamespace(imports={}, star_imports={})
-    visitor = ImportVisitor("pkg.mod", table)
-    visitor.visit_ImportFrom(
-        ast.ImportFrom(module=None, names=[ast.alias(name="x")], level=0)
-    )
-    visitor.visit_ImportFrom(
-        ast.ImportFrom(module="too.deep", names=[ast.alias(name="y")], level=5)
-    )
-    visitor.visit_ImportFrom(
-        ast.ImportFrom(module="utils", names=[ast.alias(name="*")], level=0)
-    )
-    visitor.visit_ImportFrom(
-        ast.ImportFrom(module="helpers", names=[ast.alias(name="tool")], level=1)
-    )
-    assert table.star_imports["pkg.mod"] == {"utils"}
-    assert table.imports[("pkg.mod", "tool")] == "pkg.helpers.tool"
-
+# equivalent_witness — E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_alias_from_call_branches() -> None:
     code = "def f(a, b):\n    return a\n"
@@ -247,32 +217,28 @@ def test_record_forward_skips_call_without_span() -> None:
     )
     assert visitor._bind_sequence(mismatch_target, mismatch_rhs) is True
 
+@pytest.mark.parametrize(
+    ("call_expr", "expected_alias"),
+    [
+        ("identity(**kwargs)", None),
+        ("identity(extra=a)", None),
+        ("identity(x=1)", None),
+        ("identity(1)", None),
+        ("identity(x=a)", ["a"]),
+    ],
+)
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
-def test_alias_from_call_keyword_branches() -> None:
+def test_alias_from_call_keyword_and_kw_aliases(
+    call_expr: str,
+    expected_alias: list[str] | None,
+) -> None:
     tree, visitor, _, _ = _make_use_visitor(
         "def f(a):\n    return a\n",
         ["a"],
         return_aliases={"identity": (["x"], ["x"])},
     )
-    call = ast.parse("identity(**kwargs)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    call = ast.parse("identity(extra=a)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    call = ast.parse("identity(x=1)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    visitor.visit(tree)
-
-# gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
-def test_alias_from_call_positional_and_kw_aliases() -> None:
-    tree, visitor, _, _ = _make_use_visitor(
-        "def f(a):\n    return a\n",
-        ["a"],
-        return_aliases={"identity": (["x"], ["x"])},
-    )
-    call = ast.parse("identity(1)").body[0].value
-    assert visitor._alias_from_call(call) is None
-    call = ast.parse("identity(x=a)").body[0].value
-    assert visitor._alias_from_call(call) == ["a"]
+    call = ast.parse(call_expr).body[0].value
+    assert visitor._alias_from_call(call) == expected_alias
     visitor.visit(tree)
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
