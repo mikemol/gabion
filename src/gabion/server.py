@@ -1784,6 +1784,8 @@ def _write_bootstrap_incremental_artifacts(
         )
     phase_checkpoint_state["collection"] = {
         "status": "bootstrap",
+        "work_done": 0,
+        "work_total": 0,
         "completed_files": 0,
         "in_progress_files": 0,
         "remaining_files": 0,
@@ -1812,6 +1814,22 @@ def _render_incremental_report(
         f"- `analysis_state`: `{analysis_state}`",
     ]
     if isinstance(progress_payload, Mapping):
+        phase = progress_payload.get("phase")
+        if isinstance(phase, str) and phase:
+            lines.append(f"- `phase`: `{phase}`")
+        work_done_raw = progress_payload.get("work_done")
+        work_total_raw = progress_payload.get("work_total")
+        if isinstance(work_done_raw, int) and isinstance(work_total_raw, int):
+            work_done = max(work_done_raw, 0)
+            work_total = max(work_total_raw, 0)
+            if work_total > 0:
+                work_done = min(work_done, work_total)
+            lines.append(f"- `work_done`: `{work_done}`")
+            lines.append(f"- `work_total`: `{work_total}`")
+            if work_total > 0:
+                lines.append(
+                    f"- `work_percent`: `{(100.0 * work_done / work_total):.2f}`"
+                )
         classification = progress_payload.get("classification")
         if isinstance(classification, str):
             lines.append(f"- `classification`: `{classification}`")
@@ -3514,6 +3532,8 @@ def _execute_command_total(
             report_sections_cache_reason = None
             phase_checkpoint_state["collection"] = {
                 "status": "checkpointed",
+                "work_done": collection_progress["completed_files"],
+                "work_total": collection_progress["total_files"],
                 "completed_files": collection_progress["completed_files"],
                 "in_progress_files": collection_progress["in_progress_files"],
                 "remaining_files": collection_progress["remaining_files"],
@@ -3568,6 +3588,8 @@ def _execute_command_total(
             phase: Literal["collection", "forest", "edge", "post"],
             groups_by_path: dict[Path, dict[str, list[set[str]]]],
             report_carrier: ReportCarrier,
+            work_done: int,
+            work_total: int,
         ) -> None:
             nonlocal report_sections_cache_reason
             _emit_lsp_progress(
@@ -3583,7 +3605,7 @@ def _execute_command_total(
                 phase,
                 groups_by_path,
                 report_carrier,
-            )
+            ) + (int(work_done), int(work_total))
             if phase_progress_signatures.get(phase) == phase_signature:
                 return
             phase_progress_signatures[phase] = phase_signature
@@ -3607,7 +3629,11 @@ def _execute_command_total(
             sections.update(available_sections)
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state=f"analysis_{phase}_in_progress",
-                progress_payload={"phase": phase},
+                progress_payload={
+                    "phase": phase,
+                    "work_done": int(work_done),
+                    "work_total": int(work_total),
+                },
                 projection_rows=projection_rows,
                 sections=sections,
             )
@@ -3633,6 +3659,8 @@ def _execute_command_total(
             report_sections_cache_reason = None
             phase_checkpoint_state[phase] = {
                 "status": "checkpointed",
+                "work_done": int(work_done),
+                "work_total": int(work_total),
                 "section_ids": sorted(sections),
                 "resolved_sections": len(sections),
             }
@@ -4251,6 +4279,8 @@ def _execute_command_total(
                 )
                 phase_checkpoint_state["post"] = {
                     "status": "final",
+                    "work_done": 1,
+                    "work_total": 1,
                     "section_ids": sorted(resolved_sections),
                     "resolved_sections": len(resolved_sections),
                 }

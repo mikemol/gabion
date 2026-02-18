@@ -573,6 +573,8 @@ def test_analyze_paths_timeout_flushes_phase_emitters_best_effort(
         phase: str,
         _groups_by_path: dict[Path, dict[str, list[set[str]]]],
         _report: da.ReportCarrier,
+        _work_done: int,
+        _work_total: int,
     ) -> None:
         callback_state["phases"].append(phase)
         if phase == "post" or callback_state["raised"]:
