@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: codex_repo_walkthrough
 doc_role: process
@@ -143,6 +143,11 @@ Current operating model:
 3. Open one PR per task (or small coherent bundle of tasks).
 4. Use another LLM agent to churn through integration, coverage, and merges.
 5. Repeat until class is burned down; then move to next class.
+
+Branch guardrail (compact): routine human integration is via `stage`; `next`
+and `release` are automation-only. Treat `README.md#repo_contract` and
+`CONTRIBUTING.md#contributing_contract` as the authoritative branch/workflow
+references.
 
 Task quality bar:
 - bounded scope,
