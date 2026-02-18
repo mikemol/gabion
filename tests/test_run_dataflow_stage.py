@@ -37,9 +37,14 @@ def _stage_paths(paths: dict[str, Path]) -> run_dataflow_stage.StagePaths:
         timeout_progress_md_path=paths["timeout_md"],
         deadline_profile_json_path=paths["deadline_json"],
         deadline_profile_md_path=paths["deadline_md"],
+        obligation_trace_json_path=_obligation_trace_path(paths),
         resume_checkpoint_path=paths["resume"],
         baseline_path=paths["baseline"],
     )
+
+
+def _obligation_trace_path(paths: dict[str, Path]) -> Path:
+    return paths["deadline_json"].parent / "obligation_trace.json"
 
 
 def test_stage_ids_are_bounded_and_ordered() -> None:
@@ -156,6 +161,8 @@ def test_emit_stage_outputs_writes_terminal_and_stage_keys(tmp_path: Path) -> No
             analysis_state="timed_out_progress_resume",
             is_timeout_resume=True,
             metrics_line="ticks=1 checks=1 ticks_per_ns=0.1 wall_s=1.000",
+            obligation_rows=(),
+            incompleteness_markers=(),
         ),
         run_dataflow_stage.StageResult(
             stage_id="b",
@@ -163,6 +170,8 @@ def test_emit_stage_outputs_writes_terminal_and_stage_keys(tmp_path: Path) -> No
             analysis_state="done",
             is_timeout_resume=False,
             metrics_line="ticks=2 checks=2 ticks_per_ns=0.2 wall_s=2.000",
+            obligation_rows=(),
+            incompleteness_markers=(),
         ),
     ]
     run_dataflow_stage._emit_stage_outputs(output_path, results)
@@ -214,3 +223,70 @@ def test_run_staged_marks_success_as_failure_when_delta_gate_fails(tmp_path: Pat
     assert results[-1].analysis_state == "delta_gate_failure"
     assert len(gate_calls) >= 1
     assert any("annotation_drift_orphaned_gate.py" in cmd[-1] for cmd in gate_calls)
+
+def test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip() -> None:
+    rows, markers = run_dataflow_stage._obligation_rows_from_timeout_payload(
+        stage_id="a",
+        analysis_state="timed_out_progress_resume",
+        timeout_payload={
+            "incremental_obligations": [
+                {
+                    "contract": "resume_contract",
+                    "kind": "checkpoint_present_when_resumable",
+                    "status": "SATISFIED",
+                    "detail": "checkpoint.json",
+                },
+                {
+                    "contract": "progress_report_contract",
+                    "kind": "partial_report_emitted",
+                    "status": "VIOLATION",
+                    "detail": "partial report emission on timeout",
+                },
+                {
+                    "contract": "incremental_projection_contract",
+                    "kind": "section_projection_state",
+                    "status": "OBLIGATION",
+                    "detail": "policy",
+                    "section_id": "components",
+                },
+            ]
+        },
+    )
+
+    assert markers == ()
+    assert sorted(row["status"] for row in rows) == [
+        "satisfied",
+        "skipped_by_policy",
+        "unsatisfied",
+    ]
+    trace = run_dataflow_stage._obligation_trace_payload(
+        [
+            run_dataflow_stage.StageResult(
+                stage_id="a",
+                exit_code=2,
+                analysis_state="timed_out_progress_resume",
+                is_timeout_resume=True,
+                metrics_line="ticks=n/a checks=n/a ticks_per_ns=n/a wall_s=n/a",
+                obligation_rows=rows,
+                incompleteness_markers=(),
+            )
+        ]
+    )
+    assert trace["summary"] == {
+        "total": 3,
+        "satisfied": 1,
+        "unsatisfied": 1,
+        "skipped_by_policy": 1,
+    }
+    assert trace["complete"] is False
+    assert "timeout_or_partial_run" in trace["incompleteness_markers"]
+
+
+def test_timeout_stage_with_missing_incremental_obligations_marks_incomplete() -> None:
+    rows, markers = run_dataflow_stage._obligation_rows_from_timeout_payload(
+        stage_id="a",
+        analysis_state="timed_out_progress_resume",
+        timeout_payload={"analysis_state": "timed_out_progress_resume"},
+    )
+    assert rows == ()
+    assert markers == ("missing_incremental_obligations",)
