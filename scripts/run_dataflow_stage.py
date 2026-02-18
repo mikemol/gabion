@@ -109,6 +109,30 @@ def _copy_if_exists(source: Path, destination: Path) -> None:
     destination.write_bytes(source.read_bytes())
 
 
+def _resume_checkpoint_metrics_line(resume_checkpoint_path: Path) -> str:
+    payload = _load_json_object(resume_checkpoint_path)
+    if not payload:
+        return "resume_checkpoint=missing"
+    completed_paths = payload.get("completed_paths")
+    completed_paths_count = len(completed_paths) if isinstance(completed_paths, list) else "n/a"
+    analysis_index_resume = payload.get("analysis_index_resume")
+    if not isinstance(analysis_index_resume, dict):
+        return f"resume_checkpoint=present completed_paths={completed_paths_count} hydrated_paths=n/a"
+    hydrated_paths_count = analysis_index_resume.get("hydrated_paths_count", "n/a")
+    profiling_v1 = analysis_index_resume.get("profiling_v1")
+    parsed_paths = "n/a"
+    if isinstance(profiling_v1, dict):
+        counters = profiling_v1.get("counters")
+        if isinstance(counters, dict):
+            parsed_paths = counters.get("analysis_index.paths_parsed", "n/a")
+    return (
+        "resume_checkpoint=present "
+        f"completed_paths={completed_paths_count} "
+        f"hydrated_paths={hydrated_paths_count} "
+        f"paths_parsed_after_resume={parsed_paths}"
+    )
+
+
 def _obligation_required_action(kind: str) -> str:
     actions = {
         "classification_matches_resume_support": "align timeout classification with resume support semantics",
@@ -305,6 +329,9 @@ def run_stage(
 ) -> StageResult:
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
     paths.deadline_profile_json_path.parent.mkdir(parents=True, exist_ok=True)
+    resume_metrics_line = _resume_checkpoint_metrics_line(paths.resume_checkpoint_path)
+    print(f"stage {stage_id.upper()}: {resume_metrics_line}")
+    _append_lines(step_summary_path, [f"- stage {stage_id.upper()}: {resume_metrics_line}"])
     exit_code = int(
         run_command_fn(
             _check_command(

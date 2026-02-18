@@ -1,5 +1,5 @@
 ---
-doc_revision: 85
+doc_revision: 87
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -231,6 +231,19 @@ Use `--baseline path/to/baseline.txt` to allowlist existing violations and
 `--baseline-write` to generate/update the baseline (ratchet mode). Baseline
 writes are a local, explicit action and should not run in CI.
 
+For local edit→check loops, use a persistent resume checkpoint to keep caches warm:
+```
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 1
+```
+Recommended practice:
+- Keep the checkpoint path stable across local runs.
+- Keep semantic identity knobs stable while iterating (strictness,
+  allow-external/external filter mode, fingerprint seed/forest spec inputs).
+- If outputs appear stale or semantics changed intentionally, delete the local
+  checkpoint file and re-run cold once.
+
 Run the dataflow grammar audit (prototype):
 ```
 mise exec -- python -m gabion dataflow-audit path/to/project
@@ -420,6 +433,15 @@ The GitHub-hosted workflow in `.github/workflows/ci.yml` runs:
 - pytest
 
 It uses `mise` (via `gabion.toml`) to install the toolchain.
+
+For push-driven `dataflow-audit`, prefer warm caches:
+- CI restores the previous same-branch `dataflow-report` artifact's resume
+  checkpoint (`dataflow_resume_checkpoint_ci.json`) on a best-effort basis.
+- `scripts/run_dataflow_stage.py` emits resume metrics in logs/step-summary
+  (`completed_paths`, `hydrated_paths`, `paths_parsed_after_resume`) so cache
+  impact can be verified explicitly.
+- Keep resume identity stable (forest spec / fingerprint seed / strictness
+  knobs) when you expect high cache hit rates.
 
 Pull requests also run `.github/workflows/pr-dataflow-grammar.yml`, which
 uploads a dataflow report artifact and comments on same-repo PRs.

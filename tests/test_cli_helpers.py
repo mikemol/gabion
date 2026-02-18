@@ -6,6 +6,7 @@ import json
 import re
 import sys
 import types
+import zipfile
 
 import pytest
 import typer
@@ -1727,3 +1728,107 @@ def test_emit_structure_reuse_errors_exit(capsys) -> None:
     assert exc.value.exit_code == 2
     captured = capsys.readouterr()
     assert "bad reuse" in captured.err
+
+
+def test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files(
+    tmp_path: Path,
+) -> None:
+    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w") as zf:
+        zf.writestr(
+            f"dataflow-report/{checkpoint_name}",
+            '{"completed_paths": ["src/gabion/cli.py"]}',
+        )
+        zf.writestr(
+            f"dataflow-report/{checkpoint_name}.chunks/part-000.json",
+            "{}",
+        )
+
+    class _Resp:
+        def __init__(self, body: bytes) -> None:
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self) -> "_Resp":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    payload = {
+        "artifacts": [
+            {
+                "expired": False,
+                "archive_download_url": "https://example.invalid/archive.zip",
+                "workflow_run": {
+                    "id": 101,
+                    "head_branch": "stage",
+                    "event": "push",
+                },
+            }
+        ]
+    }
+
+    def _fake_urlopen(req, timeout=0):
+        url = str(getattr(req, "full_url", req))
+        if "actions/artifacts" in url:
+            return _Resp(json.dumps(payload).encode("utf-8"))
+        return _Resp(zip_buf.getvalue())
+
+    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        token="token",
+        repo="owner/repo",
+        output_dir=tmp_path,
+        ref_name="stage",
+        current_run_id="999",
+        urlopen_fn=_fake_urlopen,
+    )
+
+    assert exit_code == 0
+    assert (tmp_path / checkpoint_name).exists()
+    assert (tmp_path / f"{checkpoint_name}.chunks/part-000.json").exists()
+
+
+def test_restore_resume_checkpoint_cli_maps_options(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_restore(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "restore-resume-checkpoint",
+            "--token",
+            "abc",
+            "--repo",
+            "owner/repo",
+            "--output-dir",
+            str(tmp_path),
+            "--ref-name",
+            "stage",
+            "--run-id",
+            "123",
+            "--artifact-name",
+            "dataflow-report",
+            "--checkpoint-name",
+            "dataflow_resume_checkpoint_ci.json",
+        ],
+        obj={"restore_resume_checkpoint": _fake_restore},
+    )
+
+    assert result.exit_code == 0
+    assert captured == {
+        "token": "abc",
+        "repo": "owner/repo",
+        "output_dir": tmp_path,
+        "ref_name": "stage",
+        "current_run_id": "123",
+        "artifact_name": "dataflow-report",
+        "checkpoint_name": "dataflow_resume_checkpoint_ci.json",
+    }

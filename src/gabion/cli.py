@@ -7,11 +7,14 @@ from contextlib import ExitStack, contextmanager
 from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias
 import argparse
 import importlib.util
+import io
 import json
 import os
 import re
 import subprocess
 import sys
+import urllib.request
+import zipfile
 
 from click.core import ParameterSource
 import typer
@@ -2079,6 +2082,148 @@ def _run_governance_cli(
             fg=typer.colors.RED,
         )
         return 1
+
+
+def _restore_dataflow_resume_checkpoint_from_github_artifacts(
+    *,
+    token: str,
+    repo: str,
+    output_dir: Path,
+    ref_name: str = "",
+    current_run_id: str = "",
+    artifact_name: str = "dataflow-report",
+    checkpoint_name: str = "dataflow_resume_checkpoint_ci.json",
+    per_page: int = 20,
+    urlopen_fn: Callable[..., object] = urllib.request.urlopen,
+) -> int:
+    token = token.strip()
+    repo = repo.strip()
+    ref_name = ref_name.strip()
+    current_run_id = current_run_id.strip()
+    artifact_name = artifact_name.strip() or "dataflow-report"
+    checkpoint_name = checkpoint_name.strip() or "dataflow_resume_checkpoint_ci.json"
+    if not token or not repo:
+        typer.echo("GitHub token/repository unavailable; skipping checkpoint restore.")
+        return 0
+
+    api_url = (
+        f"https://api.github.com/repos/{repo}/actions/artifacts"
+        f"?name={artifact_name}&per_page={max(1, int(per_page))}"
+    )
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    try:
+        req = urllib.request.Request(api_url, headers=headers)
+        with urlopen_fn(req, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        typer.echo(f"Unable to query prior artifacts ({exc}); skipping checkpoint restore.")
+        return 0
+
+    artifacts = payload.get("artifacts", []) if isinstance(payload, dict) else []
+
+    def _artifact_is_candidate(item: object) -> bool:
+        if not isinstance(item, dict):
+            return False
+        if item.get("expired", True) or not item.get("archive_download_url"):
+            return False
+        workflow_run = item.get("workflow_run")
+        if not isinstance(workflow_run, dict):
+            return False
+        if current_run_id and str(workflow_run.get("id", "")) == current_run_id:
+            return False
+        if ref_name and str(workflow_run.get("head_branch", "")) != ref_name:
+            return False
+        if str(workflow_run.get("event", "")) != "push":
+            return False
+        return True
+
+    artifact = next((item for item in artifacts if _artifact_is_candidate(item)), None)
+    if artifact is None:
+        typer.echo(
+            "No reusable same-branch dataflow-report artifact found; continuing without checkpoint."
+        )
+        return 0
+
+    download_url = str(artifact.get("archive_download_url", "") or "")
+    if not download_url:
+        typer.echo("Artifact archive URL missing; continuing without checkpoint.")
+        return 0
+
+    try:
+        req_zip = urllib.request.Request(download_url, headers=headers)
+        with urlopen_fn(req_zip, timeout=60) as response:
+            archive_bytes = response.read()
+    except Exception as exc:
+        typer.echo(f"Unable to download prior artifact ({exc}); skipping checkpoint restore.")
+        return 0
+
+    chunk_prefix = f"{checkpoint_name}.chunks/"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    restored = 0
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
+            for name in zf.namelist():
+                check_deadline()
+                base = name.split("/", 1)[-1]
+                if base == checkpoint_name or base.startswith(chunk_prefix):
+                    if name.endswith("/"):
+                        continue
+                    destination = output_dir / base
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(zf.read(name))
+                    restored += 1
+    except Exception as exc:
+        typer.echo(f"Unable to extract checkpoint artifact ({exc}); skipping checkpoint restore.")
+        return 0
+
+    if restored:
+        typer.echo(f"Restored {restored} checkpoint artifact file(s) from prior run.")
+    else:
+        typer.echo("Prior artifact did not include resume checkpoint files; continuing without restore.")
+    return 0
+
+
+def _context_restore_resume_checkpoint(
+    ctx: typer.Context,
+) -> Callable[..., int]:
+    obj = ctx.obj
+    if isinstance(obj, Mapping):
+        candidate = obj.get("restore_resume_checkpoint")
+        if callable(candidate):
+            return candidate
+    return _restore_dataflow_resume_checkpoint_from_github_artifacts
+
+
+@app.command("restore-resume-checkpoint")
+def restore_resume_checkpoint(
+    ctx: typer.Context,
+    token: str = typer.Option("", "--token", envvar="GH_TOKEN"),
+    repo: str = typer.Option("", "--repo", envvar="GH_REPO"),
+    output_dir: Path = typer.Option(Path("artifacts/audit_reports"), "--output-dir"),
+    ref_name: str = typer.Option("", "--ref-name", envvar="GH_REF_NAME"),
+    run_id: str = typer.Option("", "--run-id", envvar="GH_RUN_ID"),
+    artifact_name: str = typer.Option("dataflow-report", "--artifact-name"),
+    checkpoint_name: str = typer.Option(
+        "dataflow_resume_checkpoint_ci.json", "--checkpoint-name"
+    ),
+) -> None:
+    """Restore dataflow resume checkpoint files from prior workflow artifacts."""
+    restore_fn = _context_restore_resume_checkpoint(ctx)
+    exit_code = restore_fn(
+        token=token,
+        repo=repo,
+        output_dir=output_dir,
+        ref_name=ref_name,
+        current_run_id=run_id,
+        artifact_name=artifact_name,
+        checkpoint_name=checkpoint_name,
+    )
+    raise typer.Exit(code=exit_code)
 
 
 def _run_docflow_audit(
