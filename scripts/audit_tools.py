@@ -4113,7 +4113,9 @@ def _status_consistency_command(args: argparse.Namespace) -> int:
     root = Path(args.root)
     docs = _load_docflow_docs(root=root, extra_paths=args.extra_path)
     violations, warnings = _sppf_axis_audit(root, docs)
-    warnings.extend(_sppf_sync_warnings(root))
+    sync_violations, sync_warnings = _sppf_sync_check(root, mode="required")
+    violations.extend(sync_violations)
+    warnings.extend(sync_warnings)
     payload = {
         "root": str(root),
         "violations": violations,
