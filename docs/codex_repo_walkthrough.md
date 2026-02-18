@@ -175,13 +175,18 @@ Suggested sequence:
    - `rg -n "baseline|ratchet|waiver|drift" src docs tests`
    - `sed -n '1,260p' docs/sppf_checklist.md`
 
-5. Clean-state confirmation before proposing changes:
+5. Governance verification (required when touching docs/process/checklists/policy surfaces):
+   - `mise exec -- python -m gabion docflow-audit`
+   - `mise exec -- python -m gabion status-consistency --fail-on-violations`
+
+6. Clean-state confirmation before proposing changes:
    - `git status --short`
 
 The Codex response should include:
 - concise architecture summary,
 - one or more debt classes,
 - prioritized task stubs,
+- surfaced governance violations (if any), listed separately from semantic-analysis findings,
 - exact commands used.
 
 ## 9. Why this process works
