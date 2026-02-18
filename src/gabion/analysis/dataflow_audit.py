@@ -241,6 +241,21 @@ ReportProjectionPhase = Literal["collection", "forest", "edge", "post"]
 
 
 @dataclass(frozen=True)
+class _PhaseWorkProgress:
+    work_done: int
+    work_total: int
+
+
+def _phase_work_progress(*, work_done: int, work_total: int) -> _PhaseWorkProgress:
+    check_deadline()
+    normalized_total = max(int(work_total), 0)
+    normalized_done = max(int(work_done), 0)
+    if normalized_total:
+        normalized_done = min(normalized_done, normalized_total)
+    return _PhaseWorkProgress(work_done=normalized_done, work_total=normalized_total)
+
+
+@dataclass(frozen=True)
 class _FunctionSuiteKey:
     # dataflow-bundle: path, qual
     path: str
@@ -16185,7 +16200,13 @@ def analyze_paths(
     collection_resume: JSONObject | None = None,
     on_collection_progress: Callable[[JSONObject], None] | None = None,
     on_phase_progress: Callable[
-        [ReportProjectionPhase, dict[Path, dict[str, list[set[str]]]], ReportCarrier],
+        [
+            ReportProjectionPhase,
+            dict[Path, dict[str, list[set[str]]]],
+            ReportCarrier,
+            int,
+            int,
+        ],
         None,
     ]
     | None = None,
@@ -16372,6 +16393,7 @@ def analyze_paths(
             phase: ReportProjectionPhase,
             *,
             report_carrier: ReportCarrier,
+            work_progress: _PhaseWorkProgress,
         ) -> None:
             if on_phase_progress is None:
                 return
@@ -16380,6 +16402,8 @@ def analyze_paths(
                 phase,
                 groups_by_path,
                 report_carrier,
+                work_progress.work_done,
+                work_progress.work_total,
             )
 
         collection_started_ns = time.monotonic_ns()
@@ -16437,7 +16461,22 @@ def analyze_paths(
                 invariant_propositions=invariant_propositions,
                 parse_failure_witnesses=parse_failure_witnesses,
             ),
+            work_progress=_phase_work_progress(work_done=1, work_total=1),
         )
+
+        analysis_index_for_progress = analysis_index
+        forest_files_indexed_total = len(file_paths)
+        forest_callsites_total = 0
+        if analysis_index_for_progress is not None:
+            forest_callsites_total = sum(
+                len(info.calls) for info in analysis_index_for_progress.by_qual.values()
+            )
+        forest_ambiguity_total = 1 if include_ambiguities else 0
+        forest_work_total = (
+            forest_files_indexed_total + forest_callsites_total + forest_ambiguity_total
+        )
+        forest_work_done = forest_files_indexed_total
+        forest_ambiguity_done = 0
 
         def _emit_forest_phase_progress() -> None:
             _emit_phase_progress(
@@ -16448,6 +16487,10 @@ def analyze_paths(
                     ambiguity_witnesses=ambiguity_witnesses,
                     invariant_propositions=invariant_propositions,
                     parse_failure_witnesses=parse_failure_witnesses,
+                ),
+                work_progress=_phase_work_progress(
+                    work_done=forest_work_done + forest_ambiguity_done,
+                    work_total=forest_work_total,
                 ),
             )
 
@@ -16475,6 +16518,7 @@ def analyze_paths(
                 analysis_index=_require_analysis_index(),
                 on_progress=_emit_forest_phase_progress,
             )
+            forest_work_done += forest_callsites_total
             forest_spec = build_forest_spec(
                 include_bundle_forest=True,
                 include_decision_surfaces=include_decision_surfaces,
@@ -16523,6 +16567,7 @@ def analyze_paths(
             )
             _materialize_ambiguity_suite_agg_spec(forest=forest)
             _materialize_ambiguity_virtual_set_spec(forest=forest)
+            forest_ambiguity_done = 1
             _emit_forest_phase_progress()
 
         analysis_profile_stage_ns["analysis.forest"] += (
@@ -16534,6 +16579,14 @@ def analyze_paths(
         constant_smells: list[str] = []
         deadness_witnesses: list[JSONObject] = []
         unused_arg_smells: list[str] = []
+        edge_work_total = 0
+        if type_audit or type_audit_report:
+            edge_work_total += 1
+        if include_constant_smells or include_deadness_witnesses:
+            edge_work_total += 1
+        if include_unused_arg_smells:
+            edge_work_total += 1
+        edge_work_done = 0
 
         def _emit_edge_phase_progress() -> None:
             _emit_phase_progress(
@@ -16550,6 +16603,10 @@ def analyze_paths(
                     ambiguity_witnesses=ambiguity_witnesses,
                     invariant_propositions=invariant_propositions,
                     parse_failure_witnesses=parse_failure_witnesses,
+                ),
+                work_progress=_phase_work_progress(
+                    work_done=edge_work_done,
+                    work_total=edge_work_total,
                 ),
             )
 
@@ -16571,6 +16628,7 @@ def analyze_paths(
                 type_ambiguities = type_ambiguities[:type_audit_max]
                 # Trim evidence opportunistically so reports remain reviewable.
                 type_callsite_evidence = type_callsite_evidence[:type_audit_max]
+            edge_work_done += 1
             _emit_edge_phase_progress()
 
         if include_constant_smells or include_deadness_witnesses:
@@ -16591,6 +16649,7 @@ def analyze_paths(
                     constant_details,
                     project_root=config.project_root,
                 )
+            edge_work_done += 1
             _emit_edge_phase_progress()
 
         if include_unused_arg_smells:
@@ -16604,6 +16663,7 @@ def analyze_paths(
                 parse_failure_witnesses=parse_failure_witnesses,
                 analysis_index=_require_analysis_index(),
             )
+            edge_work_done += 1
             _emit_edge_phase_progress()
 
         _emit_edge_phase_progress()
@@ -16627,6 +16687,18 @@ def analyze_paths(
         handledness_witnesses: list[JSONObject] = []
         context_suggestions: list[str] = []
         lint_lines: list[str] = []
+        post_task_flags = [
+            include_deadline_obligations,
+            include_decision_surfaces,
+            include_value_decision_surfaces,
+            include_exception_obligations
+            or (include_lint_lines and bool(config.never_exceptions)),
+            include_never_invariants,
+            config.fingerprint_registry is not None and bool(config.fingerprint_index),
+            include_lint_lines,
+        ]
+        post_work_total = sum(1 for enabled in post_task_flags if enabled)
+        post_work_done = 0
 
         def _emit_post_phase_progress() -> None:
             _emit_phase_progress(
@@ -16659,6 +16731,10 @@ def analyze_paths(
                     deadline_obligations=deadline_obligations,
                     parse_failure_witnesses=parse_failure_witnesses,
                 ),
+                work_progress=_phase_work_progress(
+                    work_done=post_work_done,
+                    work_total=post_work_total,
+                ),
             )
 
         post_started_ns = time.monotonic_ns()
@@ -16672,6 +16748,7 @@ def analyze_paths(
                 analysis_index=_require_analysis_index(),
             )
             _materialize_suite_order_spec(forest=forest)
+            post_work_done += 1
             _emit_post_phase_progress()
 
         if include_decision_surfaces:
@@ -16690,6 +16767,7 @@ def analyze_paths(
                     analysis_index=_require_analysis_index(),
                 )
             )
+            post_work_done += 1
             _emit_post_phase_progress()
 
         if include_value_decision_surfaces:
@@ -16713,6 +16791,7 @@ def analyze_paths(
             )
             decision_warnings.extend(value_warnings)
             decision_lint_lines.extend(value_lint_lines)
+            post_work_done += 1
             _emit_post_phase_progress()
 
         need_exception_obligations = include_exception_obligations or (
@@ -16733,6 +16812,7 @@ def analyze_paths(
                 deadness_witnesses=deadness_witnesses,
                 never_exceptions=config.never_exceptions,
             )
+            post_work_done += 1
             _emit_post_phase_progress()
         if include_never_invariants:
             never_invariants = _collect_never_invariants(
@@ -16742,6 +16822,7 @@ def analyze_paths(
                 forest=forest,
                 deadness_witnesses=deadness_witnesses,
             )
+            post_work_done += 1
             _emit_post_phase_progress()
         if config.fingerprint_registry is not None and config.fingerprint_index:
             annotations_by_path = _param_annotations_by_path(
@@ -16794,6 +16875,7 @@ def analyze_paths(
                         exception_obligations if include_exception_obligations else None
                     ),
                 )
+            post_work_done += 1
             _emit_post_phase_progress()
 
         if decision_surfaces:
@@ -16828,6 +16910,7 @@ def analyze_paths(
                 constant_smells=constant_smells,
                 unused_arg_smells=unused_arg_smells,
             )
+            post_work_done += 1
             _emit_post_phase_progress()
 
         _emit_post_phase_progress()

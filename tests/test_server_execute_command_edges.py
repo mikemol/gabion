@@ -550,6 +550,12 @@ def test_execute_command_writes_phase_checkpoint_when_incremental_enabled(
     post_phase = phases["post"]
     assert isinstance(post_phase, dict)
     assert post_phase.get("status") == "final"
+    assert post_phase.get("work_done") == 1
+    assert post_phase.get("work_total") == 1
+    edge_phase = phases["edge"]
+    assert isinstance(edge_phase, dict)
+    assert isinstance(edge_phase.get("work_done"), int)
+    assert isinstance(edge_phase.get("work_total"), int)
 
 
 def test_incremental_obligations_require_restart_on_witness_mismatch(
@@ -1386,7 +1392,13 @@ def test_load_report_phase_checkpoint_validation_paths(tmp_path: Path) -> None:
 def test_render_incremental_report_marks_missing_dep_and_policy() -> None:
     report_text, pending = server._render_incremental_report(
         analysis_state="analysis_collection_in_progress",
-        progress_payload={"classification": "timed_out_no_progress", "resume_supported": False},
+        progress_payload={
+            "phase": "forest",
+            "work_done": 3,
+            "work_total": 4,
+            "classification": "timed_out_no_progress",
+            "resume_supported": False,
+        },
         projection_rows=[
             {"section_id": "intro", "phase": "collection", "deps": []},
             {"section_id": "components", "phase": "forest", "deps": ["intro", "missing"]},
@@ -1395,6 +1407,10 @@ def test_render_incremental_report_marks_missing_dep_and_policy() -> None:
         sections={"intro": ["ready"]},
     )
     assert "Section `intro`" in report_text
+    assert "- `phase`: `forest`" in report_text
+    assert "- `work_done`: `3`" in report_text
+    assert "- `work_total`: `4`" in report_text
+    assert "- `work_percent`: `75.00`" in report_text
     assert pending["components"] == "missing_dep"
     assert pending["violations"] == "policy"
 
@@ -3609,7 +3625,13 @@ def test_execute_command_projection_phase_callback_no_rows(
     def _analyze(*_args: object, **kwargs: object) -> server.AnalysisResult:
         on_phase_progress = kwargs.get("on_phase_progress")
         if callable(on_phase_progress):
-            on_phase_progress("forest", {}, server.ReportCarrier(forest=server.Forest()))
+            on_phase_progress(
+                "forest",
+                {},
+                server.ReportCarrier(forest=server.Forest()),
+                0,
+                1,
+            )
         return _empty_analysis_result()
 
     result = _execute_with_deps(
