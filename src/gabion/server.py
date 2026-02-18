@@ -2653,6 +2653,11 @@ def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diag
                 ordered_bundle = ordered_or_sorted(
                     bundle,
                     source="server._lint_bundles.bundle",
+                    key=str,
+                )
+                ordered_bundle = ordered_or_sorted(
+                    ordered_bundle,
+                    source="server._lint_bundles.bundle_enforce",
                     policy=OrderPolicy.ENFORCE,
                 )
                 message = f"Implicit bundle detected: {', '.join(ordered_bundle)}"
