@@ -1,5 +1,5 @@
 ---
-doc_revision: 49
+doc_revision: 50
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -120,7 +120,7 @@ Status legend:
 - in/in-20.md — **partial** (prime registry + canonical type keys + arithmetic ops + glossary warnings + reverse mapping + hybrid bitmask + nested ctor registry implemented; remaining rewrite work; SPPF/GH-68.)
 - in/in-21.md — **partial** (longform expansion of in-20; nested ctor registry + hybrid bitmask + reverse mapping + glossary warnings + arithmetic ops implemented; remaining rewrite work; SPPF/GH-68.)
 - in/in-22.md — **partial** (ASPF/SPPF equivalence framing; dimensional fingerprints incl. provenance/synth dimensions; entropy-controlled synthesis tracked in SPPF GH-70/GH-71/GH-72.)
-- in/in-23.md — **adopted** (ASPF carrier formalization discharged via deterministic registry basis + artifact/verification checks; SPPF/GH-73.)
+- in/in-23.md — [**adopted**](docs/sppf_checklist.md#in-23-aspf-carrier-formalization) (completed landing: deterministic synth/provenance artifacts + reloadable basis + snapshot selectors, with module/test anchors in the checklist entry; SPPF/GH-73.)
 - in/in-24.md — **adopted** (deadness evidence artifacts emitted from constant-flow analysis + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-74.)
 - in/in-25.md — **adopted** (coherence evidence artifacts emitted from glossary ambiguity + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-75.)
 - in/in-26.md — **partial** (proof-carrying rewrite plans emitted + verified incl. exception-obligation non-regression; remaining rewrite kinds tracked; SPPF/GH-76, GH-78, GH-79.)
