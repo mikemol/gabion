@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 try:  # pragma: no cover - import form depends on invocation mode
@@ -38,6 +39,26 @@ _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
     ticks=_DEFAULT_TIMEOUT_TICKS,
     tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
 )
+
+
+@dataclass(frozen=True)
+class _RefreshLspTimeoutEnv:
+    ticks: int
+    tick_ns: int
+
+
+def _refresh_lsp_timeout_env(
+    timeout_ticks: int | None,
+    timeout_tick_ns: int | None,
+) -> _RefreshLspTimeoutEnv:
+    budget = DeadlineBudget(
+        ticks=_DEFAULT_TIMEOUT_TICKS if timeout_ticks is None else timeout_ticks,
+        tick_ns=_DEFAULT_TIMEOUT_TICK_NS if timeout_tick_ns is None else timeout_tick_ns,
+    )
+    return _RefreshLspTimeoutEnv(
+        ticks=budget.ticks,
+        tick_ns=budget.tick_ns,
+    )
 
 
 def _deadline_scope():
@@ -74,14 +95,24 @@ def _format_run_check_failure(
     )
 
 
+def _refresh_subprocess_env(timeout_env: _RefreshLspTimeoutEnv) -> dict[str, str]:
+    env = dict(os.environ)
+    env["GABION_DIRECT_RUN"] = "1"
+    env["GABION_LSP_TIMEOUT_TICKS"] = str(timeout_env.ticks)
+    env["GABION_LSP_TIMEOUT_TICK_NS"] = str(timeout_env.tick_ns)
+    return env
+
+
 def _run_check(
     flag: str,
     timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
     resume_on_timeout: int,
     *,
     resume_checkpoint: Path | None,
     report_path: Path = DEFAULT_CHECK_REPORT_PATH,
     extra: list[str] | None = None,
+    run_fn=subprocess.run,
 ) -> None:
     cmd = [
         sys.executable,
@@ -99,10 +130,13 @@ def _run_check(
         cmd.extend(["--resume-checkpoint", str(resume_checkpoint)])
     if extra:
         cmd.extend(extra)
-    env = dict(os.environ)
-    env["GABION_DIRECT_RUN"] = "1"
     try:
-        subprocess.run(cmd, check=True, timeout=timeout, env=env)
+        run_fn(
+            cmd,
+            check=True,
+            timeout=timeout,
+            env=_refresh_subprocess_env(timeout_env),
+        )
     except subprocess.CalledProcessError as exc:
         message = _format_run_check_failure(
             cmd=cmd,
@@ -113,14 +147,17 @@ def _run_check(
         raise
 
 
-def _run_docflow_delta_emit(timeout: int | None) -> None:
-    env = dict(os.environ)
-    env.setdefault("GABION_DIRECT_RUN", "1")
-    subprocess.run(
+def _run_docflow_delta_emit(
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+    *,
+    run_fn=subprocess.run,
+) -> None:
+    run_fn(
         [sys.executable, "scripts/docflow_delta_emit.py"],
         check=True,
         timeout=timeout,
-        env=env,
+        env=_refresh_subprocess_env(timeout_env),
     )
 
 
@@ -156,6 +193,7 @@ def _ensure_delta(
     flag: str,
     path: Path,
     timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
     *,
     resume_on_timeout: int,
     resume_checkpoint: Path | None,
@@ -164,6 +202,7 @@ def _ensure_delta(
     _run_check(
         flag,
         timeout,
+        timeout_env,
         resume_on_timeout,
         resume_checkpoint=resume_checkpoint,
         extra=extra,
@@ -175,6 +214,7 @@ def _ensure_delta(
 
 def _guard_obsolescence_delta(
     timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
     *,
     resume_on_timeout: int,
     resume_checkpoint: Path | None,
@@ -183,6 +223,7 @@ def _guard_obsolescence_delta(
         "--emit-test-obsolescence-delta",
         OBSOLESCENCE_DELTA_PATH,
         timeout,
+        timeout_env,
         resume_on_timeout=resume_on_timeout,
         resume_checkpoint=resume_checkpoint,
         extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
@@ -202,6 +243,7 @@ def _guard_obsolescence_delta(
 
 def _guard_annotation_drift_delta(
     timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
     *,
     resume_on_timeout: int,
     resume_checkpoint: Path | None,
@@ -212,6 +254,7 @@ def _guard_annotation_drift_delta(
         "--emit-test-annotation-drift-delta",
         ANNOTATION_DRIFT_DELTA_PATH,
         timeout,
+        timeout_env,
         resume_on_timeout=resume_on_timeout,
         resume_checkpoint=resume_checkpoint,
         extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"),
@@ -225,6 +268,7 @@ def _guard_annotation_drift_delta(
 
 def _guard_ambiguity_delta(
     timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
     *,
     resume_on_timeout: int,
     resume_checkpoint: Path | None,
@@ -235,6 +279,7 @@ def _guard_ambiguity_delta(
         "--emit-ambiguity-delta",
         AMBIGUITY_DELTA_PATH,
         timeout,
+        timeout_env,
         resume_on_timeout=resume_on_timeout,
         resume_checkpoint=resume_checkpoint,
         extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
@@ -246,8 +291,11 @@ def _guard_ambiguity_delta(
         )
 
 
-def _guard_docflow_delta(timeout: int | None) -> None:
-    _run_docflow_delta_emit(timeout)
+def _guard_docflow_delta(
+    timeout: int | None,
+    timeout_env: _RefreshLspTimeoutEnv,
+) -> None:
+    _run_docflow_delta_emit(timeout, timeout_env)
     if not DOCFLOW_DELTA_PATH.exists():
         raise FileNotFoundError(
             f"Missing docflow delta output at {DOCFLOW_DELTA_PATH}"
@@ -299,6 +347,24 @@ def main() -> int:
             help="Seconds to wait for each gabion check (default: no timeout).",
         )
         parser.add_argument(
+            "--lsp-timeout-ticks",
+            type=int,
+            default=None,
+            help=(
+                "Override subprocess GABION_LSP_TIMEOUT_TICKS for refresh only "
+                f"(default: {_DEFAULT_TIMEOUT_TICKS})."
+            ),
+        )
+        parser.add_argument(
+            "--lsp-timeout-tick-ns",
+            type=int,
+            default=None,
+            help=(
+                "Override subprocess GABION_LSP_TIMEOUT_TICK_NS for refresh only "
+                f"(default: {_DEFAULT_TIMEOUT_TICK_NS})."
+            ),
+        )
+        parser.add_argument(
             "--resume-on-timeout",
             type=int,
             default=_default_resume_on_timeout(),
@@ -314,6 +380,10 @@ def main() -> int:
             ),
         )
         args = parser.parse_args()
+        timeout_env = _refresh_lsp_timeout_env(
+            args.lsp_timeout_ticks,
+            args.lsp_timeout_tick_ns,
+        )
         resume_checkpoint = args.resume_checkpoint
         if isinstance(resume_checkpoint, str) and resume_checkpoint.strip().lower() == "none":
             resume_checkpoint = None
@@ -332,12 +402,14 @@ def main() -> int:
         if args.all or args.obsolescence:
             _guard_obsolescence_delta(
                 args.timeout,
+                timeout_env,
                 resume_on_timeout=args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
             )
             _run_check(
                 "--write-test-obsolescence-baseline",
                 args.timeout,
+                timeout_env,
                 args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
                 extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
@@ -345,12 +417,14 @@ def main() -> int:
         if args.all or args.annotation_drift:
             _guard_annotation_drift_delta(
                 args.timeout,
+                timeout_env,
                 resume_on_timeout=args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
             )
             _run_check(
                 "--write-test-annotation-drift-baseline",
                 args.timeout,
+                timeout_env,
                 args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
                 extra=_state_args(
@@ -360,18 +434,20 @@ def main() -> int:
         if args.all or args.ambiguity:
             _guard_ambiguity_delta(
                 args.timeout,
+                timeout_env,
                 resume_on_timeout=args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
             )
             _run_check(
                 "--write-ambiguity-baseline",
                 args.timeout,
+                timeout_env,
                 args.resume_on_timeout,
                 resume_checkpoint=resume_checkpoint,
                 extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
             )
         if args.all or args.docflow:
-            _guard_docflow_delta(args.timeout)
+            _guard_docflow_delta(args.timeout, timeout_env)
             if not DOCFLOW_CURRENT_PATH.exists():
                 raise FileNotFoundError(
                     f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"
