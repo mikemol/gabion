@@ -3121,14 +3121,25 @@ def _resolve_sppf_gh_ref_mode(raw: str | None) -> SppfGhRefMode:
     raise ValueError(f"invalid SPPF GH-reference mode: {raw!r}")
 
 
-def _sppf_sync_check(root: Path, *, mode: SppfGhRefMode) -> tuple[list[str], list[str]]:
+def _load_sppf_sync_module():
+    try:
+        from scripts import sppf_sync
+    except ModuleNotFoundError:
+        import sppf_sync
+    return sppf_sync
+
+
+def _sppf_sync_check(
+    root: Path,
+    *,
+    mode: SppfGhRefMode,
+    load_sppf_sync_module_fn=_load_sppf_sync_module,
+    git_diff_paths_fn=_git_diff_paths,
+) -> tuple[list[str], list[str]]:
     violations: list[str] = []
     warnings: List[str] = []
     try:
-        try:
-            from scripts import sppf_sync
-        except ModuleNotFoundError:
-            import sppf_sync
+        sppf_sync = load_sppf_sync_module_fn()
     except Exception:
         return violations, warnings
 
@@ -3137,7 +3148,7 @@ def _sppf_sync_check(root: Path, *, mode: SppfGhRefMode) -> tuple[list[str], lis
     except Exception:
         return violations, warnings
 
-    changed = _git_diff_paths(rev_range)
+    changed = git_diff_paths_fn(rev_range)
     if not changed:
         return violations, warnings
 
