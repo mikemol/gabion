@@ -33,7 +33,16 @@ def _plan(**overrides: object) -> dict[str, object]:
             "ctor_keys": [],
             "remainder": {"base": 1, "ctor": 1},
         },
-        "rewrite": {"parameters": {"candidates": ["ctx_a", "ctx_b"]}},
+        "rewrite": {"kind": "BUNDLE_ALIGN", "parameters": {"candidates": ["ctx_a", "ctx_b"]}},
+        "evidence": {"provenance_id": "prov:a.py:f:a", "coherence_id": "coh:a.py:f:a"},
+        "verification": {
+            "predicates": [
+                {"kind": "base_conservation", "expect": True},
+                {"kind": "ctor_coherence", "expect": True},
+                {"kind": "match_strata", "expect": "exact", "candidates": ["ctx_a", "ctx_b"]},
+                {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+            ]
+        },
         "post_expectation": {"match_strata": "exact"},
     }
     plan.update(overrides)
@@ -241,7 +250,15 @@ def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors
 
     bad_pre = _plan(
         pre={"base_keys": ["int"], "ctor_keys": [], "remainder": {"base": 1, "ctor": 1}, "exception_obligations_summary": "oops"},
-        verification={"predicates": [{"kind": "exception_obligation_non_regression"}]},
+        verification={
+            "predicates": [
+                {"kind": "base_conservation", "expect": True},
+                {"kind": "ctor_coherence", "expect": True},
+                {"kind": "match_strata", "expect": "exact", "candidates": ["ctx_a", "ctx_b"]},
+                {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                {"kind": "exception_obligation_non_regression"},
+            ]
+        },
     )
     result = da.verify_rewrite_plan(
         bad_pre,
@@ -313,3 +330,39 @@ def test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior() -> Non
     mismatch = [dict(post_good[0], glossary_matches=["not-a-candidate"])]
     assert da.verify_rewrite_plan(by_kind["SURFACE_CANONICALIZE"], post_provenance=mismatch)["accepted"] is False
     assert da.verify_rewrite_plan(by_kind["AMBIENT_REWRITE"], post_provenance=mismatch)["accepted"] is False
+
+
+# gabion:evidence E:decision_surface/direct::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans::exception_obligations E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
+def test_rewrite_plan_precondition_abstentions_and_kind_predicates() -> None:
+    da = _load()
+    provenance = [
+        {
+            "path": "a.py",
+            "function": "f",
+            "bundle": ["a"],
+            "provenance_id": "prov:a.py:f:a",
+            "base_keys": ["int"],
+            "ctor_keys": [],
+            "remainder": {"base": 1, "ctor": 1},
+            "glossary_matches": ["ctx_a", "ctx_b"],
+        }
+    ]
+    coherence = da._compute_fingerprint_coherence(provenance, synth_version="synth@1")
+    plans = da._compute_fingerprint_rewrite_plans(provenance, coherence, synth_version="synth@1")
+    by_kind = {plan["rewrite"]["kind"]: plan for plan in plans}
+
+    assert by_kind["CTOR_NORMALIZE"]["status"] == "ABSTAINED"
+    assert by_kind["SURFACE_CANONICALIZE"]["status"] == "UNVERIFIED"
+    assert by_kind["AMBIENT_REWRITE"]["status"] == "UNVERIFIED"
+
+    abstained = da.verify_rewrite_plan(by_kind["CTOR_NORMALIZE"], post_provenance=provenance)
+    assert abstained["accepted"] is False
+    assert any("abstention reason" in issue for issue in abstained["issues"])
+
+
+def test_verify_rewrite_plan_rejects_missing_kind_payload_fields() -> None:
+    da = _load()
+    plan = _plan(rewrite={"kind": "SURFACE_CANONICALIZE", "parameters": {"candidates": ["ctx_a"]}})
+    result = da.verify_rewrite_plan(plan, post_provenance=[_post_entry()])
+    assert result["accepted"] is False
+    assert any("missing parameters" in issue for issue in result["issues"])

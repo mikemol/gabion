@@ -162,6 +162,7 @@ from .dataflow_report_rendering import (
     render_synthesis_section as _report_render_synthesis_section,
 )
 from gabion.schema import SynthesisResponse
+from gabion.refactor.rewrite_plan import rewrite_plan_schema, validate_rewrite_plan_payload
 from gabion.synthesis import NamingContext, SynthesisConfig, Synthesizer
 from gabion.synthesis.merge import merge_bundles
 from gabion.synthesis.schedule import topological_schedule
@@ -3353,6 +3354,27 @@ def verify_rewrite_plan(
     bundle = list(site.bundle)
 
     issues: list[str] = []
+    status = str(plan.get("status", "") or "")
+    if status == "ABSTAINED":
+        issues.append("plan abstained: preconditions not satisfied")
+        abstention = mapping_or_empty(plan.get("abstention"))
+        if abstention.get("reason"):
+            issues.append(f"abstention reason: {abstention.get('reason')}")
+        return {
+            "plan_id": plan_id,
+            "accepted": False,
+            "issues": issues,
+            "predicate_results": [],
+        }
+
+    schema_issues = [
+        issue
+        for issue in validate_rewrite_plan_payload(plan)
+        if not issue.startswith("missing predicate:")
+    ]
+    if schema_issues:
+        issues.extend(schema_issues)
+
     post_entry = _find_provenance_entry_for_site(
         post_provenance,
         site=site,
@@ -3383,6 +3405,7 @@ def verify_rewrite_plan(
 
     expected_candidates: list[str] = []
     rewrite = mapping_or_empty(plan.get("rewrite"))
+    rewrite_kind = str(rewrite.get("kind", "") or "")
     params = mapping_or_empty(rewrite.get("parameters"))
     expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
 
@@ -3394,16 +3417,29 @@ def verify_rewrite_plan(
             p for p in predicates if isinstance(p, dict) and p.get("kind")
         ]
     if not requested_predicates:
-        requested_predicates = [
-            {"kind": "base_conservation", "expect": True},
-            {"kind": "ctor_coherence", "expect": True},
-            {
-                "kind": "match_strata",
-                "expect": expected_strata,
-                "candidates": expected_candidates,
-            },
-            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+        schema = rewrite_plan_schema(rewrite_kind)
+        defaults = list(schema.required_predicates) if schema is not None else [
+            "base_conservation",
+            "ctor_coherence",
+            "match_strata",
+            "remainder_non_regression",
         ]
+        requested_predicates = []
+        for kind in defaults:
+            if kind == "match_strata":
+                requested_predicates.append(
+                    {
+                        "kind": kind,
+                        "expect": expected_strata,
+                        "candidates": expected_candidates,
+                    }
+                )
+            elif kind == "remainder_non_regression":
+                requested_predicates.append(
+                    {"kind": kind, "expect": "no-new-remainder"}
+                )
+            else:
+                requested_predicates.append({"kind": kind, "expect": True})
 
     def _clean(value: int) -> bool:
         return value in (0, 1)
@@ -3539,8 +3575,8 @@ def verify_rewrite_plan(
             }
         )
 
-    accepted = all(bool(result.get("passed")) for result in predicate_results)
-    if not accepted:
+    accepted = (not issues) and all(bool(result.get("passed")) for result in predicate_results)
+    if predicate_results and not all(bool(result.get("passed")) for result in predicate_results):
         issues.append("verification predicates failed")
     return {
         "plan_id": plan_id,

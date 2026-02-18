@@ -1,5 +1,5 @@
 ---
-doc_revision: 150
+doc_revision: 151
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -267,8 +267,8 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
 - [ ] Property-based test hooks from invariants. (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
-- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@9}
-- [ ] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE). (in-26, GH-78) sppf{doc=partial; impl=planned; doc_ref=in-26@9}
+- [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@10}
+- [x] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE) with per-kind payload schemas, gated emission + reasoned abstentions, and predicate wiring. (in-26, GH-78) sppf{doc=partial; impl=done; doc_ref=in-26@10}
 - [~] Rewrite-plan verification: exception obligation non-regression predicates. (in-27, GH-79) sppf{doc=partial; impl=done; doc_ref=in-27@7}
 
 ## LSP operational semantics

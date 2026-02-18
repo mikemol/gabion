@@ -128,6 +128,7 @@ from gabion.refactor import (
     RefactorCompatibilityShimConfig,
     RefactorRequest as RefactorRequestModel,
 )
+from gabion.refactor.rewrite_plan import normalize_rewrite_plan_order, validate_rewrite_plan_payload
 from gabion.schema import (
     DataflowAuditResponseDTO,
     DecisionDiffResponseDTO,
@@ -2346,6 +2347,22 @@ def _normalize_dataflow_response(response: Mapping[str, object]) -> dict[str, ob
         payload={str(key): response[key] for key in response},
     )
     normalized = dict(base.payload)
+    rewrite_plans = normalized.get("fingerprint_rewrite_plans")
+    if isinstance(rewrite_plans, list):
+        ordered_plans = normalize_rewrite_plan_order(
+            [entry for entry in rewrite_plans if isinstance(entry, dict)]
+        )
+        normalized["fingerprint_rewrite_plans"] = ordered_plans
+        rewrite_plan_schema_errors: list[dict[str, object]] = []
+        for entry in ordered_plans:
+            issues = validate_rewrite_plan_payload(entry)
+            if issues:
+                rewrite_plan_schema_errors.append(
+                    {"plan_id": str(entry.get("plan_id", "")), "issues": issues}
+                )
+        if rewrite_plan_schema_errors:
+            normalized["rewrite_plan_schema_errors"] = rewrite_plan_schema_errors
+
     normalized["exit_code"] = base.exit_code
     normalized["timeout"] = base.timeout
     normalized["analysis_state"] = base.analysis_state

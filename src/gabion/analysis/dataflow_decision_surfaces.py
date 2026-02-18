@@ -12,6 +12,11 @@ from collections.abc import Callable, Iterable
 import re
 
 from gabion.analysis.json_types import JSONObject
+from gabion.refactor.rewrite_plan import (
+    RewritePlanKind,
+    attach_plan_schema,
+    normalize_rewrite_plan_order,
+)
 
 
 def summarize_deadness_witnesses(
@@ -265,9 +270,48 @@ def compute_fingerprint_rewrite_plans(
                 },
             }
 
+        def _abstain(kind: RewritePlanKind, reason: str, preconditions: list[str]) -> None:
+            plans.append(
+                attach_plan_schema(
+                    {
+                        "plan_id": (
+                            f"rewrite:{site.path}:{site.function}:{bundle_key}:"
+                            f"glossary-ambiguity:{kind.value.lower().replace('_', '-')}:abstain"
+                        ),
+                        "status": "ABSTAINED",
+                        "site": {
+                            "path": site.path,
+                            "function": site.function,
+                            "bundle": list(site.bundle),
+                        },
+                        "pre": dict(pre_payload),
+                        "rewrite": {
+                            "kind": kind.value,
+                            "selector": {"bundle": list(site.bundle)},
+                            "parameters": {},
+                        },
+                        "evidence": {
+                            "provenance_id": entry.get("provenance_id"),
+                            "coherence_id": coherence_id,
+                        },
+                        "post_expectation": {},
+                        "verification": {
+                            "mode": "re-audit",
+                            "status": "ABSTAINED",
+                            "predicates": [],
+                        },
+                        "abstention": {
+                            "reason": reason,
+                            "required_preconditions": preconditions,
+                        },
+                    }
+                )
+            )
+
         plans.append(
-            _make_plan(
-                kind="BUNDLE_ALIGN",
+            attach_plan_schema(
+                _make_plan(
+                    kind=RewritePlanKind.BUNDLE_ALIGN.value,
                 suffix="bundle-align",
                 selector={"bundle": list(site.bundle)},
                 parameters={"candidates": candidates},
@@ -276,132 +320,116 @@ def compute_fingerprint_rewrite_plans(
                     "base_conservation": True,
                     "ctor_coherence": True,
                 },
-                predicates=list(verification_predicates),
+                    predicates=list(verification_predicates),
+                )
             )
         )
 
-        plans.append(
-            _make_plan(
-                kind="CTOR_NORMALIZE",
-                suffix="ctor-normalize",
-                selector={"bundle": list(site.bundle)},
-                parameters={
-                    "target_ctor_keys": list(entry.get("ctor_keys") or []),
-                    "candidates": candidates,
-                },
-                post_expectation={
-                    "ctor_normalized": True,
-                    "match_strata": "exact",
-                    "base_conservation": True,
-                },
-                predicates=[
-                    {"kind": "base_conservation", "expect": True},
-                    {"kind": "ctor_coherence", "expect": True},
-                    {
-                        "kind": "match_strata",
-                        "expect": "exact",
-                        "candidates": candidates,
-                    },
-                    {
-                        "kind": "remainder_non_regression",
-                        "expect": "no-new-remainder",
-                    },
-                    *(
-                        [
-                            {
-                                "kind": "exception_obligation_non_regression",
-                                "expect": "XV1",
-                            }
-                        ]
-                        if include_exception_predicates
-                        else []
-                    ),
-                ],
+        ctor_keys = list(entry.get("ctor_keys") or [])
+        if ctor_keys:
+            plans.append(
+                attach_plan_schema(
+                    _make_plan(
+                        kind=RewritePlanKind.CTOR_NORMALIZE.value,
+                        suffix="ctor-normalize",
+                        selector={"bundle": list(site.bundle)},
+                        parameters={
+                            "target_ctor_keys": ctor_keys,
+                            "candidates": candidates,
+                        },
+                        post_expectation={
+                            "ctor_normalized": True,
+                            "match_strata": "exact",
+                            "base_conservation": True,
+                        },
+                        predicates=[
+                            {"kind": "base_conservation", "expect": True},
+                            {"kind": "ctor_coherence", "expect": True},
+                            {"kind": "match_strata", "expect": "exact", "candidates": candidates},
+                            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                            *(
+                                [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
+                                if include_exception_predicates
+                                else []
+                            ),
+                        ],
+                    )
+                )
             )
-        )
+        else:
+            _abstain(
+                RewritePlanKind.CTOR_NORMALIZE,
+                "ctor normalization requires constructor evidence",
+                ["ctor_keys_present"],
+            )
 
-        plans.append(
-            _make_plan(
-                kind="SURFACE_CANONICALIZE",
-                suffix="surface-canonicalize",
-                selector={"bundle": list(site.bundle), "glossary_matches": matches},
-                parameters={
-                    "canonical_candidate": candidates[0] if candidates else "",
-                    "candidates": candidates,
-                },
-                post_expectation={
-                    "match_strata": "exact",
-                    "surface_canonicalized": True,
-                    "base_conservation": True,
-                },
-                predicates=[
-                    {"kind": "base_conservation", "expect": True},
-                    {
-                        "kind": "match_strata",
-                        "expect": "exact",
-                        "candidates": candidates,
-                    },
-                    {
-                        "kind": "remainder_non_regression",
-                        "expect": "no-new-remainder",
-                    },
-                    *(
-                        [
-                            {
-                                "kind": "exception_obligation_non_regression",
-                                "expect": "XV1",
-                            }
-                        ]
-                        if include_exception_predicates
-                        else []
-                    ),
-                ],
+        if candidates:
+            plans.append(
+                attach_plan_schema(
+                    _make_plan(
+                        kind=RewritePlanKind.SURFACE_CANONICALIZE.value,
+                        suffix="surface-canonicalize",
+                        selector={"bundle": list(site.bundle), "glossary_matches": matches},
+                        parameters={"canonical_candidate": candidates[0], "candidates": candidates},
+                        post_expectation={
+                            "match_strata": "exact",
+                            "surface_canonicalized": True,
+                            "base_conservation": True,
+                        },
+                        predicates=[
+                            {"kind": "base_conservation", "expect": True},
+                            {"kind": "match_strata", "expect": "exact", "candidates": candidates},
+                            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                            *(
+                                [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
+                                if include_exception_predicates
+                                else []
+                            ),
+                        ],
+                    )
+                )
             )
-        )
+        else:
+            _abstain(
+                RewritePlanKind.SURFACE_CANONICALIZE,
+                "surface canonicalization requires at least one glossary candidate",
+                ["candidates_non_empty"],
+            )
 
-        plans.append(
-            _make_plan(
-                kind="AMBIENT_REWRITE",
-                suffix="ambient-rewrite",
-                selector={"bundle": list(site.bundle)},
-                parameters={
-                    "strategy": "context-explicit",
-                    "candidates": candidates,
-                },
-                post_expectation={
-                    "match_strata": "exact",
-                    "ambient_normalized": True,
-                    "base_conservation": True,
-                },
-                predicates=[
-                    {"kind": "base_conservation", "expect": True},
-                    {
-                        "kind": "match_strata",
-                        "expect": "exact",
-                        "candidates": candidates,
-                    },
-                    {
-                        "kind": "remainder_non_regression",
-                        "expect": "no-new-remainder",
-                    },
-                    *(
-                        [
-                            {
-                                "kind": "exception_obligation_non_regression",
-                                "expect": "XV1",
-                            }
-                        ]
-                        if include_exception_predicates
-                        else []
-                    ),
-                ],
+        if candidates and len(matches) >= 2:
+            plans.append(
+                attach_plan_schema(
+                    _make_plan(
+                        kind=RewritePlanKind.AMBIENT_REWRITE.value,
+                        suffix="ambient-rewrite",
+                        selector={"bundle": list(site.bundle)},
+                        parameters={"strategy": "context-explicit", "candidates": candidates},
+                        post_expectation={
+                            "match_strata": "exact",
+                            "ambient_normalized": True,
+                            "base_conservation": True,
+                        },
+                        predicates=[
+                            {"kind": "base_conservation", "expect": True},
+                            {"kind": "match_strata", "expect": "exact", "candidates": candidates},
+                            {"kind": "remainder_non_regression", "expect": "no-new-remainder"},
+                            *(
+                                [{"kind": "exception_obligation_non_regression", "expect": "XV1"}]
+                                if include_exception_predicates
+                                else []
+                            ),
+                        ],
+                    )
+                )
             )
-        )
-    return ordered_or_sorted(
-        plans,
-        source="_compute_fingerprint_rewrite_plans.plans",
-        key=lambda entry: str(entry.get("plan_id", "")),
-    )
+        else:
+            _abstain(
+                RewritePlanKind.AMBIENT_REWRITE,
+                "ambient rewrite requires unresolved glossary ambiguity",
+                ["candidates_non_empty", "glossary_ambiguity_present"],
+            )
+
+    return normalize_rewrite_plan_order(plans)
 
 
 def summarize_rewrite_plans(
