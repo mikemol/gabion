@@ -1,5 +1,5 @@
 ---
-doc_revision: 86
+doc_revision: 87
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -230,6 +230,19 @@ Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to allowlist existing violations and
 `--baseline-write` to generate/update the baseline (ratchet mode). Baseline
 writes are a local, explicit action and should not run in CI.
+
+For local edit→check loops, use a persistent resume checkpoint to keep caches warm:
+```
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 1
+```
+Recommended practice:
+- Keep the checkpoint path stable across local runs.
+- Keep semantic identity knobs stable while iterating (strictness,
+  allow-external/external filter mode, fingerprint seed/forest spec inputs).
+- If outputs appear stale or semantics changed intentionally, delete the local
+  checkpoint file and re-run cold once.
 
 Run the dataflow grammar audit (prototype):
 ```

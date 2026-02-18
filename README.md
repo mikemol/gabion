@@ -1,5 +1,5 @@
 ---
-doc_revision: 66
+doc_revision: 67
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -142,6 +142,18 @@ mise exec -- python -m gabion check
 Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to ratchet existing violations and
 `--baseline-write` to generate/update the baseline file.
+
+For iterative local cleanup, keep a warm resume checkpoint between runs:
+```
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 1
+```
+Use the same checkpoint path across runs while tuning issues.
+Cache reuse is strongest when audit identity inputs stay stable (for example:
+strictness, external-filter mode, fingerprint seed revision, and forest spec).
+Change those knobs only when needed; otherwise you can invalidate hydration
+reuse and force larger reparse/index work.
 
 Run the dataflow grammar audit (prototype):
 ```
