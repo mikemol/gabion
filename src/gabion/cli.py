@@ -1150,11 +1150,11 @@ def run_check(
         lint=lint,
         profile="strict",
         artifact_flags=artifact_flags,
-        emit_test_obsolescence_state=emit_test_obsolescence_state,
-        emit_test_obsolescence_delta=emit_test_obsolescence_delta,
-        emit_test_annotation_drift_delta=emit_test_annotation_drift_delta,
-        emit_ambiguity_delta=emit_ambiguity_delta,
-        emit_ambiguity_state=emit_ambiguity_state,
+        emit_test_obsolescence_state=delta_options.emit_test_obsolescence_state,
+        emit_test_obsolescence_delta=delta_options.emit_test_obsolescence_delta,
+        emit_test_annotation_drift_delta=delta_options.emit_test_annotation_drift_delta,
+        emit_ambiguity_delta=delta_options.emit_ambiguity_delta,
+        emit_ambiguity_state=delta_options.emit_ambiguity_state,
     )
     return dispatch_command(
         command=DATAFLOW_COMMAND,
