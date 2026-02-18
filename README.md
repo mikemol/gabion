@@ -149,6 +149,53 @@ mise exec -- python -m gabion check \
   --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
   --resume-on-timeout 1
 ```
+Recommended iterative loop (especially on larger repos):
+```
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 2 \
+  --emit-timeout-progress-report
+```
+This keeps retry behavior local to one command invocation while preserving a
+single checkpoint file for cache hydration.
+
+### Timeout/resume quick guide (`gabion check`)
+
+When a run times out, read `analysis_state` and timeout `classification`
+together:
+
+- `timed_out_progress_resume`: Gabion observed resumable progress and the
+  checkpoint can continue useful work; retries are usually worthwhile.
+- `timed_out_no_progress`: timeout happened without useful resumable progress;
+  repeating the exact same attempt is unlikely to help.
+
+Timeout artifacts and their purposes:
+
+- `artifacts/audit_reports/timeout_progress.json` (written when
+  `--emit-timeout-progress-report` is set): machine-readable timeout payload
+  (`analysis_state` + `progress`) for automation and scripts.
+- `artifacts/audit_reports/timeout_progress.md` (written when
+  `--emit-timeout-progress-report` is set): human-readable timeout summary,
+  including retry hints and resume token details.
+- `artifacts/out/deadline_profile.json` (written on timeout): raw deadline
+  telemetry/profile data.
+- `artifacts/out/deadline_profile.md` (written on timeout): markdown rendering
+  of the deadline profile for quick diagnosis.
+
+Concise retry decision tree:
+
+1. Start by keeping the same `--resume-checkpoint` and the same identity knobs
+   (`--strictness`, `--allow-external`/external-filter mode,
+   `--ignore-params`, `--transparent-decorators`, and any fingerprint/forest
+   config inputs) to maximize warm-cache reuse.
+2. Only relax or tighten knobs when timeout artifacts indicate why:
+   - tighten (`--strictness high`, stricter filtering) for final verification;
+   - relax (`--strictness low`, broader excludes/filtering) when you need faster
+     incremental progress before tightening again.
+3. Intentionally rotate `--resume-checkpoint` to a new path when switching to a
+   materially different audit mode (large semantic/config changes) so each loop
+   keeps a coherent hot cache.
+
 Use the same checkpoint path across runs while tuning issues.
 Cache reuse is strongest when audit identity inputs stay stable (for example:
 strictness, external-filter mode, fingerprint seed revision, and forest spec).
