@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
 import json
 from typing import Iterable
 
@@ -192,6 +193,12 @@ class Forest:
             "path": path,
             "qual": qual,
             "suite_kind": suite_kind,
+            "suite_id": self._suite_site_id(
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+                span=span,
+            ),
         }
         if span is not None:
             meta["span"] = list(span)
@@ -216,6 +223,26 @@ class Forest:
                     evidence={"suite_kind": suite_kind},
                 )
         return suite_id
+
+    @staticmethod
+    def _suite_site_id(
+        *,
+        path: str,
+        qual: str,
+        suite_kind: str,
+        span: tuple[int, int, int, int] | None,
+    ) -> str:
+        payload: dict[str, object] = {
+            "domain": "python",
+            "kind": str(suite_kind),
+            "path": str(path),
+            "qual": str(qual),
+        }
+        if span is not None:
+            payload["span"] = [int(part) for part in span]
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+        return f"suite:{digest}"
 
     def add_suite_contains(
         self,

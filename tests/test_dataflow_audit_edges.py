@@ -21,6 +21,12 @@ def _load():
     return da
 
 def _deadline_obligations(tmp_path: Path, source: str, roots: set[str]) -> list[dict]:
+    result = _deadline_analysis(tmp_path, source, roots)
+    return result.deadline_obligations
+
+
+
+def _deadline_analysis(tmp_path: Path, source: str, roots: set[str]):
     da = _load()
     target = tmp_path / "mod.py"
     target.write_text(textwrap.dedent(source), encoding="utf-8")
@@ -32,7 +38,7 @@ def _deadline_obligations(tmp_path: Path, source: str, roots: set[str]) -> list[
         strictness="high",
         deadline_roots=set(roots),
     )
-    result = da.analyze_paths(
+    return da.analyze_paths(
         [target],
         forest=da.Forest(),
         recursive=True,
@@ -56,8 +62,6 @@ def _deadline_obligations(tmp_path: Path, source: str, roots: set[str]) -> list[
         include_deadline_obligations=True,
         config=config,
     )
-    return result.deadline_obligations
-
 def _call(da, *, callee: str, is_test: bool = False, span: tuple[int, int, int, int] | None = None):
     return da.CallArgs(
         callee=callee,
@@ -647,3 +651,75 @@ def test_materialize_call_candidates_emits_dynamic_obligation_kind() -> None:
         "unresolved_dynamic_callee",
         "unresolved_dynamic_dispatch",
     }
+
+
+def test_deadline_nested_recursion_loop_attributes_inner_only(tmp_path: Path) -> None:
+    obligations = _deadline_obligations(
+        tmp_path,
+        """
+        def root(deadline: Deadline):
+            for _ in range(1):
+                for _ in range(1):
+                    check_deadline(deadline)
+                    root(deadline)
+        """,
+        roots={"mod.root"},
+    )
+    loop_obligations = [
+        entry
+        for entry in obligations
+        if entry.get("kind") == "unchecked_deadline"
+        and str(entry.get("detail", "")).startswith("deadline carrier not checked or forwarded")
+    ]
+    assert len(loop_obligations) == 1
+    site = loop_obligations[0].get("site", {})
+    assert isinstance(site, dict)
+    assert site.get("suite_kind") == "loop"
+    assert loop_obligations[0].get("span") == [2, 4, 5, 26]
+
+
+def test_deadline_suite_identity_stable_across_runs(tmp_path: Path) -> None:
+    source = """
+    def root(deadline: Deadline):
+        for _ in range(1):
+            check_deadline(deadline)
+    """
+    first = _deadline_analysis(tmp_path, source, roots={"mod.root"})
+    second = _deadline_analysis(tmp_path, source, roots={"mod.root"})
+    first_ids = sorted(
+        str(entry.get("site", {}).get("suite_id", ""))
+        for entry in first.deadline_obligations
+    )
+    second_ids = sorted(
+        str(entry.get("site", {}).get("suite_id", ""))
+        for entry in second.deadline_obligations
+    )
+    assert first_ids == second_ids
+    assert all(suite_id.startswith("suite:") for suite_id in first_ids)
+
+
+def test_deadline_obligations_emit_suite_metadata_from_forest(tmp_path: Path) -> None:
+    analysis = _deadline_analysis(
+        tmp_path,
+        """
+        def root(deadline: Deadline):
+            target(None)
+
+        def target(deadline: Deadline):
+            return None
+        """,
+        roots={"mod.root"},
+    )
+    assert analysis.forest is not None
+    by_identity = {
+        str(node.meta.get("suite_id", "")): node
+        for node in analysis.forest.nodes.values()
+        if node.node_id.kind == "SuiteSite"
+    }
+    for entry in analysis.deadline_obligations:
+        site = entry.get("site", {})
+        assert isinstance(site, dict)
+        suite_id = str(site.get("suite_id", ""))
+        assert suite_id in by_identity
+        suite_kind = str(site.get("suite_kind", ""))
+        assert suite_kind == str(by_identity[suite_id].meta.get("suite_kind", ""))
