@@ -1636,6 +1636,7 @@ def _run_docflow_audit(
     *,
     root: Path,
     fail_on_violations: bool,
+    sppf_gh_ref_mode: str,
     audit_tools_path: Path | None = None,
     spec_from_file_location_fn: Callable[..., object | None] = importlib.util.spec_from_file_location,
     module_from_spec_fn: Callable[..., object] = importlib.util.module_from_spec,
@@ -1689,6 +1690,7 @@ def _run_docflow_audit(
             args = ["--root", str(root)]
             if fail_on_violations:
                 args.append("--fail-on-violations")
+            args.extend(["--sppf-gh-ref-mode", sppf_gh_ref_mode])
             status = int(module.run_docflow_cli(args))
             if status == 0:
                 try:
@@ -1714,11 +1716,20 @@ def _run_docflow_audit(
 def docflow_audit(
     root: Path = typer.Option(Path("."), "--root"),
     fail_on_violations: bool = typer.Option(
-        False, "--fail-on-violations/--no-fail-on-violations"
+        True, "--fail-on-violations/--no-fail-on-violations"
+    ),
+    sppf_gh_ref_mode: str = typer.Option(
+        "required",
+        "--sppf-gh-ref-mode",
+        help="SPPF GH-reference enforcement mode (required|advisory).",
     ),
 ) -> None:
     """Run the docflow audit (governance docs only)."""
-    exit_code = _run_docflow_audit(root=root, fail_on_violations=fail_on_violations)
+    exit_code = _run_docflow_audit(
+        root=root,
+        fail_on_violations=fail_on_violations,
+        sppf_gh_ref_mode=sppf_gh_ref_mode,
+    )
     raise typer.Exit(code=exit_code)
 
 

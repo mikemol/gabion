@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution path
 
 
 if __name__ == "__main__":
-    status = run_docflow_cli()
+    status = run_docflow_cli(["--fail-on-violations", "--sppf-gh-ref-mode", "required"])
     if status == 0:
         try:
             run_sppf_graph_cli([])
