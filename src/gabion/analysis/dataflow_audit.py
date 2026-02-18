@@ -4344,6 +4344,7 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
         loop_fact = _DeadlineLoopFacts(
             span=_node_span(node),
             kind=kind,
+            depth=len(self._loop_stack) + 1,
             ambient_check=ambient_check,
         )
         self._loop_stack.append(loop_fact)
@@ -4433,6 +4434,7 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 class _DeadlineLoopFacts:
     span: tuple[int, int, int, int] | None
     kind: str
+    depth: int
     check_params: set[str] = field(default_factory=set)
     ambient_check: bool = False
     call_spans: set[tuple[int, int, int, int]] = field(default_factory=set)
@@ -5720,6 +5722,13 @@ def _collect_deadline_obligations(
         obligations.append(entry)
         suite_path = Path(path).name
         suite_id = forest.add_suite_site(suite_path, function_name, suite_kind, span=span)
+        suite_node = forest.nodes.get(suite_id)
+        suite_meta = suite_node.meta if suite_node is not None else {}
+        site_payload = cast(dict[str, object], entry["site"])
+        suite_identity = suite_meta.get("suite_id")
+        if isinstance(suite_identity, str) and suite_identity:
+            site_payload["suite_id"] = suite_identity
+        site_payload["suite_kind"] = suite_kind
         paramset_id = forest.add_paramset(bundle)
         evidence: dict[str, object] = {
             "deadline_id": deadline_id,
@@ -5894,14 +5903,50 @@ def _collect_deadline_obligations(
         if facts is None or info is None or _is_test_path(info.path):
             continue
         carriers = deadline_params.get(qual, set())
-        loop_checked: set[str] = set()
-        loop_ambient = False
-        for loop_fact in facts.loop_sites:
-            check_deadline()
-            loop_checked |= loop_fact.check_params
-            loop_ambient = loop_ambient or loop_fact.ambient_check
+        if facts.loop_sites:
+            for loop_fact in facts.loop_sites:
+                check_deadline()
+                if not carriers:
+                    if loop_fact.ambient_check:
+                        continue
+                    _add_obligation(
+                        path=_normalize_snapshot_path(info.path, project_root),
+                        function=qual,
+                        param=None,
+                        status="VIOLATION",
+                        kind="missing_carrier",
+                        detail="recursion loop requires Deadline carrier",
+                        span=loop_fact.span,
+                        suite_kind="loop",
+                    )
+                    continue
+                checked = loop_fact.check_params & carriers
+                if loop_fact.ambient_check:
+                    checked = set(carriers)
+                forwarded = _deadline_loop_forwarded_params(
+                    qual=qual,
+                    loop_fact=loop_fact,
+                    deadline_params=deadline_params,
+                    call_infos=call_infos,
+                ) & carriers
+                if checked or forwarded:
+                    continue
+                _add_obligation(
+                    path=_normalize_snapshot_path(info.path, project_root),
+                    function=qual,
+                    param=None,
+                    status="VIOLATION",
+                    kind="unchecked_deadline",
+                    detail=(
+                        "deadline carrier not checked or forwarded "
+                        f"in recursion loop depth {loop_fact.depth}"
+                    ),
+                    span=loop_fact.span,
+                    suite_kind="loop",
+                )
+            continue
         if not carriers:
-            if facts.ambient_check or loop_ambient:
+            if facts.ambient_check:
                 continue
             _add_obligation(
                 path=_normalize_snapshot_path(info.path, project_root),
@@ -5914,25 +5959,28 @@ def _collect_deadline_obligations(
                 suite_kind="function",
             )
             continue
-        checked = (facts.check_params | loop_checked) & carriers
-        if facts.ambient_check or loop_ambient:
+        checked = facts.check_params & carriers
+        if facts.ambient_check:
             checked = set(carriers)
         forwarded = forwarded_params.get(qual, set()) & carriers
-        if not checked and not forwarded:
-            _add_obligation(
-                path=_normalize_snapshot_path(info.path, project_root),
-                function=qual,
-                param=None,
-                status="VIOLATION",
-                kind="unchecked_deadline",
-                detail="deadline carrier not checked or forwarded (recursion)",
-                span=facts.span,
-                suite_kind="function",
-            )
+        if checked or forwarded:
+            continue
+        _add_obligation(
+            path=_normalize_snapshot_path(info.path, project_root),
+            function=qual,
+            param=None,
+            status="VIOLATION",
+            kind="unchecked_deadline",
+            detail="deadline carrier not checked or forwarded (recursion)",
+            span=facts.span,
+            suite_kind="function",
+        )
 
     for qual, facts in facts_by_qual.items():
         check_deadline()
         if _deadline_exempt(qual):
+            continue
+        if qual in recursive_required:
             continue
         if facts is None:
             continue
