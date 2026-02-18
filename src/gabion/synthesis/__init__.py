@@ -1,6 +1,7 @@
 """Synthesis subpackage for Gabion."""
 
 from gabion.synthesis.merge import merge_bundles
+from gabion.synthesis.emission import render_protocol_stubs
 from gabion.synthesis.model import (
     FieldSpec,
     NamingContext,
@@ -20,6 +21,7 @@ __all__ = [
     "SynthesisConfig",
     "SynthesisPlan",
     "Synthesizer",
+    "render_protocol_stubs",
     "merge_bundles",
     "suggest_name",
     "topological_schedule",
