@@ -185,6 +185,9 @@ _DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
 _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
+_ETA_RECENT_FILES_WINDOW = 32
+_ETA_RECENT_RUNS_WINDOW = 8
+_ETA_PHASE_THROUGHPUT_EPSILON = 1e-9
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 
 
@@ -1022,6 +1025,105 @@ def _analysis_resume_progress(
     }
 
 
+def _float_seconds_from_timing_entry(entry: Mapping[str, JSONValue]) -> float | None:
+    for key in ("total_elapsed_ns", "elapsed_ns", "duration_ns"):
+        raw_ns = entry.get(key)
+        if isinstance(raw_ns, (int, float)):
+            seconds = float(raw_ns) / 1_000_000_000.0
+            if seconds > 0:
+                return seconds
+    raw_stage_ns = entry.get("stage_ns")
+    if isinstance(raw_stage_ns, Mapping):
+        total_ns = 0.0
+        for value in raw_stage_ns.values():
+            if isinstance(value, (int, float)):
+                total_ns += float(value)
+        seconds = total_ns / 1_000_000_000.0
+        if seconds > 0:
+            return seconds
+    return None
+
+
+def _collection_eta(
+    *,
+    collection_resume: Mapping[str, JSONValue] | None,
+    total_files: int,
+    observed_run_file_seconds: Sequence[float] | None = None,
+) -> tuple[int | None, float | None]:
+    progress = _analysis_resume_progress(
+        collection_resume=collection_resume,
+        total_files=total_files,
+    )
+    remaining_files = progress["remaining_files"]
+    if remaining_files <= 0:
+        return 0, 1.0
+    if not isinstance(collection_resume, Mapping):
+        return None, None
+    per_file_seconds: list[float] = []
+    raw_timings = collection_resume.get("file_stage_timings_v1_by_path")
+    if isinstance(raw_timings, Mapping):
+        for raw_entry in raw_timings.values():
+            if isinstance(raw_entry, Mapping):
+                seconds = _float_seconds_from_timing_entry(raw_entry)
+                if seconds is not None:
+                    per_file_seconds.append(seconds)
+    if observed_run_file_seconds:
+        per_file_seconds.extend(
+            seconds for seconds in observed_run_file_seconds if seconds > 0
+        )
+    raw_eta_history = collection_resume.get("eta_recent_file_seconds_v1")
+    if isinstance(raw_eta_history, Sequence) and not isinstance(
+        raw_eta_history, (str, bytes)
+    ):
+        for value in raw_eta_history:
+            if isinstance(value, (int, float)) and value > 0:
+                per_file_seconds.append(float(value))
+    if not per_file_seconds:
+        return None, None
+    recent = per_file_seconds[-_ETA_RECENT_FILES_WINDOW:]
+    mean_seconds = sum(recent) / len(recent)
+    eta_seconds = int(round(mean_seconds * remaining_files))
+    confidence = min(0.95, max(0.2, len(recent) / float(_ETA_RECENT_FILES_WINDOW)))
+    if progress["completed_files"] <= 0:
+        confidence *= 0.7
+    return max(0, eta_seconds), round(confidence, 3)
+
+
+def _phase_progress_metrics(
+    *,
+    phase: Literal["collection", "forest", "edge", "post"],
+    projection_rows: Sequence[Mapping[str, JSONValue]],
+    sections: Mapping[str, list[str]],
+) -> tuple[int, int]:
+    if phase == "collection":
+        return 0, 0
+    try:
+        phase_rank = report_projection_phase_rank(phase)
+    except KeyError:
+        return 0, 0
+    work_total = 0
+    work_done = 0
+    for row in projection_rows:
+        row_phase = str(row.get("phase", "") or "")
+        if not row_phase:
+            continue
+        try:
+            row_rank = report_projection_phase_rank(
+                cast(Literal["collection", "forest", "edge", "post"], row_phase)
+            )
+        except KeyError:
+            continue
+        if row_rank > phase_rank:
+            continue
+        section_id = str(row.get("section_id", "") or "")
+        if not section_id:
+            continue
+        work_total += 1
+        if section_id in sections:
+            work_done += 1
+    return work_done, work_total
+
+
 def _completed_path_set(
     collection_resume: Mapping[str, JSONValue] | None,
 ) -> set[str]:
@@ -1819,6 +1921,18 @@ def _render_incremental_report(
         resume_supported = progress_payload.get("resume_supported")
         if isinstance(resume_supported, bool):
             lines.append(f"- `resume_supported`: `{resume_supported}`")
+        work_done = progress_payload.get("work_done")
+        if isinstance(work_done, int):
+            lines.append(f"- `work_done`: `{work_done}`")
+        work_total = progress_payload.get("work_total")
+        if isinstance(work_total, int):
+            lines.append(f"- `work_total`: `{work_total}`")
+        eta_seconds = progress_payload.get("eta_seconds")
+        if isinstance(eta_seconds, int):
+            lines.append(f"- `eta_seconds`: `{eta_seconds}`")
+        eta_confidence = progress_payload.get("eta_confidence")
+        if isinstance(eta_confidence, (int, float)):
+            lines.append(f"- `eta_confidence`: `{float(eta_confidence):.3f}`")
     lines.append("")
 
     pending_reasons: dict[str, str] = {}
@@ -1874,6 +1988,14 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
+    eta_seconds, eta_confidence = _collection_eta(
+        collection_resume=collection_resume,
+        total_files=total_files,
+    )
+    if isinstance(eta_seconds, int):
+        lines.append(f"- `eta_seconds`: `{eta_seconds}`")
+    if isinstance(eta_confidence, float):
+        lines.append(f"- `eta_confidence`: `{eta_confidence:.3f}`")
     semantic_progress = collection_resume.get("semantic_progress")
     if isinstance(semantic_progress, Mapping):
         semantic_witness_digest = semantic_progress.get("current_witness_digest")
@@ -3309,6 +3431,20 @@ def _execute_command_total(
             "server.collection_resume_persist_calls": 0,
             "server.projection_emit_calls": 0,
         }
+        collection_file_timings_samples: deque[float] = deque(maxlen=_ETA_RECENT_FILES_WINDOW)
+        if isinstance(collection_resume_payload, Mapping):
+            raw_eta_history = collection_resume_payload.get("eta_recent_file_seconds_v1")
+            if isinstance(raw_eta_history, Sequence) and not isinstance(
+                raw_eta_history, (str, bytes)
+            ):
+                for raw_value in raw_eta_history:
+                    if isinstance(raw_value, (int, float)) and raw_value > 0:
+                        collection_file_timings_samples.append(float(raw_value))
+        phase_progress_samples: dict[str, deque[tuple[int, int, float]]] = {
+            "forest": deque(maxlen=_ETA_RECENT_RUNS_WINDOW),
+            "edge": deque(maxlen=_ETA_RECENT_RUNS_WINDOW),
+            "post": deque(maxlen=_ETA_RECENT_RUNS_WINDOW),
+        }
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
             profiling_counters["server.collection_resume_persist_calls"] += 1
@@ -3331,6 +3467,28 @@ def _execute_command_total(
             persisted_progress_payload: JSONObject = {
                 str(key): progress_payload[key] for key in progress_payload
             }
+            stage_timings_payload = persisted_progress_payload.get(
+                "file_stage_timings_v1_by_path"
+            )
+            if isinstance(stage_timings_payload, Mapping):
+                for timing in stage_timings_payload.values():
+                    if isinstance(timing, Mapping):
+                        sample_seconds = _float_seconds_from_timing_entry(timing)
+                        if sample_seconds is not None:
+                            collection_file_timings_samples.append(sample_seconds)
+            if collection_file_timings_samples:
+                persisted_progress_payload["eta_recent_file_seconds_v1"] = [
+                    round(value, 6) for value in collection_file_timings_samples
+                ]
+            eta_seconds, eta_confidence = _collection_eta(
+                collection_resume=persisted_progress_payload,
+                total_files=analysis_resume_total_files,
+                observed_run_file_seconds=list(collection_file_timings_samples),
+            )
+            if isinstance(eta_seconds, int):
+                persisted_progress_payload["eta_seconds"] = eta_seconds
+            if isinstance(eta_confidence, float):
+                persisted_progress_payload["eta_confidence"] = eta_confidence
             persisted_progress_payload["semantic_progress"] = semantic_progress
             last_collection_resume_payload = persisted_progress_payload
             collection_progress = _analysis_resume_progress(
@@ -3453,6 +3611,8 @@ def _execute_command_total(
                 "in_progress_files": collection_progress["in_progress_files"],
                 "remaining_files": collection_progress["remaining_files"],
                 "total_files": collection_progress["total_files"],
+                "eta_seconds": persisted_progress_payload.get("eta_seconds"),
+                "eta_confidence": persisted_progress_payload.get("eta_confidence"),
                 "section_ids": sorted(sections),
             }
             _write_report_phase_checkpoint(
@@ -3534,9 +3694,40 @@ def _execute_command_total(
             )
             sections, journal_reason = _ensure_report_sections_cache()
             sections.update(available_sections)
+            work_done, work_total = _phase_progress_metrics(
+                phase=phase,
+                projection_rows=projection_rows,
+                sections=sections,
+            )
+            phase_progress_payload: JSONObject = {
+                "phase": phase,
+                "work_done": work_done,
+                "work_total": work_total,
+            }
+            if phase in phase_progress_samples and work_total > 0 and work_done > 0:
+                now_seconds = time.monotonic()
+                samples = phase_progress_samples[phase]
+                previous_done = 0
+                previous_time = now_seconds
+                if samples:
+                    previous_done, _, previous_time = samples[-1]
+                delta_work = max(0, work_done - previous_done)
+                delta_seconds = max(0.0, now_seconds - previous_time)
+                if delta_work > 0 and delta_seconds > 0:
+                    throughput = float(delta_work) / delta_seconds
+                    if throughput > _ETA_PHASE_THROUGHPUT_EPSILON:
+                        remaining_work = max(0, work_total - work_done)
+                        phase_progress_payload["eta_seconds"] = int(
+                            round(remaining_work / throughput)
+                        )
+                        phase_progress_payload["eta_confidence"] = round(
+                            min(0.9, 0.25 + (len(samples) / float(_ETA_RECENT_RUNS_WINDOW))),
+                            3,
+                        )
+                samples.append((work_done, work_total, now_seconds))
             partial_report, pending_reasons = _render_incremental_report(
                 analysis_state=f"analysis_{phase}_in_progress",
-                progress_payload={"phase": phase},
+                progress_payload=phase_progress_payload,
                 projection_rows=projection_rows,
                 sections=sections,
             )
@@ -3564,6 +3755,10 @@ def _execute_command_total(
                 "status": "checkpointed",
                 "section_ids": sorted(sections),
                 "resolved_sections": len(sections),
+                "work_done": work_done,
+                "work_total": work_total,
+                "eta_seconds": phase_progress_payload.get("eta_seconds"),
+                "eta_confidence": phase_progress_payload.get("eta_confidence"),
             }
             _write_report_phase_checkpoint(
                 path=report_phase_checkpoint_path,
@@ -4423,6 +4618,14 @@ def _execute_command_total(
                             "remaining_files"
                         ]
                         progress_payload["total_files"] = resume_progress["total_files"]
+                        eta_seconds, eta_confidence = _collection_eta(
+                            collection_resume=collection_resume,
+                            total_files=analysis_resume_total_files,
+                        )
+                        if isinstance(eta_seconds, int):
+                            progress_payload["eta_seconds"] = eta_seconds
+                        if isinstance(eta_confidence, float):
+                            progress_payload["eta_confidence"] = eta_confidence
                         resume_supported = (
                             resume_progress["completed_files"] > 0
                             or resume_progress.get("in_progress_files", 0) > 0
@@ -4488,6 +4691,15 @@ def _execute_command_total(
             classification = progress_payload.get("classification")
             if isinstance(classification, str) and classification:
                 analysis_state = classification
+            latest_phase = _latest_report_phase(phase_checkpoint_state)
+            if latest_phase is not None and isinstance(phase_checkpoint_state, Mapping):
+                raw_phase_payload = phase_checkpoint_state.get(latest_phase)
+                if isinstance(raw_phase_payload, Mapping):
+                    for field in ("eta_seconds", "eta_confidence", "work_done", "work_total"):
+                        value = raw_phase_payload.get(field)
+                        if isinstance(value, (int, float)):
+                            progress_payload[field] = value
+                    progress_payload.setdefault("phase", latest_phase)
             if analysis_state == "timed_out_progress_resume":
                 progress_payload["resume_supported"] = True
             partial_report_written = False

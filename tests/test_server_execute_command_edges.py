@@ -1219,6 +1219,43 @@ def test_analysis_resume_progress_uses_observed_file_counts() -> None:
     }
 
 
+def test_collection_eta_uses_stage_timings_and_history() -> None:
+    eta_seconds, eta_confidence = server._collection_eta(
+        collection_resume={
+            "completed_paths": ["a.py", "b.py"],
+            "in_progress_scan_by_path": {"c.py": {"phase": "scan_pending"}},
+            "file_stage_timings_v1_by_path": {
+                "a.py": {"stage_ns": {"scan": 1_000_000_000}},
+                "b.py": {"stage_ns": {"scan": 3_000_000_000}},
+            },
+            "eta_recent_file_seconds_v1": [2.0],
+        },
+        total_files=4,
+    )
+    assert eta_seconds == 4
+    assert isinstance(eta_confidence, float)
+    assert eta_confidence > 0
+
+
+def test_render_incremental_report_renders_unified_eta_fields() -> None:
+    report, _ = server._render_incremental_report(
+        analysis_state="analysis_forest_in_progress",
+        progress_payload={
+            "phase": "forest",
+            "work_done": 2,
+            "work_total": 5,
+            "eta_seconds": 9,
+            "eta_confidence": 0.625,
+        },
+        projection_rows=[],
+        sections={},
+    )
+    assert "`work_done`: `2`" in report
+    assert "`work_total`: `5`" in report
+    assert "`eta_seconds`: `9`" in report
+    assert "`eta_confidence`: `0.625`" in report
+
+
 def test_in_progress_scan_states_filters_malformed_entries() -> None:
     states = server._in_progress_scan_states(
         {
@@ -3257,6 +3294,7 @@ def test_execute_command_timeout_phase_preview_projection_edges(
                 "emit_timeout_progress_report": True,
                 "analysis_timeout_ms": 2_000,
                 "analysis_timeout_grace_ms": 2_000,
+                "lint": True,
             }
         ),
         load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
@@ -3555,6 +3593,48 @@ def test_execute_command_timeout_cleanup_manifest_resume_and_projection_preview(
         "Component summary (provisional)." in report_text
         or "## Section `components`" in report_text
     )
+
+
+def test_execute_command_timeout_payload_includes_collection_eta(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    checkpoint_path = tmp_path / "resume.json"
+    resume_payload = {
+        "format_version": 1,
+        "completed_paths": [str(module_path)],
+        "in_progress_scan_by_path": {},
+        "file_stage_timings_v1_by_path": {
+            str(module_path): {"stage_ns": {"scan": 2_000_000_000}}
+        },
+        "eta_recent_file_seconds_v1": [2.0],
+    }
+
+    def _manifest_loader(*_args: object, **_kwargs: object):
+        return None, resume_payload
+
+    result = _execute_with_deps(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "resume_checkpoint": str(checkpoint_path),
+                "analysis_timeout_ms": 2_000,
+                "analysis_timeout_grace_ms": 2_000,
+                "lint": True,
+            }
+        ),
+        load_analysis_resume_checkpoint_manifest_fn=_manifest_loader,
+        analyze_paths_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            _timeout_exc(progress={"classification": "timed_out_progress_resume"})
+        ),
+    )
+
+    progress = result["timeout_context"]["progress"]
+    assert progress.get("eta_seconds") == 0
+    assert isinstance(progress.get("eta_confidence"), float)
 
 
 def test_execute_command_timeout_cleanup_load_resume_progress_timeout(
