@@ -10,6 +10,9 @@ const LSP_PROGRESS_METHOD = "$/progress";
 const LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1";
 
 let client;
+const progressLifecycle = {
+  resolveActiveProgress: () => {},
+};
 
 function createResultPanel(outputChannel, title, payload, result) {
   outputChannel.appendLine(`\\n=== ${title} ===`);
@@ -29,6 +32,7 @@ async function executeServerCommand({ command, payload, outputChannel, responseT
     createResultPanel(outputChannel, responseTitle, payload, result);
     return result;
   } catch (err) {
+    progressLifecycle.resolveActiveProgress("request_failed");
     vscode.window.showErrorMessage(`Gabion command failed (${command}): ${err}`);
     throw err;
   }
@@ -189,6 +193,53 @@ function formatProgressLine(progress) {
 function registerProgressNotifications(context, outputChannel) {
   const activeProgress = new Map();
 
+  const resolveProgress = (token, reason) => {
+    const state = activeProgress.get(token);
+    if (!state) {
+      return;
+    }
+    if (typeof state.resolver === "function") {
+      state.resolver();
+    }
+    activeProgress.delete(token);
+    if (reason) {
+      outputChannel.appendLine(`[progress] resolved token=${token} reason=${reason}`);
+    }
+  };
+
+  progressLifecycle.resolveActiveProgress = (reason = "cleanup") => {
+    for (const token of activeProgress.keys()) {
+      resolveProgress(token, reason);
+    }
+  };
+
+  const isTerminalProgress = (progress) => {
+    if (progress?.done === true) {
+      return true;
+    }
+    if (typeof progress?.classification === "string") {
+      if (progress.classification.startsWith("timed_out_")) {
+        return true;
+      }
+      if (progress.classification === "failed") {
+        return true;
+      }
+    }
+    if (typeof progress?.analysis_state === "string") {
+      if (progress.analysis_state.startsWith("timed_out_")) {
+        return true;
+      }
+      if (progress.analysis_state === "failed") {
+        return true;
+      }
+    }
+    return (
+      progress.phase === "post" &&
+      Number.isInteger(progress.remaining_files) &&
+      progress.remaining_files === 0
+    );
+  };
+
   const disposable = client.onNotification(LSP_PROGRESS_METHOD, (params) => {
     if (!params || params.token !== LSP_PROGRESS_TOKEN || typeof params.value !== "object") {
       return;
@@ -233,17 +284,18 @@ function registerProgressNotifications(context, outputChannel) {
       state.progressUi.report({ increment, message: formatProgressLine(progress) });
     }
 
-    const done =
-      progress.phase === "post" &&
-      Number.isInteger(progress.remaining_files) &&
-      progress.remaining_files === 0;
-    if (done && typeof state.resolver === "function") {
-      state.resolver();
-      activeProgress.delete(token);
+    if (isTerminalProgress(progress)) {
+      resolveProgress(token, "terminal_marker");
     }
   });
 
   context.subscriptions.push(disposable);
+  context.subscriptions.push(
+    new vscode.Disposable(() => {
+      progressLifecycle.resolveActiveProgress("extension_dispose");
+      progressLifecycle.resolveActiveProgress = () => {};
+    })
+  );
 }
 
 

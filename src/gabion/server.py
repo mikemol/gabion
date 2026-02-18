@@ -3364,6 +3364,9 @@ def _execute_command_total(
             work_done: int | None = None,
             work_total: int | None = None,
             include_timing: bool = False,
+            done: bool = False,
+            analysis_state: str | None = None,
+            classification: str | None = None,
         ) -> None:
             semantic_payload: JSONObject = {}
             if isinstance(semantic_progress, Mapping):
@@ -3404,6 +3407,12 @@ def _execute_command_total(
                         "counters": dict(profiling_counters),
                     },
                 }
+            if done:
+                progress_value["done"] = True
+            if isinstance(analysis_state, str) and analysis_state:
+                progress_value["analysis_state"] = analysis_state
+            if isinstance(classification, str) and classification:
+                progress_value["classification"] = classification
             send_notification = getattr(ls, "send_notification", None)
             if not callable(send_notification):
                 return
@@ -4463,6 +4472,15 @@ def _execute_command_total(
                 response["exit_code"] = 1 if (fail_on_violations and effective_violations) else 0
         response["analysis_state"] = "succeeded"
         response["execution_plan"] = execution_plan.as_json_dict()
+        _emit_lsp_progress(
+            phase="post",
+            collection_progress=latest_collection_progress,
+            semantic_progress=semantic_progress_cumulative,
+            include_timing=True,
+            done=True,
+            analysis_state="succeeded",
+            classification="succeeded",
+        )
         return _normalize_dataflow_response(response)
     except TimeoutExceeded as exc:
         cleanup_now_ns = time.monotonic_ns()
@@ -4740,6 +4758,20 @@ def _execute_command_total(
             if cleanup_timeout_steps:
                 progress_payload["cleanup_truncated"] = True
                 progress_payload["cleanup_timeout_steps"] = cleanup_timeout_steps
+            timeout_classification = progress_payload.get("classification")
+            _emit_lsp_progress(
+                phase="post",
+                collection_progress=latest_collection_progress,
+                semantic_progress=semantic_progress_cumulative,
+                include_timing=True,
+                done=True,
+                analysis_state=analysis_state,
+                classification=(
+                    timeout_classification
+                    if isinstance(timeout_classification, str)
+                    else "timed_out_no_progress"
+                ),
+            )
             return _normalize_dataflow_response(
                 {
                     "exit_code": 2,
@@ -4751,6 +4783,17 @@ def _execute_command_total(
             )
         finally:
             reset_deadline(cleanup_deadline_token)
+    except Exception:
+        _emit_lsp_progress(
+            phase="post",
+            collection_progress=latest_collection_progress,
+            semantic_progress=semantic_progress_cumulative,
+            include_timing=True,
+            done=True,
+            analysis_state="failed",
+            classification="failed",
+        )
+        raise
     finally:
         reset_forest(forest_token)
         reset_deadline_clock(deadline_clock_token)
