@@ -2551,8 +2551,8 @@ def _deadline_from_payload(payload: dict[str, object]) -> Deadline:
 
 
 @contextmanager
-def _deadline_scope_from_payload(payload: dict[str, object] | None):
-    normalized_payload = _require_optional_payload(payload, command="deadline_scope")
+def _deadline_scope_from_payload(payload: Mapping[str, object]):
+    normalized_payload = _require_payload(payload, command="deadline_scope")
     deadline = _deadline_from_payload(normalized_payload)
     base_ticks = _analysis_timeout_total_ticks(normalized_payload)
     tick_limit = base_ticks
