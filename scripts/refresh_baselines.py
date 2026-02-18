@@ -13,6 +13,7 @@ try:  # pragma: no cover - import form depends on invocation mode
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.execution_plan import BaselineFacet, DeadlineFacet, ExecutionPlan
 
 
 OBSOLESCENCE_DELTA_PATH = Path("artifacts/out/test_obsolescence_delta.json")
@@ -98,6 +99,46 @@ def _get_nested(payload: object, keys: list[str], default: int = 0) -> int:
         return default
 
 
+def _build_execution_plan(timeout: int | None) -> ExecutionPlan:
+    plan = ExecutionPlan()
+    plan.with_deadline(DeadlineFacet(timeout_seconds=timeout))
+    return plan
+
+
+def _risk_entries(
+    *,
+    obsolescence_payload: dict[str, object] | None = None,
+    annotation_payload: dict[str, object] | None = None,
+    ambiguity_payload: dict[str, object] | None = None,
+    docflow_payload: dict[str, object] | None = None,
+) -> tuple[tuple[str, int], ...]:
+    values: list[tuple[str, int]] = []
+    if obsolescence_payload is not None:
+        values.append(
+            (
+                "obsolescence.opaque",
+                _get_nested(obsolescence_payload, ["summary", "opaque_evidence", "delta"]),
+            )
+        )
+        values.append(
+            (
+                "obsolescence.unmapped",
+                _get_nested(obsolescence_payload, ["summary", "counts", "delta", "unmapped"]),
+            )
+        )
+    if annotation_payload is not None:
+        values.append(
+            ("annotation.orphaned", _get_nested(annotation_payload, ["summary", "delta", "orphaned"]))
+        )
+    if ambiguity_payload is not None:
+        values.append(("ambiguity.total", _get_nested(ambiguity_payload, ["summary", "total", "delta"])))
+    if docflow_payload is not None:
+        values.append(
+            ("docflow.contradicts", _get_nested(docflow_payload, ["summary", "delta", "contradicts"]))
+        )
+    return tuple(values)
+
+
 def _ensure_delta(
     flag: str,
     path: Path,
@@ -111,60 +152,58 @@ def _ensure_delta(
     return _load_json(path)
 
 
-def _guard_obsolescence_delta(timeout: int | None) -> None:
+def _guard_obsolescence_delta(plan: ExecutionPlan) -> None:
     payload = _ensure_delta(
         "--emit-test-obsolescence-delta",
         OBSOLESCENCE_DELTA_PATH,
-        timeout,
+        plan.deadline.timeout_seconds,
         extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
     )
-    opaque_delta = _get_nested(payload, ["summary", "opaque_evidence", "delta"])
-    if opaque_delta > 0:
+    plan.with_baseline(BaselineFacet(risks=_risk_entries(obsolescence_payload=payload)))
+    if plan.baseline.risk("obsolescence.opaque") > 0:
         raise SystemExit(
             "Refusing to refresh obsolescence baseline: opaque evidence delta > 0."
         )
-    if _gate_enabled(ENV_GATE_UNMAPPED):
-        unmapped_delta = _get_nested(payload, ["summary", "counts", "delta", "unmapped"])
-        if unmapped_delta > 0:
-            raise SystemExit(
-                "Refusing to refresh obsolescence baseline: unmapped delta > 0."
-            )
+    if _gate_enabled(ENV_GATE_UNMAPPED) and plan.baseline.risk("obsolescence.unmapped") > 0:
+        raise SystemExit(
+            "Refusing to refresh obsolescence baseline: unmapped delta > 0."
+        )
 
 
-def _guard_annotation_drift_delta(timeout: int | None) -> None:
+def _guard_annotation_drift_delta(plan: ExecutionPlan) -> None:
     if not _gate_enabled(ENV_GATE_ORPHANED):
         return
     payload = _ensure_delta(
         "--emit-test-annotation-drift-delta",
         ANNOTATION_DRIFT_DELTA_PATH,
-        timeout,
+        plan.deadline.timeout_seconds,
         extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"),
     )
-    orphaned_delta = _get_nested(payload, ["summary", "delta", "orphaned"])
-    if orphaned_delta > 0:
+    plan.with_baseline(BaselineFacet(risks=_risk_entries(annotation_payload=payload)))
+    if plan.baseline.risk("annotation.orphaned") > 0:
         raise SystemExit(
             "Refusing to refresh annotation drift baseline: orphaned delta > 0."
         )
 
 
-def _guard_ambiguity_delta(timeout: int | None) -> None:
+def _guard_ambiguity_delta(plan: ExecutionPlan) -> None:
     if not _gate_enabled(ENV_GATE_AMBIGUITY):
         return
     payload = _ensure_delta(
         "--emit-ambiguity-delta",
         AMBIGUITY_DELTA_PATH,
-        timeout,
+        plan.deadline.timeout_seconds,
         extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
     )
-    total_delta = _get_nested(payload, ["summary", "total", "delta"])
-    if total_delta > 0:
+    plan.with_baseline(BaselineFacet(risks=_risk_entries(ambiguity_payload=payload)))
+    if plan.baseline.risk("ambiguity.total") > 0:
         raise SystemExit(
             "Refusing to refresh ambiguity baseline: ambiguity delta > 0."
         )
 
 
-def _guard_docflow_delta(timeout: int | None) -> None:
-    _run_docflow_delta_emit(timeout)
+def _guard_docflow_delta(plan: ExecutionPlan) -> None:
+    _run_docflow_delta_emit(plan.deadline.timeout_seconds)
     if not DOCFLOW_DELTA_PATH.exists():
         raise FileNotFoundError(
             f"Missing docflow delta output at {DOCFLOW_DELTA_PATH}"
@@ -172,8 +211,8 @@ def _guard_docflow_delta(timeout: int | None) -> None:
     payload = _load_json(DOCFLOW_DELTA_PATH)
     if payload.get("baseline_missing"):
         return
-    contradicts = _get_nested(payload, ["summary", "delta", "contradicts"])
-    if contradicts > 0:
+    plan.with_baseline(BaselineFacet(risks=_risk_entries(docflow_payload=payload)))
+    if plan.baseline.risk("docflow.contradicts") > 0:
         raise SystemExit(
             "Refusing to refresh docflow baseline: contradictions delta > 0."
         )
@@ -226,31 +265,33 @@ def main() -> int:
         ):
             args.all = True
 
+        plan = _build_execution_plan(args.timeout)
+
         if args.all or args.obsolescence:
-            _guard_obsolescence_delta(args.timeout)
+            _guard_obsolescence_delta(plan)
             _run_check(
                 "--write-test-obsolescence-baseline",
-                args.timeout,
+                plan.deadline.timeout_seconds,
                 _state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
             )
         if args.all or args.annotation_drift:
-            _guard_annotation_drift_delta(args.timeout)
+            _guard_annotation_drift_delta(plan)
             _run_check(
                 "--write-test-annotation-drift-baseline",
-                args.timeout,
+                plan.deadline.timeout_seconds,
                 _state_args(
                     ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"
                 ),
             )
         if args.all or args.ambiguity:
-            _guard_ambiguity_delta(args.timeout)
+            _guard_ambiguity_delta(plan)
             _run_check(
                 "--write-ambiguity-baseline",
-                args.timeout,
+                plan.deadline.timeout_seconds,
                 _state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
             )
         if args.all or args.docflow:
-            _guard_docflow_delta(args.timeout)
+            _guard_docflow_delta(plan)
             if not DOCFLOW_CURRENT_PATH.exists():
                 raise FileNotFoundError(
                     f"Missing docflow compliance output at {DOCFLOW_CURRENT_PATH}"

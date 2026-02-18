@@ -18,6 +18,7 @@ try:  # pragma: no cover - import form depends on invocation mode
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.execution_plan import ExecutionPlan, IssueLinkFacet
 from gabion.order_contract import ordered_or_sorted
 
 
@@ -89,13 +90,18 @@ def _extract_issue_ids(text: str) -> set[str]:
     return issues
 
 
-def _issue_ids_from_commits(commits: list[CommitInfo]) -> set[str]:
-    issues: set[str] = set()
+def _build_issue_link_facet(commits: list[CommitInfo]) -> IssueLinkFacet:
+    issue_counts: dict[str, int] = {}
     for commit in commits:
         check_deadline()
-        issues.update(_extract_issue_ids(commit.subject))
-        issues.update(_extract_issue_ids(commit.body))
-    return issues
+        combined = f"{commit.subject}\n{commit.body}"
+        refs = _extract_issue_ids(combined)
+        for issue_id in refs:
+            check_deadline()
+            issue_counts[issue_id] = issue_counts.get(issue_id, 0) + 1
+    issue_ids = tuple(sorted(issue_counts))
+    checklist_impact = tuple((issue_id, issue_counts[issue_id]) for issue_id in issue_ids)
+    return IssueLinkFacet(issue_ids=issue_ids, checklist_impact=checklist_impact)
 
 
 def _build_comment(rev_range: str, commits: list[CommitInfo]) -> str:
@@ -145,10 +151,9 @@ def main() -> int:
             print("No commits in range; nothing to sync.")
             return 0
 
-        issue_ids = ordered_or_sorted(
-            _issue_ids_from_commits(commits),
-            source="scripts.sppf_sync.issue_ids",
-        )
+        plan = ExecutionPlan()
+        plan.with_issue_link(_build_issue_link_facet(commits))
+        issue_ids = ordered_or_sorted(plan.issue_link.issue_ids, source="scripts.sppf_sync.issue_ids")
         if not issue_ids:
             print("No issue references found in commit messages.")
             return 0

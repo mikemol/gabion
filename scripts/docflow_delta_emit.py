@@ -11,6 +11,7 @@ try:  # pragma: no cover - import form depends on invocation mode
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.execution_plan import DocflowFacet, ExecutionPlan
 
 BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
@@ -38,6 +39,24 @@ def _run_docflow_audit() -> None:
         check=True,
         env=env,
     )
+
+
+def _changed_paths_from_git() -> tuple[str, ...]:
+    try:
+        out = subprocess.check_output(
+            ["git", "diff", "--name-only", "HEAD~1..HEAD"],
+            text=True,
+        )
+    except Exception:
+        return ()
+    paths = [line.strip() for line in out.splitlines() if line.strip()]
+    return tuple(sorted(set(paths)))
+
+
+def _build_execution_plan() -> ExecutionPlan:
+    plan = ExecutionPlan()
+    plan.with_docflow(DocflowFacet(changed_paths=_changed_paths_from_git()))
+    return plan
 
 
 def _load_summary(path: Path) -> tuple[dict[str, int], bool]:
@@ -71,6 +90,7 @@ def _delta_counts(
 
 def main() -> int:
     with _delta_deadline_scope():
+        plan = _build_execution_plan()
         try:
             _run_docflow_audit()
         except subprocess.CalledProcessError:
@@ -89,6 +109,11 @@ def main() -> int:
                 "baseline": baseline_counts,
                 "current": current_counts,
                 "delta": _delta_counts(baseline_counts, current_counts),
+            },
+            "facets": {
+                "docflow": {
+                    "changed_paths": list(plan.docflow.changed_paths),
+                }
             },
             "version": 1,
         }
