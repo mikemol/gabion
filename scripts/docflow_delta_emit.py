@@ -35,7 +35,7 @@ def _run_docflow_audit() -> None:
     env = dict(os.environ)
     env.setdefault("GABION_DIRECT_RUN", "1")
     subprocess.run(
-        [sys.executable, "-m", "gabion", "docflow-audit"],
+        [sys.executable, "-m", "gabion", "docflow"],
         check=True,
         env=env,
     )

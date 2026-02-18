@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  dataflow-audit:
+  dataflow-grammar:
     if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -171,7 +171,7 @@ jobs:
           fi
           .venv/bin/python scripts/policy_check.py --posture
       - name: Docflow audit
-        run: .venv/bin/python -m gabion docflow-audit --root . --fail-on-violations --sppf-gh-ref-mode required
+        run: .venv/bin/python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
       - name: SPPF status drift audit
         run: .venv/bin/python scripts/sppf_status_audit.py --root .
       - name: SPPF issue lifecycle validation (non-mutating)

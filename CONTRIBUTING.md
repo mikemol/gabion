@@ -246,7 +246,7 @@ Recommended practice:
 
 Run the dataflow grammar audit (prototype):
 ```
-mise exec -- python -m gabion dataflow-audit path/to/project
+mise exec -- python -m gabion check --profile raw path/to/project
 ```
 Defaults live in `gabion.toml` (see `[dataflow]`).
 `in/` (inspiration) is excluded from enforcement there by default.
@@ -263,15 +263,13 @@ mise exec -- python -m gabion synth path/to/project
 
 Run the docflow audit (governance docs; `in/` is included for dependency resolution):
 ```
-mise exec -- python -m gabion docflow-audit
+mise exec -- python -m gabion docflow
 ```
 Run governance graph/status checks through the same CLI entrypoint:
 ```
 mise exec -- python -m gabion sppf-graph
 mise exec -- python -m gabion status-consistency --fail-on-violations
 ```
-Legacy wrappers remain available for transition-only CI/hooks (`scripts/docflow_audit.py`,
-`scripts/sppf_graph.py`, `scripts/status_consistency.py`).
 
 Docflow now fails when commits touching SPPF-relevant paths (`src/`, `in/`, or
 `docs/sppf_checklist.md`) lack GH references in commit messages. Use `GH-####`
@@ -434,7 +432,7 @@ The GitHub-hosted workflow in `.github/workflows/ci.yml` runs:
 
 It uses `mise` (via `gabion.toml`) to install the toolchain.
 
-For push-driven `dataflow-audit`, prefer warm caches:
+For push-driven `dataflow-grammar`, prefer warm caches:
 - CI restores the previous same-branch `dataflow-report` artifact's resume
   checkpoint (`dataflow_resume_checkpoint_ci.json`) on a best-effort basis.
 - `scripts/run_dataflow_stage.py` emits resume metrics in logs/step-summary

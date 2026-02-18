@@ -104,7 +104,7 @@ Gabion uses layered quality gates:
   - `mise exec -- python -m gabion check`
   - `mise exec -- python -m pytest`
 - **Governance lane** (governance correctness and doc/state integrity):
-  - `mise exec -- python -m gabion docflow-audit`
+  - `mise exec -- python -m gabion docflow`
   - `mise exec -- python -m gabion status-consistency --fail-on-violations`
 
 `gabion check` is the analysis gate and does **not** execute docflow governance audits.
@@ -189,7 +189,7 @@ Suggested sequence:
    - `sed -n '1,260p' docs/sppf_checklist.md`
 
 5. Governance verification (required when touching docs/process/checklists/policy surfaces):
-   - `mise exec -- python -m gabion docflow-audit`
+   - `mise exec -- python -m gabion docflow`
    - `mise exec -- python -m gabion status-consistency --fail-on-violations`
 
 6. Clean-state confirmation before proposing changes:
