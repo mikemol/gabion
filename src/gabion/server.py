@@ -3342,6 +3342,8 @@ def _execute_command_total(
             collection_progress: Mapping[str, JSONValue],
             semantic_progress: Mapping[str, JSONValue] | None,
             include_timing: bool = False,
+            work_done: int | None = None,
+            work_total: int | None = None,
         ) -> None:
             semantic_payload: JSONObject = {}
             if isinstance(semantic_progress, Mapping):
@@ -3366,6 +3368,17 @@ def _execute_command_total(
                 "total_files": int(collection_progress.get("total_files", 0)),
                 "semantic_deltas": semantic_payload,
             }
+            if (
+                phase != "collection"
+                and isinstance(work_done, int)
+                and isinstance(work_total, int)
+            ):
+                normalized_total = max(work_total, 0)
+                normalized_done = max(work_done, 0)
+                if normalized_total > 0:
+                    normalized_done = min(normalized_done, normalized_total)
+                progress_value["work_done"] = normalized_done
+                progress_value["work_total"] = normalized_total
             if include_timing:
                 progress_value["profiling_v1"] = {
                     "format_version": 1,
@@ -3597,6 +3610,8 @@ def _execute_command_total(
                 collection_progress=latest_collection_progress,
                 semantic_progress=semantic_progress_cumulative,
                 include_timing=profile_enabled,
+                work_done=work_done,
+                work_total=work_total,
             )
             if not report_output_path or not projection_rows:
                 return

@@ -30,6 +30,10 @@ class _DummyWorkspace:
 class _DummyServer:
     def __init__(self, root_path: str) -> None:
         self.workspace = _DummyWorkspace(root_path)
+        self.notifications: list[tuple[str, object]] = []
+
+    def send_notification(self, method: str, params: object) -> None:
+        self.notifications.append((method, params))
 
 
 @dataclass
@@ -139,6 +143,23 @@ def _execute_with_deps(
 ) -> dict:
     deps = server._default_execute_command_deps().with_overrides(**overrides)
     return server.execute_command_with_deps(ls, payload, deps=deps)
+
+
+def _progress_notifications(
+    ls: _DummyServer,
+) -> list[tuple[str, dict[str, object], dict[str, object]]]:
+    notifications: list[tuple[str, dict[str, object], dict[str, object]]] = []
+    for method, params in ls.notifications:
+        if method != "$/progress" or not isinstance(params, dict):
+            continue
+        token = params.get("token")
+        value = params.get("value")
+        if (
+            token == "gabion.dataflowAudit/progress-v1"
+            and isinstance(value, dict)
+        ):
+            notifications.append((method, params, value))
+    return notifications
 
 
 # gabion:evidence E:call_cluster::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
@@ -4605,3 +4626,124 @@ def test_execute_impact_bfs_step_limit_handles_dense_reverse_edges(tmp_path: Pat
     )
     assert result.get("exit_code") == 0
     assert "seed" in (result.get("seed_functions") or [])
+
+
+def test_execute_command_emits_lsp_progress_notifications_on_success(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    report_path = tmp_path / "report.md"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+
+    def _analyze_success(*_args: object, **kwargs: object) -> server.AnalysisResult:
+        on_collection_progress = kwargs.get("on_collection_progress")
+        if callable(on_collection_progress):
+            on_collection_progress(
+                {
+                    "format_version": 2,
+                    "completed_paths": [str(module_path)],
+                    "in_progress_scan_by_path": {},
+                    "groups_by_path": {},
+                    "param_spans_by_path": {},
+                    "bundle_sites_by_path": {},
+                    "invariant_propositions": [],
+                }
+            )
+        on_phase_progress = kwargs.get("on_phase_progress")
+        if callable(on_phase_progress):
+            groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+            report_carrier = server.ReportCarrier(forest=server.Forest())
+            on_phase_progress("post", groups_by_path, report_carrier, 1, 1)
+        return _empty_analysis_result()
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": str(report_path),
+                "emit_timeout_progress_report": True,
+            }
+        ),
+        analyze_paths_fn=_analyze_success,
+    )
+
+    assert result.get("analysis_state") == "succeeded"
+    progress_notifications = _progress_notifications(ls)
+    assert progress_notifications
+    method, params, first_value = progress_notifications[0]
+    assert method == "$/progress"
+    assert params.get("token") == "gabion.dataflowAudit/progress-v1"
+    assert first_value.get("format_version") == 1
+    assert first_value.get("schema") == "gabion/dataflow_progress_v1"
+    assert isinstance(first_value.get("phase"), str)
+    assert isinstance(first_value.get("completed_files"), int)
+    assert isinstance(first_value.get("in_progress_files"), int)
+    assert isinstance(first_value.get("remaining_files"), int)
+    assert isinstance(first_value.get("total_files"), int)
+    assert isinstance(first_value.get("semantic_deltas"), dict)
+
+    post_notifications = [
+        value
+        for _, _, value in progress_notifications
+        if value.get("phase") == "post"
+    ]
+    assert post_notifications
+    terminal_value = post_notifications[-1]
+    assert terminal_value.get("work_done") == 1
+    assert terminal_value.get("work_total") == 1
+
+
+def test_execute_command_emits_closing_lsp_progress_notification_on_timeout(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyServer(str(tmp_path))
+
+    def _analyze_timeout(*_args: object, **kwargs: object) -> server.AnalysisResult:
+        on_collection_progress = kwargs.get("on_collection_progress")
+        if callable(on_collection_progress):
+            on_collection_progress(
+                {
+                    "format_version": 2,
+                    "completed_paths": [],
+                    "in_progress_scan_by_path": {
+                        str(module_path): {"phase": "function_scan"}
+                    },
+                    "groups_by_path": {},
+                    "param_spans_by_path": {},
+                    "bundle_sites_by_path": {},
+                    "invariant_propositions": [],
+                }
+            )
+        raise _timeout_exc(progress={"classification": "timed_out_progress_resume"})
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": str(tmp_path / "report.md"),
+                "emit_timeout_progress_report": True,
+            }
+        ),
+        analyze_paths_fn=_analyze_timeout,
+    )
+
+    assert result.get("timeout") is True
+    progress_notifications = _progress_notifications(ls)
+    assert progress_notifications
+    _, params, closing_value = progress_notifications[-1]
+    assert params.get("token") == "gabion.dataflowAudit/progress-v1"
+    assert closing_value.get("format_version") == 1
+    assert closing_value.get("schema") == "gabion/dataflow_progress_v1"
+    assert isinstance(closing_value.get("phase"), str)
+    assert isinstance(closing_value.get("completed_files"), int)
+    assert isinstance(closing_value.get("in_progress_files"), int)
+    assert isinstance(closing_value.get("remaining_files"), int)
+    assert isinstance(closing_value.get("total_files"), int)
+    assert isinstance(closing_value.get("semantic_deltas"), dict)
