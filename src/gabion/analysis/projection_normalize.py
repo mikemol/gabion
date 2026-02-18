@@ -120,7 +120,17 @@ def _extract_predicates(params: Mapping[str, JSONValue]) -> list[str]:
 
 
 def _normalize_predicates(values: Iterable[str]) -> list[str]:
-    cleaned = {value.strip() for value in values if value and value.strip()}
+    # ordered internally; explicit sort only at edge.
+    # We deduplicate with an insertion-preserving dict carrier, then hand the
+    # keys to ordered_or_sorted(...) for canonical edge ordering.
+    cleaned: dict[str, None] = {}
+    for value in values:
+        if not value:
+            continue
+        stripped = value.strip()
+        if not stripped:
+            continue
+        cleaned.setdefault(stripped, None)
     return ordered_or_sorted(
         cleaned,
         source="_normalize_predicates.cleaned",

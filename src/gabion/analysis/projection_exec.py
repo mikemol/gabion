@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Callable, Iterable, Mapping
+from typing import Callable, Iterable, Mapping, cast
 
 from gabion.analysis.projection_normalize import normalize_spec
 from gabion.analysis.projection_spec import ProjectionSpec
@@ -78,6 +78,10 @@ def apply_spec(
                 fields = [fields]
             if not isinstance(fields, list) or not fields:
                 continue
+            # ordered internally; explicit sort only at edge.
+            # Keep aggregation in a dict keyed by hashable group tuple, then
+            # emit a deterministic edge order so projections are stable even
+            # when discovery/input row order changes.
             counts: dict[tuple[object, ...], dict[str, JSONValue]] = {}
             for row in current:
                 check_deadline()
@@ -96,7 +100,13 @@ def apply_spec(
                     record["count"] = 0
                     counts[key] = record
                 record["count"] = int(record.get("count", 0)) + 1
-            current = list(counts.values())
+            ordered_group_keys = ordered_or_sorted(
+                counts,
+                source="apply_spec.count_by.group_keys",
+                policy=OrderPolicy.SORT,
+                key=lambda key: tuple(_sort_value(cast(JSONValue, part)) for part in key),
+            )
+            current = [counts[key] for key in ordered_group_keys]
             continue
 
         if op_name == "traverse":
