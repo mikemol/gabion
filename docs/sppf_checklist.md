@@ -1,5 +1,5 @@
 ---
-doc_revision: 150
+doc_revision: 151
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -252,8 +252,8 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Const/default-aware partial-application detection (subset merge by knobs). (GH-16)
 - [~] Contextvar/ambient context rewrite suggestions. (in-15, GH-61) sppf{doc=partial; impl=partial; doc_ref=in-15@1}
 - [x] Contextvar suggestion heuristics (internal decision surfaces). (GH-61)
-- [ ] Contextvar rewrite: synthesis emits ContextVar definitions + accessors. (GH-61)
-- [ ] Contextvar rewrite: callsite replacement for ambient access. (GH-61)
+- [~] Contextvar rewrite: synthesis emits ContextVar definitions + accessors (conservative ambient scaffold + compatibility shim). (GH-61; tests: `tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_threaded_parameter`)
+- [~] Contextvar rewrite: callsite replacement for ambient access (safe direct-threading replacement; unsafe sites skipped with explicit reasons). (GH-61; tests: `tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_partial_skip_unsafe`, `tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_noop_when_no_pattern`)
 - [~] Subtree reuse detection + lemma synthesis hooks. (in-17, GH-65) sppf{doc=partial; impl=partial; doc_ref=in-17@1}
 - [x] Subtree hashing/fingerprinting for FactorizationTree reuse. (GH-65)
 - [~] Lemma suggestion output + stable naming map. (GH-65)

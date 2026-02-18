@@ -77,6 +77,7 @@ class RefactorRequest(BaseModel):
     target_path: str
     target_functions: List[str] = []
     compatibility_shim: bool | RefactorCompatibilityShimDTO = False
+    ambient_rewrite: bool = False
     rationale: Optional[str] = None
 
 
@@ -87,8 +88,17 @@ class TextEditDTO(BaseModel):
     replacement: str
 
 
+class RewritePlanEntryDTO(BaseModel):
+    kind: str
+    status: str
+    target: str
+    summary: str
+    non_rewrite_reasons: List[str] = []
+
+
 class RefactorResponse(BaseModel):
     edits: List[TextEditDTO] = []
+    rewrite_plans: List[RewritePlanEntryDTO] = []
     warnings: List[str] = []
     errors: List[str] = []
 

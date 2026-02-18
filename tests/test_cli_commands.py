@@ -465,3 +465,35 @@ def test_cli_synth_invalid_protocols_kind(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "synthesis-protocols-kind" in result.output
+
+@pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_cli_refactor_protocol_emits_rewrite_plan_metadata(tmp_path: Path) -> None:
+    module = tmp_path / "module.py"
+    module.write_text(
+        "def sink(ctx):\n"
+        "    return ctx\n\n"
+        "def caller(ctx):\n"
+        "    return sink(ctx)\n"
+    )
+    runner = CliRunner()
+    result = _invoke(
+        runner,
+        [
+            "refactor-protocol",
+            "--protocol-name",
+            "CtxBundle",
+            "--bundle",
+            "ctx",
+            "--target-path",
+            str(module),
+            "--target-function",
+            "sink",
+            "--target-function",
+            "caller",
+            "--ambient-rewrite",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["rewrite_plans"]
+    assert payload["rewrite_plans"][0]["kind"] == "AMBIENT_REWRITE"

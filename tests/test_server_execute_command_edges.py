@@ -4583,3 +4583,29 @@ def test_execute_impact_bfs_step_limit_handles_dense_reverse_edges(tmp_path: Pat
     )
     assert result.get("exit_code") == 0
     assert "seed" in (result.get("seed_functions") or [])
+
+
+def test_execute_refactor_exposes_rewrite_plan_metadata(tmp_path: Path) -> None:
+    module_path = tmp_path / "target.py"
+    module_path.write_text(
+        "def sink(ctx):\n"
+        "    return ctx\n\n"
+        "def caller(ctx):\n"
+        "    return sink(ctx)\n"
+    )
+    result = server.execute_refactor(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {
+                "protocol_name": "CtxBundle",
+                "bundle": ["ctx"],
+                "target_path": str(module_path),
+                "target_functions": ["sink", "caller"],
+                "ambient_rewrite": True,
+            }
+        ),
+    )
+    assert result.get("errors") == []
+    rewrite_plans = result.get("rewrite_plans", [])
+    assert rewrite_plans
+    assert rewrite_plans[0].get("kind") == "AMBIENT_REWRITE"

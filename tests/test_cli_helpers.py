@@ -414,6 +414,7 @@ def test_build_refactor_payload_input_payload_passthrough() -> None:
         compatibility_shim=False,
         compatibility_shim_warnings=True,
         compatibility_shim_overloads=True,
+        ambient_rewrite=False,
         rationale=None,
     ) == payload
 
@@ -430,6 +431,7 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
             compatibility_shim=False,
             compatibility_shim_warnings=True,
             compatibility_shim_overloads=True,
+            ambient_rewrite=False,
             rationale=None,
         )
 
@@ -442,6 +444,7 @@ def test_build_refactor_payload_requires_fields(tmp_path: Path) -> None:
         compatibility_shim=False,
         compatibility_shim_warnings=True,
         compatibility_shim_overloads=True,
+        ambient_rewrite=False,
         rationale=None,
     )
     assert payload["bundle"] == ["a", "b"]
@@ -1338,6 +1341,7 @@ def test_run_refactor_protocol_accepts_object_payload(tmp_path: Path) -> None:
         compatibility_shim=False,
         compatibility_shim_warnings=True,
         compatibility_shim_overloads=True,
+        ambient_rewrite=False,
         rationale=None,
         runner=runner,
     )

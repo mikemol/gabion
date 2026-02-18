@@ -135,6 +135,7 @@ from gabion.schema import (
     RefactorProtocolResponseDTO,
     RefactorRequest,
     RefactorResponse,
+    RewritePlanEntryDTO,
     StructureDiffResponseDTO,
     StructureReuseResponseDTO,
     SynthesisPlanResponseDTO,
@@ -4733,6 +4734,7 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
                 target_path=request.target_path,
                 target_functions=request.target_functions,
                 compatibility_shim=normalized_shim,
+                ambient_rewrite=request.ambient_rewrite,
                 rationale=request.rationale,
             )
         )
@@ -4745,8 +4747,19 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
             )
             for edit in plan.edits
         ]
+        rewrite_plans = [
+            RewritePlanEntryDTO(
+                kind=entry.kind,
+                status=entry.status,
+                target=entry.target,
+                summary=entry.summary,
+                non_rewrite_reasons=entry.non_rewrite_reasons,
+            )
+            for entry in plan.rewrite_plans
+        ]
         response = RefactorProtocolResponseDTO(
             edits=edits,
+            rewrite_plans=rewrite_plans,
             warnings=plan.warnings,
             errors=plan.errors,
         )
