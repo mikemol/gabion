@@ -4668,6 +4668,42 @@ def _execute_refactor_total(ls: LanguageServer, payload: dict[str, object]) -> d
         return response.model_dump()
 
 
+@dataclass(frozen=True)
+class SnapshotDiffPaths:
+    baseline: Path
+    current: Path
+
+
+@dataclass(frozen=True)
+class StructureReuseOptions:
+    snapshot: Path
+    lemma_stubs: str | None
+    min_count: int | None
+
+
+def _parse_snapshot_diff_paths(payload: Mapping[str, object]) -> SnapshotDiffPaths | None:
+    baseline_path = payload.get("baseline")
+    current_path = payload.get("current")
+    if not baseline_path or not current_path:
+        return None
+    return SnapshotDiffPaths(baseline=Path(str(baseline_path)), current=Path(str(current_path)))
+
+
+def _parse_structure_reuse_options(payload: Mapping[str, object]) -> StructureReuseOptions | None:
+    snapshot_path = payload.get("snapshot")
+    if not snapshot_path:
+        return None
+    min_count_raw = payload.get("min_count", 2)
+    try:
+        min_count_int: int | None = int(min_count_raw)
+    except (TypeError, ValueError):
+        min_count_int = None
+    return StructureReuseOptions(
+        snapshot=Path(str(snapshot_path)),
+        lemma_stubs=cast(str | None, payload.get("lemma_stubs")),
+        min_count=min_count_int,
+    )
+
 @server.command(STRUCTURE_DIFF_COMMAND)
 def execute_structure_diff(
     ls: LanguageServer,
@@ -4711,29 +4747,25 @@ def _execute_structure_reuse_total(
     payload: dict[str, object],
 ) -> dict:
     with _deadline_scope_from_payload(payload):
-        snapshot_path = payload.get("snapshot")
-        lemma_stubs_path = payload.get("lemma_stubs")
-        min_count = payload.get("min_count", 2)
-        if not snapshot_path:
+        options = _parse_structure_reuse_options(payload)
+        if options is None:
             return StructureReuseResponseDTO(exit_code=2, errors=["snapshot path is required"]).model_dump()
         try:
-            snapshot = load_structure_snapshot(Path(snapshot_path))
+            snapshot = load_structure_snapshot(options.snapshot)
         except ValueError as exc:
             return StructureReuseResponseDTO(exit_code=2, errors=[str(exc)]).model_dump()
-        try:
-            min_count_int = int(min_count)
-        except (TypeError, ValueError):
+        if options.min_count is None:
             return StructureReuseResponseDTO(exit_code=2, errors=["min_count must be an integer"]).model_dump()
-        if min_count_int <= 0:
+        if options.min_count <= 0:
             return StructureReuseResponseDTO(exit_code=2, errors=["min_count must be positive"]).model_dump()
-        reuse = compute_structure_reuse(snapshot, min_count=min_count_int)
+        reuse = compute_structure_reuse(snapshot, min_count=options.min_count)
         response: JSONObject = StructureReuseResponseDTO(exit_code=0, reuse=reuse).model_dump()
-        if lemma_stubs_path:
+        if options.lemma_stubs:
             stubs = render_reuse_lemma_stubs(reuse)
-            if lemma_stubs_path == "-":
+            if options.lemma_stubs == "-":
                 response["lemma_stubs"] = stubs
             else:
-                Path(lemma_stubs_path).write_text(stubs)
+                Path(options.lemma_stubs).write_text(stubs)
         return response
 
 

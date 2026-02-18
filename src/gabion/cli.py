@@ -110,6 +110,46 @@ class CheckArtifactFlags:
 
 
 @dataclass(frozen=True)
+class CheckDeltaOptions:
+    emit_test_obsolescence_state: bool
+    test_obsolescence_state: Path | None
+    emit_test_obsolescence_delta: bool
+    test_annotation_drift_state: Path | None
+    emit_test_annotation_drift_delta: bool
+    write_test_annotation_drift_baseline: bool
+    write_test_obsolescence_baseline: bool
+    emit_ambiguity_delta: bool
+    emit_ambiguity_state: bool
+    ambiguity_state: Path | None
+    write_ambiguity_baseline: bool
+
+    def validate_or_raise(self) -> None:
+        if self.emit_test_obsolescence_delta and self.write_test_obsolescence_baseline:
+            raise typer.BadParameter(
+                "Use --emit-test-obsolescence-delta or --write-test-obsolescence-baseline, not both."
+            )
+        if self.emit_test_obsolescence_state and self.test_obsolescence_state is not None:
+            raise typer.BadParameter(
+                "Use --emit-test-obsolescence-state or --test-obsolescence-state, not both."
+            )
+        if (
+            self.emit_test_annotation_drift_delta
+            and self.write_test_annotation_drift_baseline
+        ):
+            raise typer.BadParameter(
+                "Use --emit-test-annotation-drift-delta or --write-test-annotation-drift-baseline, not both."
+            )
+        if self.emit_ambiguity_delta and self.write_ambiguity_baseline:
+            raise typer.BadParameter(
+                "Use --emit-ambiguity-delta or --write-ambiguity-baseline, not both."
+            )
+        if self.emit_ambiguity_state and self.ambiguity_state is not None:
+            raise typer.BadParameter(
+                "Use --emit-ambiguity-state or --ambiguity-state, not both."
+            )
+
+
+@dataclass(frozen=True)
 class DataflowPayloadCommonOptions:
     paths: list[Path]
     root: Path
