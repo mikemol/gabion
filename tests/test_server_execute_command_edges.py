@@ -1652,7 +1652,18 @@ def test_execute_command_ignores_invalid_tick_ns(tmp_path: Path) -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
-def test_execute_command_uses_timeout_ms(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("timeout_field", "timeout_value"),
+    [
+        ("analysis_timeout_ms", 1000),
+        ("analysis_timeout_seconds", "10"),
+    ],
+)
+def test_execute_command_accepts_duration_timeout_fields(
+    tmp_path: Path,
+    timeout_field: str,
+    timeout_value: object,
+) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
@@ -1661,58 +1672,29 @@ def test_execute_command_uses_timeout_ms(tmp_path: Path) -> None:
         {
             "root": str(tmp_path),
             "paths": [str(module_path)],
-            "analysis_timeout_ms": 1000,
+            timeout_field: timeout_value,
         },
     )
     assert result.get("exit_code") == 0
 
 
 # gabion:evidence E:function_site::server.py::gabion.server.execute_command
-def test_execute_command_invalid_timeout_ms_ignored(tmp_path: Path) -> None:
+def test_execute_command_ignores_invalid_duration_timeout_fields(
+    tmp_path: Path,
+) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)
     ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            {
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "analysis_timeout_ms": "nope",
-            },
-        )
-
-
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
-def test_execute_command_uses_timeout_seconds(tmp_path: Path) -> None:
-    module_path = tmp_path / "sample.py"
-    _write_bundle_module(module_path)
-    ls = _DummyServer(str(tmp_path))
-    result = server.execute_command(
-        ls,
-        {
-            "root": str(tmp_path),
-            "paths": [str(module_path)],
-            "analysis_timeout_seconds": "10",
-        },
-    )
-    assert result.get("exit_code") == 0
-
-
-# gabion:evidence E:function_site::server.py::gabion.server.execute_command
-def test_execute_command_invalid_timeout_seconds_ignored(tmp_path: Path) -> None:
-    module_path = tmp_path / "sample.py"
-    _write_bundle_module(module_path)
-    ls = _DummyServer(str(tmp_path))
-    with pytest.raises(NeverThrown):
-        server.execute_command(
-            ls,
-            {
-                "root": str(tmp_path),
-                "paths": [str(module_path)],
-                "analysis_timeout_seconds": "nope",
-            },
-        )
+    for timeout_field in ("analysis_timeout_ms", "analysis_timeout_seconds"):
+        with pytest.raises(NeverThrown):
+            server.execute_command(
+                ls,
+                {
+                    "root": str(tmp_path),
+                    "paths": [str(module_path)],
+                    timeout_field: "nope",
+                },
+            )
 
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_metrics::forest E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_structure_snapshot::forest,invariant_propositions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_protocol_stubs::kind E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::merge_overlap_threshold E:decision_surface/direct::server.py::gabion.server.execute_command::payload E:decision_surface/direct::config.py::gabion.config.decision_ignore_list::section E:decision_surface/direct::config.py::gabion.config.decision_require_tiers::section E:decision_surface/direct::config.py::gabion.config.decision_tier_map::section E:decision_surface/direct::config.py::gabion.config.exception_never_list::section E:decision_surface/direct::server.py::gabion.server._normalize_transparent_decorators::value

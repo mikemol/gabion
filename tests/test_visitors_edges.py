@@ -216,7 +216,6 @@ def test_record_forward_skips_call_without_span() -> None:
         ctx=ast.Load(),
     )
     assert visitor._bind_sequence(mismatch_target, mismatch_rhs) is True
-
 @pytest.mark.parametrize(
     ("call_expr", "expected_alias"),
     [
@@ -240,7 +239,6 @@ def test_alias_from_call_keyword_and_kw_aliases(
     call = ast.parse(call_expr).body[0].value
     assert visitor._alias_from_call(call) == expected_alias
     visitor.visit(tree)
-
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_return_alias_rejects_invalid_targets() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    return a\n", ["a"])

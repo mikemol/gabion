@@ -4466,7 +4466,7 @@
   "generated_by_spec_id": "d3454cce58ad58f08551264a1079d2b5b894b013a045c5aeda2f3eff302c98b6",
   "opaque_evidence_count": 0,
   "summary": {
-    "equivalent_witness": 338,
+    "equivalent_witness": 335,
     "obsolete_candidate": 139,
     "redundant_by_evidence": 224,
     "unmapped": 0
@@ -5591,10 +5591,6 @@
     {
       "class": "equivalent_witness",
       "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_invalid_json"
-    },
-    {
-      "class": "equivalent_witness",
-      "test_id": "tests/test_dataflow_run_edges.py::test_run_synth_registry_path_missing_latest"
     },
     {
       "class": "equivalent_witness",
@@ -7167,14 +7163,6 @@
     {
       "class": "equivalent_witness",
       "test_id": "tests/test_visitors_edges.py::test_alias_from_call_branches"
-    },
-    {
-      "class": "equivalent_witness",
-      "test_id": "tests/test_visitors_edges.py::test_alias_from_call_keyword_branches"
-    },
-    {
-      "class": "equivalent_witness",
-      "test_id": "tests/test_visitors_edges.py::test_alias_from_call_positional_and_kw_aliases"
     },
     {
       "class": "equivalent_witness",
