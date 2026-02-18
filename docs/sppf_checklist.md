@@ -1,5 +1,5 @@
 ---
-doc_revision: 150
+doc_revision: 151
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -260,12 +260,12 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Lemma suggestion CLI flag + output map (declare + replace). (GH-65)
 - [~] Lemma emission target selection (inline vs stub module). (GH-65)
 - [x] Glossary-backed lemma naming + missing-entry warnings. (GH-65)
-- [~] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67) sppf{doc=partial; impl=partial; doc_ref=in-19@1}
+- [~] Invariant extraction + dependent-type synthesis (Agda). (in-19, GH-67) sppf{doc=partial; impl=partial; doc_ref=in-19@2}
 - [x] Proposition model + assert-based invariant extraction. (GH-67)
 - [x] Invariant emitter hooks (pluggable callbacks). (GH-67)
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
-- [ ] Property-based test hooks from invariants. (GH-67)
+- [x] Property-based test hook manifest generation from invariants (deterministic hook IDs, confidence gating, callable mapping, traceability keys; optional Hypothesis template snippets). (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
 - [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@9}
 - [ ] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE). (in-26, GH-78) sppf{doc=partial; impl=planned; doc_ref=in-26@9}
