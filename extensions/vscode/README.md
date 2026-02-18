@@ -27,6 +27,32 @@ analysis logic on the server side.
 - **Result panels** are emitted into the **Gabion** output channel for synthesis,
   refactor, and structure diff command responses.
 
+## Live analysis progress
+
+The extension remains a thin wrapper: it listens for server-side progress and
+renders status in VS Code without running analysis logic in the client.
+
+- The client subscribes to server `$/progress` notifications and reacts to the
+  `gabion.dataflowAudit/progress-v1` token.
+- During longer-running server analysis, VS Code shows a progress notification
+  so users can see that work is still in flight.
+- Progress notifications close when terminal markers are received (`done`,
+  timeout classifications, and failure states), and also when request-failure
+  cleanup runs.
+- The **Gabion** output channel includes progress log lines in addition to
+  command result payloads.
+
+### Troubleshooting timeouts
+
+If an analysis times out:
+
+1. Open the **Gabion** output channel to inspect timeout context and the report
+   artifact paths emitted by the server.
+2. Review the referenced timeout report artifact(s) to confirm whether the
+   timeout classification was expected for the current file/workspace size.
+3. Retry the command after narrowing scope (for example, smaller target set or
+   less competing editor activity) so the server can complete within budget.
+
 ## Command Palette actions
 
 The extension wires these server commands directly:
