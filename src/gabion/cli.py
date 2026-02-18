@@ -1497,6 +1497,23 @@ def _emit_nonzero_exit_causes(result: JSONObject) -> None:
     typer.echo(f"Non-zero exit ({exit_code}) cause(s): {causes}", err=True)
 
 
+def _emit_analysis_resume_summary(result: JSONObject) -> None:
+    resume = result.get("analysis_resume")
+    if not isinstance(resume, Mapping):
+        return
+    path = str(resume.get("checkpoint_path", "") or "")
+    status = str(resume.get("status", "") or "")
+    reused_files = int(resume.get("reused_files", 0) or 0)
+    total_files = int(resume.get("total_files", 0) or 0)
+    remaining_files = int(resume.get("remaining_files", 0) or 0)
+    status_suffix = f" status={status}" if status else ""
+    typer.echo(
+        "Resume checkpoint: "
+        f"path={path or '<none>'} reused_files={reused_files}/{total_files} "
+        f"remaining_files={remaining_files}{status_suffix}"
+    )
+
+
 def _context_run_dataflow_raw_argv(ctx: typer.Context) -> Callable[[list[str]], None]:
     obj = ctx.obj
     if isinstance(obj, Mapping):
@@ -1526,6 +1543,7 @@ def _run_dataflow_raw_argv(
         resume_on_timeout=max(int(opts.resume_on_timeout), 0),
     )
     _emit_dataflow_result_outputs(result, opts)
+    _emit_analysis_resume_summary(result)
     _emit_nonzero_exit_causes(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 
@@ -1782,6 +1800,7 @@ def check(
             lint_jsonl=lint_jsonl,
             lint_sarif=lint_sarif,
         )
+    _emit_analysis_resume_summary(result)
     _emit_nonzero_exit_causes(result)
     raise typer.Exit(code=int(result.get("exit_code", 0)))
 

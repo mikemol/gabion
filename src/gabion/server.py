@@ -924,6 +924,39 @@ def _load_analysis_resume_checkpoint_manifest(
     return None, inflated_collection_resume
 
 
+def _analysis_resume_checkpoint_compatibility(
+    *,
+    path: Path,
+    manifest_digest: str,
+) -> str:
+    """Return a stable reason code describing checkpoint compatibility."""
+    if not path.exists():
+        return "checkpoint_missing"
+    try:
+        raw_payload = json.loads(
+            _read_text_profiled(path, io_name="analysis_resume.checkpoint_read")
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return "checkpoint_unreadable"
+    if not isinstance(raw_payload, dict):
+        return "checkpoint_invalid_payload"
+    if raw_payload.get("format_version") != _ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION:
+        return "checkpoint_format_mismatch"
+    observed_manifest_digest = raw_payload.get("input_manifest_digest")
+    if not isinstance(observed_manifest_digest, str):
+        witness = raw_payload.get("input_witness")
+        if isinstance(witness, dict):
+            observed_manifest_digest = _analysis_manifest_digest_from_witness(witness)
+    if not isinstance(observed_manifest_digest, str):
+        return "checkpoint_manifest_missing"
+    if observed_manifest_digest != manifest_digest:
+        return "checkpoint_manifest_mismatch"
+    collection_resume = raw_payload.get("collection_resume")
+    if not isinstance(collection_resume, dict):
+        return "checkpoint_missing_collection_resume"
+    return "checkpoint_compatible"
+
+
 def _write_analysis_resume_checkpoint(
     *,
     path: Path,
@@ -2978,6 +3011,7 @@ def _execute_command_total(
     analysis_resume_input_manifest_digest: str | None = None
     analysis_resume_total_files = 0
     analysis_resume_reused_files = 0
+    analysis_resume_checkpoint_status: str | None = None
     report_section_witness_digest: str | None = None
     report_output_path = _resolve_report_output_path(
         root=initial_root,
@@ -3276,6 +3310,12 @@ def _execute_command_total(
                     path=analysis_resume_checkpoint_path,
                     manifest_digest=analysis_resume_input_manifest_digest,
                 )
+                analysis_resume_checkpoint_status = (
+                    _analysis_resume_checkpoint_compatibility(
+                        path=analysis_resume_checkpoint_path,
+                        manifest_digest=analysis_resume_input_manifest_digest,
+                    )
+                )
                 if manifest_resume is not None:
                     checkpoint_witness, checkpoint_resume = manifest_resume
                     if checkpoint_witness is not None:
@@ -3285,6 +3325,7 @@ def _execute_command_total(
                             collection_resume=checkpoint_resume,
                             total_files=analysis_resume_total_files,
                         )["completed_files"]
+                    analysis_resume_checkpoint_status = "checkpoint_loaded"
                 if (
                     collection_resume_payload is None
                     and analysis_resume_input_manifest_digest is not None
@@ -3301,6 +3342,7 @@ def _execute_command_total(
                         input_manifest_digest=analysis_resume_input_manifest_digest,
                         collection_resume=collection_resume_payload,
                     )
+                    analysis_resume_checkpoint_status = "checkpoint_seeded"
             if file_paths_for_run is not None and analysis_resume_input_manifest_digest is None:
                 input_manifest = execute_deps.analysis_input_manifest_fn(
                     root=Path(root),
@@ -3820,6 +3862,7 @@ def _execute_command_total(
                 "remaining_files": max(
                     analysis_resume_total_files - analysis_resume_reused_files, 0
                 ),
+                "status": analysis_resume_checkpoint_status,
             }
         profiling_v1: JSONObject = {
             "format_version": 1,
