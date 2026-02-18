@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 
@@ -35,8 +36,10 @@ def canonical_protocol_specs(protocols: Iterable[Mapping[str, Any]]) -> list[Map
 
 
 def canonical_field_display_parts(fields: Iterable[object]) -> list[str]:
+    check_deadline()
     parts: list[str] = []
     for field in fields:
+        check_deadline()
         if not isinstance(field, Mapping):
             continue
         fname = str(field.get("name", "")).strip()
