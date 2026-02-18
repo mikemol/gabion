@@ -90,5 +90,7 @@ def test_diff_structure_snapshot_files(tmp_path: Path) -> None:
         current,
         {"root": "cur", "files": [{"functions": [{"bundles": [["x"], ["y"]]}]}]},
     )
-    diff = da.diff_structure_snapshot_files(baseline, current)
+    diff = da.diff_structure_snapshot_files(
+        da.StructureSnapshotDiffRequest(baseline_path=baseline, current_path=current)
+    )
     assert diff["summary"]["added"] == 1

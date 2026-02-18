@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
     from gabion.analysis import dataflow_audit as da
 
     return da
+
 
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::forest,project_root
 def test_render_and_diff_decision_snapshots() -> None:
@@ -16,8 +18,10 @@ def test_render_and_diff_decision_snapshots() -> None:
     paramset_id = forest.add_paramset(["x"])
     forest.add_alt("DecisionSurface", (site_id, paramset_id))
     baseline = da.render_decision_snapshot(
-        decision_surfaces=["a.py:f decision surface params: x"],
-        value_decision_surfaces=[],
+        surfaces=da.DecisionSnapshotSurfaces(
+            decision_surfaces=["a.py:f decision surface params: x"],
+            value_decision_surfaces=[],
+        ),
         project_root=Path("."),
         forest=forest,
         groups_by_path={},
@@ -26,11 +30,13 @@ def test_render_and_diff_decision_snapshots() -> None:
     assert "generated_by_forest_spec" in baseline
     assert "forest_signature" in baseline
     current = da.render_decision_snapshot(
-        decision_surfaces=[
-            "a.py:f decision surface params: x",
-            "b.py:g decision surface params: y",
-        ],
-        value_decision_surfaces=["c.py:h value-encoded decision params: z (min/max)"],
+        surfaces=da.DecisionSnapshotSurfaces(
+            decision_surfaces=[
+                "a.py:f decision surface params: x",
+                "b.py:g decision surface params: y",
+            ],
+            value_decision_surfaces=["c.py:h value-encoded decision params: z (min/max)"],
+        ),
         project_root=Path("."),
         forest=forest,
         groups_by_path={},
@@ -43,6 +49,7 @@ def test_render_and_diff_decision_snapshots() -> None:
     ]
     assert "baseline_forest_signature" in diff
     assert "current_forest_signature" in diff
+
 
 def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
     da = _load()
@@ -74,8 +81,10 @@ def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
         source=source,
     )
     snapshot = da.render_decision_snapshot(
-        decision_surfaces=["a.py:f decision surface params: x"],
-        value_decision_surfaces=[],
+        surfaces=da.DecisionSnapshotSurfaces(
+            decision_surfaces=["a.py:f decision surface params: x"],
+            value_decision_surfaces=[],
+        ),
         project_root=Path("."),
         forest=forest,
         groups_by_path={},

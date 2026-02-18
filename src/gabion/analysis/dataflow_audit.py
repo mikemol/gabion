@@ -13274,11 +13274,21 @@ def render_structure_snapshot(
     return snapshot
 
 
-# dataflow-bundle: decision_surfaces, value_decision_surfaces
+@dataclass(frozen=True)
+class DecisionSnapshotSurfaces:
+    decision_surfaces: list[str]
+    value_decision_surfaces: list[str]
+
+
+@dataclass(frozen=True)
+class StructureSnapshotDiffRequest:
+    baseline_path: Path
+    current_path: Path
+
+# dataflow-bundle: surfaces
 def render_decision_snapshot(
     *,
-    decision_surfaces: list[str],
-    value_decision_surfaces: list[str],
+    surfaces: DecisionSnapshotSurfaces,
     project_root: Path | None = None,
     forest: Forest,
     forest_spec: ForestSpec | None = None,
@@ -13297,13 +13307,13 @@ def render_decision_snapshot(
     snapshot: JSONObject = {
         "format_version": 1,
         "root": str(project_root) if project_root is not None else None,
-        "decision_surfaces": sorted(decision_surfaces),
-        "value_decision_surfaces": sorted(value_decision_surfaces),
+        "decision_surfaces": sorted(surfaces.decision_surfaces),
+        "value_decision_surfaces": sorted(surfaces.value_decision_surfaces),
         "pattern_schema_instances": schema_instances,
         "pattern_schema_residue": schema_residue,
         "summary": {
-            "decision_surfaces": len(decision_surfaces),
-            "value_decision_surfaces": len(value_decision_surfaces),
+            "decision_surfaces": len(surfaces.decision_surfaces),
+            "value_decision_surfaces": len(surfaces.value_decision_surfaces),
             "pattern_schema_instances": len(schema_instances),
             "pattern_schema_residue": len(schema_residue),
         },
@@ -13430,12 +13440,11 @@ def diff_structure_snapshots(
 
 
 def diff_structure_snapshot_files(
-    baseline_path: Path,
-    current_path: Path,
+    request: StructureSnapshotDiffRequest,
 ) -> JSONObject:
-    # dataflow-bundle: baseline_path, current_path
-    baseline = load_structure_snapshot(baseline_path)
-    current = load_structure_snapshot(current_path)
+    # dataflow-bundle: request
+    baseline = load_structure_snapshot(request.baseline_path)
+    current = load_structure_snapshot(request.current_path)
     return diff_structure_snapshots(baseline, current)
 
 
@@ -16943,8 +16952,10 @@ def _run_impl(
             return 0
     if decision_snapshot_path:
         snapshot = render_decision_snapshot(
-            decision_surfaces=analysis.decision_surfaces,
-            value_decision_surfaces=analysis.value_decision_surfaces,
+            surfaces=DecisionSnapshotSurfaces(
+                decision_surfaces=analysis.decision_surfaces,
+                value_decision_surfaces=analysis.value_decision_surfaces,
+            ),
             project_root=config.project_root,
             forest=analysis.forest,
             forest_spec=analysis.forest_spec,

@@ -121,8 +121,7 @@ class DataflowPayloadCommonOptions:
     baseline_write: bool | None
     decision_snapshot: Path | None
     exclude: list[str] | None
-    ignore_params_csv: str | None
-    transparent_decorators_csv: str | None
+    filter_bundle: DataflowFilterBundle
     allow_external: bool | None
     strictness: str | None
     lint: bool
@@ -130,6 +129,25 @@ class DataflowPayloadCommonOptions:
     emit_timeout_progress_report: bool
     resume_on_timeout: int
     deadline_profile: bool = True
+
+
+@dataclass(frozen=True)
+class DataflowFilterBundle:
+    ignore_params_csv: str | None
+    transparent_decorators_csv: str | None
+
+    def to_payload_lists(self) -> tuple[list[str] | None, list[str] | None]:
+        ignore_list = (
+            _split_csv(self.ignore_params_csv)
+            if self.ignore_params_csv is not None
+            else None
+        )
+        transparent_list = (
+            _split_csv(self.transparent_decorators_csv)
+            if self.transparent_decorators_csv is not None
+            else None
+        )
+        return ignore_list, transparent_list
 
 
 @dataclass(frozen=True)
@@ -410,19 +428,10 @@ def _build_dataflow_payload_common(
     *,
     options: DataflowPayloadCommonOptions,
 ) -> JSONObject:
-    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
+    # dataflow-bundle: filter_bundle
     # dataflow-bundle: deadline_profile, emit_timeout_progress_report
     exclude_dirs = _split_csv_entries(options.exclude) if options.exclude is not None else None
-    ignore_list = (
-        _split_csv(options.ignore_params_csv)
-        if options.ignore_params_csv is not None
-        else None
-    )
-    transparent_list = (
-        _split_csv(options.transparent_decorators_csv)
-        if options.transparent_decorators_csv is not None
-        else None
-    )
+    ignore_list, transparent_list = options.filter_bundle.to_payload_lists()
     payload: JSONObject = {
         "paths": [str(p) for p in options.paths],
         "root": str(options.root),
@@ -474,8 +483,7 @@ def build_check_payload(
     ambiguity_state: Optional[Path],
     write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
-    ignore_params_csv: Optional[str],
-    transparent_decorators_csv: Optional[str],
+    filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
@@ -485,6 +493,8 @@ def build_check_payload(
     resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
 ) -> JSONObject:
+    if filter_bundle is None:
+        filter_bundle = DataflowFilterBundle(None, None)
     if not paths:
         paths = [Path(".")]
     if emit_test_obsolescence_delta and write_test_obsolescence_baseline:
@@ -520,8 +530,7 @@ def build_check_payload(
             baseline_write=baseline_write_value,
             decision_snapshot=decision_snapshot,
             exclude=exclude,
-            ignore_params_csv=ignore_params_csv,
-            transparent_decorators_csv=transparent_decorators_csv,
+            filter_bundle=filter_bundle,
             allow_external=allow_external,
             strictness=strictness,
             lint=lint,
@@ -591,8 +600,10 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
             if opts.emit_decision_snapshot
             else None,
             exclude=opts.exclude,
-            ignore_params_csv=opts.ignore_params,
-            transparent_decorators_csv=opts.transparent_decorators,
+            filter_bundle=DataflowFilterBundle(
+                ignore_params_csv=opts.ignore_params,
+                transparent_decorators_csv=opts.transparent_decorators,
+            ),
             allow_external=opts.allow_external,
             strictness=opts.strictness,
             lint=bool(opts.lint or opts.lint_jsonl or opts.lint_sarif),
@@ -768,8 +779,7 @@ def run_check(
     ambiguity_state: Optional[Path],
     write_ambiguity_baseline: bool,
     exclude: Optional[List[str]],
-    ignore_params_csv: Optional[str],
-    transparent_decorators_csv: Optional[str],
+    filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
     fail_on_type_ambiguities: bool,
@@ -780,7 +790,9 @@ def run_check(
     analysis_tick_limit: int | None = None,
     runner: Runner = run_command,
 ) -> JSONObject:
-    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
+    if filter_bundle is None:
+        filter_bundle = DataflowFilterBundle(None, None)
+    # dataflow-bundle: filter_bundle
     resolved_report = _resolve_check_report_path(report, root=root)
     resolved_report.parent.mkdir(parents=True, exist_ok=True)
     payload = build_check_payload(
@@ -805,8 +817,7 @@ def run_check(
         ambiguity_state=ambiguity_state,
         write_ambiguity_baseline=write_ambiguity_baseline,
         exclude=exclude,
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
+        filter_bundle=filter_bundle,
         allow_external=allow_external,
         strictness=strictness,
         fail_on_type_ambiguities=fail_on_type_ambiguities,
@@ -1004,8 +1015,7 @@ def _check_raw_profile_args(
     baseline: Optional[Path],
     baseline_write: bool,
     exclude: Optional[List[str]],
-    ignore_params_csv: Optional[str],
-    transparent_decorators_csv: Optional[str],
+    filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
     resume_checkpoint: Optional[Path],
@@ -1016,6 +1026,7 @@ def _check_raw_profile_args(
     lint_jsonl: Optional[Path],
     lint_sarif: Optional[Path],
 ) -> list[str]:
+    resolved_filter_bundle = filter_bundle or DataflowFilterBundle(None, None)
     argv = [str(path) for path in (paths or [])]
     if _param_is_command_line(ctx, "root"):
         argv.extend(["--root", str(root)])
@@ -1032,13 +1043,16 @@ def _check_raw_profile_args(
     if _param_is_command_line(ctx, "exclude"):
         for entry in deadline_loop_iter(exclude or []):
             argv.extend(["--exclude", entry])
-    if _param_is_command_line(ctx, "ignore_params_csv") and ignore_params_csv is not None:
-        argv.extend(["--ignore-params", ignore_params_csv])
+    if (
+        _param_is_command_line(ctx, "ignore_params_csv")
+        and resolved_filter_bundle.ignore_params_csv is not None
+    ):
+        argv.extend(["--ignore-params", resolved_filter_bundle.ignore_params_csv])
     if (
         _param_is_command_line(ctx, "transparent_decorators_csv")
-        and transparent_decorators_csv is not None
+        and resolved_filter_bundle.transparent_decorators_csv is not None
     ):
-        argv.extend(["--transparent-decorators", transparent_decorators_csv])
+        argv.extend(["--transparent-decorators", resolved_filter_bundle.transparent_decorators_csv])
     if _param_is_command_line(ctx, "allow_external") and allow_external is not None:
         argv.append("--allow-external" if allow_external else "--no-allow-external")
     if _param_is_command_line(ctx, "strictness") and strictness is not None:
@@ -1074,8 +1088,7 @@ def _run_check_raw_profile(
     baseline: Optional[Path],
     baseline_write: bool,
     exclude: Optional[List[str]],
-    ignore_params_csv: Optional[str],
-    transparent_decorators_csv: Optional[str],
+    filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
     resume_checkpoint: Optional[Path],
@@ -1087,6 +1100,7 @@ def _run_check_raw_profile(
     lint_sarif: Optional[Path],
     run_dataflow_raw_argv_fn: Callable[[list[str]], None] | None = None,
 ) -> None:
+    resolved_filter_bundle = filter_bundle or DataflowFilterBundle(None, None)
     unsupported = _raw_profile_unsupported_flags(ctx)
     if unsupported:
         rendered = ", ".join(unsupported)
@@ -1104,8 +1118,7 @@ def _run_check_raw_profile(
         baseline=baseline,
         baseline_write=baseline_write,
         exclude=exclude,
-        ignore_params_csv=ignore_params_csv,
-        transparent_decorators_csv=transparent_decorators_csv,
+        filter_bundle=filter_bundle,
         allow_external=allow_external,
         strictness=strictness,
         resume_checkpoint=resume_checkpoint,
@@ -1323,9 +1336,13 @@ def check(
         None, "--lint-sarif", help="Write lint SARIF to file or '-' for stdout."
     ),
 ) -> None:
-    # dataflow-bundle: ignore_params_csv, transparent_decorators_csv
+    # dataflow-bundle: filter_bundle
     """Run the dataflow grammar audit with strict defaults."""
     profile_name = profile.strip().lower()
+    filter_bundle = DataflowFilterBundle(
+        ignore_params_csv=ignore_params_csv,
+        transparent_decorators_csv=transparent_decorators_csv,
+    )
     if profile_name not in {"strict", "raw"}:
         raise typer.BadParameter("profile must be 'strict' or 'raw'")
     if profile_name == "raw":
@@ -1341,8 +1358,7 @@ def check(
             baseline=baseline,
             baseline_write=baseline_write,
             exclude=exclude,
-            ignore_params_csv=ignore_params_csv,
-            transparent_decorators_csv=transparent_decorators_csv,
+            filter_bundle=filter_bundle,
             allow_external=allow_external,
             strictness=strictness,
             resume_checkpoint=resume_checkpoint,
@@ -1394,8 +1410,7 @@ def check(
             ambiguity_state=ambiguity_state,
             write_ambiguity_baseline=write_ambiguity_baseline,
             exclude=exclude,
-            ignore_params_csv=ignore_params_csv,
-            transparent_decorators_csv=transparent_decorators_csv,
+            filter_bundle=filter_bundle,
             allow_external=allow_external,
             strictness=strictness,
             fail_on_type_ambiguities=fail_on_type_ambiguities,
@@ -1730,8 +1745,7 @@ def _run_synth(
     no_timestamp: bool,
     config: Optional[Path],
     exclude: Optional[List[str]],
-    ignore_params_csv: Optional[str],
-    transparent_decorators_csv: Optional[str],
+    filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
     no_recursive: bool,
@@ -1747,6 +1761,7 @@ def _run_synth(
     runner: Runner = run_command,
 ) -> tuple[JSONObject, dict[str, Path], Path | None]:
     check_deadline()
+    resolved_filter_bundle = filter_bundle or DataflowFilterBundle(None, None)
     if not paths:
         paths = [Path(".")]
     exclude_dirs: list[str] | None = None
@@ -1755,14 +1770,7 @@ def _run_synth(
         for entry in exclude:
             check_deadline()
             exclude_dirs.extend([part.strip() for part in entry.split(",") if part.strip()])
-    ignore_list: list[str] | None = None
-    if ignore_params_csv is not None:
-        ignore_list = [p.strip() for p in ignore_params_csv.split(",") if p.strip()]
-    transparent_list: list[str] | None = None
-    if transparent_decorators_csv is not None:
-        transparent_list = [
-            p.strip() for p in transparent_decorators_csv.split(",") if p.strip()
-        ]
+    ignore_list, transparent_list = resolved_filter_bundle.to_payload_lists()
     if strictness is not None and strictness not in {"high", "low"}:
         raise typer.BadParameter("strictness must be 'high' or 'low'")
     if synthesis_protocols_kind not in {"dataclass", "protocol"}:
@@ -1887,6 +1895,10 @@ def synth(
 ) -> None:
     """Run the dataflow audit and emit synthesis outputs (prototype)."""
     with _cli_deadline_scope():
+        filter_bundle = DataflowFilterBundle(
+            ignore_params_csv=ignore_params_csv,
+            transparent_decorators_csv=transparent_decorators_csv,
+        )
         result, paths_out, timestamp = _run_synth(
             paths=paths,
             root=root,
@@ -1894,8 +1906,7 @@ def synth(
             no_timestamp=no_timestamp,
             config=config,
             exclude=exclude,
-            ignore_params_csv=ignore_params_csv,
-            transparent_decorators_csv=transparent_decorators_csv,
+            filter_bundle=filter_bundle,
             allow_external=allow_external,
             strictness=strictness,
             no_recursive=no_recursive,
@@ -1989,19 +2000,34 @@ def _emit_synth_outputs(
         typer.echo(f"- {paths_out['refactor']}")
 
 
+def _run_snapshot_diff_command(
+    *,
+    command: str,
+    request: SnapshotDiffRequest,
+    root: Path | None = None,
+    runner: Runner | None = None,
+) -> JSONObject:
+    payload = request.to_payload()
+    resolved_runner = runner or DEFAULT_RUNNER
+    root_path = root or Path(".")
+    return dispatch_command(
+        command=command,
+        payload=payload,
+        root=root_path,
+        runner=resolved_runner,
+    )
+
+
 def run_structure_diff(
     *,
     request: SnapshotDiffRequest,
     root: Path | None = None,
     runner: Runner | None = None,
 ) -> JSONObject:
-    payload = request.to_payload()
-    runner = runner or DEFAULT_RUNNER
-    root_path = root or Path(".")
-    return dispatch_command(
+    return _run_snapshot_diff_command(
         command=STRUCTURE_DIFF_COMMAND,
-        payload=payload,
-        root=root_path,
+        request=request,
+        root=root,
         runner=runner,
     )
 
@@ -2012,13 +2038,10 @@ def run_decision_diff(
     root: Path | None = None,
     runner: Runner | None = None,
 ) -> JSONObject:
-    payload = request.to_payload()
-    runner = runner or DEFAULT_RUNNER
-    root_path = root or Path(".")
-    return dispatch_command(
+    return _run_snapshot_diff_command(
         command=DECISION_DIFF_COMMAND,
-        payload=payload,
-        root=root_path,
+        request=request,
+        root=root,
         runner=runner,
     )
 
