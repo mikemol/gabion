@@ -36,6 +36,11 @@ _CANONICAL_SORT_SOURCE_ALLOWLIST: frozenset[str] = frozenset(
         "build_fingerprint_registry.base_keys",
         "build_fingerprint_registry.spec_entries",
         "fingerprint_to_type_keys_with_remainder.registry.primes",
+        "artifact_ordering.canonical_protocol_specs",
+        "artifact_ordering.canonical_string_values",
+        "artifact_ordering.canonical_count_summary_items",
+        "artifact_ordering.canonical_doc_scope",
+        "artifact_ordering.canonical_mapping_keys",
     }
 )
 _ORDER_POLICY_CONTEXT: ContextVar["OrderPolicy | None"] = ContextVar(

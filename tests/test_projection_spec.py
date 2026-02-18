@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import random
+
 from gabion.analysis.projection_exec import apply_spec
 from gabion.analysis.projection_normalize import (
     _normalize_predicates,
     normalize_spec,
+    spec_canonical_json,
     spec_hash,
 )
 from gabion.analysis.projection_spec import (
@@ -44,6 +47,31 @@ def test_spec_hash_accepts_string_and_mapping() -> None:
     payload = spec_to_dict(spec)
     assert spec_hash("explicit-id") == "explicit-id"
     assert spec_hash(payload) == spec_hash(spec)
+
+
+def test_spec_canonical_json_is_byte_stable_for_shuffled_params() -> None:
+    baseline = None
+    entries = [("z", 1), ("a", 2), ("m", 3)]
+    for seed in range(20):
+        rng = random.Random(seed)
+        shuffled = list(entries)
+        rng.shuffle(shuffled)
+        params = dict(shuffled)
+        spec = ProjectionSpec(
+            spec_version=1,
+            name="stable-json",
+            domain="tests",
+            pipeline=(
+                ProjectionOp("select", {"predicates": ["beta", "alpha"]}),
+                ProjectionOp("count_by", {"fields": ["right", "left"]}),
+            ),
+            params=params,
+        )
+        encoded = spec_canonical_json(spec)
+        if baseline is None:
+            baseline = encoded
+            continue
+        assert encoded == baseline
 
 
 # gabion:evidence E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec.apply_spec::params_override E:decision_surface/direct::projection_exec.py::gabion.analysis.projection_exec._sort_value::value

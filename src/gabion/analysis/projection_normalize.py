@@ -8,6 +8,7 @@ from gabion.analysis.projection_spec import (
     ProjectionSpec,
     spec_from_dict,
 )
+from gabion.analysis.artifact_ordering import canonical_mapping_keys
 from gabion.json_types import JSONValue
 from gabion.analysis.timeout_context import check_deadline
 from gabion.order_contract import OrderPolicy, ordered_or_sorted
@@ -220,11 +221,7 @@ def _normalize_limit(value: JSONValue) -> int | None:
 def _normalize_value(value: JSONValue) -> JSONValue:
     check_deadline()
     if isinstance(value, dict):
-        ordered_keys = ordered_or_sorted(
-            value,
-            source="_normalize_value.dict_keys",
-            policy=OrderPolicy.SORT,
-        )
+        ordered_keys = canonical_mapping_keys(value)
         return {str(k): _normalize_value(value[k]) for k in ordered_keys}
     if isinstance(value, list):
         return [_normalize_value(entry) for entry in value]
