@@ -200,3 +200,50 @@ def test_normalize_spec_drops_project_with_non_string_non_list_fields() -> None:
     )
     normalized = normalize_spec(spec)
     assert normalized["pipeline"] == []
+
+
+def test_normalize_select_predicates_stable_under_permuted_discovery_order() -> None:
+    spec_a = ProjectionSpec(
+        spec_version=1,
+        name="predicates",
+        domain="tests",
+        pipeline=(
+            ProjectionOp("select", {"predicates": ["beta", "alpha", "beta"]}),
+        ),
+    )
+    spec_b = ProjectionSpec(
+        spec_version=1,
+        name="predicates",
+        domain="tests",
+        pipeline=(
+            ProjectionOp("select", {"predicates": ["alpha", "beta"]}),
+        ),
+    )
+
+    assert normalize_spec(spec_a)["pipeline"] == normalize_spec(spec_b)["pipeline"]
+
+
+def test_count_by_output_stable_under_permuted_discovery_order() -> None:
+    spec = ProjectionSpec(
+        spec_version=1,
+        name="count-stable",
+        domain="tests",
+        pipeline=(ProjectionOp("count_by", {"fields": ["class"]}),),
+    )
+    rows_a = [
+        {"class": "b", "value": 1},
+        {"class": "a", "value": 2},
+        {"class": "b", "value": 3},
+        {"class": "a", "value": 4},
+    ]
+    rows_b = [
+        {"class": "a", "value": 2},
+        {"class": "b", "value": 1},
+        {"class": "a", "value": 4},
+        {"class": "b", "value": 3},
+    ]
+
+    assert apply_spec(spec, rows_a) == apply_spec(spec, rows_b) == [
+        {"class": "a", "count": 2},
+        {"class": "b", "count": 2},
+    ]
