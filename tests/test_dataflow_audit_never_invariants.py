@@ -74,8 +74,10 @@ def test_copy_forest_signature_metadata_copies_fields() -> None:
 def test_render_decision_snapshot_requires_forest(tmp_path: Path) -> None:
     with pytest.raises(NeverThrown):
         dataflow_audit.render_decision_snapshot(
-            decision_surfaces=[],
-            value_decision_surfaces=[],
+            surfaces=dataflow_audit.DecisionSnapshotSurfaces(
+                decision_surfaces=[],
+                value_decision_surfaces=[],
+            ),
             project_root=tmp_path,
             forest=None,
             forest_spec=None,

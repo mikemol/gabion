@@ -57,6 +57,7 @@ from gabion.analysis import (
     render_dot,
     render_structure_snapshot,
     render_decision_snapshot,
+    DecisionSnapshotSurfaces,
     render_protocol_stubs,
     render_refactor_plan,
     render_report,
@@ -3583,8 +3584,10 @@ def _execute_command_total(
 
         if decision_snapshot_path is not None:
             payload_value = render_decision_snapshot(
-                decision_surfaces=analysis.decision_surfaces,
-                value_decision_surfaces=analysis.value_decision_surfaces,
+                surfaces=DecisionSnapshotSurfaces(
+                    decision_surfaces=analysis.decision_surfaces,
+                    value_decision_surfaces=analysis.value_decision_surfaces,
+                ),
                 forest=analysis.forest,
                 project_root=Path(root),
                 groups_by_path=analysis.groups_by_path,
@@ -4027,8 +4030,10 @@ def _execute_command_total(
                 )
             if decision_snapshot_path:
                 decision_payload = render_decision_snapshot(
-                    decision_surfaces=analysis.decision_surfaces,
-                    value_decision_surfaces=analysis.value_decision_surfaces,
+                    surfaces=DecisionSnapshotSurfaces(
+                        decision_surfaces=analysis.decision_surfaces,
+                        value_decision_surfaces=analysis.value_decision_surfaces,
+                    ),
                     forest=analysis.forest,
                     project_root=Path(root),
                     groups_by_path=analysis.groups_by_path,
