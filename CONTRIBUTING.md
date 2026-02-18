@@ -1,5 +1,5 @@
 ---
-doc_revision: 84
+doc_revision: 85
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -155,18 +155,42 @@ These describe current coverage so contributors keep changes aligned:
 ## SPPF tracking (non-binding)
 Checklist nodes in `docs/sppf_checklist.md` map to GitHub issues (`GH-####`).
 To keep issue state synced without CI write permissions, use commit trailers
-like `SPPF: GH-17` or `Closes #17`, then run:
+like `SPPF: GH-17` or `Closes #17`.
+
+Non-mutating lifecycle validation can run locally and in CI:
 
 ```
-scripts/sppf_sync.py --comment
+mise exec -- python scripts/sppf_sync.py --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
+```
+
+Mutating operations remain local-only. Use them explicitly when needed:
+
+```
+mise exec -- python scripts/sppf_sync.py --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
 ```
 
 Use `--close` when you want to close the issue on `stage`, or keep it open
 until a merge to `main` with `Closes #17` (GitHub auto-closes on merge).
 
 To automate this locally on `stage`, set `GABION_SPPF_SYNC=1` and re-run
-`scripts/install_hooks.sh` to enable a pre-push sync (comments + `done-on-stage`
-label) before pushing.
+`scripts/install_hooks.sh` to enable a pre-push sync (validation always; optional
+comments + lifecycle labels when `GABION_SPPF_SYNC` is set).
+
+### SPPF happy path (canonical)
+
+```
+# 1) include GH references in commits touching src/, in/, or docs/sppf_checklist.md
+git commit -m "Implement X" -m "SPPF: GH-123"
+
+# 2) run non-mutating validation
+mise exec -- python scripts/sppf_sync.py --validate --only-when-relevant --range origin/stage..HEAD --require-state open --require-label done-on-stage --require-label status/pending-release
+
+# 3) apply lifecycle labels locally (mutating)
+mise exec -- python scripts/sppf_sync.py --comment --range origin/stage..HEAD --label done-on-stage --label status/pending-release
+
+# 4) push stage
+git push origin stage
+```
 
 ## Issue lifecycle / kanban (normative)
 Issues are not closed until a release containing the fix is published.

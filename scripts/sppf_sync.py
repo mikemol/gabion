@@ -8,6 +8,7 @@ via the GitHub CLI.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -23,6 +24,7 @@ from gabion.order_contract import ordered_or_sorted
 
 GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 KEYWORD_REF_RE = re.compile(r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE)
+SPPF_RELEVANT_PATHS = ("src/", "in/", "docs/sppf_checklist.md")
 _DEFAULT_TIMEOUT_TICKS = 120_000
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
@@ -44,6 +46,13 @@ class CommitInfo:
     body: str
 
 
+@dataclass(frozen=True)
+class IssueLifecycle:
+    issue_id: str
+    state: str
+    labels: tuple[str, ...]
+
+
 def _run_git(args: list[str]) -> str:
     return subprocess.check_output(["git", *args], text=True).strip()
 
@@ -54,6 +63,22 @@ def _default_range() -> str:
         return "origin/stage..HEAD"
     except Exception:
         return "HEAD~20..HEAD"
+
+
+def _is_sppf_relevant_push(rev_range: str) -> bool:
+    try:
+        changed = _run_git(["diff", "--name-only", rev_range])
+    except Exception:
+        return True
+    for path in changed.splitlines():
+        normalized = path.strip()
+        if not normalized:
+            continue
+        if normalized == "docs/sppf_checklist.md":
+            return True
+        if any(normalized.startswith(prefix) for prefix in SPPF_RELEVANT_PATHS[:2]):
+            return True
+    return False
 
 
 def _collect_commits(rev_range: str) -> list[CommitInfo]:
@@ -113,6 +138,68 @@ def _run_gh(args: list[str], dry_run: bool) -> None:
     subprocess.run(["gh", *args], check=True)
 
 
+def _fetch_issue(issue_id: str) -> IssueLifecycle:
+    try:
+        raw = subprocess.check_output(
+            ["gh", "issue", "view", issue_id, "--json", "state,labels"],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"GH-{issue_id}: issue lookup failed. Ensure the issue exists and GH auth is configured (gh auth status)."
+        ) from exc
+    payload = json.loads(raw)
+    labels_data = payload.get("labels") if isinstance(payload, dict) else []
+    labels: list[str] = []
+    if isinstance(labels_data, list):
+        for label in labels_data:
+            if isinstance(label, dict) and isinstance(label.get("name"), str):
+                labels.append(label["name"])
+    state = str(payload.get("state", "")).lower() if isinstance(payload, dict) else ""
+    return IssueLifecycle(issue_id=issue_id, state=state, labels=tuple(labels))
+
+
+def _validate_issue_lifecycle(
+    issue_ids: list[str],
+    *,
+    required_labels: list[str],
+    expected_state: str,
+) -> list[str]:
+    violations: list[str] = []
+    for issue_id in issue_ids:
+        check_deadline()
+        try:
+            issue = _fetch_issue(issue_id)
+        except RuntimeError as err:
+            violations.append(str(err))
+            continue
+
+        if expected_state != "any" and issue.state != expected_state:
+            violations.append(
+                " ".join(
+                    [
+                        f"GH-{issue_id}: expected state '{expected_state}' but found '{issue.state}'.",
+                        "Remediation: update lifecycle status before pushing",
+                        f"(e.g. gh issue reopen {issue_id} or gh issue close {issue_id}).",
+                    ]
+                )
+            )
+
+        missing = [label for label in required_labels if label not in issue.labels]
+        if missing:
+            add_labels = " ".join(f"--label {label}" for label in missing)
+            violations.append(
+                " ".join(
+                    [
+                        f"GH-{issue_id}: missing required label(s): {', '.join(missing)}.",
+                        "Remediation: run locally:",
+                        f"scripts/sppf_sync.py --range <rev-range> {add_labels}",
+                    ]
+                )
+            )
+    return violations
+
+
 def main() -> int:
     with _deadline_scope():
         parser = argparse.ArgumentParser(description="Sync SPPF-linked issues from commit messages.")
@@ -131,15 +218,41 @@ def main() -> int:
             help="Close each referenced issue with a summary comment.")
         parser.add_argument(
             "--label",
-            default=None,
+            action="append",
+            default=[],
             help="Apply a label to each referenced issue.")
         parser.add_argument(
             "--dry-run",
             action="store_true",
             help="Print gh commands without executing.")
+        parser.add_argument(
+            "--validate",
+            action="store_true",
+            help="Non-mutating verification mode: check referenced issues exist and match expected lifecycle.")
+        parser.add_argument(
+            "--only-when-relevant",
+            action="store_true",
+            help="Skip when the revision range does not touch SPPF-relevant paths (src/, in/, docs/sppf_checklist.md).")
+        parser.add_argument(
+            "--require-label",
+            action="append",
+            default=[],
+            help="Label required in --validate mode (repeatable).")
+        parser.add_argument(
+            "--require-state",
+            choices=("open", "closed", "any"),
+            default="open",
+            help="Expected issue state in --validate mode (default: open).")
         args = parser.parse_args()
 
+        if args.validate and (args.comment or args.close or args.label):
+            raise SystemExit("--validate cannot be combined with mutating options (--comment/--close/--label).")
+
         rev_range = args.rev_range or _default_range()
+        if args.only_when_relevant and not _is_sppf_relevant_push(rev_range):
+            print(f"Range {rev_range} does not touch SPPF-relevant paths; skipping SPPF sync/check.")
+            return 0
+
         commits = _collect_commits(rev_range)
         if not commits:
             print("No commits in range; nothing to sync.")
@@ -153,6 +266,23 @@ def main() -> int:
             print("No issue references found in commit messages.")
             return 0
 
+        if args.validate:
+            violations = _validate_issue_lifecycle(
+                issue_ids,
+                required_labels=args.require_label,
+                expected_state=args.require_state,
+            )
+            if violations:
+                print("SPPF issue lifecycle validation failed:")
+                for item in violations:
+                    print(f"- {item}")
+                return 1
+            print(
+                "SPPF issue lifecycle validation passed for "
+                + ", ".join(f"GH-{issue_id}" for issue_id in issue_ids)
+            )
+            return 0
+
         comment = _build_comment(rev_range, commits)
         for issue_id in issue_ids:
             check_deadline()
@@ -160,8 +290,8 @@ def main() -> int:
                 _run_gh(["issue", "close", issue_id, "-c", comment], args.dry_run)
             elif args.comment:
                 _run_gh(["issue", "comment", issue_id, "-b", comment], args.dry_run)
-            if args.label:
-                _run_gh(["issue", "edit", issue_id, "--add-label", args.label], args.dry_run)
+            for label in args.label:
+                _run_gh(["issue", "edit", issue_id, "--add-label", label], args.dry_run)
         return 0
 
 

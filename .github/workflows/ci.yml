@@ -157,6 +157,29 @@ jobs:
           .venv/bin/python scripts/policy_check.py --posture
       - name: Docflow audit
         run: .venv/bin/python -m gabion docflow-audit --root . --fail-on-violations
+      - name: SPPF issue lifecycle validation (non-mutating)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "GH_TOKEN is unavailable; skipping SPPF issue lifecycle validation."
+            exit 0
+          fi
+          if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            rev_range="HEAD~20..HEAD"
+          else
+            rev_range="$BEFORE_SHA..$AFTER_SHA"
+          fi
+          .venv/bin/python scripts/sppf_sync.py \
+            --validate \
+            --only-when-relevant \
+            --range "$rev_range" \
+            --require-state open \
+            --require-label done-on-stage \
+            --require-label status/pending-release
       - name: Test evidence index
         env:
           GABION_LSP_TIMEOUT_TICKS: "300000"
