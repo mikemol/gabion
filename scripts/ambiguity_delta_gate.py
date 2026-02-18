@@ -10,7 +10,9 @@ ENV_FLAG = "GABION_GATE_AMBIGUITY_DELTA"
 
 def _enabled(value: str | None = None) -> bool:
     if value is None:
-        value = os.getenv(ENV_FLAG, "")
+        value = os.getenv(ENV_FLAG)
+    if value is None or not value.strip():
+        return True
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
@@ -31,19 +33,21 @@ def check_gate(path: Path, *, enabled: bool | None = None) -> int:
     if enabled is None:
         enabled = _enabled()
     if not enabled:
-        print(f"Ambiguity delta gate disabled; set {ENV_FLAG}=1 to enable.")
+        print(
+            f"Ambiguity delta gate disabled via emergency override ({ENV_FLAG})."
+        )
         return 0
     if not path.exists():
-        print("Ambiguity delta missing; gate skipped.")
-        return 0
+        print(f"Ambiguity delta artifact missing: {path}")
+        return 1
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        print(f"Ambiguity delta unreadable; gate skipped: {exc}")
-        return 0
+        print(f"Ambiguity delta artifact malformed ({path}): {exc}")
+        return 1
     if not isinstance(payload, Mapping):
-        print("Ambiguity delta unreadable; gate skipped.")
-        return 0
+        print(f"Ambiguity delta artifact must be an object: {path}")
+        return 1
     delta_value = _delta_value(payload)
     if delta_value > 0:
         summary = payload.get("summary", {})
@@ -51,8 +55,8 @@ def check_gate(path: Path, *, enabled: bool | None = None) -> int:
         before = total.get("baseline", 0) if isinstance(total, Mapping) else 0
         after = total.get("current", 0) if isinstance(total, Mapping) else 0
         print(
-            "Ambiguity delta increased: "
-            f"{before} -> {after} (+{delta_value})."
+            "Ambiguity delta increased "
+            f"(before={before}, current={after}, delta=+{delta_value})."
         )
         return 1
     print(f"Ambiguity delta OK ({delta_value}).")

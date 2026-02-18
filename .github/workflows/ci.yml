@@ -178,12 +178,8 @@ jobs:
             --log-file-level=INFO
       - name: Delta state emit
         run: .venv/bin/python scripts/delta_state_emit.py
-      - name: Delta triplets
+      - name: Delta triplets (default-on burn-down gates)
         run: .venv/bin/python scripts/delta_triplets.py
-        env:
-          GABION_GATE_UNMAPPED_DELTA: "1"
-          GABION_GATE_ORPHANED_DELTA: "1"
-          GABION_GATE_AMBIGUITY_DELTA: "1"
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
