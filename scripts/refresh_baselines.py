@@ -47,6 +47,7 @@ class _RefreshLspTimeoutEnv:
     tick_ns: int
 
 
+# dataflow-bundle: timeout_tick_ns, timeout_ticks
 def _refresh_lsp_timeout_env(
     timeout_ticks: int | None,
     timeout_tick_ns: int | None,

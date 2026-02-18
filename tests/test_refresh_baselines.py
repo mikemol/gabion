@@ -18,6 +18,7 @@ def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_
     timeout_env = module._refresh_lsp_timeout_env(None, None)
     calls: list[dict[str, Any]] = []
 
+    # dataflow-bundle: check, cmd, env, timeout
     def _fake_run(cmd, *, check, timeout, env):
         calls.append(
             {

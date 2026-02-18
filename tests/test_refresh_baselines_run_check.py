@@ -13,6 +13,7 @@ def test_run_check_includes_timeout_diagnostics_flags() -> None:
     captured: dict[str, object] = {}
     timeout_env = refresh_baselines._refresh_lsp_timeout_env(None, None)
 
+    # dataflow-bundle: check, cmd, env, timeout
     def _fake_run(cmd, *, check, timeout, env):
         captured["cmd"] = cmd
         captured["check"] = check
