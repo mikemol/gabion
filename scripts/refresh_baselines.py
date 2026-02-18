@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 try:  # pragma: no cover - import form depends on invocation mode
@@ -34,6 +35,126 @@ _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
     ticks=_DEFAULT_TIMEOUT_TICKS,
     tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
 )
+FAILURE_ARTIFACT_PATH = Path("artifacts/out/refresh_baselines_failure.json")
+RESUME_CHECKPOINT_DIR = Path("artifacts/out/refresh_baselines_resume")
+_TIMEOUT_ENV_KEYS = (
+    "GABION_LSP_TIMEOUT_TICKS",
+    "GABION_LSP_TIMEOUT_TICK_NS",
+    "GABION_LSP_TIMEOUT_MS",
+    "GABION_LSP_TIMEOUT_SECONDS",
+)
+
+
+@dataclass(frozen=True)
+class _RefreshCommand:
+    # dataflow-bundle: cmd, env, timeout, expected_artifacts
+    label: str
+    cmd: list[str]
+    env: dict[str, str]
+    timeout: int | None
+    expected_artifacts: list[str]
+
+
+def _refresh_resume_checkpoint(label: str) -> Path:
+    sanitized = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in label)
+    return RESUME_CHECKPOINT_DIR / f"{sanitized}.json"
+
+
+def _timeout_settings_from_env(env: dict[str, str]) -> dict[str, str | None]:
+    return {key: env.get(key) for key in _TIMEOUT_ENV_KEYS}
+
+
+def _format_command(cmd: list[str]) -> str:
+    return " ".join(subprocess.list2cmdline([token]) for token in cmd)
+
+
+def _write_failure_artifact(
+    run: _RefreshCommand,
+    *,
+    failure_type: str,
+    exit_code: int | None,
+    stderr_tail: str | None = None,
+) -> None:
+    FAILURE_ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "failure_type": failure_type,
+        "label": run.label,
+        "command": run.cmd,
+        "command_text": _format_command(run.cmd),
+        "exit_code": exit_code,
+        "timeout_seconds": run.timeout,
+        "env_timeout_settings": _timeout_settings_from_env(run.env),
+        "expected_artifact_paths": run.expected_artifacts,
+    }
+    if stderr_tail:
+        payload["stderr_tail"] = stderr_tail
+    FAILURE_ARTIFACT_PATH.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _clear_failure_artifact() -> None:
+    FAILURE_ARTIFACT_PATH.unlink(missing_ok=True)
+
+
+def _emit_remediation_snippets(run: _RefreshCommand) -> None:
+    print(
+        "Refresh baseline subprocess failed; remediation commands:",
+        file=sys.stderr,
+    )
+    print(
+        f"  GABION_DIRECT_RUN={run.env.get('GABION_DIRECT_RUN', '1')}",
+        file=sys.stderr,
+    )
+    print(
+        f"  {' '.join(f'{k}={v}' for k, v in _timeout_settings_from_env(run.env).items() if v)} {_format_command(run.cmd)}",
+        file=sys.stderr,
+    )
+    if run.timeout is not None:
+        print(
+            f"  python scripts/refresh_baselines.py --timeout {run.timeout} --all",
+            file=sys.stderr,
+        )
+
+
+def _run_refresh_command(run: _RefreshCommand) -> None:
+    try:
+        subprocess.run(
+            run.cmd,
+            check=True,
+            timeout=run.timeout,
+            env=run.env,
+        )
+        _clear_failure_artifact()
+    except subprocess.TimeoutExpired as exc:
+        stderr_tail = ""
+        if isinstance(exc.stderr, bytes):
+            stderr_tail = exc.stderr.decode("utf-8", errors="replace")[-2000:]
+        elif isinstance(exc.stderr, str):
+            stderr_tail = exc.stderr[-2000:]
+        _write_failure_artifact(
+            run,
+            failure_type="TimeoutExpired",
+            exit_code=None,
+            stderr_tail=stderr_tail or None,
+        )
+        _emit_remediation_snippets(run)
+        raise
+    except subprocess.CalledProcessError as exc:
+        stderr_tail = ""
+        if isinstance(exc.stderr, bytes):
+            stderr_tail = exc.stderr.decode("utf-8", errors="replace")[-2000:]
+        elif isinstance(exc.stderr, str):
+            stderr_tail = exc.stderr[-2000:]
+        _write_failure_artifact(
+            run,
+            failure_type="CalledProcessError",
+            exit_code=exc.returncode,
+            stderr_tail=stderr_tail or None,
+        )
+        _emit_remediation_snippets(run)
+        raise
 
 
 def _deadline_scope():
@@ -54,19 +175,54 @@ def _run_check(flag: str, timeout: int | None, extra: list[str] | None = None) -
     ]
     if extra:
         cmd.extend(extra)
+    resume_checkpoint = _refresh_resume_checkpoint(flag)
+    resume_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    cmd.extend(
+        [
+            "--emit-timeout-progress-report",
+            "--resume-checkpoint",
+            str(resume_checkpoint),
+            "--resume-on-timeout",
+            "1",
+        ]
+    )
     env = dict(os.environ)
     env["GABION_DIRECT_RUN"] = "1"
-    subprocess.run(cmd, check=True, timeout=timeout, env=env)
+    expected_artifacts: list[str] = []
+    if flag == "--emit-test-obsolescence-delta":
+        expected_artifacts.append(str(OBSOLESCENCE_DELTA_PATH))
+    elif flag == "--emit-test-annotation-drift-delta":
+        expected_artifacts.append(str(ANNOTATION_DRIFT_DELTA_PATH))
+    elif flag == "--emit-ambiguity-delta":
+        expected_artifacts.append(str(AMBIGUITY_DELTA_PATH))
+    elif flag == "--write-test-obsolescence-baseline":
+        expected_artifacts.append("baselines/test_obsolescence_baseline.json")
+    elif flag == "--write-test-annotation-drift-baseline":
+        expected_artifacts.append("baselines/test_annotation_drift_baseline.json")
+    elif flag == "--write-ambiguity-baseline":
+        expected_artifacts.append("baselines/ambiguity_baseline.json")
+    _run_refresh_command(
+        _RefreshCommand(
+            label=f"gabion_check:{flag}",
+            cmd=cmd,
+            env=env,
+            timeout=timeout,
+            expected_artifacts=expected_artifacts,
+        )
+    )
 
 
 def _run_docflow_delta_emit(timeout: int | None) -> None:
     env = dict(os.environ)
     env.setdefault("GABION_DIRECT_RUN", "1")
-    subprocess.run(
-        [sys.executable, "scripts/docflow_delta_emit.py"],
-        check=True,
-        timeout=timeout,
-        env=env,
+    _run_refresh_command(
+        _RefreshCommand(
+            label="docflow_delta_emit",
+            cmd=[sys.executable, "scripts/docflow_delta_emit.py"],
+            env=env,
+            timeout=timeout,
+            expected_artifacts=[str(DOCFLOW_DELTA_PATH)],
+        )
     )
 
 
@@ -181,6 +337,7 @@ def _guard_docflow_delta(timeout: int | None) -> None:
 
 def main() -> int:
     with _deadline_scope():
+        _clear_failure_artifact()
         parser = argparse.ArgumentParser(
             description="Refresh baseline carriers via gabion check.",
         )
