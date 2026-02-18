@@ -18,6 +18,12 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import deadline_scope_from_lsp_env
 
 _STAGE_SEQUENCE: tuple[str, ...] = ("a", "b", "c")
+_DELTA_GATE_SCRIPTS: tuple[str, ...] = (
+    "scripts/obsolescence_delta_gate.py",
+    "scripts/obsolescence_delta_unmapped_gate.py",
+    "scripts/annotation_drift_orphaned_gate.py",
+    "scripts/ambiguity_delta_gate.py",
+)
 
 
 @dataclass(frozen=True)
@@ -241,6 +247,20 @@ def _emit_stage_outputs(
     _append_lines(output_path, lines)
 
 
+
+
+def _gate_command(script_path: str) -> list[str]:
+    return [sys.executable, script_path]
+
+
+def _run_delta_gates(run_gate_fn: Callable[[Sequence[str]], int]) -> int:
+    for script_path in deadline_loop_iter(_DELTA_GATE_SCRIPTS):
+        gate_exit = int(run_gate_fn(_gate_command(script_path)))
+        if gate_exit != 0:
+            print(f"delta gate failed: {script_path} (exit {gate_exit})")
+            return gate_exit
+    return 0
+
 def run_staged(
     *,
     stage_ids: Sequence[str],
@@ -248,6 +268,7 @@ def run_staged(
     resume_on_timeout: int,
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
+    run_gate_fn: Callable[[Sequence[str]], int] | None = None,
 ) -> list[StageResult]:
     results: list[StageResult] = []
     for stage_id in deadline_loop_iter(stage_ids):
@@ -260,6 +281,26 @@ def run_staged(
         )
         results.append(result)
         if result.exit_code == 0:
+            gate_runner = _run_subprocess if run_gate_fn is None else run_gate_fn
+            gate_exit = _run_delta_gates(gate_runner)
+            if gate_exit != 0:
+                result = StageResult(
+                    stage_id=result.stage_id,
+                    exit_code=gate_exit,
+                    analysis_state="delta_gate_failure",
+                    is_timeout_resume=False,
+                    metrics_line=result.metrics_line,
+                )
+                results[-1] = result
+                _append_lines(
+                    step_summary_path,
+                    [
+                        (
+                            f"- stage {stage_id.upper()}: delta gates failed "
+                            f"(exit=`{gate_exit}`)."
+                        )
+                    ],
+                )
             break
         if not result.is_timeout_resume:
             break

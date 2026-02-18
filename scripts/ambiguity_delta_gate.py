@@ -10,8 +10,10 @@ ENV_FLAG = "GABION_GATE_AMBIGUITY_DELTA"
 
 def _enabled(value: str | None = None) -> bool:
     if value is None:
-        value = os.getenv(ENV_FLAG, "")
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+        value = os.getenv(ENV_FLAG)
+    if value is None:
+        return True
+    return value.strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _delta_value(payload: Mapping[str, object]) -> int:
@@ -31,19 +33,22 @@ def check_gate(path: Path, *, enabled: bool | None = None) -> int:
     if enabled is None:
         enabled = _enabled()
     if not enabled:
-        print(f"Ambiguity delta gate disabled; set {ENV_FLAG}=1 to enable.")
+        print(
+            "Ambiguity delta gate disabled by override; "
+            f"set {ENV_FLAG}=1 to enforce."
+        )
         return 0
     if not path.exists():
-        print("Ambiguity delta missing; gate skipped.")
-        return 0
+        print("Ambiguity delta missing; gate failed.")
+        return 2
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        print(f"Ambiguity delta unreadable; gate skipped: {exc}")
-        return 0
+        print(f"Ambiguity delta unreadable; gate failed: {exc}")
+        return 2
     if not isinstance(payload, Mapping):
-        print("Ambiguity delta unreadable; gate skipped.")
-        return 0
+        print("Ambiguity delta unreadable; gate failed.")
+        return 2
     delta_value = _delta_value(payload)
     if delta_value > 0:
         summary = payload.get("summary", {})

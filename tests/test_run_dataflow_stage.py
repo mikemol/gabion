@@ -116,6 +116,7 @@ def test_run_staged_retries_until_success(tmp_path: Path) -> None:
         resume_on_timeout=1,
         step_summary_path=paths["summary"],
         run_command_fn=_run,
+        run_gate_fn=lambda _cmd: 0,
     )
 
     assert [result.stage_id for result in results] == ["a", "b"]
@@ -172,3 +173,44 @@ def test_emit_stage_outputs_writes_terminal_and_stage_keys(tmp_path: Path) -> No
     assert "terminal_stage=B" in payload
     assert "terminal_status=success" in payload
     assert "analysis_state=done" in payload
+
+
+def test_run_staged_marks_success_as_failure_when_delta_gate_fails(tmp_path: Path) -> None:
+    paths = _base_paths(tmp_path)
+    _write_text(paths["timeout_md"], "timeout md\n")
+    _write_text(paths["deadline_md"], "deadline md\n")
+
+    def _run(_cmd: list[str] | tuple[str, ...]) -> int:
+        _write_text(paths["report"], "# report stage a\n")
+        _write_json(paths["timeout_json"], {"analysis_state": "done"})
+        _write_json(
+            paths["deadline_json"],
+            {
+                "ticks_consumed": 10,
+                "checks_total": 5,
+                "ticks_per_ns": 0.01,
+                "wall_total_elapsed_ns": 1_000_000_000,
+            },
+        )
+        return 0
+
+    gate_calls: list[tuple[str, ...]] = []
+
+    def _run_gate(cmd: list[str] | tuple[str, ...]) -> int:
+        gate_calls.append(tuple(cmd))
+        return 1 if "annotation_drift_orphaned_gate.py" in cmd[-1] else 0
+
+    results = run_dataflow_stage.run_staged(
+        stage_ids=["a", "b"],
+        paths=_stage_paths(paths),
+        resume_on_timeout=1,
+        step_summary_path=paths["summary"],
+        run_command_fn=_run,
+        run_gate_fn=_run_gate,
+    )
+
+    assert [result.stage_id for result in results] == ["a"]
+    assert results[-1].terminal_status == "hard_failure"
+    assert results[-1].analysis_state == "delta_gate_failure"
+    assert len(gate_calls) >= 1
+    assert any("annotation_drift_orphaned_gate.py" in cmd[-1] for cmd in gate_calls)
