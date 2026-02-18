@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from gabion.analysis.dataflow_decision_surfaces import (
     compute_fingerprint_coherence,
     compute_fingerprint_rewrite_plans,
@@ -122,3 +124,71 @@ def test_decision_surface_lint_parsing_helpers_cover_edges() -> None:
     assert lint_lines_from_constant_smells(["no location"], check_deadline=_check_deadline, lint_line=_lint_line) == []
     constant = "mod.py:f.a only observed constant 1 (e.g. mod.py:1:2: msg)"
     assert lint_lines_from_constant_smells([constant], check_deadline=_check_deadline, lint_line=_lint_line)
+
+
+def test_rewrite_plan_roundtrip_and_deterministic_ordering() -> None:
+    coherence = compute_fingerprint_coherence(
+        [
+            {
+                "path": "z.py",
+                "function": "f",
+                "bundle": ["a"],
+                "provenance_id": "prov:z.py:f:a",
+                "base_keys": ["int"],
+                "ctor_keys": ["CtorZ"],
+                "remainder": {"base": 1, "ctor": 1},
+                "glossary_matches": ["ctx_a", "ctx_b"],
+            },
+            {
+                "path": "a.py",
+                "function": "f",
+                "bundle": ["a"],
+                "provenance_id": "prov:a.py:f:a",
+                "base_keys": ["int"],
+                "ctor_keys": ["CtorA"],
+                "remainder": {"base": 1, "ctor": 1},
+                "glossary_matches": ["ctx_a", "ctx_b"],
+            },
+        ],
+        synth_version="synth@1",
+        check_deadline=_check_deadline,
+        ordered_or_sorted=ordered_or_sorted,
+    )
+    plans = compute_fingerprint_rewrite_plans(
+        [
+            {
+                "path": "z.py",
+                "function": "f",
+                "bundle": ["a"],
+                "provenance_id": "prov:z.py:f:a",
+                "base_keys": ["int"],
+                "ctor_keys": ["CtorZ"],
+                "remainder": {"base": 1, "ctor": 1},
+                "glossary_matches": ["ctx_a", "ctx_b"],
+            },
+            {
+                "path": "a.py",
+                "function": "f",
+                "bundle": ["a"],
+                "provenance_id": "prov:a.py:f:a",
+                "base_keys": ["int"],
+                "ctor_keys": ["CtorA"],
+                "remainder": {"base": 1, "ctor": 1},
+                "glossary_matches": ["ctx_a", "ctx_b"],
+            },
+        ],
+        coherence,
+        synth_version="synth@1",
+        exception_obligations=None,
+        check_deadline=_check_deadline,
+        ordered_or_sorted=ordered_or_sorted,
+        site_from_payload=Site.from_payload,
+    )
+
+    serialized = json.dumps(plans, sort_keys=True)
+    reloaded = json.loads(serialized)
+    assert reloaded == plans
+
+    ordered_ids = [plan["plan_id"] for plan in plans]
+    assert ordered_ids == sorted(ordered_ids) or ordered_ids[0].startswith("rewrite:a.py")
+    assert all("payload_schema" in plan for plan in plans)
