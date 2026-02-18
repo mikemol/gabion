@@ -313,6 +313,56 @@ def test_resolve_callee_bound_lambda_call(tmp_path: Path) -> None:
     assert outcome.candidates[0].name.startswith("<lambda:")
 
 
+
+
+def test_resolve_callee_closure_returned_and_invoked(tmp_path: Path) -> None:
+    da, by_name, by_qual, caller = _index_for_source(
+        tmp_path,
+        (
+            "def make():\n"
+            "    inner = lambda value: value + 1\n"
+            "    return inner\n\n"
+            "def caller():\n"
+            "    fn = make()\n"
+            "    return fn(1)\n"
+        ),
+    )
+    call = caller.calls[1]
+    outcome = da._resolve_callee_outcome(call.callee, caller, by_name, by_qual)
+    assert outcome.status == "resolved"
+    assert outcome.candidates[0].name.startswith("<lambda:")
+
+
+def test_resolve_callee_bound_lambda_via_object_attribute(tmp_path: Path) -> None:
+    da, by_name, by_qual, caller = _index_for_source(
+        tmp_path,
+        (
+            "class Box:\n"
+            "    pass\n\n"
+            "def caller(box):\n"
+            "    box.fn = lambda value: value\n"
+            "    return box.fn(1)\n"
+        ),
+    )
+    call = caller.calls[0]
+    outcome = da._resolve_callee_outcome(call.callee, caller, by_name, by_qual)
+    assert outcome.status == "resolved"
+    assert outcome.candidates[0].name.startswith("<lambda:")
+
+
+def test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls(tmp_path: Path) -> None:
+    da, by_name, by_qual, caller = _index_for_source(
+        tmp_path,
+        (
+            "def caller(box, name):\n"
+            "    return getattr(box, name)(1)\n"
+        ),
+    )
+    call = caller.calls[0]
+    outcome = da._resolve_callee_outcome(call.callee, caller, by_name, by_qual)
+    assert outcome.status == "unresolved_dynamic"
+
+
 def test_resolve_callee_bound_lambda_ambiguous_aliasing(tmp_path: Path) -> None:
     da, by_name, by_qual, caller = _index_for_source(
         tmp_path,

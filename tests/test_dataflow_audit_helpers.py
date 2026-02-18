@@ -4299,3 +4299,26 @@ def test_build_function_index_indexes_lambda_sites_deterministically(tmp_path: P
     lambda_infos = [info for info in all_infos if info.name.startswith("<lambda:")]
     assert len(lambda_infos) >= 2
     assert tuple(by_qual1) == tuple(by_qual2)
+
+
+def test_synthetic_lambda_name_is_stable_for_same_module_scope_and_span() -> None:
+    from gabion.analysis import dataflow_audit as da
+
+    first = da._synthetic_lambda_name(
+        module="pkg.mod",
+        lexical_scope=("outer", "inner"),
+        span=(3, 4, 3, 20),
+    )
+    second = da._synthetic_lambda_name(
+        module="pkg.mod",
+        lexical_scope=("outer", "inner"),
+        span=(3, 4, 3, 20),
+    )
+    other_module = da._synthetic_lambda_name(
+        module="pkg.other",
+        lexical_scope=("outer", "inner"),
+        span=(3, 4, 3, 20),
+    )
+
+    assert first == second
+    assert first != other_module

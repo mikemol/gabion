@@ -65,3 +65,46 @@ def test_callsite_evidence_dedupes_duplicate_calls() -> None:
     evidence = _callsite_evidence_for_bundle([call, call], {"a", "b"})
     assert len(evidence) == 1
 
+
+
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callsite_evidence_for_bundle::bundle
+def test_callsite_evidence_includes_callable_context() -> None:
+    CallArgs, _callsite_evidence_for_bundle = _load()
+    evidence = _callsite_evidence_for_bundle(
+        [
+            CallArgs(
+                callee="g",
+                pos_map={"0": "a"},
+                kw_map={},
+                const_pos={},
+                const_kw={},
+                non_const_pos=set(),
+                non_const_kw=set(),
+                star_pos=[],
+                star_kw=[],
+                is_test=False,
+                span=(1, 0, 1, 3),
+                callable_kind="lambda",
+                callable_source="inline",
+            ),
+            CallArgs(
+                callee="make()",
+                pos_map={"0": "a"},
+                kw_map={},
+                const_pos={},
+                const_kw={},
+                non_const_pos=set(),
+                non_const_kw=set(),
+                star_pos=[],
+                star_kw=[],
+                is_test=False,
+                span=(2, 0, 2, 7),
+                callable_kind="closure",
+                callable_source="call_result",
+            ),
+        ],
+        {"a", "b"},
+    )
+    contexts = {(row["callable_kind"], row["callable_source"]) for row in evidence}
+    assert ("lambda", "inline") in contexts
+    assert ("closure", "call_result") in contexts
