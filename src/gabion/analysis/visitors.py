@@ -167,6 +167,16 @@ class UseVisitor(ProjectVisitor):
         check_deadline()
         callee = self.callee_name(node)
         span = self._node_span(node)
+        callable_kind = "function"
+        callable_source = "symbol"
+        if isinstance(node.func, ast.Lambda):
+            callable_kind = "lambda"
+            callable_source = "inline"
+        elif isinstance(node.func, ast.Call):
+            callable_kind = "closure"
+            callable_source = "call_result"
+        elif isinstance(node.func, ast.Attribute):
+            callable_source = "attribute"
         pos_map: dict[str, str] = {}
         kw_map: dict[str, str] = {}
         const_pos: dict[str, str] = {}
@@ -220,6 +230,8 @@ class UseVisitor(ProjectVisitor):
                 star_kw=star_kw,
                 is_test=self.is_test,
                 span=span,
+                callable_kind=callable_kind,
+                callable_source=callable_source,
             )
         )
         self.generic_visit(node)

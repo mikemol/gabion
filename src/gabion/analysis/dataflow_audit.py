@@ -293,6 +293,8 @@ class CallArgs:
     star_kw: list[str]
     is_test: bool
     span: tuple[int, int, int, int] | None = None
+    callable_kind: str = "function"
+    callable_source: str = "symbol"
 
 
 @dataclass(frozen=True)
@@ -9911,6 +9913,8 @@ def _callsite_evidence_for_bundle(
                 "span": list(call.span),
                 "params": list(distinct),
                 "slots": list(slot_list),
+                "callable_kind": call.callable_kind,
+                "callable_source": call.callable_source,
             }
         )
     out.sort(
@@ -10844,13 +10848,13 @@ def _accumulate_function_index_for_tree(
 
 def _synthetic_lambda_name(
     *,
-    path: Path,
+    module: str,
     lexical_scope: Sequence[str],
     span: tuple[int, int, int, int],
 ) -> str:
     check_deadline()
     lexical = ".".join(lexical_scope) if lexical_scope else "<module>"
-    stable_payload = f"{path.as_posix()}|{lexical}|{span[0]}:{span[1]}:{span[2]}:{span[3]}"
+    stable_payload = f"{module}|{lexical}|{span[0]}:{span[1]}:{span[2]}:{span[3]}"
     digest = hashlib.sha1(stable_payload.encode("utf-8")).hexdigest()[:12]
     return f"<lambda:{digest}>"
 
@@ -10876,7 +10880,7 @@ def _collect_lambda_function_infos(
         scopes = _enclosing_scopes(node, parent_map)
         class_name = _enclosing_class(node, parent_map)
         synthetic_name = _synthetic_lambda_name(
-            path=path,
+            module=module,
             lexical_scope=lexical_scopes,
             span=span,
         )
@@ -10920,6 +10924,12 @@ def _collect_lambda_bindings_by_caller(
         for info in lambda_infos
     }
     binding_sets: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    closure_factories = _collect_closure_lambda_factories(
+        tree,
+        module=module,
+        parent_map=parent_map,
+        lambda_qual_by_span=lambda_qual_by_span,
+    )
 
     for node in ast.walk(tree):
         check_deadline()
@@ -10944,10 +10954,15 @@ def _collect_lambda_bindings_by_caller(
                 assigned_quals.add(qual)
         elif isinstance(value, ast.Name):
             assigned_quals.update(binding_sets.get(caller_key, {}).get(value.id, set()))
+        elif isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
+            assigned_quals.update(closure_factories.get(value.func.id, set()))
 
         for target in targets:
             check_deadline()
-            for name in _target_names(target):
+            target_names = list(_target_names(target))
+            if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                target_names.append(f"{target.value.id}.{target.attr}")
+            for name in target_names:
                 check_deadline()
                 if assigned_quals:
                     binding_sets[caller_key][name].update(assigned_quals)
@@ -10965,6 +10980,61 @@ def _collect_lambda_bindings_by_caller(
         if non_empty:
             out[caller_key] = non_empty
     return out
+
+
+def _collect_closure_lambda_factories(
+    tree: ast.AST,
+    *,
+    module: str,
+    parent_map: Mapping[ast.AST, ast.AST],
+    lambda_qual_by_span: Mapping[tuple[int, int, int, int], str],
+) -> dict[str, set[str]]:
+    check_deadline()
+    factories: dict[str, set[str]] = defaultdict(set)
+    for node in ast.walk(tree):
+        check_deadline()
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        local_bindings: dict[str, set[str]] = {}
+        for statement in node.body:
+            check_deadline()
+            if isinstance(statement, (ast.Assign, ast.AnnAssign)):
+                value = statement.value
+                if value is None:
+                    continue
+                assigned_quals: set[str] = set()
+                value_span = _node_span(value)
+                if isinstance(value, ast.Lambda) and value_span is not None:
+                    qual = lambda_qual_by_span.get(value_span)
+                    if qual is not None:
+                        assigned_quals.add(qual)
+                elif isinstance(value, ast.Name):
+                    assigned_quals.update(local_bindings.get(value.id, set()))
+                targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+                for target in targets:
+                    check_deadline()
+                    for name in _target_names(target):
+                        if assigned_quals:
+                            local_bindings[name] = set(assigned_quals)
+                        else:
+                            local_bindings.pop(name, None)
+            elif isinstance(statement, ast.Return) and isinstance(statement.value, ast.Name):
+                returned = local_bindings.get(statement.value.id, set())
+                if not returned:
+                    continue
+                scopes = _enclosing_scopes(node, parent_map)
+                keys = {node.name}
+                if scopes:
+                    keys.add(_function_key(scopes, node.name))
+                qual_parts = [module] if module else []
+                if scopes:
+                    qual_parts.extend(scopes)
+                qual_parts.append(node.name)
+                keys.add(".".join(qual_parts))
+                for key in keys:
+                    check_deadline()
+                    factories[key].update(returned)
+    return factories
 
 
 def _direct_lambda_callee_by_call_span(
@@ -11091,24 +11161,24 @@ def _resolve_callee(
     if lambda_bindings is None:
         lambda_bindings = caller.local_lambda_bindings
     candidates = by_name.get(_callee_key(callee_key), [])
+    bound_lambda_quals = tuple(lambda_bindings.get(callee_key, ()))
+    if len(bound_lambda_quals) == 1:
+        bound = by_qual.get(bound_lambda_quals[0])
+        if bound is not None:
+            return bound
+    elif len(bound_lambda_quals) > 1:
+        bound_candidates = [
+            by_qual[qual]
+            for qual in bound_lambda_quals
+            if qual in by_qual
+        ]
+        if len(bound_candidates) == 1:
+            return bound_candidates[0]
+        if bound_candidates and ambiguity_sink is not None:
+            ambiguity_sink(caller, call, bound_candidates, "local_lambda_binding", callee_key)
+        if bound_candidates:
+            return None
     if "." not in callee_key:
-        bound_lambda_quals = tuple(lambda_bindings.get(callee_key, ()))
-        if len(bound_lambda_quals) == 1:
-            bound = by_qual.get(bound_lambda_quals[0])
-            if bound is not None:
-                return bound
-        elif len(bound_lambda_quals) > 1:
-            bound_candidates = [
-                by_qual[qual]
-                for qual in bound_lambda_quals
-                if qual in by_qual
-            ]
-            if len(bound_candidates) == 1:
-                return bound_candidates[0]
-            if bound_candidates and ambiguity_sink is not None:
-                ambiguity_sink(caller, call, bound_candidates, "local_lambda_binding", callee_key)
-            if bound_candidates:
-                return None
         ambiguous = False
         effective_scope = list(caller.lexical_scope) + [caller.name]
         while True:
@@ -14273,6 +14343,8 @@ def _serialize_call_args(call: CallArgs) -> JSONObject:
         "star_pos": [[idx, name] for idx, name in call.star_pos],
         "star_kw": list(call.star_kw),
         "is_test": call.is_test,
+        "callable_kind": call.callable_kind,
+        "callable_source": call.callable_source,
     }
     if call.span is not None:
         payload["span"] = list(call.span)
@@ -14298,6 +14370,8 @@ def _deserialize_call_args(payload: Mapping[str, JSONValue]) -> CallArgs | None:
         star_kw=sorted(str_set_from_sequence(payload.get("star_kw"))),
         is_test=bool(payload.get("is_test")),
         span=span,
+        callable_kind=str(payload.get("callable_kind") or "function"),
+        callable_source=str(payload.get("callable_source") or "symbol"),
     )
 
 
