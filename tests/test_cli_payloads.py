@@ -76,6 +76,39 @@ def test_check_builds_payload() -> None:
     assert payload["resume_on_timeout"] == 0
 
 
+def test_check_builds_payload_with_none_filter_bundle() -> None:
+    payload = cli.build_check_payload(
+        paths=[Path(".")],
+        report=None,
+        fail_on_violations=True,
+        root=Path("."),
+        config=None,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=None,
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=False,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+        exclude=None,
+        filter_bundle=None,
+        allow_external=None,
+        strictness=None,
+        fail_on_type_ambiguities=False,
+        lint=False,
+    )
+    assert payload["ignore_params"] is None
+    assert payload["transparent_decorators"] is None
+
+
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.build_check_payload::ambiguity_state,baseline,config,decision_snapshot,emit_ambiguity_delta,emit_ambiguity_state,emit_test_annotation_drift_delta,emit_test_obsolescence_delta,emit_test_obsolescence_state,fail_on_type_ambiguities,paths,report,strictness,test_annotation_drift_state,test_obsolescence_state,write_ambiguity_baseline,write_test_annotation_drift_baseline,write_test_obsolescence_baseline E:decision_surface/direct::cli.py::gabion.cli._split_csv_entries::entries E:decision_surface/direct::cli.py::gabion.cli._split_csv::value
 def test_check_payload_preserves_strictness_for_server_validation() -> None:
     payload = cli.build_check_payload(
@@ -467,6 +500,49 @@ def test_run_check_uses_explicit_report_path(tmp_path: Path) -> None:
     )
     assert result["exit_code"] == 0
     assert captured["payload"]["report"] == str(explicit_report)
+    assert captured["root"] == tmp_path
+
+
+def test_run_check_with_none_filter_bundle(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def runner(request, *, root=None):
+        captured["payload"] = request.arguments[0]
+        captured["root"] = root
+        return {"exit_code": 0}
+
+    result = cli.run_check(
+        paths=[tmp_path],
+        report=None,
+        fail_on_violations=True,
+        root=tmp_path,
+        config=None,
+        baseline=None,
+        baseline_write=False,
+        decision_snapshot=None,
+        artifact_flags=_DEFAULT_CHECK_ARTIFACT_FLAGS,
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=False,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+        exclude=None,
+        filter_bundle=None,
+        allow_external=None,
+        strictness=None,
+        fail_on_type_ambiguities=False,
+        lint=False,
+        runner=runner,
+    )
+    assert result["exit_code"] == 0
+    assert captured["payload"]["ignore_params"] is None
+    assert captured["payload"]["transparent_decorators"] is None
     assert captured["root"] == tmp_path
 
 

@@ -1192,7 +1192,7 @@ def test_dataflow_audit_emits_fingerprint_outputs(capsys) -> None:
     assert "\"handledness_id\"" in captured.out
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synth::config,exclude,ignore_params_csv,no_timestamp,paths,refactor_plan,strictness,synthesis_protocols_kind,transparent_decorators_csv
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._run_synth::config,exclude,filter_bundle,no_timestamp,paths,refactor_plan,strictness,synthesis_protocols_kind
 def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -1205,8 +1205,7 @@ def test_run_synth_parses_optional_inputs(tmp_path: Path) -> None:
         no_timestamp=True,
         config=None,
         exclude=["a, b"],
-        ignore_params_csv="x, y",
-        transparent_decorators_csv="deco",
+        filter_bundle=cli.DataflowFilterBundle("x, y", "deco"),
         allow_external=None,
         strictness=None,
         no_recursive=False,
