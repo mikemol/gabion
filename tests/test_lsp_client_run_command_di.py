@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -27,22 +28,27 @@ def _rpc_message(payload: dict) -> bytes:
 
 
 class _FakeProc:
-    # dataflow-bundle: stderr_bytes, stdout_bytes
-    def __init__(self, stdout_bytes: bytes, stderr_bytes: bytes, returncode: int | None) -> None:
+    def __init__(self, streams: "_FakeProcStreams", returncode: int | None) -> None:
         self.stdin = io.BytesIO()
-        self.stdout = io.BytesIO(stdout_bytes)
-        self.stderr = io.BytesIO(stderr_bytes)
+        self.stdout = io.BytesIO(streams.stdout_bytes)
+        self._stderr_bytes = streams.stderr_bytes
         self.returncode = returncode
         self.last_timeout: float | None = None
 
     def communicate(self, timeout: float | None = None):
         self.last_timeout = timeout
-        return (b"", self.stderr.read())
+        return (b"", self._stderr_bytes)
+
+
+@dataclass(frozen=True)
+class _FakeProcStreams:
+    stdout_bytes: bytes
+    stderr_bytes: bytes
 
 
 class _TimeoutOnCommunicateProc(_FakeProc):
-    def __init__(self, stdout_bytes: bytes, stderr_bytes: bytes, returncode: int | None) -> None:
-        super().__init__(stdout_bytes, stderr_bytes, returncode)
+    def __init__(self, streams: _FakeProcStreams, returncode: int | None) -> None:
+        super().__init__(streams, returncode)
         self._communicate_calls = 0
         self.killed = False
 
@@ -85,14 +91,14 @@ def _make_proc(returncode: int | None, stderr_bytes: bytes) -> _FakeProc:
     init = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {}})
     cmd = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {}})
     shutdown = _rpc_message({"jsonrpc": "2.0", "id": 3, "result": {}})
-    return _FakeProc(init + cmd + shutdown, stderr_bytes, returncode)
+    return _FakeProc(_FakeProcStreams(stdout_bytes=init + cmd + shutdown, stderr_bytes=stderr_bytes), returncode)
 
 
 def _make_proc_with_cmd_result(returncode: int | None, stderr_bytes: bytes, cmd_result: object) -> _FakeProc:
     init = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {}})
     cmd = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": cmd_result})
     shutdown = _rpc_message({"jsonrpc": "2.0", "id": 3, "result": {}})
-    return _FakeProc(init + cmd + shutdown, stderr_bytes, returncode)
+    return _FakeProc(_FakeProcStreams(stdout_bytes=init + cmd + shutdown, stderr_bytes=stderr_bytes), returncode)
 
 
 # gabion:evidence E:decision_surface/direct::lsp_client.py::gabion.lsp_client._read_response::request_id
@@ -743,7 +749,7 @@ def test_run_command_handles_shutdown_timeout() -> None:
     init = _rpc_message({"jsonrpc": "2.0", "id": 1, "result": {}})
     cmd = _rpc_message({"jsonrpc": "2.0", "id": 2, "result": {}})
     shutdown = _rpc_message({"jsonrpc": "2.0", "id": 3, "result": {}})
-    proc = _TimeoutOnCommunicateProc(init + cmd + shutdown, b"", 0)
+    proc = _TimeoutOnCommunicateProc(_FakeProcStreams(stdout_bytes=init + cmd + shutdown, stderr_bytes=b""), 0)
 
     def factory(*_args, **_kwargs):
         return proc

@@ -123,10 +123,11 @@ def test_server_code_actions_and_diagnostics(tmp_path: Path) -> None:
         def __init__(self, root: str, doc_path: str) -> None:
             self.workspace = _Workspace(root, doc_path)
             self.published: list[tuple[str, list]] = []
+            self._latest_uri: str | None = None
 
         def publish_diagnostics(self, uri: str, diagnostics: list) -> None:
-            # dataflow-bundle: diagnostics, uri
-            self.published.append((uri, diagnostics))
+            self._latest_uri = uri
+            self.published.append((uri, list(diagnostics)))
 
     ls = _Server(str(tmp_path), str(sample))
     uri = TextDocumentIdentifier(uri=sample.as_uri())

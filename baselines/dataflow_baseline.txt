@@ -1,5 +1,12 @@
 # gabion baseline (ratchet)
 # Lines list known violations to allow; new ones should fail.
 
-test_lsp_client_run_command_di.py:_FakeProc.__init__ bundle ['stderr_bytes', 'stdout_bytes'] fingerprint missing glossary match base=['bytes', 'bytes']
-test_misc_coverage.py:test_server_code_actions_and_diagnostics._Server.publish_diagnostics bundle ['diagnostics', 'uri'] fingerprint missing glossary match base=['list', 'str']
+cli.py:build_check_payload bundle ['ignore_params', 'transparent_decorators'] fingerprint missing glossary match base=['None', 'None', 'str', 'str']
+cli.py:check bundle ['ignore_params', 'transparent_decorators'] fingerprint missing glossary match base=['None', 'None', 'str', 'str']
+cli.py:decision_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+cli.py:run_check bundle ['ignore_params', 'transparent_decorators'] fingerprint missing glossary match base=['None', 'None', 'str', 'str']
+cli.py:run_decision_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+cli.py:run_structure_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+cli.py:structure_diff bundle ['baseline', 'current'] fingerprint missing glossary match base=['Path', 'Path']
+dataflow_audit.py:diff_structure_snapshot_files bundle ['baseline_path', 'current_path'] fingerprint missing glossary match base=['Path', 'Path']
+dataflow_audit.py:render_decision_snapshot bundle ['decision_surfaces', 'value_decision_surfaces'] fingerprint missing glossary match base=['str', 'str'] ctor=['list', 'list']
