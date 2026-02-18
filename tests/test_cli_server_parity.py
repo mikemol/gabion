@@ -183,6 +183,78 @@ def test_structure_reuse_cli_matches_server(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
+def test_dataflow_run_check_payload_semantics_match_direct_server(tmp_path: Path) -> None:
+    module = tmp_path / "module.py"
+    module.write_text("def f(x):\n    return x\n")
+
+    artifact_flags = cli.CheckArtifactFlags(
+        emit_test_obsolescence=False,
+        emit_test_evidence_suggestions=False,
+        emit_call_clusters=False,
+        emit_call_cluster_consolidation=False,
+        emit_test_annotation_drift=False,
+    )
+    delta_options = cli.CheckDeltaOptions(
+        emit_test_obsolescence_state=False,
+        test_obsolescence_state=None,
+        emit_test_obsolescence_delta=False,
+        test_annotation_drift_state=None,
+        emit_test_annotation_drift_delta=False,
+        write_test_annotation_drift_baseline=False,
+        write_test_obsolescence_baseline=False,
+        emit_ambiguity_delta=False,
+        emit_ambiguity_state=False,
+        ambiguity_state=None,
+        write_ambiguity_baseline=False,
+    )
+
+    cli_result = cli.run_check(
+        paths=[module],
+        report=tmp_path / "report.md",
+        fail_on_violations=False,
+        root=tmp_path,
+        config=None,
+        baseline=tmp_path / "baseline.json",
+        baseline_write=True,
+        decision_snapshot=None,
+        artifact_flags=artifact_flags,
+        delta_options=delta_options,
+        exclude=["venv,__pycache__"],
+        ignore_params_csv="self,cls",
+        transparent_decorators_csv="cache",
+        allow_external=False,
+        strictness="high",
+        fail_on_type_ambiguities=False,
+        lint=False,
+        runner=cli.run_command_direct,
+    )
+
+    payload = cli.build_check_payload(
+        paths=[module],
+        report=tmp_path / "report.md",
+        fail_on_violations=False,
+        root=tmp_path,
+        config=None,
+        baseline=tmp_path / "baseline.json",
+        baseline_write=True,
+        decision_snapshot=None,
+        artifact_flags=artifact_flags,
+        delta_options=delta_options,
+        exclude=["venv,__pycache__"],
+        ignore_params_csv="self,cls",
+        transparent_decorators_csv="cache",
+        allow_external=False,
+        strictness="high",
+        fail_on_type_ambiguities=False,
+        lint=False,
+    )
+    server_result = server.execute_command(_dummy_ls(tmp_path), _with_timeout(payload))
+
+    keys = ["exit_code", "analysis_state", "errors", "baseline_path"]
+    assert {key: cli_result.get(key) for key in keys} == {
+        key: server_result.get(key) for key in keys
+    }
+
 def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text(
@@ -211,17 +283,19 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=artifact_flags,
-        emit_test_obsolescence_state=False,
-        test_obsolescence_state=None,
-        emit_test_obsolescence_delta=False,
-        test_annotation_drift_state=None,
-        emit_test_annotation_drift_delta=False,
-        write_test_annotation_drift_baseline=False,
-        write_test_obsolescence_baseline=False,
-        emit_ambiguity_delta=False,
-        emit_ambiguity_state=False,
-        ambiguity_state=None,
-        write_ambiguity_baseline=False,
+        delta_options=cli.CheckDeltaOptions(
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state=None,
+            emit_test_obsolescence_delta=False,
+            test_annotation_drift_state=None,
+            emit_test_annotation_drift_delta=False,
+            write_test_annotation_drift_baseline=False,
+            write_test_obsolescence_baseline=False,
+            emit_ambiguity_delta=False,
+            emit_ambiguity_state=False,
+            ambiguity_state=None,
+            write_ambiguity_baseline=False,
+        ),
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
@@ -241,17 +315,19 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
         baseline_write=False,
         decision_snapshot=None,
         artifact_flags=artifact_flags,
-        emit_test_obsolescence_state=False,
-        test_obsolescence_state=None,
-        emit_test_obsolescence_delta=False,
-        test_annotation_drift_state=None,
-        emit_test_annotation_drift_delta=False,
-        write_test_annotation_drift_baseline=False,
-        write_test_obsolescence_baseline=False,
-        emit_ambiguity_delta=False,
-        emit_ambiguity_state=False,
-        ambiguity_state=None,
-        write_ambiguity_baseline=False,
+        delta_options=cli.CheckDeltaOptions(
+            emit_test_obsolescence_state=False,
+            test_obsolescence_state=None,
+            emit_test_obsolescence_delta=False,
+            test_annotation_drift_state=None,
+            emit_test_annotation_drift_delta=False,
+            write_test_annotation_drift_baseline=False,
+            write_test_obsolescence_baseline=False,
+            emit_ambiguity_delta=False,
+            emit_ambiguity_state=False,
+            ambiguity_state=None,
+            write_ambiguity_baseline=False,
+        ),
         exclude=None,
         ignore_params_csv=None,
         transparent_decorators_csv=None,
