@@ -4605,3 +4605,10 @@ def test_execute_impact_bfs_step_limit_handles_dense_reverse_edges(tmp_path: Pat
     )
     assert result.get("exit_code") == 0
     assert "seed" in (result.get("seed_functions") or [])
+
+
+def test_normalize_progress_work_clamps_negative_and_overflow() -> None:
+    assert server._normalize_progress_work(work_done=-3, work_total=-1) == (0, 0)
+    assert server._normalize_progress_work(work_done=9, work_total=4) == (4, 4)
+    assert server._normalize_progress_work(work_done=2, work_total=None) == (2, None)
+    assert server._normalize_progress_work(work_done=None, work_total=3) == (None, 3)
