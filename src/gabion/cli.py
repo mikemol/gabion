@@ -1800,26 +1800,18 @@ def dataflow_cli_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_docflow_audit(
+def _load_audit_tools_module(
     *,
-    root: Path,
-    fail_on_violations: bool,
-    sppf_gh_ref_mode: str,
     audit_tools_path: Path | None = None,
     spec_from_file_location_fn: Callable[..., object | None] = importlib.util.spec_from_file_location,
     module_from_spec_fn: Callable[..., object] = importlib.util.module_from_spec,
     sys_path_list: list[str] | None = None,
     sys_modules_map: MutableMapping[str, object] | None = None,
-) -> int:
+) -> Generator[object, None, None]:
     repo_root = _find_repo_root()
     module_path = audit_tools_path or (repo_root / "scripts" / "audit_tools.py")
     if not module_path.exists():
-        typer.secho(
-            "audit_tools.py not found; repository layout required",
-            err=True,
-            fg=typer.colors.RED,
-        )
-        return 2
+        raise FileNotFoundError("audit_tools.py not found; repository layout required")
 
     @contextmanager
     def _load_audit_tools() -> Generator[object, None, None]:
@@ -1853,9 +1845,94 @@ def _run_docflow_audit(
                 except ValueError:
                     pass
 
+    return _load_audit_tools()
+
+
+def _run_governance_cli(
+    *,
+    runner_name: str,
+    args: list[str],
+    audit_tools_path: Path | None = None,
+    spec_from_file_location_fn: Callable[..., object | None] = importlib.util.spec_from_file_location,
+    module_from_spec_fn: Callable[..., object] = importlib.util.module_from_spec,
+    sys_path_list: list[str] | None = None,
+    sys_modules_map: MutableMapping[str, object] | None = None,
+) -> int:
     try:
-        with _load_audit_tools() as module:
+        loader = _load_audit_tools_module(
+            audit_tools_path=audit_tools_path,
+            spec_from_file_location_fn=spec_from_file_location_fn,
+            module_from_spec_fn=module_from_spec_fn,
+            sys_path_list=sys_path_list,
+            sys_modules_map=sys_modules_map,
+        )
+    except FileNotFoundError as exc:
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        return 2
+    except Exception as exc:
+        typer.secho(
+            f"failed to load audit_tools module: {exc}",
+            err=True,
+            fg=typer.colors.RED,
+        )
+        return 2
+
+    try:
+        with loader as module:
+            runner = getattr(module, runner_name, None)
+            if runner is None:
+                typer.secho(
+                    f"audit_tools missing runner: {runner_name}",
+                    err=True,
+                    fg=typer.colors.RED,
+                )
+                return 2
+            return int(runner(args))
+    except Exception as exc:
+        typer.secho(
+            f"governance command failed ({runner_name}): {exc}",
+            err=True,
+            fg=typer.colors.RED,
+        )
+        return 1
+
+
+def _run_docflow_audit(
+    *,
+    root: Path,
+    fail_on_violations: bool,
+    sppf_gh_ref_mode: str = "required",
+    extra_path: list[str] | None = None,
+    audit_tools_path: Path | None = None,
+    spec_from_file_location_fn: Callable[..., object | None] = importlib.util.spec_from_file_location,
+    module_from_spec_fn: Callable[..., object] = importlib.util.module_from_spec,
+    sys_path_list: list[str] | None = None,
+    sys_modules_map: MutableMapping[str, object] | None = None,
+) -> int:
+    try:
+        loader = _load_audit_tools_module(
+            audit_tools_path=audit_tools_path,
+            spec_from_file_location_fn=spec_from_file_location_fn,
+            module_from_spec_fn=module_from_spec_fn,
+            sys_path_list=sys_path_list,
+            sys_modules_map=sys_modules_map,
+        )
+    except FileNotFoundError as exc:
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        return 2
+    except Exception as exc:
+        typer.secho(
+            f"failed to load audit_tools module: {exc}",
+            err=True,
+            fg=typer.colors.RED,
+        )
+        return 2
+
+    try:
+        with loader as module:
             args = ["--root", str(root)]
+            for entry in extra_path or []:
+                args.extend(["--extra-path", entry])
             if fail_on_violations:
                 args.append("--fail-on-violations")
             args.extend(["--sppf-gh-ref-mode", sppf_gh_ref_mode])
@@ -1935,13 +2012,52 @@ def docflow_audit(
         "--sppf-gh-ref-mode",
         help="SPPF GH-reference enforcement mode (required|advisory).",
     ),
+    extra_path: list[str] = typer.Option([], "--extra-path"),
 ) -> None:
     """Run the docflow audit (governance docs only)."""
     exit_code = _run_docflow_audit(
         root=root,
         fail_on_violations=fail_on_violations,
         sppf_gh_ref_mode=sppf_gh_ref_mode,
+        extra_path=extra_path,
     )
+    raise typer.Exit(code=exit_code)
+
+
+@app.command("sppf-graph")
+def sppf_graph(
+    root: Path = typer.Option(Path("."), "--root"),
+    json_output: Path = typer.Option(Path("artifacts/sppf_dependency_graph.json"), "--json-output"),
+    dot_output: Path | None = typer.Option(None, "--dot-output"),
+    issues_json: Path | None = typer.Option(None, "--issues-json"),
+) -> None:
+    """Emit SPPF dependency graph artifacts."""
+    args = ["--root", str(root), "--json-output", str(json_output)]
+    if dot_output is not None:
+        args.extend(["--dot-output", str(dot_output)])
+    if issues_json is not None:
+        args.extend(["--issues-json", str(issues_json)])
+    exit_code = _run_governance_cli(runner_name="run_sppf_graph_cli", args=args)
+    raise typer.Exit(code=exit_code)
+
+
+@app.command("status-consistency")
+def status_consistency(
+    root: Path = typer.Option(Path("."), "--root"),
+    extra_path: list[str] = typer.Option([], "--extra-path"),
+    fail_on_violations: bool = typer.Option(
+        False, "--fail-on-violations/--no-fail-on-violations"
+    ),
+    json_output: Path = typer.Option(Path("artifacts/out/status_consistency.json"), "--json-output"),
+    md_output: Path = typer.Option(Path("artifacts/audit_reports/status_consistency.md"), "--md-output"),
+) -> None:
+    """Check SPPF checklist status consistency across in/ + influence index metadata."""
+    args = ["--root", str(root), "--json-output", str(json_output), "--md-output", str(md_output)]
+    for entry in extra_path:
+        args.extend(["--extra-path", entry])
+    if fail_on_violations:
+        args.append("--fail-on-violations")
+    exit_code = _run_governance_cli(runner_name="run_status_consistency_cli", args=args)
     raise typer.Exit(code=exit_code)
 
 

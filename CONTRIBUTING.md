@@ -252,6 +252,13 @@ Run the docflow audit (governance docs; `in/` is included for dependency resolut
 ```
 mise exec -- python -m gabion docflow-audit
 ```
+Run governance graph/status checks through the same CLI entrypoint:
+```
+mise exec -- python -m gabion sppf-graph
+mise exec -- python -m gabion status-consistency --fail-on-violations
+```
+Legacy wrappers remain available for transition-only CI/hooks (`scripts/docflow_audit.py`,
+`scripts/sppf_graph.py`, `scripts/status_consistency.py`).
 
 Docflow now fails when commits touching SPPF-relevant paths (`src/`, `in/`, or
 `docs/sppf_checklist.md`) lack GH references in commit messages. Use `GH-####`

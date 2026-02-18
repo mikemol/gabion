@@ -25,6 +25,7 @@ from gabion.analysis.projection_normalize import normalize_spec, spec_canonical_
 from gabion.analysis.projection_spec import ProjectionOp, ProjectionSpec, spec_from_dict
 from gabion.analysis import evidence_keys
 from gabion.analysis.impact_index import build_impact_index
+from gabion.governance_paths import GOVERNANCE_PATHS
 from gabion.invariants import never
 from gabion.order_contract import ordered_or_sorted
 
@@ -1150,7 +1151,7 @@ def _write_sppf_graph_outputs(graph: dict[str, object], *, json_output: Path | N
 
 
 def _influence_statuses(root: Path) -> dict[str, str]:
-    index_path = root / "docs" / "influence_index.md"
+    index_path = GOVERNANCE_PATHS.influence_index_path(root=root)
     if not index_path.exists():
         return {}
     text = index_path.read_text(encoding="utf-8")
@@ -1351,7 +1352,7 @@ def _sppf_status_triplet_violations(root: Path) -> list[str]:
 
 def _in_doc_revisions(root: Path) -> dict[str, int]:
     revisions: dict[str, int] = {}
-    inbox = root / "in"
+    inbox = GOVERNANCE_PATHS.in_dir(root=root)
     if not inbox.exists():
         return revisions
     for path in inbox.glob("in-*.md"):
@@ -1366,7 +1367,7 @@ def _in_doc_revisions(root: Path) -> dict[str, int]:
 
 def _doc_revision_for_ref(root: Path, doc_id: str) -> int | None:
     if doc_id.startswith("in-") and doc_id[3:].isdigit():
-        path = root / "in" / f"{doc_id}.md"
+        path = GOVERNANCE_PATHS.in_dir(root=root) / f"{doc_id}.md"
     else:
         path = root / doc_id
     if not path.exists():
@@ -3283,8 +3284,8 @@ def _tooling_warnings(root: Path, docs: dict[str, Doc]) -> List[str]:
 
 def _influence_warnings(root: Path) -> List[str]:
     warnings: List[str] = []
-    inbox = root / "in"
-    index_path = root / "docs" / "influence_index.md"
+    inbox = GOVERNANCE_PATHS.in_dir(root=root)
+    index_path = GOVERNANCE_PATHS.influence_index_path(root=root)
     if not inbox.exists():
         return warnings
     if not index_path.exists():
@@ -3353,12 +3354,10 @@ def _sppf_sync_check(
     if not changed:
         return violations, warnings
 
-    relevant_prefixes = ("src/", "in/")
-    relevant_paths = {"docs/sppf_checklist.md"}
     relevant = [
         path
         for path in changed
-        if path in relevant_paths or any(path.startswith(prefix) for prefix in relevant_prefixes)
+        if GOVERNANCE_PATHS.is_sppf_relevant_path(path)
     ]
     if not relevant:
         return violations, warnings
@@ -3933,6 +3932,53 @@ def _sppf_graph_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _status_consistency_command(args: argparse.Namespace) -> int:
+    root = Path(args.root)
+    docs = _load_docflow_docs(root=root, extra_paths=args.extra_path)
+    violations, warnings = _sppf_axis_audit(root, docs)
+    warnings.extend(_sppf_sync_warnings(root))
+    payload = {
+        "root": str(root),
+        "violations": violations,
+        "warnings": warnings,
+        "summary": {
+            "violation_count": len(violations),
+            "warning_count": len(warnings),
+        },
+    }
+    if args.json_output is not None:
+        args.json_output.parent.mkdir(parents=True, exist_ok=True)
+        args.json_output.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        print(f"SPPF status consistency JSON written to {args.json_output}")
+    if args.md_output is not None:
+        args.md_output.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            "# SPPF Status Consistency",
+            "",
+            f"- violations: {len(violations)}",
+            f"- warnings: {len(warnings)}",
+            "",
+        ]
+        if violations:
+            lines.extend(["## Violations", ""])
+            lines.extend(f"- {item}" for item in violations)
+            lines.append("")
+        if warnings:
+            lines.extend(["## Warnings", ""])
+            lines.extend(f"- {item}" for item in warnings)
+            lines.append("")
+        if not warnings and not violations:
+            lines.extend(["No issues detected.", ""])
+        args.md_output.write_text("\n".join(lines), encoding="utf-8")
+        print(f"SPPF status consistency markdown written to {args.md_output}")
+    if violations and args.fail_on_violations:
+        return 1
+    return 0
+
+
 def _decision_tiers_command(args: argparse.Namespace) -> int:
     lint_path = args.lint or _latest_lint_path(args.root)
     return _decision_tier_candidates(lint_path, tier=args.tier, output_format=args.format)
@@ -4192,6 +4238,34 @@ def _add_sppf_graph_args(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(func=_sppf_graph_command)
 
 
+def _add_status_consistency_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--root", type=Path, default=Path("."), help="Repo root")
+    parser.add_argument(
+        "--extra-path",
+        action="append",
+        default=None,
+        help="Additional markdown path to include in docflow parsing.",
+    )
+    parser.add_argument(
+        "--json-output",
+        type=Path,
+        default=Path("artifacts/out/status_consistency.json"),
+        help="JSON output path",
+    )
+    parser.add_argument(
+        "--md-output",
+        type=Path,
+        default=Path("artifacts/audit_reports/status_consistency.md"),
+        help="Markdown output path",
+    )
+    parser.add_argument(
+        "--fail-on-violations",
+        action="store_true",
+        help="Exit non-zero when violations are detected.",
+    )
+    parser.set_defaults(func=_status_consistency_command)
+
+
 def _parse_single_command_args(
     add_args: Callable[[argparse.ArgumentParser], None], argv: list[str] | None
 ) -> argparse.Namespace:
@@ -4222,6 +4296,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     _add_sppf_graph_args(
         subparsers.add_parser("sppf-graph", help="Emit SPPF dependency graph.")
+    )
+    _add_status_consistency_args(
+        subparsers.add_parser(
+            "status-consistency", help="Run SPPF checklist/influence consistency checks."
+        )
     )
 
     with _audit_deadline_scope():
@@ -4257,6 +4336,12 @@ def run_sppf_graph_cli(argv: list[str] | None = None) -> int:
     with _audit_deadline_scope():
         args = _parse_single_command_args(_add_sppf_graph_args, argv)
         return _sppf_graph_command(args)
+
+
+def run_status_consistency_cli(argv: list[str] | None = None) -> int:
+    with _audit_deadline_scope():
+        args = _parse_single_command_args(_add_status_consistency_args, argv)
+        return _status_consistency_command(args)
 
 
 if __name__ == "__main__":

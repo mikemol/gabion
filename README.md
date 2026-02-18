@@ -1,5 +1,5 @@
 ---
-doc_revision: 64
+doc_revision: 65
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -174,6 +174,13 @@ Run the docflow audit (governance docs; `in/` is included for dependency resolut
 ```
 mise exec -- python -m gabion docflow-audit
 ```
+Run governance graph/status checks through the same CLI entrypoint:
+```
+mise exec -- python -m gabion sppf-graph
+mise exec -- python -m gabion status-consistency --fail-on-violations
+```
+Legacy wrappers remain available for transition-only CI/hooks (`scripts/docflow_audit.py`,
+`scripts/sppf_graph.py`, `scripts/status_consistency.py`).
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
 capability and is not intended to generalize beyond this repository.
