@@ -1,5 +1,5 @@
 [dataflow]
-exclude = ["in", ".venv"]
+exclude = ["in", ".venv", ".git"]
 fail_on_type_ambiguities = true
 type_audit = true
 deadline_roots = [

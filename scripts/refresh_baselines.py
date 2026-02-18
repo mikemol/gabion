@@ -267,6 +267,40 @@ def _get_nested(payload: object, keys: list[str], default: int = 0) -> int:
         return default
 
 
+def _risk_entries(
+    *,
+    obsolescence_payload: dict[str, object] | None = None,
+    annotation_payload: dict[str, object] | None = None,
+    ambiguity_payload: dict[str, object] | None = None,
+    docflow_payload: dict[str, object] | None = None,
+) -> tuple[tuple[str, int], ...]:
+    values: list[tuple[str, int]] = []
+    if obsolescence_payload is not None:
+        values.append(
+            (
+                "obsolescence.opaque",
+                _get_nested(obsolescence_payload, ["summary", "opaque_evidence", "delta"]),
+            )
+        )
+        values.append(
+            (
+                "obsolescence.unmapped",
+                _get_nested(obsolescence_payload, ["summary", "counts", "delta", "unmapped"]),
+            )
+        )
+    if annotation_payload is not None:
+        values.append(
+            ("annotation.orphaned", _get_nested(annotation_payload, ["summary", "delta", "orphaned"]))
+        )
+    if ambiguity_payload is not None:
+        values.append(("ambiguity.total", _get_nested(ambiguity_payload, ["summary", "total", "delta"])))
+    if docflow_payload is not None:
+        values.append(
+            ("docflow.contradicts", _get_nested(docflow_payload, ["summary", "delta", "contradicts"]))
+        )
+    return tuple(values)
+
+
 def _ensure_delta(
     flag: str,
     path: Path,

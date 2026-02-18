@@ -452,6 +452,8 @@ def run_staged(
                     analysis_state="delta_gate_failure",
                     is_timeout_resume=False,
                     metrics_line=result.metrics_line,
+                    obligation_rows=result.obligation_rows,
+                    incompleteness_markers=result.incompleteness_markers,
                 )
                 results[-1] = result
                 _append_lines(
