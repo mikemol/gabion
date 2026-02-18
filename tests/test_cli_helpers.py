@@ -959,6 +959,30 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(
     assert calls["count"] == 2
 
 
+def test_emit_analysis_resume_summary(capsys) -> None:
+    cli._emit_analysis_resume_summary(
+        {
+            "analysis_resume": {
+                "checkpoint_path": "artifacts/audit_reports/resume.json",
+                "status": "checkpoint_loaded",
+                "reused_files": 3,
+                "total_files": 5,
+                "remaining_files": 2,
+            }
+        }
+    )
+    output = capsys.readouterr().out
+    assert "Resume checkpoint:" in output
+    assert "status=checkpoint_loaded" in output
+    assert "reused_files=3/5" in output
+
+
+def test_emit_analysis_resume_summary_skips_missing_payload(capsys) -> None:
+    cli._emit_analysis_resume_summary({"exit_code": 0})
+    output = capsys.readouterr().out
+    assert output == ""
+
+
 def test_render_timeout_progress_markdown_includes_incremental_obligations() -> None:
     progress = {
         "classification": "timed_out_progress_resume",

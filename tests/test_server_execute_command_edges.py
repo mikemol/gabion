@@ -3883,6 +3883,42 @@ def test_load_analysis_resume_checkpoint_without_expected_digest(tmp_path: Path)
     assert isinstance(loaded, dict)
 
 
+def test_analysis_resume_checkpoint_compatibility_manifest_mismatch(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "resume.json"
+    checkpoint.write_text(
+        json.dumps(
+            {
+                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
+                "input_manifest_digest": "old-digest",
+                "collection_resume": {"completed_paths": []},
+            }
+        )
+    )
+    status = server._analysis_resume_checkpoint_compatibility(
+        path=checkpoint,
+        manifest_digest="new-digest",
+    )
+    assert status == "checkpoint_manifest_mismatch"
+
+
+def test_analysis_resume_checkpoint_compatibility_compatible(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "resume.json"
+    checkpoint.write_text(
+        json.dumps(
+            {
+                "format_version": server._ANALYSIS_RESUME_CHECKPOINT_FORMAT_VERSION,
+                "input_manifest_digest": "same-digest",
+                "collection_resume": {"completed_paths": []},
+            }
+        )
+    )
+    status = server._analysis_resume_checkpoint_compatibility(
+        path=checkpoint,
+        manifest_digest="same-digest",
+    )
+    assert status == "checkpoint_compatible"
+
+
 def test_analysis_resume_progress_allows_negative_total_files() -> None:
     progress = server._analysis_resume_progress(
         collection_resume={
