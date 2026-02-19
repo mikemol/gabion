@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import Callable
 
 try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
@@ -62,12 +63,18 @@ def _default_range() -> str:
         return "HEAD~20..HEAD"
 
 
-def _is_sppf_relevant_push(rev_range: str) -> bool:
+def _is_sppf_relevant_push(
+    rev_range: str,
+    *,
+    run_git_fn: Callable[[list[str]], str] = _run_git,
+) -> bool:
+    check_deadline()
     try:
-        changed = _run_git(["diff", "--name-only", rev_range])
+        changed = run_git_fn(["diff", "--name-only", rev_range])
     except Exception:
         return True
     for path in changed.splitlines():
+        check_deadline()
         normalized = path.strip()
         if not normalized:
             continue
@@ -154,9 +161,14 @@ def _run_gh(args: list[str], dry_run: bool) -> None:
     subprocess.run(["gh", *args], check=True)
 
 
-def _fetch_issue(issue_id: str) -> IssueLifecycle:
+def _fetch_issue(
+    issue_id: str,
+    *,
+    check_output_fn: Callable[..., str] = subprocess.check_output,
+) -> IssueLifecycle:
+    check_deadline()
     try:
-        raw = subprocess.check_output(
+        raw = check_output_fn(
             ["gh", "issue", "view", issue_id, "--json", "state,labels"],
             text=True,
         )
@@ -169,6 +181,7 @@ def _fetch_issue(issue_id: str) -> IssueLifecycle:
     labels: list[str] = []
     if isinstance(labels_data, list):
         for label in labels_data:
+            check_deadline()
             if isinstance(label, dict) and isinstance(label.get("name"), str):
                 labels.append(label["name"])
     state = str(payload.get("state", "")).lower() if isinstance(payload, dict) else ""
@@ -180,12 +193,13 @@ def _validate_issue_lifecycle(
     *,
     required_labels: list[str],
     expected_state: str,
+    fetch_issue_fn: Callable[[str], IssueLifecycle] = _fetch_issue,
 ) -> list[str]:
     violations: list[str] = []
     for issue_id in issue_ids:
         check_deadline()
         try:
-            issue = _fetch_issue(issue_id)
+            issue = fetch_issue_fn(issue_id)
         except RuntimeError as err:
             violations.append(str(err))
             continue
@@ -253,20 +267,29 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _run_validate_mode(args: argparse.Namespace) -> int:
-    rev_range = args.rev_range or _default_range()
-    if args.only_when_relevant and not _is_sppf_relevant_push(rev_range):
+def _run_validate_mode(
+    args: argparse.Namespace,
+    *,
+    default_range_fn: Callable[[], str] = _default_range,
+    is_sppf_relevant_push_fn: Callable[[str], bool] = _is_sppf_relevant_push,
+    collect_commits_fn: Callable[[str], list[CommitInfo]] = _collect_commits,
+    issue_ids_from_commits_fn: Callable[[list[CommitInfo]], set[str]] = _issue_ids_from_commits,
+    validate_issue_lifecycle_fn: Callable[..., list[str]] = _validate_issue_lifecycle,
+) -> int:
+    check_deadline()
+    rev_range = args.rev_range or default_range_fn()
+    if args.only_when_relevant and not is_sppf_relevant_push_fn(rev_range):
         print(f"Range {rev_range} does not touch SPPF-relevant paths; skipping SPPF sync/check.")
         return 0
 
-    commits = _collect_commits(rev_range)
+    commits = collect_commits_fn(rev_range)
     if not commits:
         print("No commits in range; nothing to sync.")
         return 0
 
     issue_ids = list(
         ordered_or_sorted(
-            _issue_ids_from_commits(commits),
+            issue_ids_from_commits_fn(commits),
             source="scripts.sppf_sync.issue_ids",
             key=str,
         )
@@ -275,7 +298,7 @@ def _run_validate_mode(args: argparse.Namespace) -> int:
         print("No issue references found in commit messages.")
         return 0
 
-    violations = _validate_issue_lifecycle(
+    violations = validate_issue_lifecycle_fn(
         issue_ids,
         required_labels=list(args.require_label),
         expected_state=str(args.require_state),
@@ -283,6 +306,7 @@ def _run_validate_mode(args: argparse.Namespace) -> int:
     if violations:
         print("SPPF issue lifecycle validation failed:")
         for item in violations:
+            check_deadline()
             print(f"- {item}")
         return 1
     print(
@@ -292,10 +316,15 @@ def _run_validate_mode(args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    run_sppf_sync_compat_fn: Callable[[list[str]], int] = run_sppf_sync_compat,
+    run_validate_mode_fn: Callable[[argparse.Namespace], int] = _run_validate_mode,
+) -> int:
     with _deadline_scope():
-        argv = sys.argv[1:]
-        args = _parse_args(argv)
+        resolved_argv = list(sys.argv[1:] if argv is None else argv)
+        args = _parse_args(resolved_argv)
 
         if args.validate and (args.comment or args.close or args.label):
             raise SystemExit(
@@ -304,9 +333,9 @@ def main() -> int:
 
         # Preserve compatibility with the typed CLI command for standard sync operations.
         if args.validate or args.only_when_relevant or args.require_label or args.require_state != "open":
-            return _run_validate_mode(args)
+            return run_validate_mode_fn(args)
 
-        return run_sppf_sync_compat(argv)
+        return run_sppf_sync_compat_fn(resolved_argv)
 
 
 if __name__ == "__main__":

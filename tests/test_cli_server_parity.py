@@ -38,6 +38,7 @@ def _with_timeout(payload: dict[str, object]) -> dict[str, object]:
     }
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_synthesis_plan_cli_matches_server::server.py::gabion.server.execute_synthesis::test_cli_server_parity.py::tests.test_cli_server_parity._cli_env::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._has_pygls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_synthesis_plan_cli_matches_server(tmp_path: Path) -> None:
     payload = {
@@ -62,6 +63,7 @@ def test_synthesis_plan_cli_matches_server(tmp_path: Path) -> None:
     assert cli_response == server_response
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_refactor_protocol_cli_matches_server::server.py::gabion.server.execute_refactor::test_cli_server_parity.py::tests.test_cli_server_parity._cli_env::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._has_pygls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_refactor_protocol_cli_matches_server(tmp_path: Path) -> None:
     target = tmp_path / "module.py"
@@ -92,6 +94,7 @@ def test_refactor_protocol_cli_matches_server(tmp_path: Path) -> None:
     assert cli_response == json.loads(json.dumps(normalized_server))
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_structure_and_decision_diff_cli_match_server::server.py::gabion.server.execute_decision_diff::server.py::gabion.server.execute_structure_diff::test_cli_server_parity.py::tests.test_cli_server_parity._cli_env::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._has_pygls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_structure_and_decision_diff_cli_match_server(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
@@ -143,6 +146,7 @@ def test_structure_and_decision_diff_cli_match_server(tmp_path: Path) -> None:
     assert decision_cli_payload == decision_server_payload
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_structure_reuse_cli_matches_server::server.py::gabion.server.execute_structure_reuse::test_cli_server_parity.py::tests.test_cli_server_parity._cli_env::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._has_pygls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_structure_reuse_cli_matches_server(tmp_path: Path) -> None:
     snapshot = tmp_path / "snapshot.json"
@@ -182,6 +186,7 @@ def test_structure_reuse_cli_matches_server(tmp_path: Path) -> None:
     assert cli_payload == server_payload
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_dataflow_run_check_payload_semantics_match_direct_server::cli.py::gabion.cli.build_check_payload::cli.py::gabion.cli.run_check::server.py::gabion.server.execute_command::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._has_pygls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_dataflow_run_check_payload_semantics_match_direct_server(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -253,6 +258,7 @@ def test_dataflow_run_check_payload_semantics_match_direct_server(tmp_path: Path
         key: server_result.get(key) for key in keys
     }
 
+# gabion:evidence E:call_footprint::tests/test_cli_server_parity.py::test_dataflow_run_check_matches_server_fields::cli.py::gabion.cli.build_check_payload::cli.py::gabion.cli.run_check::server.py::gabion.server.execute_command::test_cli_server_parity.py::tests.test_cli_server_parity._dummy_ls::test_cli_server_parity.py::tests.test_cli_server_parity._with_timeout
 def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
     module.write_text(

@@ -61,11 +61,13 @@ def test_wait_readable_times_out() -> None:
             pass
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_wait_readable_times_out_when_only_read_method_exists::lsp_client.py::gabion.lsp_client._wait_readable
 def test_wait_readable_times_out_when_only_read_method_exists() -> None:
     with pytest.raises(LspClientError):
         _wait_readable(_ReadOnlyTimedOut(), time.monotonic_ns())
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_wait_readable_handles_fileno_failure_with_and_without_read::lsp_client.py::gabion.lsp_client._wait_readable
 def test_wait_readable_handles_fileno_failure_with_and_without_read() -> None:
     with pytest.raises(LspClientError):
         _wait_readable(_FilenoRaisesNoRead(), time.monotonic_ns() + 100_000_000)
@@ -73,6 +75,7 @@ def test_wait_readable_handles_fileno_failure_with_and_without_read() -> None:
         _wait_readable(_FilenoRaisesWithRead(), time.monotonic_ns())
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_wait_readable_returns_when_stream_is_ready::lsp_client.py::gabion.lsp_client._wait_readable
 def test_wait_readable_returns_when_stream_is_ready() -> None:
     read_fd, write_fd = os.pipe()
     try:
@@ -107,6 +110,67 @@ def test_run_command_direct_structure_reuse_and_decision_diff(tmp_path: Path) ->
     assert diff_result["exit_code"] == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_forwards_notifications::lsp_client.py::gabion.lsp_client.run_command_direct
+def test_run_command_direct_forwards_notifications(tmp_path: Path) -> None:
+    seen: list[dict[str, object]] = []
+
+    def _fake_execute_command(ls, _payload=None):
+        ls.send_notification(
+            "$/progress",
+            {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {"resume_checkpoint": {"status": "checkpoint_loaded"}},
+            },
+        )
+        return {"exit_code": 0}
+
+    request = CommandRequest(
+        server.DATAFLOW_COMMAND,
+        [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
+    )
+    result = run_command_direct(
+        request,
+        root=tmp_path,
+        notification_callback=seen.append,
+        execute_dataflow_fn=_fake_execute_command,
+    )
+    assert result["exit_code"] == 0
+    assert seen == [
+        {
+            "jsonrpc": "2.0",
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {"resume_checkpoint": {"status": "checkpoint_loaded"}},
+            },
+        }
+    ]
+
+
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_ignores_non_mapping_notifications::lsp_client.py::gabion.lsp_client.run_command_direct
+def test_run_command_direct_ignores_non_mapping_notifications(
+    tmp_path: Path,
+) -> None:
+    seen: list[dict[str, object]] = []
+
+    def _fake_execute_command(ls, _payload=None):
+        ls.send_notification("$/progress", "not-a-mapping")
+        return {"exit_code": 0}
+
+    request = CommandRequest(
+        server.DATAFLOW_COMMAND,
+        [{"analysis_timeout_ticks": 100, "analysis_timeout_tick_ns": 1_000_000}],
+    )
+    result = run_command_direct(
+        request,
+        root=tmp_path,
+        notification_callback=seen.append,
+        execute_dataflow_fn=_fake_execute_command,
+    )
+    assert result["exit_code"] == 0
+    assert seen == []
+
+
 # gabion:evidence E:function_site::lsp_client.py::gabion.lsp_client.run_command_direct
 def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
     with pytest.raises(LspClientError):
@@ -119,16 +183,19 @@ def test_run_command_direct_rejects_unknown_command(tmp_path: Path) -> None:
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_rejects_non_dict_payload::lsp_client.py::gabion.lsp_client.run_command_direct
 def test_run_command_direct_rejects_non_dict_payload(tmp_path: Path) -> None:
     with pytest.raises(NeverThrown):
         run_command_direct(CommandRequest(server.DATAFLOW_COMMAND, [123]), root=tmp_path)
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_run_command_direct_requires_analysis_timeout::lsp_client.py::gabion.lsp_client.run_command_direct
 def test_run_command_direct_requires_analysis_timeout(tmp_path: Path) -> None:
     with pytest.raises(NeverThrown):
         run_command_direct(CommandRequest(server.DATAFLOW_COMMAND, [{"paths": ["."]}]), root=tmp_path)
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_direct.py::test_analysis_timeout_total_ns_requires_timeout_fields::lsp_client.py::gabion.lsp_client._analysis_timeout_total_ns
 def test_analysis_timeout_total_ns_requires_timeout_fields() -> None:
     with pytest.raises(NeverThrown):
         _analysis_timeout_total_ns({})

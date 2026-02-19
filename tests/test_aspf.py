@@ -63,6 +63,7 @@ def test_add_suite_site_records_file_site() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_suite_site_parent_emits_suite_contains::aspf.py::gabion.analysis.aspf.Forest
 def test_add_suite_site_parent_emits_suite_contains() -> None:
     forest = Forest()
     parent = forest.add_suite_site("mod.py", "mod.fn", "function")
@@ -80,6 +81,7 @@ def test_add_suite_site_parent_emits_suite_contains() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_consumes_logical_ticks::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
 def test_add_alt_consumes_logical_ticks() -> None:
     forest = Forest()
     left = forest.add_site("mod.py", "mod.left")
@@ -93,6 +95,7 @@ def test_add_alt_consumes_logical_ticks() -> None:
     assert meter.current == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_to_json_omits_meta_for_nodes_without_metadata::aspf.py::gabion.analysis.aspf.Forest
 def test_to_json_omits_meta_for_nodes_without_metadata() -> None:
     forest = Forest()
     forest.add_node("Sentinel", ("id",))
@@ -103,6 +106,7 @@ def test_to_json_omits_meta_for_nodes_without_metadata() -> None:
     assert "meta" not in sentinel
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_spec_site_records_optional_spec_fields::aspf.py::gabion.analysis.aspf.Forest
 def test_add_spec_site_records_optional_spec_fields() -> None:
     forest = Forest()
     node_id = forest.add_spec_site(
@@ -116,6 +120,7 @@ def test_add_spec_site_records_optional_spec_fields() -> None:
     assert meta["spec_version"] == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_spec_site_omits_optional_spec_fields_when_absent::aspf.py::gabion.analysis.aspf.Forest
 def test_add_spec_site_omits_optional_spec_fields_when_absent() -> None:
     forest = Forest()
     node_id = forest.add_spec_site(spec_hash="abc123", spec_name="demo")
@@ -124,6 +129,7 @@ def test_add_spec_site_omits_optional_spec_fields_when_absent() -> None:
     assert "spec_version" not in meta
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_requires_deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
 def test_add_alt_requires_deadline_clock_scope() -> None:
     def _run() -> None:
         forest = Forest()
@@ -137,6 +143,7 @@ def test_add_alt_requires_deadline_clock_scope() -> None:
         Context().run(_run)
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_node_intern_uses_fingerprint_identity_with_legacy_keys::aspf.py::gabion.analysis.aspf.Forest
 def test_node_intern_uses_fingerprint_identity_with_legacy_keys() -> None:
     forest = Forest()
 
@@ -148,6 +155,7 @@ def test_node_intern_uses_fingerprint_identity_with_legacy_keys() -> None:
     assert forest.has_node("Sentinel", (1, True, "1"))
 
 
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_node_fingerprint_covers_float_none_and_repr_fallback::aspf.py::gabion.analysis.aspf.NodeId
 def test_node_fingerprint_covers_float_none_and_repr_fallback() -> None:
     class Dummy:
         def __repr__(self) -> str:
@@ -159,6 +167,7 @@ def test_node_fingerprint_covers_float_none_and_repr_fallback() -> None:
         "Sentinel",
         ("float:1.5", "none:null", "repr:dummy-token"),
     )
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_add_alt_interns_structural_duplicates::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
 def test_add_alt_interns_structural_duplicates() -> None:
     forest = Forest()
     left = forest.add_site("mod.py", "mod.left")
@@ -170,3 +179,10 @@ def test_add_alt_interns_structural_duplicates() -> None:
                 second = forest.add_alt(" Edge ", (left, right), evidence={"a": 1, "b": 2})
     assert first is second
     assert len([alt for alt in forest.alts if alt.kind == "Edge"]) == 1
+
+
+# gabion:evidence E:call_footprint::tests/test_aspf.py::test_canonicalize_evidence_rejects_non_mapping_payloads::aspf.py::gabion.analysis.aspf._canonicalize_evidence
+def test_canonicalize_evidence_rejects_non_mapping_payloads() -> None:
+    from gabion.analysis import aspf
+
+    assert aspf._canonicalize_evidence(["not", "a", "mapping"]) == {}

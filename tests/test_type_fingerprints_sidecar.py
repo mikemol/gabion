@@ -30,6 +30,7 @@ def _legacy_decode(fingerprint, registry: PrimeRegistry) -> tuple[list[str], int
     return base_keys, base_remaining, ctor_keys, ctor_remaining
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_decode_matches_legacy_division::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys_with_remainder
 def test_dimension_sidecar_decode_matches_legacy_division() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -48,6 +49,7 @@ def test_dimension_sidecar_decode_matches_legacy_division() -> None:
     assert (sorted(ctor_keys), ctor_remaining) == (sorted(expected_ctor[0]), expected_ctor[1])
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_falls_back_to_product_when_inconsistent::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys_with_remainder
 def test_dimension_sidecar_falls_back_to_product_when_inconsistent() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)
@@ -65,6 +67,7 @@ def test_dimension_sidecar_falls_back_to_product_when_inconsistent() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_skips_non_positive_exponents::type_fingerprints.py::gabion.analysis.type_fingerprints.FingerprintDimension::type_fingerprints.py::gabion.analysis.type_fingerprints.PrimeRegistry
 def test_dimension_sidecar_skips_non_positive_exponents() -> None:
     registry = PrimeRegistry()
     int_prime = registry.get_or_assign("int")
@@ -77,6 +80,7 @@ def test_dimension_sidecar_skips_non_positive_exponents() -> None:
     assert dimension.keys_with_remainder(registry) == (["int"], 1)
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_falls_back_on_product_mismatch::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys_with_remainder
 def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
     registry = PrimeRegistry()
     int_prime = registry.get_or_assign("int")
@@ -92,6 +96,7 @@ def test_dimension_sidecar_falls_back_on_product_mismatch() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dataflow_fingerprint_reporting_parity_with_legacy_decode::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_matches::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::test_type_fingerprints_sidecar.py::tests.test_type_fingerprints_sidecar._legacy_decode::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.format_fingerprint
 def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
     registry = PrimeRegistry()
     ctor_registry = TypeConstructorRegistry(registry)

@@ -77,6 +77,7 @@ def test_find_anonymous_schema_surfaces_ignores_test_roles(tmp_path: Path) -> No
     ) == []
 
 
+# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_rejects_path_order_regression::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
 def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
     tmp_path: Path,
 ) -> None:
@@ -91,6 +92,7 @@ def test_find_anonymous_schema_surfaces_rejects_path_order_regression(
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_rejects_duplicate_paths::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
 def test_find_anonymous_schema_surfaces_rejects_duplicate_paths(tmp_path: Path) -> None:
     path = tmp_path / "a.py"
     path.write_text("def a(payload: dict[str, object]) -> None:\n    return None\n")
@@ -119,6 +121,7 @@ def test_normalize_path_outside_root_returns_absolute(tmp_path: Path) -> None:
     assert sa._normalize_path(path, root) == str(path)
 
 
+# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_normalize_path_inside_root_returns_relative::schema_audit.py::gabion.analysis.schema_audit._normalize_path
 def test_normalize_path_inside_root_returns_relative(tmp_path: Path) -> None:
     root = tmp_path / "root"
     pkg = root / "pkg"
@@ -127,11 +130,13 @@ def test_normalize_path_inside_root_returns_relative(tmp_path: Path) -> None:
     assert sa._normalize_path(path, root) == "pkg/mod.py"
 
 
+# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_normalize_path_without_root_returns_original_path::schema_audit.py::gabion.analysis.schema_audit._normalize_path
 def test_normalize_path_without_root_returns_original_path(tmp_path: Path) -> None:
     path = tmp_path / "mod.py"
     assert sa._normalize_path(path, None) == str(path)
 
 
+# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_find_anonymous_schema_surfaces_covers_async_without_returns::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
 def test_find_anonymous_schema_surfaces_covers_async_without_returns(tmp_path: Path) -> None:
     path = tmp_path / "mod_async.py"
     path.write_text(
@@ -172,6 +177,7 @@ def test_unparse_fallback_for_invalid_ast() -> None:
     assert sa._unparse(bad) == "<annotation>"
 
 
+# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_anonymous_schema_surface_format_handles_optional_suggestion::schema_audit.py::gabion.analysis.schema_audit.AnonymousSchemaSurface
 def test_anonymous_schema_surface_format_handles_optional_suggestion() -> None:
     surface = sa.AnonymousSchemaSurface(
         path="mod.py",
@@ -194,6 +200,7 @@ def test_anonymous_schema_surface_format_handles_optional_suggestion() -> None:
     assert "consider Payload" in suggested.format()
 
 
+# gabion:evidence E:call_footprint::tests/test_schema_audit.py::test_surface_visitor_covers_class_only_prefix_and_non_anonymous_annassign::schema_audit.py::gabion.analysis.schema_audit.find_anonymous_schema_surfaces
 def test_surface_visitor_covers_class_only_prefix_and_non_anonymous_annassign(
     tmp_path: Path,
 ) -> None:

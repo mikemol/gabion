@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from gabion.synthesis import emission
 from gabion.synthesis.emission import render_protocol_stubs
 
 
+# gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_single_ambient_value_snapshot::emission.py::gabion.synthesis.emission.render_protocol_stubs
 def test_contextvar_emission_single_ambient_value_snapshot() -> None:
     plan = {
         "protocols": [
@@ -46,6 +48,7 @@ def test_contextvar_emission_single_ambient_value_snapshot() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_grouped_bundle_snapshot::emission.py::gabion.synthesis.emission.render_protocol_stubs
 def test_contextvar_emission_grouped_bundle_snapshot() -> None:
     plan = {
         "protocols": [
@@ -71,6 +74,7 @@ def test_contextvar_emission_grouped_bundle_snapshot() -> None:
     assert "def get_tenant(default: str) -> str:" in output
 
 
+# gabion:evidence E:call_footprint::tests/test_synthesis_contextvar_emission.py::test_contextvar_emission_unsupported_case_remains_advisory_snapshot::emission.py::gabion.synthesis.emission.render_protocol_stubs
 def test_contextvar_emission_unsupported_case_remains_advisory_snapshot() -> None:
     plan = {
         "protocols": [
@@ -89,3 +93,45 @@ def test_contextvar_emission_unsupported_case_remains_advisory_snapshot() -> Non
 
     assert "Advisory only: missing control_context evidence" in output
     assert "_mode_context: ContextVar[str | int]" in output
+
+
+# gabion:evidence E:function_site::emission.py::gabion.synthesis.emission.render_protocol_stubs
+def test_render_protocol_stubs_covers_invalid_kind_typing_and_empty_fields() -> None:
+    output = render_protocol_stubs(
+        {
+            "protocols": [
+                {
+                    "name": "MaybeBundle",
+                    "tier": 2,
+                    "bundle": ["9 bad-name", ""],
+                    "rationale": "demo",
+                    "fields": [
+                        {"name": "maybe", "type_hint": "Optional[int]"},
+                        {"name": "either", "type_hint": "Union[int, str]"},
+                    ],
+                    "evidence": ["control_context"],
+                },
+                {
+                    "name": "EmptyBundle",
+                    "tier": 3,
+                    "bundle": [],
+                    "rationale": "empty",
+                    "fields": [],
+                    "evidence": [],
+                },
+            ]
+        },
+        kind="invalid-kind",
+    )
+    assert "from dataclasses import dataclass" in output
+    assert "Optional" in output
+    assert "Union" in output
+    assert "class TODO_Name_Me2:" in output
+    assert "pass" in output
+
+
+# gabion:evidence E:function_site::emission.py::gabion.synthesis.emission._sanitize_contextvar_identifier E:function_site::emission.py::gabion.synthesis.emission._sorted_protocols
+def test_emission_helpers_cover_identifier_and_protocol_guardrails() -> None:
+    assert emission._sanitize_contextvar_identifier("!!!") == "ambient"
+    assert emission._sanitize_contextvar_identifier("9lives") == "ambient_9lives"
+    assert emission._sorted_protocols({"protocols": "bad"}) == []

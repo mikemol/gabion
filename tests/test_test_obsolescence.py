@@ -312,6 +312,7 @@ def test_normalize_evidence_refs_variants() -> None:
     assert [item.display for item in refs if item.display]  # non-empty list
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_classify_candidates_handles_non_singleton_high_risk_witnesses::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates
 def test_classify_candidates_handles_non_singleton_high_risk_witnesses(
     make_obsolescence_opaque_ref,
 ) -> None:
@@ -326,6 +327,7 @@ def test_classify_candidates_handles_non_singleton_high_risk_witnesses(
     assert all("guardrail" not in entry["reason"] for entry in candidates)
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_render_markdown_handles_empty_guardrail_and_suffix_parts::test_obsolescence.py::gabion.analysis.test_obsolescence.render_markdown
 def test_render_markdown_handles_empty_guardrail_and_suffix_parts(
     obsolescence_summary_counts,
 ) -> None:
@@ -343,6 +345,7 @@ def test_render_markdown_handles_empty_guardrail_and_suffix_parts(
     assert "guardrail: high-risk-last-witness" in report
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_summarize_candidates_ignores_unknown_rows_and_bad_input_types::test_obsolescence.py::gabion.analysis.test_obsolescence._summarize_candidates
 def test_summarize_candidates_ignores_unknown_rows_and_bad_input_types() -> None:
     def apply(_spec, _relation):
         return [{"class": "custom", "count": 4}, {"class": "obsolete_candidate", "count": "bad"}]
@@ -355,12 +358,14 @@ def test_summarize_candidates_ignores_unknown_rows_and_bad_input_types() -> None
     assert summary["obsolete_candidate"] == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_normalize_evidence_refs_ignores_non_iterable_and_non_supported_entries::test_obsolescence.py::gabion.analysis.test_obsolescence._normalize_evidence_refs
 def test_normalize_evidence_refs_ignores_non_iterable_and_non_supported_entries() -> None:
     assert test_obsolescence._normalize_evidence_refs(123) == []
     refs = test_obsolescence._normalize_evidence_refs([123, "E:opaque"])
     assert len(refs) == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence.py::test_render_markdown_emits_entry_without_suffix_when_reason_is_empty::test_obsolescence.py::gabion.analysis.test_obsolescence.render_markdown
 def test_render_markdown_emits_entry_without_suffix_when_reason_is_empty(
     obsolescence_summary_counts,
 ) -> None:

@@ -35,6 +35,7 @@ def test_emit_report_empty_groups() -> None:
     assert "No bundle components detected." in report
     assert violations == []
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_parse_failure_witnesses::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
 def test_emit_report_parse_failure_witnesses() -> None:
     da = _load()
     report, violations = da._emit_report(
@@ -58,6 +59,7 @@ def test_emit_report_parse_failure_witnesses() -> None:
         "bad.py parse_failure stage=function_index SyntaxError: invalid syntax"
     ]
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_raw_sorted_contract_violations::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_adds_raw_sorted_contract_violations(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -71,6 +73,7 @@ def test_emit_report_adds_raw_sorted_contract_violations(tmp_path: Path) -> None
     assert "Order contract violations" in report
     assert any("raw_sorted introduced" in line for line in violations)
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_raw_sorted_strict_forbid_env::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::env_helpers.py::tests.env_helpers.env_scope::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_raw_sorted_strict_forbid_env(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -84,6 +87,7 @@ def test_emit_report_raw_sorted_strict_forbid_env(tmp_path: Path) -> None:
         )
     assert any("raw sorted() forbidden" in line for line in violations)
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_execution_pattern_suggestions_are_non_blocking::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load
 def test_emit_report_execution_pattern_suggestions_are_non_blocking() -> None:
     da = _load()
     report, violations = da._emit_report(
@@ -98,6 +102,7 @@ def test_emit_report_execution_pattern_suggestions_are_non_blocking() -> None:
     assert "indexed_pass_ingress" in report
     assert all("execution_pattern" not in line for line in violations)
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_dataflow_pattern_schema_suggestions::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._forest_for_groups::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_adds_dataflow_pattern_schema_suggestions(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -114,6 +119,7 @@ def test_emit_report_adds_dataflow_pattern_schema_suggestions(tmp_path: Path) ->
     assert "bundle=a,b" in report
     assert all("pattern_schema" not in line for line in violations)
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_helpers.py::test_emit_report_adds_pattern_schema_residue_non_blocking::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._forest_for_groups::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._load::test_dataflow_report_helpers.py::tests.test_dataflow_report_helpers._write
 def test_emit_report_adds_pattern_schema_residue_non_blocking(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"

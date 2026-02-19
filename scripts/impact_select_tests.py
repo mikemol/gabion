@@ -10,7 +10,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 _HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@")
 
@@ -194,7 +194,11 @@ def _read_must_run_tests(path: Path | None, inline: Iterable[str]) -> set[str]:
     return tests
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    git_diff_changed_lines_fn: Callable[[Path, str | None, str | None], list[ChangedLine]] | None = None,
+) -> int:
     parser = argparse.ArgumentParser(description="Select impacted tests from git diff and evidence index.")
     parser.add_argument("--root", default=".")
     parser.add_argument("--diff-base", default=os.environ.get("GITHUB_BASE_SHA"))
@@ -213,7 +217,10 @@ def main(argv: list[str] | None = None) -> int:
     index_path = root / args.index
     output_path = root / args.out
 
-    changed_lines = _git_diff_changed_lines(root, base=args.diff_base, head=args.diff_head)
+    if git_diff_changed_lines_fn is None:
+        changed_lines = _git_diff_changed_lines(root, base=args.diff_base, head=args.diff_head)
+    else:
+        changed_lines = git_diff_changed_lines_fn(root, args.diff_base, args.diff_head)
     changed_count = len(changed_lines)
     changed_paths = sorted({item.path for item in changed_lines})
 

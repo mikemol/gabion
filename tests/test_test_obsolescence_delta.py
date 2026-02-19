@@ -285,6 +285,7 @@ def test_parse_baseline_payload_filters_invalid_entries() -> None:
     assert baseline.tests == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_parse_baseline_payload_ignores_non_list_tests_payload::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.parse_baseline_payload
 def test_parse_baseline_payload_ignores_non_list_tests_payload() -> None:
     baseline = test_obsolescence_delta.parse_baseline_payload(
         {
@@ -300,6 +301,7 @@ def test_parse_baseline_payload_ignores_non_list_tests_payload() -> None:
     assert baseline.tests == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_render_markdown_handles_non_mapping_summary_and_meta_sections::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.render_markdown
 def test_render_markdown_handles_non_mapping_summary_and_meta_sections() -> None:
     rendered = test_obsolescence_delta.render_markdown(
         {
@@ -315,6 +317,7 @@ def test_render_markdown_handles_non_mapping_summary_and_meta_sections() -> None
     assert "Summary" in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_parse_evidence_index_prefers_existing_display_when_new_display_missing::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._parse_evidence_index
 def test_parse_evidence_index_prefers_existing_display_when_new_display_missing() -> None:
     key = evidence_keys.make_paramset_key(["z"])
     entry_a = {"key": key, "display": "A", "witness_count": 1}
@@ -325,6 +328,7 @@ def test_parse_evidence_index_prefers_existing_display_when_new_display_missing(
     assert parsed[identity].witness_count == 3
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_render_markdown_skips_empty_baseline_and_current_spec_ids::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.render_markdown
 def test_render_markdown_skips_empty_baseline_and_current_spec_ids() -> None:
     rendered = test_obsolescence_delta.render_markdown(
         {
@@ -341,6 +345,7 @@ def test_render_markdown_skips_empty_baseline_and_current_spec_ids() -> None:
     assert "current_spec_id" not in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_resolve_baseline_path_and_write_baseline::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.load_baseline::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.resolve_baseline_path::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.write_baseline
 def test_resolve_baseline_path_and_write_baseline(tmp_path: Path) -> None:
     baseline_path = test_obsolescence_delta.resolve_baseline_path(tmp_path)
     assert baseline_path == tmp_path / test_obsolescence_delta.BASELINE_RELATIVE_PATH
@@ -359,6 +364,7 @@ def test_resolve_baseline_path_and_write_baseline(tmp_path: Path) -> None:
     assert loaded.generated_by_spec_id == "spec"
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_render_markdown_includes_baseline_path_when_present::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.render_markdown
 def test_render_markdown_includes_baseline_path_when_present() -> None:
     rendered = test_obsolescence_delta.render_markdown(
         {
@@ -374,6 +380,7 @@ def test_render_markdown_includes_baseline_path_when_present() -> None:
     assert "- baseline: baselines/test_obsolescence_baseline.json" in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_baseline_payload_from_paths_calls_obsolescence_pipeline::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta.build_baseline_payload_from_paths
 def test_build_baseline_payload_from_paths_calls_obsolescence_pipeline() -> None:
     observed: dict[str, object] = {}
     expected_payload = {"version": 1}
@@ -398,6 +405,7 @@ def test_build_baseline_payload_from_paths_calls_obsolescence_pipeline() -> None
     assert observed["args"] == (evidence_by_test, status_by_test, candidates, summary)
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_delta.py::test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::evidence_keys.py::gabion.analysis.evidence_keys.render_display::test_obsolescence_delta.py::gabion.analysis.test_obsolescence_delta._build_evidence_index
 def test_build_evidence_index_skips_unmapped_and_keeps_existing_display_order() -> None:
     key = evidence_keys.make_paramset_key(["x"])
     display = evidence_keys.render_display(key)

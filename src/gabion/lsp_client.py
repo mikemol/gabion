@@ -411,6 +411,8 @@ def run_command_direct(
     request: CommandRequest,
     *,
     root: Path | None = None,
+    notification_callback: Callable[[JSONObject], None] | None = None,
+    execute_dataflow_fn: Callable[[object, JSONObject], JSONObject] | None = None,
 ) -> JSONObject:
     _, payload = _normalized_command_payload(request)
     if (
@@ -420,9 +422,24 @@ def run_command_direct(
     ):
         never("missing analysis timeout in direct command payload")
     workspace = SimpleNamespace(root_path=str((root or Path.cwd()).resolve()))
-    ls = SimpleNamespace(workspace=workspace)
+
+    def _send_notification(method: str, params: object) -> None:
+        if notification_callback is None:
+            return
+        if not isinstance(params, Mapping):
+            return
+        notification_callback(
+            {
+                "jsonrpc": "2.0",
+                "method": str(method),
+                "params": {str(key): params[key] for key in params},
+            }
+        )
+
+    ls = SimpleNamespace(workspace=workspace, send_notification=_send_notification)
     if request.command == server.DATAFLOW_COMMAND:
-        return server.execute_command(ls, payload)
+        execute_fn = execute_dataflow_fn or server.execute_command
+        return execute_fn(ls, payload)
     if request.command == server.STRUCTURE_DIFF_COMMAND:
         return server.execute_structure_diff(ls, payload)
     if request.command == server.STRUCTURE_REUSE_COMMAND:

@@ -12,12 +12,14 @@ from gabion.analysis.projection_registry import (
 from gabion.exceptions import NeverThrown
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_spec_metadata_lines_emit_canonical_id_and_json::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines
 def test_spec_metadata_lines_emit_canonical_id_and_json() -> None:
     lines = spec_metadata_lines(WL_REFINEMENT_SPEC)
     assert lines[0].startswith("generated_by_spec_id: ")
     assert lines[1].startswith("generated_by_spec: ")
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_spec_metadata_lines_from_payload_defaults_non_mapping_spec_payload::projection_registry.py::gabion.analysis.projection_registry.spec_metadata_lines_from_payload
 def test_spec_metadata_lines_from_payload_defaults_non_mapping_spec_payload() -> None:
     lines = spec_metadata_lines_from_payload(
         {
@@ -31,6 +33,7 @@ def test_spec_metadata_lines_from_payload_defaults_non_mapping_spec_payload() ->
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_projection_registry_gas_limit_default_and_env_override::projection_registry.py::gabion.analysis.projection_registry._projection_registry_gas_limit
 def test_projection_registry_gas_limit_default_and_env_override(
     env_scope,
     restore_env,
@@ -47,6 +50,7 @@ def test_projection_registry_gas_limit_default_and_env_override(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_projection_registry_gas_limit_rejects_invalid_env::projection_registry.py::gabion.analysis.projection_registry._projection_registry_gas_limit
 def test_projection_registry_gas_limit_rejects_invalid_env(
     env_scope,
     restore_env,
@@ -69,6 +73,7 @@ def test_projection_registry_gas_limit_rejects_invalid_env(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_registry_edges.py::test_build_registered_specs_uses_configured_gas_limit::projection_registry.py::gabion.analysis.projection_registry.build_registered_specs
 def test_build_registered_specs_uses_configured_gas_limit(
     env_scope,
     restore_env,

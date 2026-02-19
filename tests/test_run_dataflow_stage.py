@@ -47,6 +47,7 @@ def _obligation_trace_path(paths: dict[str, Path]) -> Path:
     return paths["deadline_json"].parent / "obligation_trace.json"
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered::run_dataflow_stage.py::scripts.run_dataflow_stage._stage_ids
 def test_stage_ids_are_bounded_and_ordered() -> None:
     assert run_dataflow_stage._stage_ids("a", 3) == ["a", "b", "c"]
     assert run_dataflow_stage._stage_ids("b", 3) == ["b", "c"]
@@ -54,6 +55,7 @@ def test_stage_ids_are_bounded_and_ordered() -> None:
     assert run_dataflow_stage._stage_ids("a", 0) == []
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_stage_strictness_profile_supports_named_and_positional::run_dataflow_stage.py::scripts.run_dataflow_stage._parse_stage_strictness_profile
 def test_parse_stage_strictness_profile_supports_named_and_positional() -> None:
     assert run_dataflow_stage._parse_stage_strictness_profile("a=low,b=high,c=low") == {
         "a": "low",
@@ -69,6 +71,7 @@ def test_parse_stage_strictness_profile_supports_named_and_positional() -> None:
     }
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_check_command_includes_strictness_when_provided::run_dataflow_stage.py::scripts.run_dataflow_stage._check_command::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths
 def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None:
     paths = _stage_paths(_base_paths(tmp_path))
     command = run_dataflow_stage._check_command(
@@ -80,6 +83,7 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
     assert "low" in command
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::scripts.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_stage_uses_progress_classification_fallback(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
     _write_text(paths["report"], "# report\n")
@@ -116,6 +120,7 @@ def test_run_stage_uses_progress_classification_fallback(tmp_path: Path) -> None
     assert paths["deadline_json"].with_name("deadline_profile_stage_a.json").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_staged_retries_until_success(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
     _write_text(paths["timeout_md"], "timeout md\n")
@@ -157,6 +162,7 @@ def test_run_staged_retries_until_success(tmp_path: Path) -> None:
     assert not paths["report"].with_name("dataflow_report_stage_c.md").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_staged_passes_stage_specific_strictness(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
     _write_text(paths["timeout_md"], "timeout md\n")
@@ -184,6 +190,7 @@ def test_run_staged_passes_stage_specific_strictness(tmp_path: Path) -> None:
     assert observed[0][strict_idx + 1] == "low"
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_staged_stops_on_hard_failure(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
     _write_text(paths["report"], "# report\n")
@@ -205,6 +212,7 @@ def test_run_staged_stops_on_hard_failure(tmp_path: Path) -> None:
     assert not paths["report"].with_name("dataflow_report_stage_b.md").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys::run_dataflow_stage.py::scripts.run_dataflow_stage._emit_stage_outputs
 def test_emit_stage_outputs_writes_terminal_and_stage_keys(tmp_path: Path) -> None:
     output_path = tmp_path / "github_output.txt"
     results = [
@@ -237,6 +245,7 @@ def test_emit_stage_outputs_writes_terminal_and_stage_keys(tmp_path: Path) -> No
     assert "analysis_state=done" in payload
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_marks_success_as_failure_when_delta_gate_fails::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_staged_marks_success_as_failure_when_delta_gate_fails(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)
     _write_text(paths["timeout_md"], "timeout md\n")
@@ -277,6 +286,7 @@ def test_run_staged_marks_success_as_failure_when_delta_gate_fails(tmp_path: Pat
     assert len(gate_calls) >= 1
     assert any("annotation_drift_orphaned_gate.py" in cmd[-1] for cmd in gate_calls)
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_rows_from_timeout_payload::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_trace_payload
 def test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip() -> None:
     rows, markers = run_dataflow_stage._obligation_rows_from_timeout_payload(
         stage_id="a",
@@ -335,6 +345,7 @@ def test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip()
     assert "timeout_or_partial_run" in trace["incompleteness_markers"]
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_timeout_stage_with_missing_incremental_obligations_marks_incomplete::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_rows_from_timeout_payload
 def test_timeout_stage_with_missing_incremental_obligations_marks_incomplete() -> None:
     rows, markers = run_dataflow_stage._obligation_rows_from_timeout_payload(
         stage_id="a",

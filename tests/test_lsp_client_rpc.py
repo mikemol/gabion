@@ -104,6 +104,7 @@ def test_read_rpc_rejects_non_object_payload() -> None:
         raise AssertionError("Expected LspClientError for non-object payload")
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_rpc.py::test_read_exact_rejects_closed_stream::lsp_client.py::gabion.lsp_client._read_exact
 def test_read_exact_rejects_closed_stream() -> None:
     stream = io.BytesIO(b"")
     try:
@@ -114,6 +115,7 @@ def test_read_exact_rejects_closed_stream() -> None:
         raise AssertionError("Expected LspClientError for closed stream")
 
 
+# gabion:evidence E:call_footprint::tests/test_lsp_client_rpc.py::test_read_rpc_truncates_prefetched_excess_body::lsp_client.py::gabion.lsp_client._read_rpc
 def test_read_rpc_truncates_prefetched_excess_body() -> None:
     payload = {"jsonrpc": "2.0", "id": 7, "result": {"ok": True}}
     body = json.dumps(payload).encode("utf-8")

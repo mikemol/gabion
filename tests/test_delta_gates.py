@@ -12,6 +12,7 @@ from scripts import obsolescence_delta_gate
 from scripts import obsolescence_delta_unmapped_gate
 
 
+# gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_detects_positive_delta
 @pytest.mark.parametrize(
     ("gate_fn", "payload"),
     [
@@ -37,6 +38,7 @@ def test_gate_detects_positive_delta(
     assert gate_fn(delta_path, enabled=True) == 1
 
 
+# gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_fails_when_payload_missing
 @pytest.mark.parametrize(
     "gate_fn",
     [
@@ -51,6 +53,7 @@ def test_gate_fails_when_payload_missing(tmp_path: Path, gate_fn: Callable[..., 
     assert gate_fn(delta_path, enabled=True) == 2
 
 
+# gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_fails_when_payload_malformed
 @pytest.mark.parametrize(
     "gate_fn",
     [
@@ -66,6 +69,7 @@ def test_gate_fails_when_payload_malformed(tmp_path: Path, gate_fn: Callable[...
     assert gate_fn(delta_path, enabled=True) == 2
 
 
+# gabion:evidence E:function_site::tests/test_delta_gates.py::test_gate_default_is_enabled
 @pytest.mark.parametrize(
     "enabled_fn",
     [

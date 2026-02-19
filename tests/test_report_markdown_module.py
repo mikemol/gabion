@@ -5,6 +5,7 @@ import random
 from gabion.analysis.report_markdown import render_report_markdown
 
 
+# gabion:evidence E:call_footprint::tests/test_report_markdown_module.py::test_render_report_markdown_is_byte_stable_for_shuffled_scope::report_markdown.py::gabion.analysis.report_markdown.render_report_markdown
 def test_render_report_markdown_is_byte_stable_for_shuffled_scope() -> None:
     baseline = None
     scope_entries = ["artifacts", "repo", "analysis"]

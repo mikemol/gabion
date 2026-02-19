@@ -37,6 +37,7 @@ def test_normalize_idempotent_and_hash_stable() -> None:
     assert spec_hash(spec) == spec_hash(roundtrip)
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_spec_hash_accepts_string_and_mapping::projection_normalize.py::gabion.analysis.projection_normalize.spec_hash::projection_spec.py::gabion.analysis.projection_spec.spec_to_dict
 def test_spec_hash_accepts_string_and_mapping() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -49,6 +50,7 @@ def test_spec_hash_accepts_string_and_mapping() -> None:
     assert spec_hash(payload) == spec_hash(spec)
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_spec_canonical_json_is_byte_stable_for_shuffled_params::projection_normalize.py::gabion.analysis.projection_normalize.spec_canonical_json
 def test_spec_canonical_json_is_byte_stable_for_shuffled_params() -> None:
     baseline = None
     entries = [("z", 1), ("a", 2), ("m", 3)]
@@ -189,6 +191,7 @@ def test_count_by_groups_rows() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_spec_from_dict_ignores_non_list_pipeline_payload::projection_spec.py::gabion.analysis.projection_spec.spec_from_dict
 def test_spec_from_dict_ignores_non_list_pipeline_payload() -> None:
     spec = spec_from_dict(
         {
@@ -201,6 +204,7 @@ def test_spec_from_dict_ignores_non_list_pipeline_payload() -> None:
     assert spec.pipeline == ()
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_normalize_spec_handles_empty_unknown_and_mixed_param_shapes::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec
 def test_normalize_spec_handles_empty_unknown_and_mixed_param_shapes() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -223,6 +227,7 @@ def test_normalize_spec_handles_empty_unknown_and_mixed_param_shapes() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_normalize_spec_drops_project_with_non_string_non_list_fields::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec
 def test_normalize_spec_drops_project_with_non_string_non_list_fields() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -234,6 +239,7 @@ def test_normalize_spec_drops_project_with_non_string_non_list_fields() -> None:
     assert normalized["pipeline"] == []
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_normalize_select_predicates_stable_under_permuted_discovery_order::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec
 def test_normalize_select_predicates_stable_under_permuted_discovery_order() -> None:
     spec_a = ProjectionSpec(
         spec_version=1,
@@ -255,6 +261,7 @@ def test_normalize_select_predicates_stable_under_permuted_discovery_order() -> 
     assert normalize_spec(spec_a)["pipeline"] == normalize_spec(spec_b)["pipeline"]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_count_by_output_stable_under_permuted_discovery_order::projection_exec.py::gabion.analysis.projection_exec.apply_spec
 def test_count_by_output_stable_under_permuted_discovery_order() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -283,6 +290,7 @@ def test_count_by_output_stable_under_permuted_discovery_order() -> None:
 
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_count_by_accepts_legacy_single_field_param::projection_exec.py::gabion.analysis.projection_exec.apply_spec
 def test_count_by_accepts_legacy_single_field_param() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -297,6 +305,7 @@ def test_count_by_accepts_legacy_single_field_param() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_traverse_stringifies_merged_non_string_keys::projection_exec.py::gabion.analysis.projection_exec.apply_spec
 def test_traverse_stringifies_merged_non_string_keys() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -313,6 +322,7 @@ def test_traverse_stringifies_merged_non_string_keys() -> None:
     assert apply_spec(spec, rows) == [{"idx": 0, "item_1": "x", "item_name": "first"}]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_apply_spec_params_override_replaces_normalized_params::projection_exec.py::gabion.analysis.projection_exec.apply_spec
 def test_apply_spec_params_override_replaces_normalized_params() -> None:
     rows = [{"value": 1}, {"value": 3}, {"value": 5}]
 
@@ -335,6 +345,7 @@ def test_apply_spec_params_override_replaces_normalized_params() -> None:
     assert result == [{"value": 3}, {"value": 5}]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_normalize_select_predicates_drops_whitespace_entries::projection_normalize.py::gabion.analysis.projection_normalize.normalize_spec
 def test_normalize_select_predicates_drops_whitespace_entries() -> None:
     spec = ProjectionSpec(
         spec_version=1,
@@ -347,5 +358,6 @@ def test_normalize_select_predicates_drops_whitespace_entries() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_spec.py::test_normalize_predicates_skips_whitespace_only_values::projection_normalize.py::gabion.analysis.projection_normalize._normalize_predicates
 def test_normalize_predicates_skips_whitespace_only_values() -> None:
     assert _normalize_predicates(["\t", "beta"]) == ["beta"]

@@ -9,6 +9,7 @@ import pytest
 from scripts import refresh_baselines
 
 
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines_run_check.py::test_run_check_includes_timeout_diagnostics_flags::refresh_baselines.py::scripts.refresh_baselines._refresh_lsp_timeout_env::refresh_baselines.py::scripts.refresh_baselines._run_check
 def test_run_check_includes_timeout_diagnostics_flags() -> None:
     captured: dict[str, object] = {}
     timeout_env = refresh_baselines._refresh_lsp_timeout_env(None, None)
@@ -46,6 +47,7 @@ def test_run_check_includes_timeout_diagnostics_flags() -> None:
     assert cmd[-2:] == ["--foo", "bar"]
 
 
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines_run_check.py::test_run_check_formats_called_process_error::refresh_baselines.py::scripts.refresh_baselines._refresh_lsp_timeout_env::refresh_baselines.py::scripts.refresh_baselines._run_check
 def test_run_check_formats_called_process_error() -> None:
     timeout_env = refresh_baselines._refresh_lsp_timeout_env(None, None)
 

@@ -100,6 +100,30 @@ def test_resolve_callee_ambiguous_then_global() -> None:
     resolved = da._resolve_callee("target", caller, by_name, by_qual)
     assert resolved is global_candidate
 
+
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name
+def test_resolve_callee_ignores_cross_module_same_name_candidates() -> None:
+    da = _load()
+    caller_path = Path("pkg/local_mod.py")
+    caller = _fn(da, name="caller", qual="pkg.local_mod.caller", path=caller_path)
+    local_target = _fn(
+        da,
+        name="target",
+        qual="pkg.local_mod.target",
+        path=caller_path,
+    )
+    other_target = _fn(
+        da,
+        name="target",
+        qual="pkg.other_mod.target",
+        path=Path("pkg/other_mod.py"),
+    )
+    by_name = {"target": [local_target, other_target]}
+    by_qual = {local_target.qual: local_target, other_target.qual: other_target}
+
+    resolved = da._resolve_callee("target", caller, by_name, by_qual)
+    assert resolved is local_target
+
 # gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::base,class_index,module,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::by_qual,callee_key,caller,class_index,symbol_table E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::by_qual,class_qual,seen E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._module_name::project_root
 def test_resolve_callee_import_and_star() -> None:
     da = _load()
@@ -289,6 +313,7 @@ def _index_for_source(tmp_path: Path, source: str):
     return da, by_name, by_qual, caller
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_direct_lambda_call::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._index_for_source
 def test_resolve_callee_direct_lambda_call(tmp_path: Path) -> None:
     da, by_name, by_qual, caller = _index_for_source(
         tmp_path,
@@ -301,6 +326,7 @@ def test_resolve_callee_direct_lambda_call(tmp_path: Path) -> None:
     assert resolved.qual == call.callee
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_call::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._index_for_source
 def test_resolve_callee_bound_lambda_call(tmp_path: Path) -> None:
     da, by_name, by_qual, caller = _index_for_source(
         tmp_path,
@@ -315,6 +341,7 @@ def test_resolve_callee_bound_lambda_call(tmp_path: Path) -> None:
 
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_closure_returned_and_invoked::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._index_for_source
 def test_resolve_callee_closure_returned_and_invoked(tmp_path: Path) -> None:
     da, by_name, by_qual, caller = _index_for_source(
         tmp_path,
@@ -333,6 +360,7 @@ def test_resolve_callee_closure_returned_and_invoked(tmp_path: Path) -> None:
     assert outcome.candidates[0].name.startswith("<lambda:")
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_via_object_attribute::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._index_for_source
 def test_resolve_callee_bound_lambda_via_object_attribute(tmp_path: Path) -> None:
     da, by_name, by_qual, caller = _index_for_source(
         tmp_path,
@@ -350,6 +378,7 @@ def test_resolve_callee_bound_lambda_via_object_attribute(tmp_path: Path) -> Non
     assert outcome.candidates[0].name.startswith("<lambda:")
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._index_for_source
 def test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls(tmp_path: Path) -> None:
     da, by_name, by_qual, caller = _index_for_source(
         tmp_path,
@@ -363,6 +392,7 @@ def test_resolve_callee_outcome_keeps_dynamic_fallback_for_attribute_calls(tmp_p
     assert outcome.status == "unresolved_dynamic"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_bound_lambda_ambiguous_aliasing::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._index_for_source
 def test_resolve_callee_bound_lambda_ambiguous_aliasing(tmp_path: Path) -> None:
     da, by_name, by_qual, caller = _index_for_source(
         tmp_path,
@@ -382,6 +412,7 @@ def test_resolve_callee_bound_lambda_ambiguous_aliasing(tmp_path: Path) -> None:
     assert len(outcome.candidates) == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_collect_lambda_function_infos_ignores_missing_span_nodes::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_lambda_function_infos::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_collect_lambda_function_infos_ignores_missing_span_nodes() -> None:
     da = _load()
     tree = ast.Module(
@@ -413,6 +444,7 @@ def test_collect_lambda_function_infos_ignores_missing_span_nodes() -> None:
     assert infos == []
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_collect_lambda_function_infos_applies_ignore_params::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_lambda_function_infos::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_collect_lambda_function_infos_applies_ignore_params(tmp_path: Path) -> None:
     da = _load()
     mod = tmp_path / "pkg" / "mod.py"
@@ -431,6 +463,7 @@ def test_collect_lambda_function_infos_applies_ignore_params(tmp_path: Path) -> 
     assert infos[0].params == ["keep"]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_collect_lambda_bindings_ignores_unmapped_lambda_spans::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_lambda_bindings_by_caller::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_collect_lambda_bindings_ignores_unmapped_lambda_spans() -> None:
     da = _load()
     tree = ast.parse("def caller():\n    fn = lambda x: x\n")
@@ -445,6 +478,7 @@ def test_collect_lambda_bindings_ignores_unmapped_lambda_spans() -> None:
     assert bindings == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_direct_lambda_mapping_skips_missing_and_unmapped_spans::dataflow_audit.py::gabion.analysis.dataflow_audit._direct_lambda_callee_by_call_span::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_direct_lambda_mapping_skips_missing_and_unmapped_spans() -> None:
     da = _load()
     locationless_tree = ast.Module(
@@ -474,6 +508,7 @@ def test_direct_lambda_mapping_skips_missing_and_unmapped_spans() -> None:
     assert da._direct_lambda_callee_by_call_span(parsed_tree, lambda_infos=[]) == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_single_missing_local_binding_falls_back_to_global::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_resolve_callee_single_missing_local_binding_falls_back_to_global() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -489,6 +524,7 @@ def test_resolve_callee_single_missing_local_binding_falls_back_to_global() -> N
     assert resolved is global_candidate
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_multi_bindings_with_one_present_returns_bound::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_resolve_callee_multi_bindings_with_one_present_returns_bound() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -504,6 +540,7 @@ def test_resolve_callee_multi_bindings_with_one_present_returns_bound() -> None:
     assert resolved is bound
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_multi_bindings_without_sink_returns_none::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_resolve_callee_multi_bindings_without_sink_returns_none() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -520,6 +557,7 @@ def test_resolve_callee_multi_bindings_without_sink_returns_none() -> None:
     assert resolved is None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_multi_missing_bindings_fall_back::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_resolve_callee_multi_missing_bindings_fall_back() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -535,6 +573,7 @@ def test_resolve_callee_multi_missing_bindings_fall_back() -> None:
     assert resolved is global_candidate
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_adds_internal_candidates_from_bindings::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_resolve_callee_outcome_adds_internal_candidates_from_bindings() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -556,6 +595,7 @@ def test_resolve_callee_outcome_adds_internal_candidates_from_bindings() -> None
     assert tuple(outcome.candidates) == (bound,)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_resolved_and_ambiguous::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_resolve_callee_outcome_resolved_and_ambiguous() -> None:
     da = _load()
     caller = _fn(da, name="caller", qual="pkg.mod.caller", path=Path("pkg/mod.py"))
@@ -584,6 +624,7 @@ def test_resolve_callee_outcome_resolved_and_ambiguous() -> None:
     assert ambiguous.status == "ambiguous"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_resolve_callee_outcome_unresolved_internal_and_dynamic::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee_outcome::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._fn::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_resolve_callee_outcome_unresolved_internal_and_dynamic() -> None:
     da = _load()
     caller = _fn(da, name="caller", qual="pkg.mod.caller", path=Path("pkg/mod.py"))
@@ -608,6 +649,7 @@ def test_resolve_callee_outcome_unresolved_internal_and_dynamic() -> None:
     assert unresolved_dynamic.status == "unresolved_dynamic"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_resolve_callee.py::test_dynamic_dispatch_classifier_rejects_empty_and_self_base::dataflow_audit.py::gabion.analysis.dataflow_audit._is_dynamic_dispatch_callee_key::test_dataflow_resolve_callee.py::tests.test_dataflow_resolve_callee._load
 def test_dynamic_dispatch_classifier_rejects_empty_and_self_base() -> None:
     da = _load()
     assert da._is_dynamic_dispatch_callee_key("") is False

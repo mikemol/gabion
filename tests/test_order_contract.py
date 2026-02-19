@@ -20,21 +20,25 @@ from gabion.order_contract import (
 )
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_sorts_by_default::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_sorts_by_default() -> None:
     values = ["b", "a", "c"]
     assert ordered_or_sorted(values, source="test") == ["a", "b", "c"]
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_accepts_sorted_when_required::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_accepts_sorted_when_required() -> None:
     values = ["a", "b", "c"]
     assert ordered_or_sorted(values, source="test", require_sorted=True) == values
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_rejects_unsorted_when_required::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_rejects_unsorted_when_required() -> None:
     with pytest.raises(NeverThrown):
         ordered_or_sorted(["b", "a"], source="test", require_sorted=True)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_respects_env_toggle::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_respects_env_toggle(env_scope, restore_env) -> None:
     previous = env_scope({"GABION_CALLER_SORTED": "1"})
     try:
@@ -44,6 +48,7 @@ def test_ordered_or_sorted_respects_env_toggle(env_scope, restore_env) -> None:
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_check_policy_sorts_only_on_regression::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_check_policy_sorts_only_on_regression() -> None:
     values = ["b", "a", "c"]
     observed: list[dict[str, object]] = []
@@ -58,12 +63,14 @@ def test_ordered_or_sorted_check_policy_sorts_only_on_regression() -> None:
     assert observed[0]["violation_kind"] == "out_of_order"
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_trust_policy_keeps_caller_order::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_trust_policy_keeps_caller_order() -> None:
     values = ["b", "a", "c"]
     with order_policy(OrderPolicy.TRUST):
         assert ordered_or_sorted(values, source="test") == values
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_policy_argument_overrides_context::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_policy_argument_overrides_context() -> None:
     values = ["b", "a", "c"]
     with order_policy(OrderPolicy.TRUST):
@@ -74,12 +81,14 @@ def test_ordered_or_sorted_policy_argument_overrides_context() -> None:
         ) == ["a", "b", "c"]
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_enforce_policy_raises_on_regression::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_enforce_policy_raises_on_regression() -> None:
     with order_policy(OrderPolicy.ENFORCE):
         with pytest.raises(NeverThrown):
             ordered_or_sorted(["b", "a"], source="test")
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_check_records_context_telemetry::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.order_telemetry::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_check_records_context_telemetry() -> None:
     with order_policy(OrderPolicy.CHECK):
         with order_telemetry() as events:
@@ -89,6 +98,7 @@ def test_ordered_or_sorted_check_records_context_telemetry() -> None:
     assert events[0]["source"] == "test"
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_check_records_global_telemetry_env::order_contract.py::gabion.order_contract.get_order_telemetry_events::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_check_records_global_telemetry_env(
     env_scope, restore_env
 ) -> None:
@@ -105,6 +115,7 @@ def test_ordered_or_sorted_check_records_global_telemetry_env(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_get_order_telemetry_events_can_clear_global_buffer::order_contract.py::gabion.order_contract.get_order_telemetry_events::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_get_order_telemetry_events_can_clear_global_buffer(
     env_scope, restore_env
 ) -> None:
@@ -120,6 +131,7 @@ def test_get_order_telemetry_events_can_clear_global_buffer(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_enforces_canonical_sort_allowlist::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_enforces_canonical_sort_allowlist(
     env_scope, restore_env
 ) -> None:
@@ -135,6 +147,7 @@ def test_ordered_or_sorted_enforces_canonical_sort_allowlist(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source(
     env_scope, restore_env
 ) -> None:
@@ -150,6 +163,7 @@ def test_ordered_or_sorted_canonical_sort_allowlist_accepts_known_source(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope::order_contract.py::gabion.order_contract.canonical_sort_allowlist::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope(
     env_scope, restore_env
 ) -> None:
@@ -166,6 +180,7 @@ def test_ordered_or_sorted_canonical_sort_allowlist_accepts_context_scope(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_get_order_policy_reads_env_alias_values::order_contract.py::gabion.order_contract.get_order_policy
 def test_get_order_policy_reads_env_alias_values(env_scope, restore_env) -> None:
     previous = env_scope({"GABION_ORDER_POLICY": "off"})
     try:
@@ -184,6 +199,7 @@ def test_get_order_policy_reads_env_alias_values(env_scope, restore_env) -> None
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_get_order_policy_rejects_unknown_env_policy::order_contract.py::gabion.order_contract.get_order_policy
 def test_get_order_policy_rejects_unknown_env_policy(env_scope, restore_env) -> None:
     previous = env_scope({"GABION_ORDER_POLICY": "nonsense"})
     try:
@@ -193,18 +209,21 @@ def test_get_order_policy_rejects_unknown_env_policy(env_scope, restore_env) -> 
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_check_handles_incomparable_values::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_check_handles_incomparable_values() -> None:
     with order_policy(OrderPolicy.CHECK):
         with pytest.raises(TypeError):
             ordered_or_sorted([{"a": 1}, {"b": 2}], source="incomparable")
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_enforce_rejects_incomparable_values::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_enforce_rejects_incomparable_values() -> None:
     with order_policy(OrderPolicy.ENFORCE):
         with pytest.raises(NeverThrown):
             ordered_or_sorted([{"a": 1}, {"b": 2}], source="incomparable")
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_canonical_allowlist_skips_without_explicit_sort::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_canonical_allowlist_skips_without_explicit_sort(
     env_scope, restore_env
 ) -> None:
@@ -215,6 +234,7 @@ def test_ordered_or_sorted_canonical_allowlist_skips_without_explicit_sort(
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_explicit_sort_from_require_sorted_false_obeys_allowlist::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_explicit_sort_from_require_sorted_false_obeys_allowlist(
     env_scope, restore_env
 ) -> None:
@@ -230,12 +250,14 @@ def test_ordered_or_sorted_explicit_sort_from_require_sorted_false_obeys_allowli
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_accepts_string_policy::order_contract.py::gabion.order_contract.order_policy::order_contract.py::gabion.order_contract.ordered_or_sorted
 def test_ordered_or_sorted_accepts_string_policy() -> None:
     with order_policy(OrderPolicy.TRUST):
         ordered = ordered_or_sorted(["a", "b"], source="string-policy", policy="enforce")
     assert ordered == ["a", "b"]
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_ordered_or_sorted_deadline_probe_paths::order_contract.py::gabion.order_contract.ordered_or_sorted::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
 def test_ordered_or_sorted_deadline_probe_paths(env_scope, restore_env) -> None:
     previous = env_scope(
         {
@@ -261,6 +283,7 @@ def test_ordered_or_sorted_deadline_probe_paths(env_scope, restore_env) -> None:
         restore_env(previous)
 
 
+# gabion:evidence E:call_footprint::tests/test_order_contract.py::test_order_deadline_tick_budget_allows_check_non_meter_clock::order_contract.py::gabion.order_contract._deadline_tick_budget_allows_check
 def test_order_deadline_tick_budget_allows_check_non_meter_clock() -> None:
     class _Clock:
         pass

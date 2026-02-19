@@ -54,6 +54,8 @@ def _run_triplet(name: str, steps: list[str]) -> int:
     exit_code = 0
     env = dict(os.environ)
     env.setdefault("GABION_DIRECT_RUN", "1")
+    env.setdefault("GABION_LSP_TIMEOUT_TICKS", "65000000")
+    env.setdefault("GABION_LSP_TIMEOUT_TICK_NS", "1000000")
     with _deadline_scope():
         for step in steps:
             check_deadline()
@@ -61,6 +63,8 @@ def _run_triplet(name: str, steps: list[str]) -> int:
             if result.returncode != 0:
                 print(f"{name} step failed: {step} (exit {result.returncode})")
                 exit_code = exit_code or result.returncode
+                if step.endswith("_emit.py"):
+                    return exit_code
     return exit_code
 
 

@@ -78,6 +78,7 @@ def test_check_builds_payload() -> None:
     assert payload["resume_on_timeout"] == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_payloads.py::test_check_builds_payload_with_none_filter_bundle::cli.py::gabion.cli.build_check_payload
 def test_check_builds_payload_with_none_filter_bundle() -> None:
     payload = cli.build_check_payload(
         paths=[Path(".")],
@@ -476,6 +477,7 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     assert captured["root"] == tmp_path
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_payloads.py::test_run_check_uses_explicit_report_path::cli.py::gabion.cli.run_check
 def test_run_check_uses_explicit_report_path(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -524,6 +526,7 @@ def test_run_check_uses_explicit_report_path(tmp_path: Path) -> None:
     assert captured["root"] == tmp_path
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_payloads.py::test_run_check_with_none_filter_bundle::cli.py::gabion.cli.run_check
 def test_run_check_with_none_filter_bundle(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 

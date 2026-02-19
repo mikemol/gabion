@@ -170,6 +170,7 @@ def test_annotation_drift_summarize_unknown_status() -> None:
     assert summary["custom"] == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_test_annotation_drift.py::test_annotation_drift_render_handles_non_list_entries_payload::test_annotation_drift.py::gabion.analysis.test_annotation_drift.render_markdown
 def test_annotation_drift_render_handles_non_list_entries_payload() -> None:
     rendered = test_annotation_drift.render_markdown(
         {"summary": {"ok": 1}, "entries": "not-a-list"}

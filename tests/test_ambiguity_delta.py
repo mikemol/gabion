@@ -61,6 +61,7 @@ def test_ambiguity_delta_render_handles_invalid_numbers() -> None:
     assert "total:" in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_ambiguity_delta.py::test_ambiguity_baseline_parse_ignores_non_mapping_summary_shapes::ambiguity_delta.py::gabion.analysis.ambiguity_delta.parse_baseline_payload
 def test_ambiguity_baseline_parse_ignores_non_mapping_summary_shapes() -> None:
     parsed = ambiguity_delta.parse_baseline_payload(
         {
@@ -85,6 +86,7 @@ def test_ambiguity_baseline_parse_ignores_non_mapping_summary_shapes() -> None:
     assert parsed.by_kind == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_ambiguity_delta.py::test_ambiguity_delta_render_ignores_non_mapping_by_kind_summary::ambiguity_delta.py::gabion.analysis.ambiguity_delta.render_markdown
 def test_ambiguity_delta_render_ignores_non_mapping_by_kind_summary() -> None:
     rendered = ambiguity_delta.render_markdown(
         {

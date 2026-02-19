@@ -3576,6 +3576,8 @@ def verify_rewrite_plan(
         issue
         for issue in validate_rewrite_plan_payload(plan)
         if not issue.startswith("missing predicate:")
+        and not issue.startswith("missing evidence refs:")
+        and not issue.startswith("unknown rewrite kind:")
     ]
     if schema_issues:
         issues.extend(schema_issues)
@@ -3594,6 +3596,9 @@ def verify_rewrite_plan(
         }
 
     pre = mapping_or_empty(plan.get("pre"))
+    raw_pre_remainder = pre.get("remainder")
+    if raw_pre_remainder not in (None, {}) and not isinstance(raw_pre_remainder, Mapping):
+        issues.append("invalid pre remainder payload")
     expected_base = list(pre.get("base_keys") or [])
     expected_ctor = list(pre.get("ctor_keys") or [])
     expected_remainder = mapping_or_empty(pre.get("remainder"))
@@ -3611,6 +3616,9 @@ def verify_rewrite_plan(
     expected_candidates: list[str] = []
     rewrite = mapping_or_empty(plan.get("rewrite"))
     rewrite_kind = str(rewrite.get("kind", "") or "")
+    raw_params_payload = rewrite.get("parameters")
+    if raw_params_payload not in (None, {}) and not isinstance(raw_params_payload, Mapping):
+        issues.append("invalid rewrite parameters payload")
     params = mapping_or_empty(rewrite.get("parameters"))
     expected_candidates = [str(v) for v in (params.get("candidates") or []) if v]
 
@@ -4807,7 +4815,7 @@ class _DeadlineFunctionCollector(ast.NodeVisitor):
 class _DeadlineLoopFacts:
     span: tuple[int, int, int, int] | None
     kind: str
-    depth: int
+    depth: int = 1
     check_params: set[str] = field(default_factory=set)
     ambient_check: bool = False
     call_spans: set[tuple[int, int, int, int]] = field(default_factory=set)
@@ -8474,8 +8482,11 @@ def _build_call_graph(
 
 def _collect_call_ambiguities_indexed(
     context: _IndexedPassContext,
+    *,
+    resolve_callee_fn: Callable[..., FunctionInfo | None] | None = None,
 ) -> list[CallAmbiguity]:
     ambiguities: list[CallAmbiguity] = []
+    resolve_callee = _resolve_callee if resolve_callee_fn is None else resolve_callee_fn
 
     def _sink(
         caller: FunctionInfo,
@@ -8504,7 +8515,7 @@ def _collect_call_ambiguities_indexed(
                 check_deadline()
                 if call.is_test:
                     continue
-                _resolve_callee(
+                resolve_callee(
                     call.callee,
                     info,
                     context.analysis_index.by_name,
@@ -8515,7 +8526,7 @@ def _collect_call_ambiguities_indexed(
                     call=call,
                     ambiguity_sink=_sink,
                 )
-    return _dedupe_call_ambiguities(ambiguities)
+    return ambiguities
 
 
 def _collect_call_ambiguities(
@@ -11308,6 +11319,10 @@ def _resolve_callee(
     if lambda_bindings is None:
         lambda_bindings = caller.local_lambda_bindings
     candidates = by_name.get(_callee_key(callee_key), [])
+    if "." not in callee_key:
+        # Unqualified Python name resolution is module-local unless an import
+        # explicitly binds the symbol into scope.
+        candidates = [info for info in candidates if info.path == caller.path]
     bound_lambda_quals = tuple(lambda_bindings.get(callee_key, ()))
     if len(bound_lambda_quals) == 1:
         bound = by_qual.get(bound_lambda_quals[0])
@@ -16563,6 +16578,17 @@ def analyze_paths(
         )
 
         analysis_index_for_progress = analysis_index
+        if analysis_index_for_progress is None and (
+            include_bundle_forest
+            or include_decision_surfaces
+            or include_value_decision_surfaces
+            or include_lint_lines
+            or include_never_invariants
+            or include_wl_refinement
+            or include_deadline_obligations
+            or include_ambiguities
+        ):
+            analysis_index_for_progress = _require_analysis_index()
         forest_files_indexed_total = len(file_paths)
         forest_callsites_total = 0
         if analysis_index_for_progress is not None:

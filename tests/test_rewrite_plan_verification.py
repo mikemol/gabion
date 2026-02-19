@@ -286,6 +286,7 @@ def test_verify_rewrite_plan_exception_predicate_missing_inputs_and_parse_errors
     exc = next(r for r in parsed["predicate_results"] if r.get("kind") == "exception_obligation_non_regression")
     assert exc.get("expected") == {"UNKNOWN": 0, "DISCHARGED": 0}
 
+# gabion:evidence E:call_footprint::tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_coherence::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load
 def test_verify_rewrite_plan_extended_kinds_have_deterministic_behavior() -> None:
     da = _load()
     provenance = [
@@ -360,6 +361,7 @@ def test_rewrite_plan_precondition_abstentions_and_kind_predicates() -> None:
     assert any("abstention reason" in issue for issue in abstained["issues"])
 
 
+# gabion:evidence E:call_footprint::tests/test_rewrite_plan_verification.py::test_verify_rewrite_plan_rejects_missing_kind_payload_fields::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._load::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._plan::test_rewrite_plan_verification.py::tests.test_rewrite_plan_verification._post_entry
 def test_verify_rewrite_plan_rejects_missing_kind_payload_fields() -> None:
     da = _load()
     plan = _plan(rewrite={"kind": "SURFACE_CANONICALIZE", "parameters": {"candidates": ["ctx_a"]}})

@@ -8,6 +8,7 @@ from gabion.analysis.timeout_context import check_deadline, get_deadline_clock, 
 def _import_script_module(name: str):
     return importlib.import_module(f"scripts.{name}")
 
+# gabion:evidence E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_script_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest
 def test_script_scope_helpers_bind_deadline_clock_and_forest() -> None:
     scope_functions = [
         ("audit_tools", "_audit_deadline_scope"),

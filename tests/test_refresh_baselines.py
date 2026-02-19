@@ -12,6 +12,7 @@ def _load_refresh_baselines():
     return refresh_baselines
 
 
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_env::env_helpers.py::tests.env_helpers.env_scope::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
 def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_env(
 ) -> None:
     module = _load_refresh_baselines()
@@ -58,6 +59,7 @@ def test_refresh_subprocess_env_injects_timeout_budget_without_mutating_process_
     assert call["env"]["GABION_LSP_TIMEOUT_TICK_NS"] == str(module._DEFAULT_TIMEOUT_TICK_NS)
 
 
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_refresh_lsp_timeout_env_overrides_defaults::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
 def test_refresh_lsp_timeout_env_overrides_defaults() -> None:
     module = _load_refresh_baselines()
 
@@ -67,6 +69,7 @@ def test_refresh_lsp_timeout_env_overrides_defaults() -> None:
     assert timeout_env.tick_ns == 456
 
 
+# gabion:evidence E:call_footprint::tests/test_refresh_baselines.py::test_main_uses_cli_timeout_overrides_for_refresh_operations::test_refresh_baselines.py::tests.test_refresh_baselines._load_refresh_baselines
 def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
     module = _load_refresh_baselines()
     captured: list[module._RefreshLspTimeoutEnv] = []

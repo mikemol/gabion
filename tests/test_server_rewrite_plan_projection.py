@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from gabion.refactor import rewrite_plan as rewrite_plan_mod
 from gabion.server import _normalize_dataflow_response
 
 
+# gabion:evidence E:call_footprint::tests/test_server_rewrite_plan_projection.py::test_server_projection_normalizes_rewrite_plan_order_and_schema_errors::server.py::gabion.server._normalize_dataflow_response
 def test_server_projection_normalizes_rewrite_plan_order_and_schema_errors() -> None:
     response = {
         "exit_code": 0,
@@ -35,3 +37,11 @@ def test_server_projection_normalizes_rewrite_plan_order_and_schema_errors() -> 
     assert plans[0]["site"]["path"] == "a.py"
     assert "rewrite_plan_schema_errors" in normalized
     assert normalized["rewrite_plan_schema_errors"][0]["plan_id"].startswith("rewrite:z.py")
+
+
+# gabion:evidence E:function_site::rewrite_plan.py::gabion.refactor.rewrite_plan.attach_plan_schema
+def test_rewrite_plan_schema_helpers_cover_non_dict_and_unknown_kind() -> None:
+    assert rewrite_plan_mod._missing_keys("nope", ("a", "b")) == ["a", "b"]
+    assert rewrite_plan_mod.attach_plan_schema({"rewrite": "bad"}) == {"rewrite": "bad"}
+    unknown = {"rewrite": {"kind": "NOT_A_KIND"}}
+    assert rewrite_plan_mod.attach_plan_schema(unknown) == unknown

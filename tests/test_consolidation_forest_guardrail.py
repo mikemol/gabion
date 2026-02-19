@@ -76,11 +76,13 @@ def test_consolidation_allows_fallback_in_permissive_mode(tmp_path: Path) -> Non
     report_text = output_path.read_text()
     assert "FOREST_FALLBACK_USED" in report_text
 
+# gabion:evidence E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_override::audit_tools.py::scripts.audit_tools._audit_gas_limit::env_helpers.py::tests.env_helpers.env_scope::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools
 def test_audit_tools_gas_limit_env_override() -> None:
     audit_tools = _load_audit_tools()
     with env_scope({"GABION_AUDIT_GAS_LIMIT": "12345"}):
         assert audit_tools._audit_gas_limit() == 12345
 
+# gabion:evidence E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_rejects_invalid::audit_tools.py::scripts.audit_tools._audit_gas_limit::env_helpers.py::tests.env_helpers.env_scope::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools
 @pytest.mark.parametrize("value", ["", "0", "-1", "bad"])
 def test_audit_tools_gas_limit_env_rejects_invalid(value: str) -> None:
     audit_tools = _load_audit_tools()

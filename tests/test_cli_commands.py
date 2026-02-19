@@ -122,6 +122,7 @@ def test_cli_impact_json(tmp_path: Path) -> None:
     assert "must_run_tests" in payload
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_impact_reads_git_diff_file::test_cli_commands.py::tests.test_cli_commands._has_pygls::test_cli_commands.py::tests.test_cli_commands._invoke
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_impact_reads_git_diff_file(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -152,6 +153,7 @@ def test_cli_impact_reads_git_diff_file(tmp_path: Path) -> None:
     assert payload["changes"][0]["path"] == "module.py"
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_impact_reads_git_diff_stdin::test_cli_commands.py::tests.test_cli_commands._has_pygls::test_cli_commands.py::tests.test_cli_commands._invoke
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_impact_reads_git_diff_stdin(tmp_path: Path) -> None:
     module = tmp_path / "module.py"
@@ -236,6 +238,7 @@ def test_cli_sppf_graph_and_status_consistency(tmp_path: Path) -> None:
     assert status_json.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_dataflow_audit_command_is_removed::test_cli_commands.py::tests.test_cli_commands._invoke
 def test_cli_dataflow_audit_command_is_removed() -> None:
     runner = CliRunner()
     result = _invoke(runner, ["dataflow-audit", "--help"])

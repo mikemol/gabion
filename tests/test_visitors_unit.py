@@ -242,6 +242,17 @@ def test_import_visitor_basic_and_relative() -> None:
     deep.visit(ast.parse("from ..... import Nope\n"))
     assert dict(table.imports) == before
 
+    before = dict(table.imports)
+    visitor.visit_ImportFrom(
+        ast.ImportFrom(
+            module=None,
+            names=[ast.alias(name="Thing", asname=None)],
+            level=0,
+        )
+    )
+    assert dict(table.imports) == before
+
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_project_visitor_node_entry_respects_gas_meter::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
 def test_project_visitor_node_entry_respects_gas_meter() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     from gabion.analysis.aspf import Forest

@@ -1,29 +1,79 @@
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
+from pathlib import Path
+
+from gabion import server
+from gabion.lsp_client import CommandRequest, run_command_direct
+
+_DEFAULT_TIMEOUT_TICKS = "65000000"
+_DEFAULT_TIMEOUT_TICK_NS = "1000000"
+_DEFAULT_RESUME_CHECKPOINT_PATH = Path(
+    "artifacts/audit_reports/dataflow_resume_checkpoint_ci.json"
+)
+_EXPECTED_STATE_PATHS = (
+    Path("artifacts/out/test_obsolescence_state.json"),
+    Path("artifacts/out/test_annotation_drift.json"),
+    Path("artifacts/out/ambiguity_state.json"),
+)
+
+
+def _timeout_ticks() -> int:
+    raw = os.getenv("GABION_LSP_TIMEOUT_TICKS", _DEFAULT_TIMEOUT_TICKS)
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        return int(_DEFAULT_TIMEOUT_TICKS)
+    return parsed if parsed > 0 else int(_DEFAULT_TIMEOUT_TICKS)
+
+
+def _timeout_tick_ns() -> int:
+    raw = os.getenv("GABION_LSP_TIMEOUT_TICK_NS", _DEFAULT_TIMEOUT_TICK_NS)
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        return int(_DEFAULT_TIMEOUT_TICK_NS)
+    return parsed if parsed > 0 else int(_DEFAULT_TIMEOUT_TICK_NS)
+
+
+def _build_payload() -> dict[str, object]:
+    payload: dict[str, object] = {
+        "analysis_timeout_ticks": _timeout_ticks(),
+        "analysis_timeout_tick_ns": _timeout_tick_ns(),
+        "fail_on_violations": False,
+        "fail_on_type_ambiguities": False,
+        "resume_on_timeout": 1,
+        "emit_timeout_progress_report": True,
+        "emit_test_obsolescence_state": True,
+        "emit_test_annotation_drift": True,
+        "emit_ambiguity_state": True,
+    }
+    if _DEFAULT_RESUME_CHECKPOINT_PATH.exists():
+        payload["resume_checkpoint"] = str(_DEFAULT_RESUME_CHECKPOINT_PATH)
+    else:
+        payload["resume_checkpoint"] = False
+    return payload
 
 
 def main() -> int:
-    try:
-        env = dict(os.environ)
-        env.setdefault("GABION_DIRECT_RUN", "1")
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "gabion",
-                "check",
-                "--emit-test-obsolescence-state",
-                "--emit-test-annotation-drift",
-                "--emit-ambiguity-state",
-            ],
-            env=env,
-            check=True,
+    result = run_command_direct(
+        CommandRequest(
+            server.DATAFLOW_COMMAND,
+            [_build_payload()],
+        ),
+        root=Path("."),
+    )
+    exit_code = int(result.get("exit_code", 0))
+    if exit_code != 0:
+        print(f"Delta state emit failed (exit {exit_code}).")
+        return exit_code
+    missing_outputs = [str(path) for path in _EXPECTED_STATE_PATHS if not path.exists()]
+    if missing_outputs:
+        print(
+            "Delta state emit failed: missing expected state artifacts: "
+            + ", ".join(missing_outputs)
         )
-    except subprocess.CalledProcessError:
-        print("Delta state emit failed.")
+        return 1
     return 0
 
 

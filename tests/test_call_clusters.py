@@ -164,6 +164,7 @@ def test_call_clusters_render_uses_payload_spec_metadata() -> None:
     assert 'generated_by_spec: {"name":"custom","spec_version":99}' in markdown
 
 
+# gabion:evidence E:call_footprint::tests/test_call_clusters.py::test_call_clusters_payload_merges_repeated_cluster_identity::call_clusters.py::gabion.analysis.call_clusters.build_call_clusters_payload
 def test_call_clusters_payload_merges_repeated_cluster_identity(
     tmp_path: Path,
     write_test_evidence_payload,
@@ -206,6 +207,7 @@ def test_call_clusters_payload_merges_repeated_cluster_identity(
     assert payload["summary"]["tests"] == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_call_clusters.py::test_call_clusters_render_handles_empty_tests_list::call_clusters.py::gabion.analysis.call_clusters.render_markdown
 def test_call_clusters_render_handles_empty_tests_list() -> None:
     markdown = call_clusters.render_markdown(
         {
