@@ -462,6 +462,7 @@ def test_cli_synth_invalid_protocols_kind(tmp_path: Path) -> None:
     assert result.exit_code != 0
     assert "synthesis-protocols-kind" in result.output
 
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_refactor_protocol_emits_rewrite_plan_metadata::cli.py::gabion.cli.app
 @pytest.mark.skipif(not _has_pygls(), reason="pygls not installed")
 def test_cli_refactor_protocol_emits_rewrite_plan_metadata(tmp_path: Path) -> None:
     module = tmp_path / "module.py"

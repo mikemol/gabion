@@ -209,6 +209,7 @@ def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
     assert "@overload" in replacement
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_threaded_parameter::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
 def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "ambient.py"
@@ -242,6 +243,7 @@ def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> N
     assert any(entry.kind == "AMBIENT_REWRITE" and entry.status == "applied" for entry in plan.rewrite_plans)
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_partial_skip_unsafe::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
 def test_refactor_engine_ambient_rewrite_partial_skip_unsafe(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "ambient_partial.py"
@@ -276,6 +278,7 @@ def test_refactor_engine_ambient_rewrite_partial_skip_unsafe(tmp_path: Path) -> 
     assert entries["unsafe"].non_rewrite_reasons
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_noop_when_no_pattern::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
 def test_refactor_engine_ambient_rewrite_noop_when_no_pattern(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest = _load()
     target = tmp_path / "ambient_noop.py"
