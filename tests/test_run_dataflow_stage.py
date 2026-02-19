@@ -162,6 +162,52 @@ def test_run_staged_retries_until_success(tmp_path: Path) -> None:
     assert not paths["report"].with_name("dataflow_report_stage_c.md").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
+def test_run_staged_skips_retry_when_wall_budget_reserved(tmp_path: Path) -> None:
+    paths = _base_paths(tmp_path)
+    _write_text(paths["timeout_md"], "timeout md\n")
+    _write_text(paths["deadline_md"], "deadline md\n")
+    calls = {"count": 0}
+
+    def _run(_cmd: list[str] | tuple[str, ...]) -> int:
+        calls["count"] += 1
+        _write_text(paths["report"], "# report stage a\n")
+        _write_json(paths["timeout_json"], {"analysis_state": "timed_out_progress_resume"})
+        _write_json(
+            paths["deadline_json"],
+            {
+                "ticks_consumed": 10,
+                "checks_total": 5,
+                "ticks_per_ns": 0.01,
+                "wall_total_elapsed_ns": 1_000_000_000,
+            },
+        )
+        return 2
+
+    clock_samples = [0.0, 58.0]
+
+    def _fake_monotonic() -> float:
+        if clock_samples:
+            return clock_samples.pop(0)
+        return 58.0
+
+    results = run_dataflow_stage.run_staged(
+        stage_ids=["a", "b"],
+        paths=_stage_paths(paths),
+        resume_on_timeout=1,
+        step_summary_path=paths["summary"],
+        run_command_fn=_run,
+        run_gate_fn=lambda _cmd: 0,
+        max_wall_seconds=60,
+        finalize_reserve_seconds=5,
+        monotonic_fn=_fake_monotonic,
+    )
+
+    assert calls["count"] == 1
+    assert [result.stage_id for result in results] == ["a"]
+    assert "skipped due remaining wall budget" in paths["summary"].read_text()
+
+
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
 def test_run_staged_passes_stage_specific_strictness(tmp_path: Path) -> None:
     paths = _base_paths(tmp_path)

@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
@@ -502,10 +503,31 @@ def run_staged(
     run_command_fn: Callable[[Sequence[str]], int],
     run_gate_fn: Callable[[Sequence[str]], int] | None = None,
     strictness_by_stage: Mapping[str, str] | None = None,
+    max_wall_seconds: int | None = None,
+    finalize_reserve_seconds: int = 0,
+    monotonic_fn: Callable[[], float] = time.monotonic,
 ) -> list[StageResult]:
     strictness_profile = dict(strictness_by_stage or {})
     results: list[StageResult] = []
+    started_wall_seconds = monotonic_fn()
     for stage_id in deadline_loop_iter(stage_ids):
+        if (
+            results
+            and isinstance(max_wall_seconds, int)
+            and max_wall_seconds > 0
+        ):
+            elapsed = max(0.0, monotonic_fn() - started_wall_seconds)
+            remaining = float(max_wall_seconds) - elapsed
+            reserve_seconds = max(0, int(finalize_reserve_seconds))
+            if remaining <= float(reserve_seconds):
+                stage_upper = stage_id.upper()
+                message = (
+                    f"stage {stage_upper}: skipped due remaining wall budget "
+                    f"({remaining:.1f}s <= reserve {reserve_seconds}s)"
+                )
+                print(message)
+                _append_lines(step_summary_path, [f"- {message}"])
+                break
         result = run_stage(
             stage_id=stage_id,
             paths=paths,
@@ -576,6 +598,25 @@ def _parse_args() -> argparse.Namespace:
         help=(
             "Optional per-stage strictness profile. Accepts 'a=low,b=high,c=low' "
             "or positional 'low,high,low'."
+        ),
+    )
+    parser.add_argument(
+        "--max-wall-seconds",
+        type=int,
+        default=0,
+        help=(
+            "Optional wall-clock cap for staged retries. "
+            "When the remaining budget is within --finalize-reserve-seconds, "
+            "additional retries are skipped."
+        ),
+    )
+    parser.add_argument(
+        "--finalize-reserve-seconds",
+        type=int,
+        default=0,
+        help=(
+            "Wall-clock reserve to keep available for finalize/upload steps "
+            "before launching another retry stage."
         ),
     )
     parser.add_argument(
@@ -669,6 +710,12 @@ def main() -> int:
             step_summary_path=step_summary_path,
             run_command_fn=_run_subprocess,
             strictness_by_stage=strictness_by_stage,
+            max_wall_seconds=(
+                int(args.max_wall_seconds)
+                if int(args.max_wall_seconds) > 0
+                else None
+            ),
+            finalize_reserve_seconds=max(0, int(args.finalize_reserve_seconds)),
         )
         trace_payload = _write_obligation_trace(paths.obligation_trace_json_path, results)
         _append_markdown_summary(paths.timeout_progress_md_path, trace_payload)

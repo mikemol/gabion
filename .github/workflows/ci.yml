@@ -19,6 +19,9 @@ jobs:
       # ~= 1 hour at current CI throughput (~18k ticks/ms in timeout profiles).
       GABION_LSP_TIMEOUT_TICKS: "65000000"
       GABION_LSP_TIMEOUT_TICK_NS: "1000000"
+      # Keep enough wall-clock budget for finalize/report upload if stage retries time out.
+      GABION_DATAFLOW_STAGE_MAX_WALL_SECONDS: "3300"
+      GABION_DATAFLOW_STAGE_FINALIZE_RESERVE_SECONDS: "240"
     steps:
       # Allow-listed actions: actions/checkout, jdx/mise-action
       - name: Checkout
@@ -39,6 +42,28 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip uv
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
+      - name: Seed version-controlled dataflow resume checkpoint (best effort)
+        run: |
+          target_dir="artifacts/audit_reports"
+          seed_checkpoint="baselines/dataflow_resume_checkpoint_ci.json"
+          seed_chunks="baselines/dataflow_resume_checkpoint_ci.json.chunks"
+          mkdir -p "$target_dir"
+          restored=0
+          if [ -f "$seed_checkpoint" ]; then
+            cp "$seed_checkpoint" "$target_dir/dataflow_resume_checkpoint_ci.json"
+            restored=1
+          fi
+          if [ -d "$seed_chunks" ]; then
+            rm -rf "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
+            mkdir -p "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
+            cp -R "$seed_chunks"/. "$target_dir/dataflow_resume_checkpoint_ci.json.chunks/"
+            restored=1
+          fi
+          if [ "$restored" = "1" ]; then
+            echo "Seeded checkpoint from version-controlled baseline."
+          else
+            echo "No version-controlled checkpoint seed found; continuing."
+          fi
       - name: Restore previous dataflow resume checkpoint (best effort)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,7 +80,11 @@ jobs:
         env:
           GABION_DIRECT_RUN: "1"
         run: |
-          .venv/bin/python scripts/run_dataflow_stage.py --max-attempts 3 --stage-strictness-profile "a=low,b=high,c=low"
+          .venv/bin/python scripts/run_dataflow_stage.py \
+            --max-attempts 3 \
+            --stage-strictness-profile "a=low,b=high,c=low" \
+            --max-wall-seconds "${GABION_DATAFLOW_STAGE_MAX_WALL_SECONDS}" \
+            --finalize-reserve-seconds "${GABION_DATAFLOW_STAGE_FINALIZE_RESERVE_SECONDS}"
       - name: Finalize dataflow audit outcome
         if: always()
         env:
