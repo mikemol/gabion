@@ -3,8 +3,10 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import os
 import re
 import time
+from datetime import datetime, timezone
 from collections import defaultdict, deque
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -176,6 +178,9 @@ _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION = 1
 _ANALYSIS_INPUT_WITNESS_FORMAT_VERSION = 2
 _DEFAULT_ANALYSIS_RESUME_CHECKPOINT = Path(
     "artifacts/audit_reports/dataflow_resume_checkpoint.json"
+)
+_DEFAULT_CHECKPOINT_INTRO_TIMELINE = Path(
+    "artifacts/audit_reports/dataflow_checkpoint_intro_timeline.md"
 )
 _REPORT_SECTION_JOURNAL_FORMAT_VERSION = 1
 _DEFAULT_REPORT_SECTION_JOURNAL = Path(
@@ -1967,6 +1972,132 @@ def _render_incremental_report(
     return "\n".join(lines).rstrip() + "\n", pending_reasons
 
 
+def _checkpoint_intro_timeline_enabled(payload: Mapping[str, JSONValue]) -> bool:
+    raw_enabled = payload.get("emit_checkpoint_intro_timeline")
+    if raw_enabled is not None:
+        return _truthy_flag(raw_enabled)
+    github_actions = os.getenv("GITHUB_ACTIONS", "")
+    ci = os.getenv("CI", "")
+    return _truthy_flag(github_actions) or _truthy_flag(ci)
+
+
+def _checkpoint_intro_timeline_path(*, root: Path) -> Path:
+    return root / _DEFAULT_CHECKPOINT_INTRO_TIMELINE
+
+
+def _markdown_table_cell(value: object) -> str:
+    if value is None:
+        return ""
+    return str(value).replace("\n", " ").replace("|", "\\|")
+
+
+def _append_checkpoint_intro_timeline_row(
+    *,
+    path: Path,
+    collection_resume: Mapping[str, JSONValue],
+    total_files: int,
+    checkpoint_path: Path | None,
+    checkpoint_status: str | None,
+    checkpoint_reused_files: int,
+    checkpoint_total_files: int | None = None,
+    timestamp_utc: str | None = None,
+) -> None:
+    progress = _analysis_resume_progress(
+        collection_resume=collection_resume,
+        total_files=total_files,
+    )
+    semantic_progress = collection_resume.get("semantic_progress")
+    semantic_witness_digest: str | None = None
+    new_processed_functions: int | None = None
+    regressed_processed_functions: int | None = None
+    completed_files_delta: int | None = None
+    substantive_progress: bool | None = None
+    if isinstance(semantic_progress, Mapping):
+        raw_witness_digest = semantic_progress.get("current_witness_digest")
+        if isinstance(raw_witness_digest, str) and raw_witness_digest:
+            semantic_witness_digest = raw_witness_digest
+        raw_new = semantic_progress.get("new_processed_functions_count")
+        if not isinstance(raw_new, bool) and isinstance(raw_new, int):
+            new_processed_functions = raw_new
+        raw_regressed = semantic_progress.get("regressed_processed_functions_count")
+        if not isinstance(raw_regressed, bool) and isinstance(raw_regressed, int):
+            regressed_processed_functions = raw_regressed
+        raw_delta = semantic_progress.get("completed_files_delta")
+        if not isinstance(raw_delta, bool) and isinstance(raw_delta, int):
+            completed_files_delta = raw_delta
+        raw_substantive = semantic_progress.get("substantive_progress")
+        if isinstance(raw_substantive, bool):
+            substantive_progress = raw_substantive
+    analysis_index_summary = _analysis_index_resume_summary(collection_resume)
+    hydrated_paths_count: int | None = None
+    hydrated_function_count: int | None = None
+    hydrated_class_count: int | None = None
+    if isinstance(analysis_index_summary, Mapping):
+        raw_hydrated = analysis_index_summary.get("hydrated_paths_count")
+        if not isinstance(raw_hydrated, bool) and isinstance(raw_hydrated, int):
+            hydrated_paths_count = raw_hydrated
+        raw_fn_count = analysis_index_summary.get("function_count")
+        if not isinstance(raw_fn_count, bool) and isinstance(raw_fn_count, int):
+            hydrated_function_count = raw_fn_count
+        raw_class_count = analysis_index_summary.get("class_count")
+        if not isinstance(raw_class_count, bool) and isinstance(raw_class_count, int):
+            hydrated_class_count = raw_class_count
+    checkpoint_total = checkpoint_total_files
+    if checkpoint_total is None:
+        checkpoint_total = progress["total_files"]
+    if timestamp_utc is None:
+        timestamp_utc = datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+            "+00:00", "Z"
+        )
+    checkpoint_descriptor = (
+        f"path={checkpoint_path or '<none>'} "
+        f"status={checkpoint_status or 'unknown'} "
+        f"reused_files={checkpoint_reused_files}/{checkpoint_total}"
+    )
+    header = [
+        "ts_utc",
+        "completed_files",
+        "in_progress_files",
+        "remaining_files",
+        "total_files",
+        "resume_checkpoint",
+        "semantic_witness_digest",
+        "new_processed_functions",
+        "regressed_processed_functions",
+        "completed_files_delta",
+        "substantive_progress",
+        "hydrated_paths_count",
+        "hydrated_function_count",
+        "hydrated_class_count",
+    ]
+    row = [
+        timestamp_utc,
+        progress["completed_files"],
+        progress["in_progress_files"],
+        progress["remaining_files"],
+        progress["total_files"],
+        checkpoint_descriptor,
+        semantic_witness_digest,
+        new_processed_functions,
+        regressed_processed_functions,
+        completed_files_delta,
+        substantive_progress,
+        hydrated_paths_count,
+        hydrated_function_count,
+        hydrated_class_count,
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        with path.open("w", encoding="utf-8") as handle:
+            handle.write("# Checkpoint Intro Timeline\n\n")
+            handle.write(
+                "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |\n"
+            )
+            handle.write("| " + " | ".join(["---"] * len(header)) + " |\n")
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("| " + " | ".join(_markdown_table_cell(cell) for cell in row) + " |\n")
+
+
 def _collection_progress_intro_lines(
     *,
     collection_resume: Mapping[str, JSONValue],
@@ -3227,6 +3358,8 @@ def _execute_command_total(
         enable_phase_projection_checkpoints = bool(report_output_path) and (
             emit_timeout_progress_report or resume_on_timeout_attempts > 0
         )
+        emit_checkpoint_intro_timeline = _checkpoint_intro_timeline_enabled(payload)
+        checkpoint_intro_timeline_path = _checkpoint_intro_timeline_path(root=Path(root))
         dot_path = payload.get("dot")
         fail_on_violations = payload.get("fail_on_violations", False)
         no_recursive = payload.get("no_recursive", False)
@@ -3435,6 +3568,16 @@ def _execute_command_total(
                         collection_resume=collection_resume_payload,
                     )
                     analysis_resume_checkpoint_status = "checkpoint_seeded"
+                    if emit_checkpoint_intro_timeline:
+                        _append_checkpoint_intro_timeline_row(
+                            path=checkpoint_intro_timeline_path,
+                            collection_resume=collection_resume_payload,
+                            total_files=analysis_resume_total_files,
+                            checkpoint_path=analysis_resume_checkpoint_path,
+                            checkpoint_status=analysis_resume_checkpoint_status,
+                            checkpoint_reused_files=analysis_resume_reused_files,
+                            checkpoint_total_files=analysis_resume_total_files,
+                        )
                 if explicit_resume_checkpoint:
                     analysis_resume_intro_payload = {
                         "checkpoint_path": str(analysis_resume_checkpoint_path),
@@ -3668,6 +3811,16 @@ def _execute_command_total(
                         collection_resume=persisted_progress_payload,
                     )
                     last_collection_checkpoint_flush_ns = now_ns
+                    if emit_checkpoint_intro_timeline:
+                        _append_checkpoint_intro_timeline_row(
+                            path=checkpoint_intro_timeline_path,
+                            collection_resume=persisted_progress_payload,
+                            total_files=analysis_resume_total_files,
+                            checkpoint_path=analysis_resume_checkpoint_path,
+                            checkpoint_status=analysis_resume_checkpoint_status,
+                            checkpoint_reused_files=analysis_resume_reused_files,
+                            checkpoint_total_files=analysis_resume_total_files,
+                        )
             last_collection_semantic_witness_digest = semantic_witness_digest
             last_analysis_index_resume_signature = analysis_index_signature
             if not intro_changed:
@@ -4735,6 +4888,16 @@ def _execute_command_total(
                         collection_resume=latest_collection_resume_payload,
                     )
                     timeout_collection_resume_payload = latest_collection_resume_payload
+                    if emit_checkpoint_intro_timeline:
+                        _append_checkpoint_intro_timeline_row(
+                            path=checkpoint_intro_timeline_path,
+                            collection_resume=latest_collection_resume_payload,
+                            total_files=analysis_resume_total_files,
+                            checkpoint_path=analysis_resume_checkpoint_path,
+                            checkpoint_status=analysis_resume_checkpoint_status,
+                            checkpoint_reused_files=analysis_resume_reused_files,
+                            checkpoint_total_files=analysis_resume_total_files,
+                        )
                 except TimeoutExceeded:
                     _mark_cleanup_timeout("write_analysis_resume_checkpoint")
             if analysis_resume_checkpoint_path is not None:

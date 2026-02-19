@@ -356,6 +356,58 @@ def test_execute_command_threads_semantic_substantive_progress_into_checkpoint_f
     assert captured_flush_kwargs[0].get("semantic_substantive_progress") is True
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    checkpoint_path = tmp_path / "resume.json"
+    timeline_path = (
+        tmp_path / "artifacts" / "audit_reports" / "dataflow_checkpoint_intro_timeline.md"
+    )
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    def _analyze_with_progress(*_args: object, **kwargs: object) -> server.AnalysisResult:
+        on_collection_progress = kwargs.get("on_collection_progress")
+        if callable(on_collection_progress):
+            on_collection_progress(
+                {
+                    "completed_paths": [str(module_path)],
+                    "in_progress_scan_by_path": {},
+                }
+            )
+        return _empty_analysis_result()
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                "resume_checkpoint": str(checkpoint_path),
+                "emit_checkpoint_intro_timeline": True,
+            }
+        ),
+        analyze_paths_fn=_analyze_with_progress,
+        collection_checkpoint_flush_due_fn=lambda **_kwargs: True,
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    assert timeline_path.exists()
+    timeline_text = timeline_path.read_text(encoding="utf-8")
+    assert "status=checkpoint_seeded reused_files=0/1" in timeline_text
+    data_lines = [
+        line
+        for line in timeline_text.splitlines()
+        if line.startswith("| ")
+        and not line.startswith("| ts_utc |")
+        and not line.startswith("| --- ")
+    ]
+    assert len(data_lines) >= 2
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_timeout_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
 def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -512,6 +564,68 @@ def test_collection_checkpoint_flush_due() -> None:
         now_ns=1,
         last_flush_ns=0,
     )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_append_checkpoint_intro_timeline_row_writes_table_and_rows::server.py::gabion.server._append_checkpoint_intro_timeline_row
+def test_append_checkpoint_intro_timeline_row_writes_table_and_rows(
+    tmp_path: Path,
+) -> None:
+    timeline_path = tmp_path / "checkpoint_intro_timeline.md"
+    checkpoint_path = tmp_path / "resume.json"
+
+    server._append_checkpoint_intro_timeline_row(
+        path=timeline_path,
+        collection_resume={
+            "completed_paths": ["a.py"],
+            "in_progress_scan_by_path": {"b.py": ["fn"]},
+            "semantic_progress": {
+                "current_witness_digest": "digest-a",
+                "new_processed_functions_count": 1,
+                "regressed_processed_functions_count": 0,
+                "completed_files_delta": 1,
+                "substantive_progress": False,
+            },
+        },
+        total_files=3,
+        checkpoint_path=checkpoint_path,
+        checkpoint_status="checkpoint_loaded",
+        checkpoint_reused_files=1,
+        checkpoint_total_files=3,
+        timestamp_utc="2026-02-19T00:00:00Z",
+    )
+    server._append_checkpoint_intro_timeline_row(
+        path=timeline_path,
+        collection_resume={
+            "completed_paths": ["a.py", "b.py"],
+            "in_progress_scan_by_path": {},
+            "semantic_progress": {
+                "current_witness_digest": "digest-b",
+                "new_processed_functions_count": 2,
+                "regressed_processed_functions_count": 0,
+                "completed_files_delta": 1,
+                "substantive_progress": True,
+            },
+        },
+        total_files=3,
+        checkpoint_path=checkpoint_path,
+        checkpoint_status="checkpoint_seeded",
+        checkpoint_reused_files=0,
+        checkpoint_total_files=3,
+        timestamp_utc="2026-02-19T00:00:01Z",
+    )
+
+    timeline_text = timeline_path.read_text(encoding="utf-8")
+    assert timeline_text.count("| ts_utc |") == 1
+    assert "status=checkpoint_loaded reused_files=1/3" in timeline_text
+    assert "status=checkpoint_seeded reused_files=0/3" in timeline_text
+    data_lines = [
+        line
+        for line in timeline_text.splitlines()
+        if line.startswith("| ")
+        and not line.startswith("| ts_utc |")
+        and not line.startswith("| --- ")
+    ]
+    assert len(data_lines) == 2
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_collection_report_flush_due::server.py::gabion.server._collection_report_flush_due
