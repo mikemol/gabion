@@ -959,6 +959,45 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(
     assert calls["count"] == 2
 
 
+
+
+def test_resume_checkpoint_from_progress_notification() -> None:
+    payload = cli._resume_checkpoint_from_progress_notification(
+        {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "resume_checkpoint": {
+                        "checkpoint_path": "artifacts/audit_reports/resume.json",
+                        "status": "checkpoint_loaded",
+                        "reused_files": 3,
+                        "total_files": 7,
+                    }
+                },
+            },
+        }
+    )
+    assert payload == {
+        "checkpoint_path": "artifacts/audit_reports/resume.json",
+        "status": "checkpoint_loaded",
+        "reused_files": 3,
+        "total_files": 7,
+    }
+
+
+def test_emit_resume_checkpoint_startup_line(capsys) -> None:
+    cli._emit_resume_checkpoint_startup_line(
+        checkpoint_path="artifacts/audit_reports/resume.json",
+        status="checkpoint_loaded",
+        reused_files=3,
+        total_files=7,
+    )
+    output = capsys.readouterr().out
+    assert "resume checkpoint detected…" in output
+    assert "status=checkpoint_loaded" in output
+    assert "reused_files=3/7" in output
+
 def test_emit_analysis_resume_summary(capsys) -> None:
     cli._emit_analysis_resume_summary(
         {
