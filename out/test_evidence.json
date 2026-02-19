@@ -28058,6 +28058,32 @@
       ]
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.InvariantProposition.as_dict",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.InvariantProposition.as_dict"
+        }
+      },
+      "tests": [
+        "tests/test_property_hook_manifest.py::test_invariant_proposition_as_dict_emits_optional_metadata"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_property_hook_callable_index",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._build_property_hook_callable_index"
+        }
+      },
+      "tests": [
+        "tests/test_property_hook_manifest.py::test_property_hook_callable_index_skips_invalid_hook_shapes"
+      ]
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_reuse_replacement_map",
       "key": {
         "k": "function_site",
@@ -28257,6 +28283,19 @@
       },
       "tests": [
         "tests/test_deadline_coverage.py::test_deadline_arg_info_binding_and_fallback"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._deserialize_invariants_for_resume",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit._deserialize_invariants_for_resume"
+        }
+      },
+      "tests": [
+        "tests/test_property_hook_manifest.py::test_deserialize_invariants_for_resume_normalizes_evidence_keys"
       ]
     },
     {
@@ -28548,6 +28587,22 @@
       },
       "tests": [
         "tests/test_structure_diff.py::test_diff_structure_snapshots_counts_and_summary"
+      ]
+    },
+    {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.generate_property_hook_manifest"
+        }
+      },
+      "tests": [
+        "tests/test_property_hook_manifest.py::test_property_hook_ids_are_stable_across_runs",
+        "tests/test_property_hook_manifest.py::test_property_hook_manifest_hypothesis_templates_and_scope_filtering",
+        "tests/test_property_hook_manifest.py::test_property_hook_manifest_maps_multiple_invariants_to_one_callable",
+        "tests/test_property_hook_manifest.py::test_property_hook_manifest_skips_low_confidence_invariants"
       ]
     },
     {
@@ -70368,6 +70423,132 @@
       "line": 309,
       "status": "mapped",
       "test_id": "tests/test_projection_spec.py::test_traverse_stringifies_merged_non_string_keys"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._deserialize_invariants_for_resume",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._deserialize_invariants_for_resume"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_property_hook_manifest.py",
+      "line": 114,
+      "status": "mapped",
+      "test_id": "tests/test_property_hook_manifest.py::test_deserialize_invariants_for_resume_normalizes_evidence_keys"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.InvariantProposition.as_dict",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.InvariantProposition.as_dict"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_property_hook_manifest.py",
+      "line": 64,
+      "status": "mapped",
+      "test_id": "tests/test_property_hook_manifest.py::test_invariant_proposition_as_dict_emits_optional_metadata"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._build_property_hook_callable_index",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit._build_property_hook_callable_index"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_property_hook_manifest.py",
+      "line": 101,
+      "status": "mapped",
+      "test_id": "tests/test_property_hook_manifest.py::test_property_hook_callable_index_skips_invalid_hook_shapes"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.generate_property_hook_manifest"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_property_hook_manifest.py",
+      "line": 24,
+      "status": "mapped",
+      "test_id": "tests/test_property_hook_manifest.py::test_property_hook_ids_are_stable_across_runs"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.generate_property_hook_manifest"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_property_hook_manifest.py",
+      "line": 79,
+      "status": "mapped",
+      "test_id": "tests/test_property_hook_manifest.py::test_property_hook_manifest_hypothesis_templates_and_scope_filtering"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.generate_property_hook_manifest"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_property_hook_manifest.py",
+      "line": 45,
+      "status": "mapped",
+      "test_id": "tests/test_property_hook_manifest.py::test_property_hook_manifest_maps_multiple_invariants_to_one_callable"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.generate_property_hook_manifest"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_property_hook_manifest.py",
+      "line": 35,
+      "status": "mapped",
+      "test_id": "tests/test_property_hook_manifest.py::test_property_hook_manifest_skips_low_confidence_invariants"
     },
     {
       "evidence": [
