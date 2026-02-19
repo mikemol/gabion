@@ -10,6 +10,7 @@ from gabion.analysis.decision_flow import (
 )
 
 
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables
 def test_tier3_decision_tables_emit_deterministic_ids_and_links() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -21,11 +22,12 @@ def test_tier3_decision_tables_emit_deterministic_ids_and_links() -> None:
     )
     assert len(tables) == 2
     assert all(table["tier"] == 3 for table in tables)
-    assert all(str(table["decision_id"]).startswith("dataflow:") for table in tables)
+    assert all(str(table["decision_id"]).startswith("schema:") for table in tables)
     assert all(table["analysis_evidence_keys"] for table in tables)
     assert all(table["checklist_nodes"] == ["docs/sppf_checklist.md#decision-flow-tier3"] for table in tables)
 
 
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles
 def test_tier2_repeated_guard_detection_collects_bundle() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -43,6 +45,7 @@ def test_tier2_repeated_guard_detection_collects_bundle() -> None:
     assert bundle["checklist_nodes"] == ["docs/sppf_checklist.md#decision-flow-tier2"]
 
 
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts
 def test_tier1_schema_enforcement_reports_contract_drift() -> None:
     tables = build_decision_tables(
         decision_surfaces=[
@@ -60,6 +63,7 @@ def test_tier1_schema_enforcement_reports_contract_drift() -> None:
     assert any(v["code"] == "DECISION_PROTOCOL_MISSING_EVIDENCE" for v in violations)
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot
 def test_end_to_end_snapshot_contains_tier3_to_tier1_artifacts() -> None:
     forest = da.Forest()
     site_id = forest.add_site("mod.py", "f")

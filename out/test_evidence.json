@@ -28515,6 +28515,19 @@
       ]
     },
     {
+      "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "dataflow_audit.py",
+          "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
+        }
+      },
+      "tests": [
+        "tests/test_decision_flow_tiers.py::test_end_to_end_snapshot_contains_tier3_to_tier1_artifacts"
+      ]
+    },
+    {
       "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_report",
       "key": {
         "k": "function_site",
@@ -28541,6 +28554,48 @@
         "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_no_suggestions",
         "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_skips_invalid_names",
         "tests/test_structure_reuse_edges.py::test_render_reuse_lemma_stubs_with_child_count"
+      ]
+    },
+    {
+      "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "decision_flow.py",
+          "qual": "gabion.analysis.decision_flow.build_decision_tables"
+        }
+      },
+      "tests": [
+        "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift",
+        "tests/test_decision_flow_tiers.py::test_tier2_repeated_guard_detection_collects_bundle",
+        "tests/test_decision_flow_tiers.py::test_tier3_decision_tables_emit_deterministic_ids_and_links"
+      ]
+    },
+    {
+      "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "decision_flow.py",
+          "qual": "gabion.analysis.decision_flow.detect_repeated_guard_bundles"
+        }
+      },
+      "tests": [
+        "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift",
+        "tests/test_decision_flow_tiers.py::test_tier2_repeated_guard_detection_collects_bundle"
+      ]
+    },
+    {
+      "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "decision_flow.py",
+          "qual": "gabion.analysis.decision_flow.enforce_decision_protocol_contracts"
+        }
+      },
+      "tests": [
+        "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift"
       ]
     },
     {
@@ -59526,6 +59581,108 @@
       "line": 36,
       "status": "mapped",
       "test_id": "tests/test_deadline_runtime.py::test_timeout_ticks_from_lsp_env_uses_env_override_and_rejects_invalid"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "dataflow_audit.py",
+              "qual": "gabion.analysis.dataflow_audit.render_decision_snapshot"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_decision_flow_tiers.py",
+      "line": 67,
+      "status": "mapped",
+      "test_id": "tests/test_decision_flow_tiers.py::test_end_to_end_snapshot_contains_tier3_to_tier1_artifacts"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.build_decision_tables"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.detect_repeated_guard_bundles"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.enforce_decision_protocol_contracts"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_decision_flow_tiers.py",
+      "line": 49,
+      "status": "mapped",
+      "test_id": "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.build_decision_tables"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.detect_repeated_guard_bundles"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_decision_flow_tiers.py",
+      "line": 31,
+      "status": "mapped",
+      "test_id": "tests/test_decision_flow_tiers.py::test_tier2_repeated_guard_detection_collects_bundle"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.build_decision_tables"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_decision_flow_tiers.py",
+      "line": 14,
+      "status": "mapped",
+      "test_id": "tests/test_decision_flow_tiers.py::test_tier3_decision_tables_emit_deterministic_ids_and_links"
     },
     {
       "evidence": [

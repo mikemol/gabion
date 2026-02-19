@@ -7,7 +7,7 @@ import re
 
 from . import evidence_keys
 from .json_types import JSONObject
-from .pattern_schema import PatternAxis, pattern_schema_id
+from .pattern_schema import pattern_schema_id
 from gabion.order_contract import OrderPolicy, ordered_or_sorted
 
 _DECISION_LINE_RE = re.compile(
@@ -26,7 +26,6 @@ class DecisionSurfaceRecord:
     def decision_id(self) -> str:
         kind = "value_decision" if self.mode == "value" else "direct_decision"
         return pattern_schema_id(
-            axis=PatternAxis.DATAFLOW,
             kind=kind,
             signature={
                 "path": self.path,
@@ -125,7 +124,6 @@ def detect_repeated_guard_bundles(tables: Iterable[JSONObject]) -> list[JSONObje
             policy=OrderPolicy.SORT,
         )
         bundle_id = pattern_schema_id(
-            axis=PatternAxis.DATAFLOW,
             kind="decision_bundle",
             signature={"params": list(params), "members": member_ids},
         )
