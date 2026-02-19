@@ -3919,6 +3919,30 @@ def test_analysis_resume_checkpoint_compatibility_compatible(tmp_path: Path) -> 
     assert status == "checkpoint_compatible"
 
 
+@pytest.mark.parametrize(
+    ("status", "reused_files", "compatibility_status", "expected"),
+    [
+        ("checkpoint_loaded", 2, "checkpoint_compatible", "hit"),
+        ("checkpoint_loaded", 0, "checkpoint_compatible", "miss"),
+        ("checkpoint_seeded", 0, "checkpoint_manifest_mismatch", "invalidated"),
+        ("checkpoint_seeded", 0, "checkpoint_missing", "seeded"),
+        ("checkpoint_seeded", 0, "checkpoint_unreadable", "invalidated"),
+    ],
+)
+def test_analysis_resume_cache_verdict_mapping(
+    status: str,
+    reused_files: int,
+    compatibility_status: str,
+    expected: str,
+) -> None:
+    verdict = server._analysis_resume_cache_verdict(
+        status=status,
+        reused_files=reused_files,
+        compatibility_status=compatibility_status,
+    )
+    assert verdict == expected
+
+
 def test_analysis_resume_progress_allows_negative_total_files() -> None:
     progress = server._analysis_resume_progress(
         collection_resume={
