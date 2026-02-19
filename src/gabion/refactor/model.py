@@ -45,11 +45,22 @@ class RefactorRequest:
     fields: List[FieldSpec] = field(default_factory=list)
     target_functions: List[str] = field(default_factory=list)
     compatibility_shim: bool | CompatibilityShimConfig = False
+    ambient_rewrite: bool = False
     rationale: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class RewritePlanEntry:
+    kind: str
+    status: str
+    target: str
+    summary: str
+    non_rewrite_reasons: List[str] = field(default_factory=list)
 
 
 @dataclass
 class RefactorPlan:
     edits: List[TextEdit] = field(default_factory=list)
+    rewrite_plans: List[RewritePlanEntry] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)

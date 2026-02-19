@@ -1012,6 +1012,7 @@ def build_refactor_payload(
     compatibility_shim: bool,
     compatibility_shim_warnings: bool,
     compatibility_shim_overloads: bool,
+    ambient_rewrite: bool,
     rationale: Optional[str],
 ) -> JSONObject:
     check_deadline()
@@ -1048,6 +1049,7 @@ def build_refactor_payload(
         "target_path": str(target_path),
         "target_functions": target_functions or [],
         "compatibility_shim": compatibility_shim_payload,
+        "ambient_rewrite": ambient_rewrite,
         "rationale": rationale,
     }
 
@@ -3142,6 +3144,7 @@ def refactor_protocol(
     compatibility_shim_overloads: bool = typer.Option(
         True, "--compat-shim-overloads/--no-compat-shim-overloads"
     ),
+    ambient_rewrite: bool = typer.Option(False, "--ambient-rewrite/--no-ambient-rewrite"),
     rationale: Optional[str] = typer.Option(None, "--rationale"),
 ) -> None:
     """Generate protocol refactor edits from a JSON payload (prototype)."""
@@ -3157,6 +3160,7 @@ def refactor_protocol(
             compatibility_shim=compatibility_shim,
             compatibility_shim_warnings=compatibility_shim_warnings,
             compatibility_shim_overloads=compatibility_shim_overloads,
+            ambient_rewrite=ambient_rewrite,
             rationale=rationale,
         )
 
@@ -3173,6 +3177,7 @@ def _run_refactor_protocol(
     compatibility_shim: bool,
     compatibility_shim_warnings: bool,
     compatibility_shim_overloads: bool,
+    ambient_rewrite: bool,
     rationale: Optional[str],
     runner: Runner = run_command,
 ) -> None:
@@ -3196,6 +3201,7 @@ def _run_refactor_protocol(
         compatibility_shim=compatibility_shim,
         compatibility_shim_warnings=compatibility_shim_warnings,
         compatibility_shim_overloads=compatibility_shim_overloads,
+        ambient_rewrite=ambient_rewrite,
         rationale=rationale,
     )
     result = dispatch_command(

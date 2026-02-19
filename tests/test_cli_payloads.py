@@ -372,6 +372,7 @@ def test_refactor_protocol_payload(tmp_path: Path) -> None:
         compatibility_shim=True,
         compatibility_shim_warnings=True,
         compatibility_shim_overloads=True,
+        ambient_rewrite=False,
         rationale="use bundle",
     )
     assert payload["protocol_name"] == "Bundle"
@@ -395,6 +396,7 @@ def test_refactor_payload_infers_bundle(tmp_path: Path) -> None:
         compatibility_shim=False,
         compatibility_shim_warnings=True,
         compatibility_shim_overloads=True,
+        ambient_rewrite=False,
         rationale=None,
     )
     assert payload["bundle"] == ["a", "b"]

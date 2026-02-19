@@ -4,6 +4,7 @@ from gabion.refactor.model import (
     FieldSpec,
     RefactorPlan,
     RefactorRequest,
+    RewritePlanEntry,
     TextEdit,
 )
 from gabion.refactor.rewrite_plan import (
@@ -20,6 +21,7 @@ __all__ = [
     "RefactorEngine",
     "RefactorPlan",
     "RefactorRequest",
+    "RewritePlanEntry",
     "TextEdit",
     "RewritePlanKind",
     "attach_plan_schema",

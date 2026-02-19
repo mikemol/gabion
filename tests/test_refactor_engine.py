@@ -207,3 +207,261 @@ def test_refactor_engine_emits_compat_shim(tmp_path: Path) -> None:
     assert "def foo(*args, **kwargs)" in replacement
     assert "warnings.warn" in replacement
     assert "@overload" in replacement
+
+
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_threaded_parameter::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+def test_refactor_engine_ambient_rewrite_threaded_parameter(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "ambient.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def sink(ctx):
+                return ctx.user_id
+
+            def route(ctx):
+                return sink(ctx)
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="CtxBundle",
+        bundle=["ctx"],
+        fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
+        target_path=str(target),
+        target_functions=["sink", "route"],
+        ambient_rewrite=True,
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert plan.edits
+    replacement = plan.edits[0].replacement
+    assert "from contextvars import ContextVar" in replacement
+    assert "_ambient_get_ctx" in replacement
+    assert "if ctx is None" in replacement
+    assert "return sink()" in replacement
+    assert any(entry.kind == "AMBIENT_REWRITE" and entry.status == "applied" for entry in plan.rewrite_plans)
+
+
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_partial_skip_unsafe::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+def test_refactor_engine_ambient_rewrite_partial_skip_unsafe(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "ambient_partial.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def sink(ctx):
+                return ctx.user_id
+
+            def safe(ctx):
+                return sink(ctx)
+
+            def unsafe(ctx):
+                ctx = mutate(ctx)
+                return sink(ctx)
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="CtxBundle",
+        bundle=["ctx"],
+        fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
+        target_path=str(target),
+        target_functions=["sink", "safe", "unsafe"],
+        ambient_rewrite=True,
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    entries = {entry.target: entry for entry in plan.rewrite_plans}
+    assert entries["safe"].status == "applied"
+    assert entries["unsafe"].status == "skipped"
+    assert entries["unsafe"].non_rewrite_reasons
+
+
+# gabion:evidence E:call_footprint::tests/test_refactor_engine.py::test_refactor_engine_ambient_rewrite_noop_when_no_pattern::engine.py::gabion.refactor.engine.RefactorEngine.plan_protocol_extraction
+def test_refactor_engine_ambient_rewrite_noop_when_no_pattern(tmp_path: Path) -> None:
+    RefactorEngine, FieldSpec, RefactorRequest = _load()
+    target = tmp_path / "ambient_noop.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def sink(bundle):
+                return bundle
+            """
+        ).strip()
+        + "\n"
+    )
+    request = RefactorRequest(
+        protocol_name="CtxBundle",
+        bundle=["ctx"],
+        fields=[FieldSpec(name="ctx", type_hint="CtxBundle")],
+        target_path=str(target),
+        target_functions=["sink"],
+        ambient_rewrite=True,
+    )
+    plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
+    assert any(entry.status == "noop" for entry in plan.rewrite_plans)
+
+
+# gabion:evidence E:function_site::engine.py::gabion.refactor.engine._ensure_ambient_scaffolding E:function_site::engine.py::gabion.refactor.engine._has_contextvars_import
+def test_ambient_scaffolding_and_contextvars_import_edge_paths() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    module = cst.parse_module("def f():\n    return 1\n")
+    assert (
+        refactor_engine._ensure_ambient_scaffolding(
+            module,
+            context_names=set(),
+            protocol_hint="CtxBundle",
+        )
+        is module
+    )
+
+    existing = cst.parse_module(
+        "from contextvars import ContextVar\n\n"
+        "def _ambient_get_ctx() -> object:\n"
+        "    return object()\n\n"
+        "def _ambient_set_ctx(value: object) -> None:\n"
+        "    return None\n"
+    )
+    rewritten = refactor_engine._ensure_ambient_scaffolding(
+        existing,
+        context_names={"ctx"},
+        protocol_hint="CtxBundle",
+    )
+    assert rewritten.code.count("def _ambient_get_ctx") == 1
+    assert rewritten.code.count("def _ambient_set_ctx") == 1
+    assert "_AMBIENT_CTX" not in rewritten.code
+
+    assert refactor_engine._has_contextvars_import(cst.parse_module("x = 1\n").body) is False
+    assert refactor_engine._has_contextvars_import(cst.parse_module("from contextvars import *\n").body) is False
+    assert refactor_engine._has_contextvars_import(existing.body) is True
+
+
+# gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call
+def test_ambient_arg_threading_rewriter_branch_matrix() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    rewriter = refactor_engine._AmbientArgThreadingRewriter(
+        targets={"sink"},
+        context_name="ctx",
+        current="route",
+    )
+    attr_call = cst.parse_expression("obj.sink(ctx)")
+    attr_updated = rewriter.leave_Call(attr_call, attr_call)
+    assert isinstance(attr_updated, cst.Call)
+    assert len(attr_updated.args) == 0
+
+    skipped_target = cst.parse_expression("noop(ctx)")
+    assert rewriter.leave_Call(skipped_target, skipped_target) is skipped_target
+
+    star_args_call = cst.parse_expression("sink(*args)")
+    assert rewriter.leave_Call(star_args_call, star_args_call) is star_args_call
+    assert any("dynamic star args" in reason for reason in rewriter.skipped_reasons)
+
+    kw_call = cst.parse_expression("sink(ctx=ctx, other=value)")
+    kw_updated = rewriter.leave_Call(kw_call, kw_call)
+    assert isinstance(kw_updated, cst.Call)
+    assert len(kw_updated.args) == 1
+
+    ambiguous_call = cst.parse_expression("sink(ctx, value)")
+    ambiguous_updated = rewriter.leave_Call(ambiguous_call, ambiguous_call)
+    assert ambiguous_updated is ambiguous_call
+    assert any("ambiguous arity" in reason for reason in rewriter.skipped_reasons)
+
+    current_rewriter = refactor_engine._AmbientArgThreadingRewriter(
+        targets={"caller"},
+        context_name="ctx",
+        current="caller",
+    )
+    current_call = cst.parse_expression("caller(ctx)")
+    assert current_rewriter.leave_Call(current_call, current_call) is current_call
+
+
+# gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
+def test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    module = cst.parse_module(
+        textwrap.dedent(
+            """
+            def route(ctx, extra=None):
+                \"\"\"doc\"\"\"
+                return sink(ctx, extra)
+            """
+        ).strip()
+        + "\n"
+    )
+    node = module.body[0]
+    assert isinstance(node, cst.FunctionDef)
+
+    transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle[",
+    )
+    rewritten = transformer._rewrite_function(node)
+    assert isinstance(rewritten, cst.FunctionDef)
+    code = cst.Module(body=[rewritten]).code
+    assert code.index('"""doc"""') < code.index("if ctx is None:")
+    assert "ctx: object | None = None" in code
+    assert any(entry.status == "applied" and entry.target == "route" for entry in transformer.plan_entries)
+    assert transformer.warnings
+
+
+# gabion:evidence E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function
+def test_ambient_rewrite_transformer_skip_variants_and_async_dispatch() -> None:
+    import libcst as cst
+    from gabion.refactor import engine as refactor_engine
+
+    untargeted_module = cst.parse_module("def other(ctx):\n    return ctx\n")
+    untargeted_node = untargeted_module.body[0]
+    assert isinstance(untargeted_node, cst.FunctionDef)
+    untargeted = refactor_engine._AmbientRewriteTransformer(
+        targets={"route"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    assert untargeted._rewrite_function(untargeted_node) is untargeted_node
+
+    empty_bundle = refactor_engine._AmbientRewriteTransformer(
+        targets={"route"},
+        bundle_fields=[],
+        protocol_hint="CtxBundle",
+    )
+    route_module = cst.parse_module("def route(ctx):\n    return sink(ctx)\n")
+    route_node = route_module.body[0]
+    assert isinstance(route_node, cst.FunctionDef)
+    assert empty_bundle._rewrite_function(route_node) is route_node
+    assert any(entry.status == "skipped" for entry in empty_bundle.plan_entries)
+
+    star_bundle = refactor_engine._AmbientRewriteTransformer(
+        targets={"route"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    star_module = cst.parse_module("def route(ctx, *args):\n    return sink(ctx)\n")
+    star_node = star_module.body[0]
+    assert isinstance(star_node, cst.FunctionDef)
+    assert star_bundle._rewrite_function(star_node) is star_node
+    assert any(
+        entry.status == "skipped"
+        and entry.non_rewrite_reasons
+        and "function uses *args or **kwargs" in entry.non_rewrite_reasons[0]
+        for entry in star_bundle.plan_entries
+    )
+
+    async_transformer = refactor_engine._AmbientRewriteTransformer(
+        targets={"route", "sink"},
+        bundle_fields=["ctx"],
+        protocol_hint="CtxBundle",
+    )
+    async_module = cst.parse_module("async def route(ctx):\n    return sink(ctx)\n")
+    async_node = async_module.body[0]
+    assert isinstance(async_node, cst.FunctionDef)
+    async_updated = async_transformer.leave_AsyncFunctionDef(async_node, async_node)
+    assert isinstance(async_updated, cst.FunctionDef)
+    assert async_transformer.plan_entries
