@@ -85,7 +85,7 @@ jobs:
         run: |
           .venv/bin/python scripts/run_dataflow_stage.py \
             --max-attempts 3 \
-            --stage-strictness-profile "a=low,b=high,c=low" \
+            --stage-strictness-profile "a=high,b=high,c=high" \
             --max-wall-seconds "${GABION_DATAFLOW_STAGE_MAX_WALL_SECONDS}" \
             --finalize-reserve-seconds "${GABION_DATAFLOW_STAGE_FINALIZE_RESERVE_SECONDS}"
       - name: Finalize dataflow audit outcome
