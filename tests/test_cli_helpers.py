@@ -1026,6 +1026,26 @@ def test_resume_checkpoint_from_progress_notification() -> None:
     }
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_checkpoint_intro_timeline_from_progress_notification::cli.py::gabion.cli._checkpoint_intro_timeline_from_progress_notification
+def test_checkpoint_intro_timeline_from_progress_notification() -> None:
+    payload = cli._checkpoint_intro_timeline_from_progress_notification(
+        {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "checkpoint_intro_timeline_header": "| a | b |",
+                    "checkpoint_intro_timeline_row": "| 1 | 2 |",
+                },
+            },
+        }
+    )
+    assert payload == {
+        "header": "| a | b |",
+        "row": "| 1 | 2 |",
+    }
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_checkpoint_startup_line::cli.py::gabion.cli._emit_resume_checkpoint_startup_line
 def test_emit_resume_checkpoint_startup_line(capsys) -> None:
     cli._emit_resume_checkpoint_startup_line(
@@ -1110,6 +1130,58 @@ def test_run_dataflow_raw_argv_emits_pending_unknown_then_first_resume_update(
     assert "reused_files=unknown" in startup_lines[0]
     assert "status=checkpoint_loaded" in startup_lines[1]
     assert "reused_files=2/5" in startup_lines[1]
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_checkpoint_intro_timeline_rows::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_run_dataflow_raw_argv_emits_checkpoint_intro_timeline_rows(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
+
+    def _fake_runner(_request, *, root=None, notification_callback=None):
+        _ = root
+        assert callable(notification_callback)
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "checkpoint_intro_timeline_header": "| ts | done |",
+                        "checkpoint_intro_timeline_row": "| t0 | 0 |",
+                    },
+                },
+            }
+        )
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "checkpoint_intro_timeline_row": "| t1 | 1 |",
+                    },
+                },
+            }
+        )
+        return {"exit_code": 0}
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            [
+                str(module_path),
+                "--root",
+                str(tmp_path),
+            ],
+            runner=_fake_runner,
+        )
+    assert exc.value.exit_code == 0
+    output = capsys.readouterr().out.splitlines()
+    assert "| ts | done |" in output
+    assert "| t0 | 0 |" in output
+    assert "| t1 | 1 |" in output
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_analysis_resume_summary::cli.py::gabion.cli._emit_analysis_resume_summary

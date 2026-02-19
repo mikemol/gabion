@@ -398,6 +398,14 @@ def test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush
     assert timeline_path.exists()
     timeline_text = timeline_path.read_text(encoding="utf-8")
     assert "status=checkpoint_seeded reused_files=0/1" in timeline_text
+    progress_values = _progress_values(ls)
+    timeline_updates = [
+        value
+        for value in progress_values
+        if isinstance(value.get("checkpoint_intro_timeline_row"), str)
+    ]
+    assert len(timeline_updates) >= 2
+    assert isinstance(timeline_updates[0].get("checkpoint_intro_timeline_header"), str)
     data_lines = [
         line
         for line in timeline_text.splitlines()

@@ -1612,6 +1612,35 @@ def _resume_checkpoint_from_progress_notification(
     }
 
 
+def _checkpoint_intro_timeline_from_progress_notification(
+    notification: Mapping[str, object],
+) -> dict[str, str] | None:
+    if str(notification.get("method", "") or "") != _LSP_PROGRESS_NOTIFICATION_METHOD:
+        return None
+    params = notification.get("params")
+    if not isinstance(params, Mapping):
+        return None
+    if str(params.get("token", "") or "") != _LSP_PROGRESS_TOKEN:
+        return None
+    value = params.get("value")
+    if not isinstance(value, Mapping):
+        return None
+    row = value.get("checkpoint_intro_timeline_row")
+    if not isinstance(row, str) or not row:
+        return None
+    header = value.get("checkpoint_intro_timeline_header")
+    return {
+        "header": header if isinstance(header, str) else "",
+        "row": row,
+    }
+
+
+def _emit_checkpoint_intro_timeline_progress(*, header: str | None, row: str) -> None:
+    if isinstance(header, str) and header:
+        typer.echo(header)
+    typer.echo(row)
+
+
 def _emit_analysis_resume_summary(result: JSONObject) -> None:
     resume = result.get("analysis_resume")
     if not isinstance(resume, Mapping):
@@ -1667,6 +1696,7 @@ def _run_dataflow_raw_argv(
     payload = build_dataflow_payload(opts)
     resolved_runner = runner or run_command
     startup_resume_emitted = False
+    timeline_header_emitted = False
     if opts.resume_checkpoint is not None:
         _emit_resume_checkpoint_startup_line(
             checkpoint_path=str(opts.resume_checkpoint),
@@ -1677,18 +1707,35 @@ def _run_dataflow_raw_argv(
 
     def _on_notification(notification: JSONObject) -> None:
         nonlocal startup_resume_emitted
+        nonlocal timeline_header_emitted
         resume = _resume_checkpoint_from_progress_notification(notification)
         if not isinstance(resume, Mapping):
-            return
-        if startup_resume_emitted:
-            return
-        _emit_resume_checkpoint_startup_line(
-            checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
-            status=str(resume.get("status", "") or ""),
-            reused_files=int(resume.get("reused_files", 0) or 0),
-            total_files=int(resume.get("total_files", 0) or 0),
+            pass
+        elif not startup_resume_emitted:
+            _emit_resume_checkpoint_startup_line(
+                checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
+                status=str(resume.get("status", "") or ""),
+                reused_files=int(resume.get("reused_files", 0) or 0),
+                total_files=int(resume.get("total_files", 0) or 0),
+            )
+            startup_resume_emitted = True
+        timeline_update = _checkpoint_intro_timeline_from_progress_notification(
+            notification
         )
-        startup_resume_emitted = True
+        if not isinstance(timeline_update, Mapping):
+            return
+        row = timeline_update.get("row")
+        if not isinstance(row, str) or not row:
+            return
+        header_value = timeline_update.get("header")
+        header = (
+            header_value
+            if not timeline_header_emitted and isinstance(header_value, str) and header_value
+            else None
+        )
+        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+        if header is not None:
+            timeline_header_emitted = True
 
     result = _run_with_timeout_retries(
         run_once=lambda: dispatch_command(
@@ -1920,6 +1967,7 @@ def check(
         )
     lint_enabled = lint or bool(lint_jsonl or lint_sarif)
     startup_resume_emitted = False
+    timeline_header_emitted = False
     if resume_checkpoint is not None:
         _emit_resume_checkpoint_startup_line(
             checkpoint_path=str(resume_checkpoint),
@@ -1930,18 +1978,35 @@ def check(
 
     def _on_notification(notification: JSONObject) -> None:
         nonlocal startup_resume_emitted
+        nonlocal timeline_header_emitted
         resume = _resume_checkpoint_from_progress_notification(notification)
         if not isinstance(resume, Mapping):
-            return
-        if startup_resume_emitted:
-            return
-        _emit_resume_checkpoint_startup_line(
-            checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
-            status=str(resume.get("status", "") or ""),
-            reused_files=int(resume.get("reused_files", 0) or 0),
-            total_files=int(resume.get("total_files", 0) or 0),
+            pass
+        elif not startup_resume_emitted:
+            _emit_resume_checkpoint_startup_line(
+                checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
+                status=str(resume.get("status", "") or ""),
+                reused_files=int(resume.get("reused_files", 0) or 0),
+                total_files=int(resume.get("total_files", 0) or 0),
+            )
+            startup_resume_emitted = True
+        timeline_update = _checkpoint_intro_timeline_from_progress_notification(
+            notification
         )
-        startup_resume_emitted = True
+        if not isinstance(timeline_update, Mapping):
+            return
+        row = timeline_update.get("row")
+        if not isinstance(row, str) or not row:
+            return
+        header_value = timeline_update.get("header")
+        header = (
+            header_value
+            if not timeline_header_emitted and isinstance(header_value, str) and header_value
+            else None
+        )
+        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+        if header is not None:
+            timeline_header_emitted = True
 
     run_check_fn = _context_run_check(ctx)
     run_with_timeout_retries_fn = _context_run_with_timeout_retries(ctx)
