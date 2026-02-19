@@ -5281,6 +5281,7 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
                 "emit_call_clusters": True,
                 "emit_call_cluster_consolidation": True,
                 "emit_test_annotation_drift": True,
+                "emit_semantic_coverage_map": True,
                 "write_test_annotation_drift_baseline": True,
                 "emit_test_obsolescence": True,
                 "write_test_obsolescence_baseline": True,
@@ -5312,6 +5313,8 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
     assert (tmp_path / "out" / "call_clusters.md").exists()
     assert (tmp_path / "artifacts" / "out" / "call_cluster_consolidation.json").exists()
     assert (tmp_path / "out" / "call_cluster_consolidation.md").exists()
+    assert (tmp_path / "artifacts" / "out" / "semantic_coverage_map.json").exists()
+    assert (tmp_path / "artifacts" / "audit_reports" / "semantic_coverage_map.md").exists()
     assert (tmp_path / "artifacts" / "out" / "test_obsolescence_report.json").exists()
     assert (tmp_path / "out" / "test_obsolescence_report.md").exists()
     assert (tmp_path / "baselines" / "test_obsolescence_baseline.json").exists()
@@ -5324,6 +5327,7 @@ def test_execute_command_feature_output_and_branch_coverage_bundle(tmp_path: Pat
     assert handledness_path.exists()
     assert result.get("fingerprint_coherence") == analysis.coherence_witnesses
     assert result.get("fingerprint_rewrite_plans") == analysis.rewrite_plans
+    assert isinstance(result.get("semantic_coverage_map_summary"), dict)
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_conflicting_delta_flags_raise::server.py::gabion.server.execute_command::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout

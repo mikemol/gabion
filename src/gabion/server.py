@@ -77,6 +77,7 @@ from gabion.analysis import ambiguity_delta
 from gabion.analysis import ambiguity_state
 from gabion.analysis import call_cluster_consolidation
 from gabion.analysis import call_clusters
+from gabion.analysis import semantic_coverage_map
 from gabion.analysis import test_annotation_drift
 from gabion.analysis import test_annotation_drift_delta
 from gabion.analysis import test_obsolescence
@@ -3264,7 +3265,11 @@ def _execute_command_total(
         emit_test_annotation_drift = bool(
             payload.get("emit_test_annotation_drift", False)
         )
+        emit_semantic_coverage_map = bool(
+            payload.get("emit_semantic_coverage_map", False)
+        )
         test_annotation_drift_state_path = payload.get("test_annotation_drift_state")
+        semantic_coverage_mapping_path = payload.get("semantic_coverage_mapping")
         emit_test_annotation_drift_delta = bool(
             payload.get("emit_test_annotation_drift_delta", False)
         )
@@ -4291,6 +4296,31 @@ def _execute_command_total(
                 (artifact_dir / "test_obsolescence_state.json").write_text(
                     json.dumps(state_payload, indent=2, sort_keys=True) + "\n"
                 )
+
+        if emit_semantic_coverage_map:
+            report_root = Path(root)
+            _out_dir, artifact_dir = _output_dirs(report_root)
+            mapping_path = (
+                Path(str(semantic_coverage_mapping_path))
+                if semantic_coverage_mapping_path
+                else report_root / "out" / "semantic_coverage_mapping.json"
+            )
+            evidence_path = report_root / "out" / "test_evidence.json"
+            semantic_payload = semantic_coverage_map.build_semantic_coverage_payload(
+                paths=paths,
+                root=Path(root),
+                mapping_path=mapping_path,
+                evidence_path=evidence_path,
+                exclude=name_filter_bundle.exclude_dirs,
+            )
+            report_md = semantic_coverage_map.render_markdown(semantic_payload)
+            semantic_coverage_map.write_semantic_coverage(
+                semantic_payload,
+                output_path=artifact_dir / "semantic_coverage_map.json",
+            )
+            (report_root / "artifacts" / "audit_reports").mkdir(parents=True, exist_ok=True)
+            (report_root / "artifacts" / "audit_reports" / "semantic_coverage_map.md").write_text(report_md)
+            response["semantic_coverage_map_summary"] = semantic_payload.get("summary", {})
 
         if emit_test_obsolescence and obsolescence_candidates is not None:
             report_root = Path(root)

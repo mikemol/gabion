@@ -1986,6 +1986,7 @@ def test_check_derived_artifacts_includes_all_optional_outputs() -> None:
             emit_call_clusters=True,
             emit_call_cluster_consolidation=True,
             emit_test_annotation_drift=True,
+            emit_semantic_coverage_map=True,
         ),
         emit_test_obsolescence_state=True,
         emit_test_obsolescence_delta=True,
@@ -2001,6 +2002,7 @@ def test_check_derived_artifacts_includes_all_optional_outputs() -> None:
     assert "artifacts/out/call_clusters.json" in derived
     assert "artifacts/out/call_cluster_consolidation.json" in derived
     assert "artifacts/out/test_annotation_drift.json" in derived
+    assert "artifacts/out/semantic_coverage_map.json" in derived
     assert "artifacts/out/test_annotation_drift_delta.json" in derived
     assert "artifacts/out/ambiguity_delta.json" in derived
     assert "artifacts/out/ambiguity_state.json" in derived

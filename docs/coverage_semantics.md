@@ -1,5 +1,5 @@
 ---
-doc_revision: 18
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: coverage_semantics
 doc_role: policy
@@ -213,14 +213,15 @@ the evidence surface discharged by tests and explicitly lists unmapped tests.
 
 Projections derived from this carrier are advisory and must be deterministic.
 JSON projections are written under `artifacts/out/*.json`, with Markdown
-companions under `out/*.md` (documentation artifacts).
+companions under `artifacts/audit_reports/*.md` (documentation artifacts).
 CI enforces drift control for `out/test_evidence.json` by regenerating it and
 failing if the output changes without being committed.
 
 By default, only `out/test_evidence.json` is the **gated evidence carrier**.
-Other `out/*.md` files may be committed as **documentation artifacts** or
-advisory projections (with docflow frontmatter), provided they do **not**
-participate in gating. Non-gated JSON projections belong in `artifacts/out/`.
+Other `artifacts/audit_reports/*.md` files may be committed as
+**documentation artifacts** or advisory projections (with docflow frontmatter),
+provided they do **not** participate in gating. Non-gated JSON projections
+belong in `artifacts/out/`.
 This is a controlled polysemy of “artifact”:
 
 - **Evidence artifact (gated):** canonical carrier used by CI (JSON).
@@ -229,6 +230,14 @@ This is a controlled polysemy of “artifact”:
 These meanings live on orthogonal axes (evidence gating vs documentation) and
 commute by erasure: documentation artifacts must not alter the gated evidence
 surface or its checks.
+
+The semantic-coverage mapping surface is emitted by
+`gabion check --emit-semantic-coverage-map`, reading
+`out/semantic_coverage_mapping.json` (or `--semantic-coverage-mapping`) and
+writing `artifacts/out/semantic_coverage_map.json` plus
+`artifacts/audit_reports/semantic_coverage_map.md`. The projection reports
+mapped obligations, unmapped obligations, dead mapping entries, and duplicate
+mapping entries.
 
 ## 2. Ratchet Policy (No Regression)
 
