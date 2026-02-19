@@ -14,6 +14,8 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -2307,6 +2309,8 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     checkpoint_name: str = "dataflow_resume_checkpoint_ci.json",
     per_page: int = 100,
     urlopen_fn: Callable[..., object] = urllib.request.urlopen,
+    no_redirect_open_fn: Callable[..., object] | None = None,
+    follow_redirect_open_fn: Callable[..., object] | None = None,
 ) -> int:
     token = token.strip()
     repo = repo.strip()
@@ -2366,9 +2370,13 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     download_url = str(artifact.get("archive_download_url", "") or "")
 
     try:
-        req_zip = urllib.request.Request(download_url, headers=headers)
-        with urlopen_fn(req_zip, timeout=60) as response:
-            archive_bytes = response.read()
+        archive_bytes = _download_artifact_archive_bytes(
+            download_url=download_url,
+            headers=headers,
+            urlopen_fn=urlopen_fn,
+            no_redirect_open_fn=no_redirect_open_fn,
+            follow_redirect_open_fn=follow_redirect_open_fn,
+        )
     except Exception as exc:
         typer.echo(f"Unable to download prior artifact ({exc}); skipping checkpoint restore.")
         return 0
@@ -2379,7 +2387,6 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     try:
         with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
             for name in zf.namelist():
-                check_deadline()
                 base = name.split("/", 1)[-1]
                 if base == checkpoint_name or base.startswith(chunk_prefix):
                     if name.endswith("/"):
@@ -2397,6 +2404,52 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     else:
         typer.echo("Prior artifact did not include resume checkpoint files; continuing without restore.")
     return 0
+
+
+def _download_artifact_archive_bytes(
+    *,
+    download_url: str,
+    headers: Mapping[str, str],
+    urlopen_fn: Callable[..., object] = urllib.request.urlopen,
+    no_redirect_open_fn: Callable[..., object] | None = None,
+    follow_redirect_open_fn: Callable[..., object] | None = None,
+) -> bytes:
+    req_zip = urllib.request.Request(download_url, headers=dict(headers))
+    if urlopen_fn is not urllib.request.urlopen:
+        with urlopen_fn(req_zip, timeout=60) as response:
+            return response.read()
+    if no_redirect_open_fn is None:
+
+        class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+            def redirect_request(
+                self,
+                req: urllib.request.Request,
+                fp: object,
+                code: int,
+                msg: str,
+                headers: object,
+                newurl: str,
+            ) -> None:
+                _ = (req, fp, code, msg, headers, newurl)
+                return None
+
+        no_redirect_open_fn = urllib.request.build_opener(_NoRedirectHandler()).open
+    if follow_redirect_open_fn is None:
+        follow_redirect_open_fn = urllib.request.urlopen
+    try:
+        with no_redirect_open_fn(req_zip, timeout=60) as response:
+            return response.read()
+    except urllib.error.HTTPError as exc:
+        redirect_url = str(exc.headers.get("Location", "") or "")
+        if not redirect_url:
+            raise
+        follow_headers: dict[str, str] = {}
+        redirect_host = (urllib.parse.urlparse(redirect_url).hostname or "").lower()
+        if redirect_host.endswith("github.com"):
+            follow_headers = dict(headers)
+        follow_req = urllib.request.Request(redirect_url, headers=follow_headers)
+        with follow_redirect_open_fn(follow_req, timeout=60) as response:
+            return response.read()
 
 
 def _context_restore_resume_checkpoint(
