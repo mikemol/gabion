@@ -28712,6 +28712,72 @@
       ]
     },
     {
+      "display": "E:function_site::engine.py::gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "engine.py",
+          "qual": "gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call"
+        }
+      },
+      "tests": [
+        "tests/test_refactor_engine.py::test_ambient_arg_threading_rewriter_branch_matrix"
+      ]
+    },
+    {
+      "display": "E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "engine.py",
+          "qual": "gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function"
+        }
+      },
+      "tests": [
+        "tests/test_refactor_engine.py::test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths",
+        "tests/test_refactor_engine.py::test_ambient_rewrite_transformer_skip_variants_and_async_dispatch"
+      ]
+    },
+    {
+      "display": "E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "engine.py",
+          "qual": "gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef"
+        }
+      },
+      "tests": [
+        "tests/test_refactor_engine.py::test_ambient_rewrite_transformer_skip_variants_and_async_dispatch"
+      ]
+    },
+    {
+      "display": "E:function_site::engine.py::gabion.refactor.engine._ensure_ambient_scaffolding",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "engine.py",
+          "qual": "gabion.refactor.engine._ensure_ambient_scaffolding"
+        }
+      },
+      "tests": [
+        "tests/test_refactor_engine.py::test_ambient_scaffolding_and_contextvars_import_edge_paths"
+      ]
+    },
+    {
+      "display": "E:function_site::engine.py::gabion.refactor.engine._has_contextvars_import",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "engine.py",
+          "qual": "gabion.refactor.engine._has_contextvars_import"
+        }
+      },
+      "tests": [
+        "tests/test_refactor_engine.py::test_ambient_scaffolding_and_contextvars_import_edge_paths"
+      ]
+    },
+    {
       "display": "E:function_site::evidence_keys.py::gabion.analysis.evidence_keys._normalize_span",
       "key": {
         "k": "function_site",
@@ -70107,6 +70173,98 @@
       "line": 309,
       "status": "mapped",
       "test_id": "tests/test_projection_spec.py::test_traverse_stringifies_merged_non_string_keys"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::engine.py::gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "engine.py",
+              "qual": "gabion.refactor.engine._AmbientArgThreadingRewriter.leave_Call"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_refactor_engine.py",
+      "line": 343,
+      "status": "mapped",
+      "test_id": "tests/test_refactor_engine.py::test_ambient_arg_threading_rewriter_branch_matrix"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "engine.py",
+              "qual": "gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_refactor_engine.py",
+      "line": 384,
+      "status": "mapped",
+      "test_id": "tests/test_refactor_engine.py::test_ambient_rewrite_transformer_annotation_docstring_and_warning_paths"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "engine.py",
+              "qual": "gabion.refactor.engine._AmbientRewriteTransformer._rewrite_function"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::engine.py::gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "engine.py",
+              "qual": "gabion.refactor.engine._AmbientRewriteTransformer.leave_AsyncFunctionDef"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_refactor_engine.py",
+      "line": 416,
+      "status": "mapped",
+      "test_id": "tests/test_refactor_engine.py::test_ambient_rewrite_transformer_skip_variants_and_async_dispatch"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::engine.py::gabion.refactor.engine._ensure_ambient_scaffolding",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "engine.py",
+              "qual": "gabion.refactor.engine._ensure_ambient_scaffolding"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::engine.py::gabion.refactor.engine._has_contextvars_import",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "engine.py",
+              "qual": "gabion.refactor.engine._has_contextvars_import"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_refactor_engine.py",
+      "line": 307,
+      "status": "mapped",
+      "test_id": "tests/test_refactor_engine.py::test_ambient_scaffolding_and_contextvars_import_edge_paths"
     },
     {
       "evidence": [
