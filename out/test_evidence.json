@@ -29263,6 +29263,20 @@
       ]
     },
     {
+      "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "semantic_coverage_map.py",
+          "qual": "gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload"
+        }
+      },
+      "tests": [
+        "tests/test_semantic_coverage_map.py::test_semantic_coverage_payload_is_deterministic",
+        "tests/test_semantic_coverage_map.py::test_semantic_coverage_reports_unmapped_dead_and_duplicate_entries"
+      ]
+    },
+    {
       "display": "E:function_site::server.py::gabion.server._analysis_witness_config_payload",
       "key": {
         "k": "function_site",
@@ -74236,6 +74250,42 @@
       "line": 12,
       "status": "mapped",
       "test_id": "tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "semantic_coverage_map.py",
+              "qual": "gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_semantic_coverage_map.py",
+      "line": 31,
+      "status": "mapped",
+      "test_id": "tests/test_semantic_coverage_map.py::test_semantic_coverage_payload_is_deterministic"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "semantic_coverage_map.py",
+              "qual": "gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_semantic_coverage_map.py",
+      "line": 75,
+      "status": "mapped",
+      "test_id": "tests/test_semantic_coverage_map.py::test_semantic_coverage_reports_unmapped_dead_and_duplicate_entries"
     },
     {
       "evidence": [
