@@ -2360,49 +2360,78 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
             return False
         return True
 
-    artifact = next((item for item in artifacts if _artifact_is_candidate(item)), None)
-    if artifact is None:
+    artifact_candidates = [
+        item for item in artifacts if _artifact_is_candidate(item)
+    ]
+    if not artifact_candidates:
         typer.echo(
             "No reusable same-branch dataflow-report artifact found; continuing without checkpoint."
         )
         return 0
-
-    download_url = str(artifact.get("archive_download_url", "") or "")
-
-    try:
-        archive_bytes = _download_artifact_archive_bytes(
-            download_url=download_url,
-            headers=headers,
-            urlopen_fn=urlopen_fn,
-            no_redirect_open_fn=no_redirect_open_fn,
-            follow_redirect_open_fn=follow_redirect_open_fn,
-        )
-    except Exception as exc:
-        typer.echo(f"Unable to download prior artifact ({exc}); skipping checkpoint restore.")
-        return 0
-
     chunk_prefix = f"{checkpoint_name}.chunks/"
     output_dir.mkdir(parents=True, exist_ok=True)
-    restored = 0
-    try:
-        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
-            for name in zf.namelist():
-                base = name.split("/", 1)[-1]
-                if base == checkpoint_name or base.startswith(chunk_prefix):
-                    if name.endswith("/"):
-                        continue
+    last_error: Exception | None = None
+    for artifact in artifact_candidates:
+        download_url = str(artifact.get("archive_download_url", "") or "")
+        if not download_url:
+            continue
+        try:
+            archive_bytes = _download_artifact_archive_bytes(
+                download_url=download_url,
+                headers=headers,
+                urlopen_fn=urlopen_fn,
+                no_redirect_open_fn=no_redirect_open_fn,
+                follow_redirect_open_fn=follow_redirect_open_fn,
+            )
+            checkpoint_member: str | None = None
+            chunk_members: list[str] = []
+            with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zf:
+                names = [name for name in zf.namelist() if not name.endswith("/")]
+                for name in names:
+                    base = name.split("/", 1)[-1]
+                    if base == checkpoint_name:
+                        checkpoint_member = name
+                    elif base.startswith(chunk_prefix):
+                        chunk_members.append(name)
+                if checkpoint_member is None:
+                    continue
+                checkpoint_bytes = zf.read(checkpoint_member)
+                if _checkpoint_requires_chunk_artifacts(
+                    checkpoint_bytes=checkpoint_bytes
+                ) and not chunk_members:
+                    continue
+                checkpoint_output = output_dir / checkpoint_name
+                chunk_output_dir = output_dir / f"{checkpoint_name}.chunks"
+                if checkpoint_output.exists():
+                    checkpoint_output.unlink()
+                if chunk_output_dir.exists():
+                    for existing in chunk_output_dir.glob("*"):
+                        if existing.is_file():
+                            existing.unlink()
+                checkpoint_output.parent.mkdir(parents=True, exist_ok=True)
+                checkpoint_output.write_bytes(checkpoint_bytes)
+                restored = 1
+                for name in chunk_members:
+                    base = name.split("/", 1)[-1]
                     destination = output_dir / base
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes(zf.read(name))
                     restored += 1
-    except Exception as exc:
-        typer.echo(f"Unable to extract checkpoint artifact ({exc}); skipping checkpoint restore.")
+                typer.echo(
+                    f"Restored {restored} checkpoint artifact file(s) from prior run."
+                )
+                return 0
+        except Exception as exc:
+            last_error = exc
+            continue
+    if last_error is not None:
+        typer.echo(
+            f"Unable to restore checkpoint from prior artifacts ({last_error}); continuing without checkpoint."
+        )
         return 0
-
-    if restored:
-        typer.echo(f"Restored {restored} checkpoint artifact file(s) from prior run.")
-    else:
-        typer.echo("Prior artifact did not include resume checkpoint files; continuing without restore.")
+    typer.echo(
+        "Prior artifacts did not include usable resume checkpoint files; continuing without restore."
+    )
     return 0
 
 
@@ -2450,6 +2479,23 @@ def _download_artifact_archive_bytes(
         follow_req = urllib.request.Request(redirect_url, headers=follow_headers)
         with follow_redirect_open_fn(follow_req, timeout=60) as response:
             return response.read()
+
+
+def _checkpoint_requires_chunk_artifacts(*, checkpoint_bytes: bytes) -> bool:
+    try:
+        payload = json.loads(checkpoint_bytes.decode("utf-8"))
+    except Exception:
+        return False
+    if not isinstance(payload, Mapping):
+        return False
+    collection_resume = payload.get("collection_resume")
+    if not isinstance(collection_resume, Mapping):
+        return False
+    analysis_index_resume = collection_resume.get("analysis_index_resume")
+    if not isinstance(analysis_index_resume, Mapping):
+        return False
+    state_ref = analysis_index_resume.get("state_ref")
+    return isinstance(state_ref, str) and bool(state_ref.strip())
 
 
 def _context_restore_resume_checkpoint(
