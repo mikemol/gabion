@@ -76467,7 +76467,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5458,
+      "line": 5462,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback"
     },
@@ -77149,7 +77149,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5347,
+      "line": 5351,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_conflicting_delta_flags_raise"
     },
@@ -77177,7 +77177,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5367,
+      "line": 5371,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_delta_requires_existing_baseline_files"
     },
@@ -77495,7 +77495,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5496,
+      "line": 5500,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_honors_dash_outputs_and_baseline_write"
     },
