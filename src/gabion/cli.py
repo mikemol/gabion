@@ -2351,8 +2351,8 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
             return False
         if ref_name and str(workflow_run.get("head_branch", "")) != ref_name:
             return False
-        event_name = str(workflow_run.get("event", ""))
-        if event_name not in {"push", "workflow_dispatch"}:
+        event_name = str(workflow_run.get("event", "")).strip()
+        if event_name and event_name not in {"push", "workflow_dispatch"}:
             return False
         return True
 

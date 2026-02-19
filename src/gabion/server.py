@@ -186,6 +186,7 @@ _DEFAULT_REPORT_PHASE_CHECKPOINT = Path(
     "artifacts/audit_reports/dataflow_report_phase_checkpoint.json"
 )
 _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
+_COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = 1_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
@@ -252,12 +253,19 @@ def _collection_checkpoint_flush_due(
     *,
     intro_changed: bool,
     remaining_files: int,
+    semantic_substantive_progress: bool = False,
     now_ns: int,
     last_flush_ns: int,
 ) -> bool:
     if intro_changed or remaining_files == 0:
         return True
-    return now_ns - last_flush_ns >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
+    elapsed_ns = max(0, now_ns - last_flush_ns)
+    if semantic_substantive_progress:
+        return (
+            elapsed_ns >= _COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS
+            or elapsed_ns >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
+        )
+    return elapsed_ns >= _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS
 
 
 def _collection_report_flush_due(
@@ -3634,6 +3642,12 @@ def _execute_command_total(
             analysis_index_changed = (
                 analysis_index_signature != last_analysis_index_resume_signature
             )
+            raw_substantive_progress = semantic_progress.get("substantive_progress")
+            semantic_substantive_progress = (
+                raw_substantive_progress
+                if isinstance(raw_substantive_progress, bool)
+                else False
+            )
             now_ns = time.monotonic_ns()
             if (
                 analysis_resume_checkpoint_path is not None
@@ -3643,6 +3657,7 @@ def _execute_command_total(
                 if execute_deps.collection_checkpoint_flush_due_fn(
                     intro_changed=intro_changed,
                     remaining_files=collection_progress["remaining_files"],
+                    semantic_substantive_progress=semantic_substantive_progress,
                     now_ns=now_ns,
                     last_flush_ns=last_collection_checkpoint_flush_ns,
                 ):
