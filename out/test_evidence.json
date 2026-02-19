@@ -28581,6 +28581,7 @@
         }
       },
       "tests": [
+        "tests/test_decision_flow_tiers.py::test_detect_repeated_guard_bundles_skips_entries_without_params",
         "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift",
         "tests/test_decision_flow_tiers.py::test_tier2_repeated_guard_detection_collects_bundle"
       ]
@@ -28595,7 +28596,8 @@
         }
       },
       "tests": [
-        "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift"
+        "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift",
+        "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_empty_members_missing_table_and_checklist"
       ]
     },
     {
@@ -59585,6 +59587,24 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.detect_repeated_guard_bundles"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_decision_flow_tiers.py",
+      "line": 49,
+      "status": "mapped",
+      "test_id": "tests/test_decision_flow_tiers.py::test_detect_repeated_guard_bundles_skips_entries_without_params"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot",
           "key": {
             "k": "function_site",
@@ -59596,7 +59616,7 @@
         }
       ],
       "file": "tests/test_decision_flow_tiers.py",
-      "line": 67,
+      "line": 100,
       "status": "mapped",
       "test_id": "tests/test_decision_flow_tiers.py::test_end_to_end_snapshot_contains_tier3_to_tier1_artifacts"
     },
@@ -59634,9 +59654,27 @@
         }
       ],
       "file": "tests/test_decision_flow_tiers.py",
-      "line": 49,
+      "line": 60,
       "status": "mapped",
       "test_id": "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_contract_drift"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "decision_flow.py",
+              "qual": "gabion.analysis.decision_flow.enforce_decision_protocol_contracts"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_decision_flow_tiers.py",
+      "line": 78,
+      "status": "mapped",
+      "test_id": "tests/test_decision_flow_tiers.py::test_tier1_schema_enforcement_reports_empty_members_missing_table_and_checklist"
     },
     {
       "evidence": [

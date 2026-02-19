@@ -45,6 +45,17 @@ def test_tier2_repeated_guard_detection_collects_bundle() -> None:
     assert bundle["checklist_nodes"] == ["docs/sppf_checklist.md#decision-flow-tier2"]
 
 
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles
+def test_detect_repeated_guard_bundles_skips_entries_without_params() -> None:
+    bundles = detect_repeated_guard_bundles(
+        [
+            {"decision_id": "a", "params": []},
+            {"decision_id": "b"},
+        ]
+    )
+    assert bundles == []
+
+
 # gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.build_decision_tables E:function_site::decision_flow.py::gabion.analysis.decision_flow.detect_repeated_guard_bundles E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts
 def test_tier1_schema_enforcement_reports_contract_drift() -> None:
     tables = build_decision_tables(
@@ -61,6 +72,28 @@ def test_tier1_schema_enforcement_reports_contract_drift() -> None:
         decision_bundles=bundles,
     )
     assert any(v["code"] == "DECISION_PROTOCOL_MISSING_EVIDENCE" for v in violations)
+
+
+# gabion:evidence E:function_site::decision_flow.py::gabion.analysis.decision_flow.enforce_decision_protocol_contracts
+def test_tier1_schema_enforcement_reports_empty_members_missing_table_and_checklist() -> None:
+    violations = enforce_decision_protocol_contracts(
+        decision_tables=[
+            {
+                "decision_id": "table-without-checklist",
+                "analysis_evidence_keys": ["E:decision"],
+                "checklist_nodes": [],
+            }
+        ],
+        decision_bundles=[
+            {"bundle_id": "bundle-non-list", "member_decision_ids": "not-a-list"},
+            {"bundle_id": "bundle-missing-table", "member_decision_ids": ["missing-table-id"]},
+            {"bundle_id": "bundle-missing-checklist", "member_decision_ids": ["table-without-checklist"]},
+        ],
+    )
+    codes = {str(item.get("code")) for item in violations}
+    assert "DECISION_PROTOCOL_EMPTY_MEMBERS" in codes
+    assert "DECISION_PROTOCOL_MISSING_TABLE" in codes
+    assert "DECISION_PROTOCOL_MISSING_CHECKLIST_LINK" in codes
 
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot
