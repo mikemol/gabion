@@ -1595,24 +1595,7 @@ def generate_property_hook_manifest(
             ),
         )
     ]
-    callables: dict[str, list[str]] = defaultdict(list)
-    for hook in hooks:
-        check_deadline()
-        callable_payload = hook.get("callable")
-        if not isinstance(callable_payload, Mapping):
-            continue
-        path = str(callable_payload.get("path", "") or "")
-        qual = str(callable_payload.get("qual", "") or "")
-        if not path or not qual:
-            continue
-        callables[f"{path}:{qual}"].append(str(hook.get("hook_id", "") or ""))
-    callable_index = [
-        {
-            "scope": scope,
-            "hook_ids": sorted(hook_ids),
-        }
-        for scope, hook_ids in sorted(callables.items())
-    ]
+    callable_index = _build_property_hook_callable_index(hooks)
     return {
         "format_version": 1,
         "kind": "property_hook_manifest",
@@ -1621,6 +1604,29 @@ def generate_property_hook_manifest(
         "hooks": hooks,
         "callable_index": callable_index,
     }
+
+
+def _build_property_hook_callable_index(hooks: Sequence[JSONValue]) -> list[JSONObject]:
+    callables: dict[str, list[str]] = defaultdict(list)
+    for hook in hooks:
+        check_deadline()
+        if not isinstance(hook, Mapping):
+            continue
+        callable_payload = hook.get("callable")
+        if not isinstance(callable_payload, Mapping):
+            continue
+        path = str(callable_payload.get("path", "") or "")
+        qual = str(callable_payload.get("qual", "") or "")
+        if not path or not qual:
+            continue
+        callables[f"{path}:{qual}"].append(str(hook.get("hook_id", "") or ""))
+    return [
+        {
+            "scope": scope,
+            "hook_ids": sorted(hook_ids),
+        }
+        for scope, hook_ids in sorted(callables.items())
+    ]
 
 
 def _decorator_name(node: ast.AST) -> str | None:
