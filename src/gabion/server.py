@@ -644,7 +644,6 @@ def _analysis_input_manifest(
             entry["missing"] = True
         else:
             entry["size"] = int(stat.st_size)
-            entry["mtime_ns"] = int(stat.st_mtime_ns)
         files.append(entry)
     return {
         "format_version": _ANALYSIS_INPUT_MANIFEST_FORMAT_VERSION,
@@ -679,10 +678,11 @@ def _analysis_manifest_digest_from_witness(input_witness: JSONObject) -> str | N
         if isinstance(missing_value, bool):
             manifest_entry["missing"] = missing_value
         size_value = raw_entry.get("size")
-        mtime_value = raw_entry.get("mtime_ns")
-        if isinstance(size_value, int) and isinstance(mtime_value, int):
+        if isinstance(size_value, int):
             manifest_entry["size"] = size_value
-            manifest_entry["mtime_ns"] = mtime_value
+        content_sha1_value = raw_entry.get("content_sha1")
+        if isinstance(content_sha1_value, str) and content_sha1_value:
+            manifest_entry["content_sha1"] = content_sha1_value
         manifest_files.append(manifest_entry)
     config = input_witness.get("config")
     if not isinstance(config, Mapping):
