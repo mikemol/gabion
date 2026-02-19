@@ -265,7 +265,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - [x] Invariant emitter hooks (pluggable callbacks). (GH-67)
 - [ ] Dependent-type / Agda synthesis output from invariants. (GH-67)
 - [x] Invariant-enriched JSON output for bundles/trees. (GH-67)
-- [ ] Property-based test hooks from invariants. (GH-67)
+- [x] Property-based test hook manifest generation from invariants (deterministic hook IDs, confidence gating, callable mapping, traceability keys; optional Hypothesis template snippets). (GH-67)
 - [~] ASPF entropy-controlled synthesis (synth@k primes + tail mapping + versioned registry; report + JSON registry output + snapshots + loadable registry). (in-22, GH-72) sppf{doc=partial; impl=partial; doc_ref=in-22@2}
 - [~] Proof-carrying rewrite plans (rewrite plan artifacts + evidence links + report/LSP/snapshots; verification predicates executable + tested; see `docs/matrix_acceptance.md`). (in-26, GH-76) sppf{doc=partial; impl=done; doc_ref=in-26@10}
 - [~] Rewrite plan kinds beyond BUNDLE_ALIGN (CTOR_NORMALIZE, SURFACE_CANONICALIZE, AMBIENT_REWRITE) with per-kind payload schemas, gated emission + reasoned abstentions, and predicate wiring. (in-26, GH-78) sppf{doc=partial; impl=done; doc_ref=in-26@10}
