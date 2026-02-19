@@ -2048,6 +2048,102 @@ def test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event
     assert (tmp_path / checkpoint_name).exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+def test_restore_dataflow_resume_checkpoint_falls_back_from_incomplete_chunks(
+    tmp_path: Path,
+) -> None:
+    checkpoint_name = "dataflow_resume_checkpoint_ci.json"
+    state_ref = "chunk-state.json"
+    incomplete_zip = io.BytesIO()
+    with zipfile.ZipFile(incomplete_zip, "w") as zf:
+        zf.writestr(
+            f"dataflow-report/{checkpoint_name}",
+            json.dumps(
+                {
+                    "collection_resume": {
+                        "analysis_index_resume": {"state_ref": state_ref}
+                    }
+                }
+            ),
+        )
+    complete_zip = io.BytesIO()
+    with zipfile.ZipFile(complete_zip, "w") as zf:
+        zf.writestr(
+            f"dataflow-report/{checkpoint_name}",
+            json.dumps(
+                {
+                    "collection_resume": {
+                        "analysis_index_resume": {"state_ref": state_ref}
+                    }
+                }
+            ),
+        )
+        zf.writestr(
+            f"dataflow-report/{checkpoint_name}.chunks/{state_ref}",
+            '{"ok": true}',
+        )
+
+    class _Resp:
+        def __init__(self, body: bytes) -> None:
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self) -> "_Resp":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    payload = {
+        "artifacts": [
+            {
+                "expired": False,
+                "archive_download_url": "https://example.invalid/incomplete.zip",
+                "workflow_run": {
+                    "id": 101,
+                    "head_branch": "stage",
+                    "event": "push",
+                },
+            },
+            {
+                "expired": False,
+                "archive_download_url": "https://example.invalid/complete.zip",
+                "workflow_run": {
+                    "id": 100,
+                    "head_branch": "stage",
+                    "event": "push",
+                },
+            },
+        ]
+    }
+
+    def _fake_urlopen(req, timeout=0):
+        _ = timeout
+        url = str(getattr(req, "full_url", req))
+        if "actions/artifacts" in url:
+            return _Resp(json.dumps(payload).encode("utf-8"))
+        if "incomplete.zip" in url:
+            return _Resp(incomplete_zip.getvalue())
+        if "complete.zip" in url:
+            return _Resp(complete_zip.getvalue())
+        raise AssertionError(f"unexpected url: {url}")
+
+    exit_code = cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+        token="token",
+        repo="owner/repo",
+        output_dir=tmp_path,
+        ref_name="stage",
+        current_run_id="999",
+        urlopen_fn=_fake_urlopen,
+    )
+
+    assert exit_code == 0
+    assert (tmp_path / checkpoint_name).exists()
+    assert (tmp_path / f"{checkpoint_name}.chunks/{state_ref}").exists()
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_download_artifact_archive_bytes_follows_blob_redirect_without_auth::cli.py::gabion.cli._download_artifact_archive_bytes
 def test_download_artifact_archive_bytes_follows_blob_redirect_without_auth() -> None:
     class _Resp:
