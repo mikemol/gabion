@@ -18,6 +18,7 @@ def _sample_invariant(*, invariant_id: str, terms: tuple[str, ...], confidence: 
     )
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest
 def test_property_hook_ids_are_stable_across_runs() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:001", terms=("a", "b")),
@@ -28,6 +29,7 @@ def test_property_hook_ids_are_stable_across_runs() -> None:
     assert first == second
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest
 def test_property_hook_manifest_skips_low_confidence_invariants() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:low", terms=("a", "b"), confidence=0.2),
@@ -37,6 +39,7 @@ def test_property_hook_manifest_skips_low_confidence_invariants() -> None:
     assert payload["callable_index"] == []
 
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.generate_property_hook_manifest
 def test_property_hook_manifest_maps_multiple_invariants_to_one_callable() -> None:
     invariants = [
         _sample_invariant(invariant_id="inv:001", terms=("a", "b")),
