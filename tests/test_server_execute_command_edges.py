@@ -303,6 +303,58 @@ def test_execute_command_preserves_resume_checkpoint_for_next_run(
     assert resume_checkpoint.get("reused_files") == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_threads_semantic_substantive_progress_into_checkpoint_flush_gate::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_threads_semantic_substantive_progress_into_checkpoint_flush_gate(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+    checkpoint_path = tmp_path / "resume.json"
+    captured_flush_kwargs: list[dict[str, object]] = []
+
+    def _analyze_with_progress(*_args: object, **kwargs: object) -> server.AnalysisResult:
+        on_collection_progress = kwargs.get("on_collection_progress")
+        if callable(on_collection_progress):
+            on_collection_progress(
+                {
+                    "completed_paths": [str(module_path)],
+                    "in_progress_scan_by_path": {},
+                }
+            )
+        return _empty_analysis_result()
+
+    def _semantic_progress(**_kwargs: object) -> dict[str, object]:
+        return {
+            "substantive_progress": True,
+            "current_witness_digest": "digest",
+            "monotonic_progress": True,
+        }
+
+    def _capture_flush_gate(**kwargs: object) -> bool:
+        captured_flush_kwargs.append(dict(kwargs))
+        return False
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                "resume_checkpoint": str(checkpoint_path),
+            }
+        ),
+        analyze_paths_fn=_analyze_with_progress,
+        collection_semantic_progress_fn=_semantic_progress,
+        collection_checkpoint_flush_due_fn=_capture_flush_gate,
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    assert captured_flush_kwargs
+    assert captured_flush_kwargs[0].get("semantic_substantive_progress") is True
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_timeout_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
 def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -418,24 +470,44 @@ def test_collection_checkpoint_flush_due() -> None:
     assert server._collection_checkpoint_flush_due(
         intro_changed=True,
         remaining_files=10,
+        semantic_substantive_progress=False,
         now_ns=now_ns,
         last_flush_ns=0,
     )
     assert server._collection_checkpoint_flush_due(
         intro_changed=False,
         remaining_files=0,
+        semantic_substantive_progress=False,
         now_ns=now_ns,
         last_flush_ns=0,
     )
     assert server._collection_checkpoint_flush_due(
         intro_changed=False,
         remaining_files=1,
+        semantic_substantive_progress=True,
+        now_ns=now_ns,
+        last_flush_ns=(
+            now_ns - server._COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS
+        ),
+    )
+    assert not server._collection_checkpoint_flush_due(
+        intro_changed=False,
+        remaining_files=1,
+        semantic_substantive_progress=True,
+        now_ns=server._COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS - 1,
+        last_flush_ns=0,
+    )
+    assert server._collection_checkpoint_flush_due(
+        intro_changed=False,
+        remaining_files=1,
+        semantic_substantive_progress=False,
         now_ns=now_ns,
         last_flush_ns=now_ns - server._COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS,
     )
     assert not server._collection_checkpoint_flush_due(
         intro_changed=False,
         remaining_files=1,
+        semantic_substantive_progress=False,
         now_ns=1,
         last_flush_ns=0,
     )
