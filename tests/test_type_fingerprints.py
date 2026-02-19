@@ -25,6 +25,7 @@ def test_canonical_type_key_normalizes_generics() -> None:
     assert tf.canonical_type_key("Dict[str, List[int]]") == "dict[str, list[int]]"
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_canonical_type_key_union_order_stable_across_input_permutations::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints.canonical_type_key
 def test_canonical_type_key_union_order_stable_across_input_permutations() -> None:
     tf = _load()
     first = tf.canonical_type_key("str | int | None")
@@ -42,6 +43,7 @@ def test_prime_registry_assigns_stable_primes() -> None:
     assert first != second
     assert registry.get_or_assign("int") == first
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_prime_registry_consumes_gas_ticks::test_type_fingerprints.py::tests.test_type_fingerprints._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
 def test_prime_registry_consumes_gas_ticks() -> None:
     tf = _load()
     from gabion.analysis.aspf import Forest
@@ -496,11 +498,13 @@ def test_normalize_type_list_variants() -> None:
     assert tf._normalize_type_list("a, b") == ["a", "b"]
     assert tf._normalize_type_list(["a, b", "c"]) == ["a", "b", "c"]
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_split_top_level_handles_empty_segments::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints._split_top_level
 def test_split_top_level_handles_empty_segments() -> None:
     tf = _load()
     assert tf._split_top_level(",a", ",") == ["a"]
     assert tf._split_top_level("a,", ",") == ["a"]
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_prime_registry_existing_bit_and_key_lookup_scan::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_prime_registry_existing_bit_and_key_lookup_scan() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -511,11 +515,13 @@ def test_prime_registry_existing_bit_and_key_lookup_scan() -> None:
     assert registry.key_for_prime(other_prime) == "other"
     assert prime != other_prime
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_normalize_type_list_ignores_non_string_entries::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints._normalize_type_list
 def test_normalize_type_list_ignores_non_string_entries() -> None:
     tf = _load()
     assert tf._normalize_type_list(123) == []
     assert tf._normalize_type_list(["a", 1, "b"]) == ["a", "b"]
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_dimension_helpers_handle_missing_registry_bits::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints._ctor_dimension_from_names::type_fingerprints.py::gabion.analysis.type_fingerprints._dimension_from_keys
 def test_dimension_helpers_handle_missing_registry_bits() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -529,6 +535,7 @@ def test_dimension_helpers_handle_missing_registry_bits() -> None:
     ctor_dim = tf._ctor_dimension_from_names(["list"], registry)
     assert ctor_dim.mask == 0
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_apply_registry_payload_filters_invalid_registry_values::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload
 def test_apply_registry_payload_filters_invalid_registry_values() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -548,6 +555,7 @@ def test_apply_registry_payload_filters_invalid_registry_values() -> None:
     assert registry.bit_for("a") is None
     assert registry.bit_for("b") == 2
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_bundle_fingerprint_dimensional_without_constructor_registry::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional
 def test_bundle_fingerprint_dimensional_without_constructor_registry() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -662,6 +670,7 @@ def test_build_fingerprint_registry_skips_empty_entries_with_valid() -> None:
     assert registry.prime_for("int") is not None
     assert any("valid" in names for names in index.values())
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_prime_registry_seed_payload_roundtrip_with_namespaces::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_prime_registry_seed_payload_roundtrip_with_namespaces() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -679,6 +688,7 @@ def test_prime_registry_seed_payload_roundtrip_with_namespaces() -> None:
     assert loaded.bit_for("ctor:list") == registry.bit_for("ctor:list")
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_prime_registry_load_seed_payload_accepts_flat_legacy_payload::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_prime_registry_load_seed_payload_accepts_flat_legacy_payload() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -694,6 +704,7 @@ def test_prime_registry_load_seed_payload_accepts_flat_legacy_payload() -> None:
     assert registry.bit_for("int") == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_prime_registry_load_seed_payload_ignores_invalid_namespace_entries::test_type_fingerprints.py::tests.test_type_fingerprints._load
 def test_prime_registry_load_seed_payload_ignores_invalid_namespace_entries() -> None:
     tf = _load()
     registry = tf.PrimeRegistry()
@@ -721,6 +732,7 @@ def test_prime_registry_load_seed_payload_ignores_invalid_namespace_entries() ->
     assert registry.bit_for("bad") is None
 
 
+# gabion:evidence E:call_footprint::tests/test_type_fingerprints.py::test_build_fingerprint_registry_seed_is_stable_under_reordered_inputs::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints.build_fingerprint_registry
 def test_build_fingerprint_registry_seed_is_stable_under_reordered_inputs() -> None:
     tf = _load()
     spec_a = {

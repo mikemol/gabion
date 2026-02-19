@@ -34,6 +34,7 @@ def _write_profile(path: Path, *, total_elapsed_ns: int, site_elapsed_ns: int) -
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
+# gabion:evidence E:call_footprint::tests/test_deadline_profile_ci_summary.py::test_deadline_profile_ci_summary_allows_missing_local::test_deadline_profile_ci_summary.py::tests.test_deadline_profile_ci_summary._write_profile
 def test_deadline_profile_ci_summary_allows_missing_local(tmp_path: Path) -> None:
     ci_profile = tmp_path / "deadline_profile_ci.json"
     _write_profile(ci_profile, total_elapsed_ns=2_000_000_000, site_elapsed_ns=200_000_000)
@@ -63,6 +64,7 @@ def test_deadline_profile_ci_summary_allows_missing_local(tmp_path: Path) -> Non
     assert "Top CI I/O" in summary_md.read_text()
 
 
+# gabion:evidence E:call_footprint::tests/test_deadline_profile_ci_summary.py::test_deadline_profile_ci_summary_compares_local_profile::test_deadline_profile_ci_summary.py::tests.test_deadline_profile_ci_summary._write_profile
 def test_deadline_profile_ci_summary_compares_local_profile(tmp_path: Path) -> None:
     ci_profile = tmp_path / "deadline_profile_ci.json"
     local_profile = tmp_path / "deadline_profile_local.json"

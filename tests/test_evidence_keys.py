@@ -87,6 +87,7 @@ def test_evidence_keys_normalize_and_render() -> None:
     assert evidence_keys.render_display({"k": "custom"}) == "E:custom"
 
 
+# gabion:evidence E:call_footprint::tests/test_evidence_keys.py::test_make_never_sink_key_omits_empty_normalized_reason::evidence_keys.py::gabion.analysis.evidence_keys.make_never_sink_key
 def test_make_never_sink_key_omits_empty_normalized_reason() -> None:
     key = evidence_keys.make_never_sink_key(
         path="p",
@@ -97,6 +98,7 @@ def test_make_never_sink_key_omits_empty_normalized_reason() -> None:
     assert "reason" not in key
 
 
+# gabion:evidence E:call_footprint::tests/test_evidence_keys.py::test_make_partition_witness_key_handles_missing_support_and_collapse::evidence_keys.py::gabion.analysis.evidence_keys.make_partition_witness_key
 def test_make_partition_witness_key_handles_missing_support_and_collapse() -> None:
     payload = evidence_keys.make_partition_witness_key(
         kind="local_resolution_ambiguous",
@@ -290,6 +292,7 @@ def test_render_display_call_cluster_skips_invalid_targets() -> None:
     assert display == "E:call_cluster"
 
 
+# gabion:evidence E:call_footprint::tests/test_evidence_keys.py::test_render_display_handles_non_list_targets_payloads::evidence_keys.py::gabion.analysis.evidence_keys.render_display
 def test_render_display_handles_non_list_targets_payloads() -> None:
     assert (
         evidence_keys.render_display(
@@ -358,6 +361,7 @@ def test_ambiguity_span_normalization_edges() -> None:
     assert evidence_keys.parse_display("E:partition_witness::{") is None
 
 
+# gabion:evidence E:call_footprint::tests/test_evidence_keys.py::test_fingerprint_identity_is_compact_and_stable::evidence_keys.py::gabion.analysis.evidence_keys.key_fingerprint_identity::evidence_keys.py::gabion.analysis.evidence_keys.key_identity::evidence_keys.py::gabion.analysis.evidence_keys.make_call_cluster_key
 def test_fingerprint_identity_is_compact_and_stable() -> None:
     key_a = evidence_keys.make_call_cluster_key(targets=[("a.py", "mod.f")])
     key_b = {"targets": [{"qual": "mod.f", "path": "a.py"}], "k": "call_cluster"}

@@ -216,6 +216,7 @@ def test_record_forward_skips_call_without_span() -> None:
         ctx=ast.Load(),
     )
     assert visitor._bind_sequence(mismatch_target, mismatch_rhs) is True
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_alias_from_call_keyword_and_kw_aliases::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 @pytest.mark.parametrize(
     ("call_expr", "expected_alias"),
     [
@@ -355,6 +356,7 @@ def test_visit_name_attribute_subscript_edges() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_record_unknown_key_without_span_marks_carrier_only::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_record_unknown_key_without_span_marks_carrier_only() -> None:
     _, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     visitor._record_unknown_key("a", ast.Name(id="dynamic", ctx=ast.Load()))
@@ -400,6 +402,7 @@ def test_subscript_and_attribute_slot_fallbacks() -> None:
     assert ("foo", "arg[?]") not in use_map["a"].direct_forward
     assert ("bar", "arg[?]") not in use_map["a"].direct_forward
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_check_write_missing_use_map_entries::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_check_write_missing_use_map_entries() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     visitor.alias_to_param["ghost"] = "missing"
@@ -411,6 +414,7 @@ def test_check_write_missing_use_map_entries() -> None:
     assert "missing" not in use_map
     visitor.visit(tree)
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_bind_sequence_nested_mismatch_and_missing_use_map::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_sequence_nested_mismatch_and_missing_use_map() -> None:
     tree, visitor, _, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     visitor.alias_to_param["rhs"] = "missing"
@@ -442,6 +446,7 @@ def test_bind_sequence_nested_mismatch_and_missing_use_map() -> None:
     assert visitor._bind_sequence(lhs, rhs) is True
     visitor.visit(tree)
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_bind_sequence_nested_match_branch_and_mark_non_forward_suspended::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_sequence_nested_match_branch_and_mark_non_forward_suspended() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     lhs_nested = ast.Tuple(
@@ -469,6 +474,7 @@ def test_bind_sequence_nested_match_branch_and_mark_non_forward_suspended() -> N
     assert use_map["a"].non_forward is False
     visitor.visit(tree)
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_bind_return_alias_and_annassign_missing_use_map_entries::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_bind_return_alias_and_annassign_missing_use_map_entries() -> None:
     _, visitor, _, _ = _make_use_visitor(
         "def f(a):\n    x: int = identity(a)\n",
@@ -487,6 +493,7 @@ def test_bind_return_alias_and_annassign_missing_use_map_entries() -> None:
     with pytest.raises(KeyError):
         visitor.visit_AnnAssign(annassign)
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_attribute_and_subscript_non_forward_when_not_suspended::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_attribute_and_subscript_non_forward_when_not_suspended() -> None:
     tree, visitor, use_map, _ = _make_use_visitor("def f(a):\n    pass\n", ["a"])
     visitor.visit_Attribute(
@@ -535,6 +542,7 @@ def test_attribute_and_subscript_non_forward_when_not_suspended() -> None:
     assert use_map["a"].non_forward is True
     visitor.visit(tree)
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_subscript_positional_slot_detection::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_subscript_positional_slot_detection() -> None:
     code = (
         "def f(a):\n"
@@ -547,6 +555,7 @@ def test_subscript_positional_slot_detection() -> None:
     assert ("sink", "arg[0]") in use_map["a"].direct_forward
 
 
+# gabion:evidence E:call_footprint::tests/test_visitors_edges.py::test_subscript_name_bound_key_tracks_forward_and_unknown_key_state::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_subscript_name_bound_key_tracks_forward_and_unknown_key_state() -> None:
     code = (
         "def f(a):\n"

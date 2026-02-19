@@ -13,16 +13,19 @@ def test_never_raises_never_thrown() -> None:
         invariants.never("boom", flag=True)
 
 
+# gabion:evidence E:call_footprint::tests/test_invariants.py::test_require_not_none_non_strict::invariants.py::gabion.invariants.require_not_none
 def test_require_not_none_non_strict() -> None:
     assert invariants.require_not_none(None, strict=False) is None
     assert invariants.require_not_none("ok", strict=False) == "ok"
 
 
+# gabion:evidence E:call_footprint::tests/test_invariants.py::test_require_not_none_strict_raises::invariants.py::gabion.invariants.require_not_none
 def test_require_not_none_strict_raises() -> None:
     with pytest.raises(NeverThrown):
         invariants.require_not_none(None, strict=True)
 
 
+# gabion:evidence E:call_footprint::tests/test_invariants.py::test_require_not_none_env_strict::env_helpers.py::tests.env_helpers.env_scope::invariants.py::gabion.invariants.require_not_none
 def test_require_not_none_env_strict() -> None:
     with env_scope({"GABION_PROOF_MODE": "strict"}):
         with pytest.raises(NeverThrown):

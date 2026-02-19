@@ -51,6 +51,7 @@ def _with_timeout(payload: dict) -> dict:
     return merged
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_from_payload_rejects_invalid::server.py::gabion.server._deadline_from_payload
 @pytest.mark.parametrize(
     "payload",
     [
@@ -68,12 +69,14 @@ def test_deadline_from_payload_rejects_invalid(payload: dict) -> None:
         server._deadline_from_payload(payload)
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_requires_payload::server.py::gabion.server._deadline_scope_from_payload
 def test_deadline_scope_requires_payload() -> None:
     with pytest.raises(NeverThrown):
         with server._deadline_scope_from_payload(None):
             pass
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_rejects_invalid_tick_limit::server.py::gabion.server._deadline_scope_from_payload
 def test_deadline_scope_rejects_invalid_tick_limit() -> None:
     with pytest.raises(NeverThrown):
         with server._deadline_scope_from_payload(
@@ -86,6 +89,7 @@ def test_deadline_scope_rejects_invalid_tick_limit() -> None:
             pass
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_rejects_non_numeric_tick_limit::server.py::gabion.server._deadline_scope_from_payload
 def test_deadline_scope_rejects_non_numeric_tick_limit() -> None:
     with pytest.raises(NeverThrown):
         with server._deadline_scope_from_payload(
@@ -98,6 +102,7 @@ def test_deadline_scope_rejects_non_numeric_tick_limit() -> None:
             pass
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_deadline_scope_applies_analysis_tick_limit::server.py::gabion.server._deadline_scope_from_payload::timeout_context.py::gabion.analysis.timeout_context.check_deadline
 def test_deadline_scope_applies_analysis_tick_limit() -> None:
     with server._deadline_scope_from_payload(
         {
@@ -110,6 +115,7 @@ def test_deadline_scope_applies_analysis_tick_limit() -> None:
             check_deadline()
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_analysis_timeout_total_ticks_parses_supported_units::server.py::gabion.server._analysis_timeout_total_ticks
 def test_analysis_timeout_total_ticks_parses_supported_units() -> None:
     assert (
         server._analysis_timeout_total_ticks(
@@ -121,6 +127,7 @@ def test_analysis_timeout_total_ticks_parses_supported_units() -> None:
     assert server._analysis_timeout_total_ticks({"analysis_timeout_seconds": "0.5"}) == 500
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_analysis_timeout_total_ticks_rejects_invalid::server.py::gabion.server._analysis_timeout_total_ticks
 @pytest.mark.parametrize(
     "payload",
     [
@@ -139,6 +146,7 @@ def test_analysis_timeout_total_ticks_rejects_invalid(payload: dict) -> None:
         server._analysis_timeout_total_ticks(payload)
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_rejects_non_positive_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
 def test_execute_command_rejects_non_positive_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -155,6 +163,7 @@ def test_execute_command_rejects_non_positive_analysis_tick_limit(tmp_path: Path
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_rejects_non_numeric_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
 def test_execute_command_rejects_non_numeric_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -171,6 +180,7 @@ def test_execute_command_rejects_non_numeric_analysis_tick_limit(tmp_path: Path)
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_applies_analysis_tick_limit::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
 def test_execute_command_applies_analysis_tick_limit(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -244,6 +254,7 @@ def test_execute_command_no_violations(tmp_path: Path) -> None:
     ) == _CommandResult(exit_code=0, violations=0)
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_defaults_paths::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
 def test_execute_command_defaults_paths(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -344,6 +355,7 @@ def test_execute_command_structure_tree_stdout(tmp_path: Path) -> None:
     assert result["structure_tree"]["files"]
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_defaults_tick_ns::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._write_minimal_module
 def test_execute_command_defaults_tick_ns(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_minimal_module(module_path)
@@ -353,7 +365,7 @@ def test_execute_command_defaults_tick_ns(tmp_path: Path) -> None:
         {
             "root": str(tmp_path),
             "paths": [str(module_path)],
-            "analysis_timeout_ticks": 1000,
+            "analysis_timeout_ticks": 2000,
             "analysis_timeout_tick_ns": 1_000_000,
         },
     )
@@ -476,6 +488,7 @@ def test_execute_refactor_invalid_payload() -> None:
 
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command.py::test_execute_command_emits_typed_handledness_to_lsp_response::server.py::gabion.server.execute_command::test_server_execute_command.py::tests.test_server_execute_command._with_timeout
 def test_execute_command_emits_typed_handledness_to_lsp_response(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     module_path.write_text(

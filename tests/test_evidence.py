@@ -45,3 +45,18 @@ def test_site_from_payload_filters_and_normalizes() -> None:
     assert site.bundle_key() == "a,b"
     assert site.key() == ("a.py", "f", "a,b")
 
+
+# gabion:evidence E:decision_surface/direct::evidence.py::gabion.analysis.evidence.exception_obligation_summary_for_site::obligations
+def test_exception_obligation_summary_for_site_skips_non_matching_and_normalizes_status() -> None:
+    evidence = _load()
+    site = evidence.Site(path="a.py", function="f", bundle=("a",))
+    obligations = [
+        {"site": "bad"},
+        {"site": {"path": "other.py", "function": "f", "bundle": ["a"]}, "status": "HANDLED"},
+        {"site": {"path": "a.py", "function": "f", "bundle": ["b"]}, "status": "DEAD"},
+        {"site": {"path": "a.py", "function": "f", "bundle": ["a"]}, "status": "INVALID"},
+        {"site": {"path": "a.py", "function": "f", "bundle": ["a"]}, "status": "HANDLED"},
+    ]
+
+    summary = evidence.exception_obligation_summary_for_site(obligations, site=site)
+    assert summary == {"UNKNOWN": 1, "DEAD": 0, "HANDLED": 1, "total": 2}

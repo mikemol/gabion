@@ -25,6 +25,7 @@ def _decorator_name(expr: ast.AST) -> str | None:
     return None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_exception_obligations_module.py::test_exception_obligation_module_edges::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.exception_param_names::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.exception_type_name::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.handler_is_broad::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.handler_label::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.node_in_try_body
 def test_exception_obligation_module_edges() -> None:
     assert exception_param_names(None, {"a"}, check_deadline=_check_deadline) == []
     expr = ast.parse("a + b").body[0].value
@@ -62,6 +63,7 @@ def test_exception_obligation_module_edges() -> None:
     assert node_in_try_body(other_call, try_node, check_deadline=_check_deadline) is False
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_exception_obligations_module.py::test_exception_handler_compatibility_edges::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.exception_handler_compatibility::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.handler_type_names
 def test_exception_handler_compatibility_edges() -> None:
     broad = ast.ExceptHandler(type=None, name=None, body=[])
     assert (
@@ -126,6 +128,7 @@ def test_exception_handler_compatibility_edges() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_exception_obligations_module.py::test_exception_handler_compatibility_additional_edges::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.exception_handler_compatibility::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.handler_is_broad::dataflow_exception_obligations.py::gabion.analysis.dataflow_exception_obligations.handler_type_names
 def test_exception_handler_compatibility_additional_edges() -> None:
     named_broad = ast.ExceptHandler(
         type=ast.Name(id="Exception", ctx=ast.Load()),

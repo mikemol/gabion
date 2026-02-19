@@ -340,6 +340,7 @@ def test_call_site_transformer_helpers() -> None:
     assert name_constructor._already_wrapped(mismatch_call) is False
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_engine_helper_negative_branches::engine.py::gabion.refactor.engine._collect_import_context::engine.py::gabion.refactor.engine._ensure_compat_imports::engine.py::gabion.refactor.engine._has_typing_import::engine.py::gabion.refactor.engine._has_typing_overload_import::engine.py::gabion.refactor.engine._has_typing_protocol_import::engine.py::gabion.refactor.engine._has_warnings_import::engine.py::gabion.refactor.engine._module_expr_to_str
 def test_engine_helper_negative_branches() -> None:
     module = cst.parse_module("import os\nimport pkg.typing\n")
     assert _has_typing_import(list(module.body)) is False
@@ -411,6 +412,7 @@ def test_engine_helper_negative_branches() -> None:
     assert proto is None
 
 
+# gabion:evidence E:call_footprint::tests/test_refactor_engine_more.py::test_refactor_and_callsite_transformer_stack_and_param_edges::engine.py::gabion.refactor.engine._CallSiteTransformer::engine.py::gabion.refactor.engine._RefactorTransformer
 def test_refactor_and_callsite_transformer_stack_and_param_edges() -> None:
     transformer = _RefactorTransformer(
         targets={"f"},

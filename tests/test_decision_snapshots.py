@@ -51,6 +51,7 @@ def test_render_and_diff_decision_snapshots() -> None:
     assert "current_forest_signature" in diff
 
 
+# gabion:evidence E:call_footprint::tests/test_decision_snapshots.py::test_render_decision_snapshot_includes_pattern_schema_residue::dataflow_audit.py::gabion.analysis.dataflow_audit._pattern_schema_matches::dataflow_audit.py::gabion.analysis.dataflow_audit.render_decision_snapshot::test_decision_snapshots.py::tests.test_decision_snapshots._load
 def test_render_decision_snapshot_includes_pattern_schema_residue() -> None:
     da = _load()
     forest = da.Forest()

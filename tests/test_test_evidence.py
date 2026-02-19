@@ -154,6 +154,9 @@ def test_collect_test_tags_handles_async_and_class(tmp_path: Path) -> None:
                 "    @decorator",
                 "    def test_method(self):",
                 "        assert True",
+                "",
+                "def helper():",
+                "    return 1",
             ]
         )
         + "\n"
@@ -167,6 +170,7 @@ def test_collect_test_tags_handles_async_and_class(tmp_path: Path) -> None:
     ids = {entry.test_id: entry.tags for entry in tags}
     assert any("test_tags.py::test_async" in test_id for test_id in ids)
     assert any("test_tags.py::TestWidget::test_method" in test_id for test_id in ids)
+    assert not any("test_tags.py::helper" in test_id for test_id in ids)
 
     missing = tests_dir / "missing.py"
     assert test_evidence._extract_file_tags(missing, root) == []
@@ -196,6 +200,7 @@ def test_rejects_duplicate_test_ids(tmp_path: Path) -> None:
         )
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_build_test_evidence_merges_duplicate_evidence_identity::test_evidence.py::gabion.analysis.test_evidence.build_test_evidence_payload
 def test_build_test_evidence_merges_duplicate_evidence_identity(tmp_path: Path) -> None:
     root = tmp_path
     tests_dir = tmp_path / "tests"
@@ -225,6 +230,7 @@ def test_build_test_evidence_merges_duplicate_evidence_identity(tmp_path: Path) 
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_collect_test_files_ignores_non_python_paths::test_evidence.py::gabion.analysis.test_evidence._collect_test_files
 def test_collect_test_files_ignores_non_python_paths(tmp_path: Path) -> None:
     root = tmp_path
     txt = tmp_path / "notes.txt"
@@ -233,6 +239,7 @@ def test_collect_test_files_ignores_non_python_paths(tmp_path: Path) -> None:
     assert files == []
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence.py::test_evidence_comments_ignores_empty_ids::test_evidence.py::gabion.analysis.test_evidence._evidence_comments
 def test_evidence_comments_ignores_empty_ids() -> None:
     comments = test_evidence._evidence_comments("# gabion:evidence   \n")
     assert comments == {}

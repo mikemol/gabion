@@ -80,6 +80,7 @@ def build(alpha, beta, gamma):
     assert ("alpha", "beta", "gamma") in bundles
 
 
+# gabion:evidence E:call_footprint::tests/test_dataclass_call_bundles.py::test_dataclass_call_bundles_support_literal_star_args::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::test_dataclass_call_bundles.py::tests.test_dataclass_call_bundles._load
 def test_dataclass_call_bundles_support_literal_star_args(tmp_path: Path) -> None:
     _iter_dataclass_call_bundles, _, _ = _load()
     source = tmp_path / "starred.py"
@@ -102,6 +103,7 @@ def test_dataclass_call_bundles_support_literal_star_args(tmp_path: Path) -> Non
     assert first_witnesses == second_witnesses == []
 
 
+# gabion:evidence E:call_footprint::tests/test_dataclass_call_bundles.py::test_dataclass_call_bundles_emit_unresolved_starred_evidence::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::test_dataclass_call_bundles.py::tests.test_dataclass_call_bundles._load
 def test_dataclass_call_bundles_emit_unresolved_starred_evidence(tmp_path: Path) -> None:
     _iter_dataclass_call_bundles, _, _ = _load()
     source = tmp_path / "dynamic_starred.py"

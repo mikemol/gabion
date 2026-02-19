@@ -27,6 +27,7 @@ def _lint_line(path: str, line: int, col: int, code: str, message: str) -> str:
     return f"{path}:{line}:{col}: {code} {message}".strip()
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_decision_surface_summaries_and_plans_cover_edges::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_coherence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_coherence_witnesses::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_deadness_witnesses::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_rewrite_plans
 def test_decision_surface_summaries_and_plans_cover_edges() -> None:
     assert summarize_deadness_witnesses([], check_deadline=_check_deadline) == []
     lines = summarize_deadness_witnesses(
@@ -112,6 +113,7 @@ def test_decision_surface_summaries_and_plans_cover_edges() -> None:
     assert any("... 2 more" in line for line in rewrite_summary)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_decision_surface_lint_parsing_helpers_cover_edges::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.extract_smell_sample::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_bundle_evidence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_constant_smells::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_type_evidence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.lint_lines_from_unused_arg_smells::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.parse_lint_location
 def test_decision_surface_lint_parsing_helpers_cover_edges() -> None:
     assert parse_lint_location("bad") is None
     assert parse_lint_location("p:1:2:-3:4: msg") == ("p", 1, 2, "msg")
@@ -126,6 +128,7 @@ def test_decision_surface_lint_parsing_helpers_cover_edges() -> None:
     assert lint_lines_from_constant_smells([constant], check_deadline=_check_deadline, lint_line=_lint_line)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_rewrite_plan_roundtrip_and_deterministic_ordering::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_coherence::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans
 def test_rewrite_plan_roundtrip_and_deterministic_ordering() -> None:
     coherence = compute_fingerprint_coherence(
         [
@@ -192,3 +195,67 @@ def test_rewrite_plan_roundtrip_and_deterministic_ordering() -> None:
     ordered_ids = [plan["plan_id"] for plan in plans]
     assert ordered_ids == sorted(ordered_ids) or ordered_ids[0].startswith("rewrite:a.py")
     assert all("payload_schema" in plan for plan in plans)
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_decision_surfaces_module.py::test_rewrite_plan_helpers_cover_skip_and_abstain_paths::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.compute_fingerprint_rewrite_plans::dataflow_decision_surfaces.py::gabion.analysis.dataflow_decision_surfaces.summarize_coherence_witnesses
+def test_rewrite_plan_helpers_cover_skip_and_abstain_paths() -> None:
+    coherence_summary = summarize_coherence_witnesses(
+        [
+            {
+                "site": {"path": "a.py", "function": "f", "bundle": ["a"]},
+                "result": "UNKNOWN",
+                "fork_signature": "k",
+                "alternatives": [],
+            }
+            for _ in range(12)
+        ],
+        max_entries=10,
+        check_deadline=_check_deadline,
+    )
+    assert any("... 2 more" in line for line in coherence_summary)
+
+    def _ordered(values, **kwargs):
+        source = str(kwargs.get("source", ""))
+        if source.endswith(".candidates"):
+            return []
+        return ordered_or_sorted(values, **kwargs)
+
+    plans = compute_fingerprint_rewrite_plans(
+        provenance=[
+            {
+                "path": "",
+                "function": "f",
+                "bundle": ["a"],
+                "provenance_id": "prov:skip",
+                "base_keys": ["int"],
+                "ctor_keys": [],
+                "glossary_matches": ["x", "y"],
+            },
+            {
+                "path": "a.py",
+                "function": "f",
+                "bundle": ["a"],
+                "provenance_id": "prov:a.py:f:a",
+                "base_keys": ["int"],
+                "ctor_keys": [],
+                "glossary_matches": ["ctx_a", "ctx_b"],
+            },
+        ],
+        coherence=[{"site": "not-a-mapping"}],
+        synth_version="synth@1",
+        exception_obligations=None,
+        check_deadline=_check_deadline,
+        ordered_or_sorted=_ordered,
+        site_from_payload=Site.from_payload,
+    )
+    assert plans
+    assert any(
+        str(plan.get("rewrite", {}).get("kind", "")) == "SURFACE_CANONICALIZE"
+        and str(plan.get("status", "")) == "ABSTAINED"
+        for plan in plans
+    )
+    assert any(
+        str(plan.get("rewrite", {}).get("kind", "")) == "AMBIENT_REWRITE"
+        and str(plan.get("status", "")) == "ABSTAINED"
+        for plan in plans
+    )

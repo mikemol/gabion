@@ -84,6 +84,7 @@ def test_normalize_helpers_cover_branches() -> None:
     assert _normalize_value([{"b": 2, "a": 1}]) == [{"a": 1, "b": 2}]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_normalize_pipeline_stable_under_shuffled_upstream_order::projection_normalize.py::gabion.analysis.projection_normalize._normalize_pipeline
 def test_normalize_pipeline_stable_under_shuffled_upstream_order() -> None:
     pipeline_a = (
         ProjectionOp("select", {"predicates": ["beta", "alpha", "beta"]}),
@@ -195,6 +196,7 @@ def test_apply_spec_traverse_flattens_sequences() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_as_field_and_keep::projection_exec.py::gabion.analysis.projection_exec.apply_spec
 def test_apply_spec_traverse_as_field_and_keep() -> None:
     rows = [
         {
@@ -225,6 +227,7 @@ def test_apply_spec_traverse_as_field_and_keep() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_handles_invalid_params::projection_exec.py::gabion.analysis.projection_exec.apply_spec
 def test_apply_spec_traverse_handles_invalid_params() -> None:
     rows = [
         {"items": [{"a": 1}, {1: "b"}], "other": 3},
@@ -255,6 +258,7 @@ def test_apply_spec_traverse_handles_invalid_params() -> None:
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_projection_exec_edges.py::test_apply_spec_traverse_skips_when_field_invalid::projection_exec.py::gabion.analysis.projection_exec.apply_spec
 def test_apply_spec_traverse_skips_when_field_invalid() -> None:
     rows = [{"items": [1, 2, 3]}]
     spec = ProjectionSpec(

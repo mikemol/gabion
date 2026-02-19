@@ -70,6 +70,7 @@ def test_start_uses_injected_callable() -> None:
     assert called["value"] is True
 
 
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_deadline_tick_budget_allows_check_non_meter_clock::server.py::gabion.server._deadline_tick_budget_allows_check::test_server_helpers.py::tests.test_server_helpers._load
 def test_deadline_tick_budget_allows_check_non_meter_clock() -> None:
     server = _load()
 
@@ -80,7 +81,7 @@ def test_deadline_tick_budget_allows_check_non_meter_clock() -> None:
 
 
 # gabion:evidence E:function_site::server.py::gabion.server._diagnostics_for_path
-def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order(monkeypatch) -> None:
+def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order() -> None:
     server = _load()
 
     class _Result:
@@ -96,29 +97,27 @@ def test_diagnostics_for_path_is_stable_for_shuffled_bundle_insertion_order(monk
                 }
             }
 
-    monkeypatch.setattr(
-        server,
-        "analyze_paths",
-        lambda *args, **kwargs: _Result([
+    stable = server._diagnostics_for_path(
+        "/tmp/sample.py",
+        None,
+        analyze_paths_fn=lambda *args, **kwargs: _Result([
             ("a", (1, 0, 1, 1)),
             ("b", (1, 2, 1, 3)),
         ]),
     )
-    stable = server._diagnostics_for_path("/tmp/sample.py", None)
-
-    monkeypatch.setattr(
-        server,
-        "analyze_paths",
-        lambda *args, **kwargs: _Result([
+    shuffled = server._diagnostics_for_path(
+        "/tmp/sample.py",
+        None,
+        analyze_paths_fn=lambda *args, **kwargs: _Result([
             ("b", (1, 2, 1, 3)),
             ("a", (1, 0, 1, 1)),
         ]),
     )
-    shuffled = server._diagnostics_for_path("/tmp/sample.py", None)
 
     assert [diag.message for diag in stable] == [diag.message for diag in shuffled]
 
 
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_materialize_execution_plan_uses_request_payload::server.py::gabion.server._materialize_execution_plan::test_server_helpers.py::tests.test_server_helpers._load
 def test_materialize_execution_plan_uses_request_payload(tmp_path: Path) -> None:
     server = _load()
     payload = {

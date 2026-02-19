@@ -6,6 +6,7 @@ from pathlib import Path
 from scripts import impact_select_tests
 
 
+# gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_parse_changed_lines_extracts_hunk_lines::impact_select_tests.py::scripts.impact_select_tests._parse_changed_lines
 def test_parse_changed_lines_extracts_hunk_lines() -> None:
     diff = """diff --git a/src/gabion/example.py b/src/gabion/example.py
 index 1111111..2222222 100644
@@ -22,6 +23,7 @@ index 1111111..2222222 100644
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_select_tests_matches_evidence_site_and_changed_test::impact_select_tests.py::scripts.impact_select_tests._select_tests
 def test_select_tests_matches_evidence_site_and_changed_test() -> None:
     payload = {
         "tests": [
@@ -64,16 +66,9 @@ def test_select_tests_matches_evidence_site_and_changed_test() -> None:
     assert confidence > 0.0
 
 
-def test_main_falls_back_when_index_missing(tmp_path: Path, monkeypatch) -> None:
+# gabion:evidence E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_index_missing::impact_select_tests.py::scripts.impact_select_tests.main
+def test_main_falls_back_when_index_missing(tmp_path: Path) -> None:
     root = tmp_path
-
-    monkeypatch.setattr(
-        impact_select_tests,
-        "_git_diff_changed_lines",
-        lambda *_args, **_kwargs: [
-            impact_select_tests.ChangedLine(path="src/gabion/example.py", line=3)
-        ],
-    )
 
     out_path = root / "artifacts/audit_reports/impact_selection.json"
     exit_code = impact_select_tests.main(
@@ -85,7 +80,10 @@ def test_main_falls_back_when_index_missing(tmp_path: Path, monkeypatch) -> None
             "--out",
             str(out_path.relative_to(root)),
             "--no-refresh",
-        ]
+        ],
+        git_diff_changed_lines_fn=lambda *_args: [
+            impact_select_tests.ChangedLine(path="src/gabion/example.py", line=3)
+        ],
     )
 
     assert exit_code == 0

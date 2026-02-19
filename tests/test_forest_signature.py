@@ -35,6 +35,7 @@ def test_forest_signature_from_groups() -> None:
     assert signature["alts"]["count"] > 0
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_signature.py::test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_payload
 def test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads() -> None:
     forest = Forest()
     forest.add_site("a.py", "f")
@@ -51,6 +52,7 @@ def test_forest_signature_can_emit_legacy_and_fingerprint_intern_payloads() -> N
     assert signature["nodes"]["count"] == len(signature["nodes"]["intern_fingerprint"])
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_signature.py::test_forest_signature_can_emit_fingerprint_intern_without_legacy_intern::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_payload
 def test_forest_signature_can_emit_fingerprint_intern_without_legacy_intern() -> None:
     forest = Forest()
     forest.add_site("a.py", "f")
@@ -66,6 +68,7 @@ def test_forest_signature_can_emit_fingerprint_intern_without_legacy_intern() ->
     assert signature["nodes"]["count"] == len(signature["nodes"]["intern_fingerprint"])
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_signature.py::test_forest_signature_from_groups_rejects_path_order_regression::forest_signature.py::gabion.analysis.forest_signature.build_forest_signature_from_groups
 def test_forest_signature_from_groups_rejects_path_order_regression() -> None:
     with pytest.raises(NeverThrown):
         build_forest_signature_from_groups(

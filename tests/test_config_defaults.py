@@ -56,6 +56,7 @@ def test_merge_payload_prefers_explicit_values(tmp_path: Path) -> None:
     assert merged["strictness"] == "high"
     assert merged["allow_external"] is True
 
+# gabion:evidence E:function_site::config.py::gabion.config.dataflow_deadline_roots
 def test_dataflow_deadline_roots_validation() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     import gabion.analysis  # pre-load to avoid config/analysis import cycle

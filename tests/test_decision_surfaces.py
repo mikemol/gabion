@@ -273,7 +273,7 @@ def test_decision_surface_location_tier_suppresses_lint(tmp_path: Path) -> None:
     assert not any("GABION_DECISION_SURFACE" in line for line in lint_lines)
 
 
-# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.is_decision_surface E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decision_surface_params::fn,ignore_params
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.is_decision_surface E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decision_surface_params::fn,ignore_params
 def test_branch_heavy_module_detected_as_decision_surface(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "control.py"
@@ -324,7 +324,7 @@ def test_non_decision_helper_not_over_classified(tmp_path: Path) -> None:
     assert lint_lines == []
 
 
-# gabion:evidence E:decision_surface/direct::aspf.py::gabion.analysis.aspf.Forest.add_alt E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_decision_surfaces_repo::forest,require_tiers
+# gabion:evidence E:function_site::aspf.py::gabion.analysis.aspf.Forest.add_alt E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_decision_surfaces_repo::forest,require_tiers
 def test_decision_surface_evidence_is_deterministic(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "stable.py"

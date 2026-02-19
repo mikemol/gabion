@@ -66,6 +66,7 @@ def test_forest_spec_to_dict_roundtrip_handles_invalid_payload() -> None:
     assert roundtrip.collectors[0].name == "collector"
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_includes_deadline_obligations::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec
 def test_forest_spec_includes_deadline_obligations() -> None:
     spec = build_forest_spec(
         include_bundle_forest=False,
@@ -80,6 +81,7 @@ def test_forest_spec_includes_deadline_obligations() -> None:
     assert "DeadlineObligation" in spec.declared_outputs
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_hash_accepts_string_and_mapping::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec::forest_spec.py::gabion.analysis.forest_spec.forest_spec_hash::forest_spec.py::gabion.analysis.forest_spec.forest_spec_to_dict
 def test_forest_spec_hash_accepts_string_and_mapping() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -92,6 +94,7 @@ def test_forest_spec_hash_accepts_string_and_mapping() -> None:
     assert forest_spec_hash(payload) == forest_spec_hash(spec)
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_includes_lint_findings::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec
 def test_forest_spec_includes_lint_findings() -> None:
     spec = build_forest_spec(
         include_bundle_forest=False,
@@ -108,6 +111,7 @@ def test_forest_spec_includes_lint_findings() -> None:
     assert "SpecFacet" in spec.declared_outputs
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_includes_wl_refinement_collector::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec
 def test_forest_spec_includes_wl_refinement_collector() -> None:
     spec = build_forest_spec(
         include_bundle_forest=True,
@@ -130,6 +134,7 @@ def test_normalize_decision_tiers_ignores_invalid() -> None:
     assert _normalize_decision_tiers(tiers) == {"fine": 2}
 
 
+# gabion:evidence E:call_footprint::tests/test_forest_spec.py::test_forest_spec_from_dict_ignores_non_list_collectors_and_outputs::forest_spec.py::gabion.analysis.forest_spec.forest_spec_from_dict
 def test_forest_spec_from_dict_ignores_non_list_collectors_and_outputs() -> None:
     spec = forest_spec_from_dict(
         {

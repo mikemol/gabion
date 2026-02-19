@@ -7,23 +7,28 @@ import pytest
 from scripts import sppf_sync
 
 
-def test_is_sppf_relevant_push_detects_relevant_paths(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sppf_sync, "_run_git", lambda args: "src/gabion/cli.py\nREADME.md")
-    assert sppf_sync._is_sppf_relevant_push("origin/stage..HEAD") is True
-
-
-def test_validate_issue_lifecycle_reports_missing_labels_and_state(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        sppf_sync,
-        "_fetch_issue",
-        lambda issue_id: sppf_sync.IssueLifecycle(issue_id=issue_id, state="closed", labels=("done-on-stage",)),
+# gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_is_sppf_relevant_push_detects_relevant_paths::sppf_sync.py::scripts.sppf_sync._is_sppf_relevant_push
+def test_is_sppf_relevant_push_detects_relevant_paths() -> None:
+    assert (
+        sppf_sync._is_sppf_relevant_push(
+            "origin/stage..HEAD",
+            run_git_fn=lambda _args: "src/gabion/cli.py\nREADME.md",
+        )
+        is True
     )
+
+
+# gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_validate_issue_lifecycle_reports_missing_labels_and_state::sppf_sync.py::scripts.sppf_sync._validate_issue_lifecycle
+def test_validate_issue_lifecycle_reports_missing_labels_and_state() -> None:
     violations = sppf_sync._validate_issue_lifecycle(
         ["123"],
         required_labels=["done-on-stage", "status/pending-release"],
         expected_state="open",
+        fetch_issue_fn=lambda issue_id: sppf_sync.IssueLifecycle(
+            issue_id=issue_id,
+            state="closed",
+            labels=("done-on-stage",),
+        ),
     )
     assert len(violations) == 2
     assert "expected state 'open'" in violations[0]
@@ -31,29 +36,33 @@ def test_validate_issue_lifecycle_reports_missing_labels_and_state(
     assert "scripts/sppf_sync.py --range <rev-range> --label status/pending-release" in violations[1]
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_main_validate_mode_fails_with_clear_remediation::sppf_sync.py::scripts.sppf_sync.main
 def test_main_validate_mode_fails_with_clear_remediation(
-    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setattr(sppf_sync, "_default_range", lambda: "origin/stage..HEAD")
-    monkeypatch.setattr(sppf_sync, "_is_sppf_relevant_push", lambda rev_range: True)
-    monkeypatch.setattr(
-        sppf_sync,
-        "_collect_commits",
-        lambda rev_range: [sppf_sync.CommitInfo(sha="abc", subject="SPPF: GH-123", body="")],
-    )
-    monkeypatch.setattr(sppf_sync, "_issue_ids_from_commits", lambda commits: {"123"})
-    monkeypatch.setattr(
-        sppf_sync,
-        "_fetch_issue",
-        lambda issue_id: sppf_sync.IssueLifecycle(issue_id=issue_id, state="open", labels=()),
-    )
+    def _run_validate_mode(args):
+        return sppf_sync._run_validate_mode(
+            args,
+            default_range_fn=lambda: "origin/stage..HEAD",
+            is_sppf_relevant_push_fn=lambda _rev_range: True,
+            collect_commits_fn=lambda _rev_range: [
+                sppf_sync.CommitInfo(sha="abc", subject="SPPF: GH-123", body="")
+            ],
+            issue_ids_from_commits_fn=lambda _commits: {"123"},
+            validate_issue_lifecycle_fn=lambda issue_ids, *, required_labels, expected_state: sppf_sync._validate_issue_lifecycle(
+                issue_ids,
+                required_labels=required_labels,
+                expected_state=expected_state,
+                fetch_issue_fn=lambda issue_id: sppf_sync.IssueLifecycle(
+                    issue_id=issue_id,
+                    state="open",
+                    labels=(),
+                ),
+            ),
+        )
 
-    monkeypatch.setattr(
-        sppf_sync.sys,
-        "argv",
+    exit_code = sppf_sync.main(
         [
-            "sppf_sync.py",
             "--validate",
             "--only-when-relevant",
             "--require-label",
@@ -61,8 +70,8 @@ def test_main_validate_mode_fails_with_clear_remediation(
             "--require-label",
             "status/pending-release",
         ],
+        run_validate_mode_fn=_run_validate_mode,
     )
-    exit_code = sppf_sync.main()
     captured = capsys.readouterr().out
 
     assert exit_code == 1
@@ -70,11 +79,11 @@ def test_main_validate_mode_fails_with_clear_remediation(
     assert "GH-123: missing required label(s): done-on-stage, status/pending-release" in captured
 
 
-def test_fetch_issue_reports_missing_issue(monkeypatch: pytest.MonkeyPatch) -> None:
+# gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_fetch_issue_reports_missing_issue::sppf_sync.py::scripts.sppf_sync._fetch_issue
+def test_fetch_issue_reports_missing_issue() -> None:
     def _raise(*_args, **_kwargs):
         raise subprocess.CalledProcessError(returncode=1, cmd=["gh"])
 
-    monkeypatch.setattr(subprocess, "check_output", _raise)
     with pytest.raises(RuntimeError) as exc:
-        sppf_sync._fetch_issue("999")
+        sppf_sync._fetch_issue("999", check_output_fn=_raise)
     assert "GH-999: issue lookup failed" in str(exc.value)

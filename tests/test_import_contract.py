@@ -21,6 +21,7 @@ def _sys_path_insert_lines(path: Path) -> list[int]:
     return lines
 
 
+# gabion:evidence E:call_footprint::tests/test_import_contract.py::test_only_conftest_mutates_sys_path::test_import_contract.py::tests.test_import_contract._sys_path_insert_lines
 def test_only_conftest_mutates_sys_path() -> None:
     tests_dir = Path(__file__).resolve().parent
     allowed = tests_dir / "conftest.py"

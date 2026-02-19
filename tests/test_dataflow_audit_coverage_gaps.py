@@ -14,6 +14,7 @@ def _load():
     return da
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_merge_counts_by_knobs_skips_larger_superset_after_first_merge::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_counts_by_knobs::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_merge_counts_by_knobs_skips_larger_superset_after_first_merge() -> None:
     da = _load()
     counts = {
@@ -25,6 +26,7 @@ def test_merge_counts_by_knobs_skips_larger_superset_after_first_merge() -> None
     assert merged[("a", "k1")] >= 1
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_build_synthesis_plan_ignores_non_literal_const_hints::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_build_synthesis_plan_ignores_non_literal_const_hints(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -51,6 +53,7 @@ def test_build_synthesis_plan_ignores_non_literal_const_hints(tmp_path: Path) ->
     assert "protocols" in plan
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_render_synthesis_section_ignores_blank_field_names::dataflow_audit.py::gabion.analysis.dataflow_audit.render_synthesis_section::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_render_synthesis_section_ignores_blank_field_names() -> None:
     da = _load()
     plan = {
@@ -74,6 +77,7 @@ def test_render_synthesis_section_ignores_blank_field_names() -> None:
     assert "(no fields)" in text
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_invariant_proposition_and_projection_order_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._topologically_order_report_projection_specs::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_invariant_proposition_and_projection_order_edges() -> None:
     da = _load()
     assert da.InvariantProposition(form="Eq", terms=("a", "b")).as_dict() == {
@@ -121,6 +125,7 @@ def test_invariant_proposition_and_projection_order_edges() -> None:
     assert tuple(spec.section_id for spec in ordered) == ("a", "b", "c")
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_project_sections_and_invariant_helpers_misc_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._invariant_term::dataflow_audit.py::gabion.analysis.dataflow_audit._scope_path::dataflow_audit.py::gabion.analysis.dataflow_audit.project_report_sections::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_project_sections_and_invariant_helpers_misc_edges(tmp_path: Path) -> None:
     da = _load()
     report = da.ReportCarrier(forest=da.Forest())
@@ -148,6 +153,7 @@ def test_project_sections_and_invariant_helpers_misc_edges(tmp_path: Path) -> No
     assert da._scope_path(Path("/outside/mod.py"), root=tmp_path) == "/outside/mod.py"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_param_spans_deadline_reason_and_local_info_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_local_info::dataflow_audit.py::gabion.analysis.dataflow_audit._never_reason::dataflow_audit.py::gabion.analysis.dataflow_audit._param_spans::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_param_spans_deadline_reason_and_local_info_edges() -> None:
     da = _load()
     synthetic_fn = ast.FunctionDef(
@@ -193,6 +199,7 @@ def test_param_spans_deadline_reason_and_local_info_edges() -> None:
     assert local_info.alias_to_param["deadline"] == "deadline"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_deadline_collector_call_and_bind_args_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._bind_call_args::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_deadline_collector_call_and_bind_args_edges() -> None:
     da = _load()
     fn = ast.parse(
@@ -225,6 +232,7 @@ def test_deadline_collector_call_and_bind_args_edges() -> None:
     assert "named" in bound
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_deadline_collector_deadline_loop_iter_branches::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_deadline_collector_deadline_loop_iter_branches() -> None:
     da = _load()
     fn = ast.parse(
@@ -248,6 +256,7 @@ def test_deadline_collector_deadline_loop_iter_branches() -> None:
     assert collector.ambient_check is True
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_load_analysis_index_resume_payload_edge_shapes::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_index_resume_payload::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_load_analysis_index_resume_payload_edge_shapes(tmp_path: Path) -> None:
     da = _load()
     file_path = tmp_path / "mod.py"
@@ -268,6 +277,7 @@ def test_load_analysis_index_resume_payload_edge_shapes(tmp_path: Path) -> None:
     assert class_index == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_load_analysis_index_resume_payload_hydrates_valid_sections::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_index_resume_payload::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_load_analysis_index_resume_payload_hydrates_valid_sections(tmp_path: Path) -> None:
     da = _load()
     file_path = tmp_path / "mod.py"
@@ -326,6 +336,7 @@ def test_load_analysis_index_resume_payload_hydrates_valid_sections(tmp_path: Pa
     assert set(class_index) == {"mod.C"}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_scope_path_relative_and_none_root_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._scope_path::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_scope_path_relative_and_none_root_edges(tmp_path: Path) -> None:
     da = _load()
     inside = tmp_path / "pkg" / "mod.py"
@@ -335,6 +346,7 @@ def test_scope_path_relative_and_none_root_edges(tmp_path: Path) -> None:
     assert da._scope_path(inside, None).endswith("pkg/mod.py")
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_resolve_local_method_in_hierarchy_recurses_to_base::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_local_method_in_hierarchy::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_resolve_local_method_in_hierarchy_recurses_to_base() -> None:
     da = _load()
     resolved = da._resolve_local_method_in_hierarchy(
@@ -347,6 +359,7 @@ def test_resolve_local_method_in_hierarchy_recurses_to_base() -> None:
     assert resolved == "Base.act"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_fallback_deadline_arg_info_skips_vararg_kwarg_when_absent::dataflow_audit.py::gabion.analysis.dataflow_audit._fallback_deadline_arg_info::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_fallback_deadline_arg_info_skips_vararg_kwarg_when_absent() -> None:
     da = _load()
     call = da.CallArgs(
@@ -380,6 +393,7 @@ def test_fallback_deadline_arg_info_skips_vararg_kwarg_when_absent() -> None:
     assert set(info_map) == set()
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_analyze_decision_surface_indexed_lint_none_paths::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_decision_surface_indexed::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_analyze_decision_surface_indexed_lint_none_paths(tmp_path: Path) -> None:
     da = _load()
     fn = da.FunctionInfo(
@@ -434,6 +448,7 @@ def test_analyze_decision_surface_indexed_lint_none_paths(tmp_path: Path) -> Non
     assert lint_lines2 == []
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_exception_obligations_dead_reachability_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_exception_obligations_dead_reachability_branch(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -463,6 +478,7 @@ def test_collect_exception_obligations_dead_reachability_branch(tmp_path: Path) 
     assert obligations[0]["status"] == "DEAD"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_build_synthesis_plan_duplicate_counts_and_hint_branches::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_build_synthesis_plan_duplicate_counts_and_hint_branches(tmp_path: Path) -> None:
     da = _load()
     module = tmp_path / "mod.py"
@@ -492,6 +508,39 @@ def test_build_synthesis_plan_duplicate_counts_and_hint_branches(tmp_path: Path)
     assert "protocols" in plan
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_build_synthesis_plan_handles_empty_bundle_memberless_merge_branch::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_build_synthesis_plan_handles_empty_bundle_memberless_merge_branch(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module = tmp_path / "mod.py"
+    module.write_text(
+        "def first(x):\n"
+        "    return x\n"
+        "\n"
+        "def second(x):\n"
+        "    return x\n",
+        encoding="utf-8",
+    )
+    groups_by_path = {
+        module: {
+            "first": [set(), {"x"}],
+            "second": [{"x"}],
+        }
+    }
+    plan = da.build_synthesis_plan(
+        groups_by_path,
+        project_root=tmp_path,
+        min_bundle_size=0,
+        allow_singletons=True,
+        merge_overlap_threshold=0.5,
+    )
+    intern = plan.get("forest_signature", {}).get("nodes", {}).get("intern", [])
+    assert ["ParamSet", []] in intern
+    assert any(protocol.get("bundle") == ["x"] for protocol in plan["protocols"])
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_project_report_sections_phase_and_preview_branches::dataflow_audit.py::gabion.analysis.dataflow_audit.project_report_sections::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_project_report_sections_phase_and_preview_branches() -> None:
     da = _load()
     report = da.ReportCarrier(forest=da.Forest(), constant_smells=["const smell"])
@@ -513,12 +562,14 @@ def test_project_report_sections_phase_and_preview_branches() -> None:
     assert selected_without_max
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_invariant_term_len_call_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._invariant_term::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_invariant_term_len_call_branch() -> None:
     da = _load()
     term = da._invariant_term(ast.parse("len(flag)").body[0].value, {"flag"})
     assert term == "flag.length"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_resolve_local_method_in_hierarchy_unresolved_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_local_method_in_hierarchy::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_resolve_local_method_in_hierarchy_unresolved_branch() -> None:
     da = _load()
     resolved = da._resolve_local_method_in_hierarchy(
@@ -531,6 +582,7 @@ def test_resolve_local_method_in_hierarchy_unresolved_branch() -> None:
     assert resolved is None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_deadline_local_info_multi_source_alias_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_local_info::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_deadline_local_info_multi_source_alias_edges() -> None:
     da = _load()
     origin_call = ast.Call(
@@ -557,6 +609,7 @@ def test_collect_deadline_local_info_multi_source_alias_edges() -> None:
     assert "from_origin" in local_info.origin_vars
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_summarize_never_invariants_evidence_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_summarize_never_invariants_evidence_edges() -> None:
     da = _load()
     entries = [
@@ -580,6 +633,7 @@ def test_summarize_never_invariants_evidence_edges() -> None:
     assert any("deadness=dead:1" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_load_analysis_index_resume_payload_non_mapping_sections::dataflow_audit.py::gabion.analysis.dataflow_audit._load_analysis_index_resume_payload::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_load_analysis_index_resume_payload_non_mapping_sections(tmp_path: Path) -> None:
     da = _load()
     file_path = tmp_path / "mod.py"
@@ -600,6 +654,7 @@ def test_load_analysis_index_resume_payload_non_mapping_sections(tmp_path: Path)
     assert class_index == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_verify_rewrite_plan_verification_and_remainder_edges::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_verify_rewrite_plan_verification_and_remainder_edges() -> None:
     da = _load()
     plan = {
@@ -624,6 +679,7 @@ def test_verify_rewrite_plan_verification_and_remainder_edges() -> None:
     assert result["accepted"] is True
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_eval_bool_expr_or_gte_and_branch_reachability_else_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._branch_reachability_under_env::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_bool_expr::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_eval_bool_expr_or_gte_and_branch_reachability_else_edges() -> None:
     da = _load()
     or_expr = ast.parse("a or b").body[0].value
@@ -648,6 +704,7 @@ def test_eval_bool_expr_or_gte_and_branch_reachability_else_edges() -> None:
     assert reach is False
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_all_assignment_none_values_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_module_exports_all_assignment_none_values_edges() -> None:
     da = _load()
     tree = ast.parse(
@@ -664,6 +721,7 @@ def test_collect_module_exports_all_assignment_none_values_edges() -> None:
     assert export_map.get("public") == "pkg.mod.public"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_annassign_and_augassign_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_module_exports_annassign_and_augassign_edges() -> None:
     da = _load()
     tree = ast.parse(
@@ -681,6 +739,7 @@ def test_collect_module_exports_annassign_and_augassign_edges() -> None:
     assert "second" in exports
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_accumulate_function_index_vararg_and_kwarg_ignored::dataflow_audit.py::gabion.analysis.dataflow_audit._accumulate_function_index_for_tree::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_accumulate_function_index_vararg_and_kwarg_ignored() -> None:
     da = _load()
     tree = ast.parse("def f(*skip_a, **skip_k):\n    return 1\n")
@@ -699,6 +758,7 @@ def test_accumulate_function_index_vararg_and_kwarg_ignored() -> None:
     assert info.kwarg is None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_bundle_name_registry_non_empty_keys::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_name_registry::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_bundle_name_registry_non_empty_keys(tmp_path: Path) -> None:
     da = _load()
     (tmp_path / "mod.py").write_text(
@@ -717,6 +777,7 @@ def test_bundle_name_registry_non_empty_keys(tmp_path: Path) -> None:
     assert ("value",) in registry
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_bundle_projection_skips_empty_evidence_paths::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_bundle_projection_skips_empty_evidence_paths(tmp_path: Path) -> None:
     da = _load()
     forest = da.Forest()
@@ -734,6 +795,7 @@ def test_bundle_projection_skips_empty_evidence_paths(tmp_path: Path) -> None:
     assert projection.documented_by_path == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_render_mermaid_component_empty_component_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._render_mermaid_component::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_render_mermaid_component_empty_component_branch() -> None:
     da = _load()
     mermaid, summary = da._render_mermaid_component(
@@ -750,11 +812,13 @@ def test_render_mermaid_component_empty_component_branch() -> None:
     assert "Observed bundles:" in summary
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_split_top_level_empty_part_and_tail_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._split_top_level::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_split_top_level_empty_part_and_tail_edges() -> None:
     da = _load()
     assert da._split_top_level("a,,", ",") == ["a"]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_summarize_never_invariants_missing_evidence_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_summarize_never_invariants_missing_evidence_branches() -> None:
     da = _load()
     entries = [
@@ -777,6 +841,7 @@ def test_summarize_never_invariants_missing_evidence_branches() -> None:
     assert any("witness=w:1" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_resolve_callee_self_and_hierarchy_none_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_resolve_callee_self_and_hierarchy_none_branches(tmp_path: Path) -> None:
     da = _load()
     caller = da.FunctionInfo(
@@ -836,6 +901,7 @@ def test_resolve_callee_self_and_hierarchy_none_branches(tmp_path: Path) -> None
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_iter_dataclass_call_bundles_assign_and_attribute_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_iter_dataclass_call_bundles_assign_and_attribute_branches(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -870,6 +936,7 @@ def test_iter_dataclass_call_bundles_assign_and_attribute_branches(tmp_path: Pat
     assert ("a", "b") in bundles
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_analyze_decision_surface_indexed_missing_tier_without_require::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_decision_surface_indexed::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_analyze_decision_surface_indexed_missing_tier_without_require(tmp_path: Path) -> None:
     da = _load()
     fn = da.FunctionInfo(
@@ -911,6 +978,7 @@ def test_analyze_decision_surface_indexed_missing_tier_without_require(tmp_path:
     assert lint_lines == []
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_project_report_sections_preview_selects_non_empty_preview::dataflow_audit.py::gabion.analysis.dataflow_audit.project_report_sections::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_project_report_sections_preview_selects_non_empty_preview(tmp_path: Path) -> None:
     da = _load()
     report = da.ReportCarrier(
@@ -930,6 +998,7 @@ def test_project_report_sections_preview_selects_non_empty_preview(tmp_path: Pat
     assert any("known_violations" in line for line in projected["violations"])
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_internal_broad_type_lint_lines_indexed_appends_multiple::dataflow_audit.py::gabion.analysis.dataflow_audit._internal_broad_type_lint_lines_indexed::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_internal_broad_type_lint_lines_indexed_appends_multiple(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -965,6 +1034,7 @@ def test_internal_broad_type_lint_lines_indexed_appends_multiple(tmp_path: Path)
     assert all("GABION_BROAD_TYPE" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_raw_sorted_contract_violations_multi_path_exceeded_loop::dataflow_audit.py::gabion.analysis.dataflow_audit._raw_sorted_baseline_key::dataflow_audit.py::gabion.analysis.dataflow_audit._raw_sorted_contract_violations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_raw_sorted_contract_violations_multi_path_exceeded_loop(tmp_path: Path) -> None:
     da = _load()
     left = tmp_path / "a.py"
@@ -984,6 +1054,7 @@ def test_raw_sorted_contract_violations_multi_path_exceeded_loop(tmp_path: Path)
     assert all("raw_sorted exceeded baseline" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_warning_provenance_and_rewrite_verification_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_fingerprint_warning_provenance_and_rewrite_verification_edges() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -1033,12 +1104,14 @@ def test_fingerprint_warning_provenance_and_rewrite_verification_edges() -> None
     assert isinstance(verified.get("accepted"), bool)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_invariant_term_len_with_non_param_argument_returns_none::dataflow_audit.py::gabion.analysis.dataflow_audit._invariant_term::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_invariant_term_len_with_non_param_argument_returns_none() -> None:
     da = _load()
     expr = ast.parse("len(1)").body[0].value
     assert da._invariant_term(expr, {"data"}) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_parameter_default_map_multiple_defaults_runs_single_check_once::dataflow_audit.py::gabion.analysis.dataflow_audit._parameter_default_map::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_parameter_default_map_multiple_defaults_runs_single_check_once() -> None:
     da = _load()
     fn = ast.parse("def f(a=1, b=2):\n    return a + b\n").body[0]
@@ -1046,6 +1119,7 @@ def test_parameter_default_map_multiple_defaults_runs_single_check_once() -> Non
     assert set(mapping) == {"a", "b"}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_raw_sorted_contract_violations_mixed_baseline_paths::dataflow_audit.py::gabion.analysis.dataflow_audit._raw_sorted_baseline_key::dataflow_audit.py::gabion.analysis.dataflow_audit._raw_sorted_contract_violations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_raw_sorted_contract_violations_mixed_baseline_paths(tmp_path: Path) -> None:
     da = _load()
     first = tmp_path / "first.py"
@@ -1065,6 +1139,7 @@ def test_raw_sorted_contract_violations_mixed_baseline_paths(tmp_path: Path) -> 
     assert "raw_sorted exceeded baseline" in lines[0]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_provenance_index_lookup_and_types_summary_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_fingerprint_provenance_index_lookup_and_types_summary_branch() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -1086,12 +1161,14 @@ def test_fingerprint_provenance_index_lookup_and_types_summary_branch() -> None:
     assert any("base=" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_eval_value_expr_unary_non_numeric_and_parse_range_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_value_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_eval_value_expr_unary_non_numeric_and_parse_range_branch() -> None:
     da = _load()
     assert da._eval_value_expr(ast.parse("-'x'").body[0].value, {}) is None
     assert da._parse_lint_location("a.py:1:2:-3:4: GABION_X message") is not None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_exception_obligations_names_loop_without_env_match::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_exception_obligations_names_loop_without_env_match(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "m.py"
@@ -1120,6 +1197,7 @@ def test_collect_exception_obligations_names_loop_without_env_match(tmp_path: Pa
     assert obligations and obligations[0]["status"] in {"UNKNOWN", "DEAD"}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_call_resolution_obligations_invalid_span_list_raises::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligations_from_forest::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_call_resolution_obligations_invalid_span_list_raises() -> None:
     da = _load()
     forest = da.Forest()
@@ -1140,11 +1218,13 @@ def test_collect_call_resolution_obligations_invalid_span_list_raises() -> None:
         da._collect_call_resolution_obligations_from_forest(forest)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_recursive_nodes_singleton_self_loop_false_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_recursive_nodes::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_recursive_nodes_singleton_self_loop_false_branch() -> None:
     da = _load()
     assert da._collect_recursive_nodes({"a": set()}) == set()
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_analysis_index_resolved_edges_by_caller_require_transparent_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_resolved_call_edges_by_caller::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_analysis_index_resolved_edges_by_caller_require_transparent_branch() -> None:
     da = _load()
     index = da.AnalysisIndex(
@@ -1164,6 +1244,7 @@ def test_analysis_index_resolved_edges_by_caller_require_transparent_branch() ->
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_bundle_evidence_lines_with_component_evidence::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_bundle_evidence_lines::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_bundle_evidence_lines_with_component_evidence() -> None:
     da = _load()
     forest = da.Forest()
@@ -1193,6 +1274,7 @@ def test_collect_bundle_evidence_lines_with_component_evidence() -> None:
     assert lines
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_class_index_and_resolve_candidates_with_symbol_table_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._accumulate_class_index_for_tree::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_class_index_and_resolve_candidates_with_symbol_table_branches() -> None:
     da = _load()
     tree = ast.parse("class C(A, B):\n    pass\n")
@@ -1215,6 +1297,7 @@ def test_class_index_and_resolve_candidates_with_symbol_table_branches() -> None
     assert "pkg.Base" in resolved
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_module_exports_augassign_initializes_explicit_all::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_module_exports_augassign_initializes_explicit_all() -> None:
     da = _load()
     exports, _ = da._collect_module_exports(
@@ -1225,6 +1308,7 @@ def test_collect_module_exports_augassign_initializes_explicit_all() -> None:
     assert "x" in exports
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_render_reuse_stubs_and_refactor_plan_order_branches::dataflow_audit.py::gabion.analysis.dataflow_audit.render_refactor_plan::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_render_reuse_stubs_and_refactor_plan_order_branches() -> None:
     da = _load()
     reuse = {
@@ -1251,6 +1335,7 @@ def test_render_reuse_stubs_and_refactor_plan_order_branches() -> None:
     assert "Order (callee-first):" in text
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_eval_expr_and_branch_reachability_else_constraint_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._branch_reachability_under_env::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_bool_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_value_expr::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_eval_expr_and_branch_reachability_else_constraint_edges() -> None:
     da = _load()
     assert da._eval_value_expr(ast.parse("+2").body[0].value, {}) == 2
@@ -1276,6 +1361,7 @@ def test_eval_expr_and_branch_reachability_else_constraint_edges() -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_exception_obligations_dead_env_name_filter_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_collect_exception_obligations_dead_env_name_filter_branches(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "dead_env.py"
@@ -1316,6 +1402,7 @@ def test_collect_exception_obligations_dead_env_name_filter_branches(tmp_path: P
     assert any(entry.get("status") in {"DEAD", "UNKNOWN"} for entry in obligations)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_deadline_local_info_call_resolution_and_recursive_node_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligations_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_local_info::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_recursive_nodes::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_deadline_local_info_call_resolution_and_recursive_node_edges() -> None:
     da = _load()
     fn = ast.parse(
@@ -1345,6 +1432,7 @@ def test_deadline_local_info_call_resolution_and_recursive_node_edges() -> None:
     assert da._collect_recursive_nodes({"a": set()}) == set()
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_bind_call_args_classify_deadline_and_forward_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._bind_call_args::dataflow_audit.py::gabion.analysis.dataflow_audit._classify_deadline_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._deadline_loop_forwarded_params::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_bind_call_args_classify_deadline_and_forward_edges() -> None:
     da = _load()
     call = ast.parse("fn(1, extra=2, extra2=3)").body[0].value
@@ -1400,6 +1488,7 @@ def test_bind_call_args_classify_deadline_and_forward_edges() -> None:
     ) == {"deadline"}
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_deadline_summary_parse_location_and_lint_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._deadline_lint_lines::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_deadline_obligations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_deadline_summary_parse_location_and_lint_edges() -> None:
     da = _load()
     forest = da.Forest()
@@ -1428,6 +1517,7 @@ def test_deadline_summary_parse_location_and_lint_edges() -> None:
     assert parsed[0] == "a.py"
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_build_module_artifacts_and_lint_helper_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._build_module_artifacts::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_call_ambiguities::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_constant_smells::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_build_module_artifacts_and_lint_helper_edges(tmp_path: Path) -> None:
     da = _load()
     first = tmp_path / "a.py"
@@ -1459,6 +1549,7 @@ def test_build_module_artifacts_and_lint_helper_edges(tmp_path: Path) -> None:
     assert const_lines and "GABION_CONST_FLOW" in const_lines[0]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_materialize_structured_suites_populate_runtime_and_exports_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_structured_suite_sites_for_tree::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_runtime_obligations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_materialize_structured_suites_populate_runtime_and_exports_edges(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -1507,6 +1598,7 @@ def test_materialize_structured_suites_populate_runtime_and_exports_edges(tmp_pa
     assert "a" in exports
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_class_resolution_type_flow_and_refactor_render_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._constant_smells_from_details::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_type_flow::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_class_resolution_type_flow_and_refactor_render_edges(tmp_path: Path) -> None:
     da = _load()
     # _resolve_class_candidates dotted + module path branch.
@@ -1638,6 +1730,7 @@ def test_class_resolution_type_flow_and_refactor_render_edges(tmp_path: Path) ->
     assert "int" in mermaid and "str" in mermaid
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_scope_normalization_and_timeout_cleanup_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_deadline_scope::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_scope_normalization_and_timeout_cleanup_edges(tmp_path: Path) -> None:
     da = _load()
     assert da._normalize_transparent_decorators(["  a,b  "]) == {"a", "b"}
@@ -1674,6 +1767,7 @@ def test_scope_normalization_and_timeout_cleanup_edges(tmp_path: Path) -> None:
     assert timed_out is True
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_scalar_helpers::dataflow_audit.py::gabion.analysis.dataflow_audit._invariant_term::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_transparent_decorators::dataflow_audit.py::gabion.analysis.dataflow_audit._parameter_default_map::dataflow_audit.py::gabion.analysis.dataflow_audit._parse_lint_location::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_scalar_helpers() -> None:
     da = _load()
     # _invariant_term outer conditional false path.
@@ -1692,6 +1786,7 @@ def test_additional_branch_edges_scalar_helpers() -> None:
     assert da._normalize_transparent_decorators(123) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_fingerprint_and_rewrite::dataflow_audit.py::gabion.analysis.dataflow_audit._branch_reachability_under_env::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_provenance::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_fingerprint_provenance::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_fingerprint_and_rewrite() -> None:
     da = _load()
     path = Path("pkg/mod.py")
@@ -1765,6 +1860,7 @@ def test_additional_branch_edges_fingerprint_and_rewrite() -> None:
     assert da._branch_reachability_under_env(if_node.test, parent.parents, {"cond": True}) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_flow_and_render::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_deadline_scope::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_resolved_call_edges_by_caller::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_bundle_evidence_lines::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligations_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_local_info::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_flow_and_render(tmp_path: Path) -> None:
     da = _load()
     # _DeadlineFunctionCollector elif non-name/non-attribute branch.
@@ -1851,6 +1947,7 @@ def test_additional_branch_edges_flow_and_render(tmp_path: Path) -> None:
             raise RuntimeError("boom")
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_reporting_and_exports::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_runtime_obligations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_reporting_and_exports(tmp_path: Path) -> None:
     da = _load()
     # _summarize_runtime_obligations with empty detail branch.
@@ -1879,6 +1976,7 @@ def test_additional_branch_edges_reporting_and_exports(tmp_path: Path) -> None:
     assert "Type ambiguities" in markdown
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_structure_materialization::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_structured_suite_sites_for_tree::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_structure_materialization(tmp_path: Path) -> None:
     da = _load()
     path = tmp_path / "mod.py"
@@ -1928,6 +2026,7 @@ def test_additional_branch_edges_structure_materialization(tmp_path: Path) -> No
     assert forest.alts
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_class_and_call_resolution::dataflow_audit.py::gabion.analysis.dataflow_audit._accumulate_class_index_for_tree::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_class_and_call_resolution(tmp_path: Path) -> None:
     da = _load()
     # _accumulate_class_index_for_tree base_name false path.
@@ -2009,6 +2108,7 @@ def test_additional_branch_edges_class_and_call_resolution(tmp_path: Path) -> No
     ) is target
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_flow_and_registry::dataflow_audit.py::gabion.analysis.dataflow_audit._constant_smells_from_details::dataflow_audit.py::gabion.analysis.dataflow_audit._dataclass_registry_for_tree::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_type_flow::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_config_fields::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataflow_audit.py::gabion.analysis.dataflow_audit._paramset_key::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_flow_and_registry(tmp_path: Path) -> None:
     da = _load()
     # _infer_type_flow changed-loop branch.
@@ -2128,6 +2228,7 @@ def test_additional_branch_edges_flow_and_registry(tmp_path: Path) -> None:
     assert da._paramset_key(forest, paramset) == tuple(str(p) for p in paramset.key)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_additional_branch_edges_rendering_variants::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::dataflow_audit.py::gabion.analysis.dataflow_audit.render_refactor_plan::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_additional_branch_edges_rendering_variants() -> None:
     da = _load()
     # compute_structure_reuse basic branch.
@@ -2155,6 +2256,7 @@ def test_additional_branch_edges_rendering_variants() -> None:
     assert "int" in mermaid and "str" in mermaid
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_lint_and_projection_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._build_module_artifacts::dataflow_audit.py::gabion.analysis.dataflow_audit._deadline_lint_lines::dataflow_audit.py::gabion.analysis.dataflow_audit._lint_lines_from_call_ambiguities::dataflow_audit.py::gabion.analysis.dataflow_audit._span_line_col::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_branch_shifted_lint_and_projection_edges(tmp_path: Path) -> None:
     da = _load()
     # _span_line_col helper + _deadline_lint_lines invalid span shape.
@@ -2215,6 +2317,7 @@ def test_branch_shifted_lint_and_projection_edges(tmp_path: Path) -> None:
     assert artifacts == (("m.py:1", "m.py:1"),)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_rewrite_and_resolution_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._bind_call_args::dataflow_audit.py::gabion.analysis.dataflow_audit._classify_deadline_expr::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings::dataflow_audit.py::gabion.analysis.dataflow_audit._deadline_loop_forwarded_params::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_branch_shifted_rewrite_and_resolution_edges(tmp_path: Path) -> None:
     da = _load()
     # verify_rewrite_plan non-dict verification payload (normalized fallback).
@@ -2376,6 +2479,7 @@ def test_branch_shifted_rewrite_and_resolution_edges(tmp_path: Path) -> None:
     assert warnings and "missing glossary match" in warnings[0]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_flow_and_obligation_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_unused_arg_flow_indexed::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_constant_flow_details::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_type_flow::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_branch_shifted_flow_and_obligation_edges(tmp_path: Path) -> None:
     da = _load()
     mod = tmp_path / "mod.py"
@@ -2617,6 +2721,7 @@ def test_branch_shifted_flow_and_obligation_edges(tmp_path: Path) -> None:
     assert any(":caller_unused passes param x" in entry for entry in smells)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_branch_shifted_exports_refactor_and_scope_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_deadline_scope::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_config_bundles::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_module_exports::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::dataflow_audit.py::gabion.analysis.dataflow_audit.build_refactor_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_branch_shifted_exports_refactor_and_scope_edges(tmp_path: Path) -> None:
     da = _load()
     # _collect_module_exports __all__ value parse miss branches.
@@ -2710,6 +2815,7 @@ def test_branch_shifted_exports_refactor_and_scope_edges(tmp_path: Path) -> None
         da.check_deadline()
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_write_output_helpers_cover_stdout_and_file::dataflow_audit.py::gabion.analysis.dataflow_audit._write_json_or_stdout::dataflow_audit.py::gabion.analysis.dataflow_audit._write_text_or_stdout::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_write_output_helpers_cover_stdout_and_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     da = _load()
     text_path = tmp_path / "out.txt"
@@ -2729,6 +2835,7 @@ def test_write_output_helpers_cover_stdout_and_file(tmp_path: Path, capsys: pyte
     assert '"b": 2' in json_path.read_text(encoding="utf-8")
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_has_followup_actions_variants::dataflow_audit.py::gabion.analysis.dataflow_audit._has_followup_actions::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 @pytest.mark.parametrize(
     (
         "kwargs",
@@ -2778,6 +2885,7 @@ def test_has_followup_actions_variants(
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_emit_sidecar_outputs_dispatches_expected_paths::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_sidecar_outputs::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_emit_sidecar_outputs_dispatches_expected_paths(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -2856,6 +2964,7 @@ def test_emit_sidecar_outputs_dispatches_expected_paths(
     assert not synth_skip.exists()
     assert not prov_skip.exists()
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_materialize_call_candidates_distinguishes_dynamic_unresolved::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_materialize_call_candidates_distinguishes_dynamic_unresolved() -> None:
     da = _load()
     caller = da.FunctionInfo(
@@ -2922,6 +3031,7 @@ def test_materialize_call_candidates_distinguishes_dynamic_unresolved() -> None:
     assert len([alt for alt in forest.alts if alt.kind == "CallCandidate"]) == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_call_resolution_obligation_evidence_returns_empty_on_mismatch::dataflow_audit.py::gabion.analysis.dataflow_audit._call_resolution_obligation_evidence::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
 def test_call_resolution_obligation_evidence_returns_empty_on_mismatch() -> None:
     da = _load()
     forest = da.Forest()
@@ -2940,6 +3050,7 @@ def test_call_resolution_obligation_evidence_returns_empty_on_mismatch() -> None
         == {}
     )
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_rewrite_plans_emit_extended_kinds_with_proof_payloads::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_coherence::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans
 def test_fingerprint_rewrite_plans_emit_extended_kinds_with_proof_payloads() -> None:
     provenance_entries = [
         {
@@ -2980,3 +3091,748 @@ def test_fingerprint_rewrite_plans_emit_extended_kinds_with_proof_payloads() -> 
     ambient_plan = by_kind["AMBIENT_REWRITE"]
     assert ambient_plan["post_expectation"]["ambient_normalized"] is True
     assert any(p.get("kind") == "remainder_non_regression" for p in ambient_plan["verification"]["predicates"])
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_helper_branches_never_and_exception_annotations::dataflow_audit.py::gabion.analysis.dataflow_audit._annotation_exception_candidates::dataflow_audit.py::gabion.analysis.dataflow_audit._callee_key::dataflow_audit.py::gabion.analysis.dataflow_audit._enclosing_function_node::dataflow_audit.py::gabion.analysis.dataflow_audit._handler_is_broad::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_call::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_marker_raise::dataflow_audit.py::gabion.analysis.dataflow_audit._never_sort_key::dataflow_audit.py::gabion.analysis.dataflow_audit._refine_exception_name_from_annotations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_helper_branches_never_and_exception_annotations() -> None:
+    da = _load()
+
+    lambda_call = ast.parse("(lambda x: x)(1)").body[0].value
+    assert da._is_never_call(lambda_call) is False
+    assert da._is_never_marker_raise("never", "ValueError", {"TypeError"}) is False
+
+    key = da._never_sort_key(
+        {
+            "status": "VIOLATION",
+            "site": {"path": "a.py", "function": "f"},
+            "span": ["bad", object(), 0, 1],
+        }
+    )
+    assert key[3] == -1
+    assert key[4] == -1
+
+    assert da._enclosing_function_node(ast.parse("x = 1").body[0], {}) is None
+    assert da._annotation_exception_candidates("List[") == ()
+    assert "ValueError" in da._annotation_exception_candidates("typing.ValueError")
+
+    exception_name, source, candidates = da._refine_exception_name_from_annotations(
+        ast.parse("err").body[0].value,
+        param_annotations={"err": "ValueError"},
+    )
+    assert exception_name == "ValueError"
+    assert source == "PARAM_ANNOTATION"
+    assert candidates == ("ValueError",)
+
+    handler = ast.parse("try:\n    pass\nexcept:\n    pass\n").body[0].handlers[0]
+    assert da._handler_is_broad(handler) is True
+    assert da._callee_key("") == ""
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_collect_handledness_and_exception_obligation_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_handledness_witnesses::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_collect_handledness_and_exception_obligation_branches(tmp_path: Path) -> None:
+    da = _load()
+    bad = tmp_path / "bad.py"
+    bad.write_text("def broken(:\n", encoding="utf-8")
+    mod = tmp_path / "mod.py"
+    mod.write_text("raise SystemExit(1)\n", encoding="utf-8")
+
+    witnesses = da._collect_handledness_witnesses(
+        [bad, mod],
+        project_root=tmp_path,
+        ignore_params=set(),
+    )
+    assert any(entry.get("handledness_reason_code") == "SYSTEM_EXIT_CONVERT" for entry in witnesses)
+    assert any(entry.get("site", {}).get("function") == "<module>" for entry in witnesses)
+
+    obligations = da._collect_exception_obligations(
+        [bad, mod],
+        project_root=tmp_path,
+        ignore_params=set(),
+    )
+    assert obligations
+    assert any(entry.get("site", {}).get("function") == "<module>" for entry in obligations)
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_never_invariant_branches_and_keyword_reason::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_never_invariants::dataflow_audit.py::gabion.analysis.dataflow_audit._never_reason::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_never_invariant_branches_and_keyword_reason(tmp_path: Path) -> None:
+    da = _load()
+
+    class _FalseyEnv(dict[str, str]):
+        def __bool__(self) -> bool:
+            return False
+
+    broken = tmp_path / "broken.py"
+    broken.write_text("def bad(:\n", encoding="utf-8")
+    mod = tmp_path / "never_mod.py"
+    mod.write_text(
+        "def f(flag, extra, mystery):\n"
+        "    if flag and extra:\n"
+        "        gabion.never(reason='kw')\n"
+        "    if mystery:\n"
+        "        gabion.never('plain')\n"
+        "\n"
+        "gabion.never(reason='module')\n",
+        encoding="utf-8",
+    )
+
+    deadness = [
+        {
+            "path": "never_mod.py",
+            "function": "f",
+            "bundle": ["flag"],
+            "environment": _FalseyEnv({"flag": "False"}),
+            "deadness_id": "dead:f:flag",
+        }
+    ]
+    entries = da._collect_never_invariants(
+        [broken, mod],
+        project_root=tmp_path,
+        ignore_params=set(),
+        forest=da.Forest(),
+        deadness_witnesses=deadness,
+    )
+
+    assert any(entry.get("site", {}).get("function") == "<module>" for entry in entries)
+    assert any(entry.get("reason") == "kw" for entry in entries)
+    assert any(
+        entry.get("status") == "PROVEN_UNREACHABLE"
+        and entry.get("environment_ref") == {"flag": False}
+        for entry in entries
+    )
+    assert any(
+        entry.get("status") == "OBLIGATION" and entry.get("undecidable_reason")
+        for entry in entries
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_deadline_obligation_control_flow_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_deadline_obligation_control_flow_branches(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "module.py"
+    path.write_text("def marker():\n    return 1\n", encoding="utf-8")
+
+    def _info(qual: str, *, params: list[str], annots: dict[str, str | None]) -> da.FunctionInfo:
+        return da.FunctionInfo(
+            name=qual.split(".")[-1],
+            qual=qual,
+            path=path,
+            params=params,
+            annots=annots,
+            calls=[],
+            unused_params=set(),
+            function_span=(1, 0, 1, 6),
+            param_spans={"deadline": (1, 0, 1, 8)} if "deadline" in params else {},
+        )
+
+    info_q1 = _info("pkg.q1", params=[], annots={})
+    info_q2 = _info("pkg.q2", params=[], annots={})
+    info_q3 = _info("pkg.q3", params=["deadline"], annots={"deadline": "Deadline"})
+    index = da.AnalysisIndex(
+        by_name={
+            "q1": [info_q1],
+            "q2": [info_q2],
+            "q3": [info_q3],
+        },
+        by_qual={
+            info_q1.qual: info_q1,
+            info_q2.qual: info_q2,
+            info_q3.qual: info_q3,
+        },
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    local = da._DeadlineLocalInfo(origin_vars=set(), origin_spans={}, alias_to_param={})
+    facts_q1 = da._DeadlineFunctionFacts(
+        path=path,
+        qual=info_q1.qual,
+        span=(1, 0, 1, 1),
+        loop=True,
+        check_params=set(),
+        ambient_check=False,
+        loop_sites=[da._DeadlineLoopFacts(span=(1, 0, 1, 1), kind="loop", ambient_check=False)],
+        local_info=local,
+    )
+    facts_q2 = da._DeadlineFunctionFacts(
+        path=path,
+        qual=info_q2.qual,
+        span=(1, 0, 1, 1),
+        loop=False,
+        check_params=set(),
+        ambient_check=True,
+        loop_sites=[],
+        local_info=local,
+    )
+    facts_q3 = da._DeadlineFunctionFacts(
+        path=path,
+        qual=info_q3.qual,
+        span=(1, 0, 1, 1),
+        loop=False,
+        check_params=set(),
+        ambient_check=True,
+        loop_sites=[],
+        local_info=local,
+    )
+    recursive_nodes = {
+        da._function_suite_id(da._function_suite_key(path.name, info_q1.qual)),
+        da._function_suite_id(da._function_suite_key(path.name, info_q2.qual)),
+        da._function_suite_id(da._function_suite_key(path.name, info_q3.qual)),
+    }
+    obligations = da._collect_deadline_obligations(
+        [path],
+        project_root=tmp_path,
+        config=da.AuditConfig(project_root=tmp_path, deadline_roots={"pkg.root"}),
+        forest=da.Forest(),
+        parse_failure_witnesses=[],
+        analysis_index=index,
+        extra_facts_by_qual={
+            info_q1.qual: facts_q1,
+            info_q2.qual: facts_q2,
+            info_q3.qual: facts_q3,
+            "pkg.none": None,  # type: ignore[dict-item]
+        },
+        materialize_call_candidates_fn=lambda **_kwargs: None,
+        collect_call_nodes_by_path_fn=lambda *_args, **_kwargs: {},
+        collect_deadline_function_facts_fn=lambda *_args, **_kwargs: {},
+        collect_call_edges_from_forest_fn=lambda *_args, **_kwargs: {},
+        collect_call_resolution_obligations_from_forest_fn=lambda *_args, **_kwargs: [],
+        reachable_from_roots_fn=lambda *_args, **_kwargs: set(),
+        collect_recursive_nodes_fn=lambda *_args, **_kwargs: recursive_nodes,
+        resolve_callee_outcome_fn=lambda *_args, **_kwargs: da._CalleeResolutionOutcome(
+            "unresolved_internal",
+            "unresolved_internal",
+            "",
+            (),
+        ),
+    )
+    assert any(
+        entry.get("site", {}).get("function") == info_q1.qual
+        and entry.get("kind") == "missing_carrier"
+        for entry in obligations
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_summary_warning_and_lint_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_transitive_callers::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_lint_lines::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_protocol_warnings::dataflow_audit.py::gabion.analysis.dataflow_audit._extract_smell_sample::dataflow_audit.py::gabion.analysis.dataflow_audit._forbid_adhoc_bundle_discovery::dataflow_audit.py::gabion.analysis.dataflow_audit._never_invariant_lint_lines::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_exception_obligations::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_never_invariants::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_summary_warning_and_lint_branches() -> None:
+    da = _load()
+
+    assert da._summarize_exception_obligations([]) == []
+    summarized = da._summarize_exception_obligations(
+        [
+            {"site": {"path": "a.py", "function": "f", "bundle": []}, "status": "UNKNOWN"},
+            {"site": {"path": "a.py", "function": "g", "bundle": []}, "status": "UNKNOWN"},
+        ],
+        max_entries=1,
+    )
+    assert any(line.startswith("... 1 more") for line in summarized)
+
+    assert da._summarize_never_invariants([]) == []
+    never_lines = da._summarize_never_invariants(
+        [
+            {
+                "status": "OBLIGATION",
+                "site": {"path": "a.py", "function": "f"},
+                "reason": "r",
+                "undecidable_reason": "depends on params: x",
+            },
+            {
+                "status": "OBLIGATION",
+                "site": {"path": "a.py", "function": "g"},
+                "span": [0, "x", 0, 1],
+                "reason": "",
+            },
+        ],
+        max_entries=1,
+    )
+    assert any("a.py:f" in line for line in never_lines)
+    assert any("why=depends on params: x" in line for line in never_lines)
+    assert any(line.startswith("... 1 more") for line in never_lines)
+
+    warnings = da._exception_protocol_warnings(
+        [{"protocol": "never", "status": "DEAD", "site": {"path": "a.py", "function": "f"}}]
+    )
+    assert warnings == []
+
+    info_a = da.FunctionInfo(
+        name="a",
+        qual="pkg.a",
+        path=Path("pkg/a.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+    )
+    info_b = da.FunctionInfo(
+        name="b",
+        qual="pkg.b",
+        path=Path("pkg/b.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+    )
+    transitive = da._collect_transitive_callers(
+        {"pkg.a": {"pkg.b"}, "pkg.b": {"pkg.b"}},
+        {"pkg.a": info_a, "pkg.b": info_b},
+    )
+    assert "pkg.b" in transitive["pkg.a"]
+
+    assert da._extract_smell_sample("smell (e.g. path.py:1:2: sample)") is not None
+
+    lint_lines = da._exception_protocol_lint_lines(
+        [
+            {"protocol": "other"},
+            {"protocol": "never", "status": "DEAD"},
+            {"protocol": "never", "status": "UNKNOWN", "exception_path_id": "bad"},
+        ]
+    )
+    assert lint_lines == []
+
+    never_lint = da._never_invariant_lint_lines(
+        [
+            {"status": "VIOLATION", "span": "bad"},
+            {
+                "status": "VIOLATION",
+                "site": {"path": "a.py"},
+                "span": [0, 0, 0, 1],
+                "witness_ref": "w:1",
+            },
+            {
+                "status": "OBLIGATION",
+                "site": {"path": "a.py"},
+                "span": [0, 0, 0, 1],
+                "undecidable_reason": "depends on params: p",
+            },
+        ]
+    )
+    assert any("witness=w:1" in line for line in never_lint)
+    assert any("why=depends on params: p" in line for line in never_lint)
+
+    with env_scope({"GABION_FORBID_ADHOC_BUNDLES": "1"}):
+        with pytest.raises(AssertionError):
+            da._forbid_adhoc_bundle_discovery("coverage")
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_forest_population_and_handledness_summary_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._summarize_handledness_witnesses::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_forest_population_and_handledness_summary_branches(tmp_path: Path) -> None:
+    da = _load()
+    test_path = tmp_path / "tests" / "test_mod.py"
+    test_path.parent.mkdir(parents=True, exist_ok=True)
+    test_path.write_text("def f(x):\n    return x\n", encoding="utf-8")
+
+    info = da.FunctionInfo(
+        name="f",
+        qual="tests.test_mod.f",
+        path=test_path,
+        params=["x"],
+        annots={},
+        calls=[],
+        unused_params=set(),
+    )
+    index = da.AnalysisIndex(
+        by_name={"f": [info]},
+        by_qual={info.qual: info},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    forest = da.Forest()
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path={test_path: {"f": [{"x"}]}},
+        file_paths=[test_path],
+        project_root=tmp_path,
+        include_all_sites=True,
+        parse_failure_witnesses=[],
+        analysis_index=index,
+    )
+    assert not any(node.meta.get("qual") == info.qual for node in forest.nodes.values())
+
+    assert da._summarize_handledness_witnesses([]) == []
+    summarized = da._summarize_handledness_witnesses(
+        [
+            {"site": {"path": "a.py", "function": "f", "bundle": []}, "result": "HANDLED"},
+            {"site": {"path": "a.py", "function": "g", "bundle": []}, "result": "HANDLED"},
+        ],
+        max_entries=1,
+    )
+    assert any(line.startswith("... 1 more") for line in summarized)
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_analyze_file_internal_resolution_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_analyze_file_internal_resolution_branches(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "class C:\n"
+        "    def m(self):\n"
+        "        return 3\n"
+        "\n"
+        "def caller_global():\n"
+        "    m()\n"
+        "\n"
+        "def outer():\n"
+        "    class A:\n"
+        "        def m(self):\n"
+            "            return 1\n"
+        "    class B:\n"
+        "        def m(self):\n"
+        "            return 2\n"
+        "    def caller():\n"
+        "        m()\n"
+        "    caller()\n",
+        encoding="utf-8",
+    )
+    groups, spans, sites = da._analyze_file_internal(path, config=None)
+    assert isinstance(groups, dict)
+    assert isinstance(spans, dict)
+    assert isinstance(sites, dict)
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_resolution_and_knob_index_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._base_identifier::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_closure_lambda_factories::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_knob_param_names::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_callee::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_class_candidates::dataflow_audit.py::gabion.analysis.dataflow_audit._resolve_method_in_hierarchy::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_resolution_and_knob_index_branches(tmp_path: Path) -> None:
+    da = _load()
+
+    malformed_attr = ast.Attribute(
+        value=ast.Name(id="obj", ctx=ast.Load()),
+        attr=1,  # type: ignore[arg-type]
+        ctx=ast.Load(),
+    )
+    assert da._base_identifier(malformed_attr) is None
+    assert da._resolve_class_candidates("", module="pkg.mod", symbol_table=None, class_index={}) == []
+    assert (
+        da._resolve_method_in_hierarchy(
+            "pkg.C",
+            "m",
+            class_index={},
+            by_qual={},
+            symbol_table=None,
+            seen={"pkg.C"},
+        )
+        is None
+    )
+    assert (
+        da._resolve_method_in_hierarchy(
+            "pkg.Missing",
+            "m",
+            class_index={},
+            by_qual={},
+            symbol_table=None,
+            seen=set(),
+        )
+        is None
+    )
+
+    tree = ast.parse(
+        "def outer():\n"
+        "    def factory():\n"
+        "        make = lambda value: value\n"
+        "        return make\n"
+    )
+    lambda_node = tree.body[0].body[0].body[0].value
+    lambda_span = da._node_span(lambda_node)
+    assert lambda_span is not None
+    parent = da.ParentAnnotator()
+    parent.visit(tree)
+    factories = da._collect_closure_lambda_factories(
+        tree,
+        module="mod",
+        parent_map=parent.parents,
+        lambda_qual_by_span={lambda_span: "mod.outer.factory.<lambda>:1:1"},
+    )
+    assert any(key.endswith("factory") for key in factories)
+
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.mod.caller",
+        path=tmp_path / "mod.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        lexical_scope=(),
+    )
+    target_a = da.FunctionInfo(
+        name="target",
+        qual="pkg.mod.target_a",
+        path=tmp_path / "mod.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        lexical_scope=(),
+    )
+    target_b = da.FunctionInfo(
+        name="target",
+        qual="pkg.mod.target_b",
+        path=tmp_path / "mod.py",
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        lexical_scope=(),
+    )
+    seen_ambiguities: list[tuple[str, str]] = []
+    assert (
+        da._resolve_callee(
+            "",
+            caller,
+            by_name={"target": [target_a, target_b]},
+            by_qual={target_a.qual: target_a, target_b.qual: target_b},
+            symbol_table=da.SymbolTable(),
+            project_root=tmp_path,
+            class_index={},
+        )
+        is None
+    )
+    assert (
+        da._resolve_callee(
+            "target",
+            caller,
+            by_name={"target": [target_a, target_b]},
+            by_qual={target_a.qual: target_a, target_b.qual: target_b},
+            symbol_table=da.SymbolTable(),
+            project_root=tmp_path,
+            class_index={},
+            ambiguity_sink=lambda _caller, _call, _candidates, source, key: seen_ambiguities.append(
+                (source, key)
+            ),
+        )
+        is None
+    )
+    assert ("local_resolution", "target") in seen_ambiguities
+
+    assert (
+        da._compute_knob_param_names(
+            by_name={},
+            by_qual={},
+            symbol_table=da.SymbolTable(),
+            project_root=tmp_path,
+            class_index={},
+            strictness="high",
+            analysis_index=None,
+        )
+        == set()
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_dataclass_projection_and_rendering_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_projection_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_dot::dataflow_audit.py::gabion.analysis.dataflow_audit._infer_root::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::dataflow_audit.py::gabion.analysis.dataflow_audit._render_component_callsite_evidence::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_dataclass_projection_and_rendering_branches(tmp_path: Path) -> None:
+    da = _load()
+    path = tmp_path / "mod.py"
+    path.write_text(
+        "def run(alias):\n"
+        "    Qualified(1, 2)\n"
+        "    Plain(1, 2)\n"
+        "    alias.Attr(1, 2)\n"
+        "    Overflow(1, 2)\n",
+        encoding="utf-8",
+    )
+    parse_failures: list[dict[str, object]] = []
+    symbol_table = da.SymbolTable(
+        imports={},
+        internal_roots={"pkg", "mod"},
+        external_filter=True,
+        star_imports={"mod": {"pkgstar"}},
+        module_exports={"pkgstar": {"alias"}},
+        module_export_map={"pkgstar": {"alias": "pkg"}},
+    )
+    bundles = da._iter_dataclass_call_bundles(
+        path,
+        project_root=tmp_path,
+        symbol_table=symbol_table,
+        dataclass_registry={
+            "mod.Qualified": ["x", "y"],
+            "Plain": ["x", "y"],
+            "pkg.Attr": ["x", "y"],
+            "mod.Overflow": ["x"],
+        },
+        parse_failure_witnesses=parse_failures,
+    )
+    assert ("x", "y") in bundles
+    assert parse_failures
+
+    forest = da.Forest()
+    paramset = forest.add_paramset(["x"])
+    forest.add_alt("SignatureBundle", (paramset,))
+    missing_site = da.NodeId("FunctionSite", ("missing.py", "missing.qual"))
+    forest.add_alt("SignatureBundle", (missing_site, paramset))
+    projection = da._bundle_projection_from_forest(forest, file_paths=[path])
+    assert isinstance(projection, da.BundleProjection)
+
+    with pytest.raises(RuntimeError):
+        da._emit_dot(object())  # type: ignore[arg-type]
+
+    fn_id = da.NodeId("FunctionSite", ("a.py", "pkg.f"))
+    bundle_id = da.NodeId("ParamSet", ("x",))
+    lines = da._render_component_callsite_evidence(
+        component=[fn_id, bundle_id],
+        nodes={
+            fn_id: {"kind": "fn", "path": "a.py", "qual": "pkg.f", "label": "a.py:pkg.f"},
+            bundle_id: {"kind": "bundle", "label": "x"},
+        },
+        bundle_map={bundle_id: ("x",)},
+        bundle_counts={("x",): 1},
+        adj={fn_id: {bundle_id}, bundle_id: {fn_id}},
+        documented_by_path={},
+        declared_global=set(),
+        bundle_site_index={},
+        root=tmp_path,
+        path_lookup={"a.py": tmp_path / "a.py"},
+    )
+    assert lines == []
+
+    assert da._infer_root({path: {"run": [{"x"}]}}) == path
+    assert da._infer_root({}) == Path(".")
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_missing_resume_and_plan_branches::dataflow_audit.py::gabion.analysis.dataflow_audit._analysis_index_resume_variants::dataflow_audit.py::gabion.analysis.dataflow_audit._deserialize_function_info_for_resume::dataflow_audit.py::gabion.analysis.dataflow_audit._load_baseline::dataflow_audit.py::gabion.analysis.dataflow_audit._render_type_mermaid::dataflow_audit.py::gabion.analysis.dataflow_audit._with_analysis_index_resume_variants::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::dataflow_audit.py::gabion.analysis.dataflow_audit.build_refactor_plan::dataflow_audit.py::gabion.analysis.dataflow_audit.build_synthesis_plan::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_missing_resume_and_plan_branches(tmp_path: Path) -> None:
+    da = _load()
+
+    allowed = {"mod.py": tmp_path / "mod.py"}
+    info = da._deserialize_function_info_for_resume(
+        {
+            "name": "f",
+            "qual": "mod.f",
+            "path": "mod.py",
+            "params": ["x"],
+            "annots": {},
+            "calls": [],
+            "unused_params": [],
+            "decision_surface_reasons": {1: ["skip"], "x": ["r", 1]},
+        },
+        allowed_paths=allowed,
+    )
+    assert info is not None
+    assert info.decision_surface_reasons == {"x": {"r"}}
+
+    variants = da._analysis_index_resume_variants(
+        {
+            da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: {
+                1: {"format_version": 1},
+                "bad_format": {"format_version": 2},
+            }
+        }
+    )
+    assert variants == {}
+
+    payload = {"index_cache_identity": ""}
+    assert da._with_analysis_index_resume_variants(payload=payload, previous_payload=None) == payload
+
+    max_variants = da._ANALYSIS_INDEX_RESUME_MAX_VARIANTS
+    previous_payload = {
+        da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY: {
+            f"id_{idx}": {"format_version": 1, "index_cache_identity": f"id_{idx}"}
+            for idx in range(max_variants + 2)
+        }
+    }
+    trimmed = da._with_analysis_index_resume_variants(
+        payload={"index_cache_identity": ""},
+        previous_payload=previous_payload,
+    )
+    assert len(trimmed[da._ANALYSIS_INDEX_RESUME_VARIANTS_KEY]) == max_variants
+
+    module = tmp_path / "mod.py"
+    module.write_text(
+        "def dec(flag):\n"
+        "    if flag:\n"
+        "        return 1\n"
+        "    return 0\n"
+        "\n"
+        "def caller(flag):\n"
+        "    return dec(flag)\n"
+        "\n"
+        "def val(v):\n"
+        "    return (v == 1) * 2\n"
+        "\n"
+        "@opaque\n"
+        "def hidden(flag):\n"
+        "    return flag\n"
+        "\n"
+        "def uses_hidden(flag):\n"
+        "    missing(flag)\n"
+        "    hidden(flag)\n",
+        encoding="utf-8",
+    )
+    groups = {
+        module: {
+            "dec": [{"flag"}],
+            "caller": [{"flag"}],
+            "val": [set()],
+            "hidden": [{"flag"}],
+            "uses_hidden": [{"flag"}],
+        }
+    }
+    synthesis = da.build_synthesis_plan(
+        groups,
+        project_root=tmp_path,
+        min_bundle_size=0,
+        allow_singletons=True,
+        merge_overlap_threshold=0.0,
+    )
+    assert synthesis["protocols"]
+    assert any(
+        "tier-2:decision-bundle-elevation" in protocol.get("evidence", [])
+        and "value_decision_surface" in protocol.get("evidence", [])
+        for protocol in synthesis["protocols"]
+    )
+    empty_bundle_synthesis = da.build_synthesis_plan(
+        {module: {"uses_hidden": [set()]}},
+        project_root=tmp_path,
+        min_bundle_size=0,
+        allow_singletons=True,
+        merge_overlap_threshold=0.0,
+    )
+    assert isinstance(empty_bundle_synthesis["protocols"], list)
+    bare_module = tmp_path / "bare.py"
+    bare_module.write_text("def noop(x):\n    return x\n", encoding="utf-8")
+    bare_synthesis = da.build_synthesis_plan(
+        {bare_module: {"noop": [set(), {"x"}]}},
+        project_root=tmp_path,
+        min_bundle_size=0,
+        allow_singletons=True,
+        merge_overlap_threshold=0.5,
+    )
+    assert isinstance(bare_synthesis["protocols"], list)
+
+    no_paths = da.build_refactor_plan(
+        groups,
+        [],
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    assert no_paths["warnings"] == ["No files available for refactor plan."]
+
+    refactor = da.build_refactor_plan(
+        groups,
+        [module],
+        config=da.AuditConfig(
+            project_root=tmp_path,
+            transparent_decorators={"safe_transparent"},
+        ),
+    )
+    assert isinstance(refactor["bundles"], list)
+
+    mermaid = da._render_type_mermaid(
+        [],
+        ["skip me", "f downstream types conflict: [int, , str]"],
+    )
+    assert "int" in mermaid
+    assert "str" in mermaid
+
+    baseline_dir = tmp_path / "baseline_dir"
+    baseline_dir.mkdir()
+    assert da._load_baseline(baseline_dir) == set()
+
+    analysis = da.analyze_paths(
+        [module],
+        forest=da.Forest(),
+        recursive=True,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=10,
+        include_constant_smells=False,
+        include_unused_arg_smells=False,
+        include_bundle_forest=True,
+        include_lint_lines=False,
+        config=da.AuditConfig(project_root=tmp_path),
+    )
+    assert module in analysis.groups_by_path

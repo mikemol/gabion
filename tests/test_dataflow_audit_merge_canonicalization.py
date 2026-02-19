@@ -53,6 +53,7 @@ def _sample_partials() -> tuple[da._PartialWorkerCarrierOutput, ...]:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_merge_canonicalization.py::test_merge_worker_carriers_is_byte_stable_across_partial_orders::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_worker_carriers::test_dataflow_audit_merge_canonicalization.py::tests.test_dataflow_audit_merge_canonicalization._payload_bytes::test_dataflow_audit_merge_canonicalization.py::tests.test_dataflow_audit_merge_canonicalization._sample_partials
 def test_merge_worker_carriers_is_byte_stable_across_partial_orders() -> None:
     partials = _sample_partials()
     merged_bytes = {
@@ -62,6 +63,7 @@ def test_merge_worker_carriers_is_byte_stable_across_partial_orders() -> None:
     assert len(merged_bytes) == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_merge_canonicalization.py::test_merge_worker_carriers_global_order_is_path_anchored::dataflow_audit.py::gabion.analysis.dataflow_audit._merge_worker_carriers::test_dataflow_audit_merge_canonicalization.py::tests.test_dataflow_audit_merge_canonicalization._sample_partials
 def test_merge_worker_carriers_global_order_is_path_anchored() -> None:
     merged = da._merge_worker_carriers(tuple(reversed(_sample_partials())))
     assert list(merged.violations) == [

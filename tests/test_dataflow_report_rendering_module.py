@@ -9,6 +9,7 @@ def _check_deadline() -> None:
     return None
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_synthesis_section_module_evidence_summary_and_blank_fields::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_synthesis_section
 def test_render_synthesis_section_module_evidence_summary_and_blank_fields() -> None:
     plan = {
         "protocols": [
@@ -51,6 +52,7 @@ def test_render_synthesis_section_module_evidence_summary_and_blank_fields() -> 
     assert "(no fields)" in render_synthesis_section(blank_fields_plan, check_deadline=_check_deadline)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_synthesis_section_is_byte_stable_for_shuffled_inputs::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_synthesis_section
 def test_render_synthesis_section_is_byte_stable_for_shuffled_inputs() -> None:
     baseline = None
     base_protocols = [
@@ -81,3 +83,14 @@ def test_render_synthesis_section_is_byte_stable_for_shuffled_inputs() -> None:
             baseline = rendered
             continue
         assert rendered == baseline
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_report_rendering_module.py::test_render_synthesis_section_renders_error_block::dataflow_report_rendering.py::gabion.analysis.dataflow_report_rendering.render_synthesis_section
+def test_render_synthesis_section_renders_error_block() -> None:
+    text = render_synthesis_section(
+        {"protocols": [], "warnings": [], "errors": ["first", "second"]},
+        check_deadline=_check_deadline,
+    )
+    assert "Errors:" in text
+    assert "first" in text
+    assert "second" in text

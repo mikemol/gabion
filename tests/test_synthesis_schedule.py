@@ -22,6 +22,7 @@ def test_topological_schedule_reports_cycles() -> None:
     assert set().union(*result.cycles) == {"a", "b"}
 
 
+# gabion:evidence E:call_footprint::tests/test_synthesis_schedule.py::test_topological_schedule_handles_duplicate_followers_without_requeue::schedule.py::gabion.synthesis.schedule.topological_schedule
 def test_topological_schedule_handles_duplicate_followers_without_requeue() -> None:
     graph = {
         "a": {"root"},
@@ -35,6 +36,7 @@ def test_topological_schedule_handles_duplicate_followers_without_requeue() -> N
     assert result.order[-1] == "c"
 
 
+# gabion:evidence E:call_footprint::tests/test_synthesis_schedule.py::test_topological_schedule_reports_self_cycle::schedule.py::gabion.synthesis.schedule.topological_schedule
 def test_topological_schedule_reports_self_cycle() -> None:
     graph = {"a": {"a"}}
     result = topological_schedule(graph)
@@ -42,6 +44,7 @@ def test_topological_schedule_reports_self_cycle() -> None:
     assert result.cycles == [{"a"}]
 
 
+# gabion:evidence E:call_footprint::tests/test_synthesis_schedule.py::test_strongly_connected_components_handles_back_edges::schedule.py::gabion.synthesis.schedule._strongly_connected_components
 def test_strongly_connected_components_handles_back_edges() -> None:
     components = _strongly_connected_components({"a": {"b"}, "b": {"a"}})
     assert {"a", "b"} in components

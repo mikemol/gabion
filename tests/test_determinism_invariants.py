@@ -12,6 +12,7 @@ from gabion.exceptions import NeverThrown
 from gabion.invariants import proof_mode_scope
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_invariants_noop_when_proof_mode_disabled::determinism_invariants.py::gabion.analysis.determinism_invariants.require_canonical_multiset::determinism_invariants.py::gabion.analysis.determinism_invariants.require_no_dupes::determinism_invariants.py::gabion.analysis.determinism_invariants.require_no_python_hash::determinism_invariants.py::gabion.analysis.determinism_invariants.require_sorted
 def test_require_invariants_noop_when_proof_mode_disabled() -> None:
     assert require_sorted("sorted", [2, 1]) is None
     assert require_no_dupes("dupes", ["a", "a"]) is None
@@ -19,12 +20,14 @@ def test_require_invariants_noop_when_proof_mode_disabled() -> None:
     assert require_no_python_hash("hash") is None
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_sorted_allows_reverse_sorted_in_reverse_mode::determinism_invariants.py::gabion.analysis.determinism_invariants.require_sorted::invariants.py::gabion.invariants.proof_mode_scope
 def test_require_sorted_allows_reverse_sorted_in_reverse_mode() -> None:
     with proof_mode_scope(True):
         assert require_sorted("descending", [3, 2, 2, 1], reverse=True) is None
         assert require_sorted("empty", []) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_sorted_raises_and_reports_payload::determinism_invariants.py::gabion.analysis.determinism_invariants.require_sorted::invariants.py::gabion.invariants.proof_mode_scope
 def test_require_sorted_raises_and_reports_payload() -> None:
     observed: list[dict[str, object]] = []
     with proof_mode_scope(True):
@@ -41,6 +44,7 @@ def test_require_sorted_raises_and_reports_payload() -> None:
     assert observed[0]["phase"] == "collection"
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_no_dupes_raises_and_reports_payload::determinism_invariants.py::gabion.analysis.determinism_invariants.require_no_dupes::invariants.py::gabion.invariants.proof_mode_scope
 def test_require_no_dupes_raises_and_reports_payload() -> None:
     observed: list[dict[str, object]] = []
     with proof_mode_scope(True):
@@ -56,6 +60,7 @@ def test_require_no_dupes_raises_and_reports_payload() -> None:
     assert observed[0]["scope"] == "wl"
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_canonical_multiset_rejects_invalid_inputs::determinism_invariants.py::gabion.analysis.determinism_invariants.require_canonical_multiset::invariants.py::gabion.invariants.proof_mode_scope
 @pytest.mark.parametrize(
     "pairs",
     [
@@ -72,6 +77,7 @@ def test_require_canonical_multiset_rejects_invalid_inputs(
             require_canonical_multiset("ms", pairs)
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_canonical_multiset_reports_payload_for_invalid_variants::determinism_invariants.py::gabion.analysis.determinism_invariants.require_canonical_multiset::invariants.py::gabion.invariants.proof_mode_scope
 def test_require_canonical_multiset_reports_payload_for_invalid_variants(
 ) -> None:
     with proof_mode_scope(True):
@@ -93,6 +99,7 @@ def test_require_canonical_multiset_reports_payload_for_invalid_variants(
             assert observed[0]["phase"] == "wl"
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_no_python_hash_always_raises_in_proof_mode::determinism_invariants.py::gabion.analysis.determinism_invariants.require_no_python_hash::invariants.py::gabion.invariants.proof_mode_scope
 def test_require_no_python_hash_always_raises_in_proof_mode() -> None:
     observed: list[dict[str, object]] = []
     with proof_mode_scope(True):
@@ -107,6 +114,7 @@ def test_require_no_python_hash_always_raises_in_proof_mode() -> None:
     assert observed[0]["spec"] == "wl"
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_invariants_raise_without_callbacks::determinism_invariants.py::gabion.analysis.determinism_invariants.require_canonical_multiset::determinism_invariants.py::gabion.analysis.determinism_invariants.require_no_dupes::determinism_invariants.py::gabion.analysis.determinism_invariants.require_no_python_hash::determinism_invariants.py::gabion.analysis.determinism_invariants.require_sorted::invariants.py::gabion.invariants.proof_mode_scope
 def test_require_invariants_raise_without_callbacks() -> None:
     with proof_mode_scope(True):
         with pytest.raises(NeverThrown):
@@ -119,6 +127,7 @@ def test_require_invariants_raise_without_callbacks() -> None:
             require_no_python_hash("hash-order")
 
 
+# gabion:evidence E:call_footprint::tests/test_determinism_invariants.py::test_require_invariants_accept_empty_iterables_in_proof_mode::determinism_invariants.py::gabion.analysis.determinism_invariants.require_canonical_multiset::determinism_invariants.py::gabion.analysis.determinism_invariants.require_no_dupes::invariants.py::gabion.invariants.proof_mode_scope
 def test_require_invariants_accept_empty_iterables_in_proof_mode() -> None:
     with proof_mode_scope(True):
         assert require_no_dupes("dupes", []) is None

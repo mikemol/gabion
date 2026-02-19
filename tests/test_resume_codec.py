@@ -24,6 +24,7 @@ from gabion.analysis.resume_codec import (
 )
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_mapping_helpers::resume_codec.py::gabion.analysis.resume_codec.mapping_or_empty::resume_codec.py::gabion.analysis.resume_codec.mapping_or_none::resume_codec.py::gabion.analysis.resume_codec.mapping_payload
 def test_mapping_helpers() -> None:
     payload = {"a": 1}
     assert mapping_or_none(payload) == payload
@@ -34,6 +35,7 @@ def test_mapping_helpers() -> None:
     assert mapping_or_empty([1, 2, 3]) == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_payload_filters::resume_codec.py::gabion.analysis.resume_codec.payload_with_format::resume_codec.py::gabion.analysis.resume_codec.payload_with_phase
 def test_payload_filters() -> None:
     payload = {"phase": "scan", "format_version": 2}
     assert payload_with_phase(payload, phase="scan") == payload
@@ -44,6 +46,7 @@ def test_payload_filters() -> None:
     assert payload_with_format(None, format_version=2) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_mapping_sections::resume_codec.py::gabion.analysis.resume_codec.mapping_sections
 def test_mapping_sections() -> None:
     payload = {"a": {"x": 1}, "b": {"y": 2}}
     assert mapping_sections(payload, section_keys=("a", "b")) == (payload["a"], payload["b"])
@@ -51,6 +54,7 @@ def test_mapping_sections() -> None:
     assert mapping_sections({"a": []}, section_keys=("a",)) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_sequence_or_none_variants::resume_codec.py::gabion.analysis.resume_codec.sequence_or_none
 def test_sequence_or_none_variants() -> None:
     assert sequence_or_none(123) is None
     assert sequence_or_none("abc") is None
@@ -59,6 +63,7 @@ def test_sequence_or_none_variants() -> None:
     assert sequence_or_none([1, 2, 3]) == [1, 2, 3]
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_string_collection_helpers::resume_codec.py::gabion.analysis.resume_codec.str_list_from_sequence::resume_codec.py::gabion.analysis.resume_codec.str_set_from_sequence::resume_codec.py::gabion.analysis.resume_codec.str_tuple_from_sequence
 def test_string_collection_helpers() -> None:
     values: object = ["a", 1, "b", None]
     assert str_list_from_sequence(values) == ["a", "b"]
@@ -67,12 +72,14 @@ def test_string_collection_helpers() -> None:
     assert str_list_from_sequence(42) == []
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_str_map_from_mapping_filters_invalid_entries::resume_codec.py::gabion.analysis.resume_codec.str_map_from_mapping
 def test_str_map_from_mapping_filters_invalid_entries() -> None:
     payload: object = {"a": "x", "b": 1, 3: "y"}  # type: ignore[dict-item]
     assert str_map_from_mapping(payload) == {"a": "x"}
     assert str_map_from_mapping([("a", "x")]) == {}
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_int_tuple4_or_none::resume_codec.py::gabion.analysis.resume_codec.int_tuple4_or_none
 def test_int_tuple4_or_none() -> None:
     assert int_tuple4_or_none("abcd") is None
     assert int_tuple4_or_none([1, 2, 3]) is None
@@ -80,6 +87,7 @@ def test_int_tuple4_or_none() -> None:
     assert int_tuple4_or_none([1, 2, 3, 4]) == (1, 2, 3, 4)
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_int_str_pairs_from_sequence_filters_invalid_entries::resume_codec.py::gabion.analysis.resume_codec.int_str_pairs_from_sequence
 def test_int_str_pairs_from_sequence_filters_invalid_entries() -> None:
     payload: object = [
         1,
@@ -92,6 +100,7 @@ def test_int_str_pairs_from_sequence_filters_invalid_entries() -> None:
     assert int_str_pairs_from_sequence(None) == []
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_str_pair_set_from_sequence_filters_invalid_entries::resume_codec.py::gabion.analysis.resume_codec.str_pair_set_from_sequence
 def test_str_pair_set_from_sequence_filters_invalid_entries() -> None:
     payload: object = [
         1,
@@ -104,6 +113,7 @@ def test_str_pair_set_from_sequence_filters_invalid_entries() -> None:
     assert str_pair_set_from_sequence(None) == set()
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_iter_valid_key_entries_filters_keys::resume_codec.py::gabion.analysis.resume_codec.iter_valid_key_entries
 def test_iter_valid_key_entries_filters_keys() -> None:
     payload = {"good": 1, "skip": 2, 3: 4}  # type: ignore[dict-item]
     entries = list(
@@ -115,6 +125,7 @@ def test_iter_valid_key_entries_filters_keys() -> None:
     assert entries == [("good", 1)]
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_load_resume_map_filters_invalid_and_none_parses::resume_codec.py::gabion.analysis.resume_codec.load_resume_map
 def test_load_resume_map_filters_invalid_and_none_parses() -> None:
     payload = {"keep": "1", "drop": "2", 3: "3"}  # type: ignore[dict-item]
     result = load_resume_map(
@@ -125,6 +136,7 @@ def test_load_resume_map_filters_invalid_and_none_parses() -> None:
     assert result == {"keep": 1}
 
 
+# gabion:evidence E:call_footprint::tests/test_resume_codec.py::test_allowed_path_helpers::resume_codec.py::gabion.analysis.resume_codec.allowed_path_lookup::resume_codec.py::gabion.analysis.resume_codec.load_allowed_paths_from_sequence
 def test_allowed_path_helpers(tmp_path: Path) -> None:
     first = tmp_path / "a.py"
     second = tmp_path / "b.py"

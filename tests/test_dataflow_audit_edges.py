@@ -78,6 +78,66 @@ def _call(da, *, callee: str, is_test: bool = False, span: tuple[int, int, int, 
         span=span,
     )
 
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_collect_call_ambiguities_indexed_preserves_duplicate_observations::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_ambiguities_indexed::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._call::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
+def test_collect_call_ambiguities_indexed_preserves_duplicate_observations(
+) -> None:
+    da = _load()
+    call = _call(da, callee="target", span=(0, 0, 0, 1))
+    caller = da.FunctionInfo(
+        name="caller",
+        qual="pkg.caller",
+        path=Path("pkg/mod.py"),
+        params=[],
+        annots={},
+        calls=[call],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    candidate = da.FunctionInfo(
+        name="target",
+        qual="pkg.target",
+        path=Path("pkg/target.py"),
+        params=[],
+        annots={},
+        calls=[],
+        unused_params=set(),
+        function_span=(0, 0, 0, 1),
+    )
+    analysis_index = da.AnalysisIndex(
+        by_name={"caller": [caller]},
+        by_qual={caller.qual: caller, candidate.qual: candidate},
+        symbol_table=da.SymbolTable(),
+        class_index={},
+    )
+    context = da._IndexedPassContext(
+        paths=[Path("pkg/mod.py")],
+        project_root=None,
+        ignore_params=set(),
+        strictness="high",
+        external_filter=True,
+        transparent_decorators=None,
+        parse_failure_witnesses=[],
+        analysis_index=analysis_index,
+    )
+
+    def _fake_resolve(*_args, **kwargs):
+        ambiguity_sink = kwargs.get("ambiguity_sink")
+        if callable(ambiguity_sink):
+            ambiguity_sink(caller, call, [candidate], "local_resolution", "target")
+            ambiguity_sink(caller, call, [candidate], "local_resolution", "target")
+        return None
+
+    ambiguities = da._collect_call_ambiguities_indexed(
+        context,
+        resolve_callee_fn=_fake_resolve,
+    )
+    assert len(ambiguities) == 2
+    assert all(entry.kind == "local_resolution_ambiguous" for entry in ambiguities)
+    assert all(entry.callee_key == "target" for entry in ambiguities)
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_iter_dataclass_call_bundles_dynamic_starred_records_unresolved::dataflow_audit.py::gabion.analysis.dataflow_audit._iter_dataclass_call_bundles::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_iter_dataclass_call_bundles_dynamic_starred_records_unresolved(tmp_path: Path) -> None:
     da = _load()
     mod = tmp_path / "mod.py"
@@ -187,6 +247,7 @@ def test_analyze_paths_deadline_includes_forest_spec(tmp_path: Path) -> None:
         )
     assert result.forest is not None
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
 def test_deadline_missing_carrier_for_loop(tmp_path: Path) -> None:
     obligations = _deadline_obligations(
         tmp_path,
@@ -199,6 +260,7 @@ def test_deadline_missing_carrier_for_loop(tmp_path: Path) -> None:
     )
     assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
 def test_deadline_none_arg_violation(tmp_path: Path) -> None:
     obligations = _deadline_obligations(
         tmp_path,
@@ -213,6 +275,7 @@ def test_deadline_none_arg_violation(tmp_path: Path) -> None:
     )
     assert any(entry.get("kind") == "none_arg" for entry in obligations)
 
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations
 def test_deadline_origin_not_allowlisted(tmp_path: Path) -> None:
     obligations = _deadline_obligations(
         tmp_path,
@@ -228,6 +291,7 @@ def test_deadline_origin_not_allowlisted(tmp_path: Path) -> None:
     )
     assert any(entry.get("kind") == "origin_not_allowlisted" for entry in obligations)
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_collect_call_edges_filters_test_and_unresolved::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_edges::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._call::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_collect_call_edges_filters_test_and_unresolved() -> None:
     da = _load()
     caller = da.FunctionInfo(
@@ -282,6 +346,7 @@ def test_collect_call_edges_filters_test_and_unresolved() -> None:
     )
     assert edges == {"pkg.caller": {"pkg.target"}}
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_collect_call_edges_and_obligations_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_edges_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligations_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_unresolved_call_sites_from_forest::dataflow_audit.py::gabion.analysis.dataflow_audit._function_suite_id::dataflow_audit.py::gabion.analysis.dataflow_audit._function_suite_key::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_collect_call_edges_and_obligations_from_forest() -> None:
     da = _load()
     forest = da.Forest()
@@ -347,6 +412,7 @@ def test_collect_call_edges_and_obligations_from_forest() -> None:
     assert unresolved
     assert unresolved[0][:2] == ("pkg/mod.py", "pkg.caller")
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_collect_unresolved_call_sites_filters_non_suite_ids::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_unresolved_call_sites_from_forest::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_collect_unresolved_call_sites_filters_non_suite_ids() -> None:
     da = _load()
     caller_bad_kind = da.NodeId("FunctionSite", ("p", "q"))
@@ -365,6 +431,7 @@ def test_collect_unresolved_call_sites_filters_non_suite_ids() -> None:
     )
     assert out == [("p", "q", (1, 2, 3, 4), "d")]
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_suite_identity_helpers_raise_on_missing_identity::dataflow_audit.py::gabion.analysis.dataflow_audit._node_to_function_suite_id::dataflow_audit.py::gabion.analysis.dataflow_audit._suite_caller_function_id::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_suite_identity_helpers_raise_on_missing_identity() -> None:
     da = _load()
     with pytest.raises(NeverThrown):
@@ -389,6 +456,7 @@ def test_suite_identity_helpers_raise_on_missing_identity() -> None:
     with pytest.raises(NeverThrown):
         da._node_to_function_suite_id(forest, missing_suite)
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_collect_call_resolution_obligations_requires_span::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligations_from_forest::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_collect_call_resolution_obligations_requires_span() -> None:
     da = _load()
     forest = da.Forest()
@@ -412,6 +480,7 @@ def test_collect_call_resolution_obligations_requires_span() -> None:
     with pytest.raises(NeverThrown):
         da._collect_call_resolution_obligations_from_forest(forest)
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_materialize_call_candidates_covers_obligation_and_external_paths::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._call::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_materialize_call_candidates_covers_obligation_and_external_paths() -> None:
     da = _load()
     forest = da.Forest()
@@ -464,6 +533,7 @@ def test_materialize_call_candidates_covers_obligation_and_external_paths() -> N
     ]
     assert len(obligations) == 1
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_sorted_graph_nodes_and_reachable_from_roots_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._reachable_from_roots::dataflow_audit.py::gabion.analysis.dataflow_audit._sorted_graph_nodes::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_sorted_graph_nodes_and_reachable_from_roots_edges() -> None:
     da = _load()
     mixed = da._sorted_graph_nodes({1, "2"})  # type: ignore[arg-type]
@@ -472,6 +542,7 @@ def test_sorted_graph_nodes_and_reachable_from_roots_edges() -> None:
     reachable = da._reachable_from_roots(graph, {"a", "a"})
     assert reachable == {"a", "b", "c", "d"}
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_collect_deadline_obligations_call_resolution_filter_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
 def test_collect_deadline_obligations_call_resolution_filter_edges(
     tmp_path: Path,
 ) -> None:
@@ -562,6 +633,7 @@ def test_collect_deadline_obligations_call_resolution_filter_edges(
         )
     assert obligations == []
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_analyze_paths_timeout_flushes_phase_emitters_best_effort::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.pack_call_stack
 def test_analyze_paths_timeout_flushes_phase_emitters_best_effort(
     tmp_path: Path,
 ) -> None:
@@ -621,6 +693,7 @@ def test_analyze_paths_timeout_flushes_phase_emitters_best_effort(
     assert "post" in callback_state["phases"]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_materialize_call_candidates_emits_dynamic_obligation_kind::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._call::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
 def test_materialize_call_candidates_emits_dynamic_obligation_kind() -> None:
     da = _load()
     forest = da.Forest()
@@ -656,6 +729,7 @@ def test_materialize_call_candidates_emits_dynamic_obligation_kind() -> None:
     }
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_deadline_nested_recursion_loop_attributes_inner_only::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._deadline_obligations
 def test_deadline_nested_recursion_loop_attributes_inner_only(tmp_path: Path) -> None:
     obligations = _deadline_obligations(
         tmp_path,
@@ -681,6 +755,7 @@ def test_deadline_nested_recursion_loop_attributes_inner_only(tmp_path: Path) ->
     assert loop_obligations[0].get("span") == [2, 4, 5, 26]
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_deadline_suite_identity_stable_across_runs::order_contract.py::gabion.order_contract.ordered_or_sorted::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._deadline_analysis
 def test_deadline_suite_identity_stable_across_runs(tmp_path: Path) -> None:
     source = """
     def root(deadline: Deadline):
@@ -707,6 +782,7 @@ def test_deadline_suite_identity_stable_across_runs(tmp_path: Path) -> None:
     assert all(suite_id.startswith("suite:") for suite_id in first_ids)
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_deadline_obligations_emit_suite_metadata_from_forest::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._deadline_analysis
 def test_deadline_obligations_emit_suite_metadata_from_forest(tmp_path: Path) -> None:
     analysis = _deadline_analysis(
         tmp_path,

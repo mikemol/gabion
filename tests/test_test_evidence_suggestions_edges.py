@@ -644,6 +644,7 @@ def test_collect_call_footprints_cache_and_missing(tmp_path: Path) -> None:
     assert entry.test_id in footprints
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_evidence_without_heuristics_skips_no_match::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_suggest_evidence_without_heuristics_skips_no_match(tmp_path: Path) -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     suggestions, summary = test_evidence_suggestions.suggest_evidence(
@@ -658,6 +659,7 @@ def test_suggest_evidence_without_heuristics_skips_no_match(tmp_path: Path) -> N
     assert summary.skipped_no_match == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_render_markdown_without_match_details::evidence_keys.py::gabion.analysis.evidence_keys.make_opaque_key::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.render_markdown
 def test_render_markdown_without_match_details() -> None:
     key = evidence_keys.make_opaque_key("opaque")
     suggestion = test_evidence_suggestions.Suggestion(
@@ -683,6 +685,7 @@ def test_render_markdown_without_match_details() -> None:
     assert "matched:" not in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_graph_suggestions_evidence_items_and_no_targets_branches::evidence_keys.py::gabion.analysis.evidence_keys.make_paramset_key::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._graph_suggestions::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_graph_suggestions_evidence_items_and_no_targets_branches(tmp_path: Path) -> None:
     (tmp_path / "seed.py").write_text("def seed():\n    return 1\n", encoding="utf-8")
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
@@ -752,6 +755,7 @@ def test_graph_suggestions_evidence_items_and_no_targets_branches(tmp_path: Path
     assert entry.test_id in resolved
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_evidence_include_heuristics_no_match_branch::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.suggest_evidence::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_suggest_evidence_include_heuristics_no_match_branch(tmp_path: Path) -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     suggestions, summary = test_evidence_suggestions.suggest_evidence(
@@ -766,6 +770,7 @@ def test_suggest_evidence_include_heuristics_no_match_branch(tmp_path: Path) -> 
     assert summary.skipped_no_match == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_collect_call_footprints_skips_empty_targets::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions.collect_call_footprints::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_collect_call_footprints_skips_empty_targets(tmp_path: Path) -> None:
     seed = tmp_path / "seed.py"
     seed.write_text("def seed():\n    return 1\n", encoding="utf-8")
@@ -797,6 +802,7 @@ def test_collect_call_footprints_skips_empty_targets(tmp_path: Path) -> None:
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_find_module_level_calls_relative_cache_and_symbol_helpers::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_module_literals::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_symbol_refs::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._find_module_level_calls::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_find_module_level_calls_relative_cache_and_symbol_helpers(tmp_path: Path) -> None:
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
@@ -866,6 +872,7 @@ def test_find_module_level_calls_relative_cache_and_symbol_helpers(tmp_path: Pat
     assert "pkg.mod" in literals
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_call_symbol_refs_attribute_none_and_suggest_for_entry_parse_fallback::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._call_symbol_refs::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._suggest_for_entry::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_call_symbol_refs_attribute_none_and_suggest_for_entry_parse_fallback() -> None:
     call = ast.Call(
         func=ast.Attribute(
@@ -903,6 +910,7 @@ def test_call_symbol_refs_attribute_none_and_suggest_for_entry_parse_fallback() 
     assert test_evidence_suggestions._call_symbol_refs(call_with_non_symbol_callee) == []
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_for_entry_parse_display_and_non_opaque_path::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._suggest_for_entry::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_suggest_for_entry_parse_display_and_non_opaque_path() -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     rule = test_evidence_suggestions._SuggestionRule(
@@ -923,6 +931,7 @@ def test_suggest_for_entry_parse_display_and_non_opaque_path() -> None:
     assert suggested and suggested[0].display == "rendered::E:bundle/sample"
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_module_resolution_and_site_parts_edge_branches::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._resolve_module_file::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._site_parts
 def test_module_resolution_and_site_parts_edge_branches(tmp_path: Path) -> None:
     module_dir = tmp_path / "src" / "pkg"
     module_dir.mkdir(parents=True)
@@ -934,6 +943,7 @@ def test_module_resolution_and_site_parts_edge_branches(tmp_path: Path) -> None:
     assert test_evidence_suggestions._site_parts(node_id, forest) == ("a.py", "q")
 
 
+# gabion:evidence E:call_footprint::tests/test_test_evidence_suggestions_edges.py::test_suggest_for_entry_opaque_and_normalize_mapping_edges::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._normalize_evidence_list::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._suggest_for_entry::test_evidence_suggestions.py::gabion.analysis.test_evidence_suggestions._summarize_unmapped::test_test_evidence_suggestions_edges.py::tests.test_test_evidence_suggestions_edges._minimal_entry
 def test_suggest_for_entry_opaque_and_normalize_mapping_edges() -> None:
     entry = _minimal_entry("tests/test_alpha.py::test_alpha", "tests/test_alpha.py")
     rule = test_evidence_suggestions._SuggestionRule(

@@ -139,6 +139,7 @@ def _empty_analysis(dataflow_audit, tmp_path: Path):
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_run.py::test_run_impl_type_audit_branches_via_di::dataflow_audit.py::gabion.analysis.dataflow_audit._build_parser::dataflow_audit.py::gabion.analysis.dataflow_audit._run_impl::test_dataflow_run.py::tests.test_dataflow_run._empty_analysis
 def test_run_impl_type_audit_branches_via_di(tmp_path: Path) -> None:
     parser = dataflow_audit._build_parser()
     args = parser.parse_args(
@@ -161,6 +162,7 @@ def test_run_impl_type_audit_branches_via_di(tmp_path: Path) -> None:
     assert code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_run.py::test_run_impl_decision_snapshot_non_terminal_and_baseline_no_new_violations::dataflow_audit.py::gabion.analysis.dataflow_audit._build_parser::dataflow_audit.py::gabion.analysis.dataflow_audit._run_impl::test_dataflow_run.py::tests.test_dataflow_run._empty_analysis
 def test_run_impl_decision_snapshot_non_terminal_and_baseline_no_new_violations(
     tmp_path: Path,
 ) -> None:
@@ -199,6 +201,7 @@ def test_run_impl_decision_snapshot_non_terminal_and_baseline_no_new_violations(
     assert dot.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_run.py::test_run_impl_type_audit_empty_lists_and_terminal_return::dataflow_audit.py::gabion.analysis.dataflow_audit._build_parser::dataflow_audit.py::gabion.analysis.dataflow_audit._run_impl::test_dataflow_run.py::tests.test_dataflow_run._empty_analysis
 def test_run_impl_type_audit_empty_lists_and_terminal_return(tmp_path: Path) -> None:
     parser = dataflow_audit._build_parser()
     args = parser.parse_args(
@@ -217,6 +220,7 @@ def test_run_impl_type_audit_empty_lists_and_terminal_return(tmp_path: Path) -> 
     assert code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_run.py::test_run_impl_fail_on_violations_baseline_and_no_baseline_edges::dataflow_audit.py::gabion.analysis.dataflow_audit._build_parser::dataflow_audit.py::gabion.analysis.dataflow_audit._run_impl::test_dataflow_run.py::tests.test_dataflow_run._empty_analysis
 def test_run_impl_fail_on_violations_baseline_and_no_baseline_edges(tmp_path: Path) -> None:
     parser = dataflow_audit._build_parser()
     baseline = tmp_path / "baseline.txt"
@@ -256,6 +260,7 @@ def test_run_impl_fail_on_violations_baseline_and_no_baseline_edges(tmp_path: Pa
     assert code == 0
 
 
+# gabion:evidence E:call_footprint::tests/test_dataflow_run.py::test_run_impl_fingerprint_spec_with_empty_index_branch::dataflow_audit.py::gabion.analysis.dataflow_audit._build_parser::dataflow_audit.py::gabion.analysis.dataflow_audit._run_impl::test_dataflow_run.py::tests.test_dataflow_run._empty_analysis
 def test_run_impl_fingerprint_spec_with_empty_index_branch(tmp_path: Path) -> None:
     parser = dataflow_audit._build_parser()
     config = tmp_path / "gabion.toml"

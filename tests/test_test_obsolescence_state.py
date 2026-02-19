@@ -72,6 +72,7 @@ def test_state_payload_skips_invalid_candidates(
     assert state.candidates == []
 
 
+# gabion:evidence E:call_footprint::tests/test_test_obsolescence_state.py::test_state_payload_ignores_non_list_candidates_payload::test_obsolescence.py::gabion.analysis.test_obsolescence.classify_candidates::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.build_state_payload::test_obsolescence_state.py::gabion.analysis.test_obsolescence_state.parse_state_payload
 def test_state_payload_ignores_non_list_candidates_payload(
     make_obsolescence_paramset_ref,
 ) -> None:

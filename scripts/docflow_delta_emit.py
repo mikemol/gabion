@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable
 
 try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
@@ -53,9 +54,12 @@ def _changed_paths_from_git() -> tuple[str, ...]:
     return tuple(sorted(set(paths)))
 
 
-def _build_execution_plan() -> ExecutionPlan:
+def _build_execution_plan(
+    *,
+    changed_paths_fn: Callable[[], tuple[str, ...]] = _changed_paths_from_git,
+) -> ExecutionPlan:
     plan = ExecutionPlan()
-    plan.with_docflow(DocflowFacet(changed_paths=_changed_paths_from_git()))
+    plan.with_docflow(DocflowFacet(changed_paths=changed_paths_fn()))
     return plan
 
 

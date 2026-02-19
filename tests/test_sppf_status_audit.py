@@ -51,6 +51,7 @@ doc_revision: 1
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_sppf_status_audit_passes_for_matching_statuses::test_sppf_status_audit.py::tests.test_sppf_status_audit._run_with_deadline::test_sppf_status_audit.py::tests.test_sppf_status_audit._write_fixture
 def test_sppf_status_audit_passes_for_matching_statuses(tmp_path: Path) -> None:
     _write_fixture(
         tmp_path,
@@ -65,6 +66,7 @@ def test_sppf_status_audit_passes_for_matching_statuses(tmp_path: Path) -> None:
     assert lines == ["sppf-status-audit: no drift detected"]
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_sppf_status_audit_fails_for_stale_in_doc_status::test_sppf_status_audit.py::tests.test_sppf_status_audit._run_with_deadline::test_sppf_status_audit.py::tests.test_sppf_status_audit._write_fixture
 def test_sppf_status_audit_fails_for_stale_in_doc_status(tmp_path: Path) -> None:
     _write_fixture(
         tmp_path,
@@ -80,6 +82,7 @@ def test_sppf_status_audit_fails_for_stale_in_doc_status(tmp_path: Path) -> None
     assert any("in: planned" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_sppf_status_audit_fails_for_stale_influence_row::test_sppf_status_audit.py::tests.test_sppf_status_audit._run_with_deadline::test_sppf_status_audit.py::tests.test_sppf_status_audit._write_fixture
 def test_sppf_status_audit_fails_for_stale_influence_row(tmp_path: Path) -> None:
     _write_fixture(
         tmp_path,
@@ -95,6 +98,7 @@ def test_sppf_status_audit_fails_for_stale_influence_row(tmp_path: Path) -> None
     assert any("influence_index: implemented-in-part" in line for line in lines)
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_normalization_helpers_cover_status_variants::sppf_status_audit.py::scripts.sppf_status_audit._normalize_checklist_pair::sppf_status_audit.py::scripts.sppf_status_audit._normalize_in_status::sppf_status_audit.py::scripts.sppf_status_audit._normalize_influence_status
 def test_normalization_helpers_cover_status_variants() -> None:
     assert _normalize_in_status("Implemented in part") == "implemented-in-part"
     assert _normalize_in_status("Partially implemented") == "implemented-in-part"
@@ -116,6 +120,7 @@ def test_normalization_helpers_cover_status_variants() -> None:
     assert _normalize_checklist_pair("partial", "done") == "implemented-in-part"
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_extract_in_status_handles_missing_or_empty_sections::deadline_runtime.py::scripts.deadline_runtime.deadline_scope_from_lsp_env::sppf_status_audit.py::scripts.sppf_status_audit._extract_in_status
 def test_extract_in_status_handles_missing_or_empty_sections(tmp_path: Path) -> None:
     file_no_heading = tmp_path / "no-heading.md"
     file_no_heading.write_text("No status section", encoding="utf-8")
@@ -133,6 +138,7 @@ def test_extract_in_status_handles_missing_or_empty_sections(tmp_path: Path) -> 
         assert _extract_in_status(file_empty_status) is None
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_collect_overrides_is_case_insensitive::deadline_runtime.py::scripts.deadline_runtime.deadline_scope_from_lsp_env::sppf_status_audit.py::scripts.sppf_status_audit._collect_overrides
 def test_collect_overrides_is_case_insensitive() -> None:
     with deadline_scope_from_lsp_env(default_budget=_TEST_BUDGET):
         overrides = _collect_overrides(
@@ -142,6 +148,7 @@ def test_collect_overrides_is_case_insensitive() -> None:
     assert overrides == {"in-2", "all", "in-9"}
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_run_audit_handles_unknown_rows_and_untracked_in_file_names::test_sppf_status_audit.py::tests.test_sppf_status_audit._run_with_deadline
 def test_run_audit_handles_unknown_rows_and_untracked_in_file_names(tmp_path: Path) -> None:
     (tmp_path / "in").mkdir(parents=True, exist_ok=True)
     (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
@@ -190,6 +197,7 @@ def test_run_audit_handles_unknown_rows_and_untracked_in_file_names(tmp_path: Pa
     assert lines == ["sppf-status-audit: no drift detected"]
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_run_audit_allows_override_marker::test_sppf_status_audit.py::tests.test_sppf_status_audit._run_with_deadline::test_sppf_status_audit.py::tests.test_sppf_status_audit._write_fixture
 def test_run_audit_allows_override_marker(tmp_path: Path) -> None:
     _write_fixture(
         tmp_path,
@@ -209,6 +217,7 @@ def test_run_audit_allows_override_marker(tmp_path: Path) -> None:
     assert lines == ["sppf-status-audit: no drift detected"]
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_status_audit.py::test_main_reports_to_stdout_and_stderr::sppf_status_audit.py::scripts.sppf_status_audit.main::test_sppf_status_audit.py::tests.test_sppf_status_audit._write_fixture
 def test_main_reports_to_stdout_and_stderr(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
     _write_fixture(
         tmp_path,

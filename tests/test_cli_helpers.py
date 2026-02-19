@@ -4,6 +4,7 @@ from pathlib import Path
 import io
 import json
 import re
+import subprocess
 import sys
 import types
 import zipfile
@@ -33,6 +34,7 @@ def test_split_csv_helpers() -> None:
     assert cli._split_csv(" ,") == []
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_parse_dataflow_args_or_exit_routes_help_to_parser::cli.py::gabion.cli.parse_dataflow_args_or_exit
 def test_parse_dataflow_args_or_exit_routes_help_to_parser(capsys) -> None:
     with pytest.raises(typer.Exit) as exc:
         cli.parse_dataflow_args_or_exit(["--help"])
@@ -40,12 +42,14 @@ def test_parse_dataflow_args_or_exit_routes_help_to_parser(capsys) -> None:
     assert "usage:" in capsys.readouterr().out.lower()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit::cli.py::gabion.cli.parse_dataflow_args_or_exit
 def test_parse_dataflow_args_or_exit_converts_parse_errors_to_typer_exit() -> None:
     with pytest.raises(typer.Exit) as exc:
         cli.parse_dataflow_args_or_exit([])
     assert exc.value.exit_code == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_rejects_unknown_args_in_strict_profile::cli.py::gabion.cli.app
 def test_check_rejects_unknown_args_in_strict_profile() -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["check", "sample.py", "--dot", "-"])
@@ -53,6 +57,7 @@ def test_check_rejects_unknown_args_in_strict_profile() -> None:
     assert "Unknown arguments for strict profile" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_rejects_unknown_profile::cli.py::gabion.cli.app
 def test_check_rejects_unknown_profile() -> None:
     runner = CliRunner()
     result = runner.invoke(cli.app, ["check", "sample.py", "--profile", "mystery"])
@@ -60,6 +65,7 @@ def test_check_rejects_unknown_profile() -> None:
     assert "profile must be 'strict' or 'raw'" in result.output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_delegates_with_profile_defaults::cli.py::gabion.cli.app
 def test_check_raw_profile_delegates_with_profile_defaults(
 ) -> None:
     captured: dict[str, object] = {}
@@ -77,6 +83,7 @@ def test_check_raw_profile_delegates_with_profile_defaults(
     assert captured["argv"] == ["sample.py"]
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_maps_common_flags_and_passthrough_args::cli.py::gabion.cli.app
 def test_check_raw_profile_maps_common_flags_and_passthrough_args(
     tmp_path: Path,
 ) -> None:
@@ -172,6 +179,7 @@ def test_check_raw_profile_maps_common_flags_and_passthrough_args(
     ]
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_maps_no_allow_external::cli.py::gabion.cli.app
 def test_check_raw_profile_maps_no_allow_external(
 ) -> None:
     captured: dict[str, object] = {}
@@ -197,6 +205,7 @@ def test_check_raw_profile_maps_no_allow_external(
     assert captured["argv"] == ["sample.py", "--no-allow-external"]
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_raw_profile_rejects_check_only_flags::test_cli_helpers.py::tests.test_cli_helpers._strip_ansi
 def test_check_raw_profile_rejects_check_only_flags() -> None:
     runner = CliRunner()
     result = runner.invoke(
@@ -209,6 +218,7 @@ def test_check_raw_profile_rejects_check_only_flags() -> None:
     assert "--emit-test-obsolescence" in normalized_output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_nonzero_exit_reports_explicit_causes::cli.py::gabion.cli._run_dataflow_raw_argv
 def test_dataflow_audit_nonzero_exit_reports_explicit_causes(capsys: pytest.CaptureFixture[str]) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -220,6 +230,7 @@ def test_dataflow_audit_nonzero_exit_reports_explicit_causes(capsys: pytest.Capt
     assert "Non-zero exit (1) cause(s):" in capsys.readouterr().err
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_nonzero_exit_fallback_is_explicit::cli.py::gabion.cli._run_dataflow_raw_argv
 def test_dataflow_audit_nonzero_exit_fallback_is_explicit(capsys: pytest.CaptureFixture[str]) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -233,6 +244,7 @@ def test_dataflow_audit_nonzero_exit_fallback_is_explicit(capsys: pytest.Capture
     assert "analysis_state=succeeded" in err
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_ignore_noncallables::cli.py::gabion.cli._context_run_dataflow_raw_argv
 def test_context_dependency_helpers_ignore_noncallables() -> None:
     class DummyCtx:
         obj = {
@@ -271,6 +283,7 @@ def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     assert "sarif-2.1.0.json" in capsys.readouterr().out
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_write_lint_sarif_reuses_existing_rule::cli.py::gabion.cli._write_lint_sarif
 def test_write_lint_sarif_reuses_existing_rule(tmp_path: Path) -> None:
     entries = [
         {"path": "mod.py", "line": 1, "col": 1, "code": "GABION_CODE", "message": "m1"},
@@ -300,6 +313,7 @@ def test_emit_lint_outputs_writes_artifacts(tmp_path: Path, capsys) -> None:
     assert sarif_path.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_lint_outputs_jsonl_only::cli.py::gabion.cli._emit_lint_outputs
 def test_emit_lint_outputs_jsonl_only(tmp_path: Path) -> None:
     lines = ["mod.py:1:1: GABION_CODE message"]
     jsonl_path = tmp_path / "lint.jsonl"
@@ -312,6 +326,7 @@ def test_emit_lint_outputs_jsonl_only(tmp_path: Path) -> None:
     assert jsonl_path.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_lint_outputs_sarif_only::cli.py::gabion.cli._emit_lint_outputs
 def test_emit_lint_outputs_sarif_only(tmp_path: Path) -> None:
     lines = ["mod.py:1:1: GABION_CODE message"]
     sarif_path = tmp_path / "lint.sarif"
@@ -324,6 +339,7 @@ def test_emit_lint_outputs_sarif_only(tmp_path: Path) -> None:
     assert sarif_path.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_cli_deadline_scope_yields::cli.py::gabion.cli._cli_deadline_scope
 def test_cli_deadline_scope_yields() -> None:
     with cli._cli_deadline_scope():
         assert True
@@ -419,6 +435,7 @@ def test_run_docflow_audit_passes_flags(tmp_path: Path) -> None:
     assert lines[1] == "sppf:"
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_cleans_import_state::cli.py::gabion.cli._run_docflow_audit
 def test_run_docflow_audit_cleans_import_state(tmp_path: Path) -> None:
     module_name = "gabion_repo_audit_tools"
     module_path = tmp_path / "audit_tools.py"
@@ -448,6 +465,7 @@ def test_run_docflow_audit_cleans_import_state(tmp_path: Path) -> None:
     assert module_name not in sys_modules_map
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_restores_previous_module::cli.py::gabion.cli._run_docflow_audit
 def test_run_docflow_audit_restores_previous_module(tmp_path: Path) -> None:
     module_name = "gabion_repo_audit_tools"
     module_path = tmp_path / "audit_tools.py"
@@ -470,6 +488,7 @@ def test_run_docflow_audit_restores_previous_module(tmp_path: Path) -> None:
     assert sys_modules_map.get(module_name) is previous_module
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_cleanup_ignores_missing_sys_path::cli.py::gabion.cli._run_docflow_audit
 def test_run_docflow_audit_cleanup_ignores_missing_sys_path(tmp_path: Path) -> None:
     module_path = tmp_path / "audit_tools.py"
     module_path.write_text(
@@ -496,6 +515,7 @@ def test_run_docflow_audit_cleanup_ignores_missing_sys_path(tmp_path: Path) -> N
     assert scripts_root not in sys_path_list
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_keeps_existing_sys_path_entry::cli.py::gabion.cli._run_docflow_audit
 def test_run_docflow_audit_keeps_existing_sys_path_entry(tmp_path: Path) -> None:
     module_path = tmp_path / "audit_tools.py"
     module_path.write_text(
@@ -517,6 +537,7 @@ def test_run_docflow_audit_keeps_existing_sys_path_entry(tmp_path: Path) -> None
     assert sys_path_list == [scripts_root]
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_one_when_sppf_graph_fails::cli.py::gabion.cli._run_docflow_audit
 def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -537,6 +558,7 @@ def test_run_docflow_audit_returns_one_when_sppf_graph_fails(
     assert "docflow: sppf-graph failed: boom" in capsys.readouterr().err
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf::cli.py::gabion.cli._run_docflow_audit
 def test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf(
     tmp_path: Path,
 ) -> None:
@@ -556,6 +578,7 @@ def test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf(
     assert exit_code == 7
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_two_when_loader_creation_fails::cli.py::gabion.cli._run_docflow_audit
 def test_run_docflow_audit_returns_two_when_loader_creation_fails(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -628,6 +651,7 @@ def test_dataflow_audit_emits_lint_outputs(tmp_path: Path, capsys) -> None:
     assert sarif_path.exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_writes_deadline_profile::cli.py::gabion.cli._run_dataflow_raw_argv
 def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         # dataflow-bundle: _args, _kwargs
@@ -659,6 +683,7 @@ def test_dataflow_audit_timeout_writes_deadline_profile(tmp_path: Path) -> None:
     assert payload["checks_total"] == 3
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_timeout_profile_artifacts_no_profile_is_noop::cli.py::gabion.cli._emit_timeout_profile_artifacts
 def test_emit_timeout_profile_artifacts_no_profile_is_noop(tmp_path: Path) -> None:
     cli._emit_timeout_profile_artifacts(
         {"timeout_context": {"deadline_profile": "bad"}},
@@ -667,16 +692,19 @@ def test_emit_timeout_profile_artifacts_no_profile_is_noop(tmp_path: Path) -> No
     assert not (tmp_path / "artifacts" / "out" / "deadline_profile.json").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_timeout_progress_artifacts_no_progress_is_noop::cli.py::gabion.cli._emit_timeout_progress_artifacts
 def test_emit_timeout_progress_artifacts_no_progress_is_noop(tmp_path: Path) -> None:
     cli._emit_timeout_progress_artifacts({"timeout_context": {"progress": "bad"}}, root=tmp_path)
     assert not (tmp_path / "artifacts" / "audit_reports" / "timeout_progress.json").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_timeout_progress_artifacts_missing_timeout_context_is_noop::cli.py::gabion.cli._emit_timeout_progress_artifacts
 def test_emit_timeout_progress_artifacts_missing_timeout_context_is_noop(tmp_path: Path) -> None:
     cli._emit_timeout_progress_artifacts({"timeout_context": "bad"}, root=tmp_path)
     assert not (tmp_path / "artifacts" / "audit_reports" / "timeout_progress.json").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_progress_report_and_resume_retry::cli.py::gabion.cli._run_dataflow_raw_argv
 def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path) -> None:
     calls = {"count": 0}
 
@@ -736,6 +764,7 @@ def test_dataflow_audit_timeout_progress_report_and_resume_retry(tmp_path: Path)
     assert payload["analysis_state"] == "timed_out_progress_resume"
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_timeout_retry_branch_and_progress_artifacts::cli.py::gabion.cli._run_with_timeout_retries
 def test_check_timeout_retry_branch_and_progress_artifacts(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -774,6 +803,7 @@ def test_check_timeout_retry_branch_and_progress_artifacts(
     assert "Retrying after timeout with progress (1/1)..." in capsys.readouterr().out
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_timeout_no_retry_exits_with_timeout_code::cli.py::gabion.cli._run_with_timeout_retries
 def test_check_timeout_no_retry_exits_with_timeout_code(
     tmp_path: Path,
 ) -> None:
@@ -802,6 +832,7 @@ def test_check_timeout_no_retry_exits_with_timeout_code(
     assert profile_calls == 1
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_skips_empty_resume_token_fields::cli.py::gabion.cli._render_timeout_progress_markdown
 def test_render_timeout_progress_markdown_skips_empty_resume_token_fields() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -814,6 +845,7 @@ def test_render_timeout_progress_markdown_skips_empty_resume_token_fields() -> N
     assert "witness_digest" not in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries::cli.py::gabion.cli._render_timeout_progress_markdown
 def test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -824,6 +856,7 @@ def test_render_timeout_progress_markdown_skips_non_mapping_obligation_entries()
     assert "`SATISFIED` `c` `k`" in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_includes_tick_metrics::cli.py::gabion.cli._render_timeout_progress_markdown
 def test_render_timeout_progress_markdown_includes_tick_metrics() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -843,6 +876,7 @@ def test_render_timeout_progress_markdown_includes_tick_metrics() -> None:
     assert "`ticks_per_ns`: `0.125000000`" not in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric::cli.py::gabion.cli._render_timeout_progress_markdown
 def test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state="timed_out_progress_resume",
@@ -857,6 +891,7 @@ def test_render_timeout_progress_markdown_falls_back_to_profile_tick_metric() ->
     assert "`ticks_per_ns`: `0.125000000`" in rendered
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_without_retry_raises_exit::cli.py::gabion.cli._run_dataflow_raw_argv
 def test_dataflow_audit_timeout_without_retry_raises_exit(tmp_path: Path) -> None:
     def runner(*_args, **_kwargs):
         return {
@@ -880,6 +915,7 @@ def test_dataflow_audit_timeout_without_retry_raises_exit(tmp_path: Path) -> Non
     assert exc.value.exit_code == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain::cli.py::gabion.cli._run_dataflow_raw_argv
 def test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain(
     tmp_path: Path,
 ) -> None:
@@ -915,6 +951,7 @@ def test_dataflow_audit_timeout_progress_resume_retries_when_attempts_remain(
     assert calls["count"] == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dataflow_audit_retry_uses_fresh_cli_budget::cli.py::gabion.cli._run_dataflow_raw_argv::timeout_context.py::gabion.analysis.timeout_context.check_deadline
 def test_dataflow_audit_retry_uses_fresh_cli_budget(
     tmp_path: Path,
     env_scope,
@@ -959,6 +996,7 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(
     assert calls["count"] == 2
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_resume_checkpoint_from_progress_notification::cli.py::gabion.cli._resume_checkpoint_from_progress_notification
 def test_resume_checkpoint_from_progress_notification() -> None:
     payload = cli._resume_checkpoint_from_progress_notification(
         {
@@ -984,6 +1022,7 @@ def test_resume_checkpoint_from_progress_notification() -> None:
     }
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_checkpoint_startup_line::cli.py::gabion.cli._emit_resume_checkpoint_startup_line
 def test_emit_resume_checkpoint_startup_line(capsys) -> None:
     cli._emit_resume_checkpoint_startup_line(
         checkpoint_path="artifacts/audit_reports/resume.json",
@@ -996,6 +1035,80 @@ def test_emit_resume_checkpoint_startup_line(capsys) -> None:
     assert "status=checkpoint_loaded" in output
     assert "reused_files=3/7" in output
 
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_checkpoint_startup_line_unknown_pending::cli.py::gabion.cli._emit_resume_checkpoint_startup_line
+def test_emit_resume_checkpoint_startup_line_unknown_pending(capsys) -> None:
+    cli._emit_resume_checkpoint_startup_line(
+        checkpoint_path="artifacts/audit_reports/resume.json",
+        status="pending",
+        reused_files=None,
+        total_files=None,
+    )
+    output = capsys.readouterr().out
+    assert "resume checkpoint detected..." in output
+    assert "status=pending" in output
+    assert "reused_files=unknown" in output
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_pending_unknown_then_first_resume_update::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_run_dataflow_raw_argv_emits_pending_unknown_then_first_resume_update(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    checkpoint_path = tmp_path / "resume.json"
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
+
+    def _fake_execute_command(ls, _payload=None):
+        ls.send_notification(
+            "$/progress",
+            {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "resume_checkpoint": {
+                        "checkpoint_path": str(checkpoint_path),
+                        "status": "checkpoint_loaded",
+                        "reused_files": 2,
+                        "total_files": 5,
+                    }
+                },
+            },
+        )
+        return {"exit_code": 0}
+
+    def _runner(request, *, root=None, notification_callback=None):
+        return cli.run_command_direct(
+            request,
+            root=root,
+            notification_callback=notification_callback,
+            execute_dataflow_fn=_fake_execute_command,
+        )
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            [
+                str(module_path),
+                "--root",
+                str(tmp_path),
+                "--resume-checkpoint",
+                str(checkpoint_path),
+            ],
+            runner=_runner,
+        )
+    assert exc.value.exit_code == 0
+    startup_lines = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if "resume checkpoint detected..." in line
+    ]
+    assert len(startup_lines) == 2
+    assert "status=pending" in startup_lines[0]
+    assert "reused_files=unknown" in startup_lines[0]
+    assert "status=checkpoint_loaded" in startup_lines[1]
+    assert "reused_files=2/5" in startup_lines[1]
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_analysis_resume_summary::cli.py::gabion.cli._emit_analysis_resume_summary
 @pytest.mark.parametrize("cache_verdict", ["hit", "miss", "invalidated", "seeded"])
 def test_emit_analysis_resume_summary(cache_verdict: str, capsys) -> None:
     cli._emit_analysis_resume_summary(
@@ -1017,12 +1130,14 @@ def test_emit_analysis_resume_summary(cache_verdict: str, capsys) -> None:
     assert f"cache_verdict={cache_verdict}" in output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_analysis_resume_summary_skips_missing_payload::cli.py::gabion.cli._emit_analysis_resume_summary
 def test_emit_analysis_resume_summary_skips_missing_payload(capsys) -> None:
     cli._emit_analysis_resume_summary({"exit_code": 0})
     output = capsys.readouterr().out
     assert output == ""
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_includes_incremental_obligations::cli.py::gabion.cli._render_timeout_progress_markdown
 def test_render_timeout_progress_markdown_includes_incremental_obligations() -> None:
     progress = {
         "classification": "timed_out_progress_resume",
@@ -1441,7 +1556,7 @@ def _extract_rpc_messages(buffer: bytes) -> list[dict]:
     return messages
 
 
-# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.dispatch_command
+# gabion:evidence E:function_site::cli.py::gabion.cli.dispatch_command
 def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
     proc_holder: dict[str, _FakeProc] = {}
 
@@ -1470,6 +1585,7 @@ def test_dispatch_command_passes_timeout_ticks(tmp_path: Path) -> None:
     assert payload["analysis_timeout_tick_ns"] > 0
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_preserves_existing_timeout_ms::cli.py::gabion.cli.dispatch_command
 def test_dispatch_command_preserves_existing_timeout_ms(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -1494,6 +1610,30 @@ def test_dispatch_command_preserves_existing_timeout_ms(tmp_path: Path) -> None:
     assert isinstance(payload, dict)
     assert payload["analysis_timeout_ms"] == 1
     assert "analysis_timeout_ticks" not in payload
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_dispatch_command_handles_signature_introspection_failure::cli.py::gabion.cli.dispatch_command
+def test_dispatch_command_handles_signature_introspection_failure(tmp_path: Path) -> None:
+    class _Runner:
+        __signature__ = "bad-signature"
+
+        def __call__(self, request, *, root=None):
+            _ = request
+            _ = root
+            return {"ok": True}
+
+    runner = _Runner()
+    result = cli.dispatch_command(
+        command=cli.STRUCTURE_DIFF_COMMAND,
+        payload={
+            "baseline": str(tmp_path / "base.json"),
+            "current": str(tmp_path / "current.json"),
+        },
+        root=tmp_path,
+        runner=runner,
+        notification_callback=lambda _payload: None,
+    )
+    assert result == {"ok": True}
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli.run_structure_reuse::lemma_stubs
@@ -1560,6 +1700,7 @@ def test_cli_diff_and_reuse_commands_use_default_runner(capsys) -> None:
     assert cli.STRUCTURE_REUSE_COMMAND in calls
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_impact_query_uses_runner_and_optional_fields::cli.py::gabion.cli.run_impact_query
 def test_run_impact_query_uses_runner_and_optional_fields(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -1589,6 +1730,7 @@ def test_run_impact_query_uses_runner_and_optional_fields(tmp_path: Path) -> Non
     assert payload["root"] == str(tmp_path)
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_impact_human_output_and_exit::cli.py::gabion.cli._emit_impact
 def test_emit_impact_human_output_and_exit(capsys) -> None:
     cli._emit_impact(
         {
@@ -1624,6 +1766,7 @@ def test_emit_impact_human_output_and_exit(capsys) -> None:
     assert "boom" in captured.err
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_synth_outputs_skips_absent_optional_paths::cli.py::gabion.cli._emit_synth_outputs
 def test_emit_synth_outputs_skips_absent_optional_paths(tmp_path: Path, capsys) -> None:
     root = tmp_path / "out"
     root.mkdir()
@@ -1653,6 +1796,7 @@ def test_emit_synth_outputs_skips_absent_optional_paths(tmp_path: Path, capsys) 
     assert "fingerprint_handledness.json" not in output
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_render_timeout_progress_markdown_handles_non_mapping_resume_token::cli.py::gabion.cli._render_timeout_progress_markdown
 def test_render_timeout_progress_markdown_handles_non_mapping_resume_token() -> None:
     rendered = cli._render_timeout_progress_markdown(
         analysis_state=None,
@@ -1721,6 +1865,7 @@ def test_emit_structure_reuse_errors_exit(capsys) -> None:
     assert "bad reuse" in captured.err
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
 def test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files(
     tmp_path: Path,
 ) -> None:
@@ -1783,6 +1928,7 @@ def test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files
     assert (tmp_path / f"{checkpoint_name}.chunks/part-000.json").exists()
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_cli_maps_options::cli.py::gabion.cli.app
 def test_restore_resume_checkpoint_cli_maps_options(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
@@ -1823,3 +1969,499 @@ def test_restore_resume_checkpoint_cli_maps_options(tmp_path: Path) -> None:
         "artifact_name": "dataflow-report",
         "checkpoint_name": "dataflow_resume_checkpoint_ci.json",
     }
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_derived_artifacts_includes_all_optional_outputs::cli.py::gabion.cli._check_derived_artifacts
+def test_check_derived_artifacts_includes_all_optional_outputs() -> None:
+    derived = cli._check_derived_artifacts(
+        report=Path("artifacts/audit_reports/dataflow_report.md"),
+        decision_snapshot=Path("artifacts/out/decision_snapshot.json"),
+        artifact_flags=cli.CheckArtifactFlags(
+            emit_test_obsolescence=True,
+            emit_test_evidence_suggestions=True,
+            emit_call_clusters=True,
+            emit_call_cluster_consolidation=True,
+            emit_test_annotation_drift=True,
+        ),
+        emit_test_obsolescence_state=True,
+        emit_test_obsolescence_delta=True,
+        emit_test_annotation_drift_delta=True,
+        emit_ambiguity_delta=True,
+        emit_ambiguity_state=True,
+    )
+    assert "artifacts/out/decision_snapshot.json" in derived
+    assert "artifacts/out/test_obsolescence_report.json" in derived
+    assert "artifacts/out/test_obsolescence_state.json" in derived
+    assert "artifacts/out/test_obsolescence_delta.json" in derived
+    assert "artifacts/out/test_evidence_suggestions.json" in derived
+    assert "artifacts/out/call_clusters.json" in derived
+    assert "artifacts/out/call_cluster_consolidation.json" in derived
+    assert "artifacts/out/test_annotation_drift.json" in derived
+    assert "artifacts/out/test_annotation_drift_delta.json" in derived
+    assert "artifacts/out/ambiguity_delta.json" in derived
+    assert "artifacts/out/ambiguity_state.json" in derived
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors::cli.py::gabion.cli._nonzero_exit_causes
+def test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors() -> None:
+    causes = cli._nonzero_exit_causes(
+        {
+            "timeout": True,
+            "analysis_state": "timed_out",
+            "type_ambiguities": ["a", "b"],
+            "errors": ["first", "second"],
+        }
+    )
+    assert "timeout (analysis_state=timed_out)" in causes
+    assert "type ambiguities=2" in causes
+    assert "errors=2 (first: first)" in causes
+
+    causes_single = cli._nonzero_exit_causes({"errors": ["only"]})
+    assert "error: only" in causes_single
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_resume_checkpoint_from_progress_notification_rejects_invalid_shapes::cli.py::gabion.cli._resume_checkpoint_from_progress_notification
+def test_resume_checkpoint_from_progress_notification_rejects_invalid_shapes() -> None:
+    assert (
+        cli._resume_checkpoint_from_progress_notification({"method": "textDocument/publishDiagnostics"})
+        is None
+    )
+    assert cli._resume_checkpoint_from_progress_notification({"method": "$/progress", "params": "bad"}) is None
+    assert (
+        cli._resume_checkpoint_from_progress_notification(
+            {"method": "$/progress", "params": {"token": "wrong", "value": {}}}
+        )
+        is None
+    )
+    assert (
+        cli._resume_checkpoint_from_progress_notification(
+            {
+                "method": "$/progress",
+                "params": {"token": "gabion.dataflowAudit/progress-v1", "value": "bad"},
+            }
+        )
+        is None
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_resume_update_once::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_run_dataflow_raw_argv_emits_resume_update_once(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    checkpoint_path = tmp_path / "resume.json"
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
+
+    def _fake_runner(_request, *, root=None, notification_callback=None):
+        _ = root
+        assert callable(notification_callback)
+        payload = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "resume_checkpoint": {
+                        "checkpoint_path": str(checkpoint_path),
+                        "status": "checkpoint_loaded",
+                        "reused_files": 2,
+                        "total_files": 5,
+                    }
+                }
+            },
+        }
+        notification_callback(payload)
+        notification_callback(payload)
+        return {"exit_code": 0}
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            [
+                str(module_path),
+                "--root",
+                str(tmp_path),
+                "--resume-checkpoint",
+                str(checkpoint_path),
+            ],
+            runner=_fake_runner,
+        )
+    assert exc.value.exit_code == 0
+    startup_lines = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if "resume checkpoint detected..." in line
+    ]
+    assert len(startup_lines) == 2
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_emits_resume_startup_and_first_progress_once::cli.py::gabion.cli.app
+def test_check_emits_resume_startup_and_first_progress_once(
+    tmp_path: Path,
+) -> None:
+    def _fake_run_check(**kwargs):
+        callback = kwargs.get("notification_callback")
+        assert callable(callback)
+        payload = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "resume_checkpoint": {
+                        "checkpoint_path": "resume.json",
+                        "status": "checkpoint_loaded",
+                        "reused_files": 1,
+                        "total_files": 2,
+                    }
+                },
+            },
+        }
+        callback(payload)
+        callback(payload)
+        return {"exit_code": 0}
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "sample.py",
+            "--root",
+            str(tmp_path),
+            "--resume-checkpoint",
+            str(tmp_path / "resume.json"),
+            "--no-fail-on-violations",
+            "--no-fail-on-type-ambiguities",
+        ],
+        obj={
+            "run_check": _fake_run_check,
+            "run_with_timeout_retries": lambda run_once, **_kwargs: run_once(),
+        },
+    )
+    assert result.exit_code == 0
+    startup_lines = [
+        line
+        for line in result.stdout.splitlines()
+        if "resume checkpoint detected..." in line
+    ]
+    assert len(startup_lines) == 2
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_governance_cli_error_paths::cli.py::gabion.cli._run_governance_cli
+def test_run_governance_cli_error_paths(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert (
+        cli._run_governance_cli(
+            runner_name="run_docflow_cli",
+            args=[],
+            audit_tools_path=tmp_path / "missing.py",
+        )
+        == 2
+    )
+
+    class _BadPath:
+        pass
+
+    assert (
+        cli._run_governance_cli(
+            runner_name="run_docflow_cli",
+            args=[],
+            audit_tools_path=_BadPath(),  # type: ignore[arg-type]
+        )
+        == 2
+    )
+
+    missing_runner = tmp_path / "missing_runner.py"
+    missing_runner.write_text("value = 1\n", encoding="utf-8")
+    assert (
+        cli._run_governance_cli(
+            runner_name="run_docflow_cli",
+            args=[],
+            audit_tools_path=missing_runner,
+        )
+        == 2
+    )
+
+    failing_runner = tmp_path / "failing_runner.py"
+    failing_runner.write_text(
+        "def run_docflow_cli(argv=None):\n"
+        "    raise RuntimeError('runner boom')\n",
+        encoding="utf-8",
+    )
+    assert (
+        cli._run_governance_cli(
+            runner_name="run_docflow_cli",
+            args=[],
+            audit_tools_path=failing_runner,
+        )
+        == 1
+    )
+    assert "governance command failed" in capsys.readouterr().err
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_handles_guard_and_error_branches::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+def test_restore_resume_checkpoint_handles_guard_and_error_branches(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert (
+        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+            token="",
+            repo="",
+            output_dir=tmp_path,
+        )
+        == 0
+    )
+    assert "token/repository unavailable" in capsys.readouterr().out
+
+    def _raise_urlopen(_req, timeout=0):
+        raise RuntimeError("query boom")
+
+    assert (
+        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+            token="token",
+            repo="owner/repo",
+            output_dir=tmp_path,
+            urlopen_fn=_raise_urlopen,
+        )
+        == 0
+    )
+
+    payload = {
+        "artifacts": [
+            1,
+            {"expired": True, "archive_download_url": "u", "workflow_run": {"event": "push"}},
+            {"expired": False, "archive_download_url": "u", "workflow_run": "bad"},
+            {
+                "expired": False,
+                "archive_download_url": "u",
+                "workflow_run": {"id": "123", "head_branch": "main", "event": "push"},
+            },
+            {
+                "expired": False,
+                "archive_download_url": "u",
+                "workflow_run": {"id": "200", "head_branch": "other", "event": "push"},
+            },
+            {
+                "expired": False,
+                "archive_download_url": "u",
+                "workflow_run": {"id": "201", "head_branch": "main", "event": "pull_request"},
+            },
+        ]
+    }
+
+    class _Resp:
+        def __init__(self, body: bytes) -> None:
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self) -> "_Resp":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    def _query_only(_req, timeout=0):
+        return _Resp(json.dumps(payload).encode("utf-8"))
+
+    assert (
+        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+            token="token",
+            repo="owner/repo",
+            output_dir=tmp_path,
+            ref_name="main",
+            current_run_id="123",
+            urlopen_fn=_query_only,
+        )
+        == 0
+    )
+
+    payload_download = {
+        "artifacts": [
+            {
+                "expired": False,
+                "archive_download_url": "https://example.invalid/archive.zip",
+                "workflow_run": {"id": "100", "head_branch": "main", "event": "push"},
+            }
+        ]
+    }
+
+    def _download_fails(req, timeout=0):
+        url = str(getattr(req, "full_url", req))
+        if "actions/artifacts" in url:
+            return _Resp(json.dumps(payload_download).encode("utf-8"))
+        raise RuntimeError("download boom")
+
+    assert (
+        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+            token="token",
+            repo="owner/repo",
+            output_dir=tmp_path,
+            ref_name="main",
+            urlopen_fn=_download_fails,
+        )
+        == 0
+    )
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w") as zf:
+        zf.writestr("dataflow-report/dataflow_resume_checkpoint_ci.json.chunks/", "")
+
+    def _zip_with_only_directory(req, timeout=0):
+        url = str(getattr(req, "full_url", req))
+        if "actions/artifacts" in url:
+            return _Resp(json.dumps(payload_download).encode("utf-8"))
+        return _Resp(zip_buf.getvalue())
+
+    assert (
+        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+            token="token",
+            repo="owner/repo",
+            output_dir=tmp_path,
+            ref_name="main",
+            urlopen_fn=_zip_with_only_directory,
+        )
+        == 0
+    )
+
+    def _invalid_zip(req, timeout=0):
+        url = str(getattr(req, "full_url", req))
+        if "actions/artifacts" in url:
+            return _Resp(json.dumps(payload_download).encode("utf-8"))
+        return _Resp(b"not-a-zip")
+
+    assert (
+        cli._restore_dataflow_resume_checkpoint_from_github_artifacts(
+            token="token",
+            repo="owner/repo",
+            output_dir=tmp_path,
+            ref_name="main",
+            urlopen_fn=_invalid_zip,
+        )
+        == 0
+    )
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_context_restore_resume_checkpoint_falls_back_to_default::cli.py::gabion.cli._context_restore_resume_checkpoint
+def test_context_restore_resume_checkpoint_falls_back_to_default() -> None:
+    class _Ctx:
+        obj = {"restore_resume_checkpoint": "not-callable"}
+
+    fn = cli._context_restore_resume_checkpoint(_Ctx())
+    assert fn is cli._restore_dataflow_resume_checkpoint_from_github_artifacts
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_exception_and_extra_path::cli.py::gabion.cli._run_docflow_audit
+def test_run_docflow_audit_handles_loader_exception_and_extra_path(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module_path = tmp_path / "audit_tools.py"
+    calls_path = tmp_path / "calls.txt"
+    module_path.write_text(
+        f"calls_path = {str(calls_path)!r}\n"
+        "def run_docflow_cli(argv=None):\n"
+        "    with open(calls_path, 'w', encoding='utf-8') as handle:\n"
+        "        handle.write('|'.join(argv or []))\n"
+        "    return 0\n"
+        "def run_sppf_graph_cli(argv=None):\n"
+        "    return 0\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        cli._run_docflow_audit(
+            root=tmp_path,
+            fail_on_violations=False,
+            sppf_gh_ref_mode="required",
+            extra_path=["extra/docs"],
+            audit_tools_path=module_path,
+        )
+        == 0
+    )
+    assert "--extra-path|extra/docs" in calls_path.read_text(encoding="utf-8")
+
+    assert (
+        cli._run_docflow_audit(
+            root=tmp_path,
+            fail_on_violations=False,
+            sppf_gh_ref_mode="required",
+            audit_tools_path=module_path,
+            spec_from_file_location_fn=lambda *_a, **_k: (_ for _ in ()).throw(
+                RuntimeError("loader boom")
+            ),
+        )
+        == 2
+    )
+    assert "failed to load audit_tools module" in capsys.readouterr().err
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_creation_exception::cli.py::gabion.cli._run_docflow_audit
+def test_run_docflow_audit_handles_loader_creation_exception(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class _BadPath:
+        pass
+
+    exit_code = cli._run_docflow_audit(
+        root=tmp_path,
+        fail_on_violations=False,
+        sppf_gh_ref_mode="required",
+        audit_tools_path=_BadPath(),  # type: ignore[arg-type]
+    )
+    assert exit_code == 2
+    assert "failed to load audit_tools module" in capsys.readouterr().err
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_sppf_sync_command_handles_runner_errors::cli.py::gabion.cli.app
+def test_sppf_sync_command_handles_runner_errors() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["sppf-sync", "--range", "__not_a_rev_range__"])
+    assert result.exit_code == 2
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_sppf_graph_and_status_consistency_include_optional_cli_args::cli.py::gabion.cli.app
+def test_sppf_graph_and_status_consistency_include_optional_cli_args(tmp_path: Path) -> None:
+    calls: list[tuple[str, list[str]]] = []
+
+    def _fake_run_governance_cli(*, runner_name: str, args: list[str], **_kwargs) -> int:
+        calls.append((runner_name, list(args)))
+        return 0
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "sppf-graph",
+            "--root",
+            str(tmp_path),
+            "--json-output",
+            str(tmp_path / "graph.json"),
+            "--dot-output",
+            str(tmp_path / "graph.dot"),
+            "--issues-json",
+            str(tmp_path / "issues.json"),
+        ],
+        obj={"run_governance_cli": _fake_run_governance_cli},
+    )
+    assert result.exit_code == 0
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "status-consistency",
+            "--root",
+            str(tmp_path),
+            "--extra-path",
+            "in",
+            "--fail-on-violations",
+        ],
+        obj={"run_governance_cli": _fake_run_governance_cli},
+    )
+    assert result.exit_code == 0
+    assert any("--dot-output" in args for _, args in calls)
+    assert any("--issues-json" in args for _, args in calls)
+    assert any("--extra-path" in args and "--fail-on-violations" in args for _, args in calls)

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
-from gabion.analysis.timeout_context import deadline_loop_iter
+from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
 
 try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import deadline_scope_from_lsp_env
@@ -407,12 +407,14 @@ def run_stage(
 def _parse_stage_strictness_profile(
     raw_profile: str,
 ) -> dict[str, str]:
+    check_deadline()
     profile = raw_profile.strip()
     if not profile:
         return {}
     mapping: dict[str, str] = {}
     if "=" in profile:
         for raw_part in profile.split(","):
+            check_deadline()
             part = raw_part.strip()
             if not part or "=" not in part:
                 continue
@@ -422,6 +424,7 @@ def _parse_stage_strictness_profile(
         return mapping
     values = [token.strip().lower() for token in profile.split(",") if token.strip()]
     for stage_name, strictness in zip(_STAGE_SEQUENCE, values):
+        check_deadline()
         if strictness in {"low", "high"}:
             mapping[stage_name] = strictness
     return mapping
@@ -655,8 +658,10 @@ def main() -> int:
         resume_checkpoint_path=args.resume_checkpoint,
         baseline_path=args.baseline,
     )
-    strictness_by_stage = _parse_stage_strictness_profile(args.stage_strictness_profile)
     with deadline_scope_from_lsp_env():
+        strictness_by_stage = _parse_stage_strictness_profile(
+            args.stage_strictness_profile
+        )
         results = run_staged(
             stage_ids=stage_ids,
             paths=paths,

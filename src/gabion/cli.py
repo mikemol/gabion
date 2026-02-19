@@ -7,6 +7,7 @@ from contextlib import ExitStack, contextmanager
 from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias
 import argparse
 import importlib.util
+import inspect
 import io
 import json
 import os
@@ -259,21 +260,32 @@ def _find_repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _run_sppf_git(args: list[str]) -> str:
-    return subprocess.check_output(["git", *args], text=True).strip()
+def _run_sppf_git(
+    args: list[str],
+    *,
+    check_output_fn: Callable[..., str] = subprocess.check_output,
+) -> str:
+    return check_output_fn(["git", *args], text=True).strip()
 
 
-def _default_sppf_rev_range() -> str:
+def _default_sppf_rev_range(
+    *,
+    run_sppf_git_fn: Callable[[list[str]], str] = _run_sppf_git,
+) -> str:
     try:
-        _run_sppf_git(["rev-parse", "origin/stage"])
+        run_sppf_git_fn(["rev-parse", "origin/stage"])
         return "origin/stage..HEAD"
     except Exception:
         return "HEAD~20..HEAD"
 
 
-def _collect_sppf_commits(rev_range: str) -> list[SppfSyncCommitInfo]:
+def _collect_sppf_commits(
+    rev_range: str,
+    *,
+    check_output_fn: Callable[..., str] = subprocess.check_output,
+) -> list[SppfSyncCommitInfo]:
     try:
-        raw = subprocess.check_output(
+        raw = check_output_fn(
             [
                 "git",
                 "log",
@@ -321,11 +333,16 @@ def _build_sppf_comment(rev_range: str, commits: list[SppfSyncCommitInfo]) -> st
     return "\n".join(lines)
 
 
-def _run_sppf_gh(args: list[str], *, dry_run: bool) -> None:
+def _run_sppf_gh(
+    args: list[str],
+    *,
+    dry_run: bool,
+    run_fn: Callable[..., object] = subprocess.run,
+) -> None:
     if dry_run:
         typer.echo("DRY RUN: " + " ".join(["gh", *args]))
         return
-    subprocess.run(["gh", *args], check=True)
+    run_fn(["gh", *args], check=True)
 
 
 def _run_sppf_sync(
@@ -335,9 +352,12 @@ def _run_sppf_sync(
     close: bool,
     label: str | None,
     dry_run: bool,
+    default_rev_range_fn: Callable[[], str] = _default_sppf_rev_range,
+    collect_sppf_commits_fn: Callable[[str], list[SppfSyncCommitInfo]] = _collect_sppf_commits,
+    run_sppf_gh_fn: Callable[[list[str]], None] | None = None,
 ) -> int:
-    resolved_range = rev_range or _default_sppf_rev_range()
-    commits = _collect_sppf_commits(resolved_range)
+    resolved_range = rev_range or default_rev_range_fn()
+    commits = collect_sppf_commits_fn(resolved_range)
     if not commits:
         typer.echo("No commits in range; nothing to sync.")
         return 0
@@ -351,18 +371,23 @@ def _run_sppf_sync(
         return 0
 
     summary_comment = _build_sppf_comment(resolved_range, commits)
+    gh_runner = run_sppf_gh_fn or (lambda args: _run_sppf_gh(args, dry_run=dry_run))
     for issue_id in issue_ids:
         check_deadline()
         if close:
-            _run_sppf_gh(["issue", "close", issue_id, "-c", summary_comment], dry_run=dry_run)
+            gh_runner(["issue", "close", issue_id, "-c", summary_comment])
         elif comment:
-            _run_sppf_gh(["issue", "comment", issue_id, "-b", summary_comment], dry_run=dry_run)
+            gh_runner(["issue", "comment", issue_id, "-b", summary_comment])
         if label:
-            _run_sppf_gh(["issue", "edit", issue_id, "--add-label", label], dry_run=dry_run)
+            gh_runner(["issue", "edit", issue_id, "--add-label", label])
     return 0
 
 
-def run_sppf_sync_compat(argv: list[str] | None = None) -> int:
+def run_sppf_sync_compat(
+    argv: list[str] | None = None,
+    *,
+    run_sppf_sync_fn: Callable[..., int] = _run_sppf_sync,
+) -> int:
     parser = argparse.ArgumentParser(description="Sync SPPF-linked issues from commit messages.")
     parser.add_argument(
         "--range",
@@ -391,7 +416,7 @@ def run_sppf_sync_compat(argv: list[str] | None = None) -> int:
         help="Print gh commands without executing.",
     )
     args = parser.parse_args(argv)
-    return _run_sppf_sync(
+    return run_sppf_sync_fn(
         rev_range=args.rev_range,
         comment=args.comment,
         close=args.close,
@@ -1084,6 +1109,26 @@ def dispatch_command(
             process_factory=factory,
             notification_callback=notification_callback,
         )
+    if resolved is run_command_direct:
+        return resolved(
+            request,
+            root=root,
+            notification_callback=notification_callback,
+        )
+    if notification_callback is not None:
+        try:
+            params = inspect.signature(resolved).parameters
+        except (TypeError, ValueError):
+            params = {}
+        if "notification_callback" in params or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in params.values()
+        ):
+            return resolved(
+                request,
+                root=root,
+                notification_callback=notification_callback,
+            )
     return resolved(request, root=root)
 
 
@@ -1508,14 +1553,17 @@ def _emit_resume_checkpoint_startup_line(
     *,
     checkpoint_path: str,
     status: str,
-    reused_files: int,
-    total_files: int,
+    reused_files: int | None,
+    total_files: int | None,
 ) -> None:
+    reused_display = "unknown"
+    if isinstance(reused_files, int) and isinstance(total_files, int):
+        reused_display = f"{int(reused_files)}/{int(total_files)}"
     typer.echo(
         "resume checkpoint detected... "
         f"path={checkpoint_path or '<none>'} "
         f"status={status or 'unknown'} "
-        f"reused_files={int(reused_files)}/{int(total_files)}"
+        f"reused_files={reused_display}"
     )
 
 
@@ -1575,6 +1623,24 @@ def _context_run_dataflow_raw_argv(ctx: typer.Context) -> Callable[[list[str]], 
     return _run_dataflow_raw_argv
 
 
+def _context_run_check(ctx: typer.Context) -> Callable[..., JSONObject]:
+    obj = ctx.obj
+    if isinstance(obj, Mapping):
+        candidate = obj.get("run_check")
+        if callable(candidate):
+            return candidate
+    return run_check
+
+
+def _context_run_with_timeout_retries(ctx: typer.Context) -> Callable[..., JSONObject]:
+    obj = ctx.obj
+    if isinstance(obj, Mapping):
+        candidate = obj.get("run_with_timeout_retries")
+        if callable(candidate):
+            return candidate
+    return _run_with_timeout_retries
+
+
 def _run_dataflow_raw_argv(
     argv: list[str],
     *,
@@ -1588,8 +1654,8 @@ def _run_dataflow_raw_argv(
         _emit_resume_checkpoint_startup_line(
             checkpoint_path=str(opts.resume_checkpoint),
             status="pending",
-            reused_files=0,
-            total_files=0,
+            reused_files=None,
+            total_files=None,
         )
 
     def _on_notification(notification: JSONObject) -> None:
@@ -1829,8 +1895,8 @@ def check(
         _emit_resume_checkpoint_startup_line(
             checkpoint_path=str(resume_checkpoint),
             status="pending",
-            reused_files=0,
-            total_files=0,
+            reused_files=None,
+            total_files=None,
         )
 
     def _on_notification(notification: JSONObject) -> None:
@@ -1848,8 +1914,10 @@ def check(
         )
         startup_resume_emitted = True
 
-    result = _run_with_timeout_retries(
-        run_once=lambda: run_check(
+    run_check_fn = _context_run_check(ctx)
+    run_with_timeout_retries_fn = _context_run_with_timeout_retries(ctx)
+    result = run_with_timeout_retries_fn(
+        run_once=lambda: run_check_fn(
             paths=paths,
             report=report,
             fail_on_violations=fail_on_violations,
@@ -2244,7 +2312,8 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     def _artifact_is_candidate(item: object) -> bool:
         if not isinstance(item, dict):
             return False
-        if item.get("expired", True) or not item.get("archive_download_url"):
+        download_url = str(item.get("archive_download_url", "") or "")
+        if item.get("expired", True) or not download_url:
             return False
         workflow_run = item.get("workflow_run")
         if not isinstance(workflow_run, dict):
@@ -2265,9 +2334,6 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
         return 0
 
     download_url = str(artifact.get("archive_download_url", "") or "")
-    if not download_url:
-        typer.echo("Artifact archive URL missing; continuing without checkpoint.")
-        return 0
 
     try:
         req_zip = urllib.request.Request(download_url, headers=headers)
@@ -2401,8 +2467,27 @@ def _run_docflow_audit(
         return 2
 
 
+def _context_run_sppf_sync(ctx: typer.Context) -> Callable[..., int]:
+    obj = ctx.obj
+    if isinstance(obj, Mapping):
+        candidate = obj.get("run_sppf_sync")
+        if callable(candidate):
+            return candidate
+    return _run_sppf_sync
+
+
+def _context_run_governance_cli(ctx: typer.Context) -> Callable[..., int]:
+    obj = ctx.obj
+    if isinstance(obj, Mapping):
+        candidate = obj.get("run_governance_cli")
+        if callable(candidate):
+            return candidate
+    return _run_governance_cli
+
+
 @app.command("sppf-sync")
 def sppf_sync(
+    ctx: typer.Context,
     rev_range: Optional[str] = typer.Option(
         None,
         "--range",
@@ -2430,9 +2515,10 @@ def sppf_sync(
     ),
 ) -> None:
     """Sync SPPF checklist-linked GitHub issues from commit messages."""
+    run_sppf_sync_fn = _context_run_sppf_sync(ctx)
     with _cli_deadline_scope():
         try:
-            exit_code = _run_sppf_sync(
+            exit_code = run_sppf_sync_fn(
                 rev_range=rev_range,
                 comment=comment,
                 close=close,
@@ -2470,6 +2556,7 @@ def docflow(
 
 @app.command("sppf-graph")
 def sppf_graph(
+    ctx: typer.Context,
     root: Path = typer.Option(Path("."), "--root"),
     json_output: Path = typer.Option(Path("artifacts/sppf_dependency_graph.json"), "--json-output"),
     dot_output: Path | None = typer.Option(None, "--dot-output"),
@@ -2481,12 +2568,14 @@ def sppf_graph(
         args.extend(["--dot-output", str(dot_output)])
     if issues_json is not None:
         args.extend(["--issues-json", str(issues_json)])
-    exit_code = _run_governance_cli(runner_name="run_sppf_graph_cli", args=args)
+    run_governance_cli_fn = _context_run_governance_cli(ctx)
+    exit_code = run_governance_cli_fn(runner_name="run_sppf_graph_cli", args=args)
     raise typer.Exit(code=exit_code)
 
 
 @app.command("status-consistency")
 def status_consistency(
+    ctx: typer.Context,
     root: Path = typer.Option(Path("."), "--root"),
     extra_path: list[str] = typer.Option([], "--extra-path"),
     fail_on_violations: bool = typer.Option(
@@ -2501,7 +2590,8 @@ def status_consistency(
         args.extend(["--extra-path", entry])
     if fail_on_violations:
         args.append("--fail-on-violations")
-    exit_code = _run_governance_cli(runner_name="run_status_consistency_cli", args=args)
+    run_governance_cli_fn = _context_run_governance_cli(ctx)
+    exit_code = run_governance_cli_fn(runner_name="run_status_consistency_cli", args=args)
     raise typer.Exit(code=exit_code)
 
 

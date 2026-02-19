@@ -2835,11 +2835,16 @@ class SnapshotDiffPayload:
         return cls(baseline=Path(str(baseline)), current=Path(str(current)))
 
 
-def _diagnostics_for_path(path_str: str, project_root: Path | None) -> list[Diagnostic]:
+def _diagnostics_for_path(
+    path_str: str,
+    project_root: Path | None,
+    *,
+    analyze_paths_fn: Callable[..., AnalysisResult] = analyze_paths,
+) -> list[Diagnostic]:
     forest = Forest()
     with forest_scope(forest):
         check_deadline()
-        result = analyze_paths(
+        result = analyze_paths_fn(
             [Path(path_str)],
             forest=forest,
             recursive=True,
@@ -3923,12 +3928,6 @@ def _execute_command_total(
                 unused_arg_smells=[],
                 forest=forest,
             )
-        if (
-            analysis_resume_checkpoint_path is not None
-            and analysis_resume_checkpoint_path.exists()
-        ):
-            _clear_analysis_resume_checkpoint(analysis_resume_checkpoint_path)
-
         response: dict = {
             "type_suggestions": analysis.type_suggestions,
             "type_ambiguities": analysis.type_ambiguities,
