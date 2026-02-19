@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import types
+import urllib.error
 import zipfile
 
 import pytest
@@ -2045,6 +2046,107 @@ def test_restore_dataflow_resume_checkpoint_accepts_artifacts_with_missing_event
 
     assert exit_code == 0
     assert (tmp_path / checkpoint_name).exists()
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_download_artifact_archive_bytes_follows_blob_redirect_without_auth::cli.py::gabion.cli._download_artifact_archive_bytes
+def test_download_artifact_archive_bytes_follows_blob_redirect_without_auth() -> None:
+    class _Resp:
+        def __init__(self, body: bytes) -> None:
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self) -> "_Resp":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    def _no_redirect_open(_req, timeout=0):
+        _ = timeout
+        raise urllib.error.HTTPError(
+            url="https://api.github.com/repos/owner/repo/actions/artifacts/1/zip",
+            code=302,
+            msg="Found",
+            hdrs={
+                "Location": (
+                    "https://productionresultssa15.blob.core.windows.net/"
+                    "actions-results/example.zip?sig=abc"
+                )
+            },
+            fp=None,
+        )
+
+    seen_headers: list[dict[str, str]] = []
+
+    def _follow_redirect(req, timeout=0):
+        _ = timeout
+        seen_headers.append({str(key): str(value) for key, value in req.headers.items()})
+        return _Resp(b"zip-bytes")
+
+    archive_bytes = cli._download_artifact_archive_bytes(
+        download_url="https://api.github.com/repos/owner/repo/actions/artifacts/1/zip",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": "Bearer token",
+        },
+        no_redirect_open_fn=_no_redirect_open,
+        follow_redirect_open_fn=_follow_redirect,
+    )
+
+    assert archive_bytes == b"zip-bytes"
+    assert seen_headers
+    lowered = {key.lower(): value for key, value in seen_headers[0].items()}
+    assert "authorization" not in lowered
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_download_artifact_archive_bytes_keeps_auth_for_github_redirect::cli.py::gabion.cli._download_artifact_archive_bytes
+def test_download_artifact_archive_bytes_keeps_auth_for_github_redirect() -> None:
+    class _Resp:
+        def __init__(self, body: bytes) -> None:
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self) -> "_Resp":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    def _no_redirect_open(_req, timeout=0):
+        _ = timeout
+        raise urllib.error.HTTPError(
+            url="https://api.github.com/repos/owner/repo/actions/artifacts/1/zip",
+            code=302,
+            msg="Found",
+            hdrs={"Location": "https://api.github.com/repos/owner/repo/actions/artifacts/1/zip?retry=1"},
+            fp=None,
+        )
+
+    seen_headers: list[dict[str, str]] = []
+
+    def _follow_redirect(req, timeout=0):
+        _ = timeout
+        seen_headers.append({str(key): str(value) for key, value in req.headers.items()})
+        return _Resp(b"zip-bytes")
+
+    archive_bytes = cli._download_artifact_archive_bytes(
+        download_url="https://api.github.com/repos/owner/repo/actions/artifacts/1/zip",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": "Bearer token",
+        },
+        no_redirect_open_fn=_no_redirect_open,
+        follow_redirect_open_fn=_follow_redirect,
+    )
+
+    assert archive_bytes == b"zip-bytes"
+    assert seen_headers
+    lowered = {key.lower(): value for key, value in seen_headers[0].items()}
+    assert lowered.get("authorization") == "Bearer token"
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_restore_resume_checkpoint_cli_maps_options::cli.py::gabion.cli.app
