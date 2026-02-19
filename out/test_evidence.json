@@ -2221,6 +2221,25 @@
       ]
     },
     {
+      "display": "E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_helpers.py",
+          "qual": "test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts",
       "key": {
         "k": "call_footprint",
@@ -15783,6 +15802,41 @@
       },
       "tests": [
         "tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_run_staged_skips_retry_when_wall_budget_reserved"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "scripts.run_dataflow_stage.run_staged"
+          },
+          {
+            "path": "test_run_dataflow_stage.py",
+            "qual": "tests.test_run_dataflow_stage._base_paths"
+          },
+          {
+            "path": "test_run_dataflow_stage.py",
+            "qual": "tests.test_run_dataflow_stage._stage_paths"
+          },
+          {
+            "path": "test_run_dataflow_stage.py",
+            "qual": "tests.test_run_dataflow_stage._write_json"
+          },
+          {
+            "path": "test_run_dataflow_stage.py",
+            "qual": "tests.test_run_dataflow_stage._write_text"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved"
       ]
     },
     {
@@ -34617,7 +34671,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1979,
+      "line": 2037,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_check_derived_artifacts_includes_all_optional_outputs"
     },
@@ -34641,7 +34695,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2104,
+      "line": 2162,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_check_emits_resume_startup_and_first_progress_once"
     },
@@ -34925,7 +34979,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2354,
+      "line": 2412,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_context_restore_resume_checkpoint_falls_back_to_default"
     },
@@ -35879,7 +35933,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2012,
+      "line": 2070,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors"
     },
@@ -36098,6 +36152,30 @@
     {
       "evidence": [
         {
+          "display": "E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_cli_helpers.py",
+              "qual": "test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts"
+            },
+            "targets": [
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_cli_helpers.py",
+      "line": 1936,
+      "status": "mapped",
+      "test_id": "tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_accepts_workflow_dispatch_artifacts"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:call_footprint::tests/test_cli_helpers.py::test_restore_dataflow_resume_checkpoint_from_github_artifacts_restores_files::cli.py::gabion.cli._restore_dataflow_resume_checkpoint_from_github_artifacts",
           "key": {
             "k": "call_footprint",
@@ -36139,7 +36217,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 1936,
+      "line": 1994,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_restore_resume_checkpoint_cli_maps_options"
     },
@@ -36163,7 +36241,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2210,
+      "line": 2268,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_restore_resume_checkpoint_handles_guard_and_error_branches"
     },
@@ -36211,7 +36289,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2030,
+      "line": 2088,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_resume_checkpoint_from_progress_notification_rejects_invalid_shapes"
     },
@@ -36259,7 +36337,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2054,
+      "line": 2112,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_resume_update_once"
     },
@@ -36349,7 +36427,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2408,
+      "line": 2466,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_creation_exception"
     },
@@ -36373,7 +36451,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2363,
+      "line": 2421,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_exception_and_extra_path"
     },
@@ -36557,7 +36635,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2156,
+      "line": 2214,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_governance_cli_error_paths"
     },
@@ -36767,7 +36845,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2433,
+      "line": 2491,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_sppf_graph_and_status_consistency_include_optional_cli_args"
     },
@@ -36791,7 +36869,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2426,
+      "line": 2484,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_sppf_sync_command_handles_runner_errors"
     },
@@ -73785,7 +73863,7 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 216,
+      "line": 262,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys"
     },
@@ -73813,7 +73891,7 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 290,
+      "line": 336,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip"
     },
@@ -73917,7 +73995,7 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 249,
+      "line": 295,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_marks_success_as_failure_when_delta_gate_fails"
     },
@@ -73957,7 +74035,7 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 166,
+      "line": 212,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness"
     },
@@ -74004,6 +74082,46 @@
     {
       "evidence": [
         {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_run_staged_skips_retry_when_wall_budget_reserved"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "scripts.run_dataflow_stage.run_staged"
+              },
+              {
+                "path": "test_run_dataflow_stage.py",
+                "qual": "tests.test_run_dataflow_stage._base_paths"
+              },
+              {
+                "path": "test_run_dataflow_stage.py",
+                "qual": "tests.test_run_dataflow_stage._stage_paths"
+              },
+              {
+                "path": "test_run_dataflow_stage.py",
+                "qual": "tests.test_run_dataflow_stage._write_json"
+              },
+              {
+                "path": "test_run_dataflow_stage.py",
+                "qual": "tests.test_run_dataflow_stage._write_text"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 166,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
@@ -74037,7 +74155,7 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 194,
+      "line": 240,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure"
     },
@@ -74085,7 +74203,7 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 349,
+      "line": 395,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_timeout_stage_with_missing_incremental_obligations_marks_incomplete"
     },
