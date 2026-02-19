@@ -196,6 +196,46 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
     )
 
 
+
+
+def test_execute_command_emits_resume_progress_before_completion(tmp_path: Path) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                "resume_checkpoint": str(tmp_path / "missing_resume.json"),
+            }
+        ),
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    progress_values = _progress_values(ls)
+    assert progress_values
+    resume_progress = next(
+        (
+            value
+            for value in progress_values
+            if isinstance(value.get("resume_checkpoint"), dict)
+        ),
+        None,
+    )
+    assert isinstance(resume_progress, dict)
+    resume_checkpoint = resume_progress.get("resume_checkpoint")
+    assert isinstance(resume_checkpoint, dict)
+    assert str(resume_checkpoint.get("status", "")).startswith("checkpoint_")
+    assert resume_checkpoint.get("reused_files") == 0
+    assert resume_checkpoint.get("total_files") == 1
+    assert resume_progress.get("classification") == "resume_checkpoint_detected"
+    assert resume_progress.get("done") is not True
+
 def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
     _write_bundle_module(module_path)

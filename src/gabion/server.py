@@ -1961,6 +1961,7 @@ def _collection_progress_intro_lines(
     *,
     collection_resume: Mapping[str, JSONValue],
     total_files: int,
+    resume_checkpoint_intro: Mapping[str, JSONValue] | None = None,
 ) -> list[str]:
     check_deadline()
     progress = _analysis_resume_progress(
@@ -1974,6 +1975,19 @@ def _collection_progress_intro_lines(
         f"- `remaining_files`: `{progress['remaining_files']}`",
         f"- `total_files`: `{progress['total_files']}`",
     ]
+    if isinstance(resume_checkpoint_intro, Mapping):
+        checkpoint_path = str(resume_checkpoint_intro.get("checkpoint_path", "") or "")
+        status = str(resume_checkpoint_intro.get("status", "") or "")
+        reused_files = int(resume_checkpoint_intro.get("reused_files", 0) or 0)
+        total_resume_files = int(
+            resume_checkpoint_intro.get("total_files", progress["total_files"]) or 0
+        )
+        lines.append(
+            "- `resume_checkpoint`: "
+            f"`path={checkpoint_path or '<none>'} "
+            f"status={status or 'unknown'} "
+            f"reused_files={reused_files}/{total_resume_files}`"
+        )
     semantic_progress = collection_resume.get("semantic_progress")
     if isinstance(semantic_progress, Mapping):
         semantic_witness_digest = semantic_progress.get("current_witness_digest")
@@ -3046,6 +3060,7 @@ def _execute_command_total(
     )
     forest = Forest()
     forest_token = set_forest(forest)
+    explicit_resume_checkpoint = payload.get("resume_checkpoint") not in (None, False, "")
     analysis_resume_checkpoint_path: Path | None = _resolve_analysis_resume_checkpoint_path(
         payload.get("resume_checkpoint"),
         root=initial_root,
@@ -3056,6 +3071,7 @@ def _execute_command_total(
     analysis_resume_reused_files = 0
     analysis_resume_checkpoint_status: str | None = None
     analysis_resume_checkpoint_compatibility_status: str | None = None
+    analysis_resume_intro_payload: JSONObject | None = None
     report_section_witness_digest: str | None = None
     report_output_path = _resolve_report_output_path(
         root=initial_root,
@@ -3078,6 +3094,16 @@ def _execute_command_total(
     report_sections_cache: dict[str, list[str]] = {}
     report_sections_cache_reason: str | None = None
     report_sections_cache_loaded = False
+    semantic_progress_cumulative: JSONObject | None = None
+    latest_collection_progress: JSONObject = {
+        "completed_files": 0,
+        "in_progress_files": 0,
+        "remaining_files": 0,
+        "total_files": analysis_resume_total_files,
+    }
+
+    def _emit_lsp_progress(**_kwargs: object) -> None:
+        return
 
     def _ensure_report_sections_cache() -> tuple[dict[str, list[str]], str | None]:
         nonlocal report_sections_cache
@@ -3390,6 +3416,13 @@ def _execute_command_total(
                         collection_resume=collection_resume_payload,
                     )
                     analysis_resume_checkpoint_status = "checkpoint_seeded"
+                if explicit_resume_checkpoint:
+                    analysis_resume_intro_payload = {
+                        "checkpoint_path": str(analysis_resume_checkpoint_path),
+                        "status": analysis_resume_checkpoint_status or "unknown",
+                        "reused_files": analysis_resume_reused_files,
+                        "total_files": analysis_resume_total_files,
+                    }
             if file_paths_for_run is not None and analysis_resume_input_manifest_digest is None:
                 input_manifest = execute_deps.analysis_input_manifest_fn(
                     root=Path(root),
@@ -3412,7 +3445,6 @@ def _execute_command_total(
                     witness_digest=report_section_witness_digest,
                 )
         last_collection_resume_payload = collection_resume_payload
-        semantic_progress_cumulative: JSONObject | None = None
         if isinstance(collection_resume_payload, Mapping):
             raw_semantic_progress = collection_resume_payload.get("semantic_progress")
             if isinstance(raw_semantic_progress, Mapping):
@@ -3430,12 +3462,6 @@ def _execute_command_total(
         last_collection_report_flush_completed = -1
         phase_progress_signatures: dict[str, tuple[int, ...]] = {}
         phase_progress_last_flush_ns: dict[str, int] = {}
-        latest_collection_progress: JSONObject = {
-            "completed_files": 0,
-            "in_progress_files": 0,
-            "remaining_files": 0,
-            "total_files": analysis_resume_total_files,
-        }
         profiling_stage_ns: dict[str, int] = {
             "server.analysis_call": 0,
             "server.projection_emit": 0,
@@ -3456,6 +3482,7 @@ def _execute_command_total(
             done: bool = False,
             analysis_state: str | None = None,
             classification: str | None = None,
+            resume_checkpoint: Mapping[str, JSONValue] | None = None,
         ) -> None:
             semantic_payload: JSONObject = {}
             if isinstance(semantic_progress, Mapping):
@@ -3502,6 +3529,10 @@ def _execute_command_total(
                 progress_value["analysis_state"] = analysis_state
             if isinstance(classification, str) and classification:
                 progress_value["classification"] = classification
+            if isinstance(resume_checkpoint, Mapping):
+                progress_value["resume_checkpoint"] = {
+                    str(key): resume_checkpoint[key] for key in resume_checkpoint
+                }
             send_notification = getattr(ls, "send_notification", None)
             if not callable(send_notification):
                 return
@@ -3511,6 +3542,29 @@ def _execute_command_total(
                     "token": _LSP_PROGRESS_TOKEN,
                     "value": progress_value,
                 },
+            )
+
+        if analysis_resume_intro_payload is not None and callable(
+            getattr(ls, "send_notification", None)
+        ):
+            _emit_lsp_progress(
+                phase="collection",
+                collection_progress={
+                    "completed_files": analysis_resume_reused_files,
+                    "in_progress_files": 0,
+                    "remaining_files": max(
+                        analysis_resume_total_files - analysis_resume_reused_files,
+                        0,
+                    ),
+                    "total_files": analysis_resume_total_files,
+                },
+                semantic_progress=None,
+                work_done=analysis_resume_reused_files,
+                work_total=analysis_resume_total_files,
+                include_timing=profile_enabled,
+                analysis_state="analysis_collection_bootstrap",
+                classification="resume_checkpoint_detected",
+                resume_checkpoint=analysis_resume_intro_payload,
             )
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
@@ -3610,6 +3664,7 @@ def _execute_command_total(
             sections["intro"] = _collection_progress_intro_lines(
                 collection_resume=persisted_progress_payload,
                 total_files=analysis_resume_total_files,
+                resume_checkpoint_intro=analysis_resume_intro_payload,
             )
             if enable_phase_projection_checkpoints:
                 preview_groups_by_path = _groups_by_path_from_collection_resume(
@@ -4787,6 +4842,7 @@ def _execute_command_total(
                         _collection_progress_intro_lines(
                             collection_resume=timeout_collection_resume_payload,
                             total_files=analysis_resume_total_files,
+                            resume_checkpoint_intro=analysis_resume_intro_payload,
                         )
                         if timeout_collection_resume_payload is not None
                         else [
@@ -4881,15 +4937,17 @@ def _execute_command_total(
         finally:
             reset_deadline(cleanup_deadline_token)
     except Exception:
-        _emit_lsp_progress(
-            phase="post",
-            collection_progress=latest_collection_progress,
-            semantic_progress=semantic_progress_cumulative,
-            include_timing=True,
-            done=True,
-            analysis_state="failed",
-            classification="failed",
-        )
+        emit_progress = locals().get("_emit_lsp_progress")
+        if callable(emit_progress):
+            emit_progress(
+                phase="post",
+                collection_progress=latest_collection_progress,
+                semantic_progress=semantic_progress_cumulative,
+                include_timing=True,
+                done=True,
+                analysis_state="failed",
+                classification="failed",
+            )
         raise
     finally:
         reset_forest(forest_token)

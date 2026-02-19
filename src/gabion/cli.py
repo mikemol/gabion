@@ -76,6 +76,9 @@ _SPPF_KEYWORD_REF_RE = re.compile(
     r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
 )
 
+_LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
+_LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
+
 
 @dataclass(frozen=True)
 class SppfSyncCommitInfo:
@@ -1032,6 +1035,7 @@ def dispatch_command(
     runner: Runner = run_command,
     process_factory: Callable[..., subprocess.Popen] | None = None,
     execution_plan_request: ExecutionPlanRequest | None = None,
+    notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
     ticks, tick_ns = _cli_timeout_ticks()
     if (
@@ -1078,6 +1082,7 @@ def dispatch_command(
             timeout_ticks=ticks,
             timeout_tick_ns=tick_ns,
             process_factory=factory,
+            notification_callback=notification_callback,
         )
     return resolved(request, root=root)
 
@@ -1105,6 +1110,7 @@ def run_check(
     resume_on_timeout: int = 0,
     analysis_tick_limit: int | None = None,
     runner: Runner = run_command,
+    notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
     if filter_bundle is None:
         filter_bundle = DataflowFilterBundle(None, None)
@@ -1156,6 +1162,7 @@ def run_check(
         root=root,
         runner=runner,
         execution_plan_request=execution_plan_request,
+        notification_callback=notification_callback,
     )
 
 
@@ -1497,6 +1504,49 @@ def _emit_nonzero_exit_causes(result: JSONObject) -> None:
     typer.echo(f"Non-zero exit ({exit_code}) cause(s): {causes}", err=True)
 
 
+def _emit_resume_checkpoint_startup_line(
+    *,
+    checkpoint_path: str,
+    status: str,
+    reused_files: int,
+    total_files: int,
+) -> None:
+    typer.echo(
+        "resume checkpoint detected... "
+        f"path={checkpoint_path or '<none>'} "
+        f"status={status or 'unknown'} "
+        f"reused_files={int(reused_files)}/{int(total_files)}"
+    )
+
+
+def _resume_checkpoint_from_progress_notification(
+    notification: Mapping[str, object],
+) -> dict[str, object] | None:
+    if str(notification.get("method", "") or "") != _LSP_PROGRESS_NOTIFICATION_METHOD:
+        return None
+    params = notification.get("params")
+    if not isinstance(params, Mapping):
+        return None
+    if str(params.get("token", "") or "") != _LSP_PROGRESS_TOKEN:
+        return None
+    value = params.get("value")
+    if not isinstance(value, Mapping):
+        return None
+    resume_checkpoint = value.get("resume_checkpoint")
+    if not isinstance(resume_checkpoint, Mapping):
+        return None
+    checkpoint_path = str(resume_checkpoint.get("checkpoint_path", "") or "")
+    status = str(resume_checkpoint.get("status", "") or "")
+    reused_files = int(resume_checkpoint.get("reused_files", 0) or 0)
+    total_files = int(resume_checkpoint.get("total_files", 0) or 0)
+    return {
+        "checkpoint_path": checkpoint_path,
+        "status": status,
+        "reused_files": reused_files,
+        "total_files": total_files,
+    }
+
+
 def _emit_analysis_resume_summary(result: JSONObject) -> None:
     resume = result.get("analysis_resume")
     if not isinstance(resume, Mapping):
@@ -1533,12 +1583,37 @@ def _run_dataflow_raw_argv(
     opts = parse_dataflow_args_or_exit(argv)
     payload = build_dataflow_payload(opts)
     resolved_runner = runner or run_command
+    startup_resume_emitted = False
+    if opts.resume_checkpoint is not None:
+        _emit_resume_checkpoint_startup_line(
+            checkpoint_path=str(opts.resume_checkpoint),
+            status="pending",
+            reused_files=0,
+            total_files=0,
+        )
+
+    def _on_notification(notification: JSONObject) -> None:
+        nonlocal startup_resume_emitted
+        resume = _resume_checkpoint_from_progress_notification(notification)
+        if not isinstance(resume, Mapping):
+            return
+        if startup_resume_emitted:
+            return
+        _emit_resume_checkpoint_startup_line(
+            checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
+            status=str(resume.get("status", "") or ""),
+            reused_files=int(resume.get("reused_files", 0) or 0),
+            total_files=int(resume.get("total_files", 0) or 0),
+        )
+        startup_resume_emitted = True
+
     result = _run_with_timeout_retries(
         run_once=lambda: dispatch_command(
             command=DATAFLOW_COMMAND,
             payload=payload,
             root=Path(opts.root),
             runner=resolved_runner,
+            notification_callback=_on_notification,
         ),
         root=Path(opts.root),
         emit_timeout_progress_report=opts.emit_timeout_progress_report,
@@ -1749,6 +1824,30 @@ def check(
             f"Unknown arguments for strict profile: {joined}. Use --profile raw for raw options."
         )
     lint_enabled = lint or bool(lint_jsonl or lint_sarif)
+    startup_resume_emitted = False
+    if resume_checkpoint is not None:
+        _emit_resume_checkpoint_startup_line(
+            checkpoint_path=str(resume_checkpoint),
+            status="pending",
+            reused_files=0,
+            total_files=0,
+        )
+
+    def _on_notification(notification: JSONObject) -> None:
+        nonlocal startup_resume_emitted
+        resume = _resume_checkpoint_from_progress_notification(notification)
+        if not isinstance(resume, Mapping):
+            return
+        if startup_resume_emitted:
+            return
+        _emit_resume_checkpoint_startup_line(
+            checkpoint_path=str(resume.get("checkpoint_path", "") or ""),
+            status=str(resume.get("status", "") or ""),
+            reused_files=int(resume.get("reused_files", 0) or 0),
+            total_files=int(resume.get("total_files", 0) or 0),
+        )
+        startup_resume_emitted = True
+
     result = _run_with_timeout_retries(
         run_once=lambda: run_check(
             paths=paths,
@@ -1789,6 +1888,7 @@ def check(
             emit_timeout_progress_report=emit_timeout_progress_report,
             resume_on_timeout=resume_on_timeout,
             analysis_tick_limit=analysis_tick_limit,
+            notification_callback=_on_notification,
         ),
         root=Path(root),
         emit_timeout_progress_report=emit_timeout_progress_report,
