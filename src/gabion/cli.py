@@ -2305,7 +2305,7 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     current_run_id: str = "",
     artifact_name: str = "dataflow-report",
     checkpoint_name: str = "dataflow_resume_checkpoint_ci.json",
-    per_page: int = 20,
+    per_page: int = 100,
     urlopen_fn: Callable[..., object] = urllib.request.urlopen,
 ) -> int:
     token = token.strip()
@@ -2351,7 +2351,8 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
             return False
         if ref_name and str(workflow_run.get("head_branch", "")) != ref_name:
             return False
-        if str(workflow_run.get("event", "")) != "push":
+        event_name = str(workflow_run.get("event", ""))
+        if event_name not in {"push", "workflow_dispatch"}:
             return False
         return True
 
