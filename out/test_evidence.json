@@ -29263,6 +29263,32 @@
       ]
     },
     {
+      "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._annotation_index",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "semantic_coverage_map.py",
+          "qual": "gabion.analysis.semantic_coverage_map._annotation_index"
+        }
+      },
+      "tests": [
+        "tests/test_semantic_coverage_map.py::test_semantic_coverage_indexes_handle_invalid_and_fallback_records"
+      ]
+    },
+    {
+      "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._artifact_evidence_index",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "semantic_coverage_map.py",
+          "qual": "gabion.analysis.semantic_coverage_map._artifact_evidence_index"
+        }
+      },
+      "tests": [
+        "tests/test_semantic_coverage_map.py::test_semantic_coverage_indexes_handle_invalid_and_fallback_records"
+      ]
+    },
+    {
       "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload",
       "key": {
         "k": "function_site",
@@ -29274,6 +29300,45 @@
       "tests": [
         "tests/test_semantic_coverage_map.py::test_semantic_coverage_payload_is_deterministic",
         "tests/test_semantic_coverage_map.py::test_semantic_coverage_reports_unmapped_dead_and_duplicate_entries"
+      ]
+    },
+    {
+      "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.load_mapping_entries",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "semantic_coverage_map.py",
+          "qual": "gabion.analysis.semantic_coverage_map.load_mapping_entries"
+        }
+      },
+      "tests": [
+        "tests/test_semantic_coverage_map.py::test_semantic_coverage_load_mapping_entries_edge_shapes"
+      ]
+    },
+    {
+      "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.render_markdown",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "semantic_coverage_map.py",
+          "qual": "gabion.analysis.semantic_coverage_map.render_markdown"
+        }
+      },
+      "tests": [
+        "tests/test_semantic_coverage_map.py::test_semantic_coverage_markdown_and_write_emit_sections"
+      ]
+    },
+    {
+      "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.write_semantic_coverage",
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "semantic_coverage_map.py",
+          "qual": "gabion.analysis.semantic_coverage_map.write_semantic_coverage"
+        }
+      },
+      "tests": [
+        "tests/test_semantic_coverage_map.py::test_semantic_coverage_markdown_and_write_emit_sections"
       ]
     },
     {
@@ -34521,7 +34586,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2102,
+      "line": 2104,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_check_emits_resume_startup_and_first_progress_once"
     },
@@ -34805,7 +34870,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2352,
+      "line": 2354,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_context_restore_resume_checkpoint_falls_back_to_default"
     },
@@ -35759,7 +35824,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2010,
+      "line": 2012,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_nonzero_exit_causes_formats_timeout_ambiguity_and_errors"
     },
@@ -36043,7 +36108,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2208,
+      "line": 2210,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_restore_resume_checkpoint_handles_guard_and_error_branches"
     },
@@ -36091,7 +36156,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2028,
+      "line": 2030,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_resume_checkpoint_from_progress_notification_rejects_invalid_shapes"
     },
@@ -36139,7 +36204,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2052,
+      "line": 2054,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_resume_update_once"
     },
@@ -36229,7 +36294,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2406,
+      "line": 2408,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_creation_exception"
     },
@@ -36253,7 +36318,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2361,
+      "line": 2363,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_exception_and_extra_path"
     },
@@ -36437,7 +36502,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2154,
+      "line": 2156,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_run_governance_cli_error_paths"
     },
@@ -36647,7 +36712,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2431,
+      "line": 2433,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_sppf_graph_and_status_consistency_include_optional_cli_args"
     },
@@ -36671,7 +36736,7 @@
         }
       ],
       "file": "tests/test_cli_helpers.py",
-      "line": 2424,
+      "line": 2426,
       "status": "mapped",
       "test_id": "tests/test_cli_helpers.py::test_sppf_sync_command_handles_runner_errors"
     },
@@ -74254,6 +74319,80 @@
     {
       "evidence": [
         {
+          "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._annotation_index",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "semantic_coverage_map.py",
+              "qual": "gabion.analysis.semantic_coverage_map._annotation_index"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map._artifact_evidence_index",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "semantic_coverage_map.py",
+              "qual": "gabion.analysis.semantic_coverage_map._artifact_evidence_index"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_semantic_coverage_map.py",
+      "line": 172,
+      "status": "mapped",
+      "test_id": "tests/test_semantic_coverage_map.py::test_semantic_coverage_indexes_handle_invalid_and_fallback_records"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.load_mapping_entries",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "semantic_coverage_map.py",
+              "qual": "gabion.analysis.semantic_coverage_map.load_mapping_entries"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_semantic_coverage_map.py",
+      "line": 135,
+      "status": "mapped",
+      "test_id": "tests/test_semantic_coverage_map.py::test_semantic_coverage_load_mapping_entries_edge_shapes"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.render_markdown",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "semantic_coverage_map.py",
+              "qual": "gabion.analysis.semantic_coverage_map.render_markdown"
+            }
+          }
+        },
+        {
+          "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.write_semantic_coverage",
+          "key": {
+            "k": "function_site",
+            "site": {
+              "path": "semantic_coverage_map.py",
+              "qual": "gabion.analysis.semantic_coverage_map.write_semantic_coverage"
+            }
+          }
+        }
+      ],
+      "file": "tests/test_semantic_coverage_map.py",
+      "line": 114,
+      "status": "mapped",
+      "test_id": "tests/test_semantic_coverage_map.py::test_semantic_coverage_markdown_and_write_emit_sections"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:function_site::semantic_coverage_map.py::gabion.analysis.semantic_coverage_map.build_semantic_coverage_payload",
           "key": {
             "k": "function_site",
@@ -79117,7 +79256,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5538,
+      "line": 5542,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_exposes_rewrite_plan_metadata"
     },
