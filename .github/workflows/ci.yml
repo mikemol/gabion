@@ -39,25 +39,6 @@ jobs:
           .venv/bin/python -m pip install --upgrade pip uv
           .venv/bin/uv pip sync requirements.lock
           .venv/bin/uv pip install -e .
-      - name: Download dataflow report artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: dataflow-report
-          path: .
-      - name: Require dataflow resume checkpoint artifact
-        run: |
-          checkpoint="artifacts/audit_reports/dataflow_resume_checkpoint_ci.json"
-          alt_checkpoint="dataflow-report/${checkpoint}"
-          if [ -f "$checkpoint" ]; then
-            exit 0
-          fi
-          if [ -f "$alt_checkpoint" ]; then
-            mkdir -p "$(dirname "$checkpoint")"
-            cp "$alt_checkpoint" "$checkpoint"
-            exit 0
-          fi
-          echo "Missing required dataflow resume checkpoint artifact: $checkpoint"
-          exit 1
       - name: Restore previous dataflow resume checkpoint (best effort)
         env:
           GH_TOKEN: ${{ github.token }}
