@@ -2001,7 +2001,7 @@ def _append_checkpoint_intro_timeline_row(
     checkpoint_reused_files: int,
     checkpoint_total_files: int | None = None,
     timestamp_utc: str | None = None,
-) -> None:
+) -> tuple[str | None, str]:
     progress = _analysis_resume_progress(
         collection_resume=collection_resume,
         total_files=total_files,
@@ -2087,15 +2087,19 @@ def _append_checkpoint_intro_timeline_row(
         hydrated_class_count,
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
+    header_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |"
+    separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
+    row_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in row) + " |"
+    header_block: str | None = None
     if not path.exists():
         with path.open("w", encoding="utf-8") as handle:
             handle.write("# Checkpoint Intro Timeline\n\n")
-            handle.write(
-                "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |\n"
-            )
-            handle.write("| " + " | ".join(["---"] * len(header)) + " |\n")
+            handle.write(header_line + "\n")
+            handle.write(separator_line + "\n")
+        header_block = header_line + "\n" + separator_line
     with path.open("a", encoding="utf-8") as handle:
-        handle.write("| " + " | ".join(_markdown_table_cell(cell) for cell in row) + " |\n")
+        handle.write(row_line + "\n")
+    return header_block, row_line
 
 
 def _collection_progress_intro_lines(
@@ -3218,6 +3222,8 @@ def _execute_command_total(
     analysis_resume_checkpoint_status: str | None = None
     analysis_resume_checkpoint_compatibility_status: str | None = None
     analysis_resume_intro_payload: JSONObject | None = None
+    analysis_resume_intro_timeline_header: str | None = None
+    analysis_resume_intro_timeline_row: str | None = None
     report_section_witness_digest: str | None = None
     report_output_path = _resolve_report_output_path(
         root=initial_root,
@@ -3569,7 +3575,10 @@ def _execute_command_total(
                     )
                     analysis_resume_checkpoint_status = "checkpoint_seeded"
                     if emit_checkpoint_intro_timeline:
-                        _append_checkpoint_intro_timeline_row(
+                        (
+                            analysis_resume_intro_timeline_header,
+                            analysis_resume_intro_timeline_row,
+                        ) = _append_checkpoint_intro_timeline_row(
                             path=checkpoint_intro_timeline_path,
                             collection_resume=collection_resume_payload,
                             total_files=analysis_resume_total_files,
@@ -3645,6 +3654,8 @@ def _execute_command_total(
             analysis_state: str | None = None,
             classification: str | None = None,
             resume_checkpoint: Mapping[str, JSONValue] | None = None,
+            checkpoint_intro_timeline_header: str | None = None,
+            checkpoint_intro_timeline_row: str | None = None,
         ) -> None:
             semantic_payload: JSONObject = {}
             if isinstance(semantic_progress, Mapping):
@@ -3695,6 +3706,20 @@ def _execute_command_total(
                 progress_value["resume_checkpoint"] = {
                     str(key): resume_checkpoint[key] for key in resume_checkpoint
                 }
+            if (
+                isinstance(checkpoint_intro_timeline_header, str)
+                and checkpoint_intro_timeline_header
+            ):
+                progress_value["checkpoint_intro_timeline_header"] = (
+                    checkpoint_intro_timeline_header
+                )
+            if (
+                isinstance(checkpoint_intro_timeline_row, str)
+                and checkpoint_intro_timeline_row
+            ):
+                progress_value["checkpoint_intro_timeline_row"] = (
+                    checkpoint_intro_timeline_row
+                )
             send_notification = getattr(ls, "send_notification", None)
             if not callable(send_notification):
                 return
@@ -3727,6 +3752,8 @@ def _execute_command_total(
                 analysis_state="analysis_collection_bootstrap",
                 classification="resume_checkpoint_detected",
                 resume_checkpoint=analysis_resume_intro_payload,
+                checkpoint_intro_timeline_header=analysis_resume_intro_timeline_header,
+                checkpoint_intro_timeline_row=analysis_resume_intro_timeline_row,
             )
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
@@ -3811,8 +3838,13 @@ def _execute_command_total(
                         collection_resume=persisted_progress_payload,
                     )
                     last_collection_checkpoint_flush_ns = now_ns
+                    checkpoint_timeline_header: str | None = None
+                    checkpoint_timeline_row: str | None = None
                     if emit_checkpoint_intro_timeline:
-                        _append_checkpoint_intro_timeline_row(
+                        (
+                            checkpoint_timeline_header,
+                            checkpoint_timeline_row,
+                        ) = _append_checkpoint_intro_timeline_row(
                             path=checkpoint_intro_timeline_path,
                             collection_resume=persisted_progress_payload,
                             total_files=analysis_resume_total_files,
@@ -3820,6 +3852,20 @@ def _execute_command_total(
                             checkpoint_status=analysis_resume_checkpoint_status,
                             checkpoint_reused_files=analysis_resume_reused_files,
                             checkpoint_total_files=analysis_resume_total_files,
+                        )
+                    if checkpoint_timeline_row is not None:
+                        _emit_lsp_progress(
+                            phase="collection",
+                            collection_progress=collection_progress,
+                            semantic_progress=semantic_progress,
+                            work_done=collection_progress.get("completed_files"),
+                            work_total=collection_progress.get("total_files"),
+                            include_timing=profile_enabled,
+                            analysis_state="analysis_collection_checkpoint_serialized",
+                            classification="checkpoint_serialized",
+                            resume_checkpoint=analysis_resume_intro_payload,
+                            checkpoint_intro_timeline_header=checkpoint_timeline_header,
+                            checkpoint_intro_timeline_row=checkpoint_timeline_row,
                         )
             last_collection_semantic_witness_digest = semantic_witness_digest
             last_analysis_index_resume_signature = analysis_index_signature
@@ -4888,8 +4934,13 @@ def _execute_command_total(
                         collection_resume=latest_collection_resume_payload,
                     )
                     timeout_collection_resume_payload = latest_collection_resume_payload
+                    checkpoint_timeline_header: str | None = None
+                    checkpoint_timeline_row: str | None = None
                     if emit_checkpoint_intro_timeline:
-                        _append_checkpoint_intro_timeline_row(
+                        (
+                            checkpoint_timeline_header,
+                            checkpoint_timeline_row,
+                        ) = _append_checkpoint_intro_timeline_row(
                             path=checkpoint_intro_timeline_path,
                             collection_resume=latest_collection_resume_payload,
                             total_files=analysis_resume_total_files,
@@ -4897,6 +4948,37 @@ def _execute_command_total(
                             checkpoint_status=analysis_resume_checkpoint_status,
                             checkpoint_reused_files=analysis_resume_reused_files,
                             checkpoint_total_files=analysis_resume_total_files,
+                        )
+                    if checkpoint_timeline_row is not None:
+                        timeout_resume_progress = _analysis_resume_progress(
+                            collection_resume=latest_collection_resume_payload,
+                            total_files=analysis_resume_total_files,
+                        )
+                        timeout_semantic_progress = latest_collection_resume_payload.get(
+                            "semantic_progress"
+                        )
+                        timeout_resume_checkpoint_payload: JSONObject = {
+                            "checkpoint_path": str(analysis_resume_checkpoint_path),
+                            "status": analysis_resume_checkpoint_status or "unknown",
+                            "reused_files": analysis_resume_reused_files,
+                            "total_files": analysis_resume_total_files,
+                        }
+                        _emit_lsp_progress(
+                            phase="collection",
+                            collection_progress=timeout_resume_progress,
+                            semantic_progress=(
+                                timeout_semantic_progress
+                                if isinstance(timeout_semantic_progress, Mapping)
+                                else None
+                            ),
+                            work_done=timeout_resume_progress.get("completed_files"),
+                            work_total=timeout_resume_progress.get("total_files"),
+                            include_timing=profile_enabled,
+                            analysis_state="analysis_collection_checkpoint_serialized",
+                            classification="checkpoint_serialized",
+                            resume_checkpoint=timeout_resume_checkpoint_payload,
+                            checkpoint_intro_timeline_header=checkpoint_timeline_header,
+                            checkpoint_intro_timeline_row=checkpoint_timeline_row,
                         )
                 except TimeoutExceeded:
                     _mark_cleanup_timeout("write_analysis_resume_checkpoint")
