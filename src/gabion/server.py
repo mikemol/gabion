@@ -190,6 +190,32 @@ _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 _LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
 
 
+def _analysis_resume_cache_verdict(
+    *,
+    status: str | None,
+    reused_files: int,
+    compatibility_status: str | None,
+) -> Literal["hit", "miss", "invalidated", "seeded"]:
+    invalidation_statuses = {
+        "checkpoint_manifest_mismatch",
+        "checkpoint_unreadable",
+        "checkpoint_invalid_payload",
+        "checkpoint_manifest_missing",
+        "checkpoint_missing_collection_resume",
+    }
+    if status == "checkpoint_loaded":
+        if reused_files > 0:
+            return "hit"
+        return "miss"
+    if status == "checkpoint_seeded":
+        if compatibility_status in invalidation_statuses:
+            return "invalidated"
+        return "seeded"
+    if compatibility_status in invalidation_statuses:
+        return "invalidated"
+    return "miss"
+
+
 def _deadline_tick_budget_allows_check(clock: object) -> bool:
     limit = getattr(clock, "limit", None)
     current = getattr(clock, "current", None)
@@ -3012,6 +3038,7 @@ def _execute_command_total(
     analysis_resume_total_files = 0
     analysis_resume_reused_files = 0
     analysis_resume_checkpoint_status: str | None = None
+    analysis_resume_checkpoint_compatibility_status: str | None = None
     report_section_witness_digest: str | None = None
     report_output_path = _resolve_report_output_path(
         root=initial_root,
@@ -3315,6 +3342,9 @@ def _execute_command_total(
                         path=analysis_resume_checkpoint_path,
                         manifest_digest=analysis_resume_input_manifest_digest,
                     )
+                )
+                analysis_resume_checkpoint_compatibility_status = (
+                    analysis_resume_checkpoint_status
                 )
                 if manifest_resume is not None:
                     checkpoint_witness, checkpoint_resume = manifest_resume
@@ -3855,6 +3885,11 @@ def _execute_command_total(
             "context_suggestions": analysis.context_suggestions,
         }
         if analysis_resume_checkpoint_path is not None:
+            cache_verdict = _analysis_resume_cache_verdict(
+                status=analysis_resume_checkpoint_status,
+                reused_files=analysis_resume_reused_files,
+                compatibility_status=analysis_resume_checkpoint_compatibility_status,
+            )
             response["analysis_resume"] = {
                 "checkpoint_path": str(analysis_resume_checkpoint_path),
                 "reused_files": analysis_resume_reused_files,
@@ -3863,6 +3898,8 @@ def _execute_command_total(
                     analysis_resume_total_files - analysis_resume_reused_files, 0
                 ),
                 "status": analysis_resume_checkpoint_status,
+                "compatibility_status": analysis_resume_checkpoint_compatibility_status,
+                "cache_verdict": cache_verdict,
             }
         profiling_v1: JSONObject = {
             "format_version": 1,

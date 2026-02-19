@@ -959,7 +959,8 @@ def test_dataflow_audit_retry_uses_fresh_cli_budget(
     assert calls["count"] == 2
 
 
-def test_emit_analysis_resume_summary(capsys) -> None:
+@pytest.mark.parametrize("cache_verdict", ["hit", "miss", "invalidated", "seeded"])
+def test_emit_analysis_resume_summary(cache_verdict: str, capsys) -> None:
     cli._emit_analysis_resume_summary(
         {
             "analysis_resume": {
@@ -968,6 +969,7 @@ def test_emit_analysis_resume_summary(capsys) -> None:
                 "reused_files": 3,
                 "total_files": 5,
                 "remaining_files": 2,
+                "cache_verdict": cache_verdict,
             }
         }
     )
@@ -975,6 +977,7 @@ def test_emit_analysis_resume_summary(capsys) -> None:
     assert "Resume checkpoint:" in output
     assert "status=checkpoint_loaded" in output
     assert "reused_files=3/5" in output
+    assert f"cache_verdict={cache_verdict}" in output
 
 
 def test_emit_analysis_resume_summary_skips_missing_payload(capsys) -> None:

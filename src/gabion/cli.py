@@ -1506,11 +1506,13 @@ def _emit_analysis_resume_summary(result: JSONObject) -> None:
     reused_files = int(resume.get("reused_files", 0) or 0)
     total_files = int(resume.get("total_files", 0) or 0)
     remaining_files = int(resume.get("remaining_files", 0) or 0)
+    cache_verdict = str(resume.get("cache_verdict", "") or "")
     status_suffix = f" status={status}" if status else ""
+    verdict_suffix = f" cache_verdict={cache_verdict}" if cache_verdict else ""
     typer.echo(
         "Resume checkpoint: "
         f"path={path or '<none>'} reused_files={reused_files}/{total_files} "
-        f"remaining_files={remaining_files}{status_suffix}"
+        f"remaining_files={remaining_files}{status_suffix}{verdict_suffix}"
     )
 
 
