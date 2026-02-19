@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -2364,6 +2365,42 @@ def test_analysis_input_manifest_marks_missing_files(tmp_path: Path) -> None:
     by_path = {entry["path"]: entry for entry in files if isinstance(entry, dict)}
     assert by_path[str(missing)]["missing"] is True
     assert isinstance(by_path[str(existing)]["size"], int)
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_input_manifest_digest_ignores_mtime_changes::server.py::gabion.server._analysis_input_manifest::server.py::gabion.server._analysis_input_manifest_digest
+def test_analysis_input_manifest_digest_ignores_mtime_changes(tmp_path: Path) -> None:
+    existing = tmp_path / "exists.py"
+    existing.write_text("x = 1\n", encoding="utf-8")
+    config = server.AuditConfig(project_root=tmp_path)
+
+    manifest_before = server._analysis_input_manifest(
+        root=tmp_path,
+        file_paths=[existing],
+        recursive=True,
+        include_invariant_propositions=False,
+        include_wl_refinement=False,
+        config=config,
+    )
+    digest_before = server._analysis_input_manifest_digest(manifest_before)
+    stat = existing.stat()
+    os.utime(
+        existing,
+        ns=(
+            stat.st_atime_ns + 1_000_000_000,
+            stat.st_mtime_ns + 1_000_000_000,
+        ),
+    )
+    manifest_after = server._analysis_input_manifest(
+        root=tmp_path,
+        file_paths=[existing],
+        recursive=True,
+        include_invariant_propositions=False,
+        include_wl_refinement=False,
+        config=config,
+    )
+    digest_after = server._analysis_input_manifest_digest(manifest_after)
+
+    assert digest_before == digest_after
 
 
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_analysis_manifest_digest_from_witness_rejects_invalid_shapes::server.py::gabion.server._analysis_manifest_digest_from_witness
