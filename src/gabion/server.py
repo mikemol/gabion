@@ -4130,7 +4130,7 @@ def _execute_command_total(
                 suggestions, summary
             )
             report_md = test_evidence_suggestions.render_markdown(suggestions, summary)
-            _out_dir, artifact_dir = _output_dirs(report_root)
+            out_dir, artifact_dir = _output_dirs(report_root)
             report_json = json.dumps(suggestions_payload, indent=2, sort_keys=True) + "\n"
             (artifact_dir / "test_evidence_suggestions.json").write_text(report_json)
             (out_dir / "test_evidence_suggestions.md").write_text(report_md)
