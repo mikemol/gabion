@@ -181,12 +181,16 @@ class _DeadlineProfileState:
     started_wall_ns: int
     last_wall_ns: int
     project_root: Path | None = None
+    project_root_key: str | None = None
     checks_total: int = 0
     unattributed_elapsed_ns: int = 0
-    last_site: tuple[str, str] | None = None
-    site_stats: dict[tuple[str, str], _DeadlineSiteStats] = field(default_factory=dict)
+    last_site_id: int | None = None
+    site_keys: list[tuple[str, str]] = field(default_factory=list)
+    site_ids: dict[tuple[str, str], int] = field(default_factory=dict)
+    frame_site_cache: dict[tuple[object, str | None], int] = field(default_factory=dict)
+    site_stats: dict[int, _DeadlineSiteStats] = field(default_factory=dict)
     edge_stats: dict[
-        tuple[tuple[str, str], tuple[str, str]],
+        tuple[int, int],
         _DeadlineEdgeStats,
     ] = field(default_factory=dict)
     io_stats: dict[str, _DeadlineIoStats] = field(default_factory=dict)
@@ -207,6 +211,7 @@ def set_deadline_profile(
     enabled: bool = True,
 ) -> Token[_DeadlineProfileState | None]:
     resolved_root = project_root.resolve() if project_root is not None else None
+    root_key = str(resolved_root) if resolved_root is not None else None
     now = _current_deadline_mark()
     wall_now = _SYSTEM_CLOCK.get_mark()
     state = _DeadlineProfileState(
@@ -216,6 +221,7 @@ def set_deadline_profile(
         started_wall_ns=wall_now,
         last_wall_ns=wall_now,
         project_root=resolved_root,
+        project_root_key=root_key,
     )
     return _deadline_profile_var.set(state)
 
@@ -346,27 +352,39 @@ def _record_deadline_check(
         return
     caller_frame = frame.f_back.f_back
     effective_root = project_root.resolve() if project_root is not None else state.project_root
+    effective_root_key = (
+        str(effective_root) if effective_root is not None else state.project_root_key
+    )
     now = _current_deadline_mark()
     delta = max(0, now - state.last_ns)
     state.last_ns = now
     state.last_wall_ns = _SYSTEM_CLOCK.get_mark()
     state.checks_total += 1
-    site = _profile_site_key(caller_frame, project_root=effective_root)
-    stats = state.site_stats.setdefault(site, _DeadlineSiteStats())
+    cache_key = (caller_frame.f_code, effective_root_key)
+    site_id = state.frame_site_cache.get(cache_key)
+    if site_id is None:
+        site_key = _profile_site_key(caller_frame, project_root=effective_root)
+        site_id = state.site_ids.get(site_key)
+        if site_id is None:
+            site_id = len(state.site_keys)
+            state.site_ids[site_key] = site_id
+            state.site_keys.append(site_key)
+        state.frame_site_cache[cache_key] = site_id
+    stats = state.site_stats.setdefault(site_id, _DeadlineSiteStats())
     stats.checks += 1
     stats.elapsed_ns += delta
     if delta > stats.max_gap_ns:
         stats.max_gap_ns = delta
-    if state.last_site is None:
+    if state.last_site_id is None:
         state.unattributed_elapsed_ns += delta
     else:
-        edge_key = (state.last_site, site)
+        edge_key = (state.last_site_id, site_id)
         edge_stats = state.edge_stats.setdefault(edge_key, _DeadlineEdgeStats())
         edge_stats.transitions += 1
         edge_stats.elapsed_ns += delta
         if delta > edge_stats.max_gap_ns:
             edge_stats.max_gap_ns = delta
-    state.last_site = site
+    state.last_site_id = site_id
 
 
 def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
@@ -385,11 +403,16 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
             ticks_per_ns = float(ticks_consumed) / float(wall_total_elapsed_ns)
     total_elapsed_ns = max(0, state.last_ns - state.started_ns)
     site_rows: list[dict[str, JSONValue]] = []
-    for (path, qual), stats in ordered_or_sorted(
+    for site_id, stats in ordered_or_sorted(
         state.site_stats.items(),
         source="_deadline_profile_snapshot.site_rows",
-        key=lambda item: (-item[1].elapsed_ns, item[0][0], item[0][1]),
+        key=lambda item: (
+            -item[1].elapsed_ns,
+            state.site_keys[item[0]][0],
+            state.site_keys[item[0]][1],
+        ),
     ):
+        path, qual = state.site_keys[site_id]
         site_rows.append(
             {
                 "path": path,
@@ -400,17 +423,19 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
             }
         )
     edge_rows: list[dict[str, JSONValue]] = []
-    for (source, target), stats in ordered_or_sorted(
+    for (source_id, target_id), stats in ordered_or_sorted(
         state.edge_stats.items(),
         source="_deadline_profile_snapshot.edge_rows",
         key=lambda item: (
             -item[1].elapsed_ns,
-            item[0][0][0],
-            item[0][0][1],
-            item[0][1][0],
-            item[0][1][1],
+            state.site_keys[item[0][0]][0],
+            state.site_keys[item[0][0]][1],
+            state.site_keys[item[0][1]][0],
+            state.site_keys[item[0][1]][1],
         ),
     ):
+        source = state.site_keys[source_id]
+        target = state.site_keys[target_id]
         edge_rows.append(
             {
                 "from_path": source[0],
