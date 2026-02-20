@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import gabion.analysis.timeout_context as timeout_context
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import (
     Deadline,
@@ -629,6 +630,32 @@ def test_deadline_profile_private_helpers_cover_fallback_paths() -> None:
     assert Context().run(_deadline_profile_snapshot) is None
     with deadline_profile_scope(project_root=None, enabled=True):
         _record_deadline_check(project_root=None, frame_getter=lambda: None)
+
+
+# gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_caches_site_keys_per_code_object::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check
+def test_record_deadline_check_caches_site_keys_per_code_object(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+    original = timeout_context._profile_site_key
+
+    def counting_profile_site_key(frame: object, *, project_root: Path | None) -> tuple[str, str]:
+        nonlocal calls
+        calls += 1
+        return original(frame, project_root=project_root)
+
+    monkeypatch.setattr(timeout_context, "_profile_site_key", counting_profile_site_key)
+
+    def _site_repeat() -> None:
+        check_deadline()
+
+    with _deadline_test_scope(
+        deadline=Deadline.from_timeout_ms(1_000),
+        clock=GasMeter(limit=8),
+    ):
+        with deadline_profile_scope(enabled=True):
+            _site_repeat()
+            _site_repeat()
+
+    assert calls == 1
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_profile_site_key_falls_back_to_external_path_when_root_misses::timeout_context.py::gabion.analysis.timeout_context._profile_site_key
