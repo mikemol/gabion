@@ -1724,9 +1724,7 @@ def _run_dataflow_raw_argv(
         )
         if not isinstance(timeline_update, Mapping):
             return
-        row = timeline_update.get("row")
-        if not isinstance(row, str) or not row:
-            return
+        row = str(timeline_update.get("row") or "")
         header_value = timeline_update.get("header")
         header = (
             header_value
@@ -1995,9 +1993,7 @@ def check(
         )
         if not isinstance(timeline_update, Mapping):
             return
-        row = timeline_update.get("row")
-        if not isinstance(row, str) or not row:
-            return
+        row = str(timeline_update.get("row") or "")
         header_value = timeline_update.get("header")
         header = (
             header_value
@@ -2438,8 +2434,6 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     last_error: Exception | None = None
     for artifact in artifact_candidates:
         download_url = str(artifact.get("archive_download_url", "") or "")
-        if not download_url:
-            continue
         try:
             archive_bytes = _download_artifact_archive_bytes(
                 download_url=download_url,
@@ -2500,6 +2494,20 @@ def _restore_dataflow_resume_checkpoint_from_github_artifacts(
     return 0
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: object,
+        code: int,
+        msg: str,
+        headers: object,
+        newurl: str,
+    ) -> None:
+        _ = (req, fp, code, msg, headers, newurl)
+        return None
+
+
 def _download_artifact_archive_bytes(
     *,
     download_url: str,
@@ -2513,20 +2521,6 @@ def _download_artifact_archive_bytes(
         with urlopen_fn(req_zip, timeout=60) as response:
             return response.read()
     if no_redirect_open_fn is None:
-
-        class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-            def redirect_request(
-                self,
-                req: urllib.request.Request,
-                fp: object,
-                code: int,
-                msg: str,
-                headers: object,
-                newurl: str,
-            ) -> None:
-                _ = (req, fp, code, msg, headers, newurl)
-                return None
-
         no_redirect_open_fn = urllib.request.build_opener(_NoRedirectHandler()).open
     if follow_redirect_open_fn is None:
         follow_redirect_open_fn = urllib.request.urlopen

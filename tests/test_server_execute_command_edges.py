@@ -441,6 +441,54 @@ def test_execute_command_emits_lsp_progress_timeout_terminal(tmp_path: Path) -> 
     assert terminal_value.get("classification") == timeout_progress.get("classification")
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_timeout_emits_checkpoint_intro_timeline_progress::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._timeout_exc::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_timeout_emits_checkpoint_intro_timeline_progress(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    checkpoint_path = tmp_path / "resume.json"
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    def _analyze_then_timeout(*_args: object, **kwargs: object) -> server.AnalysisResult:
+        on_collection_progress = kwargs.get("on_collection_progress")
+        if callable(on_collection_progress):
+            on_collection_progress(
+                {
+                    "completed_paths": [str(module_path)],
+                    "in_progress_scan_by_path": {},
+                    "semantic_progress": {"substantive_progress": True},
+                }
+            )
+        raise _timeout_exc(progress={"classification": "timed_out_progress_resume"})
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                "resume_checkpoint": str(checkpoint_path),
+                "emit_checkpoint_intro_timeline": True,
+            }
+        ),
+        analyze_paths_fn=_analyze_then_timeout,
+        collection_checkpoint_flush_due_fn=lambda **_kwargs: False,
+    )
+
+    assert result["timeout"] is True
+    progress_values = _progress_values(ls)
+    timeout_timeline = [
+        value
+        for value in progress_values
+        if value.get("classification") == "checkpoint_serialized"
+        and isinstance(value.get("checkpoint_intro_timeline_row"), str)
+        and value.get("analysis_state") == "analysis_collection_checkpoint_serialized"
+    ]
+    assert timeout_timeline
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_failed_terminal::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
 def test_execute_command_emits_lsp_progress_failed_terminal(tmp_path: Path) -> None:
     module_path = tmp_path / "sample.py"
@@ -586,6 +634,11 @@ def test_append_checkpoint_intro_timeline_row_writes_table_and_rows(
         collection_resume={
             "completed_paths": ["a.py"],
             "in_progress_scan_by_path": {"b.py": ["fn"]},
+            "analysis_index_resume": {
+                "hydrated_paths_count": 4,
+                "function_count": 9,
+                "class_count": 5,
+            },
             "semantic_progress": {
                 "current_witness_digest": "digest-a",
                 "new_processed_functions_count": 1,
@@ -618,7 +671,6 @@ def test_append_checkpoint_intro_timeline_row_writes_table_and_rows(
         checkpoint_path=checkpoint_path,
         checkpoint_status="checkpoint_seeded",
         checkpoint_reused_files=0,
-        checkpoint_total_files=3,
         timestamp_utc="2026-02-19T00:00:01Z",
     )
 
@@ -1398,7 +1450,7 @@ def test_analysis_manifest_digest_from_witness_validation() -> None:
             "external_filter": True,
             "transparent_decorators": [],
         },
-        "files": [{"path": "a.py", "size": 1, "mtime_ns": 2}],
+        "files": [{"path": "a.py", "size": 1, "mtime_ns": 2, "content_sha1": "abc"}],
     }
     digest = server._analysis_manifest_digest_from_witness(witness)
     assert isinstance(digest, str)
