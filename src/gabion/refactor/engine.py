@@ -465,7 +465,10 @@ def _rewrite_call_sites(
         if protocol_alias:
             constructor_expr = cst.Name(protocol_alias)
         elif module_aliases:
-            alias = sorted(module_aliases.keys())[0]
+            alias = ordered_or_sorted(
+                module_aliases.keys(),
+                source="_rewrite_call_sites.module_aliases",
+            )[0]
             constructor_expr = cst.Attribute(cst.Name(alias), cst.Name(protocol_name))
         else:
             constructor_expr = cst.Name(protocol_name)
@@ -600,7 +603,10 @@ def _ensure_ambient_scaffolding(
         for node in body
         if isinstance(node, cst.FunctionDef) and isinstance(node.name, cst.Name)
     }
-    for context_name in sorted(context_names):
+    for context_name in ordered_or_sorted(
+        context_names,
+        source="_ensure_ambient_scaffolding.context_names",
+    ):
         check_deadline()
         ambient_name = _ambient_var_name(context_name)
         getter = _ambient_getter_name(context_name)

@@ -12,6 +12,7 @@ from gabion.analysis.type_fingerprints import (
     fingerprint_to_type_keys_with_remainder,
     format_fingerprint,
 )
+from gabion.order_contract import ordered_or_sorted
 
 
 def _legacy_decode(fingerprint, registry: PrimeRegistry) -> tuple[list[str], int, list[str], int]:
@@ -45,8 +46,32 @@ def test_dimension_sidecar_decode_matches_legacy_division() -> None:
 
     base_keys, base_remaining = fingerprint.base.keys_with_remainder(registry)
     ctor_keys, ctor_remaining = fingerprint.ctor.keys_with_remainder(registry)
-    assert (sorted(base_keys), base_remaining) == (sorted(expected_base[0]), expected_base[1])
-    assert (sorted(ctor_keys), ctor_remaining) == (sorted(expected_ctor[0]), expected_ctor[1])
+    assert (
+        ordered_or_sorted(
+            base_keys,
+            source="test_dimension_sidecar_decode_matches_legacy_division.base_keys",
+        ),
+        base_remaining,
+    ) == (
+        ordered_or_sorted(
+            expected_base[0],
+            source="test_dimension_sidecar_decode_matches_legacy_division.expected_base",
+        ),
+        expected_base[1],
+    )
+    assert (
+        ordered_or_sorted(
+            ctor_keys,
+            source="test_dimension_sidecar_decode_matches_legacy_division.ctor_keys",
+        ),
+        ctor_remaining,
+    ) == (
+        ordered_or_sorted(
+            expected_ctor[0],
+            source="test_dimension_sidecar_decode_matches_legacy_division.expected_ctor",
+        ),
+        expected_ctor[1],
+    )
 
 
 # gabion:evidence E:call_footprint::tests/test_type_fingerprints_sidecar.py::test_dimension_sidecar_falls_back_to_product_when_inconsistent::type_fingerprints.py::gabion.analysis.type_fingerprints.bundle_fingerprint_dimensional::type_fingerprints.py::gabion.analysis.type_fingerprints.fingerprint_to_type_keys_with_remainder
@@ -122,8 +147,14 @@ def test_dataflow_fingerprint_reporting_parity_with_legacy_decode() -> None:
         fingerprint,
         registry,
     )
-    legacy_base_sorted = sorted(legacy_base)
-    legacy_ctor_sorted = sorted(legacy_ctor)
+    legacy_base_sorted = ordered_or_sorted(
+        legacy_base,
+        source="test_dataflow_fingerprint_reporting_parity_with_legacy_decode.legacy_base",
+    )
+    legacy_ctor_sorted = ordered_or_sorted(
+        legacy_ctor,
+        source="test_dataflow_fingerprint_reporting_parity_with_legacy_decode.legacy_ctor",
+    )
 
     matches = _compute_fingerprint_matches(
         groups_by_path,

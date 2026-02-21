@@ -1330,6 +1330,118 @@ def test_deadline_recursion_missing_carrier(tmp_path: Path) -> None:
     )
     assert any(entry.get("kind") == "missing_carrier" for entry in obligations)
 
+
+# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_loop_missing_carrier_status_is_root_gated::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+def test_deadline_loop_missing_carrier_status_is_root_gated(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root(deadline: Deadline):
+                return reachable_loop()
+
+            def reachable_loop():
+                for _ in range(1):
+                    pass
+
+            def unreachable_loop():
+                for _ in range(1):
+                    pass
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=da.Forest(),
+        parse_failure_witnesses=[],
+    )
+    reachable_hits = [
+        entry
+        for entry in obligations
+        if entry.get("kind") == "missing_carrier"
+        and entry.get("site", {}).get("function") == "mod.reachable_loop"
+    ]
+    unreachable_hits = [
+        entry
+        for entry in obligations
+        if entry.get("kind") == "missing_carrier"
+        and entry.get("site", {}).get("function") == "mod.unreachable_loop"
+    ]
+    assert reachable_hits
+    assert unreachable_hits
+    assert reachable_hits[0].get("status") == "OBLIGATION"
+    assert unreachable_hits[0].get("status") == "OBLIGATION"
+
+
+# gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_loop_unchecked_status_is_root_gated::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
+def test_deadline_loop_unchecked_status_is_root_gated(tmp_path: Path) -> None:
+    da = _load()
+    target = tmp_path / "mod.py"
+    target.write_text(
+        textwrap.dedent(
+            """
+            def root(deadline: Deadline):
+                return reachable_loop(deadline)
+
+            def reachable_loop(deadline: Deadline):
+                for _ in range(1):
+                    pass
+                return deadline
+
+            def unreachable_loop(deadline: Deadline):
+                for _ in range(1):
+                    pass
+                return deadline
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = da.AuditConfig(
+        project_root=tmp_path,
+        exclude_dirs=set(),
+        ignore_params=set(),
+        external_filter=True,
+        strictness="high",
+        deadline_roots={"mod.root"},
+    )
+    obligations = da._collect_deadline_obligations(
+        [target],
+        project_root=tmp_path,
+        config=config,
+        forest=da.Forest(),
+        parse_failure_witnesses=[],
+    )
+    reachable_hits = [
+        entry
+        for entry in obligations
+        if entry.get("kind") == "unchecked_deadline"
+        and entry.get("site", {}).get("function") == "mod.reachable_loop"
+    ]
+    unreachable_hits = [
+        entry
+        for entry in obligations
+        if entry.get("kind") == "unchecked_deadline"
+        and entry.get("site", {}).get("function") == "mod.unreachable_loop"
+    ]
+    assert reachable_hits
+    assert unreachable_hits
+    assert reachable_hits[0].get("status") == "VIOLATION"
+    assert unreachable_hits[0].get("status") == "OBLIGATION"
+
 # gabion:evidence E:call_footprint::tests/test_deadline_coverage.py::test_deadline_recursion_unchecked::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_deadline_obligations::test_deadline_coverage.py::tests.test_deadline_coverage._load
 def test_deadline_recursion_unchecked(tmp_path: Path) -> None:
     da = _load()

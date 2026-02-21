@@ -10,6 +10,7 @@ from gabion.analysis import evidence_keys, test_evidence
 from gabion.analysis.report_doc import ReportDoc
 from gabion.analysis.timeout_context import check_deadline
 from gabion.json_types import JSONValue
+from gabion.order_contract import ordered_or_sorted
 
 SEMANTIC_COVERAGE_MAP_VERSION = 1
 
@@ -51,8 +52,9 @@ def build_semantic_coverage_payload(
 
     coverage_rows: list[dict[str, JSONValue]] = []
     by_obligation: dict[str, list[dict[str, JSONValue]]] = {}
-    for entry in sorted(
+    for entry in ordered_or_sorted(
         entries,
+        source="build_semantic_coverage_payload.entries",
         key=lambda item: (
             item.obligation,
             item.obligation_kind,
@@ -62,7 +64,10 @@ def build_semantic_coverage_payload(
     ):
         check_deadline()
         evidence_id = entry.evidence_identity
-        mapped_tests = sorted(annotation_index.get(evidence_id, []))
+        mapped_tests = ordered_or_sorted(
+            annotation_index.get(evidence_id, []),
+            source="build_semantic_coverage_payload.mapped_tests",
+        )
         present_in_artifact = evidence_id in artifact_index
         dead = not mapped_tests and not present_in_artifact
         row = {
@@ -80,7 +85,10 @@ def build_semantic_coverage_payload(
 
     mapped_obligations: list[dict[str, JSONValue]] = []
     unmapped_obligations: list[dict[str, JSONValue]] = []
-    for obligation in sorted(by_obligation):
+    for obligation in ordered_or_sorted(
+        by_obligation,
+        source="build_semantic_coverage_payload.by_obligation",
+    ):
         check_deadline()
         rows = by_obligation[obligation]
         kind = str(rows[0].get("obligation_kind", "invariant"))
@@ -241,7 +249,10 @@ def _duplicate_mapping_entries(
         for entry in entries
     )
     duplicates: list[dict[str, JSONValue]] = []
-    for (obligation, kind, evidence_identity), count in sorted(counts.items()):
+    for (obligation, kind, evidence_identity), count in ordered_or_sorted(
+        counts.items(),
+        source="_duplicate_mapping_entries.counts",
+    ):
         check_deadline()
         if count < 2:
             continue
@@ -254,4 +265,3 @@ def _duplicate_mapping_entries(
             }
         )
     return duplicates
-

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import os
 from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass, field
 from contextlib import contextmanager
@@ -182,9 +183,16 @@ class _DeadlineProfileState:
     last_wall_ns: int
     project_root: Path | None = None
     project_root_key: str | None = None
+    sample_interval: int = 1
     checks_total: int = 0
+    sampled_checks_total: int = 0
+    sample_pending_checks: int = 0
+    sample_pending_elapsed_ns: int = 0
     unattributed_elapsed_ns: int = 0
     last_site_id: int | None = None
+    root_resolution_cache: dict[str, tuple[Path | None, str | None]] = field(
+        default_factory=dict
+    )
     site_keys: list[tuple[str, str]] = field(default_factory=list)
     site_ids: dict[tuple[str, str], int] = field(default_factory=dict)
     frame_site_cache: dict[tuple[object, str | None], int] = field(default_factory=dict)
@@ -209,7 +217,9 @@ def set_deadline_profile(
     *,
     project_root: Path | None = None,
     enabled: bool = True,
+    sample_interval: int = 1,
 ) -> Token[_DeadlineProfileState | None]:
+    normalized_sample_interval = max(1, int(sample_interval))
     resolved_root = project_root.resolve() if project_root is not None else None
     root_key = str(resolved_root) if resolved_root is not None else None
     now = _current_deadline_mark()
@@ -222,6 +232,10 @@ def set_deadline_profile(
         last_wall_ns=wall_now,
         project_root=resolved_root,
         project_root_key=root_key,
+        sample_interval=normalized_sample_interval,
+        root_resolution_cache={str(project_root): (resolved_root, root_key)}
+        if project_root is not None
+        else {},
     )
     return _deadline_profile_var.set(state)
 
@@ -315,8 +329,13 @@ def deadline_profile_scope(
     *,
     project_root: Path | None = None,
     enabled: bool = True,
+    sample_interval: int = 1,
 ):
-    token = set_deadline_profile(project_root=project_root, enabled=enabled)
+    token = set_deadline_profile(
+        project_root=project_root,
+        enabled=enabled,
+        sample_interval=sample_interval,
+    )
     try:
         yield
     finally:
@@ -341,6 +360,7 @@ def _record_deadline_check(
     project_root: Path | None,
     *,
     frame_getter: Callable[[], FrameType | None] = inspect.currentframe,
+    profile_site_key_fn: Callable[..., tuple[str, str]] = _profile_site_key,
 ) -> None:
     state = _deadline_profile_var.get()
     if state is None:
@@ -351,19 +371,35 @@ def _record_deadline_check(
     if frame is None or frame.f_back is None or frame.f_back.f_back is None:
         return
     caller_frame = frame.f_back.f_back
-    effective_root = project_root.resolve() if project_root is not None else state.project_root
-    effective_root_key = (
-        str(effective_root) if effective_root is not None else state.project_root_key
-    )
+    effective_root = state.project_root
+    effective_root_key = state.project_root_key
+    if project_root is not None:
+        cache_key = str(project_root)
+        cached_root = state.root_resolution_cache.get(cache_key)
+        if cached_root is None:
+            resolved_root = project_root.resolve()
+            resolved_root_key = str(resolved_root)
+            cached_root = (resolved_root, resolved_root_key)
+            state.root_resolution_cache[cache_key] = cached_root
+        effective_root, effective_root_key = cached_root
     now = _current_deadline_mark()
     delta = max(0, now - state.last_ns)
     state.last_ns = now
     state.last_wall_ns = _SYSTEM_CLOCK.get_mark()
     state.checks_total += 1
+    state.sample_pending_checks += 1
+    state.sample_pending_elapsed_ns += delta
+    if state.sample_pending_checks < max(1, state.sample_interval):
+        return
+    sampled_checks = state.sample_pending_checks
+    sampled_elapsed_ns = state.sample_pending_elapsed_ns
+    state.sample_pending_checks = 0
+    state.sample_pending_elapsed_ns = 0
+    state.sampled_checks_total += sampled_checks
     cache_key = (caller_frame.f_code, effective_root_key)
     site_id = state.frame_site_cache.get(cache_key)
     if site_id is None:
-        site_key = _profile_site_key(caller_frame, project_root=effective_root)
+        site_key = profile_site_key_fn(caller_frame, project_root=effective_root)
         site_id = state.site_ids.get(site_key)
         if site_id is None:
             site_id = len(state.site_keys)
@@ -371,19 +407,19 @@ def _record_deadline_check(
             state.site_keys.append(site_key)
         state.frame_site_cache[cache_key] = site_id
     stats = state.site_stats.setdefault(site_id, _DeadlineSiteStats())
-    stats.checks += 1
-    stats.elapsed_ns += delta
-    if delta > stats.max_gap_ns:
-        stats.max_gap_ns = delta
+    stats.checks += sampled_checks
+    stats.elapsed_ns += sampled_elapsed_ns
+    if sampled_elapsed_ns > stats.max_gap_ns:
+        stats.max_gap_ns = sampled_elapsed_ns
     if state.last_site_id is None:
-        state.unattributed_elapsed_ns += delta
+        state.unattributed_elapsed_ns += sampled_elapsed_ns
     else:
         edge_key = (state.last_site_id, site_id)
         edge_stats = state.edge_stats.setdefault(edge_key, _DeadlineEdgeStats())
         edge_stats.transitions += 1
-        edge_stats.elapsed_ns += delta
-        if delta > edge_stats.max_gap_ns:
-            edge_stats.max_gap_ns = delta
+        edge_stats.elapsed_ns += sampled_elapsed_ns
+        if sampled_elapsed_ns > edge_stats.max_gap_ns:
+            edge_stats.max_gap_ns = sampled_elapsed_ns
     state.last_site_id = site_id
 
 
@@ -464,6 +500,10 @@ def _deadline_profile_snapshot() -> dict[str, JSONValue] | None:
         )
     return {
         "checks_total": state.checks_total,
+        "sample_interval": state.sample_interval,
+        "sampled_checks_total": state.sampled_checks_total,
+        "sample_pending_checks": state.sample_pending_checks,
+        "sample_pending_elapsed_ns": state.sample_pending_elapsed_ns,
         "started_ns": state.started_ns,
         "last_check_ns": state.last_ns,
         "total_elapsed_ns": total_elapsed_ns,
@@ -708,10 +748,15 @@ def _frame_site_key(
         qual = qualname
     path = Path(frame.f_code.co_filename)
     if project_root is not None:
-        try:
-            path = path.resolve().relative_to(project_root)
-        except ValueError:
-            never("frame outside project_root", path=str(path), project_root=str(project_root))
+        resolved_path = str(path.resolve())
+        root_text = str(project_root)
+        root_prefix = root_text if root_text.endswith(os.sep) else f"{root_text}{os.sep}"
+        if resolved_path != root_text and not resolved_path.startswith(root_prefix):
+            never(
+                "frame outside project_root",
+                path=resolved_path,
+                project_root=root_text,
+            )
     return (path.name, qual)
 
 

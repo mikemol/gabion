@@ -6,6 +6,7 @@ from gabion.analysis.dataflow_audit import (
     _deserialize_invariants_for_resume,
     generate_property_hook_manifest,
 )
+from gabion.order_contract import ordered_or_sorted
 
 
 def _sample_invariant(*, invariant_id: str, terms: tuple[str, ...], confidence: float = 1.0) -> InvariantProposition:
@@ -55,7 +56,10 @@ def test_property_hook_manifest_maps_multiple_invariants_to_one_callable() -> No
     assert callable_index == [
         {
             "scope": "pkg/mod.py:target",
-            "hook_ids": sorted([hook["hook_id"] for hook in hooks]),
+            "hook_ids": ordered_or_sorted(
+                (hook["hook_id"] for hook in hooks),
+                source="test_property_hook_manifest_maps_multiple_invariants_to_one_callable.hook_ids",
+            ),
         }
     ]
 

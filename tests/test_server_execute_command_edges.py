@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -195,6 +196,83 @@ def test_execute_command_emits_lsp_progress_success_terminal(tmp_path: Path) -> 
     assert any(
         value.get("done") is True and value.get("analysis_state") == "succeeded"
         for value in progress_values
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_heartbeat_loop_tolerates_missing_progress_template::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_heartbeat_loop_tolerates_missing_progress_template(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    def _slow_analyze_without_progress(
+        *_args: object,
+        **_kwargs: object,
+    ) -> server.AnalysisResult:
+        time.sleep(2.2)
+        return _empty_analysis_result()
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                "progress_heartbeat_seconds": 5,
+            }
+        ),
+        analyze_paths_fn=_slow_analyze_without_progress,
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    progress_values = _progress_values(ls)
+    assert progress_values
+    assert any(
+        str(value.get("event_kind", "") or "") in {"progress", "heartbeat", "terminal", "checkpoint"}
+        for value in progress_values
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_command_emits_heartbeat_progress_with_staleness::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._empty_analysis_result::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._execute_with_deps::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._progress_values::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._write_bundle_module
+def test_execute_command_emits_heartbeat_progress_with_staleness(
+    tmp_path: Path,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    checkpoint_path = tmp_path / "resume.json"
+    _write_bundle_module(module_path)
+    ls = _DummyNotifyingServer(str(tmp_path))
+
+    def _slow_analyze(*_args: object, **_kwargs: object) -> server.AnalysisResult:
+        time.sleep(6.2)
+        return _empty_analysis_result()
+
+    result = _execute_with_deps(
+        ls,
+        _with_timeout(
+            {
+                "root": str(tmp_path),
+                "paths": [str(module_path)],
+                "report": "-",
+                "resume_checkpoint": str(checkpoint_path),
+                "progress_heartbeat_seconds": 5,
+            }
+        ),
+        analyze_paths_fn=_slow_analyze,
+    )
+
+    assert result["analysis_state"] == "succeeded"
+    progress_values = _progress_values(ls)
+    heartbeat_values = [
+        value for value in progress_values if value.get("event_kind") == "heartbeat"
+    ]
+    assert heartbeat_values
+    assert any(
+        isinstance(value.get("stale_for_s"), (int, float))
+        and float(value.get("stale_for_s", 0.0)) >= 0.0
+        for value in heartbeat_values
     )
 
 
@@ -3172,6 +3250,10 @@ def test_resume_helpers_default_paths_and_digests() -> None:
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_misc_small_helpers_cover_validation_edges::server.py::gabion.server._coerce_section_lines::server.py::gabion.server._groups_by_path_from_collection_resume::server.py::gabion.server._incremental_progress_obligations::server.py::gabion.server._report_witness_digest::server.py::gabion.server._resolve_report_output_path::server.py::gabion.server._split_incremental_obligations
 def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
     assert server._resolve_report_output_path(root=tmp_path, report_path="-") is None
+    assert (
+        server._resolve_report_output_path(root=tmp_path, report_path="/dev/stdout")
+        is None
+    )
     assert server._report_witness_digest(input_witness={"witness_digest": 1}, manifest_digest=1) is None
     assert server._coerce_section_lines("bad") == []
     assert server._groups_by_path_from_collection_resume({"groups_by_path": []}) == {}
@@ -3241,6 +3323,13 @@ def test_execute_structure_reuse_total_edges(tmp_path: Path) -> None:
     result = server._execute_structure_reuse_total(
         _DummyServer(str(tmp_path)),
         _with_timeout({"snapshot": str(snapshot), "min_count": 1, "lemma_stubs": "-"}),
+    )
+    assert "lemma_stubs" in result
+    result = server._execute_structure_reuse_total(
+        _DummyServer(str(tmp_path)),
+        _with_timeout(
+            {"snapshot": str(snapshot), "min_count": 1, "lemma_stubs": "/dev/stdout"}
+        ),
     )
     assert "lemma_stubs" in result
 
@@ -5802,7 +5891,7 @@ def test_execute_command_honors_dash_outputs_and_baseline_write(tmp_path: Path) 
                 "baseline": str(baseline_path),
                 "baseline_write": True,
                 "decision_snapshot": "-",
-                "dot": "-",
+                "dot": "/dev/stdout",
                 "fingerprint_synth_json": "-",
                 "fingerprint_provenance_json": "-",
                 "fingerprint_deadness_json": "-",

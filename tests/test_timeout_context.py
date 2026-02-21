@@ -633,7 +633,7 @@ def test_deadline_profile_private_helpers_cover_fallback_paths() -> None:
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_caches_site_keys_per_code_object::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check
-def test_record_deadline_check_caches_site_keys_per_code_object(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_record_deadline_check_caches_site_keys_per_code_object() -> None:
     calls = 0
     original = timeout_context._profile_site_key
 
@@ -642,10 +642,12 @@ def test_record_deadline_check_caches_site_keys_per_code_object(monkeypatch: pyt
         calls += 1
         return original(frame, project_root=project_root)
 
-    monkeypatch.setattr(timeout_context, "_profile_site_key", counting_profile_site_key)
-
     def _site_repeat() -> None:
-        check_deadline()
+        _record_deadline_check(
+            project_root=None,
+            frame_getter=inspect.currentframe,
+            profile_site_key_fn=counting_profile_site_key,
+        )
 
     with _deadline_test_scope(
         deadline=Deadline.from_timeout_ms(1_000),
@@ -656,6 +658,53 @@ def test_record_deadline_check_caches_site_keys_per_code_object(monkeypatch: pyt
             _site_repeat()
 
     assert calls == 1
+
+
+# gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_record_deadline_check_resolves_project_root_once_and_caches_it::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context._record_deadline_check::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+def test_record_deadline_check_resolves_project_root_once_and_caches_it(
+    tmp_path: Path,
+) -> None:
+    def _site() -> None:
+        _record_deadline_check(
+            project_root=tmp_path,
+            frame_getter=inspect.currentframe,
+        )
+
+    with _deadline_test_scope(
+        deadline=Deadline.from_timeout_ms(1_000),
+        clock=GasMeter(limit=16),
+    ):
+        with deadline_profile_scope(project_root=None, enabled=True):
+            _site()
+            _site()
+            snapshot = _deadline_profile_snapshot()
+
+    assert isinstance(snapshot, dict)
+    assert int(snapshot.get("checks_total", 0) or 0) == 2
+
+
+# gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_deadline_profile_sampling_preserves_total_checks_with_pending_tail::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context._deadline_profile_snapshot::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.deadline_profile_scope
+def test_deadline_profile_sampling_preserves_total_checks_with_pending_tail() -> None:
+    with _deadline_test_scope(
+        deadline=Deadline.from_timeout_ms(1_000),
+        clock=GasMeter(limit=32),
+    ):
+        with deadline_profile_scope(enabled=True, sample_interval=4):
+            for _ in range(7):
+                check_deadline()
+            snapshot = _deadline_profile_snapshot()
+
+    assert isinstance(snapshot, dict)
+    assert snapshot["checks_total"] == 7
+    assert snapshot["sample_interval"] == 4
+    assert snapshot["sampled_checks_total"] == 4
+    assert snapshot["sample_pending_checks"] == 3
+    sites = snapshot.get("sites", [])
+    assert isinstance(sites, list)
+    assert sites
+    first_site = sites[0]
+    assert isinstance(first_site, dict)
+    assert int(first_site.get("check_count", 0) or 0) == 4
 
 
 # gabion:evidence E:call_footprint::tests/test_timeout_context.py::test_profile_site_key_falls_back_to_external_path_when_root_misses::timeout_context.py::gabion.analysis.timeout_context._profile_site_key
