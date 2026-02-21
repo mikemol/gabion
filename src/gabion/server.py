@@ -2955,7 +2955,6 @@ def _require_optional_payload(
     if payload is None:
         never(
             "invalid command payload type",
-            command=command,
             payload_type="NoneType",
         )
     return _require_payload(payload, command=command)
