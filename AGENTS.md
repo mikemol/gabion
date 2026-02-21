@@ -1,5 +1,5 @@
 ---
-doc_revision: 18
+doc_revision: 19
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: agents
 doc_role: agent
@@ -108,3 +108,84 @@ Semantic correctness is governed by `[glossary.md#contract](glossary.md#contract
 - Record convergence in `doc_reviewed_as_of` (must match dependency revisions).
 
 If unsure, prefer refusal over unsafe compliance.
+
+## Appendix: Policy → generation rules for automated agents
+
+Use these as hard generation constraints when editing core semantics (`src/gabion/server.py`, analysis modules, and command payload shaping).
+
+1. **When blocked, do not add dynamic alternation in core; instead create boundary normalization + Protocol.**
+2. **Every new branch in core must correspond to an explicit Decision Protocol.**
+3. **No sentinel returns for control decisions; encode outcomes structurally.**
+
+### Concrete before/after idioms (from this repo)
+
+#### 1) Boundary normalization over branchy callsites
+
+**Before (anti-pattern):**
+```py
+# scattered parsing/guards at each callsite
+if raw.get("lint_entries") is not None:
+    use(raw["lint_entries"])
+elif raw.get("lint_lines") is not None:
+    use(parse(raw["lint_lines"]))
+else:
+    use([])
+```
+
+**After (preferred):** centralize alternation at the boundary via a normalizer + DTO validation (idiom used by `_normalize_dataflow_response` and `DataflowAuditResponseDTO`).
+```py
+normalized = _normalize_dataflow_response(response)
+return DataflowAuditResponseDTO.model_validate(normalized)
+```
+
+#### 2) Bundle recurring parameters into a Protocol/dataclass
+
+**Before (anti-pattern):**
+```py
+# repeated tuple of optional flags/paths crossing functions
+run_check(config, report, baseline, decision_snapshot, exclude, allow_external)
+```
+
+**After (preferred):** reify as a dataclass protocol bundle (idiom used by `DataflowPayloadCommonOptions`, `CheckDeltaOptions`, `DataflowFilterBundle`).
+```py
+opts = DataflowPayloadCommonOptions(...)
+payload = build_check_payload(opts)
+```
+
+#### 3) Branches become explicit Decision Protocols
+
+**Before (anti-pattern):**
+```py
+if emit_state and state_path is not None:
+    raise BadParameter(...)
+if emit_delta and write_baseline:
+    raise BadParameter(...)
+# more ad-hoc branches in each command handler
+```
+
+**After (preferred):** collect branch invariants in one explicit validator protocol (idiom used by `CheckDeltaOptions.validate`).
+```py
+options = CheckDeltaOptions(...)
+options.validate()  # single decision surface for contradictory flags
+```
+
+#### 4) Structural outcomes over sentinel control values
+
+**Before (anti-pattern):**
+```py
+parsed = _parse_lint_line(line)
+if parsed is None:
+    # implicit control branch from sentinel
+    continue
+```
+
+**After (preferred):** return a tagged/typed outcome so control is explicit.
+```py
+outcome = parse_lint_line_structured(line)
+if outcome.kind is ParseKind.SKIP:
+    continue
+entries.append(outcome.entry)
+```
+
+When introducing new logic, prefer adding a small Protocol/dataclass at boundaries instead of widening dynamic `if/elif` trees inside core analysis paths.
+
