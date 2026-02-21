@@ -1,5 +1,5 @@
 ---
-doc_revision: 88
+doc_revision: 92
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -377,6 +377,27 @@ Run all checks in one sweep:
 ```
 scripts/checks.sh
 ```
+
+Reproduce the `ci.yml` workflow locally (checks + dataflow jobs):
+```
+scripts/ci_local_repro.sh
+```
+
+Run only one CI job locally when iterating:
+```
+scripts/ci_local_repro.sh --checks-only
+scripts/ci_local_repro.sh --dataflow-only
+```
+
+SPPF lifecycle validation in that script defaults to auto (run when GH auth is
+available); use `--skip-sppf-sync` to bypass or `--run-sppf-sync` to require it.
+For long-running dataflow reproductions, set
+`GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS=<seconds>` to emit periodic
+state dumps; you can also send `SIGUSR1` to `scripts/run_dataflow_stage.py`
+to force an immediate dump. CI uses a 60-second interval by default. Unified
+phase telemetry is written to:
+- `artifacts/audit_reports/dataflow_phase_timeline.md` (human-readable table)
+- `artifacts/audit_reports/dataflow_phase_timeline.jsonl` (machine-readable mirror)
 
 Run CI checks (docflow omitted):
 ```
