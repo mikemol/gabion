@@ -3254,6 +3254,7 @@ def test_misc_small_helpers_cover_validation_edges(tmp_path: Path) -> None:
         server._resolve_report_output_path(root=tmp_path, report_path="/dev/stdout")
         is None
     )
+    assert server._is_stdout_target(object()) is False
     assert server._report_witness_digest(input_witness={"witness_digest": 1}, manifest_digest=1) is None
     assert server._coerce_section_lines("bad") == []
     assert server._groups_by_path_from_collection_resume({"groups_by_path": []}) == {}

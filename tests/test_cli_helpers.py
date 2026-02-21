@@ -300,6 +300,51 @@ def test_lint_writers_accept_dev_stdout(capsys) -> None:
     assert "GABION_CODE" in capsys.readouterr().out
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_reopens_for_encoding_change::cli.py::gabion.cli._TargetStreamRouter._stream_for_target
+def test_target_stream_router_reopens_for_encoding_change(tmp_path: Path) -> None:
+    target_path = tmp_path / "enc.txt"
+    router = cli._TargetStreamRouter(max_open_streams=2)
+    try:
+        router.write(target=str(target_path), payload="alpha", encoding="utf-8")
+        router.write(target=str(target_path), payload="beta", encoding="utf-16")
+        assert target_path.read_text(encoding="utf-16") == "beta"
+    finally:
+        router.close()
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_evicts_oldest_stream::cli.py::gabion.cli._TargetStreamRouter._stream_for_target
+def test_target_stream_router_evicts_oldest_stream(tmp_path: Path) -> None:
+    first_path = tmp_path / "first.txt"
+    second_path = tmp_path / "second.txt"
+    router = cli._TargetStreamRouter(max_open_streams=1)
+    try:
+        router.write(target=str(first_path), payload="one")
+        router.write(target=str(second_path), payload="two")
+        assert list(router._streams.keys()) == [str(second_path)]
+    finally:
+        router.close()
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_close_closes_all_streams::cli.py::gabion.cli._TargetStreamRouter.close
+def test_target_stream_router_close_closes_all_streams(tmp_path: Path) -> None:
+    router = cli._TargetStreamRouter(max_open_streams=4)
+    router.write(target=str(tmp_path / "a.txt"), payload="a")
+    router.write(target=str(tmp_path / "b.txt"), payload="b")
+    assert len(router._streams) == 2
+    router.close()
+    assert len(router._streams) == 0
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_normalize_optional_output_target_handles_empty::cli.py::gabion.cli._normalize_optional_output_target
+def test_normalize_optional_output_target_handles_empty() -> None:
+    assert cli._normalize_optional_output_target(None) is None
+    assert cli._normalize_optional_output_target("   ") is None
+    assert (
+        cli._normalize_optional_output_target("-")
+        == "/dev/stdout"
+    )
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_write_text_to_target_reuses_stream_and_preserves_overwrite_semantics::cli.py::gabion.cli._write_text_to_target
 def test_write_text_to_target_reuses_stream_and_preserves_overwrite_semantics(
     tmp_path: Path,
