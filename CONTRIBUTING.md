@@ -1,5 +1,5 @@
 ---
-doc_revision: 93
+doc_revision: 94
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -109,6 +109,7 @@ that can be adopted when helpful.
 - `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
 - `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
 - `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
+- `docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet` provides a day-to-day implementation checklist backed by canonical clauses.
 
 ## Dataflow grammar invariant
 Recurring parameter bundles are treated as type-level obligations. Any bundle

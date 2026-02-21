@@ -1,5 +1,5 @@
 ---
-doc_revision: 71
+doc_revision: 72
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -372,6 +372,7 @@ LLM/agent behavior is governed by `AGENTS.md#agent_obligations`.
 - `AGENTS.md#agent_obligations` defines LLM/agent obligations.
 - `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
 - `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
+- `docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet` provides an authoritative-by-proxy operator reference with clause-level source links.
 
 ## License
 Apache-2.0. See `LICENSE`.
