@@ -415,7 +415,11 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
     result = cli.run_check(
         paths=[tmp_path],
         report=None,
-        fail_on_violations=True,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=True,
+            fail_on_type_ambiguities=True,
+            lint=False,
+        ),
         root=tmp_path,
         config=None,
         baseline=None,
@@ -442,8 +446,6 @@ def test_run_check_uses_runner_dispatch(tmp_path: Path) -> None:
         ),
         allow_external=None,
         strictness=None,
-        fail_on_type_ambiguities=True,
-        lint=False,
         runner=runner,
     )
     assert result["exit_code"] == 0
@@ -492,7 +494,11 @@ def test_run_check_uses_explicit_report_path(tmp_path: Path) -> None:
     result = cli.run_check(
         paths=[tmp_path],
         report=explicit_report,
-        fail_on_violations=True,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=True,
+            fail_on_type_ambiguities=True,
+            lint=False,
+        ),
         root=tmp_path,
         config=None,
         baseline=None,
@@ -519,8 +525,6 @@ def test_run_check_uses_explicit_report_path(tmp_path: Path) -> None:
         ),
         allow_external=None,
         strictness=None,
-        fail_on_type_ambiguities=True,
-        lint=False,
         runner=runner,
     )
     assert result["exit_code"] == 0
@@ -540,7 +544,11 @@ def test_run_check_with_none_filter_bundle(tmp_path: Path) -> None:
     result = cli.run_check(
         paths=[tmp_path],
         report=None,
-        fail_on_violations=True,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=True,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        ),
         root=tmp_path,
         config=None,
         baseline=None,
@@ -564,8 +572,6 @@ def test_run_check_with_none_filter_bundle(tmp_path: Path) -> None:
         filter_bundle=None,
         allow_external=None,
         strictness=None,
-        fail_on_type_ambiguities=False,
-        lint=False,
         runner=runner,
     )
     assert result["exit_code"] == 0

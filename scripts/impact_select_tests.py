@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+from gabion.order_contract import ordered_or_sorted
+
 _HUNK_RE = re.compile(r"@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,(?P<count>\d+))? @@")
 
 
@@ -139,7 +141,18 @@ def _select_tests(
     lines_by_path, changed_paths, changed_tests = _collect_changed_sets(changed_lines)
     tests = payload.get("tests")
     if not isinstance(tests, list):
-        return [], sorted(changed_paths), sorted(changed_tests), 0.0
+        return (
+            [],
+            ordered_or_sorted(
+                changed_paths,
+                source="_select_tests.changed_paths",
+            ),
+            ordered_or_sorted(
+                changed_tests,
+                source="_select_tests.changed_tests",
+            ),
+            0.0,
+        )
 
     impacted: set[str] = set()
     for entry in tests:
@@ -180,8 +193,22 @@ def _select_tests(
     test_signal = 1.0 if impacted else 0.0
     confidence = round(0.7 * path_coverage + 0.3 * test_signal, 4)
 
-    must_run_impacted = sorted(test for test in impacted if test in must_run_tests)
-    return sorted(impacted), sorted(changed_paths), must_run_impacted, confidence
+    must_run_impacted = ordered_or_sorted(
+        (test for test in impacted if test in must_run_tests),
+        source="_select_tests.must_run_impacted",
+    )
+    return (
+        ordered_or_sorted(
+            impacted,
+            source="_select_tests.impacted",
+        ),
+        ordered_or_sorted(
+            changed_paths,
+            source="_select_tests.changed_paths_result",
+        ),
+        must_run_impacted,
+        confidence,
+    )
 
 
 def _read_must_run_tests(path: Path | None, inline: Iterable[str]) -> set[str]:
@@ -222,7 +249,10 @@ def main(
     else:
         changed_lines = git_diff_changed_lines_fn(root, args.diff_base, args.diff_head)
     changed_count = len(changed_lines)
-    changed_paths = sorted({item.path for item in changed_lines})
+    changed_paths = ordered_or_sorted(
+        {item.path for item in changed_lines},
+        source="main.changed_paths",
+    )
 
     index_payload = _load_json(index_path)
     stale = False
@@ -264,12 +294,22 @@ def main(
     if reasons and ("index_missing" in reasons or "index_stale" in reasons or "low_confidence" in reasons):
         mode = "full"
 
-    impacted_docs = sorted(path for path in changed_paths if path.startswith("docs/") and path.endswith(".md"))
+    impacted_docs = ordered_or_sorted(
+        (
+            path
+            for path in changed_paths
+            if path.startswith("docs/") and path.endswith(".md")
+        ),
+        source="main.impacted_docs",
+    )
 
     payload = {
         "schema_version": 1,
         "mode": mode,
-        "fallback_reasons": sorted(set(reasons)),
+            "fallback_reasons": ordered_or_sorted(
+                set(reasons),
+                source="main.fallback_reasons",
+            ),
         "confidence": confidence,
         "confidence_threshold": args.confidence_threshold,
         "diff": {
