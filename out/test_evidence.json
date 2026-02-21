@@ -19847,6 +19847,25 @@
       ]
     },
     {
+      "display": "E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_requires_payload::server.py::gabion.server.execute_impact",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_server_execute_command_edges.py",
+          "qual": "test_execute_impact_requires_payload"
+        },
+        "targets": [
+          {
+            "path": "server.py",
+            "qual": "gabion.server.execute_impact"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_server_execute_command_edges.py::test_execute_impact_requires_payload"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_validation_and_depth_edges::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout",
       "key": {
         "k": "call_footprint",
@@ -79649,7 +79668,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5423,
+      "line": 5429,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_cache_verdict_invalidated_fallback_status"
     },
@@ -79697,7 +79716,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5433,
+      "line": 5439,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_additional_variants"
     },
@@ -79773,7 +79792,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5835,
+      "line": 5841,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback"
     },
@@ -80479,7 +80498,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5724,
+      "line": 5730,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_conflicting_delta_flags_raise"
     },
@@ -80507,7 +80526,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5744,
+      "line": 5750,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_delta_requires_existing_baseline_files"
     },
@@ -80825,7 +80844,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5592,
+      "line": 5598,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_feature_output_and_branch_coverage_bundle"
     },
@@ -80905,7 +80924,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5873,
+      "line": 5879,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_honors_dash_outputs_and_baseline_write"
     },
@@ -82453,7 +82472,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5356,
+      "line": 5362,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_bfs_step_limit_handles_dense_reverse_edges"
     },
@@ -82481,7 +82500,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5302,
+      "line": 5308,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_guard"
     },
@@ -82509,7 +82528,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5338,
+      "line": 5344,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_handles_change_without_seed_functions"
     },
@@ -82568,6 +82587,30 @@
       "line": 4962,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_query_groups_tests_and_docs"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_requires_payload::server.py::gabion.server.execute_impact",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_server_execute_command_edges.py",
+              "qual": "test_execute_impact_requires_payload"
+            },
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server.execute_impact"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 5302,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_requires_payload"
     },
     {
       "evidence": [
@@ -82639,7 +82682,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5915,
+      "line": 5921,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_exposes_rewrite_plan_metadata"
     },
@@ -82787,7 +82830,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5537,
+      "line": 5543,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_additional_error_paths"
     },
@@ -82895,7 +82938,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5575,
+      "line": 5581,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_total_validation_and_empty_bundle_paths"
     },
@@ -83603,7 +83646,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5501,
+      "line": 5507,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values"
     },
@@ -83671,7 +83714,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5385,
+      "line": 5391,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_normalize_progress_work_clamps_negative_and_overflow"
     },
@@ -83723,7 +83766,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5523,
+      "line": 5529,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_parse_snapshot_and_structure_reuse_options_edges"
     },
