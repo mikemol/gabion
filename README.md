@@ -1,5 +1,5 @@
 ---
-doc_revision: 68
+doc_revision: 70
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -318,15 +318,16 @@ If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
 
 The `dataflow-grammar` job now performs a best-effort warm-cache restore of
 `dataflow_resume_checkpoint_ci.json` from a prior same-branch push artifact
-before running staged retries. The staged profile in CI is currently
-`A=low -> B=high -> C=low` strictness so each retry is a predictable refinement
-or fallback step while sharing a single checkpoint file. When available, this
-primes Gabion's resume mechanism and reduces repeated parsing/indexing of
-unchanged paths.
+before running a single `run_dataflow_stage.py` invocation (`run=high`
+strictness profile). When available, this primes Gabion's resume mechanism and
+reduces repeated parsing/indexing of unchanged paths.
 
 Cache effectiveness can be audited in CI logs and step summaries via
 `completed_paths`, `hydrated_paths`, and `paths_parsed_after_resume` emitted by
-`scripts/run_dataflow_stage.py`.
+`scripts/run_dataflow_stage.py`. Unified all-phase progress telemetry is also
+persisted to:
+- `artifacts/audit_reports/dataflow_phase_timeline.md`
+- `artifacts/audit_reports/dataflow_phase_timeline.jsonl`
 
 Because restore is constrained to a same-branch prior push artifact, teams can
 reuse one default checkpoint artifact safely even when each run touches a

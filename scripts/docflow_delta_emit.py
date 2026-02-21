@@ -13,6 +13,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
+from gabion.order_contract import ordered_or_sorted
 
 BASELINE_PATH = Path("baselines/docflow_compliance_baseline.json")
 CURRENT_PATH = Path("artifacts/out/docflow_compliance.json")
@@ -51,7 +52,12 @@ def _changed_paths_from_git() -> tuple[str, ...]:
     except Exception:
         return ()
     paths = [line.strip() for line in out.splitlines() if line.strip()]
-    return tuple(sorted(set(paths)))
+    return tuple(
+        ordered_or_sorted(
+            set(paths),
+            source="_changed_paths_from_git.paths",
+        )
+    )
 
 
 def _build_execution_plan(

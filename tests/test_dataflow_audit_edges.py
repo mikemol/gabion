@@ -206,6 +206,156 @@ def test_populate_bundle_forest_empty_groups(tmp_path: Path) -> None:
     )
     assert forest.nodes == {}
 
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_progress_callback_emits_vector_snapshots::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
+def test_populate_bundle_forest_progress_callback_emits_vector_snapshots() -> None:
+    da = _load()
+    forest = da.Forest()
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+    for index in range(130):
+        groups_by_path[Path(f"pkg/mod_{index}.py")] = {
+            f"pkg.mod_{index}.fn": [set(["a", "b"])]
+        }
+    snapshots: list[dict[str, object]] = []
+
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[],
+        project_root=Path("."),
+        include_all_sites=False,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=set(),
+        parse_failure_witnesses=[],
+        on_progress=snapshots.append,
+    )
+
+    assert snapshots
+    first = snapshots[0]
+    assert first.get("marker") == "start"
+    assert first.get("primary_unit") == "forest_mutable_steps"
+    done_series = [int(snapshot.get("primary_done", 0) or 0) for snapshot in snapshots]
+    total_series = [int(snapshot.get("primary_total", 0) or 0) for snapshot in snapshots]
+    assert done_series == ordered_or_sorted(
+        done_series,
+        source="test_populate_bundle_forest_progress_emits_monotonic_vector.done_series",
+    )
+    assert total_series == ordered_or_sorted(
+        total_series,
+        source="test_populate_bundle_forest_progress_emits_monotonic_vector.total_series",
+    )
+    assert done_series[-1] == total_series[-1]
+    assert done_series[-1] >= 130
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_populate_bundle_forest_progress_callback_supports_legacy_no_arg_handler::dataflow_audit.py::gabion.analysis.dataflow_audit._populate_bundle_forest::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
+def test_populate_bundle_forest_progress_callback_supports_legacy_no_arg_handler() -> None:
+    da = _load()
+    forest = da.Forest()
+    groups_by_path: dict[Path, dict[str, list[set[str]]]] = {}
+    for index in range(130):
+        groups_by_path[Path(f"pkg/mod_{index}.py")] = {
+            f"pkg.mod_{index}.fn": [set(["a", "b"])]
+        }
+    calls = {"count": 0}
+
+    def _legacy_no_arg_handler() -> None:
+        calls["count"] += 1
+
+    da._populate_bundle_forest(
+        forest,
+        groups_by_path=groups_by_path,
+        file_paths=[],
+        project_root=Path("."),
+        include_all_sites=False,
+        ignore_params=set(),
+        strictness="high",
+        transparent_decorators=set(),
+        parse_failure_witnesses=[],
+        on_progress=_legacy_no_arg_handler,
+    )
+
+    assert calls["count"] >= 2
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_analyze_paths_forest_progress_emits_intermediate_work_markers::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
+def test_analyze_paths_forest_progress_emits_intermediate_work_markers(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module_paths: list[Path] = []
+    for index in range(70):
+        module_path = tmp_path / f"mod_{index:03d}.py"
+        module_path.write_text(
+            textwrap.dedent(
+                f"""
+                def callee_{index}(value):
+                    return value
+
+                def root_{index}(value):
+                    return callee_{index}(value)
+                """
+            ).strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        module_paths.append(module_path)
+
+    forest_progress: list[tuple[int, int]] = []
+
+    def _phase_progress(
+        phase: str,
+        _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+        _report: da.ReportCarrier,
+        work_done: int,
+        work_total: int,
+    ) -> None:
+        if phase == "forest":
+            forest_progress.append((work_done, work_total))
+
+    with deadline_scope(Deadline.from_timeout_ms(20_000)):
+        da.analyze_paths(
+            module_paths,
+            forest=da.Forest(),
+            recursive=True,
+            type_audit=False,
+            type_audit_report=False,
+            type_audit_max=0,
+            include_constant_smells=False,
+            include_unused_arg_smells=False,
+            include_deadness_witnesses=False,
+            include_coherence_witnesses=False,
+            include_rewrite_plans=False,
+            include_exception_obligations=False,
+            include_handledness_witnesses=False,
+            include_never_invariants=False,
+            include_wl_refinement=False,
+            include_decision_surfaces=False,
+            include_value_decision_surfaces=False,
+            include_invariant_propositions=False,
+            include_lint_lines=False,
+            include_ambiguities=False,
+            include_bundle_forest=True,
+            include_deadline_obligations=False,
+            config=da.AuditConfig(
+                project_root=tmp_path,
+                exclude_dirs=set(),
+                ignore_params=set(),
+                external_filter=True,
+                strictness="high",
+            ),
+            file_paths_override=module_paths,
+            on_phase_progress=_phase_progress,
+        )
+
+    assert forest_progress
+    work_values = [work_done for work_done, _ in forest_progress]
+    min_work = min(work_values)
+    max_work = max(work_values)
+    assert min_work < max_work
+    assert any(min_work < work_done < max_work for work_done in work_values)
+
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_warnings
 def test_compute_fingerprint_warnings_missing_annotations(tmp_path: Path) -> None:
     da = _load()
@@ -220,6 +370,35 @@ def test_compute_fingerprint_warnings_missing_annotations(tmp_path: Path) -> Non
     )
     assert warnings
     assert "missing type annotations" in warnings[0]
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_emit_report_fingerprint_warnings_are_non_blocking::dataflow_audit.py::gabion.analysis.dataflow_audit._emit_report::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
+def test_emit_report_fingerprint_warnings_are_non_blocking() -> None:
+    da = _load()
+    report, violations = da._emit_report(
+        {},
+        10,
+        report=da.ReportCarrier(
+            forest=da.Forest(),
+            fingerprint_warnings=["example fingerprint warning"],
+        ),
+        parse_witness_contract_violations_fn=lambda: [],
+    )
+    assert "Fingerprint warnings:" in report
+    assert "example fingerprint warning" in report
+    assert violations == []
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_known_violation_lines_dedupes_duplicates::dataflow_audit.py::gabion.analysis.dataflow_audit._known_violation_lines::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load
+def test_known_violation_lines_dedupes_duplicates() -> None:
+    da = _load()
+    lines = da._known_violation_lines(
+        da.ReportCarrier(
+            forest=da.Forest(),
+            decision_warnings=["dup", "dup"],
+        )
+    )
+    assert lines == ["dup"]
 
 # gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths
 def test_analyze_paths_deadline_includes_forest_spec(tmp_path: Path) -> None:
@@ -691,6 +870,88 @@ def test_analyze_paths_timeout_flushes_phase_emitters_best_effort(
     assert "forest" in callback_state["phases"]
     assert "edge" in callback_state["phases"]
     assert "post" in callback_state["phases"]
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_analyze_paths_phase_progress_emits_initial_edge_and_post_checkpoints::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_scope
+def test_analyze_paths_phase_progress_emits_initial_edge_and_post_checkpoints(
+    tmp_path: Path,
+) -> None:
+    da = _load()
+    module_path = tmp_path / "mod.py"
+    module_path.write_text(
+        textwrap.dedent(
+            """
+            from gabion.analysis.timeout_context import Deadline, check_deadline
+
+            def root(deadline: Deadline):
+                check_deadline(deadline)
+                return deadline
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    phase_progress: dict[str, list[tuple[int, int]]] = {}
+    post_markers: list[str] = []
+
+    def _phase_progress(
+        phase: str,
+        _groups_by_path: dict[Path, dict[str, list[set[str]]]],
+        _report: da.ReportCarrier,
+        work_done: int,
+        work_total: int,
+    ) -> None:
+        phase_progress.setdefault(phase, []).append((work_done, work_total))
+        if phase == "post":
+            post_markers.append(str(_report.progress_marker or ""))
+
+    with deadline_scope(Deadline.from_timeout_ms(10_000)):
+        da.analyze_paths(
+            [module_path],
+            forest=da.Forest(),
+            recursive=True,
+            type_audit=False,
+            type_audit_report=False,
+            type_audit_max=0,
+            include_constant_smells=True,
+            include_unused_arg_smells=False,
+            include_deadness_witnesses=False,
+            include_coherence_witnesses=False,
+            include_rewrite_plans=False,
+            include_exception_obligations=False,
+            include_handledness_witnesses=False,
+            include_never_invariants=False,
+            include_wl_refinement=False,
+            include_decision_surfaces=False,
+            include_value_decision_surfaces=False,
+            include_invariant_propositions=False,
+            include_lint_lines=False,
+            include_ambiguities=False,
+            include_bundle_forest=True,
+            include_deadline_obligations=True,
+            config=da.AuditConfig(
+                project_root=tmp_path,
+                exclude_dirs=set(),
+                ignore_params=set(),
+                external_filter=True,
+                strictness="high",
+                deadline_roots={"mod.root"},
+            ),
+            file_paths_override=[module_path],
+            on_phase_progress=_phase_progress,
+        )
+
+    edge_progress = phase_progress.get("edge", [])
+    post_progress = phase_progress.get("post", [])
+    assert edge_progress
+    assert post_progress
+    assert edge_progress[0][0] == 0
+    assert edge_progress[0][1] >= 1
+    assert any(work_done > 0 for work_done, _ in edge_progress)
+    assert post_progress[0][0] == 0
+    assert post_progress[0][1] >= 1
+    assert any(work_done > 0 for work_done, _ in post_progress)
+    assert any(marker.startswith("deadline_obligations:") for marker in post_markers)
 
 
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_edges.py::test_materialize_call_candidates_emits_dynamic_obligation_kind::dataflow_audit.py::gabion.analysis.dataflow_audit._materialize_call_candidates::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._call::test_dataflow_audit_edges.py::tests.test_dataflow_audit_edges._load

@@ -3050,6 +3050,86 @@ def test_call_resolution_obligation_evidence_returns_empty_on_mismatch() -> None
         == {}
     )
 
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_call_resolution_obligation_evidence_returns_matching_alt_after_skips::dataflow_audit.py::gabion.analysis.dataflow_audit._call_resolution_obligation_evidence::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_call_resolution_obligation_evidence_returns_matching_alt_after_skips() -> None:
+    da = _load()
+    forest = da.Forest()
+    suite_target = da.NodeId("SuiteSite", ("pkg/mod.py", "pkg.mod.target"))
+    suite_other = da.NodeId("SuiteSite", ("pkg/mod.py", "pkg.mod.other"))
+    candidate_target = da.NodeId("SuiteSite", ("pkg/mod.py", "pkg.mod.callee"))
+    forest.add_alt("CallCandidate", (suite_target, candidate_target), evidence={})
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite_other,),
+        evidence={"callee": "target", "kind": "other_suite"},
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite_target,),
+        evidence={"callee": "target", "kind": "matching_suite"},
+    )
+
+    evidence = da._call_resolution_obligation_evidence(
+        forest,
+        suite_id=suite_target,
+        callee_key="target",
+    )
+    assert evidence.get("kind") == "matching_suite"
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_call_resolution_obligation_details_uses_first_matching_evidence_kind::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligation_details_from_forest::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_collect_call_resolution_obligation_details_uses_first_matching_evidence_kind() -> None:
+    da = _load()
+    forest = da.Forest()
+    suite = forest.add_suite_site(
+        "pkg/mod.py",
+        "pkg.mod.caller",
+        "call",
+        span=(1, 0, 1, 5),
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite,),
+        evidence={"callee": "target", "kind": "first_kind"},
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite,),
+        evidence={"callee": "target", "kind": "second_kind"},
+    )
+
+    details = da._collect_call_resolution_obligation_details_from_forest(forest)
+    assert len(details) == 1
+    assert details[0][4] == "first_kind"
+
+
+# gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_collect_call_resolution_obligation_details_ignores_empty_callee_index_entries::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_call_resolution_obligation_details_from_forest::test_dataflow_audit_coverage_gaps.py::tests.test_dataflow_audit_coverage_gaps._load
+def test_collect_call_resolution_obligation_details_ignores_empty_callee_index_entries() -> None:
+    da = _load()
+    forest = da.Forest()
+    suite = forest.add_suite_site(
+        "pkg/mod.py",
+        "pkg.mod.caller",
+        "call",
+        span=(1, 0, 1, 5),
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite,),
+        evidence={"callee": "", "kind": "ignored_empty"},
+    )
+    forest.add_alt(
+        "CallResolutionObligation",
+        (suite,),
+        evidence={"callee": "target", "kind": "resolved_kind"},
+    )
+
+    details = da._collect_call_resolution_obligation_details_from_forest(forest)
+    assert len(details) == 1
+    assert details[0][3] == "target"
+    assert details[0][4] == "resolved_kind"
+
 # gabion:evidence E:call_footprint::tests/test_dataflow_audit_coverage_gaps.py::test_fingerprint_rewrite_plans_emit_extended_kinds_with_proof_payloads::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_coherence::dataflow_audit.py::gabion.analysis.dataflow_audit._compute_fingerprint_rewrite_plans
 def test_fingerprint_rewrite_plans_emit_extended_kinds_with_proof_payloads() -> None:
     provenance_entries = [

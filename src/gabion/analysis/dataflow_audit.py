@@ -596,6 +596,8 @@ class ReportCarrier:
     parse_failure_witnesses: list[JSONObject] = field(default_factory=list)
     resumability_obligations: list[JSONObject] = field(default_factory=list)
     incremental_report_obligations: list[JSONObject] = field(default_factory=list)
+    progress_marker: str = ""
+    phase_progress_v2: JSONObject | None = None
 
     @classmethod
     def from_analysis_result(
@@ -702,7 +704,6 @@ def _known_violation_lines(
     )
     lines.extend(_parse_failure_violation_lines(report.parse_failure_witnesses))
     lines.extend(report.decision_warnings)
-    lines.extend(report.fingerprint_warnings)
     seen: set[str] = set()
     unique: list[str] = []
     for line in lines:
@@ -5487,12 +5488,26 @@ def _collect_call_resolution_obligations_from_forest(
 def _collect_call_resolution_obligation_details_from_forest(
     forest: Forest,
 ) -> list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]]:
+    evidence_by_key: dict[tuple[NodeId, str], JSONObject] = {}
+    for alt in forest.alts:
+        check_deadline()
+        if alt.kind != "CallResolutionObligation" or not alt.inputs:
+            continue
+        suite_id = alt.inputs[0]
+        callee_value = alt.evidence.get("callee")
+        callee_key = str(callee_value or "")
+        if not callee_key:
+            continue
+        key = (suite_id, callee_key)
+        if key not in evidence_by_key:
+            evidence_by_key[key] = alt.evidence
+
     records: list[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str, str]] = []
     for caller_id, suite_id, span, callee_key in _collect_call_resolution_obligations_from_forest(
         forest
     ):
         check_deadline()
-        evidence = _call_resolution_obligation_evidence(forest, suite_id=suite_id, callee_key=callee_key)
+        evidence = evidence_by_key.get((suite_id, callee_key), {})
         obligation_kind = str(evidence.get("kind", "") or "")
         if not obligation_kind:
             obligation_kind = "unresolved_internal_callee"
@@ -6028,6 +6043,7 @@ def _collect_deadline_obligations(
         [Mapping[NodeId, set[NodeId]]], set[NodeId]
     ] | None = None,
     resolve_callee_outcome_fn: Callable[..., _CalleeResolutionOutcome] | None = None,
+    on_progress: Callable[[str], None] | None = None,
 ) -> list[JSONObject]:
     check_deadline()
     if materialize_call_candidates_fn is None:
@@ -6050,6 +6066,41 @@ def _collect_deadline_obligations(
         resolve_callee_outcome_fn = _resolve_callee_outcome
     if not config.deadline_roots:
         return []
+    progress_since_emit = 0
+    progress_emit_counter = 0
+
+    def _emit_progress(stage: str, *, force: bool = False) -> None:
+        nonlocal progress_since_emit
+        nonlocal progress_emit_counter
+        if on_progress is None:
+            return
+        progress_since_emit += 1
+        if (
+            not force
+            and progress_since_emit < _DEADLINE_OBLIGATIONS_PROGRESS_EMIT_INTERVAL
+        ):
+            return
+        progress_since_emit = 0
+        progress_emit_counter += 1
+        on_progress(f"{stage}:{progress_emit_counter}")
+
+    normalized_snapshot_path_cache: dict[Path, str] = {}
+    suite_path_name_cache: dict[str, str] = {}
+
+    def _normalized_snapshot_path(path: Path) -> str:
+        cached = normalized_snapshot_path_cache.get(path)
+        if cached is None:
+            cached = _normalize_snapshot_path(path, project_root)
+            normalized_snapshot_path_cache[path] = cached
+        return cached
+
+    def _suite_path_name(path: str) -> str:
+        cached = suite_path_name_cache.get(path)
+        if cached is None:
+            cached = Path(path).name
+            suite_path_name_cache[path] = cached
+        return cached
+
     index = analysis_index
     if index is None:
         index = _build_analysis_index(
@@ -6061,6 +6112,7 @@ def _collect_deadline_obligations(
             transparent_decorators=config.transparent_decorators,
             parse_failure_witnesses=parse_failure_witnesses,
         )
+    _emit_progress("index_ready", force=True)
     by_name = index.by_name
     by_qual = index.by_qual
     symbol_table = index.symbol_table
@@ -6073,11 +6125,13 @@ def _collect_deadline_obligations(
         project_root=project_root,
         class_index=class_index,
     )
+    _emit_progress("call_candidates_materialized")
     call_nodes_by_path = collect_call_nodes_by_path_fn(
         paths,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
     )
+    _emit_progress("call_nodes_collected")
     facts_by_qual = collect_deadline_function_facts_fn(
         paths,
         project_root=project_root,
@@ -6085,6 +6139,7 @@ def _collect_deadline_obligations(
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
     )
+    _emit_progress("function_facts_collected")
     if extra_facts_by_qual:
         facts_by_qual = dict(facts_by_qual)
         facts_by_qual.update(extra_facts_by_qual)
@@ -6092,6 +6147,7 @@ def _collect_deadline_obligations(
     deadline_params: dict[str, set[str]] = defaultdict(set)
     for info in by_qual.values():
         check_deadline()
+        _emit_progress("deadline_params")
         if _is_test_path(info.path):
             continue
         for name in info.params:
@@ -6106,6 +6162,7 @@ def _collect_deadline_obligations(
     for helper in _DEADLINE_HELPER_QUALS:
         check_deadline()
         deadline_params.pop(helper, None)
+    _emit_progress("deadline_params_ready", force=True)
 
     changed = True
     while changed:
@@ -6113,6 +6170,7 @@ def _collect_deadline_obligations(
         changed = False
         for infos in by_name.values():
             check_deadline()
+            _emit_progress("deadline_param_propagation")
             for info in infos:
                 check_deadline()
                 if _is_test_path(info.path):
@@ -6145,10 +6203,12 @@ def _collect_deadline_obligations(
                                 if caller_param not in deadline_params[info.qual]:
                                     deadline_params[info.qual].add(caller_param)
                                     changed = True
+    _emit_progress("deadline_param_propagation_done", force=True)
 
     call_infos: dict[str, list[tuple[CallArgs, FunctionInfo, dict[str, _DeadlineArgInfo]]]] = defaultdict(list)
     for infos in by_name.values():
         check_deadline()
+        _emit_progress("call_info_collection")
         for info in infos:
             check_deadline()
             if _is_test_path(info.path):
@@ -6187,15 +6247,18 @@ def _collect_deadline_obligations(
                         strictness=config.strictness,
                     )
                     call_infos[info.qual].append((call, callee, arg_info))
+    _emit_progress("call_info_collection_done", force=True)
     if extra_call_infos:
         for qual, entries in extra_call_infos.items():
             check_deadline()
             call_infos[qual].extend(entries)
+    _emit_progress("call_info_overrides_applied")
 
     trusted_params: dict[str, set[str]] = defaultdict(set)
     roots = set(config.deadline_roots)
     for qual, params in deadline_params.items():
         check_deadline()
+        _emit_progress("trusted_seed")
         if qual in roots:
             trusted_params[qual].update(params)
 
@@ -6205,6 +6268,7 @@ def _collect_deadline_obligations(
         changed = False
         for caller_qual, entries in call_infos.items():
             check_deadline()
+            _emit_progress("trusted_propagation")
             for call, callee, arg_info in entries:
                 check_deadline()
                 for callee_param in deadline_params.get(callee.qual, set()):
@@ -6220,10 +6284,12 @@ def _collect_deadline_obligations(
                         if callee_param not in trusted_params[callee.qual]:
                             trusted_params[callee.qual].add(callee_param)
                             changed = True
+    _emit_progress("trusted_propagation_done", force=True)
 
     forwarded_params: dict[str, set[str]] = defaultdict(set)
     for caller_qual, entries in call_infos.items():
         check_deadline()
+        _emit_progress("forwarded_params")
         caller_params = deadline_params.get(caller_qual, set())
         if not caller_params:
             continue
@@ -6236,6 +6302,7 @@ def _collect_deadline_obligations(
                     continue
                 if info.kind == "param" and info.param in caller_params:
                     forwarded_params[caller_qual].add(info.param)
+    _emit_progress("forwarded_params_done", force=True)
 
     obligations: list[JSONObject] = []
 
@@ -6281,11 +6348,17 @@ def _collect_deadline_obligations(
             ),
         )
         bundle = [param] if param else []
-        key_parts = [path, function_name, kind]
+        span_line, span_col, span_end_line, span_end_col = span
         if param:
-            key_parts.append(param)
-        key_parts.extend(str(p) for p in span)
-        deadline_id = "deadline:" + ":".join(key_parts)
+            deadline_id = (
+                f"deadline:{path}:{function_name}:{kind}:{param}:"
+                f"{span_line}:{span_col}:{span_end_line}:{span_end_col}"
+            )
+        else:
+            deadline_id = (
+                f"deadline:{path}:{function_name}:{kind}:"
+                f"{span_line}:{span_col}:{span_end_line}:{span_end_col}"
+            )
         entry: JSONObject = {
             "deadline_id": deadline_id,
             "site": {
@@ -6303,7 +6376,7 @@ def _collect_deadline_obligations(
         if callee:
             entry["callee"] = callee
         obligations.append(entry)
-        suite_path = Path(path).name
+        suite_path = _suite_path_name(path)
         suite_id = forest.add_suite_site(suite_path, function_name, suite_kind, span=span)
         suite_node = forest.nodes.get(suite_id)
         suite_meta = suite_node.meta if suite_node is not None else {}
@@ -6327,6 +6400,7 @@ def _collect_deadline_obligations(
 
     for qual, facts in facts_by_qual.items():
         check_deadline()
+        _emit_progress("origin_obligations")
         if facts is None:
             continue
         if qual not in by_qual:
@@ -6340,7 +6414,7 @@ def _collect_deadline_obligations(
             if name not in facts.local_info.origin_vars:
                 continue
             _add_obligation(
-                path=_normalize_snapshot_path(facts.path, project_root),
+                path=_normalized_snapshot_path(facts.path),
                 function=qual,
                 param=name,
                 status="VIOLATION",
@@ -6349,9 +6423,11 @@ def _collect_deadline_obligations(
                 span=span,
                 suite_kind="function",
             )
+    _emit_progress("origin_obligations_done", force=True)
 
     for qual, params in deadline_params.items():
         check_deadline()
+        _emit_progress("default_param_obligations")
         info = by_qual.get(qual)
         if info is None or _is_test_path(info.path):
             continue
@@ -6360,7 +6436,7 @@ def _collect_deadline_obligations(
             if param in info.defaults:
                 span = info.param_spans.get(param)
                 _add_obligation(
-                    path=_normalize_snapshot_path(info.path, project_root),
+                    path=_normalized_snapshot_path(info.path),
                     function=qual,
                     param=param,
                     status="VIOLATION",
@@ -6369,14 +6445,17 @@ def _collect_deadline_obligations(
                     span=span,
                     suite_kind="function",
                 )
+    _emit_progress("default_param_obligations_done", force=True)
 
     edges = collect_call_edges_from_forest_fn(forest, by_name=by_name)
+    _emit_progress("call_edges_ready")
     raw_resolution_obligations = collect_call_resolution_obligations_from_forest_fn(forest)
     resolution_obligation_kind_by_site: dict[tuple[NodeId, NodeId, tuple[int, int, int, int] | None, str], str] = {}
     for caller_id, suite_id, span, callee_key, obligation_kind in _collect_call_resolution_obligation_details_from_forest(
         forest
     ):
         check_deadline()
+        _emit_progress("resolution_obligation_details")
         resolution_obligation_kind_by_site[(caller_id, suite_id, span, callee_key)] = obligation_kind
     resolution_obligations = [
         (
@@ -6398,15 +6477,30 @@ def _collect_deadline_obligations(
     root_site_ids: set[NodeId] = set()
     for qual in roots:
         check_deadline()
+        _emit_progress("root_site_resolution")
         info = by_qual.get(qual)
         if info is None:
             continue
         root_site_ids.add(_function_suite_id(_function_suite_key(info.path.name, qual)))
 
     reachable_from_roots = reachable_from_roots_fn(edges, root_site_ids)
+    _emit_progress("reachability_ready", force=True)
+
+    def _deadline_carrier_status(
+        *,
+        qual: str,
+        info: FunctionInfo,
+        has_carrier_signal: bool,
+    ) -> str:
+        if not has_carrier_signal:
+            return "OBLIGATION"
+        function_id = _function_suite_id(_function_suite_key(info.path.name, qual))
+        return "VIOLATION" if function_id in reachable_from_roots else "OBLIGATION"
+
     resolved_call_suites: set[NodeId] = set()
     for alt in forest.alts:
         check_deadline()
+        _emit_progress("resolved_call_sites")
         if alt.kind != "CallCandidate" or len(alt.inputs) < 2:
             continue
         suite_id = alt.inputs[0]
@@ -6416,6 +6510,12 @@ def _collect_deadline_obligations(
         if str(suite_node.meta.get("suite_kind", "") or "") != "call":
             continue
         resolved_call_suites.add(suite_id)
+    _emit_progress("resolved_call_sites_done", force=True)
+
+    resolution_obligation_kind_map = {
+        "unresolved_dynamic_callee": "call_dynamic_resolution_required",
+        "unresolved_internal_callee": "call_resolution_required",
+    }
 
     for caller_id, suite_id, span, callee_key, obligation_kind in sorted(
         resolution_obligations,
@@ -6428,6 +6528,7 @@ def _collect_deadline_obligations(
         ),
     ):
         check_deadline()
+        _emit_progress("resolution_obligations")
         if suite_id in resolved_call_suites:
             continue
         if caller_id not in reachable_from_roots:
@@ -6442,22 +6543,19 @@ def _collect_deadline_obligations(
         caller_info = by_qual.get(caller_qual)
         if caller_info is None or _is_test_path(caller_info.path):
             continue
-        obligation_detail_by_kind = {
-            "unresolved_dynamic_callee": (
-                "call_dynamic_resolution_required",
-                f"call '{callee_key}' appears to use dynamic dispatch; add explicit routing evidence",
-            ),
-            "unresolved_internal_callee": (
-                "call_resolution_required",
-                f"call '{callee_key}' requires resolution",
-            ),
-        }
-        output_kind, detail = obligation_detail_by_kind.get(
+        output_kind = resolution_obligation_kind_map.get(
             obligation_kind,
-            ("call_resolution_required", f"call '{callee_key}' requires resolution"),
+            "call_resolution_required",
         )
+        if obligation_kind == "unresolved_dynamic_callee":
+            detail = (
+                f"call '{callee_key}' appears to use dynamic dispatch; "
+                "add explicit routing evidence"
+            )
+        else:
+            detail = f"call '{callee_key}' requires resolution"
         _add_obligation(
-            path=_normalize_snapshot_path(caller_info.path, project_root),
+            path=_normalized_snapshot_path(caller_info.path),
             function=caller_qual,
             param=None,
             status="OBLIGATION",
@@ -6468,24 +6566,33 @@ def _collect_deadline_obligations(
             callee=callee_key,
             suite_kind="call",
         )
+    _emit_progress("resolution_obligations_done", force=True)
 
     recursive_required: set[str] = set()
     for function_id in recursive_nodes:
         check_deadline()
+        _emit_progress("recursive_required")
         if function_id.kind != "SuiteSite" or len(function_id.key) < 2:
             continue
         qual = str(function_id.key[1] or "")
         if not qual or _deadline_exempt(qual):
             continue
         recursive_required.add(qual)
+    _emit_progress("recursive_required_done", force=True)
 
     for qual in sorted(recursive_required):
         check_deadline()
+        _emit_progress("recursive_obligations")
         facts = facts_by_qual.get(qual)
         info = by_qual.get(qual)
         if facts is None or info is None or _is_test_path(info.path):
             continue
         carriers = deadline_params.get(qual, set())
+        carrier_status = _deadline_carrier_status(
+            qual=qual,
+            info=info,
+            has_carrier_signal=bool(carriers),
+        )
         if facts.loop_sites:
             for loop_fact in facts.loop_sites:
                 check_deadline()
@@ -6493,10 +6600,10 @@ def _collect_deadline_obligations(
                     if loop_fact.ambient_check:
                         continue
                     _add_obligation(
-                        path=_normalize_snapshot_path(info.path, project_root),
+                        path=_normalized_snapshot_path(info.path),
                         function=qual,
                         param=None,
-                        status="VIOLATION",
+                        status=carrier_status,
                         kind="missing_carrier",
                         detail="recursion loop requires Deadline carrier",
                         span=loop_fact.span,
@@ -6515,10 +6622,10 @@ def _collect_deadline_obligations(
                 if checked or forwarded:
                     continue
                 _add_obligation(
-                    path=_normalize_snapshot_path(info.path, project_root),
+                    path=_normalized_snapshot_path(info.path),
                     function=qual,
                     param=None,
-                    status="VIOLATION",
+                    status=carrier_status,
                     kind="unchecked_deadline",
                     detail=(
                         "deadline carrier not checked or forwarded "
@@ -6532,10 +6639,10 @@ def _collect_deadline_obligations(
             if facts.ambient_check:
                 continue
             _add_obligation(
-                path=_normalize_snapshot_path(info.path, project_root),
+                path=_normalized_snapshot_path(info.path),
                 function=qual,
                 param=None,
-                status="VIOLATION",
+                status=carrier_status,
                 kind="missing_carrier",
                 detail="recursion requires Deadline carrier",
                 span=facts.span,
@@ -6549,18 +6656,20 @@ def _collect_deadline_obligations(
         if checked or forwarded:
             continue
         _add_obligation(
-            path=_normalize_snapshot_path(info.path, project_root),
+            path=_normalized_snapshot_path(info.path),
             function=qual,
             param=None,
-            status="VIOLATION",
+            status=carrier_status,
             kind="unchecked_deadline",
             detail="deadline carrier not checked or forwarded (recursion)",
             span=facts.span,
             suite_kind="function",
         )
+    _emit_progress("recursive_obligations_done", force=True)
 
     for qual, facts in facts_by_qual.items():
         check_deadline()
+        _emit_progress("loop_obligations")
         if _deadline_exempt(qual):
             continue
         if qual in recursive_required:
@@ -6573,16 +6682,21 @@ def _collect_deadline_obligations(
         if not facts.loop_sites:
             continue
         carriers = deadline_params.get(qual, set())
+        carrier_status = _deadline_carrier_status(
+            qual=qual,
+            info=info,
+            has_carrier_signal=bool(carriers),
+        )
         for loop_fact in facts.loop_sites:
             check_deadline()
             if not carriers:
                 if loop_fact.ambient_check:
                     continue
                 _add_obligation(
-                    path=_normalize_snapshot_path(info.path, project_root),
+                    path=_normalized_snapshot_path(info.path),
                     function=qual,
                     param=None,
-                    status="VIOLATION",
+                    status=carrier_status,
                     kind="missing_carrier",
                     detail="loop requires Deadline carrier",
                     span=loop_fact.span,
@@ -6600,18 +6714,20 @@ def _collect_deadline_obligations(
             ) & carriers
             if not checked and not forwarded:
                 _add_obligation(
-                    path=_normalize_snapshot_path(info.path, project_root),
+                    path=_normalized_snapshot_path(info.path),
                     function=qual,
                     param=None,
-                    status="VIOLATION",
+                    status=carrier_status,
                     kind="unchecked_deadline",
                     detail="deadline carrier not checked or forwarded in loop",
                     span=loop_fact.span,
                     suite_kind="loop",
                 )
+    _emit_progress("loop_obligations_done", force=True)
 
     for caller_qual, entries in call_infos.items():
         check_deadline()
+        _emit_progress("call_arg_obligations")
         caller_info = by_qual.get(caller_qual)
         if caller_info is None or _is_test_path(caller_info.path):
             continue
@@ -6634,7 +6750,7 @@ def _collect_deadline_obligations(
                     status = "OBLIGATION" if missing_unknown else "VIOLATION"
                     kind = "missing_arg_unknown" if missing_unknown else "missing_arg"
                     _add_obligation(
-                        path=_normalize_snapshot_path(caller_info.path, project_root),
+                        path=_normalized_snapshot_path(caller_info.path),
                         function=caller_qual,
                         param=callee_param,
                         status=status,
@@ -6648,7 +6764,7 @@ def _collect_deadline_obligations(
                     continue
                 if info.kind == "none":
                     _add_obligation(
-                        path=_normalize_snapshot_path(caller_info.path, project_root),
+                        path=_normalized_snapshot_path(caller_info.path),
                         function=caller_qual,
                         param=callee_param,
                         status="VIOLATION",
@@ -6662,7 +6778,7 @@ def _collect_deadline_obligations(
                     continue
                 if info.kind == "const":
                     _add_obligation(
-                        path=_normalize_snapshot_path(caller_info.path, project_root),
+                        path=_normalized_snapshot_path(caller_info.path),
                         function=caller_qual,
                         param=callee_param,
                         status="VIOLATION",
@@ -6677,7 +6793,7 @@ def _collect_deadline_obligations(
                 if info.kind == "origin":
                     if caller_qual not in roots:
                         _add_obligation(
-                            path=_normalize_snapshot_path(caller_info.path, project_root),
+                            path=_normalized_snapshot_path(caller_info.path),
                             function=caller_qual,
                             param=callee_param,
                             status="VIOLATION",
@@ -6693,7 +6809,7 @@ def _collect_deadline_obligations(
                     if info.param in trusted_params.get(caller_qual, set()):
                         continue
                     _add_obligation(
-                        path=_normalize_snapshot_path(caller_info.path, project_root),
+                        path=_normalized_snapshot_path(caller_info.path),
                         function=caller_qual,
                         param=callee_param,
                         status="OBLIGATION",
@@ -6707,7 +6823,7 @@ def _collect_deadline_obligations(
                     continue
                 if info.kind == "unknown":
                     _add_obligation(
-                        path=_normalize_snapshot_path(caller_info.path, project_root),
+                        path=_normalized_snapshot_path(caller_info.path),
                         function=caller_qual,
                         param=callee_param,
                         status="OBLIGATION",
@@ -6719,6 +6835,7 @@ def _collect_deadline_obligations(
                         suite_kind="call",
                     )
 
+    _emit_progress("call_arg_obligations_done", force=True)
     return sorted(
         obligations,
         key=lambda entry: (
@@ -9345,7 +9462,7 @@ def _populate_bundle_forest(
     transparent_decorators: set[str] | None = None,
     parse_failure_witnesses: list[JSONObject],
     analysis_index: AnalysisIndex | None = None,
-    on_progress: Callable[[], None] | None = None,
+    on_progress: Callable[..., None] | None = None,
 ) -> None:
     check_deadline()
     if not groups_by_path:
@@ -9354,29 +9471,148 @@ def _populate_bundle_forest(
         file_paths,
         source="_populate_bundle_forest.file_paths",
     )
-    if on_progress is not None:
-        on_progress()
     index = analysis_index
+    if include_all_sites and index is None:
+        index = _build_analysis_index(
+            ordered_file_paths,
+            project_root=project_root,
+            ignore_params=ignore_params or set(),
+            strictness=strictness,
+            external_filter=True,
+            transparent_decorators=transparent_decorators,
+            parse_failure_witnesses=parse_failure_witnesses,
+        )
+    callsite_inventory_total = 0
+    if index is not None:
+        callsite_inventory_total = sum(len(info.calls) for info in index.by_qual.values())
+    site_materialization_total = 0
+    site_materialization_done = 0
+    structured_suite_total = 0
+    structured_suite_done = 0
+    group_paths_total = len(groups_by_path)
+    group_paths_done = 0
+    config_paths_total = 0
+    config_paths_done = 0
+    dataclass_quals_total = 0
+    dataclass_quals_done = 0
+    marker_paths_total = len(ordered_file_paths)
+    marker_paths_done = 0
+    progress_since_emit = 0
+    progress_accepts_payload: bool | None = None
+
+    def _forest_progress_snapshot(*, marker: str) -> JSONObject:
+        mutable_done = (
+            site_materialization_done
+            + structured_suite_done
+            + group_paths_done
+            + config_paths_done
+            + dataclass_quals_done
+            + marker_paths_done
+        )
+        mutable_total = (
+            site_materialization_total
+            + structured_suite_total
+            + group_paths_total
+            + config_paths_total
+            + dataclass_quals_total
+            + marker_paths_total
+        )
+        return {
+            "format_version": 1,
+            "schema": "gabion/forest_progress_v2",
+            "primary_unit": "forest_mutable_steps",
+            "primary_done": mutable_done,
+            "primary_total": mutable_total,
+            "dimensions": {
+                "site_materialization": {
+                    "done": site_materialization_done,
+                    "total": site_materialization_total,
+                },
+                "structured_suite_materialization": {
+                    "done": structured_suite_done,
+                    "total": structured_suite_total,
+                },
+                "group_paths": {
+                    "done": group_paths_done,
+                    "total": group_paths_total,
+                },
+                "config_paths": {
+                    "done": config_paths_done,
+                    "total": config_paths_total,
+                },
+                "dataclass_quals": {
+                    "done": dataclass_quals_done,
+                    "total": dataclass_quals_total,
+                },
+                "marker_paths": {
+                    "done": marker_paths_done,
+                    "total": marker_paths_total,
+                },
+            },
+            "inventory": {
+                "callsites_total": callsite_inventory_total,
+                "input_file_paths_total": len(ordered_file_paths),
+            },
+            "marker": marker,
+        }
+
+    def _notify_progress(progress_delta: int, *, marker: str) -> None:
+        nonlocal progress_accepts_payload
+        if on_progress is None:
+            return
+        snapshot = _forest_progress_snapshot(marker=marker)
+        normalized_delta = max(int(progress_delta), 0)
+        if progress_accepts_payload is True:
+            on_progress(snapshot)
+            return
+        if progress_accepts_payload is False:
+            try:
+                on_progress(normalized_delta)
+            except TypeError:
+                on_progress()
+            return
+        try:
+            on_progress(snapshot)
+            progress_accepts_payload = True
+        except TypeError:
+            progress_accepts_payload = False
+            try:
+                on_progress(normalized_delta)
+            except TypeError:
+                on_progress()
+
+    def _emit_progress(*, force: bool = False, marker: str) -> None:
+        nonlocal progress_since_emit
+        if on_progress is None:
+            return
+        progress_since_emit += 1
+        if not force and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL:
+            return
+        progress_delta = progress_since_emit
+        progress_since_emit = 0
+        _notify_progress(progress_delta, marker=marker)
+
+    _notify_progress(0, marker="start")
     if include_all_sites:
-        if index is None:
-            index = _build_analysis_index(
-                ordered_file_paths,
-                project_root=project_root,
-                ignore_params=ignore_params or set(),
-                strictness=strictness,
-                external_filter=True,
-                transparent_decorators=transparent_decorators,
-                parse_failure_witnesses=parse_failure_witnesses,
+        non_test_quals = [
+            qual
+            for qual in ordered_or_sorted(
+                index.by_qual,
+                source="_populate_bundle_forest.index.by_qual",
             )
-        for qual in sorted(index.by_qual):
+            if not _is_test_path(index.by_qual[qual].path)
+        ]
+        site_materialization_total = len(non_test_quals)
+        for qual in non_test_quals:
             check_deadline()
             info = index.by_qual[qual]
-            if _is_test_path(info.path):
-                continue
             forest.add_site(info.path.name, info.qual)
+            site_materialization_done += 1
+            _emit_progress(marker="site_materialization")
         non_test_file_paths = [
             path for path in ordered_file_paths if not _is_test_path(path)
         ]
+        structured_suite_total = 1
         _materialize_structured_suite_sites(
             forest=forest,
             file_paths=non_test_file_paths,
@@ -9384,24 +9620,15 @@ def _populate_bundle_forest(
             parse_failure_witnesses=parse_failure_witnesses,
             analysis_index=index,
         )
+        structured_suite_done = 1
+        _emit_progress(force=True, marker="structured_suite_materialization")
+
     def _add_alt(
         kind: str,
         inputs: Iterable[NodeId],
         evidence: dict[str, object] | None = None,
     ) -> None:
         _add_interned_alt(forest=forest, kind=kind, inputs=inputs, evidence=evidence)
-
-    progress_since_emit = 0
-
-    def _emit_progress(*, force: bool = False) -> None:
-        nonlocal progress_since_emit
-        if on_progress is None:
-            return
-        progress_since_emit += 1
-        if not force and progress_since_emit < _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL:
-            return
-        progress_since_emit = 0
-        on_progress()
 
     for path in ordered_or_sorted(
         groups_by_path,
@@ -9421,13 +9648,16 @@ def _populate_bundle_forest(
                     (site_id, paramset_id),
                     evidence={"path": path.name, "qual": fn_name},
                 )
-        _emit_progress()
+        group_paths_done += 1
+        _emit_progress(marker="group_paths")
 
     config_bundles_by_path = _collect_config_bundles(
         ordered_file_paths,
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
     )
+    config_paths_total = len(config_bundles_by_path)
+    _emit_progress(force=True, marker="config_paths_discovered")
     for path in _iter_monotonic_paths(
         config_bundles_by_path,
         source="_populate_bundle_forest.config_bundles_by_path",
@@ -9442,7 +9672,8 @@ def _populate_bundle_forest(
                 (paramset_id,),
                 evidence={"path": path.name, "name": name},
             )
-        _emit_progress()
+        config_paths_done += 1
+        _emit_progress(marker="config_paths")
 
     dataclass_registry = _collect_dataclass_registry(
         ordered_file_paths,
@@ -9450,6 +9681,8 @@ def _populate_bundle_forest(
         parse_failure_witnesses=parse_failure_witnesses,
         analysis_index=index,
     )
+    dataclass_quals_total = len(dataclass_registry)
+    _emit_progress(force=True, marker="dataclass_quals_discovered")
     for qual_name in sorted(dataclass_registry):
         check_deadline()
         paramset_id = forest.add_paramset(dataclass_registry[qual_name])
@@ -9458,8 +9691,8 @@ def _populate_bundle_forest(
             (paramset_id,),
             evidence={"qual": qual_name},
         )
-    if dataclass_registry:
-        _emit_progress()
+        dataclass_quals_done += 1
+        _emit_progress(marker="dataclass_quals")
 
     if index is None or not index.symbol_table.external_filter:
         symbol_table = _build_symbol_table(
@@ -9492,8 +9725,9 @@ def _populate_bundle_forest(
                 (paramset_id,),
                 evidence={"path": path.name},
             )
-        _emit_progress()
-    _emit_progress(force=True)
+        marker_paths_done += 1
+        _emit_progress(marker="marker_paths")
+    _emit_progress(force=True, marker="complete")
 
 
 # dataflow-bundle: decision_lint_lines, broad_type_lint_lines
@@ -13813,7 +14047,6 @@ def _emit_report(
         lines.append("```")
         lines.extend(_projected("fingerprint_warnings", fingerprint_warnings))
         lines.append("```")
-        violations.extend(fingerprint_warnings)
     if fingerprint_matches:
         _start_section("fingerprint_matches")
         lines.append("Fingerprint matches:")
@@ -14444,6 +14677,7 @@ _FILE_SCAN_PROGRESS_EMIT_INTERVAL = 32
 _BUNDLE_FOREST_PROGRESS_EMIT_INTERVAL = 64
 _COLLECTION_PROGRESS_EMIT_INTERVAL = 8
 _ANALYSIS_INDEX_PROGRESS_EMIT_INTERVAL = 4
+_DEADLINE_OBLIGATIONS_PROGRESS_EMIT_INTERVAL = 128
 
 
 @dataclass(frozen=True)
@@ -16337,7 +16571,10 @@ def _compute_violations(
         max_components,
         report=report,
     )
-    return sorted(set(violations))
+    return ordered_or_sorted(
+        set(violations),
+        source="_compute_violations.violations",
+    )
 
 
 def _resolve_baseline_path(path: str | None, root: Path) -> Path | None:
@@ -16460,7 +16697,10 @@ def _load_baseline(path: Path) -> set[str]:
 
 def _write_baseline(path: Path, violations: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    unique = sorted(set(violations))
+    unique = ordered_or_sorted(
+        set(violations),
+        source="_write_baseline.violations",
+    )
     header = [
         "# gabion baseline (ratchet)",
         "# Lines list known violations to allow; new ones should fail.",
@@ -16750,9 +16990,17 @@ def analyze_paths(
             *,
             report_carrier: ReportCarrier,
             work_progress: _PhaseWorkProgress,
+            phase_progress_v2: JSONObject | None = None,
+            progress_marker: str = "",
         ) -> None:
             if on_phase_progress is None:
                 return
+            report_carrier.phase_progress_v2 = (
+                {str(key): phase_progress_v2[key] for key in phase_progress_v2}
+                if isinstance(phase_progress_v2, Mapping)
+                else None
+            )
+            report_carrier.progress_marker = progress_marker
             analysis_profile_counters["analysis.phase_progress_emits"] += 1
             on_phase_progress(
                 phase,
@@ -16818,6 +17066,17 @@ def analyze_paths(
                 parse_failure_witnesses=parse_failure_witnesses,
             ),
             work_progress=_phase_work_progress(work_done=1, work_total=1),
+            phase_progress_v2={
+                "format_version": 1,
+                "schema": "gabion/phase_progress_v2",
+                "primary_unit": "collection_files",
+                "primary_done": 1,
+                "primary_total": 1,
+                "dimensions": {
+                    "collection_files": {"done": 1, "total": 1},
+                },
+                "inventory": {},
+            },
         )
 
         analysis_index_for_progress = analysis_index
@@ -16832,20 +17091,91 @@ def analyze_paths(
             or include_ambiguities
         ):
             analysis_index_for_progress = _require_analysis_index()
-        forest_files_indexed_total = len(file_paths)
-        forest_callsites_total = 0
+        forest_inventory_files_total = len(file_paths)
+        forest_inventory_callsites_total = 0
         if analysis_index_for_progress is not None:
-            forest_callsites_total = sum(
+            forest_inventory_callsites_total = sum(
                 len(info.calls) for info in analysis_index_for_progress.by_qual.values()
             )
+        forest_mutable_progress_done = 0
+        forest_mutable_progress_total = 0
         forest_ambiguity_total = 1 if include_ambiguities else 0
-        forest_work_total = (
-            forest_files_indexed_total + forest_callsites_total + forest_ambiguity_total
-        )
-        forest_work_done = forest_files_indexed_total
         forest_ambiguity_done = 0
+        forest_progress_marker = "start"
+        forest_dimensions: dict[str, JSONObject] = {}
+
+        def _normalized_dimension_payload(
+            raw_dimensions: Mapping[str, object],
+        ) -> dict[str, JSONObject]:
+            normalized: dict[str, JSONObject] = {}
+            for raw_name, raw_payload in raw_dimensions.items():
+                check_deadline()
+                if isinstance(raw_name, str) and isinstance(raw_payload, Mapping):
+                    raw_done = raw_payload.get("done")
+                    raw_total = raw_payload.get("total")
+                    if (
+                        isinstance(raw_done, int)
+                        and not isinstance(raw_done, bool)
+                        and isinstance(raw_total, int)
+                        and not isinstance(raw_total, bool)
+                    ):
+                        done = max(int(raw_done), 0)
+                        total = max(int(raw_total), 0)
+                        if total:
+                            done = min(done, total)
+                        normalized[raw_name] = {"done": done, "total": total}
+            return normalized
+
+        def _forest_phase_progress_v2() -> JSONObject:
+            primary_done = forest_mutable_progress_done + forest_ambiguity_done
+            primary_total = forest_mutable_progress_total + forest_ambiguity_total
+            dimensions: JSONObject = {
+                "forest_mutable_steps": {
+                    "done": forest_mutable_progress_done,
+                    "total": forest_mutable_progress_total,
+                },
+                "ambiguity_pass": {
+                    "done": forest_ambiguity_done,
+                    "total": forest_ambiguity_total,
+                },
+                "callsite_inventory": {
+                    "done": forest_inventory_callsites_total,
+                    "total": forest_inventory_callsites_total,
+                },
+            }
+            for dim_name, dim_payload in forest_dimensions.items():
+                check_deadline()
+                dimensions[dim_name] = {
+                    "done": int(dim_payload.get("done", 0)),
+                    "total": int(dim_payload.get("total", 0)),
+                }
+            return {
+                "format_version": 1,
+                "schema": "gabion/phase_progress_v2",
+                "primary_unit": "forest_mutable_steps",
+                "primary_done": primary_done,
+                "primary_total": primary_total,
+                "dimensions": dimensions,
+                "inventory": {
+                    "callsites_total": forest_inventory_callsites_total,
+                    "input_file_paths_total": forest_inventory_files_total,
+                },
+            }
 
         def _emit_forest_phase_progress() -> None:
+            forest_phase_progress_v2 = _forest_phase_progress_v2()
+            raw_primary_done = forest_phase_progress_v2.get("primary_done")
+            raw_primary_total = forest_phase_progress_v2.get("primary_total")
+            primary_done = (
+                int(raw_primary_done)
+                if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool)
+                else 0
+            )
+            primary_total = (
+                int(raw_primary_total)
+                if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool)
+                else 0
+            )
             _emit_phase_progress(
                 "forest",
                 report_carrier=ReportCarrier(
@@ -16856,11 +17186,38 @@ def analyze_paths(
                     parse_failure_witnesses=parse_failure_witnesses,
                 ),
                 work_progress=_phase_work_progress(
-                    work_done=forest_work_done + forest_ambiguity_done,
-                    work_total=forest_work_total,
+                    work_done=primary_done,
+                    work_total=primary_total,
                 ),
+                phase_progress_v2=forest_phase_progress_v2,
+                progress_marker=forest_progress_marker,
             )
 
+        def _on_forest_progress(progress_delta: object = 0) -> None:
+            nonlocal forest_mutable_progress_done
+            nonlocal forest_mutable_progress_total
+            nonlocal forest_progress_marker
+            nonlocal forest_dimensions
+            if isinstance(progress_delta, Mapping):
+                raw_done = progress_delta.get("primary_done")
+                raw_total = progress_delta.get("primary_total")
+                if isinstance(raw_done, int) and not isinstance(raw_done, bool):
+                    forest_mutable_progress_done = max(int(raw_done), 0)
+                if isinstance(raw_total, int) and not isinstance(raw_total, bool):
+                    forest_mutable_progress_total = max(int(raw_total), 0)
+                forest_mutable_progress_total = max(
+                    forest_mutable_progress_total,
+                    forest_mutable_progress_done,
+                )
+                raw_marker = progress_delta.get("marker")
+                if isinstance(raw_marker, str) and raw_marker:
+                    forest_progress_marker = raw_marker
+                raw_dimensions = progress_delta.get("dimensions")
+                if isinstance(raw_dimensions, Mapping):
+                    forest_dimensions = _normalized_dimension_payload(raw_dimensions)
+                _emit_forest_phase_progress()
+
+        _emit_forest_phase_progress()
         forest_started_ns = time.monotonic_ns()
         if (
             include_bundle_forest
@@ -16883,9 +17240,9 @@ def analyze_paths(
                 transparent_decorators=config.transparent_decorators,
                 parse_failure_witnesses=parse_failure_witnesses,
                 analysis_index=_require_analysis_index(),
-                on_progress=_emit_forest_phase_progress,
+                on_progress=_on_forest_progress,
             )
-            forest_work_done += forest_callsites_total
+            forest_progress_marker = "forest_spec_materialization"
             forest_spec = build_forest_spec(
                 include_bundle_forest=True,
                 include_decision_surfaces=include_decision_surfaces,
@@ -16911,11 +17268,13 @@ def analyze_paths(
                     forest=forest,
                     spec=WL_REFINEMENT_SPEC,
                 )
+                forest_progress_marker = "wl_refinement"
                 _emit_forest_phase_progress()
 
         _emit_forest_phase_progress()
 
         if include_ambiguities:
+            forest_progress_marker = "ambiguity:start"
             _deadline_check(allow_frame_fallback=False)
             call_ambiguities = _collect_call_ambiguities(
                 file_paths,
@@ -16935,6 +17294,7 @@ def analyze_paths(
             _materialize_ambiguity_suite_agg_spec(forest=forest)
             _materialize_ambiguity_virtual_set_spec(forest=forest)
             forest_ambiguity_done = 1
+            forest_progress_marker = "ambiguity:done"
             _emit_forest_phase_progress()
 
         analysis_profile_stage_ns["analysis.forest"] += (
@@ -16977,6 +17337,7 @@ def analyze_paths(
                 ),
             )
 
+        _emit_edge_phase_progress()
         edge_started_ns = time.monotonic_ns()
         if type_audit or type_audit_report:
             _deadline_check(allow_frame_fallback=False)
@@ -17066,8 +17427,12 @@ def analyze_paths(
         ]
         post_work_total = sum(1 for enabled in post_task_flags if enabled)
         post_work_done = 0
+        post_progress_marker = "enter"
 
-        def _emit_post_phase_progress() -> None:
+        def _emit_post_phase_progress(*, marker: str | None = None) -> None:
+            nonlocal post_progress_marker
+            if isinstance(marker, str) and marker:
+                post_progress_marker = marker
             _emit_phase_progress(
                 "post",
                 report_carrier=ReportCarrier(
@@ -17097,15 +17462,25 @@ def analyze_paths(
                     value_decision_rewrites=value_decision_rewrites,
                     deadline_obligations=deadline_obligations,
                     parse_failure_witnesses=parse_failure_witnesses,
+                    progress_marker=post_progress_marker,
                 ),
                 work_progress=_phase_work_progress(
                     work_done=post_work_done,
                     work_total=post_work_total,
                 ),
+                progress_marker=post_progress_marker,
             )
 
+        _emit_post_phase_progress()
         post_started_ns = time.monotonic_ns()
         if include_deadline_obligations:
+            _emit_post_phase_progress(marker="deadline_obligations:start")
+
+            def _on_deadline_obligation_progress(marker: str) -> None:
+                _emit_post_phase_progress(
+                    marker=f"deadline_obligations:{str(marker or 'in_progress')}"
+                )
+
             deadline_obligations = _collect_deadline_obligations(
                 file_paths,
                 project_root=config.project_root,
@@ -17113,12 +17488,15 @@ def analyze_paths(
                 forest=forest,
                 parse_failure_witnesses=parse_failure_witnesses,
                 analysis_index=_require_analysis_index(),
+                on_progress=_on_deadline_obligation_progress,
             )
+            _emit_post_phase_progress(marker="deadline_obligations:suite_order")
             _materialize_suite_order_spec(forest=forest)
             post_work_done += 1
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="deadline_obligations:done")
 
         if include_decision_surfaces:
+            _emit_post_phase_progress(marker="decision_surfaces:start")
             decision_surfaces, decision_warnings, decision_lint_lines = (
                 analyze_decision_surfaces_repo(
                     file_paths,
@@ -17135,9 +17513,10 @@ def analyze_paths(
                 )
             )
             post_work_done += 1
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="decision_surfaces:done")
 
         if include_value_decision_surfaces:
+            _emit_post_phase_progress(marker="value_decisions:start")
             (
                 value_decision_surfaces,
                 value_warnings,
@@ -17159,7 +17538,7 @@ def analyze_paths(
             decision_warnings.extend(value_warnings)
             decision_lint_lines.extend(value_lint_lines)
             post_work_done += 1
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="value_decisions:done")
 
         need_exception_obligations = include_exception_obligations or (
             include_lint_lines and bool(config.never_exceptions)
@@ -17171,6 +17550,7 @@ def analyze_paths(
                 ignore_params=config.ignore_params,
             )
         if need_exception_obligations:
+            _emit_post_phase_progress(marker="exception_obligations:start")
             exception_obligations = _collect_exception_obligations(
                 file_paths,
                 project_root=config.project_root,
@@ -17180,8 +17560,9 @@ def analyze_paths(
                 never_exceptions=config.never_exceptions,
             )
             post_work_done += 1
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="exception_obligations:done")
         if include_never_invariants:
+            _emit_post_phase_progress(marker="never_invariants:start")
             never_invariants = _collect_never_invariants(
                 file_paths,
                 project_root=config.project_root,
@@ -17190,8 +17571,9 @@ def analyze_paths(
                 deadness_witnesses=deadness_witnesses,
             )
             post_work_done += 1
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="never_invariants:done")
         if config.fingerprint_registry is not None and config.fingerprint_index:
+            _emit_post_phase_progress(marker="fingerprint:start")
             annotations_by_path = _param_annotations_by_path(
                 file_paths,
                 ignore_params=config.ignore_params,
@@ -17243,16 +17625,17 @@ def analyze_paths(
                     ),
                 )
             post_work_done += 1
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="fingerprint:done")
 
         if decision_surfaces:
             for entry in decision_surfaces:
                 check_deadline()
                 if "(internal callers" in entry:
                     context_suggestions.append(f"Consider contextvar for {entry}")
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="context_suggestions")
 
         if include_lint_lines:
+            _emit_post_phase_progress(marker="lint:start")
             broad_type_lint_lines = _internal_broad_type_lint_lines(
                 file_paths,
                 project_root=config.project_root,
@@ -17278,9 +17661,9 @@ def analyze_paths(
                 unused_arg_smells=unused_arg_smells,
             )
             post_work_done += 1
-            _emit_post_phase_progress()
+            _emit_post_phase_progress(marker="lint:done")
 
-        _emit_post_phase_progress()
+        _emit_post_phase_progress(marker="complete")
         analysis_profile_stage_ns["analysis.post"] += time.monotonic_ns() - post_started_ns
         profiling_v1 = _profiling_v1_payload(
             stage_ns=analysis_profile_stage_ns,
@@ -17288,8 +17671,9 @@ def analyze_paths(
         )
         profiling_v1["file_stage_timings_v1_by_path"] = {
             _analysis_collection_resume_path_key(path): file_stage_timings_v1_by_path[path]
-            for path in sorted(
+            for path in ordered_or_sorted(
                 file_stage_timings_v1_by_path,
+                source="analyze_paths.file_stage_timings_v1_by_path",
                 key=_analysis_collection_resume_path_key,
             )
         }
@@ -17308,7 +17692,10 @@ def analyze_paths(
             deadness_witnesses=deadness_witnesses,
             decision_surfaces=decision_surfaces,
             value_decision_surfaces=value_decision_surfaces,
-            decision_warnings=sorted(set(decision_warnings)),
+            decision_warnings=ordered_or_sorted(
+                set(decision_warnings),
+                source="analyze_paths.decision_warnings",
+            ),
             fingerprint_warnings=fingerprint_warnings,
             fingerprint_matches=fingerprint_matches,
             fingerprint_synth=fingerprint_synth,

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import atexit
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import ExitStack, contextmanager
+from collections import OrderedDict
 from typing import Callable, Generator, List, Mapping, MutableMapping, Optional, TypeAlias
 import argparse
 import importlib.util
@@ -81,6 +83,8 @@ _SPPF_KEYWORD_REF_RE = re.compile(
 
 _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 _LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
+_STDOUT_ALIAS = "-"
+_STDOUT_PATH = "/dev/stdout"
 
 
 @dataclass(frozen=True)
@@ -125,6 +129,13 @@ class CheckArtifactFlags:
     emit_call_cluster_consolidation: bool
     emit_test_annotation_drift: bool
     emit_semantic_coverage_map: bool = False
+
+
+@dataclass(frozen=True)
+class CheckPolicyFlags:
+    fail_on_violations: bool
+    fail_on_type_ambiguities: bool
+    lint: bool
 
 
 @dataclass(frozen=True)
@@ -477,17 +488,113 @@ def _collect_lint_entries(lines: list[str]) -> list[dict[str, object]]:
     return entries
 
 
+def _normalize_output_target(target: str | Path) -> str:
+    target_str = str(target)
+    if target_str == _STDOUT_ALIAS:
+        return _STDOUT_PATH
+    return target_str
+
+
+def _is_stdout_target(target: object) -> bool:
+    if target is None:
+        return False
+    return _normalize_output_target(str(target)) == _STDOUT_PATH
+
+
+class _TargetStreamRouter:
+    def __init__(self, *, max_open_streams: int = 32) -> None:
+        self._max_open_streams = max(int(max_open_streams), 1)
+        self._streams: OrderedDict[str, io.TextIOWrapper] = OrderedDict()
+
+    def _stream_for_target(
+        self,
+        target: str,
+        *,
+        encoding: str,
+    ) -> io.TextIOWrapper:
+        existing = self._streams.pop(target, None)
+        if existing is not None:
+            if existing.encoding.lower() != encoding.lower():
+                existing.close()
+            else:
+                self._streams[target] = existing
+                return existing
+        if len(self._streams) >= self._max_open_streams:
+            _, oldest = self._streams.popitem(last=False)
+            oldest.close()
+        stream = open(target, "w+", encoding=encoding)
+        self._streams[target] = stream
+        return stream
+
+    def write(
+        self,
+        *,
+        target: str,
+        payload: str,
+        ensure_trailing_newline: bool = False,
+        encoding: str = "utf-8",
+    ) -> None:
+        text = payload
+        if ensure_trailing_newline and not text.endswith("\n"):
+            text = text + "\n"
+        if target == _STDOUT_PATH:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+            return
+        stream = self._stream_for_target(target, encoding=encoding)
+        stream.seek(0)
+        stream.truncate(0)
+        stream.write(text)
+        stream.flush()
+
+    def close(self) -> None:
+        while self._streams:
+            _, stream = self._streams.popitem(last=False)
+            stream.close()
+
+
+_TARGET_STREAM_ROUTER = _TargetStreamRouter()
+atexit.register(_TARGET_STREAM_ROUTER.close)
+
+
+def _write_text_to_target(
+    target: str | Path,
+    payload: str,
+    *,
+    ensure_trailing_newline: bool = False,
+    encoding: str = "utf-8",
+) -> None:
+    normalized_target = _normalize_output_target(target)
+    _TARGET_STREAM_ROUTER.write(
+        target=normalized_target,
+        payload=payload,
+        ensure_trailing_newline=ensure_trailing_newline,
+        encoding=encoding,
+    )
+
+
+def _normalize_optional_output_target(target: object) -> str | None:
+    if target is None:
+        return None
+    text = str(target).strip()
+    if not text:
+        return None
+    return _normalize_output_target(text)
+
+
 def _write_lint_jsonl(target: str, entries: list[dict[str, object]]) -> None:
     payload = "\n".join(json.dumps(entry, sort_keys=True) for entry in entries)
-    if target == "-":
-        typer.echo(payload)
-    else:
-        Path(target).write_text(payload + ("\n" if payload else ""))
+    _write_text_to_target(
+        target,
+        payload,
+        ensure_trailing_newline=bool(payload),
+    )
 
 
 def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
     check_deadline()
     rules: dict[str, dict[str, object]] = {}
+    rule_counts: dict[str, int] = {}
     results: list[dict[str, object]] = []
     for entry in entries:
         check_deadline()
@@ -496,12 +603,12 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
         path = str(entry.get("path") or "")
         line = int(entry.get("line") or 1)
         col = int(entry.get("col") or 1)
-        if code not in rules:
-            rules[code] = {
-                "id": code,
-                "name": code,
-                "shortDescription": {"text": code},
-            }
+        rule_counts[code] = int(rule_counts.get(code, 0)) + 1
+        rules[code] = {
+            "id": code,
+            "name": code,
+            "shortDescription": {"text": code},
+        }
         results.append(
             {
                 "ruleId": code,
@@ -520,6 +627,13 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
                 ],
             }
         )
+    duplicate_codes = ordered_or_sorted(
+        (code for code, count in rule_counts.items() if int(count) > 1),
+        source="gabion.cli._emit_lint_sarif.duplicate_codes",
+    )
+    if duplicate_codes:
+        joined = ", ".join(duplicate_codes)
+        raise ValueError(f"duplicate SARIF rule code(s): {joined}")
     sarif = {
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
@@ -531,10 +645,7 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
         ],
     }
     payload = json.dumps(sarif, indent=2, sort_keys=True)
-    if target == "-":
-        typer.echo(payload)
-    else:
-        Path(target).write_text(payload + "\n")
+    _write_text_to_target(target, payload, ensure_trailing_newline=True)
 
 
 def _emit_lint_outputs(
@@ -736,9 +847,9 @@ def build_check_payload(
     fail_on_violations: bool,
     root: Path,
     config: Optional[Path],
-    baseline: Optional[Path],
+    baseline: Path | None,
     baseline_write: bool,
-    decision_snapshot: Optional[Path],
+    decision_snapshot: Path | None,
     artifact_flags: CheckArtifactFlags,
     delta_options: CheckDeltaOptions,
     exclude: Optional[List[str]],
@@ -848,9 +959,7 @@ def build_check_execution_plan_request(
     decision_snapshot: Path | None,
     baseline: Path | None,
     baseline_write: bool,
-    fail_on_violations: bool,
-    fail_on_type_ambiguities: bool,
-    lint: bool,
+    policy: CheckPolicyFlags,
     profile: str,
     artifact_flags: CheckArtifactFlags,
     emit_test_obsolescence_state: bool,
@@ -902,11 +1011,13 @@ def build_check_execution_plan_request(
     plan_payload = plan.as_json_dict()
     plan_payload["policy_metadata"] = dict(plan_payload["policy_metadata"])
     plan_payload["policy_metadata"]["check_profile"] = profile
-    plan_payload["policy_metadata"]["fail_on_violations"] = bool(fail_on_violations)
-    plan_payload["policy_metadata"]["fail_on_type_ambiguities"] = bool(
-        fail_on_type_ambiguities
+    plan_payload["policy_metadata"]["fail_on_violations"] = bool(
+        policy.fail_on_violations
     )
-    plan_payload["policy_metadata"]["lint"] = bool(lint)
+    plan_payload["policy_metadata"]["fail_on_type_ambiguities"] = bool(
+        policy.fail_on_type_ambiguities
+    )
+    plan_payload["policy_metadata"]["lint"] = bool(policy.lint)
     return ExecutionPlanRequest(
         requested_operations=list(plan_payload["requested_operations"]),
         inputs=dict(plan_payload["inputs"]),
@@ -930,18 +1041,53 @@ def parse_dataflow_args_or_exit(
 
 
 def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
+    report_target = _normalize_optional_output_target(opts.report)
+    decision_snapshot_target = _normalize_optional_output_target(
+        opts.emit_decision_snapshot
+    )
+    dot_target = _normalize_optional_output_target(opts.dot)
+    synthesis_plan_target = _normalize_optional_output_target(opts.synthesis_plan)
+    synthesis_protocols_target = _normalize_optional_output_target(
+        opts.synthesis_protocols
+    )
+    refactor_plan_json_target = _normalize_optional_output_target(opts.refactor_plan_json)
+    fingerprint_synth_json_target = _normalize_optional_output_target(
+        opts.fingerprint_synth_json
+    )
+    fingerprint_provenance_json_target = _normalize_optional_output_target(
+        opts.fingerprint_provenance_json
+    )
+    fingerprint_deadness_json_target = _normalize_optional_output_target(
+        opts.fingerprint_deadness_json
+    )
+    fingerprint_coherence_json_target = _normalize_optional_output_target(
+        opts.fingerprint_coherence_json
+    )
+    fingerprint_rewrite_plans_json_target = _normalize_optional_output_target(
+        opts.fingerprint_rewrite_plans_json
+    )
+    fingerprint_exception_obligations_json_target = _normalize_optional_output_target(
+        opts.fingerprint_exception_obligations_json
+    )
+    fingerprint_handledness_json_target = _normalize_optional_output_target(
+        opts.fingerprint_handledness_json
+    )
+    structure_tree_target = _normalize_optional_output_target(opts.emit_structure_tree)
+    structure_metrics_target = _normalize_optional_output_target(
+        opts.emit_structure_metrics
+    )
     payload = _build_dataflow_payload_common(
         options=DataflowPayloadCommonOptions(
             paths=opts.paths,
             root=Path(opts.root),
             config=Path(opts.config) if opts.config is not None else None,
-            report=Path(opts.report) if opts.report else None,
+            report=Path(report_target) if report_target else None,
             fail_on_violations=opts.fail_on_violations,
             fail_on_type_ambiguities=opts.fail_on_type_ambiguities,
             baseline=Path(opts.baseline) if opts.baseline else None,
             baseline_write=opts.baseline_write if opts.baseline else None,
-            decision_snapshot=Path(opts.emit_decision_snapshot)
-            if opts.emit_decision_snapshot
+            decision_snapshot=Path(decision_snapshot_target)
+            if decision_snapshot_target
             else None,
             exclude=opts.exclude,
             filter_bundle=DataflowFilterBundle(
@@ -960,55 +1106,33 @@ def build_dataflow_payload(opts: argparse.Namespace) -> JSONObject:
     )
     payload.update(
         {
-        "dot": opts.dot,
+        "dot": dot_target,
         "no_recursive": opts.no_recursive,
         "max_components": opts.max_components,
         "type_audit": opts.type_audit,
         "type_audit_report": opts.type_audit_report,
         "type_audit_max": opts.type_audit_max,
-        "synthesis_plan": str(opts.synthesis_plan) if opts.synthesis_plan else None,
+        "synthesis_plan": synthesis_plan_target,
         "synthesis_report": opts.synthesis_report,
         "synthesis_max_tier": opts.synthesis_max_tier,
         "synthesis_min_bundle_size": opts.synthesis_min_bundle_size,
         "synthesis_allow_singletons": opts.synthesis_allow_singletons,
-        "synthesis_protocols": str(opts.synthesis_protocols)
-        if opts.synthesis_protocols
-        else None,
+        "synthesis_protocols": synthesis_protocols_target,
         "synthesis_protocols_kind": opts.synthesis_protocols_kind,
         "refactor_plan": opts.refactor_plan,
-        "refactor_plan_json": str(opts.refactor_plan_json)
-        if opts.refactor_plan_json
-        else None,
-        "fingerprint_synth_json": str(opts.fingerprint_synth_json)
-        if opts.fingerprint_synth_json
-        else None,
-        "fingerprint_provenance_json": str(opts.fingerprint_provenance_json)
-        if opts.fingerprint_provenance_json
-        else None,
-        "fingerprint_deadness_json": str(opts.fingerprint_deadness_json)
-        if opts.fingerprint_deadness_json
-        else None,
-        "fingerprint_coherence_json": str(opts.fingerprint_coherence_json)
-        if opts.fingerprint_coherence_json
-        else None,
-        "fingerprint_rewrite_plans_json": str(opts.fingerprint_rewrite_plans_json)
-        if opts.fingerprint_rewrite_plans_json
-        else None,
-        "fingerprint_exception_obligations_json": str(
-            opts.fingerprint_exception_obligations_json
-        )
-        if opts.fingerprint_exception_obligations_json
-        else None,
-        "fingerprint_handledness_json": str(opts.fingerprint_handledness_json)
-        if opts.fingerprint_handledness_json
-        else None,
+        "refactor_plan_json": refactor_plan_json_target,
+        "fingerprint_synth_json": fingerprint_synth_json_target,
+        "fingerprint_provenance_json": fingerprint_provenance_json_target,
+        "fingerprint_deadness_json": fingerprint_deadness_json_target,
+        "fingerprint_coherence_json": fingerprint_coherence_json_target,
+        "fingerprint_rewrite_plans_json": fingerprint_rewrite_plans_json_target,
+        "fingerprint_exception_obligations_json": (
+            fingerprint_exception_obligations_json_target
+        ),
+        "fingerprint_handledness_json": fingerprint_handledness_json_target,
         "synthesis_merge_overlap": opts.synthesis_merge_overlap,
-        "structure_tree": str(opts.emit_structure_tree)
-        if opts.emit_structure_tree
-        else None,
-        "structure_metrics": str(opts.emit_structure_metrics)
-        if opts.emit_structure_metrics
-        else None,
+        "structure_tree": structure_tree_target,
+        "structure_metrics": structure_metrics_target,
         }
     )
     return payload
@@ -1151,20 +1275,18 @@ def run_check(
     *,
     paths: Optional[List[Path]],
     report: Optional[Path],
-    fail_on_violations: bool,
+    policy: CheckPolicyFlags,
     root: Path,
     config: Optional[Path],
-    baseline: Optional[Path],
+    baseline: Path | None,
     baseline_write: bool,
-    decision_snapshot: Optional[Path],
+    decision_snapshot: Path | None,
     artifact_flags: CheckArtifactFlags,
     delta_options: CheckDeltaOptions,
     exclude: Optional[List[str]],
     filter_bundle: DataflowFilterBundle | None,
     allow_external: Optional[bool],
     strictness: Optional[str],
-    fail_on_type_ambiguities: bool,
-    lint: bool,
     resume_checkpoint: Optional[Path] = None,
     emit_timeout_progress_report: bool = False,
     resume_on_timeout: int = 0,
@@ -1180,7 +1302,7 @@ def run_check(
     payload = build_check_payload(
         paths=paths,
         report=resolved_report,
-        fail_on_violations=fail_on_violations,
+        fail_on_violations=policy.fail_on_violations,
         root=root,
         config=config,
         baseline=baseline,
@@ -1192,8 +1314,8 @@ def run_check(
         filter_bundle=filter_bundle,
         allow_external=allow_external,
         strictness=strictness,
-        fail_on_type_ambiguities=fail_on_type_ambiguities,
-        lint=lint,
+        fail_on_type_ambiguities=policy.fail_on_type_ambiguities,
+        lint=policy.lint,
         resume_checkpoint=resume_checkpoint,
         emit_timeout_progress_report=emit_timeout_progress_report,
         resume_on_timeout=resume_on_timeout,
@@ -1205,9 +1327,7 @@ def run_check(
         decision_snapshot=decision_snapshot,
         baseline=baseline,
         baseline_write=baseline_write,
-        fail_on_violations=fail_on_violations,
-        fail_on_type_ambiguities=fail_on_type_ambiguities,
-        lint=lint,
+        policy=policy,
         profile="strict",
         artifact_flags=artifact_flags,
         emit_test_obsolescence_state=delta_options.emit_test_obsolescence_state,
@@ -1293,79 +1413,105 @@ def _emit_dataflow_result_outputs(result: JSONObject, opts: argparse.Namespace) 
                 for line in ambiguities[: opts.type_audit_max]:
                     check_deadline()
                     typer.echo(f"- {line}")
-        if opts.dot == "-" and "dot" in result:
-            typer.echo(result["dot"])
-        if opts.synthesis_plan == "-" and "synthesis_plan" in result:
-            typer.echo(json.dumps(result["synthesis_plan"], indent=2, sort_keys=True))
-        if opts.synthesis_protocols == "-" and "synthesis_protocols" in result:
-            typer.echo(result["synthesis_protocols"])
-        if opts.refactor_plan_json == "-" and "refactor_plan" in result:
-            typer.echo(json.dumps(result["refactor_plan"], indent=2, sort_keys=True))
+        if _is_stdout_target(opts.dot) and "dot" in result:
+            _write_text_to_target(_STDOUT_PATH, str(result["dot"]), ensure_trailing_newline=True)
+        if _is_stdout_target(opts.synthesis_plan) and "synthesis_plan" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["synthesis_plan"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
+            )
+        if _is_stdout_target(opts.synthesis_protocols) and "synthesis_protocols" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                str(result["synthesis_protocols"]),
+                ensure_trailing_newline=True,
+            )
+        if _is_stdout_target(opts.refactor_plan_json) and "refactor_plan" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["refactor_plan"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
+            )
         if (
-            opts.fingerprint_synth_json == "-"
+            _is_stdout_target(opts.fingerprint_synth_json)
             and "fingerprint_synth_registry" in result
         ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_synth_registry"], indent=2, sort_keys=True
-                )
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["fingerprint_synth_registry"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
             )
         if (
-            opts.fingerprint_provenance_json == "-"
+            _is_stdout_target(opts.fingerprint_provenance_json)
             and "fingerprint_provenance" in result
         ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_provenance"], indent=2, sort_keys=True
-                )
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["fingerprint_provenance"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
             )
-        if opts.fingerprint_deadness_json == "-" and "fingerprint_deadness" in result:
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_deadness"], indent=2, sort_keys=True
-                )
+        if _is_stdout_target(opts.fingerprint_deadness_json) and "fingerprint_deadness" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["fingerprint_deadness"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
             )
-        if opts.fingerprint_coherence_json == "-" and "fingerprint_coherence" in result:
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_coherence"], indent=2, sort_keys=True
-                )
+        if _is_stdout_target(opts.fingerprint_coherence_json) and "fingerprint_coherence" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["fingerprint_coherence"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
             )
         if (
-            opts.fingerprint_rewrite_plans_json == "-"
+            _is_stdout_target(opts.fingerprint_rewrite_plans_json)
             and "fingerprint_rewrite_plans" in result
         ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_rewrite_plans"], indent=2, sort_keys=True
-                )
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["fingerprint_rewrite_plans"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
             )
         if (
-            opts.fingerprint_exception_obligations_json == "-"
+            _is_stdout_target(opts.fingerprint_exception_obligations_json)
             and "fingerprint_exception_obligations" in result
         ):
-            typer.echo(
+            _write_text_to_target(
+                _STDOUT_PATH,
                 json.dumps(
                     result["fingerprint_exception_obligations"],
                     indent=2,
                     sort_keys=True,
-                )
+                ),
+                ensure_trailing_newline=True,
             )
         if (
-            opts.fingerprint_handledness_json == "-"
+            _is_stdout_target(opts.fingerprint_handledness_json)
             and "fingerprint_handledness" in result
         ):
-            typer.echo(
-                json.dumps(
-                    result["fingerprint_handledness"], indent=2, sort_keys=True
-                )
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["fingerprint_handledness"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
             )
-        if opts.emit_structure_tree == "-" and "structure_tree" in result:
-            typer.echo(json.dumps(result["structure_tree"], indent=2, sort_keys=True))
-        if opts.emit_structure_metrics == "-" and "structure_metrics" in result:
-            typer.echo(json.dumps(result["structure_metrics"], indent=2, sort_keys=True))
-        if opts.emit_decision_snapshot == "-" and "decision_snapshot" in result:
-            typer.echo(json.dumps(result["decision_snapshot"], indent=2, sort_keys=True))
+        if _is_stdout_target(opts.emit_structure_tree) and "structure_tree" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["structure_tree"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
+            )
+        if _is_stdout_target(opts.emit_structure_metrics) and "structure_metrics" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["structure_metrics"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
+            )
+        if _is_stdout_target(opts.emit_decision_snapshot) and "decision_snapshot" in result:
+            _write_text_to_target(
+                _STDOUT_PATH,
+                json.dumps(result["decision_snapshot"], indent=2, sort_keys=True),
+                ensure_trailing_newline=True,
+            )
 
 
 def _param_is_command_line(ctx: typer.Context, param: str) -> bool:
@@ -1635,6 +1781,320 @@ def _checkpoint_intro_timeline_from_progress_notification(
     }
 
 
+def _phase_timeline_header_columns() -> list[str]:
+    return [
+        "ts_utc",
+        "event_seq",
+        "event_kind",
+        "phase",
+        "analysis_state",
+        "classification",
+        "progress_marker",
+        "primary",
+        "files",
+        "resume_checkpoint",
+        "stale_for_s",
+        "dimensions",
+    ]
+
+
+def _phase_timeline_header_block() -> str:
+    header = _phase_timeline_header_columns()
+    header_line = "| " + " | ".join(header) + " |"
+    separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
+    return header_line + "\n" + separator_line
+
+
+def _phase_progress_dimensions_summary(
+    phase_progress_v2: Mapping[str, object] | None,
+) -> str:
+    if not isinstance(phase_progress_v2, Mapping):
+        return ""
+    raw_dimensions = phase_progress_v2.get("dimensions")
+    if not isinstance(raw_dimensions, Mapping):
+        return ""
+    fragments: list[str] = []
+    dim_names = ordered_or_sorted(
+        (name for name in raw_dimensions if isinstance(name, str)),
+        source="_phase_progress_dimensions_summary.dim_names",
+    )
+    for dim_name in dim_names:
+        raw_payload = raw_dimensions.get(dim_name)
+        if not isinstance(raw_payload, Mapping):
+            continue
+        raw_done = raw_payload.get("done")
+        raw_total = raw_payload.get("total")
+        if (
+            isinstance(raw_done, int)
+            and not isinstance(raw_done, bool)
+            and isinstance(raw_total, int)
+            and not isinstance(raw_total, bool)
+        ):
+            done = max(int(raw_done), 0)
+            total = max(int(raw_total), 0)
+            if total:
+                done = min(done, total)
+            fragments.append(f"{dim_name}={done}/{total}")
+    return "; ".join(fragments)
+
+
+def _phase_timeline_row_from_phase_progress(
+    phase_progress: Mapping[str, object],
+) -> str:
+    ts_utc = str(phase_progress.get("ts_utc", "") or "")
+    event_seq = phase_progress.get("event_seq")
+    event_kind = str(phase_progress.get("event_kind", "") or "")
+    phase = str(phase_progress.get("phase", "") or "")
+    analysis_state = str(phase_progress.get("analysis_state", "") or "")
+    classification = str(phase_progress.get("classification", "") or "")
+    progress_marker = str(phase_progress.get("progress_marker", "") or "")
+    phase_progress_v2 = (
+        phase_progress.get("phase_progress_v2")
+        if isinstance(phase_progress.get("phase_progress_v2"), Mapping)
+        else None
+    )
+    primary_unit = ""
+    primary_done: int | None = None
+    primary_total: int | None = None
+    if isinstance(phase_progress_v2, Mapping):
+        primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
+        raw_primary_done = phase_progress_v2.get("primary_done")
+        raw_primary_total = phase_progress_v2.get("primary_total")
+        if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool):
+            primary_done = max(int(raw_primary_done), 0)
+        if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool):
+            primary_total = max(int(raw_primary_total), 0)
+        if (
+            primary_done is not None
+            and primary_total is not None
+            and primary_total > 0
+            and primary_done > primary_total
+        ):
+            primary_done = primary_total
+    if primary_done is None or primary_total is None:
+        raw_work_done = phase_progress.get("work_done")
+        raw_work_total = phase_progress.get("work_total")
+        if isinstance(raw_work_done, int) and isinstance(raw_work_total, int):
+            primary_done = max(int(raw_work_done), 0)
+            primary_total = max(int(raw_work_total), 0)
+            if primary_total:
+                primary_done = min(primary_done, primary_total)
+    primary = ""
+    if primary_done is not None and primary_total is not None:
+        primary = f"{primary_done}/{primary_total}"
+        if primary_unit:
+            primary = f"{primary} {primary_unit}"
+    elif primary_unit:
+        primary = primary_unit
+    completed_files = phase_progress.get("completed_files")
+    remaining_files = phase_progress.get("remaining_files")
+    total_files = phase_progress.get("total_files")
+    files = ""
+    if (
+        isinstance(completed_files, int)
+        and isinstance(remaining_files, int)
+        and isinstance(total_files, int)
+    ):
+        files = f"{completed_files}/{total_files} rem={remaining_files}"
+    resume_checkpoint = ""
+    raw_resume = phase_progress.get("resume_checkpoint")
+    if isinstance(raw_resume, Mapping):
+        checkpoint_path = str(raw_resume.get("checkpoint_path", "") or "")
+        status = str(raw_resume.get("status", "") or "")
+        raw_reused = raw_resume.get("reused_files")
+        raw_resume_total = raw_resume.get("total_files")
+        if isinstance(raw_reused, int) and isinstance(raw_resume_total, int):
+            resume_checkpoint = (
+                f"path={checkpoint_path or '<none>'} status={status or 'unknown'} "
+                f"reused_files={raw_reused}/{raw_resume_total}"
+            )
+        else:
+            resume_checkpoint = (
+                f"path={checkpoint_path or '<none>'} status={status or 'unknown'} "
+                "reused_files=unknown"
+            )
+    raw_stale_for_s = phase_progress.get("stale_for_s")
+    stale_for_s = (
+        f"{float(raw_stale_for_s):.1f}"
+        if isinstance(raw_stale_for_s, (int, float))
+        else ""
+    )
+    dimensions = _phase_progress_dimensions_summary(
+        phase_progress_v2 if isinstance(phase_progress_v2, Mapping) else None
+    )
+    row = [
+        ts_utc,
+        event_seq if isinstance(event_seq, int) else "",
+        event_kind,
+        phase,
+        analysis_state,
+        classification,
+        progress_marker,
+        primary,
+        files,
+        resume_checkpoint,
+        stale_for_s,
+        dimensions,
+    ]
+    return "| " + " | ".join(str(cell).replace("|", "\\|") for cell in row) + " |"
+
+
+def _phase_timeline_from_progress_notification(
+    notification: Mapping[str, object],
+) -> dict[str, str] | None:
+    phase_progress = _phase_progress_from_progress_notification(notification)
+    if not isinstance(phase_progress, Mapping):
+        return None
+    header_value = phase_progress.get("phase_timeline_header")
+    row_value = phase_progress.get("phase_timeline_row")
+    header = (
+        str(header_value)
+        if isinstance(header_value, str) and header_value
+        else _phase_timeline_header_block()
+    )
+    row = (
+        str(row_value)
+        if isinstance(row_value, str) and row_value
+        else _phase_timeline_row_from_phase_progress(phase_progress)
+    )
+    return {"header": header, "row": row}
+
+
+def _phase_progress_from_progress_notification(
+    notification: Mapping[str, object],
+) -> dict[str, object] | None:
+    if str(notification.get("method", "") or "") != _LSP_PROGRESS_NOTIFICATION_METHOD:
+        return None
+    params = notification.get("params")
+    if not isinstance(params, Mapping):
+        return None
+    if str(params.get("token", "") or "") != _LSP_PROGRESS_TOKEN:
+        return None
+    value = params.get("value")
+    if not isinstance(value, Mapping):
+        return None
+    phase = str(value.get("phase", "") or "")
+    if not phase:
+        return None
+    raw_work_done = value.get("work_done")
+    work_done = (
+        int(raw_work_done)
+        if isinstance(raw_work_done, int) and not isinstance(raw_work_done, bool)
+        else None
+    )
+    raw_work_total = value.get("work_total")
+    work_total = (
+        int(raw_work_total)
+        if isinstance(raw_work_total, int) and not isinstance(raw_work_total, bool)
+        else None
+    )
+    raw_completed_files = value.get("completed_files")
+    completed_files = (
+        int(raw_completed_files)
+        if isinstance(raw_completed_files, int) and not isinstance(raw_completed_files, bool)
+        else None
+    )
+    raw_remaining_files = value.get("remaining_files")
+    remaining_files = (
+        int(raw_remaining_files)
+        if isinstance(raw_remaining_files, int) and not isinstance(raw_remaining_files, bool)
+        else None
+    )
+    raw_total_files = value.get("total_files")
+    total_files = (
+        int(raw_total_files)
+        if isinstance(raw_total_files, int) and not isinstance(raw_total_files, bool)
+        else None
+    )
+    analysis_state = str(value.get("analysis_state", "") or "")
+    classification = str(value.get("classification", "") or "")
+    event_kind = str(value.get("event_kind", "") or "")
+    progress_marker = str(value.get("progress_marker", "") or "")
+    raw_event_seq = value.get("event_seq")
+    event_seq = (
+        int(raw_event_seq)
+        if isinstance(raw_event_seq, int) and not isinstance(raw_event_seq, bool)
+        else None
+    )
+    raw_stale_for_s = value.get("stale_for_s")
+    stale_for_s = (
+        float(raw_stale_for_s)
+        if isinstance(raw_stale_for_s, (int, float)) and not isinstance(raw_stale_for_s, bool)
+        else None
+    )
+    phase_progress_v2 = value.get("phase_progress_v2")
+    normalized_phase_progress_v2 = (
+        {str(key): phase_progress_v2[key] for key in phase_progress_v2}
+        if isinstance(phase_progress_v2, Mapping)
+        else None
+    )
+    phase_timeline_header = value.get("phase_timeline_header")
+    phase_timeline_row = value.get("phase_timeline_row")
+    resume_checkpoint = value.get("resume_checkpoint")
+    normalized_resume_checkpoint = (
+        {str(key): resume_checkpoint[key] for key in resume_checkpoint}
+        if isinstance(resume_checkpoint, Mapping)
+        else None
+    )
+    done = bool(value.get("done", False))
+    return {
+        "phase": phase,
+        "work_done": work_done,
+        "work_total": work_total,
+        "completed_files": completed_files,
+        "remaining_files": remaining_files,
+        "total_files": total_files,
+        "analysis_state": analysis_state,
+        "classification": classification,
+        "event_kind": event_kind,
+        "event_seq": event_seq,
+        "stale_for_s": stale_for_s,
+        "phase_progress_v2": normalized_phase_progress_v2,
+        "progress_marker": progress_marker,
+        "phase_timeline_header": (
+            phase_timeline_header
+            if isinstance(phase_timeline_header, str)
+            else ""
+        ),
+        "phase_timeline_row": (
+            phase_timeline_row if isinstance(phase_timeline_row, str) else ""
+        ),
+        "resume_checkpoint": normalized_resume_checkpoint,
+        "done": done,
+    }
+
+
+def _emit_phase_progress_line(phase_progress: Mapping[str, object]) -> None:
+    phase = str(phase_progress.get("phase", "") or "")
+    if not phase:
+        return
+    analysis_state = str(phase_progress.get("analysis_state", "") or "")
+    classification = str(phase_progress.get("classification", "") or "")
+    work_done = phase_progress.get("work_done")
+    work_total = phase_progress.get("work_total")
+    completed_files = phase_progress.get("completed_files")
+    remaining_files = phase_progress.get("remaining_files")
+    total_files = phase_progress.get("total_files")
+    done = bool(phase_progress.get("done", False))
+    fragments = [f"phase={phase}"]
+    if analysis_state:
+        fragments.append(f"analysis_state={analysis_state}")
+    if classification:
+        fragments.append(f"classification={classification}")
+    if isinstance(work_done, int) and isinstance(work_total, int):
+        fragments.append(f"work={work_done}/{work_total}")
+    if (
+        isinstance(completed_files, int)
+        and isinstance(remaining_files, int)
+        and isinstance(total_files, int)
+    ):
+        fragments.append(
+            f"files={completed_files}/{total_files} remaining={remaining_files}"
+        )
+    prefix = "progress done" if done else "progress"
+    typer.echo(f"{prefix} {' '.join(fragments)}")
+
+
 def _emit_checkpoint_intro_timeline_progress(*, header: str | None, row: str) -> None:
     if isinstance(header, str) and header:
         typer.echo(header)
@@ -1697,6 +2157,8 @@ def _run_dataflow_raw_argv(
     resolved_runner = runner or run_command
     startup_resume_emitted = False
     timeline_header_emitted = False
+    last_phase_progress_signature: tuple[object, ...] | None = None
+    last_phase_event_seq: int | None = None
     if opts.resume_checkpoint is not None:
         _emit_resume_checkpoint_startup_line(
             checkpoint_path=str(opts.resume_checkpoint),
@@ -1708,6 +2170,8 @@ def _run_dataflow_raw_argv(
     def _on_notification(notification: JSONObject) -> None:
         nonlocal startup_resume_emitted
         nonlocal timeline_header_emitted
+        nonlocal last_phase_progress_signature
+        nonlocal last_phase_event_seq
         resume = _resume_checkpoint_from_progress_notification(notification)
         if not isinstance(resume, Mapping):
             pass
@@ -1719,21 +2183,46 @@ def _run_dataflow_raw_argv(
                 total_files=int(resume.get("total_files", 0) or 0),
             )
             startup_resume_emitted = True
-        timeline_update = _checkpoint_intro_timeline_from_progress_notification(
+        timeline_update = _phase_timeline_from_progress_notification(
             notification
         )
-        if not isinstance(timeline_update, Mapping):
+        phase_progress = _phase_progress_from_progress_notification(notification)
+        if not isinstance(phase_progress, Mapping):
             return
-        row = str(timeline_update.get("row") or "")
-        header_value = timeline_update.get("header")
-        header = (
-            header_value
-            if not timeline_header_emitted and isinstance(header_value, str) and header_value
-            else None
+        event_seq = phase_progress.get("event_seq")
+        if isinstance(event_seq, int):
+            if last_phase_event_seq == event_seq:
+                return
+            last_phase_event_seq = event_seq
+        signature = (
+            phase_progress.get("phase"),
+            phase_progress.get("analysis_state"),
+            phase_progress.get("classification"),
+            phase_progress.get("event_kind"),
+            phase_progress.get("event_seq"),
+            phase_progress.get("work_done"),
+            phase_progress.get("work_total"),
+            phase_progress.get("completed_files"),
+            phase_progress.get("remaining_files"),
+            phase_progress.get("total_files"),
+            phase_progress.get("stale_for_s"),
+            phase_progress.get("progress_marker"),
+            phase_progress.get("done"),
         )
-        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
-        if header is not None:
-            timeline_header_emitted = True
+        if signature == last_phase_progress_signature:
+            return
+        last_phase_progress_signature = signature
+        if isinstance(timeline_update, Mapping):
+            row = str(timeline_update.get("row") or "")
+            header_value = timeline_update.get("header")
+            header = (
+                header_value
+                if not timeline_header_emitted and isinstance(header_value, str) and header_value
+                else None
+            )
+            _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+            if header is not None:
+                timeline_header_emitted = True
 
     result = _run_with_timeout_retries(
         run_once=lambda: dispatch_command(
@@ -1966,6 +2455,8 @@ def check(
     lint_enabled = lint or bool(lint_jsonl or lint_sarif)
     startup_resume_emitted = False
     timeline_header_emitted = False
+    last_phase_progress_signature: tuple[object, ...] | None = None
+    last_phase_event_seq: int | None = None
     if resume_checkpoint is not None:
         _emit_resume_checkpoint_startup_line(
             checkpoint_path=str(resume_checkpoint),
@@ -1977,6 +2468,8 @@ def check(
     def _on_notification(notification: JSONObject) -> None:
         nonlocal startup_resume_emitted
         nonlocal timeline_header_emitted
+        nonlocal last_phase_progress_signature
+        nonlocal last_phase_event_seq
         resume = _resume_checkpoint_from_progress_notification(notification)
         if not isinstance(resume, Mapping):
             pass
@@ -1988,21 +2481,46 @@ def check(
                 total_files=int(resume.get("total_files", 0) or 0),
             )
             startup_resume_emitted = True
-        timeline_update = _checkpoint_intro_timeline_from_progress_notification(
+        timeline_update = _phase_timeline_from_progress_notification(
             notification
         )
-        if not isinstance(timeline_update, Mapping):
+        phase_progress = _phase_progress_from_progress_notification(notification)
+        if not isinstance(phase_progress, Mapping):
             return
-        row = str(timeline_update.get("row") or "")
-        header_value = timeline_update.get("header")
-        header = (
-            header_value
-            if not timeline_header_emitted and isinstance(header_value, str) and header_value
-            else None
+        event_seq = phase_progress.get("event_seq")
+        if isinstance(event_seq, int):
+            if last_phase_event_seq == event_seq:
+                return
+            last_phase_event_seq = event_seq
+        signature = (
+            phase_progress.get("phase"),
+            phase_progress.get("analysis_state"),
+            phase_progress.get("classification"),
+            phase_progress.get("event_kind"),
+            phase_progress.get("event_seq"),
+            phase_progress.get("work_done"),
+            phase_progress.get("work_total"),
+            phase_progress.get("completed_files"),
+            phase_progress.get("remaining_files"),
+            phase_progress.get("total_files"),
+            phase_progress.get("stale_for_s"),
+            phase_progress.get("progress_marker"),
+            phase_progress.get("done"),
         )
-        _emit_checkpoint_intro_timeline_progress(header=header, row=row)
-        if header is not None:
-            timeline_header_emitted = True
+        if signature == last_phase_progress_signature:
+            return
+        last_phase_progress_signature = signature
+        if isinstance(timeline_update, Mapping):
+            row = str(timeline_update.get("row") or "")
+            header_value = timeline_update.get("header")
+            header = (
+                header_value
+                if not timeline_header_emitted and isinstance(header_value, str) and header_value
+                else None
+            )
+            _emit_checkpoint_intro_timeline_progress(header=header, row=row)
+            if header is not None:
+                timeline_header_emitted = True
 
     run_check_fn = _context_run_check(ctx)
     run_with_timeout_retries_fn = _context_run_with_timeout_retries(ctx)
@@ -2010,7 +2528,11 @@ def check(
         run_once=lambda: run_check_fn(
             paths=paths,
             report=report,
-            fail_on_violations=fail_on_violations,
+            policy=CheckPolicyFlags(
+                fail_on_violations=fail_on_violations,
+                fail_on_type_ambiguities=fail_on_type_ambiguities,
+                lint=lint_enabled,
+            ),
             root=root,
             config=config,
             baseline=baseline,
@@ -2042,8 +2564,6 @@ def check(
             filter_bundle=filter_bundle,
             allow_external=allow_external,
             strictness=strictness,
-            fail_on_type_ambiguities=fail_on_type_ambiguities,
-            lint=lint_enabled,
             resume_checkpoint=resume_checkpoint,
             emit_timeout_progress_report=emit_timeout_progress_report,
             resume_on_timeout=resume_on_timeout,
@@ -3015,7 +3535,7 @@ def _run_synthesis_plan(
     if output_path is None:
         typer.echo(output)
     else:
-        output_path.write_text(output)
+        _write_text_to_target(output_path, output)
 
 
 def _emit_synth_outputs(
@@ -3401,4 +3921,4 @@ def _run_refactor_protocol(
     if output_path is None:
         typer.echo(output)
     else:
-        output_path.write_text(output)
+        _write_text_to_target(output_path, output)

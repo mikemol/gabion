@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 import time
 from datetime import datetime, timezone
 from collections import defaultdict, deque
@@ -182,6 +183,12 @@ _DEFAULT_ANALYSIS_RESUME_CHECKPOINT = Path(
 _DEFAULT_CHECKPOINT_INTRO_TIMELINE = Path(
     "artifacts/audit_reports/dataflow_checkpoint_intro_timeline.md"
 )
+_DEFAULT_PHASE_TIMELINE_MD = Path(
+    "artifacts/audit_reports/dataflow_phase_timeline.md"
+)
+_DEFAULT_PHASE_TIMELINE_JSONL = Path(
+    "artifacts/audit_reports/dataflow_phase_timeline.jsonl"
+)
 _REPORT_SECTION_JOURNAL_FORMAT_VERSION = 1
 _DEFAULT_REPORT_SECTION_JOURNAL = Path(
     "artifacts/audit_reports/dataflow_report_sections.json"
@@ -194,9 +201,21 @@ _COLLECTION_CHECKPOINT_FLUSH_INTERVAL_NS = 2_000_000_000
 _COLLECTION_CHECKPOINT_MEANINGFUL_MIN_INTERVAL_NS = 1_000_000_000
 _COLLECTION_REPORT_FLUSH_INTERVAL_NS = 10_000_000_000
 _COLLECTION_REPORT_FLUSH_COMPLETED_STRIDE = 8
+_DEFAULT_DEADLINE_PROFILE_SAMPLE_INTERVAL = 16
+_DEFAULT_PROGRESS_HEARTBEAT_SECONDS = 55.0
+_MIN_PROGRESS_HEARTBEAT_SECONDS = 5.0
 _LINT_RE = re.compile(r"^(?P<path>.+?):(?P<line>\d+):(?P<col>\d+):\s*(?P<rest>.*)$")
 _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 _LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
+_STDOUT_ALIAS = "-"
+_STDOUT_PATH = "/dev/stdout"
+
+
+def _is_stdout_target(target: object) -> bool:
+    if not isinstance(target, (str, Path)):
+        return False
+    text = str(target).strip()
+    return text in {_STDOUT_ALIAS, _STDOUT_PATH}
 
 
 def _analysis_resume_cache_verdict(
@@ -807,7 +826,7 @@ def _analysis_input_witness(
         if isinstance(value, dict):
             normalized: JSONObject = {}
             for key in ordered_or_sorted(
-                value,
+                value.keys(),
                 source="server._normalize_ast_value.dict_keys",
                 key=lambda item: str(item),
                 policy=OrderPolicy.SORT,
@@ -1117,6 +1136,119 @@ def _normalize_progress_work(
     ):
         normalized_done = normalized_total
     return normalized_done, normalized_total
+
+
+def _phase_primary_unit_for_phase(phase: str) -> str:
+    if phase == "collection":
+        return "collection_files"
+    if phase == "forest":
+        return "forest_mutable_steps"
+    if phase == "edge":
+        return "edge_tasks"
+    if phase == "post":
+        return "post_tasks"
+    return "phase_work_units"
+
+
+def _build_phase_progress_v2(
+    *,
+    phase: str,
+    collection_progress: Mapping[str, JSONValue],
+    work_done: object | None,
+    work_total: object | None,
+    phase_progress_v2: Mapping[str, JSONValue] | None = None,
+) -> tuple[JSONObject, int, int]:
+    normalized_work_done, normalized_work_total = _normalize_progress_work(
+        work_done=work_done,
+        work_total=work_total,
+    )
+    if normalized_work_done is None or normalized_work_total is None:
+        if phase == "collection":
+            raw_completed = collection_progress.get("completed_files")
+            raw_total = collection_progress.get("total_files")
+            if (
+                isinstance(raw_completed, int)
+                and not isinstance(raw_completed, bool)
+                and isinstance(raw_total, int)
+                and not isinstance(raw_total, bool)
+            ):
+                normalized_work_done = max(int(raw_completed), 0)
+                normalized_work_total = max(int(raw_total), 0)
+    if normalized_work_done is None:
+        normalized_work_done = 0
+    if normalized_work_total is None:
+        normalized_work_total = 0
+    if normalized_work_total:
+        normalized_work_done = min(normalized_work_done, normalized_work_total)
+
+    normalized: JSONObject = {
+        "format_version": 1,
+        "schema": "gabion/phase_progress_v2",
+        "primary_unit": _phase_primary_unit_for_phase(phase),
+        "primary_done": normalized_work_done,
+        "primary_total": normalized_work_total,
+        "dimensions": {
+            _phase_primary_unit_for_phase(phase): {
+                "done": normalized_work_done,
+                "total": normalized_work_total,
+            }
+        },
+        "inventory": {},
+    }
+    if isinstance(phase_progress_v2, Mapping):
+        for key, value in phase_progress_v2.items():
+            if isinstance(key, str):
+                normalized[key] = value
+    primary_unit = str(normalized.get("primary_unit", "") or "").strip()
+    if not primary_unit:
+        primary_unit = _phase_primary_unit_for_phase(phase)
+    raw_primary_done = normalized.get("primary_done")
+    raw_primary_total = normalized.get("primary_total")
+    primary_done = (
+        max(int(raw_primary_done), 0)
+        if isinstance(raw_primary_done, int) and not isinstance(raw_primary_done, bool)
+        else normalized_work_done
+    )
+    primary_total = (
+        max(int(raw_primary_total), 0)
+        if isinstance(raw_primary_total, int) and not isinstance(raw_primary_total, bool)
+        else normalized_work_total
+    )
+    if primary_total:
+        primary_done = min(primary_done, primary_total)
+    normalized["primary_unit"] = primary_unit
+    normalized["primary_done"] = primary_done
+    normalized["primary_total"] = primary_total
+    raw_dimensions = normalized.get("dimensions")
+    dimensions: JSONObject = {}
+    if isinstance(raw_dimensions, Mapping):
+        for dim_name, dim_payload in raw_dimensions.items():
+            if not isinstance(dim_name, str) or not isinstance(dim_payload, Mapping):
+                continue
+            raw_done = dim_payload.get("done")
+            raw_total = dim_payload.get("total")
+            if (
+                isinstance(raw_done, int)
+                and not isinstance(raw_done, bool)
+                and isinstance(raw_total, int)
+                and not isinstance(raw_total, bool)
+            ):
+                dim_done = max(int(raw_done), 0)
+                dim_total = max(int(raw_total), 0)
+                if dim_total:
+                    dim_done = min(dim_done, dim_total)
+                dimensions[dim_name] = {"done": dim_done, "total": dim_total}
+    if primary_unit not in dimensions:
+        dimensions[primary_unit] = {"done": primary_done, "total": primary_total}
+    normalized["dimensions"] = dimensions
+    raw_inventory = normalized.get("inventory")
+    inventory: JSONObject = {}
+    if isinstance(raw_inventory, Mapping):
+        for inv_key, inv_value in raw_inventory.items():
+            if isinstance(inv_key, str):
+                inventory[inv_key] = inv_value
+    normalized["inventory"] = inventory
+    return normalized, primary_done, primary_total
 
 
 def _completed_path_set(
@@ -1517,7 +1649,7 @@ def _collection_semantic_progress(
 def _resolve_report_output_path(*, root: Path, report_path: str | None) -> Path | None:
     if report_path in (None, ""):
         return None
-    if report_path == "-":
+    if _is_stdout_target(report_path):
         return None
     candidate = Path(str(report_path))
     if candidate.is_absolute():
@@ -1912,6 +2044,9 @@ def _render_incremental_report(
         phase = progress_payload.get("phase")
         if isinstance(phase, str) and phase:
             lines.append(f"- `phase`: `{phase}`")
+        event_kind = progress_payload.get("event_kind")
+        if isinstance(event_kind, str) and event_kind:
+            lines.append(f"- `event_kind`: `{event_kind}`")
         work_done_raw = progress_payload.get("work_done")
         work_total_raw = progress_payload.get("work_total")
         if isinstance(work_done_raw, int) and isinstance(work_total_raw, int):
@@ -1925,6 +2060,32 @@ def _render_incremental_report(
                 lines.append(
                     f"- `work_percent`: `{(100.0 * work_done / work_total):.2f}`"
                 )
+        phase_progress_v2 = progress_payload.get("phase_progress_v2")
+        if isinstance(phase_progress_v2, Mapping):
+            primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
+            raw_primary_done = phase_progress_v2.get("primary_done")
+            raw_primary_total = phase_progress_v2.get("primary_total")
+            if (
+                isinstance(raw_primary_done, int)
+                and not isinstance(raw_primary_done, bool)
+                and isinstance(raw_primary_total, int)
+                and not isinstance(raw_primary_total, bool)
+            ):
+                primary_done = max(int(raw_primary_done), 0)
+                primary_total = max(int(raw_primary_total), 0)
+                if primary_total:
+                    primary_done = min(primary_done, primary_total)
+                lines.append(
+                    f"- `primary_progress`: `{primary_done}/{primary_total}`"
+                )
+            if primary_unit:
+                lines.append(f"- `primary_unit`: `{primary_unit}`")
+            dimensions_summary = _phase_progress_dimensions_summary(phase_progress_v2)
+            if dimensions_summary:
+                lines.append(f"- `dimensions`: `{dimensions_summary}`")
+        stale_for_s = progress_payload.get("stale_for_s")
+        if isinstance(stale_for_s, (int, float)):
+            lines.append(f"- `stale_for_s`: `{float(stale_for_s):.1f}`")
         classification = progress_payload.get("classification")
         if isinstance(classification, str):
             lines.append(f"- `classification`: `{classification}`")
@@ -1985,10 +2146,241 @@ def _checkpoint_intro_timeline_path(*, root: Path) -> Path:
     return root / _DEFAULT_CHECKPOINT_INTRO_TIMELINE
 
 
+def _phase_timeline_md_path(*, root: Path) -> Path:
+    return root / _DEFAULT_PHASE_TIMELINE_MD
+
+
+def _phase_timeline_jsonl_path(*, root: Path) -> Path:
+    return root / _DEFAULT_PHASE_TIMELINE_JSONL
+
+
+def _progress_heartbeat_seconds(payload: Mapping[str, JSONValue]) -> float:
+    raw = payload.get("progress_heartbeat_seconds")
+    if isinstance(raw, bool):
+        return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    if isinstance(raw, (int, float)):
+        parsed = float(raw)
+    elif isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+        try:
+            parsed = float(text)
+        except ValueError:
+            return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    elif raw is None:
+        return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    else:
+        return _DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    if parsed <= 0:
+        return 0.0
+    if parsed < _MIN_PROGRESS_HEARTBEAT_SECONDS:
+        return _MIN_PROGRESS_HEARTBEAT_SECONDS
+    return parsed
+
+
 def _markdown_table_cell(value: object) -> str:
     if value is None:
         return ""
     return str(value).replace("\n", " ").replace("|", "\\|")
+
+
+def _phase_progress_dimensions_summary(
+    phase_progress_v2: Mapping[str, JSONValue] | None,
+) -> str:
+    if not isinstance(phase_progress_v2, Mapping):
+        return ""
+    raw_dimensions = phase_progress_v2.get("dimensions")
+    if not isinstance(raw_dimensions, Mapping):
+        return ""
+    fragments: list[str] = []
+    dim_names = sorted(name for name in raw_dimensions if isinstance(name, str))
+    for dim_name in dim_names:
+        raw_payload = raw_dimensions.get(dim_name)
+        if not isinstance(raw_payload, Mapping):
+            continue
+        raw_done = raw_payload.get("done")
+        raw_total = raw_payload.get("total")
+        if (
+            isinstance(raw_done, int)
+            and not isinstance(raw_done, bool)
+            and isinstance(raw_total, int)
+            and not isinstance(raw_total, bool)
+        ):
+            done = max(int(raw_done), 0)
+            total = max(int(raw_total), 0)
+            if total:
+                done = min(done, total)
+            fragments.append(f"{dim_name}={done}/{total}")
+    return "; ".join(fragments)
+
+
+def _phase_progress_primary_summary(
+    phase_progress_v2: Mapping[str, JSONValue] | None,
+) -> tuple[str, int | None, int | None]:
+    if not isinstance(phase_progress_v2, Mapping):
+        return "", None, None
+    primary_unit = str(phase_progress_v2.get("primary_unit", "") or "")
+    raw_done = phase_progress_v2.get("primary_done")
+    raw_total = phase_progress_v2.get("primary_total")
+    primary_done = (
+        max(int(raw_done), 0)
+        if isinstance(raw_done, int) and not isinstance(raw_done, bool)
+        else None
+    )
+    primary_total = (
+        max(int(raw_total), 0)
+        if isinstance(raw_total, int) and not isinstance(raw_total, bool)
+        else None
+    )
+    if (
+        primary_done is not None
+        and primary_total is not None
+        and primary_total > 0
+        and primary_done > primary_total
+    ):
+        primary_done = primary_total
+    return primary_unit, primary_done, primary_total
+
+
+def _resume_checkpoint_descriptor_from_progress_value(
+    progress_value: Mapping[str, JSONValue],
+) -> str:
+    raw_resume = progress_value.get("resume_checkpoint")
+    if not isinstance(raw_resume, Mapping):
+        return ""
+    checkpoint_path = str(raw_resume.get("checkpoint_path", "") or "")
+    status = str(raw_resume.get("status", "") or "")
+    raw_reused = raw_resume.get("reused_files")
+    raw_total = raw_resume.get("total_files")
+    reused = (
+        max(int(raw_reused), 0)
+        if isinstance(raw_reused, int) and not isinstance(raw_reused, bool)
+        else None
+    )
+    total = (
+        max(int(raw_total), 0)
+        if isinstance(raw_total, int) and not isinstance(raw_total, bool)
+        else None
+    )
+    if reused is None or total is None:
+        return (
+            f"path={checkpoint_path or '<none>'} "
+            f"status={status or 'unknown'} reused_files=unknown"
+        )
+    return (
+        f"path={checkpoint_path or '<none>'} "
+        f"status={status or 'unknown'} reused_files={reused}/{total}"
+    )
+
+
+def _append_phase_timeline_event(
+    *,
+    markdown_path: Path,
+    jsonl_path: Path,
+    progress_value: Mapping[str, JSONValue],
+) -> tuple[str | None, str]:
+    header = _phase_timeline_header_columns()
+    header_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |"
+    separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
+    ts_utc = str(progress_value.get("ts_utc", "") or "")
+    event_seq = progress_value.get("event_seq")
+    event_kind = str(progress_value.get("event_kind", "") or "")
+    phase = str(progress_value.get("phase", "") or "")
+    analysis_state = str(progress_value.get("analysis_state", "") or "")
+    classification = str(progress_value.get("classification", "") or "")
+    progress_marker = str(progress_value.get("progress_marker", "") or "")
+    primary_unit, primary_done, primary_total = _phase_progress_primary_summary(
+        progress_value.get("phase_progress_v2")
+        if isinstance(progress_value.get("phase_progress_v2"), Mapping)
+        else None
+    )
+    if primary_done is not None and primary_total is not None:
+        primary = f"{primary_done}/{primary_total}"
+        if primary_unit:
+            primary = f"{primary} {primary_unit}"
+    elif primary_unit:
+        primary = primary_unit
+    else:
+        primary = ""
+    completed_files = progress_value.get("completed_files")
+    remaining_files = progress_value.get("remaining_files")
+    total_files = progress_value.get("total_files")
+    files = ""
+    if (
+        isinstance(completed_files, int)
+        and not isinstance(completed_files, bool)
+        and isinstance(remaining_files, int)
+        and not isinstance(remaining_files, bool)
+        and isinstance(total_files, int)
+        and not isinstance(total_files, bool)
+    ):
+        files = f"{completed_files}/{total_files} rem={remaining_files}"
+    resume_checkpoint = _resume_checkpoint_descriptor_from_progress_value(progress_value)
+    raw_stale_for_s = progress_value.get("stale_for_s")
+    stale_for_s = (
+        f"{float(raw_stale_for_s):.1f}"
+        if isinstance(raw_stale_for_s, (int, float))
+        else ""
+    )
+    dimensions_summary = _phase_progress_dimensions_summary(
+        progress_value.get("phase_progress_v2")
+        if isinstance(progress_value.get("phase_progress_v2"), Mapping)
+        else None
+    )
+    row = [
+        ts_utc,
+        event_seq if isinstance(event_seq, int) else "",
+        event_kind,
+        phase,
+        analysis_state,
+        classification,
+        progress_marker,
+        primary,
+        files,
+        resume_checkpoint,
+        stale_for_s,
+        dimensions_summary,
+    ]
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
+    jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    row_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in row) + " |"
+    header_block: str | None = None
+    if not markdown_path.exists():
+        with markdown_path.open("w", encoding="utf-8") as handle:
+            handle.write("# Dataflow Phase Timeline\n\n")
+            handle.write(header_line + "\n")
+            handle.write(separator_line + "\n")
+        header_block = header_line + "\n" + separator_line
+    with markdown_path.open("a", encoding="utf-8") as handle:
+        handle.write(row_line + "\n")
+    with jsonl_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(progress_value, sort_keys=True) + "\n")
+    return header_block, row_line
+
+
+def _phase_timeline_header_columns() -> list[str]:
+    return [
+        "ts_utc",
+        "event_seq",
+        "event_kind",
+        "phase",
+        "analysis_state",
+        "classification",
+        "progress_marker",
+        "primary",
+        "files",
+        "resume_checkpoint",
+        "stale_for_s",
+        "dimensions",
+    ]
+
+
+def _phase_timeline_header_block() -> str:
+    header = _phase_timeline_header_columns()
+    header_line = "| " + " | ".join(_markdown_table_cell(cell) for cell in header) + " |"
+    separator_line = "| " + " | ".join(["---"] * len(header)) + " |"
+    return header_line + "\n" + separator_line
 
 
 def _append_checkpoint_intro_timeline_row(
@@ -2540,26 +2932,31 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
 
 
 def _require_payload(
-    payload: dict[str, object],
+    payload: Mapping[str, object],
     *,
     command: str,
 ) -> dict[str, object]:
-    if not isinstance(payload, dict):
+    if not isinstance(payload, Mapping):
         never(
             "invalid command payload type",
             command=command,
             payload_type=type(payload).__name__,
         )
-    return payload
+    if isinstance(payload, dict):
+        return payload
+    return {str(key): payload[key] for key in payload}
 
 
 def _require_optional_payload(
-    payload: dict[str, object] | None,
+    payload: Mapping[str, object] | None,
     *,
     command: str,
 ) -> dict[str, object]:
     if payload is None:
-        never("missing command payload", command=command)
+        never(
+            "invalid command payload type",
+            payload_type="NoneType",
+        )
     return _require_payload(payload, command=command)
 
 
@@ -2824,6 +3221,29 @@ def _analysis_timeout_budget_ns(
     return total_ns, analysis_ns, cleanup_ns
 
 
+def _deadline_profile_sample_interval(
+    payload: dict[str, object],
+    *,
+    default_interval: int = _DEFAULT_DEADLINE_PROFILE_SAMPLE_INTERVAL,
+) -> int:
+    raw_value = payload.get("deadline_profile_sample_interval")
+    if raw_value in (None, ""):
+        return max(1, int(default_interval))
+    try:
+        interval = int(raw_value)
+    except (TypeError, ValueError):
+        never(
+            "invalid deadline profile sample interval",
+            deadline_profile_sample_interval=raw_value,
+        )
+    if interval <= 0:
+        never(
+            "invalid deadline profile sample interval",
+            deadline_profile_sample_interval=raw_value,
+        )
+    return interval
+
+
 def _deadline_from_payload(payload: dict[str, object]) -> Deadline:
     total_ns = _analysis_timeout_total_ns(payload)
     overhead_ns = _server_deadline_overhead_ns(total_ns)
@@ -2856,6 +3276,10 @@ def _deadline_scope_from_payload(payload: Mapping[str, object]):
         profile_token = set_deadline_profile(
             project_root=profile_root,
             enabled=profile_enabled,
+            sample_interval=_deadline_profile_sample_interval(
+                normalized_payload,
+                default_interval=1,
+            ),
         )
         try:
             yield
@@ -3207,6 +3631,7 @@ def _execute_command_total(
     profile_token = set_deadline_profile(
         project_root=initial_root,
         enabled=profile_enabled,
+        sample_interval=_deadline_profile_sample_interval(payload),
     )
     forest = Forest()
     forest_token = set_forest(forest)
@@ -3366,6 +3791,9 @@ def _execute_command_total(
         )
         emit_checkpoint_intro_timeline = _checkpoint_intro_timeline_enabled(payload)
         checkpoint_intro_timeline_path = _checkpoint_intro_timeline_path(root=Path(root))
+        phase_timeline_markdown_path = _phase_timeline_md_path(root=Path(root))
+        phase_timeline_jsonl_path = _phase_timeline_jsonl_path(root=Path(root))
+        progress_heartbeat_seconds = _progress_heartbeat_seconds(payload)
         dot_path = payload.get("dot")
         fail_on_violations = payload.get("fail_on_violations", False)
         no_recursive = payload.get("no_recursive", False)
@@ -3631,7 +4059,7 @@ def _execute_command_total(
         ] | None = None
         last_collection_report_flush_ns = 0
         last_collection_report_flush_completed = -1
-        phase_progress_signatures: dict[str, tuple[int, ...]] = {}
+        phase_progress_signatures: dict[str, tuple[object, ...]] = {}
         phase_progress_last_flush_ns: dict[str, int] = {}
         profiling_stage_ns: dict[str, int] = {
             "server.analysis_call": 0,
@@ -3641,6 +4069,15 @@ def _execute_command_total(
             "server.collection_resume_persist_calls": 0,
             "server.projection_emit_calls": 0,
         }
+        progress_event_seq = 0
+        progress_state_lock = threading.Lock()
+        last_progress_template: dict[str, object] | None = None
+        last_progress_change_ns = 0
+        last_progress_notification_ns = 0
+        phase_timeline_header_emitted = False
+        heartbeat_stop_event = threading.Event()
+        heartbeat_thread: threading.Thread | None = None
+        send_notification = getattr(ls, "send_notification", None)
 
         def _emit_lsp_progress(
             *,
@@ -3656,7 +4093,17 @@ def _execute_command_total(
             resume_checkpoint: Mapping[str, JSONValue] | None = None,
             checkpoint_intro_timeline_header: str | None = None,
             checkpoint_intro_timeline_row: str | None = None,
+            phase_progress_v2: Mapping[str, JSONValue] | None = None,
+            progress_marker: str | None = None,
+            event_kind: Literal["progress", "heartbeat", "terminal", "checkpoint"] = "progress",
+            stale_for_s: float | None = None,
+            record_for_heartbeat: bool = True,
         ) -> None:
+            nonlocal progress_event_seq
+            nonlocal last_progress_template
+            nonlocal last_progress_change_ns
+            nonlocal last_progress_notification_ns
+            nonlocal phase_timeline_header_emitted
             semantic_payload: JSONObject = {}
             if isinstance(semantic_progress, Mapping):
                 for raw_key, raw_value in semantic_progress.items():
@@ -3680,14 +4127,25 @@ def _execute_command_total(
                 "total_files": int(collection_progress.get("total_files", 0)),
                 "semantic_deltas": semantic_payload,
             }
-            normalized_work_done, normalized_work_total = _normalize_progress_work(
+            normalized_phase_progress_v2, primary_done, primary_total = _build_phase_progress_v2(
+                phase=phase,
+                collection_progress=collection_progress,
                 work_done=work_done,
                 work_total=work_total,
+                phase_progress_v2=phase_progress_v2,
             )
-            if normalized_work_done is not None:
-                progress_value["work_done"] = normalized_work_done
-            if normalized_work_total is not None:
-                progress_value["work_total"] = normalized_work_total
+            progress_value["phase_progress_v2"] = normalized_phase_progress_v2
+            progress_value["work_done"] = primary_done
+            progress_value["work_total"] = primary_total
+            progress_value["telemetry_semantics_version"] = 2
+            progress_value["event_kind"] = event_kind
+            progress_value["ts_utc"] = datetime.now(timezone.utc).isoformat(
+                timespec="seconds"
+            ).replace("+00:00", "Z")
+            if isinstance(progress_marker, str) and progress_marker:
+                progress_value["progress_marker"] = progress_marker
+            if isinstance(stale_for_s, (int, float)):
+                progress_value["stale_for_s"] = max(float(stale_for_s), 0.0)
             if include_timing:
                 progress_value["profiling_v1"] = {
                     "format_version": 1,
@@ -3720,16 +4178,130 @@ def _execute_command_total(
                 progress_value["checkpoint_intro_timeline_row"] = (
                     checkpoint_intro_timeline_row
                 )
-            send_notification = getattr(ls, "send_notification", None)
             if not callable(send_notification):
                 return
-            send_notification(
-                _LSP_PROGRESS_NOTIFICATION_METHOD,
-                {
-                    "token": _LSP_PROGRESS_TOKEN,
-                    "value": progress_value,
-                },
+            now_ns = time.monotonic_ns()
+            with progress_state_lock:
+                progress_event_seq += 1
+                progress_value["event_seq"] = progress_event_seq
+                phase_timeline_header, phase_timeline_row = _append_phase_timeline_event(
+                    markdown_path=phase_timeline_markdown_path,
+                    jsonl_path=phase_timeline_jsonl_path,
+                    progress_value=progress_value,
+                )
+                if not phase_timeline_header_emitted:
+                    progress_value["phase_timeline_header"] = (
+                        phase_timeline_header
+                        if isinstance(phase_timeline_header, str) and phase_timeline_header
+                        else _phase_timeline_header_block()
+                    )
+                    phase_timeline_header_emitted = True
+                progress_value["phase_timeline_row"] = phase_timeline_row
+                send_notification(
+                    _LSP_PROGRESS_NOTIFICATION_METHOD,
+                    {
+                        "token": _LSP_PROGRESS_TOKEN,
+                        "value": progress_value,
+                    },
+                )
+                last_progress_notification_ns = now_ns
+                if done:
+                    last_progress_template = None
+                elif record_for_heartbeat and event_kind != "heartbeat":
+                    last_progress_template = {
+                        "phase": phase,
+                        "collection_progress": {
+                            str(key): collection_progress[key] for key in collection_progress
+                        },
+                        "semantic_progress": (
+                            {str(key): semantic_progress[key] for key in semantic_progress}
+                            if isinstance(semantic_progress, Mapping)
+                            else None
+                        ),
+                        "work_done": primary_done,
+                        "work_total": primary_total,
+                        "include_timing": include_timing,
+                        "analysis_state": analysis_state,
+                        "classification": classification,
+                        "resume_checkpoint": (
+                            {str(key): resume_checkpoint[key] for key in resume_checkpoint}
+                            if isinstance(resume_checkpoint, Mapping)
+                            else None
+                        ),
+                        "checkpoint_intro_timeline_header": checkpoint_intro_timeline_header,
+                        "checkpoint_intro_timeline_row": checkpoint_intro_timeline_row,
+                        "phase_progress_v2": {
+                            str(key): normalized_phase_progress_v2[key]
+                            for key in normalized_phase_progress_v2
+                        },
+                        "progress_marker": progress_marker,
+                    }
+                    last_progress_change_ns = now_ns
+
+        def _progress_heartbeat_loop() -> None:
+            heartbeat_interval_ns = int(progress_heartbeat_seconds * 1_000_000_000)
+            while not heartbeat_stop_event.wait(1.0):
+                with progress_state_lock:
+                    template = (
+                        dict(last_progress_template)
+                        if isinstance(last_progress_template, dict)
+                        else None
+                    )
+                    notification_ns = int(last_progress_notification_ns)
+                    change_ns = int(last_progress_change_ns)
+                if template and notification_ns > 0 and change_ns > 0:
+                    now_ns = time.monotonic_ns()
+                    if now_ns - notification_ns < heartbeat_interval_ns:
+                        continue
+                    stale_seconds = max(0.0, (now_ns - change_ns) / 1_000_000_000.0)
+                    _emit_lsp_progress(
+                        phase=cast(
+                            Literal["collection", "forest", "edge", "post"],
+                            str(template.get("phase", "collection")),
+                        ),
+                        collection_progress=cast(
+                            Mapping[str, JSONValue],
+                            template.get("collection_progress", {}),
+                        ),
+                        semantic_progress=cast(
+                            Mapping[str, JSONValue] | None,
+                            template.get("semantic_progress"),
+                        ),
+                        work_done=cast(int | None, template.get("work_done")),
+                        work_total=cast(int | None, template.get("work_total")),
+                        include_timing=bool(template.get("include_timing", False)),
+                        done=False,
+                        analysis_state=cast(str | None, template.get("analysis_state")),
+                        classification=cast(str | None, template.get("classification")),
+                        resume_checkpoint=cast(
+                            Mapping[str, JSONValue] | None,
+                            template.get("resume_checkpoint"),
+                        ),
+                        checkpoint_intro_timeline_header=cast(
+                            str | None,
+                            template.get("checkpoint_intro_timeline_header"),
+                        ),
+                        checkpoint_intro_timeline_row=cast(
+                            str | None,
+                            template.get("checkpoint_intro_timeline_row"),
+                        ),
+                        phase_progress_v2=cast(
+                            Mapping[str, JSONValue] | None,
+                            template.get("phase_progress_v2"),
+                        ),
+                        progress_marker=cast(str | None, template.get("progress_marker")),
+                        event_kind="heartbeat",
+                        stale_for_s=stale_seconds,
+                        record_for_heartbeat=False,
+                    )
+
+        if callable(send_notification) and progress_heartbeat_seconds > 0:
+            heartbeat_thread = threading.Thread(
+                target=_progress_heartbeat_loop,
+                name="gabion-progress-heartbeat",
+                daemon=True,
             )
+            heartbeat_thread.start()
 
         if analysis_resume_intro_payload is not None and callable(
             getattr(ls, "send_notification", None)
@@ -3754,6 +4326,7 @@ def _execute_command_total(
                 resume_checkpoint=analysis_resume_intro_payload,
                 checkpoint_intro_timeline_header=analysis_resume_intro_timeline_header,
                 checkpoint_intro_timeline_row=analysis_resume_intro_timeline_row,
+                event_kind="checkpoint",
             )
 
         def _persist_collection_resume(progress_payload: JSONObject) -> None:
@@ -3866,6 +4439,7 @@ def _execute_command_total(
                             resume_checkpoint=analysis_resume_intro_payload,
                             checkpoint_intro_timeline_header=checkpoint_timeline_header,
                             checkpoint_intro_timeline_row=checkpoint_timeline_row,
+                            event_kind="checkpoint",
                         )
             last_collection_semantic_witness_digest = semantic_witness_digest
             last_analysis_index_resume_signature = analysis_index_signature
@@ -4002,6 +4576,13 @@ def _execute_command_total(
             work_total: int,
         ) -> None:
             nonlocal report_sections_cache_reason
+            progress_marker = str(getattr(report_carrier, "progress_marker", "") or "")
+            progress_analysis_state = f"analysis_{phase}_in_progress"
+            phase_progress_v2 = (
+                report_carrier.phase_progress_v2
+                if isinstance(report_carrier.phase_progress_v2, Mapping)
+                else None
+            )
             _emit_lsp_progress(
                 phase=phase,
                 collection_progress=latest_collection_progress,
@@ -4009,6 +4590,9 @@ def _execute_command_total(
                 work_done=work_done,
                 work_total=work_total,
                 include_timing=profile_enabled,
+                analysis_state=progress_analysis_state,
+                phase_progress_v2=phase_progress_v2,
+                progress_marker=progress_marker,
             )
             if not report_output_path or not projection_rows:
                 return
@@ -4017,7 +4601,7 @@ def _execute_command_total(
                 phase,
                 groups_by_path,
                 report_carrier,
-            ) + (int(work_done), int(work_total))
+            ) + (int(work_done), int(work_total), progress_marker)
             if phase_progress_signatures.get(phase) == phase_signature:
                 return
             phase_progress_signatures[phase] = phase_signature
@@ -4040,11 +4624,21 @@ def _execute_command_total(
             sections, journal_reason = _ensure_report_sections_cache()
             sections.update(available_sections)
             partial_report, pending_reasons = _render_incremental_report(
-                analysis_state=f"analysis_{phase}_in_progress",
+                analysis_state=progress_analysis_state,
                 progress_payload={
                     "phase": phase,
                     "work_done": int(work_done),
                     "work_total": int(work_total),
+                    "event_kind": "progress",
+                    "progress_marker": progress_marker,
+                    "phase_progress_v2": (
+                        {
+                            str(key): phase_progress_v2[key]
+                            for key in phase_progress_v2
+                        }
+                        if isinstance(phase_progress_v2, Mapping)
+                        else None
+                    ),
                 },
                 projection_rows=projection_rows,
                 sections=sections,
@@ -4224,7 +4818,7 @@ def _execute_command_total(
             if synthesis_plan is not None:
                 if synthesis_plan_path:
                     output = json.dumps(synthesis_plan, indent=2, sort_keys=True)
-                    if synthesis_plan_path == "-":
+                    if _is_stdout_target(synthesis_plan_path):
                         response["synthesis_plan"] = synthesis_plan
                     else:
                         Path(synthesis_plan_path).write_text(output)
@@ -4235,7 +4829,7 @@ def _execute_command_total(
                 synthesis_plan,
                 kind=synthesis_protocols_kind,
             )
-            if synthesis_protocols_path == "-":
+            if _is_stdout_target(synthesis_protocols_path):
                 response["synthesis_protocols"] = output
             else:
                 Path(synthesis_protocols_path).write_text(output)
@@ -4246,7 +4840,7 @@ def _execute_command_total(
                 config=config,
             )
             if refactor_plan_json:
-                if refactor_plan_json == "-":
+                if _is_stdout_target(refactor_plan_json):
                     response["refactor_plan"] = plan_payload
                 else:
                     Path(refactor_plan_json).write_text(
@@ -4265,7 +4859,7 @@ def _execute_command_total(
                 project_root=Path(root),
                 groups_by_path=analysis.groups_by_path,
             )
-            if decision_snapshot_path == "-":
+            if _is_stdout_target(decision_snapshot_path):
                 response["decision_snapshot"] = payload_value
             else:
                 Path(decision_snapshot_path).write_text(
@@ -4279,7 +4873,7 @@ def _execute_command_total(
                 project_root=Path(root),
                 invariant_propositions=analysis.invariant_propositions,
             )
-            if structure_tree_path == "-":
+            if _is_stdout_target(structure_tree_path):
                 response["structure_tree"] = payload_value
             else:
                 Path(structure_tree_path).write_text(
@@ -4291,7 +4885,7 @@ def _execute_command_total(
                 analysis.groups_by_path,
                 forest=analysis.forest,
             )
-            if structure_metrics_path == "-":
+            if _is_stdout_target(structure_metrics_path):
                 response["structure_metrics"] = metrics
             else:
                 Path(structure_metrics_path).write_text(
@@ -4790,7 +5384,7 @@ def _execute_command_total(
 
         if dot_path and analysis.forest is not None:
             dot_payload = render_dot(analysis.forest)
-            if dot_path == "-":
+            if _is_stdout_target(dot_path):
                 response["dot"] = dot_payload
                 if report is not None:
                     report = report + "\n" + dot_payload
@@ -4804,7 +5398,7 @@ def _execute_command_total(
             payload_json = json.dumps(
                 analysis.fingerprint_synth_registry, indent=2, sort_keys=True
             )
-            if fingerprint_synth_json == "-":
+            if _is_stdout_target(fingerprint_synth_json):
                 response["fingerprint_synth_registry"] = analysis.fingerprint_synth_registry
             else:
                 Path(fingerprint_synth_json).write_text(payload_json)
@@ -4812,7 +5406,7 @@ def _execute_command_total(
             payload_json = json.dumps(
                 analysis.fingerprint_provenance, indent=2, sort_keys=True
             )
-            if fingerprint_provenance_json == "-":
+            if _is_stdout_target(fingerprint_provenance_json):
                 response["fingerprint_provenance"] = analysis.fingerprint_provenance
             else:
                 Path(fingerprint_provenance_json).write_text(payload_json)
@@ -4820,7 +5414,7 @@ def _execute_command_total(
             payload_json = json.dumps(
                 analysis.deadness_witnesses, indent=2, sort_keys=True
             )
-            if fingerprint_deadness_json == "-":
+            if _is_stdout_target(fingerprint_deadness_json):
                 response["fingerprint_deadness"] = analysis.deadness_witnesses
             else:
                 Path(fingerprint_deadness_json).write_text(payload_json)
@@ -4828,13 +5422,13 @@ def _execute_command_total(
             payload_json = json.dumps(
                 analysis.coherence_witnesses, indent=2, sort_keys=True
             )
-            if fingerprint_coherence_json == "-":
+            if _is_stdout_target(fingerprint_coherence_json):
                 response["fingerprint_coherence"] = analysis.coherence_witnesses
             else:
                 Path(fingerprint_coherence_json).write_text(payload_json)
         if fingerprint_rewrite_plans_json is not None:
             payload_json = json.dumps(analysis.rewrite_plans, indent=2, sort_keys=True)
-            if fingerprint_rewrite_plans_json == "-":
+            if _is_stdout_target(fingerprint_rewrite_plans_json):
                 response["fingerprint_rewrite_plans"] = analysis.rewrite_plans
             else:
                 Path(fingerprint_rewrite_plans_json).write_text(payload_json)
@@ -4842,7 +5436,7 @@ def _execute_command_total(
             payload_json = json.dumps(
                 analysis.exception_obligations, indent=2, sort_keys=True
             )
-            if fingerprint_exception_obligations_json == "-":
+            if _is_stdout_target(fingerprint_exception_obligations_json):
                 response["fingerprint_exception_obligations"] = (
                     analysis.exception_obligations
                 )
@@ -4852,7 +5446,7 @@ def _execute_command_total(
             payload_json = json.dumps(
                 analysis.handledness_witnesses, indent=2, sort_keys=True
             )
-            if fingerprint_handledness_json == "-":
+            if _is_stdout_target(fingerprint_handledness_json):
                 response["fingerprint_handledness"] = analysis.handledness_witnesses
             else:
                 Path(fingerprint_handledness_json).write_text(payload_json)
@@ -4876,6 +5470,7 @@ def _execute_command_total(
             done=True,
             analysis_state="succeeded",
             classification="succeeded",
+            event_kind="terminal",
         )
         return _normalize_dataflow_response(response)
     except TimeoutExceeded as exc:
@@ -4979,6 +5574,7 @@ def _execute_command_total(
                             resume_checkpoint=timeout_resume_checkpoint_payload,
                             checkpoint_intro_timeline_header=checkpoint_timeline_header,
                             checkpoint_intro_timeline_row=checkpoint_timeline_row,
+                            event_kind="checkpoint",
                         )
                 except TimeoutExceeded:
                     _mark_cleanup_timeout("write_analysis_resume_checkpoint")
@@ -5214,6 +5810,7 @@ def _execute_command_total(
                     if isinstance(timeout_classification, str)
                     else "timed_out_no_progress"
                 ),
+                event_kind="terminal",
             )
             return _normalize_dataflow_response(
                 {
@@ -5237,9 +5834,16 @@ def _execute_command_total(
                 done=True,
                 analysis_state="failed",
                 classification="failed",
+                event_kind="terminal",
             )
         raise
     finally:
+        stop_heartbeat = locals().get("heartbeat_stop_event")
+        if isinstance(stop_heartbeat, threading.Event):
+            stop_heartbeat.set()
+        active_heartbeat_thread = locals().get("heartbeat_thread")
+        if isinstance(active_heartbeat_thread, threading.Thread):
+            active_heartbeat_thread.join(timeout=1.5)
         reset_forest(forest_token)
         reset_deadline_clock(deadline_clock_token)
         reset_deadline(deadline_token)
@@ -5482,7 +6086,7 @@ def _execute_structure_reuse_total(
         response: JSONObject = StructureReuseResponseDTO(exit_code=0, reuse=reuse).model_dump()
         if options.lemma_stubs:
             stubs = render_reuse_lemma_stubs(reuse)
-            if options.lemma_stubs == "-":
+            if _is_stdout_target(options.lemma_stubs):
                 response["lemma_stubs"] = stubs
             else:
                 Path(options.lemma_stubs).write_text(stubs)
@@ -5731,8 +6335,11 @@ def _impact_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
 
 
 @server.command(IMPACT_COMMAND)
-def execute_impact(ls: LanguageServer, payload: dict | None = None) -> dict:
-    normalized_payload = _require_payload(payload, command=IMPACT_COMMAND)
+def execute_impact(
+    ls: LanguageServer,
+    payload: dict[str, object] | None = None,
+) -> dict:
+    normalized_payload = _require_optional_payload(payload, command=IMPACT_COMMAND)
     return _execute_impact_total(ls, normalized_payload)
 
 

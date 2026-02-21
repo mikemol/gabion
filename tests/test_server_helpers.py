@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from gabion.exceptions import NeverThrown
+
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
     from gabion import server
@@ -144,3 +148,193 @@ def test_materialize_execution_plan_uses_request_payload(tmp_path: Path) -> None
     assert artifact_path.exists()
     contents = artifact_path.read_text()
     assert '"requested_operations"' in contents
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_phase_progress_helpers_normalize_and_clamp_payloads::server.py::gabion.server._build_phase_progress_v2::server.py::gabion.server._phase_primary_unit_for_phase
+def test_phase_progress_helpers_normalize_and_clamp_payloads() -> None:
+    server = _load()
+    assert server._phase_primary_unit_for_phase("mystery") == "phase_work_units"
+
+    normalized, primary_done, primary_total = server._build_phase_progress_v2(
+        phase="collection",
+        collection_progress={"completed_files": 3, "total_files": 5},
+        work_done=None,
+        work_total=None,
+        phase_progress_v2={
+            "primary_unit": "",
+            "primary_done": 7,
+            "primary_total": 4,
+            "dimensions": {
+                "good": {"done": 6, "total": 5},
+                "bad_payload": "skip",
+                1: {"done": 1, "total": 1},
+                "bad_done": {"done": "x", "total": 2},
+                "bad_total": {"done": 1, "total": False},
+            },
+            "inventory": {"known": 1, 2: "skip"},
+        },
+    )
+    assert primary_done == 4
+    assert primary_total == 4
+    assert normalized["primary_unit"] == "collection_files"
+    dimensions = normalized["dimensions"]
+    assert isinstance(dimensions, dict)
+    assert dimensions["good"] == {"done": 5, "total": 5}
+    assert "bad_payload" not in dimensions
+    assert "bad_done" not in dimensions
+    assert "bad_total" not in dimensions
+    assert dimensions["collection_files"] == {"done": 4, "total": 4}
+    assert normalized["inventory"] == {"known": 1}
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_progress_heartbeat_seconds_parsing_edges::server.py::gabion.server._progress_heartbeat_seconds
+def test_progress_heartbeat_seconds_parsing_edges() -> None:
+    server = _load()
+    assert server._progress_heartbeat_seconds({"progress_heartbeat_seconds": True}) == (
+        server._DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    )
+    assert server._progress_heartbeat_seconds({"progress_heartbeat_seconds": " "}) == (
+        server._DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    )
+    assert server._progress_heartbeat_seconds(
+        {"progress_heartbeat_seconds": "not-a-number"}
+    ) == server._DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    assert server._progress_heartbeat_seconds(
+        {"progress_heartbeat_seconds": {"bad": 1}}
+    ) == server._DEFAULT_PROGRESS_HEARTBEAT_SECONDS
+    assert server._progress_heartbeat_seconds({"progress_heartbeat_seconds": "1"}) == (
+        server._MIN_PROGRESS_HEARTBEAT_SECONDS
+    )
+    assert server._progress_heartbeat_seconds({"progress_heartbeat_seconds": "0"}) == 0.0
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_phase_progress_summary_helpers_cover_invalid_inputs::server.py::gabion.server._phase_progress_dimensions_summary::server.py::gabion.server._phase_progress_primary_summary
+def test_phase_progress_summary_helpers_cover_invalid_inputs() -> None:
+    server = _load()
+    assert server._phase_progress_dimensions_summary(None) == ""
+    assert server._phase_progress_dimensions_summary({"dimensions": "bad"}) == ""
+    summary = server._phase_progress_dimensions_summary(
+        {
+            "dimensions": {
+                "good": {"done": 7, "total": 5},
+                "bad_payload": "skip",
+                3: {"done": 1, "total": 1},
+                "bad_done": {"done": "x", "total": 2},
+            }
+        }
+    )
+    assert summary == "good=5/5"
+
+    assert server._phase_progress_primary_summary(None) == ("", None, None)
+    primary_unit, primary_done, primary_total = server._phase_progress_primary_summary(
+        {"primary_unit": "forest_mutable_steps", "primary_done": 8, "primary_total": 3}
+    )
+    assert primary_unit == "forest_mutable_steps"
+    assert primary_done == 3
+    assert primary_total == 3
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_resume_checkpoint_descriptor_formats_known_and_unknown_counts::server.py::gabion.server._resume_checkpoint_descriptor_from_progress_value
+def test_resume_checkpoint_descriptor_formats_known_and_unknown_counts() -> None:
+    server = _load()
+    unknown = server._resume_checkpoint_descriptor_from_progress_value(
+        {
+            "resume_checkpoint": {
+                "checkpoint_path": "resume.json",
+                "status": "pending",
+            }
+        }
+    )
+    assert "reused_files=unknown" in unknown
+
+    known = server._resume_checkpoint_descriptor_from_progress_value(
+        {
+            "resume_checkpoint": {
+                "checkpoint_path": "resume.json",
+                "status": "checkpoint_loaded",
+                "reused_files": 2,
+                "total_files": 5,
+            }
+        }
+    )
+    assert "reused_files=2/5" in known
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_append_phase_timeline_event_handles_primary_unit_only_and_empty_primary::server.py::gabion.server._append_phase_timeline_event
+def test_append_phase_timeline_event_handles_primary_unit_only_and_empty_primary(
+    tmp_path: Path,
+) -> None:
+    server = _load()
+    markdown_path = tmp_path / "timeline.md"
+    jsonl_path = tmp_path / "timeline.jsonl"
+
+    header, row = server._append_phase_timeline_event(
+        markdown_path=markdown_path,
+        jsonl_path=jsonl_path,
+        progress_value={
+            "phase": "collection",
+            "phase_progress_v2": {"primary_unit": "collection_files"},
+        },
+    )
+    assert isinstance(header, str) and header
+    assert "collection_files" in row
+
+    header_again, row_again = server._append_phase_timeline_event(
+        markdown_path=markdown_path,
+        jsonl_path=jsonl_path,
+        progress_value={"phase": "post"},
+    )
+    assert header_again is None
+    assert isinstance(row_again, str) and row_again
+    assert markdown_path.exists()
+    assert jsonl_path.exists()
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_render_incremental_report_includes_stale_and_progress_v2_fields::server.py::gabion.server._render_incremental_report
+def test_render_incremental_report_includes_stale_and_progress_v2_fields() -> None:
+    server = _load()
+    report, pending = server._render_incremental_report(
+        analysis_state="analysis_forest_in_progress",
+        progress_payload={
+            "phase": "forest",
+            "event_kind": "heartbeat",
+            "work_done": 3,
+            "work_total": 9,
+            "phase_progress_v2": {
+                "primary_unit": "forest_mutable_steps",
+                "primary_done": 3,
+                "primary_total": 9,
+                "dimensions": {
+                    "forest_mutable_steps": {"done": 3, "total": 9},
+                },
+            },
+            "stale_for_s": 7.2,
+            "classification": "timed_out_progress_resume",
+            "retry_recommended": True,
+            "resume_supported": False,
+        },
+        projection_rows=[],
+        sections={},
+    )
+    assert "- `primary_unit`: `forest_mutable_steps`" in report
+    assert "- `stale_for_s`: `7.2`" in report
+    assert pending == {}
+
+
+# gabion:evidence E:call_footprint::tests/test_server_helpers.py::test_deadline_profile_sample_interval_rejects_invalid_values::server.py::gabion.server._deadline_profile_sample_interval
+def test_deadline_profile_sample_interval_rejects_invalid_values() -> None:
+    server = _load()
+    assert (
+        server._deadline_profile_sample_interval(
+            {"deadline_profile_sample_interval": "16"}
+        )
+        == 16
+    )
+    with pytest.raises(NeverThrown):
+        server._deadline_profile_sample_interval(
+            {"deadline_profile_sample_interval": "bad"}
+        )
+    with pytest.raises(NeverThrown):
+        server._deadline_profile_sample_interval(
+            {"deadline_profile_sample_interval": 0}
+        )

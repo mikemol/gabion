@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from gabion.order_contract import ordered_or_sorted
+
 
 @dataclass(frozen=True)
 class BaselineFacet:
@@ -69,4 +71,10 @@ class ExecutionPlan:
         self._decorations[key] = dict(payload)
 
     def decorations(self) -> list[tuple[str, dict[str, Any]]]:
-        return [(key, self._decorations[key]) for key in sorted(self._decorations)]
+        return [
+            (key, self._decorations[key])
+            for key in ordered_or_sorted(
+                self._decorations,
+                source="ExecutionPlan.decorations",
+            )
+        ]

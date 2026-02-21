@@ -216,7 +216,11 @@ def test_dataflow_run_check_payload_semantics_match_direct_server(tmp_path: Path
     cli_result = cli.run_check(
         paths=[module],
         report=tmp_path / "report.md",
-        fail_on_violations=False,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=False,
+            fail_on_type_ambiguities=False,
+            lint=False,
+        ),
         root=tmp_path,
         config=None,
         baseline=tmp_path / "baseline.json",
@@ -228,8 +232,6 @@ def test_dataflow_run_check_payload_semantics_match_direct_server(tmp_path: Path
         filter_bundle=cli.DataflowFilterBundle("self,cls", "cache"),
         allow_external=False,
         strictness="high",
-        fail_on_type_ambiguities=False,
-        lint=False,
         runner=cli.run_command_direct,
     )
 
@@ -280,7 +282,11 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
     cli_result = cli.run_check(
         paths=[module],
         report=None,
-        fail_on_violations=False,
+        policy=cli.CheckPolicyFlags(
+            fail_on_violations=False,
+            fail_on_type_ambiguities=False,
+            lint=True,
+        ),
         root=tmp_path,
         config=None,
         baseline=None,
@@ -304,8 +310,6 @@ def test_dataflow_run_check_matches_server_fields(tmp_path: Path) -> None:
         filter_bundle=cli.DataflowFilterBundle(None, None),
         allow_external=None,
         strictness="high",
-        fail_on_type_ambiguities=False,
-        lint=True,
         runner=cli.run_command_direct,
     )
     payload = cli.build_check_payload(

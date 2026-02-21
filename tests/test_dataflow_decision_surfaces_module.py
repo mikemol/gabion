@@ -193,7 +193,14 @@ def test_rewrite_plan_roundtrip_and_deterministic_ordering() -> None:
     assert reloaded == plans
 
     ordered_ids = [plan["plan_id"] for plan in plans]
-    assert ordered_ids == sorted(ordered_ids) or ordered_ids[0].startswith("rewrite:a.py")
+    assert (
+        ordered_ids
+        == ordered_or_sorted(
+            ordered_ids,
+            source="test_compute_fingerprint_rewrite_plans_json_roundtrip.ordered_ids",
+        )
+        or ordered_ids[0].startswith("rewrite:a.py")
+    )
     assert all("payload_schema" in plan for plan in plans)
 
 

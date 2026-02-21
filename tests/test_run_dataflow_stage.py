@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from gabion.order_contract import ordered_or_sorted
 from scripts import run_dataflow_stage
 
 
@@ -49,26 +50,20 @@ def _obligation_trace_path(paths: dict[str, Path]) -> Path:
 
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered::run_dataflow_stage.py::scripts.run_dataflow_stage._stage_ids
 def test_stage_ids_are_bounded_and_ordered() -> None:
-    assert run_dataflow_stage._stage_ids("a", 3) == ["a", "b", "c"]
-    assert run_dataflow_stage._stage_ids("b", 3) == ["b", "c"]
-    assert run_dataflow_stage._stage_ids("x", 2) == ["a", "b"]
-    assert run_dataflow_stage._stage_ids("a", 0) == []
+    assert run_dataflow_stage._stage_ids("run", 3) == ["run"]
+    assert run_dataflow_stage._stage_ids("x", 2) == ["run"]
+    assert run_dataflow_stage._stage_ids("run", 0) == []
 
 
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_stage_strictness_profile_supports_named_and_positional::run_dataflow_stage.py::scripts.run_dataflow_stage._parse_stage_strictness_profile
 def test_parse_stage_strictness_profile_supports_named_and_positional() -> None:
-    assert run_dataflow_stage._parse_stage_strictness_profile("a=low,b=high,c=low") == {
-        "a": "low",
-        "b": "high",
-        "c": "low",
+    assert run_dataflow_stage._parse_stage_strictness_profile("run=low,b=high,c=low") == {
+        "run": "low",
     }
-    assert run_dataflow_stage._parse_stage_strictness_profile("low,high") == {
-        "a": "low",
-        "b": "high",
+    assert run_dataflow_stage._parse_stage_strictness_profile("high,low") == {
+        "run": "high",
     }
-    assert run_dataflow_stage._parse_stage_strictness_profile("a=bad,b=high") == {
-        "b": "high"
-    }
+    assert run_dataflow_stage._parse_stage_strictness_profile("run=bad,b=high") == {}
 
 
 # gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_check_command_includes_strictness_when_provided::run_dataflow_stage.py::scripts.run_dataflow_stage._check_command::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths
@@ -363,7 +358,10 @@ def test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip()
     )
 
     assert markers == ()
-    assert sorted(row["status"] for row in rows) == [
+    assert ordered_or_sorted(
+        (row["status"] for row in rows),
+        source="test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip.statuses",
+    ) == [
         "satisfied",
         "skipped_by_policy",
         "unsatisfied",
@@ -400,3 +398,195 @@ def test_timeout_stage_with_missing_incremental_obligations_marks_incomplete() -
     )
     assert rows == ()
     assert markers == ("missing_incremental_obligations",)
+
+
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_debug_dump_state_transitions_track_active_stage::run_dataflow_stage.py::scripts.run_dataflow_stage._debug_dump_stage_end::run_dataflow_stage.py::scripts.run_dataflow_stage._debug_dump_stage_start
+def test_debug_dump_state_transitions_track_active_stage() -> None:
+    state = run_dataflow_stage.DebugDumpState(
+        stage_ids=("a", "b"),
+        started_wall_seconds=10.0,
+    )
+    command = ("/usr/bin/python", "-m", "gabion", "check")
+    run_dataflow_stage._debug_dump_stage_start(
+        state=state,
+        stage_id="a",
+        command=command,
+        strictness="high",
+        monotonic_fn=lambda: 15.0,
+    )
+    assert state.attempts_started == 1
+    assert state.active_stage_id == "a"
+    assert state.active_stage_started_wall_seconds == 15.0
+    assert state.active_stage_strictness == "high"
+    assert state.active_command == command
+    result = run_dataflow_stage.StageResult(
+        stage_id="a",
+        exit_code=2,
+        analysis_state="timed_out_progress_resume",
+        is_timeout_resume=True,
+        metrics_line="ticks=1 checks=1 ticks_per_ns=0.1 wall_s=1.000",
+        obligation_rows=(),
+        incompleteness_markers=(),
+    )
+    run_dataflow_stage._debug_dump_stage_end(state=state, result=result)
+    assert state.attempts_completed == 1
+    assert state.active_stage_id is None
+    assert state.active_stage_started_wall_seconds is None
+    assert state.active_stage_strictness is None
+    assert state.active_command == ()
+    assert state.last_analysis_state == "timed_out_progress_resume"
+    assert state.last_terminal_status == "timeout_resume"
+
+
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_debug_dump_writes_state_lines::run_dataflow_stage.py::scripts.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_markdown_path::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
+def test_emit_debug_dump_writes_state_lines(tmp_path: Path, capsys) -> None:
+    paths = _base_paths(tmp_path)
+    stage_paths = _stage_paths(paths)
+    _write_json(
+        paths["timeout_json"],
+        {
+            "analysis_state": "timed_out_progress_resume",
+            "progress": {
+                "classification": "timed_out_progress_resume",
+                "phase": "post",
+                "work_done": 1,
+                "work_total": 6,
+                "completed_files": 283,
+                "remaining_files": 0,
+                "total_files": 283,
+            },
+        },
+    )
+    _write_json(
+        paths["deadline_json"],
+        {
+            "ticks_consumed": 10,
+            "checks_total": 5,
+            "ticks_per_ns": 0.01,
+            "wall_total_elapsed_ns": 1_000_000_000,
+        },
+    )
+    _write_json(
+        paths["resume"],
+        {
+            "completed_paths": [{"path": "sample.py"}],
+            "analysis_index_resume": {
+                "hydrated_paths_count": 1,
+                "profiling_v1": {"counters": {"analysis_index.paths_parsed": 2}},
+            },
+        },
+    )
+    timeline_path = run_dataflow_stage._phase_timeline_markdown_path(paths["report"])
+    timeline_jsonl_path = run_dataflow_stage._phase_timeline_jsonl_path(paths["report"])
+    _write_text(
+        timeline_path,
+        "\n".join(
+            (
+                "# Dataflow Phase Timeline",
+                "",
+                "| ts_utc | event_seq | event_kind | phase | analysis_state | classification | progress_marker | primary | files | resume_checkpoint | stale_for_s | dimensions |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+                "| 2026-02-20T00:00:00Z | 1 | heartbeat | post | analysis_post_in_progress |  | deadline_obligations:start | 0/1 post_tasks | 283/283 rem=0 |  | 12.0 | post_tasks=0/1 |",
+            )
+        )
+        + "\n",
+    )
+    _write_text(
+        timeline_jsonl_path,
+        '{"event_seq":1,"event_kind":"heartbeat","phase":"post"}\n',
+    )
+    state = run_dataflow_stage.DebugDumpState(
+        stage_ids=("a", "b", "c"),
+        started_wall_seconds=0.0,
+        attempts_started=1,
+        attempts_completed=0,
+        active_stage_id="a",
+        active_stage_started_wall_seconds=5.0,
+        active_stage_strictness="high",
+        active_command=("/usr/bin/python", "-m", "gabion", "check"),
+    )
+    with run_dataflow_stage.deadline_scope_from_lsp_env():
+        run_dataflow_stage._emit_debug_dump(
+            reason="SIGUSR1",
+            state=state,
+            paths=stage_paths,
+            step_summary_path=paths["summary"],
+            monotonic_fn=lambda: 10.0,
+        )
+    captured = capsys.readouterr().out
+    assert "debug dump: reason=SIGUSR1" in captured
+    assert "active_stage=a" in captured
+    assert "resume_checkpoint=present completed_paths=1 hydrated_paths=1" in captured
+    assert "timeout_progress_state=timed_out_progress_resume" in captured
+    assert "phase_timeline_rows=1" in captured
+    assert "phase_timeline_jsonl_present=yes" in captured
+    assert "phase_timeline_last_row=| 2026-02-20T00:00:00Z | 1 | heartbeat | post |" in captured
+    assert "phase_timeline_last_stale_for_s=12.0" in captured
+    assert "debug dump: reason=SIGUSR1" in paths["summary"].read_text()
+
+
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_reset_run_observability_artifacts_clears_stale_debug_inputs_only::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_markdown_path::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_jsonl_path::run_dataflow_stage.py::scripts.run_dataflow_stage._reset_run_observability_artifacts::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text
+def test_reset_run_observability_artifacts_clears_stale_debug_inputs_only(
+    tmp_path: Path,
+) -> None:
+    paths = _base_paths(tmp_path)
+    stage_paths = _stage_paths(paths)
+    timeline_md_path = run_dataflow_stage._phase_timeline_markdown_path(paths["report"])
+    timeline_jsonl_path = run_dataflow_stage._phase_timeline_jsonl_path(paths["report"])
+    stale_paths = (
+        paths["timeout_json"],
+        paths["timeout_md"],
+        paths["deadline_json"],
+        paths["deadline_md"],
+        _obligation_trace_path(paths),
+        timeline_md_path,
+        timeline_jsonl_path,
+        paths["report"].parent / "dataflow_checkpoint_intro_timeline.md",
+    )
+    for stale_path in stale_paths:
+        _write_text(stale_path, "stale\n")
+    _write_text(paths["resume"], "{\"checkpoint\":\"keep\"}\n")
+
+    run_dataflow_stage._reset_run_observability_artifacts(stage_paths)
+
+    for stale_path in stale_paths:
+        assert not stale_path.exists()
+    assert paths["resume"].exists()
+
+
+class _FakeSignalModule:
+    SIGUSR1 = object()
+
+    def __init__(self, previous_handler) -> None:
+        self._handlers = {self.SIGUSR1: previous_handler}
+
+    def getsignal(self, sig):
+        return self._handlers.get(sig)
+
+    def signal(self, sig, handler):
+        previous = self._handlers.get(sig)
+        self._handlers[sig] = handler
+        return previous
+
+
+# gabion:evidence E:call_footprint::tests/test_run_dataflow_stage.py::test_install_signal_debug_dump_handler_registers_and_restores::run_dataflow_stage.py::scripts.run_dataflow_stage._install_signal_debug_dump_handler
+def test_install_signal_debug_dump_handler_registers_and_restores() -> None:
+    observed: list[str] = []
+
+    def _previous_handler(_signum, _frame) -> None:
+        return None
+
+    signal_module = _FakeSignalModule(_previous_handler)
+    restore = run_dataflow_stage._install_signal_debug_dump_handler(
+        emit_dump_fn=observed.append,
+        signal_module=signal_module,
+    )
+
+    active_handler = signal_module.getsignal(signal_module.SIGUSR1)
+    assert callable(active_handler)
+    assert active_handler is not _previous_handler
+    active_handler(10, None)
+    assert observed == ["SIGUSR1"]
+
+    restore()
+    assert signal_module.getsignal(signal_module.SIGUSR1) is _previous_handler

@@ -284,17 +284,87 @@ def test_lint_parsing_and_writers(tmp_path: Path, capsys) -> None:
     assert "sarif-2.1.0.json" in capsys.readouterr().out
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_write_lint_sarif_reuses_existing_rule::cli.py::gabion.cli._write_lint_sarif
-def test_write_lint_sarif_reuses_existing_rule(tmp_path: Path) -> None:
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target
+def test_lint_writers_accept_dev_stdout(capsys) -> None:
+    entries = [
+        {
+            "path": "mod.py",
+            "line": 3,
+            "col": 1,
+            "code": "GABION_CODE",
+            "message": "note",
+            "severity": "warning",
+        }
+    ]
+    cli._write_lint_jsonl("/dev/stdout", entries)
+    assert "GABION_CODE" in capsys.readouterr().out
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_reopens_for_encoding_change::cli.py::gabion.cli._TargetStreamRouter._stream_for_target
+def test_target_stream_router_reopens_for_encoding_change(tmp_path: Path) -> None:
+    target_path = tmp_path / "enc.txt"
+    router = cli._TargetStreamRouter(max_open_streams=2)
+    try:
+        router.write(target=str(target_path), payload="alpha", encoding="utf-8")
+        router.write(target=str(target_path), payload="beta", encoding="utf-16")
+        assert target_path.read_text(encoding="utf-16") == "beta"
+    finally:
+        router.close()
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_evicts_oldest_stream::cli.py::gabion.cli._TargetStreamRouter._stream_for_target
+def test_target_stream_router_evicts_oldest_stream(tmp_path: Path) -> None:
+    first_path = tmp_path / "first.txt"
+    second_path = tmp_path / "second.txt"
+    router = cli._TargetStreamRouter(max_open_streams=1)
+    try:
+        router.write(target=str(first_path), payload="one")
+        router.write(target=str(second_path), payload="two")
+        assert list(router._streams.keys()) == [str(second_path)]
+    finally:
+        router.close()
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_target_stream_router_close_closes_all_streams::cli.py::gabion.cli._TargetStreamRouter.close
+def test_target_stream_router_close_closes_all_streams(tmp_path: Path) -> None:
+    router = cli._TargetStreamRouter(max_open_streams=4)
+    router.write(target=str(tmp_path / "a.txt"), payload="a")
+    router.write(target=str(tmp_path / "b.txt"), payload="b")
+    assert len(router._streams) == 2
+    router.close()
+    assert len(router._streams) == 0
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_normalize_optional_output_target_handles_empty::cli.py::gabion.cli._normalize_optional_output_target
+def test_normalize_optional_output_target_handles_empty() -> None:
+    assert cli._normalize_optional_output_target(None) is None
+    assert cli._normalize_optional_output_target("   ") is None
+    assert (
+        cli._normalize_optional_output_target("-")
+        == "/dev/stdout"
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_write_text_to_target_reuses_stream_and_preserves_overwrite_semantics::cli.py::gabion.cli._write_text_to_target
+def test_write_text_to_target_reuses_stream_and_preserves_overwrite_semantics(
+    tmp_path: Path,
+) -> None:
+    target_path = tmp_path / "out.txt"
+    cli._write_text_to_target(target_path, "first")
+    cli._write_text_to_target(target_path, "second")
+    assert target_path.read_text(encoding="utf-8") == "second"
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_write_lint_sarif_rejects_duplicate_rule_codes::cli.py::gabion.cli._write_lint_sarif
+def test_write_lint_sarif_rejects_duplicate_rule_codes(tmp_path: Path) -> None:
     entries = [
         {"path": "mod.py", "line": 1, "col": 1, "code": "GABION_CODE", "message": "m1"},
         {"path": "mod.py", "line": 2, "col": 1, "code": "GABION_CODE", "message": "m2"},
     ]
     sarif_path = tmp_path / "lint.sarif"
-    cli._write_lint_sarif(str(sarif_path), entries)
-    payload = json.loads(sarif_path.read_text(encoding="utf-8"))
-    rules = payload["runs"][0]["tool"]["driver"]["rules"]
-    assert len(rules) == 1
+    with pytest.raises(ValueError) as exc:
+        cli._write_lint_sarif(str(sarif_path), entries)
+    assert "duplicate SARIF rule code(s): GABION_CODE" in str(exc.value)
 
 
 # gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli._write_lint_jsonl::target E:decision_surface/direct::cli.py::gabion.cli._write_lint_sarif::target
@@ -1077,6 +1147,219 @@ def test_checkpoint_intro_timeline_from_progress_notification_rejects_invalid_sh
     )
 
 
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_checkpoint_intro_timeline_from_progress_notification_rejects_empty_row::cli.py::gabion.cli._checkpoint_intro_timeline_from_progress_notification
+def test_checkpoint_intro_timeline_from_progress_notification_rejects_empty_row() -> None:
+    assert (
+        cli._checkpoint_intro_timeline_from_progress_notification(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {"checkpoint_intro_timeline_row": ""},
+                },
+            }
+        )
+        is None
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification::cli.py::gabion.cli._phase_progress_from_progress_notification
+def test_phase_progress_from_progress_notification() -> None:
+    payload = cli._phase_progress_from_progress_notification(
+        {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "phase": "forest",
+                    "work_done": 3,
+                    "work_total": 8,
+                    "completed_files": 282,
+                    "remaining_files": 0,
+                    "total_files": 282,
+                    "analysis_state": "analysis_forest_in_progress",
+                    "classification": "forest_projection",
+                    "done": False,
+                },
+            },
+        }
+    )
+    assert payload == {
+        "phase": "forest",
+        "work_done": 3,
+        "work_total": 8,
+        "completed_files": 282,
+        "remaining_files": 0,
+        "total_files": 282,
+        "analysis_state": "analysis_forest_in_progress",
+        "classification": "forest_projection",
+        "event_kind": "",
+        "event_seq": None,
+        "stale_for_s": None,
+        "phase_progress_v2": None,
+        "progress_marker": "",
+        "phase_timeline_header": "",
+        "phase_timeline_row": "",
+        "resume_checkpoint": None,
+        "done": False,
+    }
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_progress_from_progress_notification_rejects_invalid_shapes::cli.py::gabion.cli._phase_progress_from_progress_notification
+def test_phase_progress_from_progress_notification_rejects_invalid_shapes() -> None:
+    assert (
+        cli._phase_progress_from_progress_notification(
+            {"method": "textDocument/publishDiagnostics"}
+        )
+        is None
+    )
+    assert (
+        cli._phase_progress_from_progress_notification(
+            {"method": "$/progress", "params": "bad"}
+        )
+        is None
+    )
+    assert (
+        cli._phase_progress_from_progress_notification(
+            {"method": "$/progress", "params": {"token": "wrong", "value": {}}}
+        )
+        is None
+    )
+    assert (
+        cli._phase_progress_from_progress_notification(
+            {
+                "method": "$/progress",
+                "params": {"token": "gabion.dataflowAudit/progress-v1", "value": "bad"},
+            }
+        )
+        is None
+    )
+    assert (
+        cli._phase_progress_from_progress_notification(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {"phase": ""},
+                },
+            }
+        )
+        is None
+    )
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_phase_timeline_row_from_phase_progress_formats_dimensions_resume_and_staleness::cli.py::gabion.cli._phase_timeline_row_from_phase_progress
+def test_phase_timeline_row_from_phase_progress_formats_dimensions_resume_and_staleness() -> None:
+    row = cli._phase_timeline_row_from_phase_progress(
+        {
+            "ts_utc": "2026-02-20T00:00:00Z",
+            "event_seq": 7,
+            "event_kind": "heartbeat",
+            "phase": "forest",
+            "analysis_state": "analysis_forest_in_progress",
+            "classification": "forest_projection",
+            "progress_marker": "bundle_groups",
+            "phase_progress_v2": {
+                "primary_unit": "forest_mutable_steps",
+                "primary_done": 9,
+                "primary_total": 4,
+                "dimensions": {
+                    "forest_mutable_steps": {"done": 9, "total": 4},
+                    "callsite_inventory": {"done": 55, "total": 55},
+                    "invalid_payload": "skip",
+                    "invalid_done": {"done": "x", "total": 5},
+                },
+            },
+            "completed_files": 5,
+            "remaining_files": 1,
+            "total_files": 6,
+            "resume_checkpoint": {
+                "checkpoint_path": "artifacts/audit_reports/resume.json",
+                "status": "pending",
+            },
+            "stale_for_s": 6.75,
+        }
+    )
+    assert "4/4 forest_mutable_steps" in row
+    assert "5/6 rem=1" in row
+    assert "reused_files=unknown" in row
+    assert "forest_mutable_steps=4/4" in row
+    assert "callsite_inventory=55/55" in row
+    assert "6.8" in row
+
+    row_unit_only = cli._phase_timeline_row_from_phase_progress(
+        {
+            "phase": "collection",
+            "phase_progress_v2": {
+                "primary_unit": "collection_files",
+                "dimensions": {},
+            },
+        }
+    )
+    assert "collection_files" in row_unit_only
+
+    row_known_resume = cli._phase_timeline_row_from_phase_progress(
+        {
+            "phase": "collection",
+            "phase_progress_v2": {
+                "primary_unit": "collection_files",
+                "dimensions": "bad",
+            },
+            "resume_checkpoint": {
+                "checkpoint_path": "artifacts/audit_reports/resume.json",
+                "status": "checkpoint_loaded",
+                "reused_files": 2,
+                "total_files": 5,
+            },
+        }
+    )
+    assert "reused_files=2/5" in row_known_resume
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_phase_progress_line_ignores_missing_phase::cli.py::gabion.cli._emit_phase_progress_line
+def test_emit_phase_progress_line_ignores_missing_phase(capsys) -> None:
+    cli._emit_phase_progress_line({})
+    assert capsys.readouterr().out == ""
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_phase_progress_line_formats_payload_fields::cli.py::gabion.cli._emit_phase_progress_line
+def test_emit_phase_progress_line_formats_payload_fields(capsys) -> None:
+    cli._emit_phase_progress_line(
+        {
+            "phase": "edge",
+            "analysis_state": "analysis_edge_in_progress",
+            "classification": "edge_projection",
+            "work_done": 2,
+            "work_total": 3,
+            "completed_files": 8,
+            "remaining_files": 1,
+            "total_files": 9,
+            "done": False,
+        }
+    )
+    cli._emit_phase_progress_line(
+        {
+            "phase": "post",
+            "analysis_state": "succeeded",
+            "classification": "succeeded",
+            "work_done": 3,
+            "work_total": 3,
+            "completed_files": 9,
+            "remaining_files": 0,
+            "total_files": 9,
+            "done": True,
+        }
+    )
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("progress ")
+    assert "phase=edge" in lines[0]
+    assert "work=2/3" in lines[0]
+    assert "files=8/9 remaining=1" in lines[0]
+    assert lines[1].startswith("progress done ")
+    assert "phase=post" in lines[1]
+    assert "work=3/3" in lines[1]
+
+
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_resume_checkpoint_startup_line::cli.py::gabion.cli._emit_resume_checkpoint_startup_line
 def test_emit_resume_checkpoint_startup_line(capsys) -> None:
     cli._emit_resume_checkpoint_startup_line(
@@ -1163,8 +1446,8 @@ def test_run_dataflow_raw_argv_emits_pending_unknown_then_first_resume_update(
     assert "reused_files=2/5" in startup_lines[1]
 
 
-# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_checkpoint_intro_timeline_rows::cli.py::gabion.cli._run_dataflow_raw_argv
-def test_run_dataflow_raw_argv_emits_checkpoint_intro_timeline_rows(
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_phase_timeline_rows::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_run_dataflow_raw_argv_emits_phase_timeline_rows(
     tmp_path: Path,
     capsys,
 ) -> None:
@@ -1180,8 +1463,9 @@ def test_run_dataflow_raw_argv_emits_checkpoint_intro_timeline_rows(
                 "params": {
                     "token": "gabion.dataflowAudit/progress-v1",
                     "value": {
-                        "checkpoint_intro_timeline_header": "| ts | done |",
-                        "checkpoint_intro_timeline_row": "| t0 | 0 |",
+                        "phase": "collection",
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t0 | collection |",
                     },
                 },
             }
@@ -1192,7 +1476,8 @@ def test_run_dataflow_raw_argv_emits_checkpoint_intro_timeline_rows(
                 "params": {
                     "token": "gabion.dataflowAudit/progress-v1",
                     "value": {
-                        "checkpoint_intro_timeline_row": "| t1 | 1 |",
+                        "phase": "forest",
+                        "phase_timeline_row": "| t1 | forest |",
                     },
                 },
             }
@@ -1210,9 +1495,66 @@ def test_run_dataflow_raw_argv_emits_checkpoint_intro_timeline_rows(
         )
     assert exc.value.exit_code == 0
     output = capsys.readouterr().out.splitlines()
-    assert "| ts | done |" in output
-    assert "| t0 | 0 |" in output
-    assert "| t1 | 1 |" in output
+    assert "| ts | phase |" in output
+    assert "| t0 | collection |" in output
+    assert "| t1 | forest |" in output
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_dedupes_duplicate_event_seq::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_run_dataflow_raw_argv_dedupes_duplicate_event_seq(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
+
+    def _fake_runner(_request, *, root=None, notification_callback=None):
+        _ = root
+        assert callable(notification_callback)
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "collection",
+                        "event_seq": 11,
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t0 | collection |",
+                    },
+                },
+            }
+        )
+        notification_callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "forest",
+                        "event_seq": 11,
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t1 | forest |",
+                    },
+                },
+            }
+        )
+        return {"exit_code": 0}
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            [
+                str(module_path),
+                "--root",
+                str(tmp_path),
+            ],
+            runner=_fake_runner,
+        )
+    assert exc.value.exit_code == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert "| ts | phase |" in lines
+    assert "| t0 | collection |" in lines
+    assert "| t1 | forest |" not in lines
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_ignores_empty_checkpoint_intro_timeline_row::cli.py::gabion.cli._run_dataflow_raw_argv
@@ -1252,6 +1594,154 @@ def test_run_dataflow_raw_argv_ignores_empty_checkpoint_intro_timeline_row(
     assert exc.value.exit_code == 0
     output = capsys.readouterr().out
     assert "| ts | done |" not in output
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_phase_timeline_rows_for_collection_and_non_collection_updates::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_run_dataflow_raw_argv_emits_phase_timeline_rows_for_collection_and_non_collection_updates(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
+
+    def _fake_runner(_request, *, root=None, notification_callback=None):
+        _ = root
+        assert callable(notification_callback)
+        collection_notification = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "phase": "collection",
+                    "work_done": 5,
+                    "work_total": 10,
+                    "completed_files": 5,
+                    "remaining_files": 5,
+                    "total_files": 10,
+                },
+            },
+        }
+        forest_notification = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "phase": "forest",
+                    "work_done": 1,
+                    "work_total": 3,
+                    "completed_files": 10,
+                    "remaining_files": 0,
+                    "total_files": 10,
+                    "analysis_state": "analysis_forest_in_progress",
+                },
+            },
+        }
+        post_done_notification = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "phase": "post",
+                    "work_done": 3,
+                    "work_total": 3,
+                    "completed_files": 10,
+                    "remaining_files": 0,
+                    "total_files": 10,
+                    "analysis_state": "succeeded",
+                    "classification": "succeeded",
+                    "done": True,
+                },
+            },
+        }
+        notification_callback(collection_notification)
+        notification_callback(forest_notification)
+        notification_callback(forest_notification)
+        notification_callback(post_done_notification)
+        return {"exit_code": 0}
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            [
+                str(module_path),
+                "--root",
+                str(tmp_path),
+            ],
+            runner=_fake_runner,
+    )
+    assert exc.value.exit_code == 0
+    lines = capsys.readouterr().out.splitlines()
+    table_rows = [line for line in lines if line.startswith("| ") and not line.startswith("| ---")]
+    assert any("| collection |" in line for line in table_rows)
+    assert sum(1 for line in table_rows if "| forest |" in line) == 1
+    assert any("| post |" in line for line in table_rows)
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_dataflow_raw_argv_emits_distinct_post_markers_even_when_work_is_unchanged::cli.py::gabion.cli._run_dataflow_raw_argv
+def test_run_dataflow_raw_argv_emits_distinct_post_markers_even_when_work_is_unchanged(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    module_path = tmp_path / "sample.py"
+    module_path.write_text("def sample():\n    return 1\n", encoding="utf-8")
+
+    def _fake_runner(_request, *, root=None, notification_callback=None):
+        _ = root
+        assert callable(notification_callback)
+        post_progress_a = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "phase": "post",
+                    "work_done": 0,
+                    "work_total": 1,
+                    "completed_files": 10,
+                    "remaining_files": 0,
+                    "total_files": 10,
+                    "analysis_state": "analysis_post_in_progress",
+                    "progress_marker": "deadline_obligations:start",
+                },
+            },
+        }
+        post_progress_b = {
+            "method": "$/progress",
+            "params": {
+                "token": "gabion.dataflowAudit/progress-v1",
+                "value": {
+                    "phase": "post",
+                    "work_done": 0,
+                    "work_total": 1,
+                    "completed_files": 10,
+                    "remaining_files": 0,
+                    "total_files": 10,
+                    "analysis_state": "analysis_post_in_progress",
+                    "progress_marker": "deadline_obligations:index_ready:1",
+                },
+            },
+        }
+        notification_callback(post_progress_a)
+        notification_callback(post_progress_b)
+        return {"exit_code": 0}
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            [
+                str(module_path),
+                "--root",
+                str(tmp_path),
+            ],
+            runner=_fake_runner,
+        )
+    assert exc.value.exit_code == 0
+    lines = capsys.readouterr().out.splitlines()
+    post_lines = [
+        line
+        for line in lines
+        if line.startswith("| ") and not line.startswith("| ---") and "| post |" in line
+    ]
+    assert len(post_lines) == 2
+    assert "deadline_obligations:start" in post_lines[0]
+    assert "deadline_obligations:index_ready:1" in post_lines[1]
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_emit_analysis_resume_summary::cli.py::gabion.cli._emit_analysis_resume_summary
@@ -1326,6 +1816,25 @@ def test_dataflow_audit_emits_structure_tree(capsys) -> None:
     with pytest.raises(typer.Exit) as exc:
         cli._run_dataflow_raw_argv(
             ["sample.py", "--emit-structure-tree", "-"],
+            runner=runner,
+        )
+    assert exc.value.exit_code == 0
+    captured = capsys.readouterr()
+    assert "\"format_version\": 1" in captured.out
+
+
+# gabion:evidence E:decision_surface/direct::cli.py::gabion.cli._emit_lint_outputs::lint,lint_jsonl,lint_sarif E:decision_surface/direct::cli.py::gabion.cli.build_dataflow_payload::opts
+def test_dataflow_audit_emits_structure_tree_dev_stdout(capsys) -> None:
+    def runner(*_args, **_kwargs):
+        # dataflow-bundle: _args, _kwargs
+        return {
+            "exit_code": 0,
+            "structure_tree": {"format_version": 1, "root": ".", "files": []},
+        }
+
+    with pytest.raises(typer.Exit) as exc:
+        cli._run_dataflow_raw_argv(
+            ["sample.py", "--emit-structure-tree", "/dev/stdout"],
             runner=runner,
         )
     assert exc.value.exit_code == 0
@@ -2748,8 +3257,9 @@ def test_check_emits_checkpoint_intro_timeline_header_once(
                 "params": {
                     "token": "gabion.dataflowAudit/progress-v1",
                     "value": {
-                        "checkpoint_intro_timeline_header": "| ts | done |",
-                        "checkpoint_intro_timeline_row": "| t0 | 0 |",
+                        "phase": "collection",
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t0 | collection |",
                     },
                 },
             }
@@ -2760,8 +3270,9 @@ def test_check_emits_checkpoint_intro_timeline_header_once(
                 "params": {
                     "token": "gabion.dataflowAudit/progress-v1",
                     "value": {
-                        "checkpoint_intro_timeline_header": "| ts | done |",
-                        "checkpoint_intro_timeline_row": "| t1 | 1 |",
+                        "phase": "forest",
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t1 | forest |",
                     },
                 },
             }
@@ -2786,9 +3297,69 @@ def test_check_emits_checkpoint_intro_timeline_header_once(
     )
     assert result.exit_code == 0
     lines = result.stdout.splitlines()
-    assert lines.count("| ts | done |") == 1
-    assert "| t0 | 0 |" in lines
-    assert "| t1 | 1 |" in lines
+    assert lines.count("| ts | phase |") == 1
+    assert "| t0 | collection |" in lines
+    assert "| t1 | forest |" in lines
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_dedupes_duplicate_event_seq::cli.py::gabion.cli.app
+def test_check_dedupes_duplicate_event_seq(
+    tmp_path: Path,
+) -> None:
+    def _fake_run_check(**kwargs):
+        callback = kwargs.get("notification_callback")
+        assert callable(callback)
+        callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "collection",
+                        "event_seq": 21,
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t0 | collection |",
+                    },
+                },
+            }
+        )
+        callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "forest",
+                        "event_seq": 21,
+                        "phase_timeline_header": "| ts | phase |",
+                        "phase_timeline_row": "| t1 | forest |",
+                    },
+                },
+            }
+        )
+        return {"exit_code": 0}
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "sample.py",
+            "--root",
+            str(tmp_path),
+            "--no-fail-on-violations",
+            "--no-fail-on-type-ambiguities",
+        ],
+        obj={
+            "run_check": _fake_run_check,
+            "run_with_timeout_retries": lambda run_once, **_kwargs: run_once(),
+        },
+    )
+    assert result.exit_code == 0
+    lines = result.stdout.splitlines()
+    assert "| ts | phase |" in lines
+    assert "| t0 | collection |" in lines
+    assert "| t1 | forest |" not in lines
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_ignores_empty_checkpoint_intro_timeline_row::cli.py::gabion.cli.app
@@ -2830,6 +3401,91 @@ def test_check_ignores_empty_checkpoint_intro_timeline_row(
     )
     assert result.exit_code == 0
     assert "| ts | done |" not in result.stdout
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_check_emits_non_collection_phase_progress_lines::cli.py::gabion.cli.app
+def test_check_emits_non_collection_phase_progress_lines(
+    tmp_path: Path,
+) -> None:
+    def _fake_run_check(**kwargs):
+        callback = kwargs.get("notification_callback")
+        assert callable(callback)
+        callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "edge",
+                        "work_done": 2,
+                        "work_total": 4,
+                        "completed_files": 10,
+                        "remaining_files": 0,
+                        "total_files": 10,
+                        "analysis_state": "analysis_edge_in_progress",
+                    },
+                },
+            }
+        )
+        callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "edge",
+                        "work_done": 2,
+                        "work_total": 4,
+                        "completed_files": 10,
+                        "remaining_files": 0,
+                        "total_files": 10,
+                        "analysis_state": "analysis_edge_in_progress",
+                    },
+                },
+            }
+        )
+        callback(
+            {
+                "method": "$/progress",
+                "params": {
+                    "token": "gabion.dataflowAudit/progress-v1",
+                    "value": {
+                        "phase": "post",
+                        "work_done": 4,
+                        "work_total": 4,
+                        "completed_files": 10,
+                        "remaining_files": 0,
+                        "total_files": 10,
+                        "analysis_state": "succeeded",
+                        "classification": "succeeded",
+                        "done": True,
+                    },
+                },
+            }
+        )
+        return {"exit_code": 0}
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "check",
+            "sample.py",
+            "--root",
+            str(tmp_path),
+            "--no-fail-on-violations",
+            "--no-fail-on-type-ambiguities",
+        ],
+        obj={
+            "run_check": _fake_run_check,
+            "run_with_timeout_retries": lambda run_once, **_kwargs: run_once(),
+        },
+    )
+    assert result.exit_code == 0
+    lines = result.stdout.splitlines()
+    table_rows = [line for line in lines if line.startswith("| ") and not line.startswith("| ---")]
+    assert sum(1 for line in table_rows if "| edge |" in line) == 1
+    assert any("| post |" in line for line in table_rows)
 
 
 # gabion:evidence E:call_footprint::tests/test_cli_helpers.py::test_run_governance_cli_error_paths::cli.py::gabion.cli._run_governance_cli

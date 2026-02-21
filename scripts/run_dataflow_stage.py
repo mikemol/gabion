@@ -5,21 +5,26 @@ import argparse
 import hashlib
 import json
 import os
+import signal
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
+from types import FrameType
+from typing import Any, Callable, Mapping, Sequence
 
 from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
+from gabion.order_contract import ordered_or_sorted
 
 try:  # pragma: no cover - import form depends on invocation mode
     from scripts.deadline_runtime import deadline_scope_from_lsp_env
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import deadline_scope_from_lsp_env
 
-_STAGE_SEQUENCE: tuple[str, ...] = ("a", "b", "c")
+_STAGE_SEQUENCE: tuple[str, ...] = ("run",)
 _DELTA_GATE_SCRIPTS: tuple[str, ...] = (
     "scripts/obsolescence_delta_gate.py",
     "scripts/obsolescence_delta_unmapped_gate.py",
@@ -57,6 +62,20 @@ class StagePaths:
     obligation_trace_json_path: Path
     resume_checkpoint_path: Path
     baseline_path: Path
+
+
+@dataclass
+class DebugDumpState:
+    stage_ids: tuple[str, ...]
+    started_wall_seconds: float
+    attempts_started: int = 0
+    attempts_completed: int = 0
+    active_stage_id: str | None = None
+    active_stage_started_wall_seconds: float | None = None
+    active_stage_strictness: str | None = None
+    active_command: tuple[str, ...] = ()
+    last_analysis_state: str = "none"
+    last_terminal_status: str = "none"
 
 
 def _load_json_object(path: Path) -> dict[str, object]:
@@ -159,6 +178,7 @@ def _normalize_obligation_status(raw_status: str, detail: str) -> str:
 
 
 def _obligation_id(stage_id: str, contract: str, kind: str, section_id: str, phase: str) -> str:
+    # dataflow-bundle: contract, kind, phase, section_id, stage_id
     material = "|".join((stage_id, contract, kind, section_id, phase))
     digest = hashlib.sha1(material.encode("utf-8")).hexdigest()
     return f"obl-{digest[:12]}"
@@ -237,7 +257,10 @@ def _obligation_trace_payload(results: Sequence[StageResult]) -> dict[str, objec
     return {
         "trace_version": 1,
         "complete": not markers,
-        "incompleteness_markers": sorted(markers),
+        "incompleteness_markers": ordered_or_sorted(
+            markers,
+            source="_obligation_trace_payload.incompleteness_markers",
+        ),
         "summary": summary,
         "obligations": obligations,
     }
@@ -298,6 +321,236 @@ def _append_lines(path: Path | None, lines: Sequence[str]) -> None:
             handle.write(f"{line}\n")
 
 
+def _phase_timeline_markdown_path(report_path: Path) -> Path:
+    return report_path.parent / "dataflow_phase_timeline.md"
+
+
+def _phase_timeline_jsonl_path(report_path: Path) -> Path:
+    return report_path.parent / "dataflow_phase_timeline.jsonl"
+
+
+def _markdown_timeline_row_count(path: Path) -> int:
+    if not path.exists():
+        return 0
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return 0
+    table_rows = 0
+    for line in lines:
+        check_deadline()
+        if line.startswith("| "):
+            table_rows += 1
+    return max(0, table_rows - 2)
+
+
+def _markdown_timeline_last_row(path: Path) -> str:
+    if not path.exists():
+        return ""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return ""
+    for line in reversed(lines):
+        check_deadline()
+        if line.startswith("| ") and not line.startswith("| ---"):
+            return line
+    return ""
+
+
+def _phase_timeline_stale_for_s_from_row(row: str) -> str:
+    stripped = row.strip()
+    if not stripped.startswith("|"):
+        return ""
+    cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+    # Column order is defined by gabion server telemetry timeline helpers.
+    stale_index = 10
+    if len(cells) <= stale_index:
+        return ""
+    value = cells[stale_index]
+    return value if value else ""
+
+
+def _command_preview(command: Sequence[str], *, max_chars: int = 240) -> str:
+    text = " ".join(str(token) for token in command)
+    if len(text) <= max_chars:
+        return text
+    return f"{text[: max_chars - 3]}..."
+
+
+def _timeout_progress_metrics_line(path: Path) -> str:
+    payload = _load_json_object(path)
+    if not payload:
+        return "timeout_progress=missing"
+    analysis_state = _analysis_state(path)
+    progress = payload.get("progress")
+    if not isinstance(progress, dict):
+        return f"timeout_progress_state={analysis_state} classification=n/a phase=n/a"
+    classification = str(progress.get("classification", "") or "n/a")
+    phase = str(progress.get("phase", "") or "n/a")
+    work_done = progress.get("work_done")
+    work_total = progress.get("work_total")
+    completed_files = progress.get("completed_files")
+    remaining_files = progress.get("remaining_files")
+    total_files = progress.get("total_files")
+    return (
+        f"timeout_progress_state={analysis_state} "
+        f"classification={classification} phase={phase} "
+        f"work={work_done}/{work_total} files={completed_files}/{total_files} "
+        f"remaining={remaining_files}"
+    )
+
+
+def _unlink_if_exists(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
+    except OSError:
+        return
+
+
+def _reset_run_observability_artifacts(paths: StagePaths) -> None:
+    phase_timeline_md = _phase_timeline_markdown_path(paths.report_path)
+    phase_timeline_jsonl = _phase_timeline_jsonl_path(paths.report_path)
+    checkpoint_intro_timeline = paths.report_path.parent / "dataflow_checkpoint_intro_timeline.md"
+    for artifact_path in (
+        paths.timeout_progress_json_path,
+        paths.timeout_progress_md_path,
+        paths.deadline_profile_json_path,
+        paths.deadline_profile_md_path,
+        paths.obligation_trace_json_path,
+        phase_timeline_md,
+        phase_timeline_jsonl,
+        checkpoint_intro_timeline,
+    ):
+        check_deadline()
+        _unlink_if_exists(artifact_path)
+
+
+def _debug_dump_stage_start(
+    *,
+    state: DebugDumpState,
+    stage_id: str,
+    command: Sequence[str],
+    strictness: str | None,
+    monotonic_fn: Callable[[], float] = time.monotonic,
+) -> None:
+    state.attempts_started += 1
+    state.active_stage_id = stage_id
+    state.active_stage_started_wall_seconds = monotonic_fn()
+    state.active_stage_strictness = strictness
+    state.active_command = tuple(command)
+
+
+def _debug_dump_stage_end(*, state: DebugDumpState, result: StageResult) -> None:
+    state.attempts_completed += 1
+    state.last_analysis_state = result.analysis_state
+    state.last_terminal_status = result.terminal_status
+    state.active_stage_id = None
+    state.active_stage_started_wall_seconds = None
+    state.active_stage_strictness = None
+    state.active_command = ()
+
+
+def _emit_debug_dump(
+    *,
+    reason: str,
+    state: DebugDumpState,
+    paths: StagePaths,
+    step_summary_path: Path | None,
+    monotonic_fn: Callable[[], float] = time.monotonic,
+) -> None:
+    now_wall = monotonic_fn()
+    active_elapsed_s = (
+        f"{max(0.0, now_wall - state.active_stage_started_wall_seconds):.1f}"
+        if isinstance(state.active_stage_started_wall_seconds, float)
+        else "n/a"
+    )
+    wall_elapsed_s = max(0.0, now_wall - state.started_wall_seconds)
+    stage_id = state.active_stage_id or "none"
+    stage_strictness = state.active_stage_strictness or "default"
+    attempts_total = max(1, len(state.stage_ids))
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lines: list[str] = [
+        (
+            "debug dump: "
+            f"reason={reason} ts_utc={timestamp} pid={os.getpid()} "
+            f"attempts_started={state.attempts_started}/{attempts_total} "
+            f"attempts_completed={state.attempts_completed}/{attempts_total} "
+            f"active_stage={stage_id} active_strictness={stage_strictness} "
+            f"active_elapsed_s={active_elapsed_s} wall_elapsed_s={wall_elapsed_s:.1f}"
+        ),
+        f"debug dump: resume={_resume_checkpoint_metrics_line(paths.resume_checkpoint_path)}",
+        f"debug dump: timeout={_timeout_progress_metrics_line(paths.timeout_progress_json_path)}",
+        f"debug dump: deadline={_metrics_line(paths.deadline_profile_json_path)}",
+        (
+            "debug dump: "
+            f"last_stage_state={state.last_analysis_state} "
+            f"last_terminal_status={state.last_terminal_status}"
+        ),
+    ]
+    if state.active_command:
+        lines.append(
+            f"debug dump: active_command={_command_preview(state.active_command)}"
+        )
+    phase_timeline_markdown = _phase_timeline_markdown_path(paths.report_path)
+    phase_timeline_jsonl = _phase_timeline_jsonl_path(paths.report_path)
+    lines.append(
+        "debug dump: "
+        f"phase_timeline_rows={_markdown_timeline_row_count(phase_timeline_markdown)} "
+        f"path={phase_timeline_markdown}"
+    )
+    lines.append(
+        "debug dump: "
+        f"phase_timeline_jsonl_present={'yes' if phase_timeline_jsonl.exists() else 'no'} "
+        f"path={phase_timeline_jsonl}"
+    )
+    last_timeline_row = _markdown_timeline_last_row(phase_timeline_markdown)
+    if last_timeline_row:
+        lines.append(f"debug dump: phase_timeline_last_row={last_timeline_row}")
+        stale_for_s = _phase_timeline_stale_for_s_from_row(last_timeline_row)
+        if stale_for_s:
+            lines.append(f"debug dump: phase_timeline_last_stale_for_s={stale_for_s}")
+    for line in deadline_loop_iter(lines):
+        print(line, flush=True)
+    _append_lines(step_summary_path, [f"- {lines[0]}"])
+
+
+def _install_signal_debug_dump_handler(
+    *,
+    emit_dump_fn: Callable[[str], None],
+    signal_module: Any = signal,
+) -> Callable[[], None]:
+    sigusr1 = getattr(signal_module, "SIGUSR1", None)
+    signal_fn = getattr(signal_module, "signal", None)
+    getsignal_fn = getattr(signal_module, "getsignal", None)
+    if sigusr1 is None or not callable(signal_fn):
+        return lambda: None
+    previous_handler = getsignal_fn(sigusr1) if callable(getsignal_fn) else None
+
+    def _signal_handler(_signum: int, _frame: FrameType | None) -> None:
+        emit_dump_fn("SIGUSR1")
+
+    signal_fn(sigusr1, _signal_handler)
+
+    def _restore() -> None:
+        if previous_handler is not None:
+            signal_fn(sigusr1, previous_handler)
+
+    return _restore
+
+
+def _env_int(name: str, default: int) -> int:
+    text = os.getenv(name, "").strip()
+    if not text:
+        return default
+    try:
+        return int(text)
+    except ValueError:
+        return default
+
+
 def _check_command(
     *,
     paths: StagePaths,
@@ -332,25 +585,27 @@ def run_stage(
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
     strictness: str | None = None,
+    command: Sequence[str] | None = None,
 ) -> StageResult:
     paths.report_path.parent.mkdir(parents=True, exist_ok=True)
     paths.deadline_profile_json_path.parent.mkdir(parents=True, exist_ok=True)
     resume_metrics_line = _resume_checkpoint_metrics_line(paths.resume_checkpoint_path)
     strictness_note = f" strictness={strictness}" if strictness else ""
-    print(f"stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}")
+    print(f"stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}", flush=True)
     _append_lines(
         step_summary_path,
         [f"- stage {stage_id.upper()}: {resume_metrics_line}{strictness_note}"],
     )
-    exit_code = int(
-        run_command_fn(
-            _check_command(
-                paths=paths,
-                resume_on_timeout=resume_on_timeout,
-                strictness=strictness,
-            )
+    stage_command = (
+        list(command)
+        if command is not None
+        else _check_command(
+            paths=paths,
+            resume_on_timeout=resume_on_timeout,
+            strictness=strictness,
         )
     )
+    exit_code = int(run_command_fn(stage_command))
     analysis_state = _analysis_state(paths.timeout_progress_json_path)
     is_timeout_resume = analysis_state == "timed_out_progress_resume"
     metrics_line = _metrics_line(paths.deadline_profile_json_path)
@@ -372,6 +627,16 @@ def run_stage(
         paths.deadline_profile_md_path,
         _stage_snapshot_path(paths.deadline_profile_md_path, stage_id),
     )
+    phase_timeline_markdown = _phase_timeline_markdown_path(paths.report_path)
+    _copy_if_exists(
+        phase_timeline_markdown,
+        _stage_snapshot_path(phase_timeline_markdown, stage_id),
+    )
+    phase_timeline_jsonl = _phase_timeline_jsonl_path(paths.report_path)
+    _copy_if_exists(
+        phase_timeline_jsonl,
+        _stage_snapshot_path(phase_timeline_jsonl, stage_id),
+    )
 
     timeout_payload = _load_json_object(paths.timeout_progress_json_path)
     obligation_rows, incompleteness_markers = _obligation_rows_from_timeout_payload(
@@ -383,7 +648,8 @@ def run_stage(
     stage_upper = stage_id.upper()
     print(
         f"stage {stage_upper}: exit={exit_code} "
-        f"analysis_state={analysis_state} {metrics_line}{strictness_note}"
+        f"analysis_state={analysis_state} {metrics_line}{strictness_note}",
+        flush=True,
     )
     _append_lines(
         step_summary_path,
@@ -490,7 +756,7 @@ def _run_delta_gates(run_gate_fn: Callable[[Sequence[str]], int]) -> int:
     for script_path in deadline_loop_iter(_DELTA_GATE_SCRIPTS):
         gate_exit = int(run_gate_fn(_gate_command(script_path)))
         if gate_exit != 0:
-            print(f"delta gate failed: {script_path} (exit {gate_exit})")
+            print(f"delta gate failed: {script_path} (exit {gate_exit})", flush=True)
             return gate_exit
     return 0
 
@@ -506,6 +772,10 @@ def run_staged(
     max_wall_seconds: int | None = None,
     finalize_reserve_seconds: int = 0,
     monotonic_fn: Callable[[], float] = time.monotonic,
+    on_stage_start: (
+        Callable[[str, Sequence[str], str | None], None] | None
+    ) = None,
+    on_stage_end: Callable[[StageResult], None] | None = None,
 ) -> list[StageResult]:
     strictness_profile = dict(strictness_by_stage or {})
     results: list[StageResult] = []
@@ -525,17 +795,28 @@ def run_staged(
                     f"stage {stage_upper}: skipped due remaining wall budget "
                     f"({remaining:.1f}s <= reserve {reserve_seconds}s)"
                 )
-                print(message)
+                print(message, flush=True)
                 _append_lines(step_summary_path, [f"- {message}"])
                 break
+        stage_strictness = _stage_strictness(stage_id, strictness_profile)
+        stage_command = _check_command(
+            paths=paths,
+            resume_on_timeout=resume_on_timeout,
+            strictness=stage_strictness,
+        )
+        if callable(on_stage_start):
+            on_stage_start(stage_id, stage_command, stage_strictness)
         result = run_stage(
             stage_id=stage_id,
             paths=paths,
             resume_on_timeout=resume_on_timeout,
             step_summary_path=step_summary_path,
             run_command_fn=run_command_fn,
-            strictness=_stage_strictness(stage_id, strictness_profile),
+            strictness=stage_strictness,
+            command=stage_command,
         )
+        if callable(on_stage_end):
+            on_stage_end(result)
         results.append(result)
         if result.exit_code == 0:
             gate_runner = _run_subprocess if run_gate_fn is None else run_gate_fn
@@ -568,14 +849,29 @@ def run_staged(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run one dataflow grammar CI stage with deterministic outputs/artifacts."
+        description=(
+            "Run one dataflow grammar CI invocation with deterministic outputs/artifacts."
+        )
     )
-    parser.add_argument("--stage-id", default="a", choices=_STAGE_SEQUENCE)
+    default_debug_dump_interval_seconds = max(
+        0, _env_int("GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS", 0)
+    )
+    parser.add_argument(
+        "--stage-id",
+        default="run",
+        choices=_STAGE_SEQUENCE,
+        help=(
+            "Invocation identifier. Only 'run' is supported; "
+            "multi-stage retry orchestration is disabled."
+        ),
+    )
     parser.add_argument(
         "--max-attempts",
         type=int,
         default=1,
-        help="Number of staged retries to run (uses a->b->c from --stage-id).",
+        help=(
+            "Deprecated compatibility flag. A single invocation is always executed."
+        ),
     )
     parser.add_argument(
         "--report",
@@ -590,14 +886,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--resume-on-timeout",
         type=int,
-        default=1,
+        default=0,
     )
     parser.add_argument(
         "--stage-strictness-profile",
         default="",
         help=(
-            "Optional per-stage strictness profile. Accepts 'a=low,b=high,c=low' "
-            "or positional 'low,high,low'."
+            "Optional strictness profile. Accepts 'run=low' or positional 'low'."
         ),
     )
     parser.add_argument(
@@ -605,9 +900,8 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help=(
-            "Optional wall-clock cap for staged retries. "
-            "When the remaining budget is within --finalize-reserve-seconds, "
-            "additional retries are skipped."
+            "Optional wall-clock cap for invocation orchestration. "
+            "With single-invocation mode this is advisory only."
         ),
     )
     parser.add_argument(
@@ -661,15 +955,45 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Defaults to $GITHUB_STEP_SUMMARY when omitted.",
     )
+    parser.add_argument(
+        "--debug-dump-interval-seconds",
+        type=int,
+        default=default_debug_dump_interval_seconds,
+        help=(
+            "Emit debug state dumps on this interval (seconds). "
+            "Also supports on-demand dumps via SIGUSR1."
+        ),
+    )
     return parser.parse_args()
 
 
-def _run_subprocess(command: Sequence[str]) -> int:
+def _run_subprocess(
+    command: Sequence[str],
+    *,
+    heartbeat_interval_seconds: int = 0,
+    on_heartbeat: Callable[[], None] | None = None,
+    poll_interval_seconds: float = 1.0,
+    monotonic_fn: Callable[[], float] = time.monotonic,
+    sleep_fn: Callable[[float], None] = time.sleep,
+) -> int:
     try:
-        completed = subprocess.run(command, check=False)
+        process = subprocess.Popen(command)
     except OSError:
         return 127
-    return int(completed.returncode)
+    heartbeat_interval = max(0, int(heartbeat_interval_seconds))
+    last_heartbeat = monotonic_fn()
+    sleep_interval = max(0.05, float(poll_interval_seconds))
+    while True:
+        check_deadline()
+        return_code = process.poll()
+        if return_code is not None:
+            return int(return_code)
+        if heartbeat_interval > 0 and callable(on_heartbeat):
+            now = monotonic_fn()
+            if (now - last_heartbeat) >= float(heartbeat_interval):
+                on_heartbeat()
+                last_heartbeat = now
+        sleep_fn(sleep_interval)
 
 
 def main() -> int:
@@ -687,7 +1011,7 @@ def main() -> int:
 
     stage_ids = _stage_ids(args.stage_id, int(args.max_attempts))
     if not stage_ids:
-        print("No stages requested; max-attempts must be > 0.")
+        print("No stages requested; max-attempts must be > 0.", flush=True)
         return 2
     paths = StagePaths(
         report_path=args.report,
@@ -699,29 +1023,88 @@ def main() -> int:
         resume_checkpoint_path=args.resume_checkpoint,
         baseline_path=args.baseline,
     )
-    with deadline_scope_from_lsp_env():
-        strictness_by_stage = _parse_stage_strictness_profile(
-            args.stage_strictness_profile
-        )
-        results = run_staged(
-            stage_ids=stage_ids,
+    stage_started_wall = time.monotonic()
+    debug_state = DebugDumpState(
+        stage_ids=tuple(stage_ids),
+        started_wall_seconds=stage_started_wall,
+    )
+    debug_state_lock = threading.Lock()
+    debug_interval_seconds = max(0, int(args.debug_dump_interval_seconds))
+
+    def _emit_dump(reason: str) -> None:
+        with debug_state_lock:
+            snapshot = DebugDumpState(
+                stage_ids=debug_state.stage_ids,
+                started_wall_seconds=debug_state.started_wall_seconds,
+                attempts_started=debug_state.attempts_started,
+                attempts_completed=debug_state.attempts_completed,
+                active_stage_id=debug_state.active_stage_id,
+                active_stage_started_wall_seconds=debug_state.active_stage_started_wall_seconds,
+                active_stage_strictness=debug_state.active_stage_strictness,
+                active_command=tuple(debug_state.active_command),
+                last_analysis_state=debug_state.last_analysis_state,
+                last_terminal_status=debug_state.last_terminal_status,
+            )
+        _emit_debug_dump(
+            reason=reason,
+            state=snapshot,
             paths=paths,
-            resume_on_timeout=args.resume_on_timeout,
             step_summary_path=step_summary_path,
-            run_command_fn=_run_subprocess,
-            strictness_by_stage=strictness_by_stage,
-            max_wall_seconds=(
-                int(args.max_wall_seconds)
-                if int(args.max_wall_seconds) > 0
-                else None
-            ),
-            finalize_reserve_seconds=max(0, int(args.finalize_reserve_seconds)),
         )
-        trace_payload = _write_obligation_trace(paths.obligation_trace_json_path, results)
-        _append_markdown_summary(paths.timeout_progress_md_path, trace_payload)
-        _append_markdown_summary(paths.deadline_profile_md_path, trace_payload)
-        _append_lines(step_summary_path, _obligation_trace_summary_lines(trace_payload))
-        _emit_stage_outputs(github_output_path, results)
+
+    restore_signal_handler = _install_signal_debug_dump_handler(emit_dump_fn=_emit_dump)
+
+    def _run_subprocess_with_debug(command: Sequence[str]) -> int:
+        return _run_subprocess(
+            command,
+            heartbeat_interval_seconds=debug_interval_seconds,
+            on_heartbeat=lambda: _emit_dump("interval"),
+        )
+
+    def _on_stage_start(
+        stage_id: str, command: Sequence[str], strictness: str | None
+    ) -> None:
+        with debug_state_lock:
+            _debug_dump_stage_start(
+                state=debug_state,
+                stage_id=stage_id,
+                command=command,
+                strictness=strictness,
+            )
+
+    def _on_stage_end(result: StageResult) -> None:
+        with debug_state_lock:
+            _debug_dump_stage_end(state=debug_state, result=result)
+
+    with deadline_scope_from_lsp_env():
+        _reset_run_observability_artifacts(paths)
+        try:
+            strictness_by_stage = _parse_stage_strictness_profile(
+                args.stage_strictness_profile
+            )
+            results = run_staged(
+                stage_ids=stage_ids,
+                paths=paths,
+                resume_on_timeout=args.resume_on_timeout,
+                step_summary_path=step_summary_path,
+                run_command_fn=_run_subprocess_with_debug,
+                strictness_by_stage=strictness_by_stage,
+                max_wall_seconds=(
+                    int(args.max_wall_seconds)
+                    if int(args.max_wall_seconds) > 0
+                    else None
+                ),
+                finalize_reserve_seconds=max(0, int(args.finalize_reserve_seconds)),
+                on_stage_start=_on_stage_start,
+                on_stage_end=_on_stage_end,
+            )
+            trace_payload = _write_obligation_trace(paths.obligation_trace_json_path, results)
+            _append_markdown_summary(paths.timeout_progress_md_path, trace_payload)
+            _append_markdown_summary(paths.deadline_profile_md_path, trace_payload)
+            _append_lines(step_summary_path, _obligation_trace_summary_lines(trace_payload))
+            _emit_stage_outputs(github_output_path, results)
+        finally:
+            restore_signal_handler()
     return 0
 
 
