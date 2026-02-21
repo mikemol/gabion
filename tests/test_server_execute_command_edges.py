@@ -6,6 +6,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
@@ -67,6 +68,14 @@ def _with_timeout(payload: dict) -> dict:
         merged.pop("analysis_timeout_ticks", None)
         merged.pop("analysis_timeout_tick_ns", None)
     return merged
+
+
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_require_payload_coerces_mapping_proxy::server.py::gabion.server._require_payload
+def test_require_payload_coerces_mapping_proxy() -> None:
+    proxy_payload = MappingProxyType({"answer": 42})
+    normalized = server._require_payload(proxy_payload, command="unit")
+    assert normalized == {"answer": 42}
+    assert isinstance(normalized, dict)
 
 
 def _write_bundle_module(path: Path) -> None:

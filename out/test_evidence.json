@@ -20894,6 +20894,25 @@
       ]
     },
     {
+      "display": "E:call_footprint::tests/test_server_execute_command_edges.py::test_require_payload_coerces_mapping_proxy::server.py::gabion.server._require_payload",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_server_execute_command_edges.py",
+          "qual": "test_require_payload_coerces_mapping_proxy"
+        },
+        "targets": [
+          {
+            "path": "server.py",
+            "qual": "gabion.server._require_payload"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_server_execute_command_edges.py::test_require_payload_coerces_mapping_proxy"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_server_execute_command_edges.py::test_resolve_analysis_resume_checkpoint_path_variants::server.py::gabion.server._resolve_analysis_resume_checkpoint_path",
       "key": {
         "k": "call_footprint",
@@ -79388,7 +79407,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1813,
+      "line": 1822,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_index_resume_helpers_fallbacks"
     },
@@ -79420,7 +79439,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1837,
+      "line": 1846,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_index_resume_hydrated_helpers_non_int_fallback"
     },
@@ -79444,7 +79463,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1428,
+      "line": 1437,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_index_resume_signature_prefers_resume_digest"
     },
@@ -79472,7 +79491,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2623,
+      "line": 2632,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_input_manifest_digest_ignores_mtime_changes"
     },
@@ -79496,7 +79515,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2602,
+      "line": 2611,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_input_manifest_marks_missing_files"
     },
@@ -79520,7 +79539,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1665,
+      "line": 1674,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_input_witness_handles_missing_unreadable_and_syntax"
     },
@@ -79548,7 +79567,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2143,
+      "line": 2152,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_input_witness_interns_ast_normal_forms"
     },
@@ -79572,7 +79591,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1711,
+      "line": 1720,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_input_witness_normalizes_non_scalar_ast_values"
     },
@@ -79596,7 +79615,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4423,
+      "line": 4432,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_input_witness_reuses_ast_intern_keys_for_identical_trees"
     },
@@ -79620,7 +79639,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2659,
+      "line": 2668,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_manifest_digest_from_witness_rejects_invalid_shapes"
     },
@@ -79644,7 +79663,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1518,
+      "line": 1527,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_manifest_digest_from_witness_validation"
     },
@@ -79668,7 +79687,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5429,
+      "line": 5438,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_cache_verdict_invalidated_fallback_status"
     },
@@ -79692,7 +79711,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4517,
+      "line": 4526,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_cache_verdict_mapping"
     },
@@ -79716,7 +79735,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5439,
+      "line": 5448,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_additional_variants"
     },
@@ -79740,7 +79759,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4488,
+      "line": 4497,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_compatible"
     },
@@ -79764,7 +79783,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4469,
+      "line": 4478,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_manifest_mismatch"
     },
@@ -79792,7 +79811,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5841,
+      "line": 5850,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_checkpoint_compatibility_uses_witness_manifest_fallback"
     },
@@ -79816,7 +79835,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4532,
+      "line": 4541,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_progress_allows_negative_total_files"
     },
@@ -79840,7 +79859,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1773,
+      "line": 1782,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_resume_progress_uses_observed_file_counts"
     },
@@ -79864,7 +79883,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 641,
+      "line": 650,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_timeout_budget_caps_configured_cleanup_grace"
     },
@@ -79888,7 +79907,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 628,
+      "line": 637,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_timeout_budget_reserves_default_cleanup_grace"
     },
@@ -79912,7 +79931,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2697,
+      "line": 2706,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_timeout_grace_ns_rejects_invalid_numeric_shapes"
     },
@@ -79936,7 +79955,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1468,
+      "line": 1477,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_analysis_timeout_grace_ns_validation_and_cap"
     },
@@ -79960,7 +79979,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 704,
+      "line": 713,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_append_checkpoint_intro_timeline_row_writes_table_and_rows"
     },
@@ -79984,7 +80003,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2855,
+      "line": 2864,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_apply_journal_pending_reason_only_for_stale_or_policy"
     },
@@ -80008,7 +80027,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3465,
+      "line": 3474,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_bootstrap_incremental_artifacts_existing_reason_policy"
     },
@@ -80032,7 +80051,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3500,
+      "line": 3509,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_bootstrap_incremental_artifacts_skips_non_string_deps"
     },
@@ -80060,7 +80079,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2015,
+      "line": 2024,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_clear_analysis_resume_checkpoint_removes_checkpoint_and_chunks"
     },
@@ -80088,7 +80107,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3396,
+      "line": 3405,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_clear_checkpoint_and_grace_tick_validation_edges"
     },
@@ -80112,7 +80131,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 655,
+      "line": 664,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_checkpoint_flush_due"
     },
@@ -80140,7 +80159,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3007,
+      "line": 3016,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_component_and_group_projection_filters_invalid_shapes"
     },
@@ -80164,7 +80183,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3032,
+      "line": 3041,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_counts_processed_and_hydrated"
     },
@@ -80188,7 +80207,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1225,
+      "line": 1234,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_include_resume_counts"
     },
@@ -80212,7 +80231,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1323,
+      "line": 1332,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_reject_path_order_regression"
     },
@@ -80236,7 +80255,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4670,
+      "line": 4679,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_skip_non_numeric_optional_metrics"
     },
@@ -80260,7 +80279,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4695,
+      "line": 4704,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_progress_intro_lines_skips_non_string_scan_entries"
     },
@@ -80284,7 +80303,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 770,
+      "line": 779,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_report_flush_due"
     },
@@ -80320,7 +80339,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3416,
+      "line": 3425,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_and_journal_phase_edges"
     },
@@ -80344,7 +80363,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1272,
+      "line": 1281,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_flags_state_loss_regression"
     },
@@ -80368,7 +80387,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4549,
+      "line": 4558,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_ignores_non_int_cumulative_values"
     },
@@ -80392,7 +80411,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1296,
+      "line": 1305,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_tracks_analysis_index_hydration"
     },
@@ -80416,7 +80435,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1248,
+      "line": 1257,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_collection_semantic_progress_treats_completed_path_as_non_regression"
     },
@@ -80434,7 +80453,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2203,
+      "line": 2212,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_accepts_duration_timeout_fields"
     },
@@ -80470,7 +80489,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3814,
+      "line": 3823,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_bootstrap_seed_manifest_and_semantic_progress_edges"
     },
@@ -80498,7 +80517,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5730,
+      "line": 5739,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_conflicting_delta_flags_raise"
     },
@@ -80526,7 +80545,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5750,
+      "line": 5759,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_delta_requires_existing_baseline_files"
     },
@@ -80544,7 +80563,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2457,
+      "line": 2466,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_delta_from_state"
     },
@@ -80562,7 +80581,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2517,
+      "line": 2526,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_ambiguity_state"
     },
@@ -80580,7 +80599,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2410,
+      "line": 2419,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_annotation_drift_delta_from_state"
     },
@@ -80620,7 +80639,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 240,
+      "line": 249,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_heartbeat_progress_with_staleness"
     },
@@ -80656,7 +80675,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 571,
+      "line": 580,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_failed_terminal"
     },
@@ -80696,7 +80715,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 171,
+      "line": 180,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_success_terminal"
     },
@@ -80736,7 +80755,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 498,
+      "line": 507,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_lsp_progress_timeout_terminal"
     },
@@ -80754,7 +80773,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2266,
+      "line": 2275,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_delta_from_state"
     },
@@ -80772,7 +80791,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2331,
+      "line": 2340,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_obsolescence_state"
     },
@@ -80812,7 +80831,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 282,
+      "line": 291,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_emits_resume_progress_before_completion"
     },
@@ -80844,7 +80863,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5598,
+      "line": 5607,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_feature_output_and_branch_coverage_bundle"
     },
@@ -80884,7 +80903,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 203,
+      "line": 212,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_heartbeat_loop_tolerates_missing_progress_template"
     },
@@ -80924,7 +80943,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5879,
+      "line": 5888,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_honors_dash_outputs_and_baseline_write"
     },
@@ -80942,7 +80961,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2223,
+      "line": 2232,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_ignores_invalid_duration_timeout_fields"
     },
@@ -80960,7 +80979,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2178,
+      "line": 2187,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_ignores_invalid_tick_ns"
     },
@@ -80978,7 +80997,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 610,
+      "line": 619,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_ignores_invalid_timeout"
     },
@@ -81018,7 +81037,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 322,
+      "line": 331,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_preserves_resume_checkpoint_for_next_run"
     },
@@ -81054,7 +81073,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4294,
+      "line": 4303,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_projection_phase_callback_no_rows"
     },
@@ -81086,7 +81105,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4776,
+      "line": 4785,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_refactor_plan_without_json_path"
     },
@@ -81104,7 +81123,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2534,
+      "line": 2543,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_ambiguity_state_conflict"
     },
@@ -81122,7 +81141,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2388,
+      "line": 2397,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_annotation_drift_state"
     },
@@ -81154,7 +81173,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5056,
+      "line": 5065,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_invalid_strictness"
     },
@@ -81172,7 +81191,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2500,
+      "line": 2509,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_ambiguity_state"
     },
@@ -81190,7 +81209,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2367,
+      "line": 2376,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_annotation_drift_state"
     },
@@ -81208,7 +81227,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2312,
+      "line": 2321,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_missing_obsolescence_state"
     },
@@ -81232,7 +81251,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2569,
+      "line": 2578,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_non_dict_payload"
     },
@@ -81250,7 +81269,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2550,
+      "line": 2559,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_rejects_obsolescence_state_conflict"
     },
@@ -81274,7 +81293,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 591,
+      "line": 600,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_reports_synthesis_error"
     },
@@ -81292,7 +81311,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 829,
+      "line": 838,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_reports_timeout"
     },
@@ -81328,7 +81347,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3766,
+      "line": 3775,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_resolve_manifest_without_checkpoint_and_invalid_retry_payload"
     },
@@ -81364,7 +81383,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3870,
+      "line": 3879,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_resume_checkpoint_seed_written_when_manifest_missing"
     },
@@ -81400,7 +81419,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3667,
+      "line": 3676,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_resume_timeout_paths_cover_manifest_and_witness_fallbacks"
     },
@@ -81456,7 +81475,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2072,
+      "line": 2081,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_reuses_collection_checkpoint"
     },
@@ -81488,7 +81507,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4813,
+      "line": 4822,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_skips_markdown_write_when_report_output_is_dash"
     },
@@ -81520,7 +81539,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4833,
+      "line": 4842,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_skips_report_append_when_report_is_empty_string"
     },
@@ -81556,7 +81575,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 386,
+      "line": 395,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_threads_semantic_substantive_progress_into_checkpoint_flush_gate"
     },
@@ -81592,7 +81611,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4250,
+      "line": 4259,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_load_resume_progress_timeout"
     },
@@ -81628,7 +81647,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4197,
+      "line": 4206,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_manifest_resume_and_projection_preview"
     },
@@ -81664,7 +81683,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4852,
+      "line": 4861,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_manifest_resume_none_branch"
     },
@@ -81696,7 +81715,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4883,
+      "line": 4892,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_cleanup_non_boolean_semantic_progress"
     },
@@ -81732,7 +81751,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3522,
+      "line": 3531,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_context_payload_fallback"
     },
@@ -81764,7 +81783,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3561,
+      "line": 3570,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_context_payload_handles_missing_payload_api"
     },
@@ -81804,7 +81823,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 523,
+      "line": 532,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_emits_checkpoint_intro_timeline_progress"
     },
@@ -81840,7 +81859,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3719,
+      "line": 3728,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_manifest_fallback_branch_and_intro_fallback"
     },
@@ -81872,7 +81891,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1004,
+      "line": 1013,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_marks_stale_section_journal"
     },
@@ -81908,7 +81927,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3954,
+      "line": 3963,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_phase_checkpoint_preview_and_classification_edges"
     },
@@ -81944,7 +81963,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3914,
+      "line": 3923,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_phase_preview_projection_edges"
     },
@@ -81980,7 +81999,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3588,
+      "line": 3597,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_progress_payload_repaired_when_not_mapping"
     },
@@ -82016,7 +82035,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3616,
+      "line": 3625,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_resume_payload_promotes_progress_with_witness"
     },
@@ -82056,7 +82075,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 862,
+      "line": 871,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_supports_in_progress_resume_checkpoint"
     },
@@ -82088,7 +82107,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 931,
+      "line": 940,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_timeout_writes_partial_incremental_report"
     },
@@ -82128,7 +82147,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4000,
+      "line": 4009,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_context_payload_timeout_fallback"
     },
@@ -82168,7 +82187,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4160,
+      "line": 4169,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_intro_fallback_bootstrap"
     },
@@ -82208,7 +82227,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4108,
+      "line": 4117,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_intro_from_resume_collection"
     },
@@ -82248,7 +82267,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4062,
+      "line": 4071,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_loads_phase_checkpoint_and_preview_projection"
     },
@@ -82288,7 +82307,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4035,
+      "line": 4044,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_total_timeout_uses_non_empty_classification"
     },
@@ -82320,7 +82339,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4794,
+      "line": 4803,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_with_empty_fingerprint_index"
     },
@@ -82356,7 +82375,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 438,
+      "line": 447,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_checkpoint_intro_timeline_rows_on_seed_and_flush"
     },
@@ -82388,7 +82407,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1062,
+      "line": 1071,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_phase_checkpoint_when_incremental_enabled"
     },
@@ -82420,7 +82439,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4757,
+      "line": 4766,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_command_writes_refactor_plan_json_file"
     },
@@ -82444,7 +82463,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2248,
+      "line": 2257,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_decision_diff_payload_non_dict"
     },
@@ -82472,7 +82491,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5362,
+      "line": 5371,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_bfs_step_limit_handles_dense_reverse_edges"
     },
@@ -82500,7 +82519,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5308,
+      "line": 5317,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_guard"
     },
@@ -82528,7 +82547,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5344,
+      "line": 5353,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_handles_change_without_seed_functions"
     },
@@ -82556,7 +82575,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5003,
+      "line": 5012,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_query_accepts_git_diff"
     },
@@ -82584,7 +82603,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4962,
+      "line": 4971,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_query_groups_tests_and_docs"
     },
@@ -82608,7 +82627,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5302,
+      "line": 5311,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_requires_payload"
     },
@@ -82636,7 +82655,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5227,
+      "line": 5236,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_impact_validation_and_depth_edges"
     },
@@ -82664,7 +82683,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5073,
+      "line": 5082,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_accepts_structured_compatibility_shim"
     },
@@ -82682,7 +82701,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5921,
+      "line": 5930,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_exposes_rewrite_plan_metadata"
     },
@@ -82706,7 +82725,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2576,
+      "line": 2585,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_payload_non_dict"
     },
@@ -82734,7 +82753,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4930,
+      "line": 4939,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_refactor_valid_payload_without_workspace_root"
     },
@@ -82758,7 +82777,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2260,
+      "line": 2269,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_diff_rejects_non_dict_payload"
     },
@@ -82778,7 +82797,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2254,
+      "line": 2263,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_diff_requires_timeout_payload"
     },
@@ -82802,7 +82821,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2242,
+      "line": 2251,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_payload_non_dict"
     },
@@ -82830,7 +82849,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5543,
+      "line": 5552,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_additional_error_paths"
     },
@@ -82858,7 +82877,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3316,
+      "line": 3325,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_edges"
     },
@@ -82886,7 +82905,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4948,
+      "line": 4957,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_structure_reuse_total_success_without_lemma_stubs"
     },
@@ -82910,7 +82929,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2583,
+      "line": 2592,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_payload_non_dict"
     },
@@ -82938,7 +82957,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5581,
+      "line": 5590,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_execute_synthesis_total_validation_and_empty_bundle_paths"
     },
@@ -82966,7 +82985,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1366,
+      "line": 1375,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_externalize_and_inflate_analysis_index_resume_state_ref"
     },
@@ -82990,7 +83009,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4329,
+      "line": 4338,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_externalize_collection_resume_state_summary_fallback_branches"
     },
@@ -83014,7 +83033,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2721,
+      "line": 2730,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_handles_mixed_rows"
     },
@@ -83038,7 +83057,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3077,
+      "line": 3086,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_passthrough_and_cleanup_oserror"
     },
@@ -83066,7 +83085,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2749,
+      "line": 2758,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_externalize_collection_resume_states_summarizes_processed_function_list"
     },
@@ -83090,7 +83109,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1338,
+      "line": 1347,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_externalize_resume_states_reject_path_order_regression"
     },
@@ -83122,7 +83141,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5097,
+      "line": 5106,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_impact_change_normalization_and_diff_range_edges"
     },
@@ -83154,7 +83173,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5138,
+      "line": 5147,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_impact_function_and_edge_helpers_cover_guard_paths"
     },
@@ -83178,7 +83197,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1790,
+      "line": 1799,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_in_progress_scan_states_filters_malformed_entries"
     },
@@ -83202,7 +83221,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1140,
+      "line": 1149,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_flag_no_projection_progress"
     },
@@ -83226,7 +83245,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1197,
+      "line": 1206,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_flag_semantic_progress_regression"
     },
@@ -83250,7 +83269,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1103,
+      "line": 1112,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_require_restart_on_witness_mismatch"
     },
@@ -83274,7 +83293,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1167,
+      "line": 1176,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_incremental_obligations_require_substantive_progress_for_resume"
     },
@@ -83298,7 +83317,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4714,
+      "line": 4723,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_incremental_progress_obligations_ignore_non_boolean_semantic_flags"
     },
@@ -83330,7 +83349,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4393,
+      "line": 4402,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_inflate_collection_resume_analysis_index_invalid_chunk_falls_back"
     },
@@ -83362,7 +83381,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4363,
+      "line": 4372,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_inflate_collection_resume_chunk_state_non_mapping_falls_back"
     },
@@ -83386,7 +83405,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2777,
+      "line": 2786,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_handles_chunk_failures"
     },
@@ -83410,7 +83429,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3101,
+      "line": 3110,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_inflate_collection_resume_states_passthrough_and_chunk_success"
     },
@@ -83446,7 +83465,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3339,
+      "line": 3348,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_inflate_manifest_and_checkpoint_edge_paths"
     },
@@ -83470,7 +83489,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1352,
+      "line": 1361,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_inflate_resume_states_reject_path_order_regression"
     },
@@ -83498,7 +83517,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2886,
+      "line": 2895,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_latest_report_phase_and_truthy_flag_edges"
     },
@@ -83526,7 +83545,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1559,
+      "line": 1568,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_and_manifest_validation"
     },
@@ -83550,7 +83569,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3151,
+      "line": 3160,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_manifest_invalid_shapes"
     },
@@ -83574,7 +83593,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4449,
+      "line": 4458,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_load_analysis_resume_checkpoint_without_expected_digest"
     },
@@ -83598,7 +83617,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1905,
+      "line": 1914,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_load_report_phase_checkpoint_validation_paths"
     },
@@ -83622,7 +83641,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1853,
+      "line": 1862,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_load_report_section_journal_validation_paths"
     },
@@ -83646,7 +83665,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5507,
+      "line": 5516,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_materialize_execution_plan_fallback_inputs_and_bool_deadline_values"
     },
@@ -83690,7 +83709,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3251,
+      "line": 3260,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_misc_small_helpers_cover_validation_edges"
     },
@@ -83714,7 +83733,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5391,
+      "line": 5400,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_normalize_progress_work_clamps_negative_and_overflow"
     },
@@ -83738,7 +83757,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4742,
+      "line": 4751,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_normalize_transparent_decorators_returns_none_for_invalid_payload"
     },
@@ -83766,7 +83785,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5529,
+      "line": 5538,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_parse_snapshot_and_structure_reuse_options_edges"
     },
@@ -83790,7 +83809,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 810,
+      "line": 819,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_projection_phase_flush_due"
     },
@@ -83814,7 +83833,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3054,
+      "line": 3063,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_render_incremental_report_handles_missing_and_invalid_phases"
     },
@@ -83838,7 +83857,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4658,
+      "line": 4667,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_render_incremental_report_handles_non_mapping_progress_and_non_list_deps"
     },
@@ -83862,7 +83881,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1959,
+      "line": 1968,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_render_incremental_report_marks_missing_dep_and_policy"
     },
@@ -83890,7 +83909,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2942,
+      "line": 2951,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_report_phase_checkpoint_load_and_write_filters_invalid_entries"
     },
@@ -83914,9 +83933,33 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2898,
+      "line": 2907,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_report_section_journal_load_policy_and_stale_paths"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_server_execute_command_edges.py::test_require_payload_coerces_mapping_proxy::server.py::gabion.server._require_payload",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_server_execute_command_edges.py",
+              "qual": "test_require_payload_coerces_mapping_proxy"
+            },
+            "targets": [
+              {
+                "path": "server.py",
+                "qual": "gabion.server._require_payload"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_server_execute_command_edges.py",
+      "line": 74,
+      "status": "mapped",
+      "test_id": "tests/test_server_execute_command_edges.py::test_require_payload_coerces_mapping_proxy"
     },
     {
       "evidence": [
@@ -83938,7 +83981,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1445,
+      "line": 1454,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_resolve_analysis_resume_checkpoint_path_variants"
     },
@@ -83994,7 +84037,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3232,
+      "line": 3241,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_resume_helpers_default_paths_and_digests"
     },
@@ -84022,7 +84065,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3302,
+      "line": 3311,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_server_deadline_overhead_and_name_set_edges"
     },
@@ -84054,7 +84097,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 5026,
+      "line": 5035,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_server_lint_normalization_helpers_cover_invalid_rows"
     },
@@ -84090,7 +84133,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2817,
+      "line": 2826,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_timeout_cleanup_tracks_truncated_report_steps"
     },
@@ -84114,7 +84157,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4747,
+      "line": 4756,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_timeout_context_payload_falls_back_for_non_mapping_payload"
     },
@@ -84138,7 +84181,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 3552,
+      "line": 3561,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_timeout_context_payload_helper_falls_back_without_payload_api"
     },
@@ -84162,7 +84205,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2029,
+      "line": 2038,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_write_analysis_resume_checkpoint_emits_analysis_index_hydration_summary"
     },
@@ -84186,7 +84229,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4604,
+      "line": 4613,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_write_bootstrap_incremental_artifacts_existing_digest_variants"
     },
@@ -84210,7 +84253,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 1986,
+      "line": 1995,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_write_bootstrap_incremental_artifacts_marks_existing_reason_policy"
     },
@@ -84234,7 +84277,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4582,
+      "line": 4591,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_write_bootstrap_incremental_artifacts_without_journal_path"
     },
@@ -84258,7 +84301,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 4568,
+      "line": 4577,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_write_report_section_journal_handles_non_list_deps"
     },
@@ -84282,7 +84325,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2987,
+      "line": 2996,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_write_report_section_journal_handles_path_none_and_empty_section_id"
     },
@@ -84306,7 +84349,7 @@
         }
       ],
       "file": "tests/test_server_execute_command_edges.py",
-      "line": 2590,
+      "line": 2599,
       "status": "mapped",
       "test_id": "tests/test_server_execute_command_edges.py::test_write_text_profiled_writes_with_encoding"
     },
