@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 import textwrap
 
 import libcst as cst
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.refactor.engine import (
         RefactorEngine,
         _find_import_insert_index,
@@ -29,7 +26,7 @@ def _load():
         _has_typing_import,
     )
 
-
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_handles_missing_file(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     request = RefactorRequest(
@@ -40,7 +37,7 @@ def test_refactor_engine_handles_missing_file(tmp_path: Path) -> None:
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
 
-
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_handles_parse_error(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     target = tmp_path / "bad.py"
@@ -53,7 +50,7 @@ def test_refactor_engine_handles_parse_error(tmp_path: Path) -> None:
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
 
-
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_requires_protocol_name(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     target = tmp_path / "sample.py"
@@ -66,7 +63,7 @@ def test_refactor_engine_requires_protocol_name(tmp_path: Path) -> None:
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
 
-
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_requires_bundle_or_fields(tmp_path: Path) -> None:
     RefactorEngine, _, RefactorRequest, *_ = _load()
     target = tmp_path / "sample.py"
@@ -79,7 +76,7 @@ def test_refactor_engine_requires_bundle_or_fields(tmp_path: Path) -> None:
     plan = RefactorEngine(project_root=tmp_path).plan_protocol_extraction(request)
     assert plan.errors
 
-
+# gabion:evidence E:function_site::test_refactor_engine_edges.py::tests.test_refactor_engine_edges._load
 def test_refactor_engine_invalid_type_hint_warns(tmp_path: Path) -> None:
     RefactorEngine, FieldSpec, RefactorRequest, *_ = _load()
     target = tmp_path / "sample.py"
@@ -94,7 +91,7 @@ def test_refactor_engine_invalid_type_hint_warns(tmp_path: Path) -> None:
     assert any("Failed to parse type hint" in warning for warning in plan.warnings)
     assert plan.edits
 
-
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_name::project_root
 def test_module_name_strips_src_prefix(tmp_path: Path) -> None:
     _, _, _, _, _, _module_name, _ = _load()
     path = Path("src") / "pkg" / "mod.py"
@@ -102,7 +99,7 @@ def test_module_name_strips_src_prefix(tmp_path: Path) -> None:
     rooted = tmp_path / "pkg" / "mod.py"
     assert _module_name(rooted, tmp_path) == "pkg.mod"
 
-
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._find_import_insert_index::body E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr E:decision_surface/direct::engine.py::gabion.refactor.engine._is_docstring::stmt E:decision_surface/direct::engine.py::gabion.refactor.engine._is_import::stmt
 def test_module_expr_to_str_and_import_index() -> None:
     _, _, _, _find_import_insert_index, _module_expr_to_str, _, _ = _load()
     module = cst.parse_module(
@@ -122,7 +119,7 @@ def test_module_expr_to_str_and_import_index() -> None:
     assert _module_expr_to_str(expr) == "pkg.mod.util"
     assert _module_expr_to_str(None) is None
 
-
+# gabion:evidence E:decision_surface/direct::engine.py::gabion.refactor.engine._module_expr_to_str::expr
 def test_has_typing_import_handles_attribute_module() -> None:
     _, _, _, _, _, _, _has_typing_import = _load()
     module = cst.parse_module("import foo.typing\n")

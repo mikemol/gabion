@@ -25,6 +25,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Verify next mirrors main
+        id: verify
         run: |
           git fetch origin main next --tags
           RUN_SHA=$(git rev-parse HEAD)
@@ -42,6 +43,7 @@ jobs:
             echo "main=$MAIN_SHA"
             exit 1
           fi
+          echo "target_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
       - name: Read version
         id: version
         run: python scripts/release_read_project_version.py --output "$GITHUB_OUTPUT"
@@ -50,7 +52,21 @@ jobs:
         run: |
           STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
           TAG="test-v${{ steps.version.outputs.version }}+${STAMP}"
-          TARGET="$(git rev-parse origin/next)"
+          TARGET="${{ steps.verify.outputs.target_sha }}"
+          if [ -z "$TARGET" ]; then
+            echo "Missing verified target sha."
+            exit 1
+          fi
+          git fetch origin main next --tags
+          MAIN_SHA=$(git rev-parse origin/main)
+          NEXT_SHA=$(git rev-parse origin/next)
+          if [ "$TARGET" != "$MAIN_SHA" ] || [ "$TARGET" != "$NEXT_SHA" ]; then
+            echo "Mirror check must hold at tag time."
+            echo "target=$TARGET"
+            echo "main=$MAIN_SHA"
+            echo "next=$NEXT_SHA"
+            exit 1
+          fi
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
             echo "Tag already exists: $TAG"
             echo "tag=" >> "$GITHUB_OUTPUT"

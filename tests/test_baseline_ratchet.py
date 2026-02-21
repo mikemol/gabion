@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import apply_baseline, load_baseline, resolve_baseline_path, write_baseline
 
     return apply_baseline, load_baseline, resolve_baseline_path, write_baseline
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._apply_baseline::baseline_allowlist
 def test_baseline_write_and_apply(tmp_path: Path) -> None:
     apply_baseline, load_baseline, resolve_baseline_path, write_baseline = _load()
     baseline_path = resolve_baseline_path("baseline.txt", tmp_path)

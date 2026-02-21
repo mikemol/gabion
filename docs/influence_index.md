@@ -1,5 +1,5 @@
 ---
-doc_revision: 39
+doc_revision: 50
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -10,26 +10,76 @@ doc_scope:
   - documentation
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - CONTRIBUTING.md
-  - README.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - glossary.md#exception_obligation
+  - glossary.md#handledness_witness
+  - CONTRIBUTING.md#contributing_contract
+  - README.md#repo_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md: 29
-  glossary.md: 22
-  CONTRIBUTING.md: 72
-  README.md: 58
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  glossary.md#exception_obligation: 1
+  glossary.md#handledness_witness: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  README.md#repo_contract: 1
 doc_review_notes:
-  POLICY_SEED.md: "Review discipline does not alter inbox→outbox mapping."
-  glossary.md: "Higher-order bundle definition does not change influence tracking semantics."
-  CONTRIBUTING.md: "Review discipline aligns with tracking workflow."
-  README.md: "Scope references remain correct."
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  glossary.md#exception_obligation: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
+  glossary.md#handledness_witness: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+doc_sections:
+  influence_index: 2
+doc_section_requires:
+  influence_index:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - glossary.md#exception_obligation
+    - glossary.md#handledness_witness
+    - CONTRIBUTING.md#contributing_contract
+    - README.md#repo_contract
+doc_section_reviews:
+  influence_index:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 2
+      outcome: no_change
+      note: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 2
+      outcome: no_change
+      note: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+    glossary.md#exception_obligation:
+      dep_version: 1
+      self_version_at_review: 2
+      outcome: no_change
+      note: "Reviewed glossary.md#exception_obligation rev1 (exception obligation status + evidence linkage)."
+    glossary.md#handledness_witness:
+      dep_version: 1
+      self_version_at_review: 2
+      outcome: no_change
+      note: "Reviewed glossary.md#handledness_witness rev1 (handledness witness requirements + handler boundary)."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 2
+      outcome: no_change
+      note: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 2
+      outcome: no_change
+      note: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
 ---
+
+<a id="influence_index"></a>
 
 # Influence Index (`in/` → `out/`)
 
@@ -37,7 +87,7 @@ This index records which inbound documents (`in/`) have been reviewed, and how
 (or whether) they have been reflected in `out/`, `docs/`, or the checklist. It
 is a lightweight bridge between the inbox and the rest of the repo.
 
-Normative anchors: `POLICY_SEED.md`, `glossary.md`, `CONTRIBUTING.md`, `README.md`.
+Normative anchors: [POLICY_SEED.md#policy_seed](POLICY_SEED.md#policy_seed), [glossary.md#contract](glossary.md#contract), [glossary.md#exception_obligation](glossary.md#exception_obligation), [glossary.md#handledness_witness](glossary.md#handledness_witness), [CONTRIBUTING.md#contributing_contract](CONTRIBUTING.md#contributing_contract), [README.md#repo_contract](README.md#repo_contract).
 
 Status legend:
 - **untriaged**: not yet reviewed.
@@ -70,8 +120,18 @@ Status legend:
 - in/in-20.md — **partial** (prime registry + canonical type keys + arithmetic ops + glossary warnings + reverse mapping + hybrid bitmask + nested ctor registry implemented; remaining rewrite work; SPPF/GH-68.)
 - in/in-21.md — **partial** (longform expansion of in-20; nested ctor registry + hybrid bitmask + reverse mapping + glossary warnings + arithmetic ops implemented; remaining rewrite work; SPPF/GH-68.)
 - in/in-22.md — **partial** (ASPF/SPPF equivalence framing; dimensional fingerprints incl. provenance/synth dimensions; entropy-controlled synthesis tracked in SPPF GH-70/GH-71/GH-72.)
-- in/in-23.md — **adopted** (ASPF carrier formalization discharged via deterministic registry basis + artifact/verification checks; SPPF/GH-73.)
+- in/in-23.md — [**adopted**](docs/sppf_checklist.md#in-23-aspf-carrier-formalization) (completed landing: deterministic synth/provenance artifacts + reloadable basis + snapshot selectors, with module/test anchors in the checklist entry; SPPF/GH-73.)
 - in/in-24.md — **adopted** (deadness evidence artifacts emitted from constant-flow analysis + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-74.)
 - in/in-25.md — **adopted** (coherence evidence artifacts emitted from glossary ambiguity + JSON/report/LSP/snapshots + determinism/schema tests; SPPF/GH-75.)
 - in/in-26.md — **partial** (proof-carrying rewrite plans emitted + verified incl. exception-obligation non-regression; remaining rewrite kinds tracked; SPPF/GH-76, GH-78, GH-79.)
 - in/in-27.md — **partial** (exception obligations emitted with deadness/handledness witnesses; exception-aware rewrite acceptance predicates implemented; remaining handledness refinement tracked; SPPF/GH-77, GH-80.)
+- in/in-28.md — **adopted** (in_step template discipline enforced; docflow structure and review requirements codified.)
+- in/in-29.md — **partial** (test evidence carrier + dominance/equivalence + obsolescence/suggestions projections implemented; dominance deltas pending.)
+- in/in-30.md — **partial** (implemented: suite ambiguity projections + suite-order SpecFacet path + tick-budget deadline propagation; open: SuiteSite-native loop obligation enforcement; deferred: phase-3/4 decision-surface migration; SPPF/GH-85, GH-87, GH-88.)
+- in/in-31.md — **partial** (implemented: suite-order ProjectionSpec/SpecFacet quotient path; open: explicit quotient/internment regression harness; deferred: internal broad-type lint tightening impact; SPPF/GH-85, GH-89.)
+- in/in-32.md — **queued** (hypothetical/non-normative Gödel-numbering exploration; acknowledged, but not a controlling contract for implementation or CI at this time.)
+- in/in-33.md — [**partial**](docs/sppf_checklist.md#in-33-pattern-schema-unification) (implemented: PatternSchema/PatternInstance/PatternResidue carriers + unified schema suggestion/residue pipeline; open: execution-rule coverage breadth; deferred: Tier-2 residue ratchet/metafactory reification gate.)
+- in/in-34.md — [**partial**](docs/sppf_checklist.md#in-34-lambda-callable-sites) (synthetic lambda function sites are indexed and used for direct/bound lambda call resolution, while broader closure/alias cases still fall back conservatively.)
+- in/in-35.md — [**partial**](docs/sppf_checklist.md#in-35-dict-key-carrier-tracking) (dict key normalization now supports name-bound constants and records explicit unknown-key carrier evidence for non-recoverable keys; supported key grammar remains deliberately conservative.)
+- in/in-36.md — [**adopted**](docs/sppf_checklist.md#in-36-starred-dataclass-call-bundles) (dataclass call-bundle extraction now decodes deterministic starred literals for `*` and `**` and emits unresolved-starred witnesses for dynamic payloads.)
+- in/in-37.md — [**adopted**](docs/sppf_checklist.md#in-37-dynamic-dispatch-uncertainty) (callee resolution now distinguishes `unresolved_dynamic` from unresolved internal/external states and emits a dedicated `unresolved_dynamic_callee` obligation kind.)

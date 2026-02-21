@@ -6,6 +6,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import ordered_or_sorted
+
 
 REQUIRED_FRONTMATTER_FIELDS = {
     "doc_id",
@@ -35,6 +42,19 @@ REQUIRED_SECTIONS = [
     "appendix b: structural self-audit",
 ]
 
+_DEFAULT_TIMEOUT_TICKS = 120_000
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
+)
+
+
+def _deadline_scope():
+    return deadline_scope_from_lsp_env(
+        default_budget=_DEFAULT_TIMEOUT_BUDGET,
+    )
+
 
 @dataclass(frozen=True)
 class Doc:
@@ -51,6 +71,7 @@ def _parse_frontmatter(text: str) -> tuple[dict[str, object], list[str]]:
     fm_lines: list[str] = []
     idx = 1
     while idx < len(lines):
+        check_deadline()
         line = lines[idx]
         if line.strip() == "---":
             idx += 1
@@ -66,6 +87,7 @@ def _parse_yaml_like(lines: list[str]) -> dict[str, object]:
     current_list_key: str | None = None
     current_map_key: str | None = None
     for raw in lines:
+        check_deadline()
         line = raw.rstrip()
         if not line.strip() or line.lstrip().startswith("#"):
             continue
@@ -110,6 +132,7 @@ def _normalize_header(header: str) -> str:
 def _collect_headers(body_lines: list[str]) -> list[str]:
     headers: list[str] = []
     for line in body_lines:
+        check_deadline()
         if not line.startswith("#"):
             continue
         stripped = line.lstrip("#").strip()
@@ -131,11 +154,13 @@ def _audit_doc(path: Path) -> list[str]:
         return violations
 
     for field in REQUIRED_FRONTMATTER_FIELDS:
+        check_deadline()
         if field not in frontmatter:
             violations.append(f"{path}: missing frontmatter field '{field}'")
 
     headers = set(_collect_headers(body_lines))
     for section in REQUIRED_SECTIONS:
+        check_deadline()
         if section not in headers:
             violations.append(f"{path}: missing section '{section}'")
 
@@ -148,31 +173,40 @@ def _audit_doc(path: Path) -> list[str]:
 def _iter_paths(paths: list[str]) -> list[Path]:
     resolved: list[Path] = []
     for raw in paths:
+        check_deadline()
         path = Path(raw)
         if path.is_dir():
-            resolved.extend(sorted(path.rglob("*.md")))
+            resolved.extend(
+                ordered_or_sorted(
+                    path.rglob("*.md"),
+                    source="scripts.audit_in_step_structure.iter_paths",
+                )
+            )
         else:
             resolved.append(path)
     return resolved
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Audit in_step document structure.")
-    parser.add_argument("paths", nargs="+", help="Markdown files or directories to audit.")
-    args = parser.parse_args(argv)
+    with _deadline_scope():
+        parser = argparse.ArgumentParser(description="Audit in_step document structure.")
+        parser.add_argument("paths", nargs="+", help="Markdown files or directories to audit.")
+        args = parser.parse_args(argv)
 
-    violations: list[str] = []
-    for path in _iter_paths(args.paths):
-        if not path.exists():
-            violations.append(f"{path}: missing file")
-            continue
-        violations.extend(_audit_doc(path))
+        violations: list[str] = []
+        for path in _iter_paths(args.paths):
+            check_deadline()
+            if not path.exists():
+                violations.append(f"{path}: missing file")
+                continue
+            violations.extend(_audit_doc(path))
 
-    if violations:
-        for violation in violations:
-            print(violation)
-        return 2
-    return 0
+        if violations:
+            for violation in violations:
+                check_deadline()
+                print(violation)
+            return 2
+        return 0
 
 
 if __name__ == "__main__":

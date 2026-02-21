@@ -1,10 +1,42 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable
+import hashlib
+import json
+from typing import Iterable, cast
 
 
 NodeKey = tuple[object, ...]
+NodeFingerprint = tuple[str, tuple[str, ...]]
+
+
+def _fingerprint_part(part: object) -> str:
+    if isinstance(part, str):
+        return f"str:{part}"
+    if isinstance(part, bool):
+        return f"bool:{part}"
+    if isinstance(part, int):
+        return f"int:{part}"
+    if isinstance(part, float):
+        return f"float:{part!r}"
+    if part is None:
+        return "none:null"
+    return f"repr:{part!r}"
+
+
+def fingerprint_identity(kind: str, key: NodeKey) -> NodeFingerprint:
+    return (kind, tuple(_fingerprint_part(part) for part in key))
+
+
+@dataclass(frozen=True)
+class _InternIdentity:
+    node_id: NodeId
+    fingerprint: NodeFingerprint
+
+
+def _canonicalize_intern_identity(kind: str, key: NodeKey) -> _InternIdentity:
+    node_id = NodeId(kind=kind, key=key)
+    return _InternIdentity(node_id=node_id, fingerprint=fingerprint_identity(kind, key))
 
 
 @dataclass(frozen=True)
@@ -18,6 +50,9 @@ class NodeId:
     def sort_key(self) -> tuple[str, tuple[str, ...]]:
         return (self.kind, tuple(str(part) for part in self.key))
 
+    def fingerprint(self) -> NodeFingerprint:
+        return fingerprint_identity(self.kind, self.key)
+
 
 @dataclass(frozen=True)
 class Node:
@@ -29,6 +64,10 @@ class Node:
         return self.node_id.kind
 
     def as_dict(self) -> dict[str, object]:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import check_deadline
+
+        check_deadline()
         payload = self.node_id.as_dict()
         if self.meta:
             payload["meta"] = self.meta
@@ -42,18 +81,34 @@ class Alt:
     evidence: dict[str, object] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, object]:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import check_deadline
+
+        check_deadline()
+        inputs: list[dict[str, object]] = []
+        for node_id in self.inputs:
+            check_deadline()
+            inputs.append(node_id.as_dict())
         payload: dict[str, object] = {
             "kind": self.kind,
-            "inputs": [node_id.as_dict() for node_id in self.inputs],
+            "inputs": inputs,
         }
         if self.evidence:
             payload["evidence"] = self.evidence
         return payload
 
     def sort_key(self) -> tuple[str, tuple[tuple[str, tuple[str, ...]], ...]]:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import check_deadline
+
+        check_deadline()
+        inputs: list[tuple[str, tuple[str, ...]]] = []
+        for node_id in self.inputs:
+            check_deadline()
+            inputs.append(node_id.sort_key())
         return (
             self.kind,
-            tuple(node_id.sort_key() for node_id in self.inputs),
+            tuple(inputs),
         )
 
 
@@ -66,16 +121,40 @@ def canon_paramset(params: Iterable[str]) -> tuple[str, ...]:
     return tuple(sorted(cleaned))
 
 
+def _canonicalize_evidence(evidence: dict[str, object] | None) -> dict[str, object]:
+    payload = evidence or {}
+    canonical = json.loads(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    )
+    if not isinstance(canonical, dict):
+        return {}
+    return cast(dict[str, object], canonical)
+
+
 @dataclass
 class Forest:
     nodes: dict[NodeId, Node] = field(default_factory=dict)
     alts: list[Alt] = field(default_factory=list)
+    _nodes_by_fingerprint: dict[NodeFingerprint, NodeId] = field(default_factory=dict)
+    _alt_index: dict[tuple[str, tuple[NodeId, ...], str], Alt] = field(default_factory=dict)
 
     def _intern_node(self, node_id: NodeId, meta: dict[str, object] | None) -> NodeId:
-        if node_id in self.nodes:
-            return node_id
-        self.nodes[node_id] = Node(node_id=node_id, meta=meta or {})
-        return node_id
+        identity = _canonicalize_intern_identity(node_id.kind, node_id.key)
+        existing = self._nodes_by_fingerprint.get(identity.fingerprint)
+        if existing is not None:
+            return existing
+        self.nodes[identity.node_id] = Node(node_id=identity.node_id, meta=meta or {})
+        self._nodes_by_fingerprint[identity.fingerprint] = identity.node_id
+        return identity.node_id
+
+    def has_node(self, kind: str, key: NodeKey) -> bool:
+        identity = _canonicalize_intern_identity(kind, key)
+        return identity.fingerprint in self._nodes_by_fingerprint
+
+    def add_file_site(self, path: str) -> NodeId:
+        key = (path,)
+        node_id = NodeId(kind="FileSite", key=key)
+        return self._intern_node(node_id, {"path": path})
 
     def add_param(self, name: str) -> NodeId:
         key = (canon_param(name),)
@@ -92,6 +171,7 @@ class Forest:
         return node_id
 
     def add_site(self, path: str, qual: str, span: tuple[int, int, int, int] | None = None) -> NodeId:
+        file_id = self.add_file_site(path)
         key: NodeKey = (path, qual)
         if span is not None:
             key = (*key, *span)
@@ -99,6 +179,113 @@ class Forest:
         meta: dict[str, object] = {"path": path, "qual": qual}
         if span is not None:
             meta["span"] = list(span)
+        existed = self.has_node(node_id.kind, node_id.key)
+        site_id = self._intern_node(node_id, meta)
+        if not existed:
+            self.add_alt("FunctionSiteInFile", (site_id, file_id), evidence={"path": path})
+        return site_id
+
+    def add_suite_site(
+        self,
+        path: str,
+        qual: str,
+        suite_kind: str,
+        span: tuple[int, int, int, int] | None = None,
+        *,
+        parent: NodeId | None = None,
+    ) -> NodeId:
+        # dataflow-bundle: path, qual, suite_kind
+        file_id = self.add_file_site(path)
+        key: NodeKey = (path, qual, suite_kind)
+        if span is not None:
+            key = (*key, *span)
+        node_id = NodeId(kind="SuiteSite", key=key)
+        meta: dict[str, object] = {
+            "path": path,
+            "qual": qual,
+            "suite_kind": suite_kind,
+            "suite_id": self._suite_site_id(
+                path=path,
+                qual=qual,
+                suite_kind=suite_kind,
+                span=span,
+            ),
+        }
+        if span is not None:
+            meta["span"] = list(span)
+        existed = self.has_node(node_id.kind, node_id.key)
+        suite_id = self._intern_node(node_id, meta)
+        if not existed:
+            func_id = self.add_site(path, qual)
+            self.add_alt(
+                "SuiteSiteInFunction",
+                (suite_id, func_id),
+                evidence={"suite_kind": suite_kind},
+            )
+            self.add_alt(
+                "SuiteSiteInFile",
+                (suite_id, file_id),
+                evidence={"suite_kind": suite_kind},
+            )
+            if parent is not None:
+                self.add_suite_contains(
+                    parent,
+                    suite_id,
+                    evidence={"suite_kind": suite_kind},
+                )
+        return suite_id
+
+    @staticmethod
+    def _suite_site_id(
+        *,
+        path: str,
+        qual: str,
+        suite_kind: str,
+        span: tuple[int, int, int, int] | None,
+    ) -> str:
+        # dataflow-bundle: path, qual, suite_kind
+        payload: dict[str, object] = {
+            "domain": "python",
+            "kind": str(suite_kind),
+            "path": str(path),
+            "qual": str(qual),
+        }
+        if span is not None:
+            payload["span"] = [int(part) for part in span]
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+        return f"suite:{digest}"
+
+    def add_suite_contains(
+        self,
+        parent: NodeId,
+        child: NodeId,
+        evidence: dict[str, object] | None = None,
+    ) -> Alt:
+        # dataflow-bundle: child, parent
+        return self.add_alt("SuiteContains", (parent, child), evidence=evidence)
+
+    def add_spec_site(
+        self,
+        *,
+        spec_hash: str,
+        spec_name: str,
+        spec_domain: str | None = None,
+        spec_version: int | None = None,
+    ) -> NodeId:
+        key: NodeKey = ("projection_spec", spec_hash, "spec")
+        node_id = NodeId(kind="SuiteSite", key=key)
+        meta: dict[str, object] = {
+            "path": "projection_spec",
+            "qual": spec_hash,
+            "suite_kind": "spec",
+            "spec_name": spec_name,
+            "spec_hash": spec_hash,
+        }
+        if spec_domain:
+            meta["spec_domain"] = spec_domain
+        if spec_version is not None:
+            meta["spec_version"] = spec_version
         return self._intern_node(node_id, meta)
 
     def add_alt(
@@ -107,9 +294,53 @@ class Forest:
         inputs: Iterable[NodeId],
         evidence: dict[str, object] | None = None,
     ) -> Alt:
-        alt = Alt(kind=kind, inputs=tuple(inputs), evidence=evidence or {})
+        # Forest mutation is semantic work and must run under an explicit
+        # deadline clock scope.
+        self._require_deadline_clock_scope("Forest.add_alt")
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import consume_deadline_ticks
+
+        consume_deadline_ticks()
+        normalized_kind = str(kind).strip()
+        normalized_inputs = tuple(inputs)
+        normalized_evidence = _canonicalize_evidence(evidence)
+        evidence_identity = json.dumps(
+            normalized_evidence,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
+        structural_key = (normalized_kind, normalized_inputs, evidence_identity)
+        interned = self._alt_index.get(structural_key)
+        if interned is not None:
+            return interned
+        alt = Alt(
+            kind=normalized_kind,
+            inputs=normalized_inputs,
+            evidence=normalized_evidence,
+        )
         self.alts.append(alt)
+        self._alt_index[structural_key] = alt
         return alt
+
+    @staticmethod
+    def _require_deadline_clock_scope(operation: str) -> None:
+        # Lazy import avoids module-cycle during timeout_context bootstrap.
+        from gabion.analysis.timeout_context import get_deadline_clock
+        from gabion.exceptions import NeverThrown
+        from gabion.invariants import never
+
+        try:
+            get_deadline_clock()
+        except NeverThrown:
+            never(
+                "forest mutation requires deadline_clock_scope",
+                operation=operation,
+            )
+
+    def add_node(self, kind: str, key: NodeKey, meta: dict[str, object] | None = None) -> NodeId:
+        node_id = NodeId(kind=kind, key=key)
+        return self._intern_node(node_id, meta)
 
     def to_json(self) -> dict[str, object]:
         nodes = sorted(self.nodes.values(), key=lambda node: node.node_id.sort_key())

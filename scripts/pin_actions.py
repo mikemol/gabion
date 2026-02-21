@@ -12,9 +12,27 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.analysis.timeout_context import check_deadline
+
 
 USES_RE = re.compile(r"^(\s*(?:-\s+)?uses:\s+)([^@\s]+)@([^\s]+)\s*$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_DEFAULT_TIMEOUT_TICKS = 120_000
+_DEFAULT_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_TIMEOUT_TICK_NS,
+)
+
+
+def _deadline_scope():
+    return deadline_scope_from_lsp_env(
+        default_budget=_DEFAULT_TIMEOUT_BUDGET,
+    )
 
 
 @dataclass(frozen=True)
@@ -84,6 +102,7 @@ def _pin_file(path: Path) -> tuple[int, list[str]]:
     updated = 0
     pinned: list[str] = []
     for i, line in enumerate(lines):
+        check_deadline()
         match = USES_RE.match(line)
         if not match:
             continue
@@ -103,25 +122,28 @@ def _pin_file(path: Path) -> tuple[int, list[str]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Pin GitHub Actions to SHAs.")
-    parser.add_argument(
-        "paths",
-        nargs="+",
-        help="Workflow files to update in-place.",
-    )
-    args = parser.parse_args()
+    with _deadline_scope():
+        parser = argparse.ArgumentParser(description="Pin GitHub Actions to SHAs.")
+        parser.add_argument(
+            "paths",
+            nargs="+",
+            help="Workflow files to update in-place.",
+        )
+        args = parser.parse_args()
 
-    total = 0
-    for raw in args.paths:
-        path = Path(raw)
-        if not path.exists():
-            raise SystemExit(f"File not found: {path}")
-        updated, pinned = _pin_file(path)
-        total += updated
-        for line in pinned:
-            print(f"{path}: {line}")
-    print(f"Updated {total} action reference(s).")
-    return 0
+        total = 0
+        for raw in args.paths:
+            check_deadline()
+            path = Path(raw)
+            if not path.exists():
+                raise SystemExit(f"File not found: {path}")
+            updated, pinned = _pin_file(path)
+            total += updated
+            for line in pinned:
+                check_deadline()
+                print(f"{path}: {line}")
+        print(f"Updated {total} action reference(s).")
+        return 0
 
 
 if __name__ == "__main__":

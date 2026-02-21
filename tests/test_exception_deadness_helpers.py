@@ -2,17 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 import ast
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_bool_expr::env,expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._eval_value_expr::env,expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._node_in_block::node
 def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     da = _load()
 
@@ -98,7 +95,7 @@ def test_deadness_helper_evaluators_cover_edges(tmp_path: Path) -> None:
     assert da._branch_reachability_under_env(raise_else, parent.parents, {"x": 0}) is True
     assert da._branch_reachability_under_env(raise_else, parent.parents, {"x": 1}) is False
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_exception_obligation_deadness_parsing_skips_invalid_entries(tmp_path: Path) -> None:
     da = _load()
     obligations = da._collect_exception_obligations(
@@ -115,7 +112,7 @@ def test_exception_obligation_deadness_parsing_skips_invalid_entries(tmp_path: P
     )
     assert obligations == []
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_constant_flow_details::strictness
 def test_exception_obligations_deadness_selection_skips_unknown_names(tmp_path: Path) -> None:
     da = _load()
     module = tmp_path / "mod.py"
@@ -143,7 +140,7 @@ def test_exception_obligations_deadness_selection_skips_unknown_names(tmp_path: 
     )
     assert any(entry.get("status") == "DEAD" for entry in obligations)
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._decorator_matches::allowlist,name E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._dead_env_map::deadness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._is_never_marker_raise::exception_name,never_exceptions E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_type_name::expr E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._exception_param_names::expr,params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._param_names::fn,ignore_params E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._collect_exception_obligations::handledness_witnesses E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._normalize_snapshot_path::root
 def test_exception_obligations_skip_never_marker_raise(tmp_path: Path) -> None:
     da = _load()
     module = tmp_path / "mod.py"

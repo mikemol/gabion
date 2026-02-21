@@ -1,5 +1,5 @@
 ---
-doc_revision: 29
+doc_revision: 39
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -12,39 +12,84 @@ doc_scope:
   - tooling
 doc_authority: normative
 doc_requires:
-  - README.md
-  - CONTRIBUTING.md
-  - AGENTS.md
-  - glossary.md
-  - docs/publishing_practices.md
-  - docs/coverage_semantics.md
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+  - AGENTS.md#agent_obligations
+  - glossary.md#contract
+  - docs/publishing_practices.md#publishing_practices
+  - docs/coverage_semantics.md#coverage_semantics
 doc_reviewed_as_of:
-  README.md: 58
-  CONTRIBUTING.md: 72
-  AGENTS.md: 13
-  glossary.md: 22
-  docs/publishing_practices.md: 23
-  docs/coverage_semantics.md: 6
+  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  AGENTS.md#agent_obligations: 1
+  glossary.md#contract: 1
+  docs/publishing_practices.md#publishing_practices: 1
+  docs/coverage_semantics.md#coverage_semantics: 1
 doc_review_notes:
-  README.md: "Reviewed for attribute-carrier/transport policy alignment; no conflicts with scope/status."
-  CONTRIBUTING.md: "Review discipline now documented; contributor workflow matches new policy."
-  AGENTS.md: "Agent obligations updated to forbid mechanical review stamping."
-  glossary.md: "Higher-order bundle definition aligns with policy defaults."
-  docs/publishing_practices.md: "Publishing guidance unaffected by review discipline/attribute transport."
-  docs/coverage_semantics.md: "Coverage policy unaffected; no conflicts with attribute-carrier rules."
+  README.md#repo_contract: "Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+  AGENTS.md#agent_obligations: "Agent obligations updated to forbid mechanical review stamping."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  docs/publishing_practices.md#publishing_practices: "Publishing guidance reviewed (anchor v1); policy unaffected."
+  docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
+doc_sections:
+  policy_seed: 1
+  change_protocol: 1
+doc_section_requires:
+  policy_seed:
+    - README.md#repo_contract
+    - CONTRIBUTING.md#contributing_contract
+    - AGENTS.md#agent_obligations
+    - glossary.md#contract
+    - docs/publishing_practices.md#publishing_practices
+    - docs/coverage_semantics.md#coverage_semantics
+doc_section_reviews:
+  policy_seed:
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Repo contract reviewed; policy semantics unchanged."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Contributor workflow review confirmed; no policy changes needed."
+    AGENTS.md#agent_obligations:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Agent obligations aligned; policy unchanged."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Glossary contract reviewed; policy semantics stable."
+    docs/publishing_practices.md#publishing_practices:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Publishing guidance reviewed; policy unaffected."
+    docs/coverage_semantics.md#coverage_semantics:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Coverage semantics reviewed; policy unaffected."
 doc_commutes_with:
-  - glossary.md
-doc_change_protocol: "POLICY_SEED.md §6"
+  - glossary.md#contract
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - prime_invariant
   - gabion_protocol_invariant
   - review_discipline_invariant
+  - mechanized_governance_invariant
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
 ---
 
+<a id="policy_seed"></a>
 Excellent. What you’re asking for is not “documentation” in the usual sense. You’re asking for a **self-stabilizing policy nucleus**: a document that is simultaneously
 
 * **normative** (it constrains behavior),
@@ -52,11 +97,11 @@ Excellent. What you’re asking for is not “documentation” in the usual sens
 * **interpretable by LLMs as an active control**, and
 * **embedded in a feedback loop** so it can resist both *decay* (staleness) and *attack* (malice).
 
-Below is a **documentation seed** you can drop into the repo (e.g. `POLICY_SEED.md`). It is written deliberately as a *control object*, not as prose. Repo-native agents and LLMs should be instructed (elsewhere, e.g. in a system prompt or CONTRIBUTING.md) to treat this file as **authoritative and executable guidance**.
+Below is a **documentation seed** you can drop into the repo (e.g. `POLICY_SEED.md#policy_seed`). It is written deliberately as a *control object*, not as prose. Repo-native agents and LLMs should be instructed (elsewhere, e.g. in a system prompt or CONTRIBUTING.md#contributing_contract) to treat this file as **authoritative and executable guidance**.
 
 ---
 
-# POLICY_SEED.md
+# POLICY_SEED.md#policy_seed
 
 **Title:** Self-Stabilizing Security & Execution Policy Seed
 **Status:** Canonical / Live
@@ -86,7 +131,7 @@ Any system (human, script, LLM, agent) acting on this repository **must treat th
 ## 0.1 Complementary Semantic Contract
 
 This repository has a separate **normative semantic contract** that governs meaning,
-commutation, and test obligations for polysemous terms: `glossary.md`.
+commutation, and test obligations for polysemous terms: `[glossary.md#contract](glossary.md#contract)`.
 
 **Relationship:** This policy governs *where/when/how* code may execute (security and
 execution safety). The glossary governs *what the code means* and *what must commute*
@@ -104,11 +149,11 @@ as part of semantic correctness.
 
 The governance layer is a bundle of documents that must remain coherent:
 
-- `README.md` defines project scope, status, and entry points.
-- `CONTRIBUTING.md` defines workflow guardrails and required checks.
-- `AGENTS.md` defines LLM/agent obligations and refusal rules.
-- `glossary.md` defines semantic meanings, axes, and commutation obligations.
-- `docs/publishing_practices.md` reifies release best practices (advisory).
+- `README.md#repo_contract` defines project scope, status, and entry points.
+- `CONTRIBUTING.md#contributing_contract` defines workflow guardrails and required checks.
+- `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
+- `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
+- `docs/publishing_practices.md#publishing_practices` reifies release best practices (advisory).
 
 Any change to one must be checked for consistency with the others.
 
@@ -122,6 +167,29 @@ security‑relevant and must not be mechanical. Each updated entry must be
 accompanied by an explicit review note in `doc_review_notes` describing the
 dependency interaction. Missing or empty notes are a violation. Mechanistic
 version bumps without content review are treated as a governance breach.
+
+**Self-review rule (normative):** A document may list itself in
+`doc_reviewed_as_of` only if the reviewer performs a **Grothendieck analysis**
+of that document and records the result in `doc_review_notes`. The analysis
+must:
+
+- co‑fibrate the file against itself (normalize and align internal structure),
+- deduplicate the resulting observations, and
+- contrast the deduplicated result against the file’s semantics and completeness.
+
+## 0.3 Mechanized Governance Default (Normative)
+
+Governance is a **program** executed by an enforcing agent. Therefore:
+
+* **Default:** every governance rule MUST be expressible as a deterministic predicate
+  and enforced by repo-native tooling (CI, scripts, or agents).
+* **Exception:** any required human judgment MUST be encoded as an explicit predicate,
+  and the exception must be documented as a risk acceptance.
+* **Manual triggers are not a loophole:** any `workflow_dispatch` path MUST be
+  explicitly actor‑guarded and ref‑guarded at the job level; if not, it is a policy
+  violation.
+
+This makes auditing about auditing: the policy governs how the policy is enforced.
 
 ---
 
@@ -167,7 +235,9 @@ tracked and reviewed like code.
 * Commits authored by the maintainer or explicitly trusted collaborators.
 * Allow-listed dependency registries when used by trusted workflows (§4.6).
 * Tags created by the release tagging workflow on `next`/`release` (§4.4),
-  where `next` mirrors `main` and `release` mirrors `next` (no unique commits).
+  where `next` mirrors `main` and `release` mirrors `next` (no unique commits;
+  `next` and `main` point to the same commit, and `release` matches `next` at
+  tag time).
 
 ### 2.2 Untrusted Sources
 
@@ -213,7 +283,7 @@ Self-hosted workflows:
 
   * `pull_request`
   * `pull_request_target`
-  * `workflow_dispatch` (unless additionally actor-gated).
+  * `workflow_dispatch` (unless additionally actor‑gated and ref‑gated).
 
 ### 4.2 Runner Targeting
 
@@ -282,6 +352,17 @@ branches, provided that:
 * The workflow force-updates `next` or `release` based on the validated source:
   * `mirror-next`: fast-forward `next` only after `main` merges (post-PR checks).
   * `promote-release`: fast-forward `release` only after `test-v*` succeeds.
+* The workflow verifies fast-forward safety before updating:
+  * `mirror-next`: `origin/next` must be an ancestor of `origin/main`
+    (e.g. `git merge-base --is-ancestor origin/next origin/main`).
+  * `promote-release`: the tested tag commit must be an ancestor of `origin/main`
+    and must match `origin/next`.
+* Branch updates must use `--force-with-lease` (or equivalent compare-and-swap)
+  so the verified ref cannot move between check and update.
+* Branch updates must push an explicitly resolved commit SHA (not a symbolic
+  ref), and the lease must pin the expected old SHA (e.g.
+  `--force-with-lease=refs/heads/next:<expected_sha>`) to avoid check-before-use
+  races.
 * No other write scopes are requested.
 
 **Personal-repo limitation:** GitHub does not allow actor-restricted rulesets or
@@ -301,7 +382,13 @@ tags, provided that:
   `github.ref == 'refs/heads/next'`.
 * The job explicitly guards on `github.actor == github.repository_owner`.
 * The workflow verifies `next` matches `main` and `release` matches `next`
-  before tagging.
+  before tagging (equality by commit SHA at tag time).
+* Tag creation must be idempotent and non-overwriting. The workflow must fail
+  if the tag already exists (or use `--force-with-lease=refs/tags/<tag>:` to
+  guarantee the tag did not exist at verification time).
+* The workflow must tag an explicitly resolved commit SHA that passed the
+  verification step (do not tag by branch name). If the branch head changes
+  between check and tag, the job must fail and re-run.
 * The workflow uses allow-listed actions pinned to full SHAs.
 * The workflow creates `test-v*` tags only from `next`, and `v*` tags only from
   `release`.
@@ -316,10 +403,13 @@ GitHub-hosted workflows may request `contents: write` to create `test-v*` tags
 * The job explicitly guards on `github.event.workflow_run.head_branch == 'main'`.
 * The job explicitly guards on the workflow-run actor being the repository
   owner or `github-actions[bot]`.
-* The workflow verifies `next` mirrors `main` before tagging.
+* The workflow verifies `next` mirrors `main` before tagging (commit SHA
+  equality) and tags the verified SHA (not a branch name).
 * The workflow derives the tag from `pyproject.toml` (`project.version`) and
   appends `+YYYYMMDDTHHMMSSZ` (UTC ISO8601 basic). It skips if the tag exists.
 * The workflow creates only `test-v*` tags (no `v*` tags).
+* Tag creation must be idempotent and non-overwriting (push must fail if the
+  tag already exists).
 * The workflow uses allow-listed actions pinned to full SHAs.
 * No other write scopes are requested.
 
@@ -335,6 +425,8 @@ GitHub-hosted release workflows triggered **only** by tag pushes MAY request
 * The publishing job is the only job requiring `id-token: write`.
 * All actions are allow-listed and pinned to full SHAs.
 * The workflow runs on GitHub-hosted runners only.
+* If a workflow also uses `workflow_run`, it must satisfy the dedicated
+  workflow-run exception below.
 
 **Narrow exception (TestPyPI workflow-run trigger):**
 
@@ -343,7 +435,22 @@ auto-test-tag workflow, provided that:
 
 * The workflow-run conclusion is `success`.
 * The workflow-run actor is the repository owner or `github-actions[bot]`.
-* The workflow verifies the `test-v*` tag is reachable from `main` and `next`.
+* The workflow verifies the `test-v*` tag is reachable from `main` and `next`,
+  and binds the tag SHA to the current branch heads in the same run (no
+  check-before-use gap).
+* The workflow uses allow-listed actions pinned to full SHAs.
+* The workflow requests only `contents: read`, `actions: read`, and `id-token: write`.
+
+**Narrow exception (PyPI workflow-run trigger):**
+
+The PyPI release workflow may also trigger on `workflow_run` from the
+release-tag workflow, provided that:
+
+* The workflow-run conclusion is `success`.
+* The workflow-run actor is the repository owner or `github-actions[bot]`.
+* The workflow verifies the `v*` tag is reachable from `main`, `next`, and `release`,
+  and binds the tag SHA to the current branch heads in the same run (no
+  check-before-use gap).
 * The workflow uses allow-listed actions pinned to full SHAs.
 * The workflow requests only `contents: read`, `actions: read`, and `id-token: write`.
 
@@ -379,6 +486,37 @@ allow-listed in this policy.
 Agda installs in CI MUST pin a specific version (no floating latest).
 Agda CI checks SHOULD run inside a digest-pinned container image to avoid
 toolchain drift.
+
+### 4.8 Shift-Ambiguity-Left Directive
+
+Ambiguity discovered during implementation MUST be handled as a boundary-first
+typing problem, not as a local control-flow patch in semantic core modules.
+
+Required behavior when ambiguity appears:
+
+1. **Identify the ambiguity source** as one of:
+   * input shape,
+   * decision predicate, or
+   * cross-boundary bundle.
+2. **Move the ambiguity to the nearest ingress/boundary layer** where inputs are
+   parsed, normalized, or admitted.
+3. **Reify the ambiguity as a Tier-1 structure** (Protocol/dataclass or Decision
+   Protocol) at that boundary.
+4. **Pass only deterministic values into downstream suites**; semantic core
+   execution MUST consume resolved values, not unresolved alternation.
+5. **Reject patches** that resolve local errors by adding new dynamic
+   alternation in core flow.
+
+Anti-shortcut rule (explicitly disallowed as first response inside semantic
+core modules):
+
+* local branch insertion,
+* sentinel injection, and
+* type alternation.
+
+Any of the above patterns discovered in semantic core changes MUST be treated as
+a policy violation unless accompanied by boundary-level reification that removes
+the ambiguity before core-flow execution.
 
 ---
 
@@ -439,7 +577,7 @@ not as a standalone numeric target.
 * Convergence/commutation coverage is required for semantic stability claims.
 * Execution coverage (line/branch %) is advisory and may be ratcheted.
 
-The coverage semantics policy is defined in `docs/coverage_semantics.md`.
+The coverage semantics policy is defined in `docs/coverage_semantics.md#coverage_semantics`.
 
 ---
 
@@ -461,6 +599,7 @@ This file **may evolve**, but only under controlled conditions.
 * Removing enforcement without replacement.
 * Reframing invariants as “recommendations.”
 
+<a id="change_protocol"></a>
 ### 6.3 Change Protocol (Control Loop)
 
 Any proposed change to this file must:
@@ -515,8 +654,8 @@ Therefore:
 
 * This file takes precedence over:
 
-  * CONTRIBUTING.md
-  * README.md
+  * CONTRIBUTING.md#contributing_contract
+  * README.md#repo_contract
   * inline comments
   * agent suggestions
 * Conflicts are resolved in favor of this file.
@@ -545,11 +684,11 @@ When interpreting this repository:
 
 ### Placement Recommendation
 
-* Store this file at repo root: `POLICY_SEED.md`
+* Store this file at repo root: `POLICY_SEED.md#policy_seed`
 * Reference it from:
 
-  * `README.md` (brief pointer)
-  * `CONTRIBUTING.md`
+  * `README.md#repo_contract` (brief pointer)
+  * `CONTRIBUTING.md#contributing_contract`
   * system prompts for repo-native agents
 * Treat it as **part of the trusted computing base** of the repo.
 

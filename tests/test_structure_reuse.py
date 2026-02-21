@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count
 def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     da = _load()
     snapshot = {
@@ -33,6 +30,8 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
         ],
     }
     reuse = da.compute_structure_reuse(snapshot, min_count=2)
+    assert reuse["forest_signature_partial"] is True
+    assert reuse["forest_signature_basis"] == "missing"
     kinds = {entry.get("kind") for entry in reuse.get("reused", [])}
     assert "bundle" in kinds
     assert "function" in kinds
@@ -48,7 +47,7 @@ def test_compute_structure_reuse_detects_repeated_subtrees() -> None:
     replacement_map = reuse.get("replacement_map", {})
     assert any(location.startswith("a.py::f") for location in replacement_map)
 
-
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.render_reuse_lemma_stubs
 def test_render_reuse_lemma_stubs_includes_names() -> None:
     da = _load()
     reuse = {
@@ -68,7 +67,7 @@ def test_render_reuse_lemma_stubs_includes_names() -> None:
     stubs = da.render_reuse_lemma_stubs(reuse)
     assert "_gabion_bundle_lemma_deadbeef" in stubs
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse._record::child_count,value E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.compute_structure_reuse::min_count
 def test_structure_reuse_prefers_declared_bundle_names(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "mod.py"

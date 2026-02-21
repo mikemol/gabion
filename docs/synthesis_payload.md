@@ -1,6 +1,6 @@
 ---
-doc_revision: 2
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_revision: 4
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: synthesis_payload
 doc_role: schema
 doc_scope:
@@ -9,17 +9,67 @@ doc_scope:
   - tooling
 doc_authority: informative
 doc_requires:
-  - README.md
-  - CONTRIBUTING.md
-  - glossary.md
-  - POLICY_SEED.md
-  - AGENTS.md
-doc_change_protocol: "POLICY_SEED.md §6"
+  - README.md#repo_contract
+  - CONTRIBUTING.md#contributing_contract
+  - glossary.md#contract
+  - POLICY_SEED.md#policy_seed
+  - AGENTS.md#agent_obligations
+doc_reviewed_as_of:
+  README.md#repo_contract: 1
+  CONTRIBUTING.md#contributing_contract: 1
+  glossary.md#contract: 1
+  POLICY_SEED.md#policy_seed: 1
+  AGENTS.md#agent_obligations: 1
+doc_review_notes:
+  README.md#repo_contract: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+  CONTRIBUTING.md#contributing_contract: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+  glossary.md#contract: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+  AGENTS.md#agent_obligations: Agent obligations unchanged; payload remains tool-facing.
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
+doc_sections:
+  synthesis_payload: 1
+doc_section_requires:
+  synthesis_payload:
+    - README.md#repo_contract
+    - CONTRIBUTING.md#contributing_contract
+    - glossary.md#contract
+    - POLICY_SEED.md#policy_seed
+    - AGENTS.md#agent_obligations
+doc_section_reviews:
+  synthesis_payload:
+    README.md#repo_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed README.md rev1 (docflow audit now scans in/ by default); no conflicts with this document's scope.
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope.
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline).
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+    AGENTS.md#agent_obligations:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Agent obligations unchanged; payload remains tool-facing.
 ---
+
+<a id="synthesis_payload"></a>
 
 # Synthesis Plan Payload (Prototype)
 

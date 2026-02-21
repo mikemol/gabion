@@ -13,14 +13,24 @@
   ],
   "activationEvents": [
     "onLanguage:python",
-    "onCommand:gabion.refactorProtocol"
+    "onCommand:gabion.synthesisPlan",
+    "onCommand:gabion.refactorProtocol",
+    "onCommand:gabion.structureDiff"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
+        "command": "gabion.synthesisPlan",
+        "title": "Gabion: Synthesis Plan"
+      },
+      {
         "command": "gabion.refactorProtocol",
-        "title": "Gabion: Extract Protocol (stub)"
+        "title": "Gabion: Refactor Protocol"
+      },
+      {
+        "command": "gabion.structureDiff",
+        "title": "Gabion: Structure Diff"
       }
     ],
     "configuration": {
@@ -49,6 +59,8 @@
     "vscode-languageclient": "^9.0.1"
   },
   "scripts": {
-    "lint": "node -c extension.js"
+    "lint": "node -c extension.js",
+    "smoke": "node scripts/smoke-check.js",
+    "check": "npm run lint && npm run smoke"
   }
 }
