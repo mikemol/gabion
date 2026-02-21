@@ -2932,24 +2932,32 @@ def _latest_report_phase(phases: Mapping[str, JSONValue] | None) -> str | None:
 
 
 def _require_payload(
-    payload: dict[str, object] | None,
+    payload: Mapping[str, object],
     *,
     command: str,
 ) -> dict[str, object]:
-    if not isinstance(payload, dict):
+    if not isinstance(payload, Mapping):
         never(
             "invalid command payload type",
             command=command,
             payload_type=type(payload).__name__,
         )
-    return payload
+    if isinstance(payload, dict):
+        return payload
+    return {str(key): payload[key] for key in payload}
 
 
 def _require_optional_payload(
-    payload: dict[str, object] | None,
+    payload: Mapping[str, object] | None,
     *,
     command: str,
 ) -> dict[str, object]:
+    if payload is None:
+        never(
+            "invalid command payload type",
+            command=command,
+            payload_type="NoneType",
+        )
     return _require_payload(payload, command=command)
 
 
@@ -3245,7 +3253,7 @@ def _deadline_from_payload(payload: dict[str, object]) -> Deadline:
 
 
 @contextmanager
-def _deadline_scope_from_payload(payload: dict[str, object]):
+def _deadline_scope_from_payload(payload: Mapping[str, object]):
     normalized_payload = _require_payload(payload, command="deadline_scope")
     deadline = _deadline_from_payload(normalized_payload)
     base_ticks = _analysis_timeout_total_ticks(normalized_payload)
@@ -6332,7 +6340,7 @@ def execute_impact(
     ls: LanguageServer,
     payload: dict[str, object] | None = None,
 ) -> dict:
-    normalized_payload = _require_payload(payload, command=IMPACT_COMMAND)
+    normalized_payload = _require_optional_payload(payload, command=IMPACT_COMMAND)
     return _execute_impact_total(ls, normalized_payload)
 
 

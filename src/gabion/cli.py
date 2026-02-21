@@ -627,8 +627,9 @@ def _write_lint_sarif(target: str, entries: list[dict[str, object]]) -> None:
                 ],
             }
         )
-    duplicate_codes = sorted(
-        code for code, count in rule_counts.items() if int(count) > 1
+    duplicate_codes = ordered_or_sorted(
+        (code for code, count in rule_counts.items() if int(count) > 1),
+        source="gabion.cli._emit_lint_sarif.duplicate_codes",
     )
     if duplicate_codes:
         joined = ", ".join(duplicate_codes)

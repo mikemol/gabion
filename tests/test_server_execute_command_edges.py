@@ -5298,6 +5298,12 @@ def test_execute_impact_validation_and_depth_edges(tmp_path: Path) -> None:
     assert depth_limited["likely_run_tests"] == []
 
 
+# gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_requires_payload::server.py::gabion.server.execute_impact
+def test_execute_impact_requires_payload() -> None:
+    with pytest.raises(NeverThrown):
+        server.execute_impact(_DummyServer("."), None)
+
+
 # gabion:evidence E:call_footprint::tests/test_server_execute_command_edges.py::test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_guard::server.py::gabion.server.execute_impact::test_server_execute_command_edges.py::tests.test_server_execute_command_edges._with_timeout
 def test_execute_impact_duplicate_test_edges_cover_seen_state_and_confidence_guard(
     tmp_path: Path,
