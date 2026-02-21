@@ -1,5 +1,5 @@
 ---
-doc_revision: 87
+doc_revision: 88
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -121,6 +121,27 @@ config/local bundle), or explicitly documented in-place with:
 
 Tier-2 bundles must be reified before merge (see `[glossary.md#contract](glossary.md#contract)`).
 Tier-3 bundles must be documented with `# dataflow-bundle:` or reified.
+
+## Refactor Under Ambiguity Pressure (normative)
+When ambiguity appears during refactors, contributors must apply the following
+sequence in order:
+
+1. **Step A — classify ambiguity at boundary vs core.** Determine whether the
+   uncertainty belongs in an adapter/interface boundary or in the semantic core.
+2. **Step B — create/extend a Protocol or Decision Protocol.** Reify the
+   expected shape/decision surface as an explicit contract.
+3. **Step C — normalize incoming values once (adapter layer).** Perform
+   conversion/defaulting/disambiguation at ingress.
+4. **Step D — remove downstream `isinstance`/`Optional`/sentinel checks.**
+   Core flows must consume deterministic contract types, not repeated ambiguity
+   guards.
+5. **Step E — verify no new ambiguity signatures were introduced.** Confirm the
+   change did not add new ambiguous unions, sentinel branches, or fallback-only
+   control paths.
+
+## Pull request checklist (normative)
+- [ ] Describe where ambiguity was discharged and what deterministic contract
+      replaced it (Protocol, Decision Protocol, or equivalent typed boundary).
 
 ## Branching model (normative)
 - Routine work goes to `stage`; CI runs on every `stage` push and must be green.
