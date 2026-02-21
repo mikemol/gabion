@@ -1,5 +1,5 @@
 ---
-doc_revision: 50
+doc_revision: 51
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: influence_index
 doc_role: index
@@ -135,3 +135,4 @@ Status legend:
 - in/in-35.md — [**partial**](docs/sppf_checklist.md#in-35-dict-key-carrier-tracking) (dict key normalization now supports name-bound constants and records explicit unknown-key carrier evidence for non-recoverable keys; supported key grammar remains deliberately conservative.)
 - in/in-36.md — [**adopted**](docs/sppf_checklist.md#in-36-starred-dataclass-call-bundles) (dataclass call-bundle extraction now decodes deterministic starred literals for `*` and `**` and emits unresolved-starred witnesses for dynamic payloads.)
 - in/in-37.md — [**adopted**](docs/sppf_checklist.md#in-37-dynamic-dispatch-uncertainty) (callee resolution now distinguishes `unresolved_dynamic` from unresolved internal/external states and emits a dedicated `unresolved_dynamic_callee` obligation kind.)
+- in/in-38.md — **queued** (formalized future design: ASPF mutation log-structured persistence with protobuf payloads, a protobuf-defined filesystem envelope projection, and tar-packaged archive transport; deferred implementation tracked in the checklist; SPPF/GH-196.)
