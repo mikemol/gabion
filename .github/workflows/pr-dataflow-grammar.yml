@@ -94,7 +94,7 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p artifacts/audit_reports artifacts/test_runs
-          mise exec -- python scripts/impact_select_tests.py \
+          mise exec -- python -m gabion impact-select-tests \
             --root . \
             --diff-base "$GITHUB_BASE_SHA" \
             --diff-head "$GITHUB_HEAD_SHA" \

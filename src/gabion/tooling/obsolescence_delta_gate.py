@@ -68,5 +68,3 @@ def main() -> int:
     return check_gate(Path("artifacts/out/test_obsolescence_delta.json"))
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())

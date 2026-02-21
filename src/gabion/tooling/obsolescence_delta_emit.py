@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Callable, Mapping
 
 from gabion import server
 from gabion.lsp_client import CommandRequest, run_command_direct
@@ -11,8 +12,8 @@ _DEFAULT_TIMEOUT_TICK_NS = "1000000"
 _DEFAULT_RESUME_CHECKPOINT_PATH = Path(
     "artifacts/audit_reports/dataflow_resume_checkpoint_ci.json"
 )
-_STATE_PATH = Path("artifacts/out/ambiguity_state.json")
-_DELTA_PATH = Path("artifacts/out/ambiguity_delta.json")
+_STATE_PATH = Path("artifacts/out/test_obsolescence_state.json")
+_DELTA_PATH = Path("artifacts/out/test_obsolescence_delta.json")
 
 
 def _timeout_ticks() -> int:
@@ -33,7 +34,10 @@ def _timeout_tick_ns() -> int:
     return parsed if parsed > 0 else int(_DEFAULT_TIMEOUT_TICK_NS)
 
 
-def _build_payload() -> dict[str, object]:
+def _build_payload(
+    *,
+    resume_checkpoint: Path | bool | None = None,
+) -> dict[str, object]:
     payload: dict[str, object] = {
         "analysis_timeout_ticks": _timeout_ticks(),
         "analysis_timeout_tick_ns": _timeout_tick_ns(),
@@ -41,34 +45,41 @@ def _build_payload() -> dict[str, object]:
         "fail_on_type_ambiguities": False,
         "resume_on_timeout": 1,
         "emit_timeout_progress_report": True,
-        "emit_ambiguity_delta": True,
+        "emit_test_obsolescence_delta": True,
     }
     if _STATE_PATH.exists():
-        payload["ambiguity_state"] = str(_STATE_PATH)
-    if _DEFAULT_RESUME_CHECKPOINT_PATH.exists():
+        payload["test_obsolescence_state"] = str(_STATE_PATH)
+    if resume_checkpoint is False:
+        payload["resume_checkpoint"] = False
+    elif isinstance(resume_checkpoint, Path):
+        payload["resume_checkpoint"] = str(resume_checkpoint)
+    elif _DEFAULT_RESUME_CHECKPOINT_PATH.exists():
         payload["resume_checkpoint"] = str(_DEFAULT_RESUME_CHECKPOINT_PATH)
     else:
         payload["resume_checkpoint"] = False
     return payload
 
 
-def main() -> int:
-    result = run_command_direct(
+def main(
+    *,
+    run_command_direct_fn: Callable[..., Mapping[str, object]] = run_command_direct,
+    root_path: Path = Path("."),
+    delta_path: Path = _DELTA_PATH,
+    resume_checkpoint: Path | bool | None = None,
+) -> int:
+    result = run_command_direct_fn(
         CommandRequest(
             server.DATAFLOW_COMMAND,
-            [_build_payload()],
+            [_build_payload(resume_checkpoint=resume_checkpoint)],
         ),
-        root=Path("."),
+        root=root_path,
     )
     exit_code = int(result.get("exit_code", 0))
     if exit_code != 0:
-        print(f"Ambiguity delta emit failed (exit {exit_code}).")
+        print(f"Test obsolescence delta emit failed (exit {exit_code}).")
         return exit_code
-    if not _DELTA_PATH.exists():
-        print(f"Ambiguity delta emit failed: missing output {_DELTA_PATH}.")
+    if not delta_path.exists():
+        print(f"Test obsolescence delta emit failed: missing output {delta_path}.")
         return 1
     return 0
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())

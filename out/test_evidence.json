@@ -1259,6 +1259,25 @@
       ]
     },
     {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_help_lists_tooling_subcommands::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_help_lists_tooling_subcommands"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_cli_commands.py::test_cli_help_lists_tooling_subcommands"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_impact_reads_git_diff_file::test_cli_commands.py::tests.test_cli_commands._has_pygls::test_cli_commands.py::tests.test_cli_commands._invoke",
       "key": {
         "k": "call_footprint",
@@ -1416,6 +1435,64 @@
       },
       "tests": [
         "tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations::cli.py::gabion.cli.app",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_tooling_subcommand_help_invocations"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling::cli.py::gabion.cli._invoke_argparse_command::cli.py::gabion.cli.delta_state_emit::cli.py::gabion.cli.delta_triplets::cli.py::gabion.cli.docflow_delta_emit::cli.py::gabion.cli.impact_select_tests::cli.py::gabion.cli.run_dataflow_stage",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_commands.py",
+          "qual": "test_cli_tooling_wrappers_and_argparse_exit_handling"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli._invoke_argparse_command"
+          },
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.delta_state_emit"
+          },
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.delta_triplets"
+          },
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.docflow_delta_emit"
+          },
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.impact_select_tests"
+          },
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.run_dataflow_stage"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling"
       ]
     },
     {
@@ -12489,7 +12566,76 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates::delta_state_emit.py::scripts.delta_state_emit.main",
+      "display": "E:call_footprint::tests/test_delta_gates.py::test_gate_delta_value_handles_invalid_shapes::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate._delta_value::obsolescence_delta_unmapped_gate.py::gabion.tooling.obsolescence_delta_unmapped_gate._delta_value",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_gates.py",
+          "qual": "test_gate_delta_value_handles_invalid_shapes"
+        },
+        "targets": [
+          {
+            "path": "ambiguity_delta_gate.py",
+            "qual": "gabion.tooling.ambiguity_delta_gate._delta_value"
+          },
+          {
+            "path": "obsolescence_delta_unmapped_gate.py",
+            "qual": "gabion.tooling.obsolescence_delta_unmapped_gate._delta_value"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_gates.py::test_gate_delta_value_handles_invalid_shapes"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_gates.py::test_gate_enabled_reads_environment_and_disabled_paths::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate._enabled::obsolescence_delta_gate.py::gabion.tooling.obsolescence_delta_gate._enabled",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_gates.py",
+          "qual": "test_gate_enabled_reads_environment_and_disabled_paths"
+        },
+        "targets": [
+          {
+            "path": "ambiguity_delta_gate.py",
+            "qual": "gabion.tooling.ambiguity_delta_gate._enabled"
+          },
+          {
+            "path": "obsolescence_delta_gate.py",
+            "qual": "gabion.tooling.obsolescence_delta_gate._enabled"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_gates.py::test_gate_enabled_reads_environment_and_disabled_paths"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_helper_branches_and_nonzero_exit::delta_state_emit.py::gabion.tooling.delta_state_emit._emit_phase_progress_line::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_script_telemetry.py",
+          "qual": "test_delta_state_emit_helper_branches_and_nonzero_exit"
+        },
+        "targets": [
+          {
+            "path": "delta_state_emit.py",
+            "qual": "gabion.tooling.delta_state_emit._emit_phase_progress_line"
+          },
+          {
+            "path": "delta_state_emit.py",
+            "qual": "gabion.tooling.delta_state_emit.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_script_telemetry.py::test_delta_state_emit_helper_branches_and_nonzero_exit"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -12499,7 +12645,7 @@
         "targets": [
           {
             "path": "delta_state_emit.py",
-            "qual": "scripts.delta_state_emit.main"
+            "qual": "gabion.tooling.delta_state_emit.main"
           }
         ]
       },
@@ -12508,7 +12654,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::scripts.delta_state_emit.main",
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -12518,7 +12664,7 @@
         "targets": [
           {
             "path": "delta_state_emit.py",
-            "qual": "scripts.delta_state_emit.main"
+            "qual": "gabion.tooling.delta_state_emit.main"
           }
         ]
       },
@@ -12527,7 +12673,99 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_main_emits_pending_heartbeat::delta_triplets.py::scripts.delta_triplets.main",
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_notification_and_payload_edge_branches::delta_state_emit.py::gabion.tooling.delta_state_emit._phase_progress_from_notification::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_script_telemetry.py",
+          "qual": "test_delta_state_emit_notification_and_payload_edge_branches"
+        },
+        "targets": [
+          {
+            "path": "delta_state_emit.py",
+            "qual": "gabion.tooling.delta_state_emit._phase_progress_from_notification"
+          },
+          {
+            "path": "delta_state_emit.py",
+            "qual": "gabion.tooling.delta_state_emit.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_script_telemetry.py::test_delta_state_emit_notification_and_payload_edge_branches"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_edge_paths::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_script_telemetry.py",
+          "qual": "test_delta_triplets_edge_paths"
+        },
+        "targets": [
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets._run_step_callable"
+          },
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_script_telemetry.py::test_delta_triplets_edge_paths"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_checkpoint_paths_are_partitioned::delta_triplets.py::gabion.tooling.delta_triplets._triplet_resume_checkpoint_path",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_script_telemetry.py",
+          "qual": "test_delta_triplets_emit_checkpoint_paths_are_partitioned"
+        },
+        "targets": [
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets._triplet_resume_checkpoint_path"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_script_telemetry.py::test_delta_triplets_emit_checkpoint_paths_are_partitioned"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints::delta_triplets.py::gabion.tooling.delta_triplets._run_ambiguity_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_annotation_drift_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_obsolescence_emit",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_script_telemetry.py",
+          "qual": "test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints"
+        },
+        "targets": [
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets._run_ambiguity_emit"
+          },
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets._run_annotation_drift_emit"
+          },
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets._run_obsolescence_emit"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_script_telemetry.py::test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_main_emits_pending_heartbeat::delta_triplets.py::gabion.tooling.delta_triplets.main",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -12537,7 +12775,7 @@
         "targets": [
           {
             "path": "delta_triplets.py",
-            "qual": "scripts.delta_triplets.main"
+            "qual": "gabion.tooling.delta_triplets.main"
           }
         ]
       },
@@ -12546,7 +12784,30 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure::delta_triplets.py::scripts.delta_triplets._run_triplet",
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_delta_script_telemetry.py",
+          "qual": "test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths"
+        },
+        "targets": [
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets._run_step_callable"
+          },
+          {
+            "path": "delta_triplets.py",
+            "qual": "gabion.tooling.delta_triplets.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_delta_script_telemetry.py::test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure::delta_triplets.py::gabion.tooling.delta_triplets._run_triplet",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -12556,7 +12817,7 @@
         "targets": [
           {
             "path": "delta_triplets.py",
-            "qual": "scripts.delta_triplets._run_triplet"
+            "qual": "gabion.tooling.delta_triplets._run_triplet"
           }
         ]
       },
@@ -13060,7 +13321,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths::docflow_delta_emit.py::scripts.docflow_delta_emit._build_execution_plan",
+      "display": "E:call_footprint::tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._build_execution_plan",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -13070,7 +13331,7 @@
         "targets": [
           {
             "path": "docflow_delta_emit.py",
-            "qual": "scripts.docflow_delta_emit._build_execution_plan"
+            "qual": "gabion.tooling.docflow_delta_emit._build_execution_plan"
           }
         ]
       },
@@ -13677,7 +13938,95 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_index_missing::impact_select_tests.py::scripts.impact_select_tests.main",
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_git_diff_changed_lines_branches_and_main_default_git_diff::impact_select_tests.py::gabion.tooling.impact_select_tests._git_diff_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_impact_select_tests.py",
+          "qual": "test_git_diff_changed_lines_branches_and_main_default_git_diff"
+        },
+        "targets": [
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests._git_diff_changed_lines"
+          },
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_impact_select_tests.py::test_git_diff_changed_lines_branches_and_main_default_git_diff"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_additional_helper_branches::impact_select_tests.py::gabion.tooling.impact_select_tests._read_must_run_tests::impact_select_tests.py::gabion.tooling.impact_select_tests._site_matches_changed_lines",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_impact_select_tests.py",
+          "qual": "test_impact_select_additional_helper_branches"
+        },
+        "targets": [
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests._read_must_run_tests"
+          },
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests._site_matches_changed_lines"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_impact_select_tests.py::test_impact_select_additional_helper_branches"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_helpers_cover_error_and_stale_paths::impact_select_tests.py::gabion.tooling.impact_select_tests._git_diff_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_impact_select_tests.py",
+          "qual": "test_impact_select_helpers_cover_error_and_stale_paths"
+        },
+        "targets": [
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests._git_diff_changed_lines"
+          },
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests._select_tests"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_impact_select_tests.py::test_impact_select_helpers_cover_error_and_stale_paths"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_attempts_refresh_when_index_missing::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_impact_select_tests.py",
+          "qual": "test_main_attempts_refresh_when_index_missing"
+        },
+        "targets": [
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_impact_select_tests.py::test_main_attempts_refresh_when_index_missing"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_index_missing::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -13687,7 +14036,7 @@
         "targets": [
           {
             "path": "impact_select_tests.py",
-            "qual": "scripts.impact_select_tests.main"
+            "qual": "gabion.tooling.impact_select_tests.main"
           }
         ]
       },
@@ -13696,7 +14045,26 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_parse_changed_lines_extracts_hunk_lines::impact_select_tests.py::scripts.impact_select_tests._parse_changed_lines",
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_handles_stale_index_without_refresh::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_impact_select_tests.py",
+          "qual": "test_main_handles_stale_index_without_refresh"
+        },
+        "targets": [
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_impact_select_tests.py::test_main_handles_stale_index_without_refresh"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_parse_changed_lines_extracts_hunk_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._parse_changed_lines",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -13706,7 +14074,7 @@
         "targets": [
           {
             "path": "impact_select_tests.py",
-            "qual": "scripts.impact_select_tests._parse_changed_lines"
+            "qual": "gabion.tooling.impact_select_tests._parse_changed_lines"
           }
         ]
       },
@@ -13715,7 +14083,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_select_tests_matches_evidence_site_and_changed_test::impact_select_tests.py::scripts.impact_select_tests._select_tests",
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_select_tests_matches_evidence_site_and_changed_test::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -13725,7 +14093,7 @@
         "targets": [
           {
             "path": "impact_select_tests.py",
-            "qual": "scripts.impact_select_tests._select_tests"
+            "qual": "gabion.tooling.impact_select_tests._select_tests"
           }
         ]
       },
@@ -16511,7 +16879,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_check_command_includes_strictness_when_provided::run_dataflow_stage.py::scripts.run_dataflow_stage._check_command::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_check_command_includes_strictness_when_provided::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._check_command::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16521,7 +16889,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._check_command"
+            "qual": "gabion.tooling.run_dataflow_stage._check_command"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16538,7 +16906,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_debug_dump_state_transitions_track_active_stage::run_dataflow_stage.py::scripts.run_dataflow_stage._debug_dump_stage_end::run_dataflow_stage.py::scripts.run_dataflow_stage._debug_dump_stage_start",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_debug_dump_state_transitions_track_active_stage::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._debug_dump_stage_end::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._debug_dump_stage_start",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16548,11 +16916,11 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._debug_dump_stage_end"
+            "qual": "gabion.tooling.run_dataflow_stage._debug_dump_stage_end"
           },
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._debug_dump_stage_start"
+            "qual": "gabion.tooling.run_dataflow_stage._debug_dump_stage_start"
           }
         ]
       },
@@ -16561,7 +16929,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_debug_dump_writes_state_lines::run_dataflow_stage.py::scripts.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_markdown_path::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_debug_dump_writes_state_lines::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16571,11 +16939,11 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._emit_debug_dump"
+            "qual": "gabion.tooling.run_dataflow_stage._emit_debug_dump"
           },
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._phase_timeline_markdown_path"
+            "qual": "gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16600,7 +16968,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys::run_dataflow_stage.py::scripts.run_dataflow_stage._emit_stage_outputs",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_stage_outputs",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16610,7 +16978,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._emit_stage_outputs"
+            "qual": "gabion.tooling.run_dataflow_stage._emit_stage_outputs"
           }
         ]
       },
@@ -16619,7 +16987,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_install_signal_debug_dump_handler_registers_and_restores::run_dataflow_stage.py::scripts.run_dataflow_stage._install_signal_debug_dump_handler",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_install_signal_debug_dump_handler_registers_and_restores::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._install_signal_debug_dump_handler",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16629,7 +16997,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._install_signal_debug_dump_handler"
+            "qual": "gabion.tooling.run_dataflow_stage._install_signal_debug_dump_handler"
           }
         ]
       },
@@ -16638,7 +17006,64 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_rows_from_timeout_payload::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_trace_payload",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_main_returns_error_when_no_stage_ids_requested::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_main_returns_error_when_no_stage_ids_requested"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_main_returns_error_when_no_stage_ids_requested"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_main_supports_injected_orchestration::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_main_supports_injected_orchestration"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_main_supports_injected_orchestration"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_main_uses_env_defaults_and_exercises_debug_callbacks::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_main_uses_env_defaults_and_exercises_debug_callbacks"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_main_uses_env_defaults_and_exercises_debug_callbacks"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._obligation_trace_payload",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16648,11 +17073,11 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._obligation_rows_from_timeout_payload"
+            "qual": "gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload"
           },
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._obligation_trace_payload"
+            "qual": "gabion.tooling.run_dataflow_stage._obligation_trace_payload"
           }
         ]
       },
@@ -16661,7 +17086,30 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_stage_strictness_profile_supports_named_and_positional::run_dataflow_stage.py::scripts.run_dataflow_stage._parse_stage_strictness_profile",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_args_and_run_subprocess_edges::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_args::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._run_subprocess",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_parse_args_and_run_subprocess_edges"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage._parse_args"
+          },
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage._run_subprocess"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_parse_args_and_run_subprocess_edges"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_stage_strictness_profile_supports_named_and_positional::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16671,7 +17119,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._parse_stage_strictness_profile"
+            "qual": "gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile"
           }
         ]
       },
@@ -16680,7 +17128,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_reset_run_observability_artifacts_clears_stale_debug_inputs_only::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_jsonl_path::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_markdown_path::run_dataflow_stage.py::scripts.run_dataflow_stage._reset_run_observability_artifacts::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_reset_run_observability_artifacts_clears_stale_debug_inputs_only::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._phase_timeline_jsonl_path::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._reset_run_observability_artifacts::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16690,15 +17138,15 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._phase_timeline_jsonl_path"
+            "qual": "gabion.tooling.run_dataflow_stage._phase_timeline_jsonl_path"
           },
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._phase_timeline_markdown_path"
+            "qual": "gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path"
           },
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._reset_run_observability_artifacts"
+            "qual": "gabion.tooling.run_dataflow_stage._reset_run_observability_artifacts"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16719,7 +17167,49 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::scripts.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_dataflow_stage_helper_branch_coverage::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_stage_outputs::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._load_json_object",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_run_dataflow_stage_helper_branch_coverage"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage._emit_stage_outputs"
+          },
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage._load_json_object"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_run_dataflow_stage_helper_branch_coverage"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_named_delta_gate_unknown_and_crash::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._run_named_delta_gate",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_run_named_delta_gate_unknown_and_crash"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage._run_named_delta_gate"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_run_named_delta_gate_unknown_and_crash"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16729,7 +17219,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage.run_stage"
+            "qual": "gabion.tooling.run_dataflow_stage.run_stage"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16754,7 +17244,26 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_marks_success_as_failure_when_delta_gate_fails::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_invokes_callbacks::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_run_dataflow_stage.py",
+          "qual": "test_run_staged_invokes_callbacks"
+        },
+        "targets": [
+          {
+            "path": "run_dataflow_stage.py",
+            "qual": "gabion.tooling.run_dataflow_stage.run_staged"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_run_dataflow_stage.py::test_run_staged_invokes_callbacks"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_marks_success_as_failure_when_delta_gate_fails::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16764,7 +17273,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage.run_staged"
+            "qual": "gabion.tooling.run_dataflow_stage.run_staged"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16789,7 +17298,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16799,7 +17308,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage.run_staged"
+            "qual": "gabion.tooling.run_dataflow_stage.run_staged"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16824,7 +17333,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16834,7 +17343,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage.run_staged"
+            "qual": "gabion.tooling.run_dataflow_stage.run_staged"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16859,7 +17368,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16869,7 +17378,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage.run_staged"
+            "qual": "gabion.tooling.run_dataflow_stage.run_staged"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16894,7 +17403,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16904,7 +17413,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage.run_staged"
+            "qual": "gabion.tooling.run_dataflow_stage.run_staged"
           },
           {
             "path": "test_run_dataflow_stage.py",
@@ -16929,7 +17438,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered::run_dataflow_stage.py::scripts.run_dataflow_stage._stage_ids",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._stage_ids",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16939,7 +17448,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._stage_ids"
+            "qual": "gabion.tooling.run_dataflow_stage._stage_ids"
           }
         ]
       },
@@ -16948,7 +17457,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_timeout_stage_with_missing_incremental_obligations_marks_incomplete::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_rows_from_timeout_payload",
+      "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_timeout_stage_with_missing_incremental_obligations_marks_incomplete::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -16958,7 +17467,7 @@
         "targets": [
           {
             "path": "run_dataflow_stage.py",
-            "qual": "scripts.run_dataflow_stage._obligation_rows_from_timeout_payload"
+            "qual": "gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload"
           }
         ]
       },
@@ -17131,7 +17640,7 @@
       ]
     },
     {
-      "display": "E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_script_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest",
+      "display": "E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest",
       "key": {
         "k": "call_footprint",
         "site": {
@@ -17141,7 +17650,7 @@
         "targets": [
           {
             "path": "test_script_scope_bindings.py",
-            "qual": "tests.test_script_scope_bindings._import_script_module"
+            "qual": "tests.test_script_scope_bindings._import_module"
           },
           {
             "path": "timeout_context.py",
@@ -23692,6 +24201,209 @@
       ]
     },
     {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_covers_missing_summary_skip_and_error::docflow_delta_advisory.py::gabion.tooling.docflow_delta_advisory.main::obsolescence_delta_advisory.py::gabion.tooling.obsolescence_delta_advisory.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_advisory_main_covers_missing_summary_skip_and_error"
+        },
+        "targets": [
+          {
+            "path": "docflow_delta_advisory.py",
+            "qual": "gabion.tooling.docflow_delta_advisory.main"
+          },
+          {
+            "path": "obsolescence_delta_advisory.py",
+            "qual": "gabion.tooling.obsolescence_delta_advisory.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_covers_missing_summary_skip_and_error"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_deadline_runtime_invalid_budget_and_gas_limit::deadline_runtime.py::gabion.tooling.deadline_runtime.deadline_scope_from_ticks",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_deadline_runtime_invalid_budget_and_gas_limit"
+        },
+        "targets": [
+          {
+            "path": "deadline_runtime.py",
+            "qual": "gabion.tooling.deadline_runtime.deadline_scope_from_ticks"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_deadline_runtime_invalid_budget_and_gas_limit"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_helper_and_default_write_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._build_execution_plan::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._run_docflow_audit",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_docflow_delta_emit_helper_and_default_write_paths"
+        },
+        "targets": [
+          {
+            "path": "docflow_delta_emit.py",
+            "qual": "gabion.tooling.docflow_delta_emit._build_execution_plan"
+          },
+          {
+            "path": "docflow_delta_emit.py",
+            "qual": "gabion.tooling.docflow_delta_emit._run_docflow_audit"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_helper_and_default_write_paths"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_main_covers_all_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_docflow_delta_emit_main_covers_all_paths"
+        },
+        "targets": [
+          {
+            "path": "docflow_delta_emit.py",
+            "qual": "gabion.tooling.docflow_delta_emit.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_main_covers_all_paths"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_branches::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate.check_gate",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_docflow_delta_gate_branches"
+        },
+        "targets": [
+          {
+            "path": "docflow_delta_gate.py",
+            "qual": "gabion.tooling.docflow_delta_gate.check_gate"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_branches"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_helper_and_main_branches::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate._delta_value::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_docflow_delta_gate_helper_and_main_branches"
+        },
+        "targets": [
+          {
+            "path": "docflow_delta_gate.py",
+            "qual": "gabion.tooling.docflow_delta_gate._delta_value"
+          },
+          {
+            "path": "docflow_delta_gate.py",
+            "qual": "gabion.tooling.docflow_delta_gate.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_helper_and_main_branches"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_resume_and_timeout_defaults::ambiguity_delta_emit.py::gabion.tooling.ambiguity_delta_emit._build_payload::annotation_drift_delta_emit.py::gabion.tooling.annotation_drift_delta_emit._build_payload::obsolescence_delta_emit.py::gabion.tooling.obsolescence_delta_emit._build_payload",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_emit_build_payload_handles_state_resume_and_timeout_defaults"
+        },
+        "targets": [
+          {
+            "path": "ambiguity_delta_emit.py",
+            "qual": "gabion.tooling.ambiguity_delta_emit._build_payload"
+          },
+          {
+            "path": "annotation_drift_delta_emit.py",
+            "qual": "gabion.tooling.annotation_drift_delta_emit._build_payload"
+          },
+          {
+            "path": "obsolescence_delta_emit.py",
+            "qual": "gabion.tooling.obsolescence_delta_emit._build_payload"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_resume_and_timeout_defaults"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches::ambiguity_delta_emit.py::gabion.tooling.ambiguity_delta_emit.main::annotation_drift_delta_emit.py::gabion.tooling.annotation_drift_delta_emit.main::obsolescence_delta_emit.py::gabion.tooling.obsolescence_delta_emit.main",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_emit_main_covers_exit_and_missing_output_branches"
+        },
+        "targets": [
+          {
+            "path": "ambiguity_delta_emit.py",
+            "qual": "gabion.tooling.ambiguity_delta_emit.main"
+          },
+          {
+            "path": "annotation_drift_delta_emit.py",
+            "qual": "gabion.tooling.annotation_drift_delta_emit.main"
+          },
+          {
+            "path": "obsolescence_delta_emit.py",
+            "qual": "gabion.tooling.obsolescence_delta_emit.main"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_other_gate_non_mapping_and_main_paths::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate.main::obsolescence_delta_gate.py::gabion.tooling.obsolescence_delta_gate.check_gate",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_tooling_emit_advisory_and_gates.py",
+          "qual": "test_other_gate_non_mapping_and_main_paths"
+        },
+        "targets": [
+          {
+            "path": "ambiguity_delta_gate.py",
+            "qual": "gabion.tooling.ambiguity_delta_gate.main"
+          },
+          {
+            "path": "obsolescence_delta_gate.py",
+            "qual": "gabion.tooling.obsolescence_delta_gate.check_gate"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_tooling_emit_advisory_and_gates.py::test_other_gate_non_mapping_and_main_paths"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_type_fingerprints.py::test_apply_registry_payload_filters_invalid_registry_values::test_type_fingerprints.py::tests.test_type_fingerprints._load::type_fingerprints.py::gabion.analysis.type_fingerprints._apply_registry_payload",
       "key": {
         "k": "call_footprint",
@@ -29293,12 +30005,12 @@
       ]
     },
     {
-      "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
+      "display": "E:function_site::annotation_drift_orphaned_gate.py::gabion.tooling.annotation_drift_orphaned_gate.check_gate",
       "key": {
         "k": "function_site",
         "site": {
           "path": "annotation_drift_orphaned_gate.py",
-          "qual": "scripts.annotation_drift_orphaned_gate.check_gate"
+          "qual": "gabion.tooling.annotation_drift_orphaned_gate.check_gate"
         }
       },
       "tests": [
@@ -33814,12 +34526,12 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
+          "display": "E:function_site::annotation_drift_orphaned_gate.py::gabion.tooling.annotation_drift_orphaned_gate.check_gate",
           "key": {
             "k": "function_site",
             "site": {
               "path": "annotation_drift_orphaned_gate.py",
-              "qual": "scripts.annotation_drift_orphaned_gate.check_gate"
+              "qual": "gabion.tooling.annotation_drift_orphaned_gate.check_gate"
             }
           }
         }
@@ -33832,12 +34544,12 @@
     {
       "evidence": [
         {
-          "display": "E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate",
+          "display": "E:function_site::annotation_drift_orphaned_gate.py::gabion.tooling.annotation_drift_orphaned_gate.check_gate",
           "key": {
             "k": "function_site",
             "site": {
               "path": "annotation_drift_orphaned_gate.py",
-              "qual": "scripts.annotation_drift_orphaned_gate.check_gate"
+              "qual": "gabion.tooling.annotation_drift_orphaned_gate.check_gate"
             }
           }
         }
@@ -35773,7 +36485,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 33,
+      "line": 113,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_check_and_dataflow_audit"
     },
@@ -35797,7 +36509,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 242,
+      "line": 322,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_dataflow_audit_command_is_removed"
     },
@@ -35821,9 +36533,33 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 188,
+      "line": 268,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_docflow"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_help_lists_tooling_subcommands::cli.py::gabion.cli.app",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_cli_commands.py",
+              "qual": "test_cli_help_lists_tooling_subcommands"
+            },
+            "targets": [
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli.app"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_cli_commands.py",
+      "line": 33,
+      "status": "mapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_help_lists_tooling_subcommands"
     },
     {
       "evidence": [
@@ -35839,7 +36575,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 92,
+      "line": 172,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_impact_json"
     },
@@ -35867,7 +36603,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 127,
+      "line": 207,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_impact_reads_git_diff_file"
     },
@@ -35895,7 +36631,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 158,
+      "line": 238,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_impact_reads_git_diff_stdin"
     },
@@ -35913,7 +36649,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 340,
+      "line": 420,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol"
     },
@@ -35937,7 +36673,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 467,
+      "line": 547,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol_emits_rewrite_plan_metadata"
     },
@@ -35961,7 +36697,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 372,
+      "line": 452,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol_invalid_json"
     },
@@ -35979,7 +36715,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 408,
+      "line": 488,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_refactor_protocol_output_file"
     },
@@ -36003,7 +36739,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 207,
+      "line": 287,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_sppf_graph_and_status_consistency"
     },
@@ -36021,7 +36757,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 316,
+      "line": 396,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_structure_diff"
     },
@@ -36039,7 +36775,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 250,
+      "line": 330,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_synth_and_synthesis_plan"
     },
@@ -36063,7 +36799,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 447,
+      "line": 527,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_synth_invalid_protocols_kind"
     },
@@ -36087,7 +36823,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 434,
+      "line": 514,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_synth_invalid_strictness"
     },
@@ -36111,7 +36847,7 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 362,
+      "line": 442,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_synthesis_plan_invalid_json"
     },
@@ -36129,9 +36865,77 @@
         }
       ],
       "file": "tests/test_cli_commands.py",
-      "line": 390,
+      "line": 470,
       "status": "mapped",
       "test_id": "tests/test_cli_commands.py::test_cli_synthesis_plan_stdout"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations::cli.py::gabion.cli.app",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_cli_commands.py",
+              "qual": "test_cli_tooling_subcommand_help_invocations"
+            },
+            "targets": [
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli.app"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_cli_commands.py",
+      "line": 45,
+      "status": "mapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling::cli.py::gabion.cli._invoke_argparse_command::cli.py::gabion.cli.delta_state_emit::cli.py::gabion.cli.delta_triplets::cli.py::gabion.cli.docflow_delta_emit::cli.py::gabion.cli.impact_select_tests::cli.py::gabion.cli.run_dataflow_stage",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_cli_commands.py",
+              "qual": "test_cli_tooling_wrappers_and_argparse_exit_handling"
+            },
+            "targets": [
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli._invoke_argparse_command"
+              },
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli.delta_state_emit"
+              },
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli.delta_triplets"
+              },
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli.docflow_delta_emit"
+              },
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli.impact_select_tests"
+              },
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli.run_dataflow_stage"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_cli_commands.py",
+      "line": 59,
+      "status": "mapped",
+      "test_id": "tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling"
     },
     {
       "evidence": [
@@ -63877,9 +64681,37 @@
         }
       ],
       "file": "tests/test_delta_gates.py",
-      "line": 82,
+      "line": 83,
       "status": "mapped",
       "test_id": "tests/test_delta_gates.py::test_gate_default_is_enabled"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_gates.py::test_gate_delta_value_handles_invalid_shapes::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate._delta_value::obsolescence_delta_unmapped_gate.py::gabion.tooling.obsolescence_delta_unmapped_gate._delta_value",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_gates.py",
+              "qual": "test_gate_delta_value_handles_invalid_shapes"
+            },
+            "targets": [
+              {
+                "path": "ambiguity_delta_gate.py",
+                "qual": "gabion.tooling.ambiguity_delta_gate._delta_value"
+              },
+              {
+                "path": "obsolescence_delta_unmapped_gate.py",
+                "qual": "gabion.tooling.obsolescence_delta_unmapped_gate._delta_value"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_gates.py",
+      "line": 122,
+      "status": "mapped",
+      "test_id": "tests/test_delta_gates.py::test_gate_delta_value_handles_invalid_shapes"
     },
     {
       "evidence": [
@@ -63895,9 +64727,37 @@
         }
       ],
       "file": "tests/test_delta_gates.py",
-      "line": 31,
+      "line": 32,
       "status": "mapped",
       "test_id": "tests/test_delta_gates.py::test_gate_detects_positive_delta"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_gates.py::test_gate_enabled_reads_environment_and_disabled_paths::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate._enabled::obsolescence_delta_gate.py::gabion.tooling.obsolescence_delta_gate._enabled",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_gates.py",
+              "qual": "test_gate_enabled_reads_environment_and_disabled_paths"
+            },
+            "targets": [
+              {
+                "path": "ambiguity_delta_gate.py",
+                "qual": "gabion.tooling.ambiguity_delta_gate._enabled"
+              },
+              {
+                "path": "obsolescence_delta_gate.py",
+                "qual": "gabion.tooling.obsolescence_delta_gate._enabled"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_gates.py",
+      "line": 98,
+      "status": "mapped",
+      "test_id": "tests/test_delta_gates.py::test_gate_enabled_reads_environment_and_disabled_paths"
     },
     {
       "evidence": [
@@ -63913,7 +64773,7 @@
         }
       ],
       "file": "tests/test_delta_gates.py",
-      "line": 66,
+      "line": 67,
       "status": "mapped",
       "test_id": "tests/test_delta_gates.py::test_gate_fails_when_payload_malformed"
     },
@@ -63931,14 +64791,42 @@
         }
       ],
       "file": "tests/test_delta_gates.py",
-      "line": 51,
+      "line": 52,
       "status": "mapped",
       "test_id": "tests/test_delta_gates.py::test_gate_fails_when_payload_missing"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates::delta_state_emit.py::scripts.delta_state_emit.main",
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_helper_branches_and_nonzero_exit::delta_state_emit.py::gabion.tooling.delta_state_emit._emit_phase_progress_line::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_script_telemetry.py",
+              "qual": "test_delta_state_emit_helper_branches_and_nonzero_exit"
+            },
+            "targets": [
+              {
+                "path": "delta_state_emit.py",
+                "qual": "gabion.tooling.delta_state_emit._emit_phase_progress_line"
+              },
+              {
+                "path": "delta_state_emit.py",
+                "qual": "gabion.tooling.delta_state_emit.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_script_telemetry.py",
+      "line": 195,
+      "status": "mapped",
+      "test_id": "tests/test_delta_script_telemetry.py::test_delta_state_emit_helper_branches_and_nonzero_exit"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -63948,21 +64836,21 @@
             "targets": [
               {
                 "path": "delta_state_emit.py",
-                "qual": "scripts.delta_state_emit.main"
+                "qual": "gabion.tooling.delta_state_emit.main"
               }
             ]
           }
         }
       ],
       "file": "tests/test_delta_script_telemetry.py",
-      "line": 11,
+      "line": 13,
       "status": "mapped",
       "test_id": "tests/test_delta_script_telemetry.py::test_delta_state_emit_main_emits_progress_telemetry_and_deduplicates"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::scripts.delta_state_emit.main",
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -63972,21 +64860,133 @@
             "targets": [
               {
                 "path": "delta_state_emit.py",
-                "qual": "scripts.delta_state_emit.main"
+                "qual": "gabion.tooling.delta_state_emit.main"
               }
             ]
           }
         }
       ],
       "file": "tests/test_delta_script_telemetry.py",
-      "line": 94,
+      "line": 96,
       "status": "mapped",
       "test_id": "tests/test_delta_script_telemetry.py::test_delta_state_emit_main_fails_when_expected_outputs_missing"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_main_emits_pending_heartbeat::delta_triplets.py::scripts.delta_triplets.main",
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_state_emit_notification_and_payload_edge_branches::delta_state_emit.py::gabion.tooling.delta_state_emit._phase_progress_from_notification::delta_state_emit.py::gabion.tooling.delta_state_emit.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_script_telemetry.py",
+              "qual": "test_delta_state_emit_notification_and_payload_edge_branches"
+            },
+            "targets": [
+              {
+                "path": "delta_state_emit.py",
+                "qual": "gabion.tooling.delta_state_emit._phase_progress_from_notification"
+              },
+              {
+                "path": "delta_state_emit.py",
+                "qual": "gabion.tooling.delta_state_emit.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_script_telemetry.py",
+      "line": 345,
+      "status": "mapped",
+      "test_id": "tests/test_delta_script_telemetry.py::test_delta_state_emit_notification_and_payload_edge_branches"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_edge_paths::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_script_telemetry.py",
+              "qual": "test_delta_triplets_edge_paths"
+            },
+            "targets": [
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets._run_step_callable"
+              },
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_script_telemetry.py",
+      "line": 287,
+      "status": "mapped",
+      "test_id": "tests/test_delta_script_telemetry.py::test_delta_triplets_edge_paths"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_checkpoint_paths_are_partitioned::delta_triplets.py::gabion.tooling.delta_triplets._triplet_resume_checkpoint_path",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_script_telemetry.py",
+              "qual": "test_delta_triplets_emit_checkpoint_paths_are_partitioned"
+            },
+            "targets": [
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets._triplet_resume_checkpoint_path"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_script_telemetry.py",
+      "line": 542,
+      "status": "mapped",
+      "test_id": "tests/test_delta_script_telemetry.py::test_delta_triplets_emit_checkpoint_paths_are_partitioned"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints::delta_triplets.py::gabion.tooling.delta_triplets._run_ambiguity_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_annotation_drift_emit::delta_triplets.py::gabion.tooling.delta_triplets._run_obsolescence_emit",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_script_telemetry.py",
+              "qual": "test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints"
+            },
+            "targets": [
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets._run_ambiguity_emit"
+              },
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets._run_annotation_drift_emit"
+              },
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets._run_obsolescence_emit"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_script_telemetry.py",
+      "line": 553,
+      "status": "mapped",
+      "test_id": "tests/test_delta_script_telemetry.py::test_delta_triplets_emit_wrappers_pass_partitioned_resume_checkpoints"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_main_emits_pending_heartbeat::delta_triplets.py::gabion.tooling.delta_triplets.main",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -63996,21 +64996,49 @@
             "targets": [
               {
                 "path": "delta_triplets.py",
-                "qual": "scripts.delta_triplets.main"
+                "qual": "gabion.tooling.delta_triplets.main"
               }
             ]
           }
         }
       ],
       "file": "tests/test_delta_script_telemetry.py",
-      "line": 142,
+      "line": 158,
       "status": "mapped",
       "test_id": "tests/test_delta_script_telemetry.py::test_delta_triplets_main_emits_pending_heartbeat"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure::delta_triplets.py::scripts.delta_triplets._run_triplet",
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths::delta_triplets.py::gabion.tooling.delta_triplets._run_step_callable::delta_triplets.py::gabion.tooling.delta_triplets.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_delta_script_telemetry.py",
+              "qual": "test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths"
+            },
+            "targets": [
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets._run_step_callable"
+              },
+              {
+                "path": "delta_triplets.py",
+                "qual": "gabion.tooling.delta_triplets.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_delta_script_telemetry.py",
+      "line": 470,
+      "status": "mapped",
+      "test_id": "tests/test_delta_script_telemetry.py::test_delta_triplets_timeout_heartbeat_and_nonzero_result_paths"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_delta_script_telemetry.py::test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure::delta_triplets.py::gabion.tooling.delta_triplets._run_triplet",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -64020,14 +65048,14 @@
             "targets": [
               {
                 "path": "delta_triplets.py",
-                "qual": "scripts.delta_triplets._run_triplet"
+                "qual": "gabion.tooling.delta_triplets._run_triplet"
               }
             ]
           }
         }
       ],
       "file": "tests/test_delta_script_telemetry.py",
-      "line": 116,
+      "line": 118,
       "status": "mapped",
       "test_id": "tests/test_delta_script_telemetry.py::test_run_triplet_emits_step_telemetry_and_stops_after_emit_failure"
     },
@@ -65605,14 +66633,14 @@
         }
       ],
       "file": "tests/test_execution_plan_facets.py",
-      "line": 47,
+      "line": 48,
       "status": "mapped",
       "test_id": "tests/test_execution_plan_facets.py::test_baseline_refresh_reads_delta_risk_facet"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths::docflow_delta_emit.py::scripts.docflow_delta_emit._build_execution_plan",
+          "display": "E:call_footprint::tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._build_execution_plan",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -65622,14 +66650,14 @@
             "targets": [
               {
                 "path": "docflow_delta_emit.py",
-                "qual": "scripts.docflow_delta_emit._build_execution_plan"
+                "qual": "gabion.tooling.docflow_delta_emit._build_execution_plan"
               }
             ]
           }
         }
       ],
       "file": "tests/test_execution_plan_facets.py",
-      "line": 24,
+      "line": 25,
       "status": "mapped",
       "test_id": "tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths"
     },
@@ -65653,7 +66681,7 @@
         }
       ],
       "file": "tests/test_execution_plan_facets.py",
-      "line": 14,
+      "line": 15,
       "status": "mapped",
       "test_id": "tests/test_execution_plan_facets.py::test_execution_plan_decorations_are_deterministic"
     },
@@ -65677,7 +66705,7 @@
         }
       ],
       "file": "tests/test_execution_plan_facets.py",
-      "line": 63,
+      "line": 64,
       "status": "mapped",
       "test_id": "tests/test_execution_plan_facets.py::test_execution_plan_mutators_and_default_risk"
     },
@@ -65701,7 +66729,7 @@
         }
       ],
       "file": "tests/test_execution_plan_facets.py",
-      "line": 34,
+      "line": 35,
       "status": "mapped",
       "test_id": "tests/test_execution_plan_facets.py::test_issue_link_facet_tracks_checklist_impact"
     },
@@ -67672,7 +68700,115 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_index_missing::impact_select_tests.py::scripts.impact_select_tests.main",
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_git_diff_changed_lines_branches_and_main_default_git_diff::impact_select_tests.py::gabion.tooling.impact_select_tests._git_diff_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_impact_select_tests.py",
+              "qual": "test_git_diff_changed_lines_branches_and_main_default_git_diff"
+            },
+            "targets": [
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests._git_diff_changed_lines"
+              },
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_impact_select_tests.py",
+      "line": 254,
+      "status": "mapped",
+      "test_id": "tests/test_impact_select_tests.py::test_git_diff_changed_lines_branches_and_main_default_git_diff"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_additional_helper_branches::impact_select_tests.py::gabion.tooling.impact_select_tests._read_must_run_tests::impact_select_tests.py::gabion.tooling.impact_select_tests._site_matches_changed_lines",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_impact_select_tests.py",
+              "qual": "test_impact_select_additional_helper_branches"
+            },
+            "targets": [
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests._read_must_run_tests"
+              },
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests._site_matches_changed_lines"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_impact_select_tests.py",
+      "line": 176,
+      "status": "mapped",
+      "test_id": "tests/test_impact_select_tests.py::test_impact_select_additional_helper_branches"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_impact_select_helpers_cover_error_and_stale_paths::impact_select_tests.py::gabion.tooling.impact_select_tests._git_diff_changed_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_impact_select_tests.py",
+              "qual": "test_impact_select_helpers_cover_error_and_stale_paths"
+            },
+            "targets": [
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests._git_diff_changed_lines"
+              },
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests._select_tests"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_impact_select_tests.py",
+      "line": 99,
+      "status": "mapped",
+      "test_id": "tests/test_impact_select_tests.py::test_impact_select_helpers_cover_error_and_stale_paths"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_attempts_refresh_when_index_missing::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_impact_select_tests.py",
+              "qual": "test_main_attempts_refresh_when_index_missing"
+            },
+            "targets": [
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_impact_select_tests.py",
+      "line": 317,
+      "status": "mapped",
+      "test_id": "tests/test_impact_select_tests.py::test_main_attempts_refresh_when_index_missing"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_index_missing::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -67682,21 +68818,45 @@
             "targets": [
               {
                 "path": "impact_select_tests.py",
-                "qual": "scripts.impact_select_tests.main"
+                "qual": "gabion.tooling.impact_select_tests.main"
               }
             ]
           }
         }
       ],
       "file": "tests/test_impact_select_tests.py",
-      "line": 70,
+      "line": 73,
       "status": "mapped",
       "test_id": "tests/test_impact_select_tests.py::test_main_falls_back_when_index_missing"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_parse_changed_lines_extracts_hunk_lines::impact_select_tests.py::scripts.impact_select_tests._parse_changed_lines",
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_handles_stale_index_without_refresh::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_impact_select_tests.py",
+              "qual": "test_main_handles_stale_index_without_refresh"
+            },
+            "targets": [
+              {
+                "path": "impact_select_tests.py",
+                "qual": "gabion.tooling.impact_select_tests.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_impact_select_tests.py",
+      "line": 138,
+      "status": "mapped",
+      "test_id": "tests/test_impact_select_tests.py::test_main_handles_stale_index_without_refresh"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_parse_changed_lines_extracts_hunk_lines::impact_select_tests.py::gabion.tooling.impact_select_tests._parse_changed_lines",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -67706,21 +68866,21 @@
             "targets": [
               {
                 "path": "impact_select_tests.py",
-                "qual": "scripts.impact_select_tests._parse_changed_lines"
+                "qual": "gabion.tooling.impact_select_tests._parse_changed_lines"
               }
             ]
           }
         }
       ],
       "file": "tests/test_impact_select_tests.py",
-      "line": 10,
+      "line": 13,
       "status": "mapped",
       "test_id": "tests/test_impact_select_tests.py::test_parse_changed_lines_extracts_hunk_lines"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_select_tests_matches_evidence_site_and_changed_test::impact_select_tests.py::scripts.impact_select_tests._select_tests",
+          "display": "E:call_footprint::tests/test_impact_select_tests.py::test_select_tests_matches_evidence_site_and_changed_test::impact_select_tests.py::gabion.tooling.impact_select_tests._select_tests",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -67730,14 +68890,14 @@
             "targets": [
               {
                 "path": "impact_select_tests.py",
-                "qual": "scripts.impact_select_tests._select_tests"
+                "qual": "gabion.tooling.impact_select_tests._select_tests"
               }
             ]
           }
         }
       ],
       "file": "tests/test_impact_select_tests.py",
-      "line": 27,
+      "line": 30,
       "status": "mapped",
       "test_id": "tests/test_impact_select_tests.py::test_select_tests_matches_evidence_site_and_changed_test"
     },
@@ -76552,7 +77712,7 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_check_command_includes_strictness_when_provided::run_dataflow_stage.py::scripts.run_dataflow_stage._check_command::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_check_command_includes_strictness_when_provided::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._check_command::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76562,7 +77722,7 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._check_command"
+                "qual": "gabion.tooling.run_dataflow_stage._check_command"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76577,14 +77737,14 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 70,
+      "line": 73,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_check_command_includes_strictness_when_provided"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_debug_dump_state_transitions_track_active_stage::run_dataflow_stage.py::scripts.run_dataflow_stage._debug_dump_stage_end::run_dataflow_stage.py::scripts.run_dataflow_stage._debug_dump_stage_start",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_debug_dump_state_transitions_track_active_stage::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._debug_dump_stage_end::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._debug_dump_stage_start",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76594,25 +77754,25 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._debug_dump_stage_end"
+                "qual": "gabion.tooling.run_dataflow_stage._debug_dump_stage_end"
               },
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._debug_dump_stage_start"
+                "qual": "gabion.tooling.run_dataflow_stage._debug_dump_stage_start"
               }
             ]
           }
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 404,
+      "line": 407,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_debug_dump_state_transitions_track_active_stage"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_debug_dump_writes_state_lines::run_dataflow_stage.py::scripts.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_markdown_path::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_debug_dump_writes_state_lines::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_debug_dump::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76622,11 +77782,11 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._emit_debug_dump"
+                "qual": "gabion.tooling.run_dataflow_stage._emit_debug_dump"
               },
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._phase_timeline_markdown_path"
+                "qual": "gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76649,14 +77809,14 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 442,
+      "line": 445,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_emit_debug_dump_writes_state_lines"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys::run_dataflow_stage.py::scripts.run_dataflow_stage._emit_stage_outputs",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_stage_outputs",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76666,21 +77826,21 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._emit_stage_outputs"
+                "qual": "gabion.tooling.run_dataflow_stage._emit_stage_outputs"
               }
             ]
           }
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 257,
+      "line": 260,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_emit_stage_outputs_writes_terminal_and_stage_keys"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_install_signal_debug_dump_handler_registers_and_restores::run_dataflow_stage.py::scripts.run_dataflow_stage._install_signal_debug_dump_handler",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_install_signal_debug_dump_handler_registers_and_restores::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._install_signal_debug_dump_handler",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76690,21 +77850,93 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._install_signal_debug_dump_handler"
+                "qual": "gabion.tooling.run_dataflow_stage._install_signal_debug_dump_handler"
               }
             ]
           }
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 573,
+      "line": 576,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_install_signal_debug_dump_handler_registers_and_restores"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_rows_from_timeout_payload::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_trace_payload",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_main_returns_error_when_no_stage_ids_requested::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_main_returns_error_when_no_stage_ids_requested"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 761,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_main_returns_error_when_no_stage_ids_requested"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_main_supports_injected_orchestration::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_main_supports_injected_orchestration"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 664,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_main_supports_injected_orchestration"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_main_uses_env_defaults_and_exercises_debug_callbacks::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_main_uses_env_defaults_and_exercises_debug_callbacks"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 927,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_main_uses_env_defaults_and_exercises_debug_callbacks"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._obligation_trace_payload",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76714,25 +77946,53 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._obligation_rows_from_timeout_payload"
+                "qual": "gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload"
               },
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._obligation_trace_payload"
+                "qual": "gabion.tooling.run_dataflow_stage._obligation_trace_payload"
               }
             ]
           }
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 331,
+      "line": 334,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_obligation_trace_payload_covers_satisfied_unsatisfied_and_policy_skip"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_stage_strictness_profile_supports_named_and_positional::run_dataflow_stage.py::scripts.run_dataflow_stage._parse_stage_strictness_profile",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_args_and_run_subprocess_edges::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_args::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._run_subprocess",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_parse_args_and_run_subprocess_edges"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage._parse_args"
+              },
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage._run_subprocess"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 599,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_parse_args_and_run_subprocess_edges"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_parse_stage_strictness_profile_supports_named_and_positional::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76742,21 +78002,21 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._parse_stage_strictness_profile"
+                "qual": "gabion.tooling.run_dataflow_stage._parse_stage_strictness_profile"
               }
             ]
           }
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 59,
+      "line": 62,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_parse_stage_strictness_profile_supports_named_and_positional"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_reset_run_observability_artifacts_clears_stale_debug_inputs_only::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_jsonl_path::run_dataflow_stage.py::scripts.run_dataflow_stage._phase_timeline_markdown_path::run_dataflow_stage.py::scripts.run_dataflow_stage._reset_run_observability_artifacts::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_reset_run_observability_artifacts_clears_stale_debug_inputs_only::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._phase_timeline_jsonl_path::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._reset_run_observability_artifacts::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76766,15 +78026,15 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._phase_timeline_jsonl_path"
+                "qual": "gabion.tooling.run_dataflow_stage._phase_timeline_jsonl_path"
               },
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._phase_timeline_markdown_path"
+                "qual": "gabion.tooling.run_dataflow_stage._phase_timeline_markdown_path"
               },
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._reset_run_observability_artifacts"
+                "qual": "gabion.tooling.run_dataflow_stage._reset_run_observability_artifacts"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76793,14 +78053,66 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 529,
+      "line": 532,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_reset_run_observability_artifacts_clears_stale_debug_inputs_only"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::scripts.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_dataflow_stage_helper_branch_coverage::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._emit_stage_outputs::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._load_json_object",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_run_dataflow_stage_helper_branch_coverage"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage._emit_stage_outputs"
+              },
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage._load_json_object"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 778,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_run_dataflow_stage_helper_branch_coverage"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_named_delta_gate_unknown_and_crash::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._run_named_delta_gate",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_run_named_delta_gate_unknown_and_crash"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage._run_named_delta_gate"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 647,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_run_named_delta_gate_unknown_and_crash"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_stage::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76810,7 +78122,7 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage.run_stage"
+                "qual": "gabion.tooling.run_dataflow_stage.run_stage"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76833,14 +78145,38 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 82,
+      "line": 85,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_stage_uses_progress_classification_fallback"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_marks_success_as_failure_when_delta_gate_fails::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_invokes_callbacks::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_run_dataflow_stage.py",
+              "qual": "test_run_staged_invokes_callbacks"
+            },
+            "targets": [
+              {
+                "path": "run_dataflow_stage.py",
+                "qual": "gabion.tooling.run_dataflow_stage.run_staged"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_run_dataflow_stage.py",
+      "line": 894,
+      "status": "mapped",
+      "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_invokes_callbacks"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_marks_success_as_failure_when_delta_gate_fails::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76850,7 +78186,7 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage.run_staged"
+                "qual": "gabion.tooling.run_dataflow_stage.run_staged"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76873,14 +78209,14 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 290,
+      "line": 293,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_marks_success_as_failure_when_delta_gate_fails"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76890,7 +78226,7 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage.run_staged"
+                "qual": "gabion.tooling.run_dataflow_stage.run_staged"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76913,14 +78249,14 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 207,
+      "line": 210,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_passes_stage_specific_strictness"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76930,7 +78266,7 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage.run_staged"
+                "qual": "gabion.tooling.run_dataflow_stage.run_staged"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76953,14 +78289,14 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 119,
+      "line": 122,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_retries_until_success"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -76970,7 +78306,7 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage.run_staged"
+                "qual": "gabion.tooling.run_dataflow_stage.run_staged"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -76993,14 +78329,14 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 161,
+      "line": 164,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_skips_retry_when_wall_budget_reserved"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure::run_dataflow_stage.py::scripts.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage.run_staged::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._base_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._stage_paths::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_json::test_run_dataflow_stage.py::tests.test_run_dataflow_stage._write_text",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -77010,7 +78346,7 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage.run_staged"
+                "qual": "gabion.tooling.run_dataflow_stage.run_staged"
               },
               {
                 "path": "test_run_dataflow_stage.py",
@@ -77033,14 +78369,14 @@
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 235,
+      "line": 238,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_run_staged_stops_on_hard_failure"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered::run_dataflow_stage.py::scripts.run_dataflow_stage._stage_ids",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._stage_ids",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -77050,21 +78386,21 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._stage_ids"
+                "qual": "gabion.tooling.run_dataflow_stage._stage_ids"
               }
             ]
           }
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 52,
+      "line": 55,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_stage_ids_are_bounded_and_ordered"
     },
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_timeout_stage_with_missing_incremental_obligations_marks_incomplete::run_dataflow_stage.py::scripts.run_dataflow_stage._obligation_rows_from_timeout_payload",
+          "display": "E:call_footprint::tests/test_run_dataflow_stage.py::test_timeout_stage_with_missing_incremental_obligations_marks_incomplete::run_dataflow_stage.py::gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -77074,14 +78410,14 @@
             "targets": [
               {
                 "path": "run_dataflow_stage.py",
-                "qual": "scripts.run_dataflow_stage._obligation_rows_from_timeout_payload"
+                "qual": "gabion.tooling.run_dataflow_stage._obligation_rows_from_timeout_payload"
               }
             ]
           }
         }
       ],
       "file": "tests/test_run_dataflow_stage.py",
-      "line": 393,
+      "line": 396,
       "status": "mapped",
       "test_id": "tests/test_run_dataflow_stage.py::test_timeout_stage_with_missing_incremental_obligations_marks_incomplete"
     },
@@ -77460,7 +78796,7 @@
     {
       "evidence": [
         {
-          "display": "E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_script_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest",
+          "display": "E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest",
           "key": {
             "k": "call_footprint",
             "site": {
@@ -77470,7 +78806,7 @@
             "targets": [
               {
                 "path": "test_script_scope_bindings.py",
-                "qual": "tests.test_script_scope_bindings._import_script_module"
+                "qual": "tests.test_script_scope_bindings._import_module"
               },
               {
                 "path": "timeout_context.py",
@@ -77489,7 +78825,7 @@
         }
       ],
       "file": "tests/test_script_scope_bindings.py",
-      "line": 12,
+      "line": 13,
       "status": "mapped",
       "test_id": "tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest"
     },
@@ -91672,6 +93008,254 @@
       "line": 831,
       "status": "mapped",
       "test_id": "tests/test_timeout_context.py::test_timeout_progress_snapshot_handles_non_list_sites_and_non_gasmeter_clock"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_covers_missing_summary_skip_and_error::docflow_delta_advisory.py::gabion.tooling.docflow_delta_advisory.main::obsolescence_delta_advisory.py::gabion.tooling.obsolescence_delta_advisory.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_advisory_main_covers_missing_summary_skip_and_error"
+            },
+            "targets": [
+              {
+                "path": "docflow_delta_advisory.py",
+                "qual": "gabion.tooling.docflow_delta_advisory.main"
+              },
+              {
+                "path": "obsolescence_delta_advisory.py",
+                "qual": "gabion.tooling.obsolescence_delta_advisory.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 198,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_advisory_main_covers_missing_summary_skip_and_error"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_deadline_runtime_invalid_budget_and_gas_limit::deadline_runtime.py::gabion.tooling.deadline_runtime.deadline_scope_from_ticks",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_deadline_runtime_invalid_budget_and_gas_limit"
+            },
+            "targets": [
+              {
+                "path": "deadline_runtime.py",
+                "qual": "gabion.tooling.deadline_runtime.deadline_scope_from_ticks"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 430,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_deadline_runtime_invalid_budget_and_gas_limit"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_helper_and_default_write_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._build_execution_plan::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._run_docflow_audit",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_docflow_delta_emit_helper_and_default_write_paths"
+            },
+            "targets": [
+              {
+                "path": "docflow_delta_emit.py",
+                "qual": "gabion.tooling.docflow_delta_emit._build_execution_plan"
+              },
+              {
+                "path": "docflow_delta_emit.py",
+                "qual": "gabion.tooling.docflow_delta_emit._run_docflow_audit"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 444,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_helper_and_default_write_paths"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_main_covers_all_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_docflow_delta_emit_main_covers_all_paths"
+            },
+            "targets": [
+              {
+                "path": "docflow_delta_emit.py",
+                "qual": "gabion.tooling.docflow_delta_emit.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 236,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_emit_main_covers_all_paths"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_branches::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate.check_gate",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_docflow_delta_gate_branches"
+            },
+            "targets": [
+              {
+                "path": "docflow_delta_gate.py",
+                "qual": "gabion.tooling.docflow_delta_gate.check_gate"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 323,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_branches"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_helper_and_main_branches::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate._delta_value::docflow_delta_gate.py::gabion.tooling.docflow_delta_gate.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_docflow_delta_gate_helper_and_main_branches"
+            },
+            "targets": [
+              {
+                "path": "docflow_delta_gate.py",
+                "qual": "gabion.tooling.docflow_delta_gate._delta_value"
+              },
+              {
+                "path": "docflow_delta_gate.py",
+                "qual": "gabion.tooling.docflow_delta_gate.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 370,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_docflow_delta_gate_helper_and_main_branches"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_resume_and_timeout_defaults::ambiguity_delta_emit.py::gabion.tooling.ambiguity_delta_emit._build_payload::annotation_drift_delta_emit.py::gabion.tooling.annotation_drift_delta_emit._build_payload::obsolescence_delta_emit.py::gabion.tooling.obsolescence_delta_emit._build_payload",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_emit_build_payload_handles_state_resume_and_timeout_defaults"
+            },
+            "targets": [
+              {
+                "path": "ambiguity_delta_emit.py",
+                "qual": "gabion.tooling.ambiguity_delta_emit._build_payload"
+              },
+              {
+                "path": "annotation_drift_delta_emit.py",
+                "qual": "gabion.tooling.annotation_drift_delta_emit._build_payload"
+              },
+              {
+                "path": "obsolescence_delta_emit.py",
+                "qual": "gabion.tooling.obsolescence_delta_emit._build_payload"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 62,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_emit_build_payload_handles_state_resume_and_timeout_defaults"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches::ambiguity_delta_emit.py::gabion.tooling.ambiguity_delta_emit.main::annotation_drift_delta_emit.py::gabion.tooling.annotation_drift_delta_emit.main::obsolescence_delta_emit.py::gabion.tooling.obsolescence_delta_emit.main",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_emit_main_covers_exit_and_missing_output_branches"
+            },
+            "targets": [
+              {
+                "path": "ambiguity_delta_emit.py",
+                "qual": "gabion.tooling.ambiguity_delta_emit.main"
+              },
+              {
+                "path": "annotation_drift_delta_emit.py",
+                "qual": "gabion.tooling.annotation_drift_delta_emit.main"
+              },
+              {
+                "path": "obsolescence_delta_emit.py",
+                "qual": "gabion.tooling.obsolescence_delta_emit.main"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 101,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_emit_main_covers_exit_and_missing_output_branches"
+    },
+    {
+      "evidence": [
+        {
+          "display": "E:call_footprint::tests/test_tooling_emit_advisory_and_gates.py::test_other_gate_non_mapping_and_main_paths::ambiguity_delta_gate.py::gabion.tooling.ambiguity_delta_gate.main::obsolescence_delta_gate.py::gabion.tooling.obsolescence_delta_gate.check_gate",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_tooling_emit_advisory_and_gates.py",
+              "qual": "test_other_gate_non_mapping_and_main_paths"
+            },
+            "targets": [
+              {
+                "path": "ambiguity_delta_gate.py",
+                "qual": "gabion.tooling.ambiguity_delta_gate.main"
+              },
+              {
+                "path": "obsolescence_delta_gate.py",
+                "qual": "gabion.tooling.obsolescence_delta_gate.check_gate"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_tooling_emit_advisory_and_gates.py",
+      "line": 413,
+      "status": "mapped",
+      "test_id": "tests/test_tooling_emit_advisory_and_gates.py::test_other_gate_non_mapping_and_main_paths"
     },
     {
       "evidence": [

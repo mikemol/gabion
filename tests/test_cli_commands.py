@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
+import typer
 from typer.testing import CliRunner
 
 from gabion import cli
@@ -26,6 +27,85 @@ def _cli_env() -> dict[str, str]:
 
 def _invoke(runner: CliRunner, args: list[str], *, input_text: str | None = None):
     return runner.invoke(cli.app, args, env=_cli_env(), input=input_text)
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_help_lists_tooling_subcommands::cli.py::gabion.cli.app
+def test_cli_help_lists_tooling_subcommands() -> None:
+    runner = CliRunner()
+    result = _invoke(runner, ["--help"])
+    assert result.exit_code == 0
+    assert "delta-state-emit" in result.output
+    assert "delta-triplets" in result.output
+    assert "docflow-delta-emit" in result.output
+    assert "impact-select-tests" in result.output
+    assert "run-dataflow-stage" in result.output
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_subcommand_help_invocations::cli.py::gabion.cli.app
+def test_cli_tooling_subcommand_help_invocations() -> None:
+    runner = CliRunner()
+    for command_name in (
+        "delta-state-emit",
+        "delta-triplets",
+        "docflow-delta-emit",
+        "impact-select-tests",
+        "run-dataflow-stage",
+    ):
+        result = _invoke(runner, [command_name, "--help"])
+        assert result.exit_code == 0, command_name
+
+
+# gabion:evidence E:call_footprint::tests/test_cli_commands.py::test_cli_tooling_wrappers_and_argparse_exit_handling::cli.py::gabion.cli._invoke_argparse_command::cli.py::gabion.cli.delta_state_emit::cli.py::gabion.cli.delta_triplets::cli.py::gabion.cli.docflow_delta_emit::cli.py::gabion.cli.impact_select_tests::cli.py::gabion.cli.run_dataflow_stage
+def test_cli_tooling_wrappers_and_argparse_exit_handling() -> None:
+    assert cli._invoke_argparse_command(lambda _argv: 3, []) == 3
+    assert (
+        cli._invoke_argparse_command(
+            lambda _argv: (_ for _ in ()).throw(SystemExit(4)),
+            [],
+        )
+        == 4
+    )
+    assert (
+        cli._invoke_argparse_command(
+            lambda _argv: (_ for _ in ()).throw(SystemExit("bad")),
+            [],
+        )
+        == 1
+    )
+
+    class _Ctx:
+        def __init__(self, args: list[str]) -> None:
+            self.args = args
+
+    argv_seen: list[list[str]] = []
+    with cli._tooling_runner_override(
+        no_arg={
+            "delta-state-emit": lambda: 11,
+            "delta-triplets": lambda: 12,
+            "docflow-delta-emit": lambda: 13,
+        },
+        with_argv={
+            "impact-select-tests": lambda argv: (argv_seen.append(list(argv or [])) or 14),
+            "run-dataflow-stage": lambda argv: (_ for _ in ()).throw(SystemExit(15)),
+        },
+    ):
+        with pytest.raises(typer.Exit) as exc:
+            cli.delta_state_emit()
+        assert exc.value.exit_code == 11
+        with pytest.raises(typer.Exit) as exc:
+            cli.delta_triplets()
+        assert exc.value.exit_code == 12
+        with pytest.raises(typer.Exit) as exc:
+            cli.docflow_delta_emit()
+        assert exc.value.exit_code == 13
+        with pytest.raises(typer.Exit) as exc:
+            cli.impact_select_tests(_Ctx(["--root", "."]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 14
+        with pytest.raises(typer.Exit) as exc:
+            cli.run_dataflow_stage(_Ctx(["--stage-id", "run"]))  # type: ignore[arg-type]
+        assert exc.value.exit_code == 15
+
+    assert argv_seen == [["--root", "."]]
 
 
 # gabion:evidence E:function_site::test_cli_commands.py::tests.test_cli_commands._has_pygls

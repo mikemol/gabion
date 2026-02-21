@@ -18,19 +18,39 @@ from typing import Any, Callable, Mapping, Sequence
 
 from gabion.analysis.timeout_context import check_deadline, deadline_loop_iter
 from gabion.order_contract import ordered_or_sorted
+from gabion.tooling import (
+    ambiguity_delta_gate,
+    annotation_drift_orphaned_gate,
+    obsolescence_delta_gate,
+    obsolescence_delta_unmapped_gate,
+)
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import deadline_scope_from_lsp_env
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import deadline_scope_from_lsp_env
+from gabion.tooling.deadline_runtime import deadline_scope_from_lsp_env
 
 _STAGE_SEQUENCE: tuple[str, ...] = ("run",)
-_DELTA_GATE_SCRIPTS: tuple[str, ...] = (
-    "scripts/obsolescence_delta_gate.py",
-    "scripts/obsolescence_delta_unmapped_gate.py",
-    "scripts/annotation_drift_orphaned_gate.py",
-    "scripts/ambiguity_delta_gate.py",
+
+
+@dataclass(frozen=True)
+class DeltaGateSpec:
+    id: str
+    run: Callable[[], int]
+
+
+_DELTA_GATE_STEPS: tuple[DeltaGateSpec, ...] = (
+    DeltaGateSpec("obsolescence_delta_gate", obsolescence_delta_gate.main),
+    DeltaGateSpec(
+        "obsolescence_delta_unmapped_gate",
+        obsolescence_delta_unmapped_gate.main,
+    ),
+    DeltaGateSpec(
+        "annotation_drift_orphaned_gate",
+        annotation_drift_orphaned_gate.main,
+    ),
+    DeltaGateSpec("ambiguity_delta_gate", ambiguity_delta_gate.main),
 )
+_DELTA_GATE_REGISTRY: dict[str, Callable[[], int]] = {
+    spec.id: spec.run for spec in _DELTA_GATE_STEPS
+}
 
 
 @dataclass(frozen=True)
@@ -748,15 +768,23 @@ def _emit_stage_outputs(
 
 
 
-def _gate_command(script_path: str) -> list[str]:
-    return [sys.executable, script_path]
+def _run_named_delta_gate(step_id: str) -> int:
+    runner = _DELTA_GATE_REGISTRY.get(step_id)
+    if runner is None:
+        print(f"delta gate unknown: {step_id}", flush=True)
+        return 2
+    try:
+        return int(runner())
+    except Exception as exc:
+        print(f"delta gate crashed: {step_id} ({exc})", flush=True)
+        return 2
 
 
-def _run_delta_gates(run_gate_fn: Callable[[Sequence[str]], int]) -> int:
-    for script_path in deadline_loop_iter(_DELTA_GATE_SCRIPTS):
-        gate_exit = int(run_gate_fn(_gate_command(script_path)))
+def _run_delta_gates(run_gate_fn: Callable[[str], int]) -> int:
+    for spec in deadline_loop_iter(_DELTA_GATE_STEPS):
+        gate_exit = int(run_gate_fn(spec.id))
         if gate_exit != 0:
-            print(f"delta gate failed: {script_path} (exit {gate_exit})", flush=True)
+            print(f"delta gate failed: {spec.id} (exit {gate_exit})", flush=True)
             return gate_exit
     return 0
 
@@ -767,7 +795,7 @@ def run_staged(
     resume_on_timeout: int,
     step_summary_path: Path | None,
     run_command_fn: Callable[[Sequence[str]], int],
-    run_gate_fn: Callable[[Sequence[str]], int] | None = None,
+    run_gate_fn: Callable[[str], int] | None = None,
     strictness_by_stage: Mapping[str, str] | None = None,
     max_wall_seconds: int | None = None,
     finalize_reserve_seconds: int = 0,
@@ -819,7 +847,7 @@ def run_staged(
             on_stage_end(result)
         results.append(result)
         if result.exit_code == 0:
-            gate_runner = _run_subprocess if run_gate_fn is None else run_gate_fn
+            gate_runner = _run_named_delta_gate if run_gate_fn is None else run_gate_fn
             gate_exit = _run_delta_gates(gate_runner)
             if gate_exit != 0:
                 result = StageResult(
@@ -847,7 +875,7 @@ def run_staged(
     return results
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Run one dataflow grammar CI invocation with deterministic outputs/artifacts."
@@ -964,7 +992,8 @@ def _parse_args() -> argparse.Namespace:
             "Also supports on-demand dumps via SIGUSR1."
         ),
     )
-    return parser.parse_args()
+    parsed_argv = list(argv) if argv is not None else None
+    return parser.parse_args(parsed_argv)
 
 
 def _run_subprocess(
@@ -973,11 +1002,12 @@ def _run_subprocess(
     heartbeat_interval_seconds: int = 0,
     on_heartbeat: Callable[[], None] | None = None,
     poll_interval_seconds: float = 1.0,
+    popen_fn: Callable[[Sequence[str]], subprocess.Popen[Any]] = subprocess.Popen,
     monotonic_fn: Callable[[], float] = time.monotonic,
     sleep_fn: Callable[[float], None] = time.sleep,
 ) -> int:
     try:
-        process = subprocess.Popen(command)
+        process = popen_fn(command)
     except OSError:
         return 127
     heartbeat_interval = max(0, int(heartbeat_interval_seconds))
@@ -996,8 +1026,20 @@ def _run_subprocess(
         sleep_fn(sleep_interval)
 
 
-def main() -> int:
-    args = _parse_args()
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    run_staged_fn: Callable[..., list[StageResult]] = run_staged,
+    write_obligation_trace_fn: Callable[[Path, Sequence[StageResult]], dict[str, object]] = _write_obligation_trace,
+    append_markdown_summary_fn: Callable[[Path, dict[str, object]], None] = _append_markdown_summary,
+    append_lines_fn: Callable[[Path | None, Sequence[str]], None] = _append_lines,
+    emit_stage_outputs_fn: Callable[[Path | None, Sequence[StageResult]], None] = _emit_stage_outputs,
+    reset_run_observability_artifacts_fn: Callable[[StagePaths], None] = _reset_run_observability_artifacts,
+    install_signal_debug_dump_handler_fn: Callable[..., Callable[[], None]] = _install_signal_debug_dump_handler,
+    run_subprocess_fn: Callable[..., int] = _run_subprocess,
+    deadline_scope_factory: Callable[[], Any] = deadline_scope_from_lsp_env,
+) -> int:
+    args = _parse_args(argv)
     github_output_path = args.github_output
     if github_output_path is None:
         output_env_text = os.getenv("GITHUB_OUTPUT", "").strip()
@@ -1052,10 +1094,10 @@ def main() -> int:
             step_summary_path=step_summary_path,
         )
 
-    restore_signal_handler = _install_signal_debug_dump_handler(emit_dump_fn=_emit_dump)
+    restore_signal_handler = install_signal_debug_dump_handler_fn(emit_dump_fn=_emit_dump)
 
     def _run_subprocess_with_debug(command: Sequence[str]) -> int:
-        return _run_subprocess(
+        return run_subprocess_fn(
             command,
             heartbeat_interval_seconds=debug_interval_seconds,
             on_heartbeat=lambda: _emit_dump("interval"),
@@ -1076,13 +1118,13 @@ def main() -> int:
         with debug_state_lock:
             _debug_dump_stage_end(state=debug_state, result=result)
 
-    with deadline_scope_from_lsp_env():
-        _reset_run_observability_artifacts(paths)
+    with deadline_scope_factory():
+        reset_run_observability_artifacts_fn(paths)
         try:
             strictness_by_stage = _parse_stage_strictness_profile(
                 args.stage_strictness_profile
             )
-            results = run_staged(
+            results = run_staged_fn(
                 stage_ids=stage_ids,
                 paths=paths,
                 resume_on_timeout=args.resume_on_timeout,
@@ -1098,15 +1140,13 @@ def main() -> int:
                 on_stage_start=_on_stage_start,
                 on_stage_end=_on_stage_end,
             )
-            trace_payload = _write_obligation_trace(paths.obligation_trace_json_path, results)
-            _append_markdown_summary(paths.timeout_progress_md_path, trace_payload)
-            _append_markdown_summary(paths.deadline_profile_md_path, trace_payload)
-            _append_lines(step_summary_path, _obligation_trace_summary_lines(trace_payload))
-            _emit_stage_outputs(github_output_path, results)
+            trace_payload = write_obligation_trace_fn(paths.obligation_trace_json_path, results)
+            append_markdown_summary_fn(paths.timeout_progress_md_path, trace_payload)
+            append_markdown_summary_fn(paths.deadline_profile_md_path, trace_payload)
+            append_lines_fn(step_summary_path, _obligation_trace_summary_lines(trace_payload))
+            emit_stage_outputs_fn(github_output_path, results)
         finally:
             restore_signal_handler()
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())

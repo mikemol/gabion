@@ -149,10 +149,10 @@ run_checks_job() {
     --log-file-level=INFO
 
   step "checks: delta_state_emit"
-  GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 mise exec -- python scripts/delta_state_emit.py
+  GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 mise exec -- python -m gabion delta-state-emit
 
   step "checks: delta_triplets"
-  GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 mise exec -- python scripts/delta_triplets.py
+  GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 mise exec -- python -m gabion delta-triplets
 }
 
 seed_dataflow_checkpoint() {
@@ -199,7 +199,7 @@ run_dataflow_job() {
 
   restore_dataflow_checkpoint
 
-  step "dataflow: run_dataflow_stage.py (single invocation)"
+  step "dataflow: run-dataflow-stage (single invocation)"
   local outputs_file="$log_dir/dataflow_stage_outputs.env"
   local summary_file="$log_dir/dataflow_stage_summary.md"
   rm -f "$outputs_file"
@@ -209,7 +209,7 @@ run_dataflow_job() {
     GABION_LSP_TIMEOUT_TICKS="${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
     GABION_LSP_TIMEOUT_TICK_NS="${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
     GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS="${GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS:-60}" \
-    mise exec -- python scripts/run_dataflow_stage.py \
+    mise exec -- python -m gabion run-dataflow-stage \
       --stage-strictness-profile "run=high" \
       --github-output "$outputs_file" \
       --step-summary "$summary_file"

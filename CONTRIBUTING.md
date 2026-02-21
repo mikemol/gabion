@@ -1,5 +1,5 @@
 ---
-doc_revision: 92
+doc_revision: 93
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -393,7 +393,7 @@ SPPF lifecycle validation in that script defaults to auto (run when GH auth is
 available); use `--skip-sppf-sync` to bypass or `--run-sppf-sync` to require it.
 For long-running dataflow reproductions, set
 `GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS=<seconds>` to emit periodic
-state dumps; you can also send `SIGUSR1` to `scripts/run_dataflow_stage.py`
+state dumps; you can also send `SIGUSR1` to `gabion run-dataflow-stage`
 to force an immediate dump. CI uses a 60-second interval by default. Unified
 phase telemetry is written to:
 - `artifacts/audit_reports/dataflow_phase_timeline.md` (human-readable table)
@@ -477,7 +477,7 @@ It uses `mise` (via `gabion.toml`) to install the toolchain.
 For push-driven `dataflow-grammar`, prefer warm caches:
 - CI restores the previous same-branch `dataflow-report` artifact's resume
   checkpoint (`dataflow_resume_checkpoint_ci.json`) on a best-effort basis.
-- `scripts/run_dataflow_stage.py` emits resume metrics in logs/step-summary
+- `gabion run-dataflow-stage` emits resume metrics in logs/step-summary
   (`completed_paths`, `hydrated_paths`, `paths_parsed_after_resume`) so cache
   impact can be verified explicitly.
 - Keep resume identity stable (forest spec / fingerprint seed / strictness

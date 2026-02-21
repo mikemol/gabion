@@ -54,6 +54,13 @@ from gabion.plan import (
     ExecutionPlanObligations,
     ExecutionPlanPolicyMetadata,
 )
+from gabion.tooling import (
+    delta_state_emit as tooling_delta_state_emit,
+    delta_triplets as tooling_delta_triplets,
+    docflow_delta_emit as tooling_docflow_delta_emit,
+    impact_select_tests as tooling_impact_select_tests,
+    run_dataflow_stage as tooling_run_dataflow_stage,
+)
 from gabion.json_types import JSONObject
 from gabion.order_contract import ordered_or_sorted
 from gabion.schema import (
@@ -3700,6 +3707,113 @@ def _emit_impact(result: JSONObject, *, json_output: bool) -> None:
             typer.secho(str(error), err=True, fg=typer.colors.RED)
     if exit_code:
         raise typer.Exit(code=exit_code)
+
+
+def _invoke_argparse_command(
+    main_fn: Callable[[list[str] | None], int],
+    argv: list[str],
+) -> int:
+    try:
+        return int(main_fn(argv))
+    except SystemExit as exc:
+        code = exc.code
+        if isinstance(code, int):
+            return int(code)
+        return 1
+
+
+_TOOLING_NO_ARG_RUNNERS: dict[str, Callable[[], int]] = {
+    "delta-state-emit": tooling_delta_state_emit.main,
+    "delta-triplets": tooling_delta_triplets.main,
+    "docflow-delta-emit": tooling_docflow_delta_emit.main,
+}
+_TOOLING_ARGV_RUNNERS: dict[str, Callable[[list[str] | None], int]] = {
+    "impact-select-tests": tooling_impact_select_tests.main,
+    "run-dataflow-stage": tooling_run_dataflow_stage.main,
+}
+
+
+@contextmanager
+def _tooling_runner_override(
+    *,
+    no_arg: Mapping[str, Callable[[], int]] | None = None,
+    with_argv: Mapping[str, Callable[[list[str] | None], int]] | None = None,
+) -> Generator[None, None, None]:
+    previous_no_arg = dict(_TOOLING_NO_ARG_RUNNERS)
+    previous_with_argv = dict(_TOOLING_ARGV_RUNNERS)
+    if isinstance(no_arg, Mapping):
+        _TOOLING_NO_ARG_RUNNERS.update(
+            {str(key): value for key, value in no_arg.items() if callable(value)}
+        )
+    if isinstance(with_argv, Mapping):
+        _TOOLING_ARGV_RUNNERS.update(
+            {str(key): value for key, value in with_argv.items() if callable(value)}
+        )
+    try:
+        yield
+    finally:
+        _TOOLING_NO_ARG_RUNNERS.clear()
+        _TOOLING_NO_ARG_RUNNERS.update(previous_no_arg)
+        _TOOLING_ARGV_RUNNERS.clear()
+        _TOOLING_ARGV_RUNNERS.update(previous_with_argv)
+
+
+def _run_tooling_no_arg(command_name: str) -> int:
+    runner = _TOOLING_NO_ARG_RUNNERS[command_name]
+    with _cli_deadline_scope():
+        return int(runner())
+
+
+def _run_tooling_with_argv(command_name: str, argv: list[str]) -> int:
+    runner = _TOOLING_ARGV_RUNNERS[command_name]
+    with _cli_deadline_scope():
+        return _invoke_argparse_command(runner, argv)
+
+
+@app.command("delta-state-emit")
+def delta_state_emit() -> None:
+    """Emit CI delta state artifacts through the gabion CLI."""
+    raise typer.Exit(code=_run_tooling_no_arg("delta-state-emit"))
+
+
+@app.command("delta-triplets")
+def delta_triplets() -> None:
+    """Run all delta triplets through the gabion CLI."""
+    raise typer.Exit(code=_run_tooling_no_arg("delta-triplets"))
+
+
+@app.command("docflow-delta-emit")
+def docflow_delta_emit() -> None:
+    """Emit docflow compliance delta through the gabion CLI."""
+    raise typer.Exit(code=_run_tooling_no_arg("docflow-delta-emit"))
+
+
+@app.command(
+    "impact-select-tests",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def impact_select_tests(ctx: typer.Context) -> None:
+    """Select impacted tests from diffs and evidence index."""
+    raise typer.Exit(
+        code=_run_tooling_with_argv(
+            "impact-select-tests",
+            list(ctx.args),
+        )
+    )
+
+
+@app.command(
+    "run-dataflow-stage",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def run_dataflow_stage(ctx: typer.Context) -> None:
+    """Run a single dataflow stage with CI-aligned outputs."""
+    raise typer.Exit(
+        code=_run_tooling_with_argv(
+            "run-dataflow-stage",
+            list(ctx.args),
+        )
+    )
 
 
 @app.command("impact")

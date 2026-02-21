@@ -76,5 +76,3 @@ def main() -> int:
     return check_gate(Path("artifacts/out/docflow_compliance_delta.json"))
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())

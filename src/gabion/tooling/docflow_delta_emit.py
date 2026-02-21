@@ -7,10 +7,7 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-try:  # pragma: no cover - import form depends on invocation mode
-    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
-except ModuleNotFoundError:  # pragma: no cover - direct script execution path
-    from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
+from gabion.tooling.deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
 from gabion.execution_plan import DocflowFacet, ExecutionPlan
 from gabion.order_contract import ordered_or_sorted
@@ -33,10 +30,13 @@ def _delta_deadline_scope():
     )
 
 
-def _run_docflow_audit() -> None:
+def _run_docflow_audit(
+    *,
+    run_fn: Callable[..., subprocess.CompletedProcess[str] | None] = subprocess.run,
+) -> None:
     env = dict(os.environ)
     env.setdefault("GABION_DIRECT_RUN", "1")
-    subprocess.run(
+    run_fn(
         [sys.executable, "-m", "gabion", "docflow"],
         check=True,
         env=env,
@@ -98,27 +98,37 @@ def _delta_counts(
     return delta
 
 
-def main() -> int:
+def main(
+    *,
+    build_execution_plan_fn: Callable[[], ExecutionPlan] = _build_execution_plan,
+    run_docflow_audit_fn: Callable[[], None] = _run_docflow_audit,
+    load_summary_fn: Callable[[Path], tuple[dict[str, int], bool]] = _load_summary,
+    delta_counts_fn: Callable[[dict[str, int], dict[str, int]], dict[str, int]] = _delta_counts,
+    baseline_path: Path = BASELINE_PATH,
+    current_path: Path = CURRENT_PATH,
+    delta_path: Path = DELTA_PATH,
+    write_text_fn: Callable[[Path, str], None] | None = None,
+) -> int:
     with _delta_deadline_scope():
-        plan = _build_execution_plan()
+        plan = build_execution_plan_fn()
         try:
-            _run_docflow_audit()
+            run_docflow_audit_fn()
         except subprocess.CalledProcessError:
             print("Docflow delta emit failed: docflow audit did not succeed.")
             return 0
-        if not CURRENT_PATH.exists():
+        if not current_path.exists():
             print("Docflow compliance output missing; delta emit skipped.")
             return 0
-        baseline_counts, baseline_missing = _load_summary(BASELINE_PATH)
-        current_counts, _ = _load_summary(CURRENT_PATH)
+        baseline_counts, baseline_missing = load_summary_fn(baseline_path)
+        current_counts, _ = load_summary_fn(current_path)
         payload = {
-            "baseline": {"path": str(BASELINE_PATH)},
-            "current": {"path": str(CURRENT_PATH)},
+            "baseline": {"path": str(baseline_path)},
+            "current": {"path": str(current_path)},
             "baseline_missing": baseline_missing,
             "summary": {
                 "baseline": baseline_counts,
                 "current": current_counts,
-                "delta": _delta_counts(baseline_counts, current_counts),
+                "delta": delta_counts_fn(baseline_counts, current_counts),
             },
             "facets": {
                 "docflow": {
@@ -127,9 +137,11 @@ def main() -> int:
             },
             "version": 1,
         }
-        DELTA_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True))
+        serialized = json.dumps(payload, indent=2, sort_keys=True)
+        if write_text_fn is None:
+            delta_path.write_text(serialized, encoding="utf-8")
+        else:
+            write_text_fn(delta_path, serialized)
         return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())

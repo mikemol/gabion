@@ -82,7 +82,7 @@ jobs:
         env:
           GABION_DIRECT_RUN: "1"
         run: |
-          .venv/bin/python scripts/run_dataflow_stage.py \
+          .venv/bin/python -m gabion run-dataflow-stage \
             --stage-strictness-profile "run=high"
       - name: Finalize dataflow audit outcome
         if: always()
@@ -259,13 +259,13 @@ jobs:
           GABION_DIRECT_RUN: "1"
           GABION_LSP_TIMEOUT_TICKS: "65000000"
           GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-        run: .venv/bin/python scripts/delta_state_emit.py
+        run: .venv/bin/python -m gabion delta-state-emit
       - name: Delta triplets (default-on burn-down gates)
         env:
           GABION_DIRECT_RUN: "1"
           GABION_LSP_TIMEOUT_TICKS: "65000000"
           GABION_LSP_TIMEOUT_TICK_NS: "1000000"
-        run: .venv/bin/python scripts/delta_triplets.py
+        run: .venv/bin/python -m gabion delta-triplets
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

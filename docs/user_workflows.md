@@ -1,5 +1,5 @@
 ---
-doc_revision: 1
+doc_revision: 2
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: user_workflows
 doc_role: guide
@@ -131,7 +131,7 @@ Use this loop to review whether a PR is healthy and whether cache reuse behaved 
 - PR comment output (same-repo PRs) from the dataflow grammar workflow.
 
 ### Cache-effectiveness counters
-Look for the counters emitted by `scripts/run_dataflow_stage.py` in logs/summaries:
+Look for the counters emitted by `gabion run-dataflow-stage` in logs/summaries:
 - `completed_paths`: paths fully handled this run.
 - `hydrated_paths`: paths restored from resume data.
 - `paths_parsed_after_resume`: additional paths that still required parsing.

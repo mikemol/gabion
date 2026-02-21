@@ -5,30 +5,31 @@ import importlib
 from gabion.analysis.aspf import Forest
 from gabion.analysis.timeout_context import check_deadline, get_deadline_clock, get_forest
 
-def _import_script_module(name: str):
-    return importlib.import_module(f"scripts.{name}")
 
-# gabion:evidence E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_script_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest
+def _import_module(module_path: str):
+    return importlib.import_module(module_path)
+
+# gabion:evidence E:call_footprint::tests/test_script_scope_bindings.py::test_script_scope_helpers_bind_deadline_clock_and_forest::test_script_scope_bindings.py::tests.test_script_scope_bindings._import_module::timeout_context.py::gabion.analysis.timeout_context.check_deadline::timeout_context.py::gabion.analysis.timeout_context.get_deadline_clock::timeout_context.py::gabion.analysis.timeout_context.get_forest
 def test_script_scope_helpers_bind_deadline_clock_and_forest() -> None:
     scope_functions = [
-        ("audit_tools", "_audit_deadline_scope"),
-        ("ambiguity_delta_advisory", "_deadline_scope"),
-        ("annotation_drift_delta_advisory", "_deadline_scope"),
-        ("audit_in_step_structure", "_deadline_scope"),
-        ("ci_watch", "_deadline_scope"),
-        ("delta_triplets", "_deadline_scope"),
-        ("docflow_delta_advisory", "_deadline_scope"),
-        ("docflow_delta_emit", "_delta_deadline_scope"),
-        ("docflow_promote_sections", "_promote_deadline_scope"),
-        ("extract_test_evidence", "_deadline_scope_from_env"),
-        ("obsolescence_delta_advisory", "_deadline_scope"),
-        ("pin_actions", "_deadline_scope"),
-        ("policy_check", "_policy_deadline_scope"),
-        ("refresh_baselines", "_deadline_scope"),
-        ("sppf_sync", "_deadline_scope"),
+        ("scripts.audit_tools", "_audit_deadline_scope"),
+        ("gabion.tooling.ambiguity_delta_advisory", "_deadline_scope"),
+        ("gabion.tooling.annotation_drift_delta_advisory", "_deadline_scope"),
+        ("scripts.audit_in_step_structure", "_deadline_scope"),
+        ("scripts.ci_watch", "_deadline_scope"),
+        ("gabion.tooling.delta_triplets", "_deadline_scope"),
+        ("gabion.tooling.docflow_delta_advisory", "_deadline_scope"),
+        ("gabion.tooling.docflow_delta_emit", "_delta_deadline_scope"),
+        ("scripts.docflow_promote_sections", "_promote_deadline_scope"),
+        ("scripts.extract_test_evidence", "_deadline_scope_from_env"),
+        ("gabion.tooling.obsolescence_delta_advisory", "_deadline_scope"),
+        ("scripts.pin_actions", "_deadline_scope"),
+        ("scripts.policy_check", "_policy_deadline_scope"),
+        ("scripts.refresh_baselines", "_deadline_scope"),
+        ("scripts.sppf_sync", "_deadline_scope"),
     ]
-    for module_name, scope_name in scope_functions:
-        module = _import_script_module(module_name)
+    for module_path, scope_name in scope_functions:
+        module = _import_module(module_path)
         scope = getattr(module, scope_name)
         with scope():
             assert isinstance(get_forest(), Forest)
