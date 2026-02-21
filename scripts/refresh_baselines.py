@@ -84,9 +84,14 @@ def _clear_failure_artifact() -> None:
 def _write_failure_artifact(
     failure: RefreshBaselinesSubprocessFailure,
 ) -> Path:
+    attempted_flags = [
+        arg
+        for arg in failure.command
+        if arg.startswith("-") and arg != "-m"
+    ]
     payload = {
         "attempted_command": failure.command,
-        "attempted_flags": [arg for arg in failure.command if arg.startswith("-")],
+        "attempted_flags": attempted_flags,
         "timeout_settings": {
             "cli_timeout_seconds": failure.timeout_seconds,
             "env": _timeout_env_settings(),
@@ -223,7 +228,7 @@ def _run_docflow_delta_emit(
     *,
     run_fn=subprocess.run,
 ) -> None:
-    cmd = [sys.executable, "scripts/docflow_delta_emit.py"]
+    cmd = [sys.executable, "-m", "gabion", "docflow-delta-emit"]
     try:
         run_fn(
             cmd,

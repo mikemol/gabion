@@ -84,7 +84,8 @@ def _refresh_index(root: Path, index_path: Path, tests_root: str) -> bool:
     proc = subprocess.run(
         [
             sys.executable,
-            "scripts/extract_test_evidence.py",
+            "-m",
+            "scripts.extract_test_evidence",
             "--root",
             str(root),
             "--tests",
@@ -337,5 +338,3 @@ def main(
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())

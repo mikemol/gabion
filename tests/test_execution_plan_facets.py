@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from scripts import docflow_delta_emit, refresh_baselines, sppf_sync
+from gabion.tooling import docflow_delta_emit
+from scripts import refresh_baselines, sppf_sync
 from gabion.execution_plan import (
     BaselineFacet,
     DeadlineFacet,
@@ -20,7 +21,7 @@ def test_execution_plan_decorations_are_deterministic() -> None:
     assert [name for name, _ in plan.decorations()] == ["alpha", "beta", "zeta"]
 
 
-# gabion:evidence E:call_footprint::tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths::docflow_delta_emit.py::scripts.docflow_delta_emit._build_execution_plan
+# gabion:evidence E:call_footprint::tests/test_execution_plan_facets.py::test_docflow_facet_propagates_changed_paths::docflow_delta_emit.py::gabion.tooling.docflow_delta_emit._build_execution_plan
 def test_docflow_facet_propagates_changed_paths() -> None:
     plan = docflow_delta_emit._build_execution_plan(
         changed_paths_fn=lambda: ("docs/sppf_checklist.md", "src/gabion/cli.py"),

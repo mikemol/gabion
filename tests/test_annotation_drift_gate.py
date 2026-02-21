@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts import annotation_drift_orphaned_gate
+from gabion.tooling import annotation_drift_orphaned_gate
 
 
-# gabion:evidence E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate
+# gabion:evidence E:function_site::annotation_drift_orphaned_gate.py::gabion.tooling.annotation_drift_orphaned_gate.check_gate
 def test_annotation_drift_gate_disabled(tmp_path: Path) -> None:
     delta_path = tmp_path / "delta.json"
     payload = {
@@ -22,7 +22,7 @@ def test_annotation_drift_gate_disabled(tmp_path: Path) -> None:
     )
 
 
-# gabion:evidence E:function_site::annotation_drift_orphaned_gate.py::scripts.annotation_drift_orphaned_gate.check_gate
+# gabion:evidence E:function_site::annotation_drift_orphaned_gate.py::gabion.tooling.annotation_drift_orphaned_gate.check_gate
 def test_annotation_drift_gate_enabled(tmp_path: Path) -> None:
     delta_path = tmp_path / "delta.json"
     payload = {
