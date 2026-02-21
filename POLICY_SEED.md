@@ -1,5 +1,5 @@
 ---
-doc_revision: 38
+doc_revision: 39
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -486,6 +486,37 @@ allow-listed in this policy.
 Agda installs in CI MUST pin a specific version (no floating latest).
 Agda CI checks SHOULD run inside a digest-pinned container image to avoid
 toolchain drift.
+
+### 4.8 Shift-Ambiguity-Left Directive
+
+Ambiguity discovered during implementation MUST be handled as a boundary-first
+typing problem, not as a local control-flow patch in semantic core modules.
+
+Required behavior when ambiguity appears:
+
+1. **Identify the ambiguity source** as one of:
+   * input shape,
+   * decision predicate, or
+   * cross-boundary bundle.
+2. **Move the ambiguity to the nearest ingress/boundary layer** where inputs are
+   parsed, normalized, or admitted.
+3. **Reify the ambiguity as a Tier-1 structure** (Protocol/dataclass or Decision
+   Protocol) at that boundary.
+4. **Pass only deterministic values into downstream suites**; semantic core
+   execution MUST consume resolved values, not unresolved alternation.
+5. **Reject patches** that resolve local errors by adding new dynamic
+   alternation in core flow.
+
+Anti-shortcut rule (explicitly disallowed as first response inside semantic
+core modules):
+
+* local branch insertion,
+* sentinel injection, and
+* type alternation.
+
+Any of the above patterns discovered in semantic core changes MUST be treated as
+a policy violation unless accompanied by boundary-level reification that removes
+the ambiguity before core-flow execution.
 
 ---
 
