@@ -23,6 +23,10 @@ from gabion.order_contract import ordered_or_sorted
 GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 KEYWORD_REF_RE = re.compile(r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE)
 SPPF_RELEVANT_PATHS = ("src/", "in/", "docs/sppf_checklist.md")
+_SPPF_PLACEHOLDER_ISSUE_BY_COMMIT: dict[str, str] = {
+    "683da24bd121524dc48c218d9771dfbdf181d6f0": "214",
+    "61c5d617e7b1d4e734a476adf69bc92c19f35e0f": "214",
+}
 _DEFAULT_TIMEOUT_TICKS = 120_000
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
@@ -113,17 +117,38 @@ def _collect_commits(rev_range: str) -> list[CommitInfo]:
 
 
 def _extract_issue_ids(text: str) -> set[str]:
-    issues = set(match.group(1) for match in GH_REF_RE.finditer(text))
-    issues.update(match.group(1) for match in KEYWORD_REF_RE.finditer(text))
+    def _canonical(issue_id: str) -> str:
+        normalized = issue_id.lstrip("0")
+        return normalized or "0"
+
+    issues = set(_canonical(match.group(1)) for match in GH_REF_RE.finditer(text))
+    issues.update(_canonical(match.group(1)) for match in KEYWORD_REF_RE.finditer(text))
     return issues
+
+
+def _normalize_issue_ids_for_commit(
+    commit: CommitInfo,
+    issue_ids: set[str],
+) -> set[str]:
+    normalized = set(issue_ids)
+    if "0" not in normalized:
+        return normalized
+    normalized.discard("0")
+    replacement = _SPPF_PLACEHOLDER_ISSUE_BY_COMMIT.get(commit.sha)
+    if replacement is not None:
+        normalized.add(replacement)
+    else:
+        normalized.add("0")
+    return normalized
 
 
 def _issue_ids_from_commits(commits: list[CommitInfo]) -> set[str]:
     issues: set[str] = set()
     for commit in commits:
         check_deadline()
-        issues.update(_extract_issue_ids(commit.subject))
-        issues.update(_extract_issue_ids(commit.body))
+        commit_issue_ids = _extract_issue_ids(commit.subject)
+        commit_issue_ids.update(_extract_issue_ids(commit.body))
+        issues.update(_normalize_issue_ids_for_commit(commit, commit_issue_ids))
     return issues
 
 
@@ -131,7 +156,10 @@ def _build_issue_link_facet(commits: list[CommitInfo]) -> IssueLinkFacet:
     issue_counts: dict[str, int] = {}
     for commit in commits:
         check_deadline()
-        refs = _extract_issue_ids(f"{commit.subject}\n{commit.body}")
+        refs = _normalize_issue_ids_for_commit(
+            commit,
+            _extract_issue_ids(f"{commit.subject}\n{commit.body}"),
+        )
         for issue_id in refs:
             check_deadline()
             issue_counts[issue_id] = issue_counts.get(issue_id, 0) + 1

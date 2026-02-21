@@ -22157,6 +22157,25 @@
       ]
     },
     {
+      "display": "E:call_footprint::tests/test_sppf_sync.py::test_build_issue_link_facet_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._build_issue_link_facet",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_sppf_sync.py",
+          "qual": "test_build_issue_link_facet_normalizes_known_gh_0000_placeholders"
+        },
+        "targets": [
+          {
+            "path": "sppf_sync.py",
+            "qual": "scripts.sppf_sync._build_issue_link_facet"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_sppf_sync.py::test_build_issue_link_facet_normalizes_known_gh_0000_placeholders"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_sppf_sync.py::test_fetch_issue_reports_missing_issue::sppf_sync.py::scripts.sppf_sync._fetch_issue",
       "key": {
         "k": "call_footprint",
@@ -22195,6 +22214,25 @@
       ]
     },
     {
+      "display": "E:call_footprint::tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._issue_ids_from_commits",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_sppf_sync.py",
+          "qual": "test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders"
+        },
+        "targets": [
+          {
+            "path": "sppf_sync.py",
+            "qual": "scripts.sppf_sync._issue_ids_from_commits"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders"
+      ]
+    },
+    {
       "display": "E:call_footprint::tests/test_sppf_sync.py::test_main_validate_mode_fails_with_clear_remediation::sppf_sync.py::scripts.sppf_sync.main",
       "key": {
         "k": "call_footprint",
@@ -22230,6 +22268,25 @@
       },
       "tests": [
         "tests/test_sppf_sync.py::test_validate_issue_lifecycle_reports_missing_labels_and_state"
+      ]
+    },
+    {
+      "display": "E:call_footprint::tests/test_sppf_sync_cli.py::test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders::cli.py::gabion.cli._issue_ids_from_sppf_commits",
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_sppf_sync_cli.py",
+          "qual": "test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli._issue_ids_from_sppf_commits"
+          }
+        ]
+      },
+      "tests": [
+        "tests/test_sppf_sync_cli.py::test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders"
       ]
     },
     {
@@ -86330,6 +86387,30 @@
     {
       "evidence": [
         {
+          "display": "E:call_footprint::tests/test_sppf_sync.py::test_build_issue_link_facet_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._build_issue_link_facet",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_sppf_sync.py",
+              "qual": "test_build_issue_link_facet_normalizes_known_gh_0000_placeholders"
+            },
+            "targets": [
+              {
+                "path": "sppf_sync.py",
+                "qual": "scripts.sppf_sync._build_issue_link_facet"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_sppf_sync.py",
+      "line": 57,
+      "status": "mapped",
+      "test_id": "tests/test_sppf_sync.py::test_build_issue_link_facet_normalizes_known_gh_0000_placeholders"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:call_footprint::tests/test_sppf_sync.py::test_fetch_issue_reports_missing_issue::sppf_sync.py::scripts.sppf_sync._fetch_issue",
           "key": {
             "k": "call_footprint",
@@ -86347,7 +86428,7 @@
         }
       ],
       "file": "tests/test_sppf_sync.py",
-      "line": 83,
+      "line": 119,
       "status": "mapped",
       "test_id": "tests/test_sppf_sync.py::test_fetch_issue_reports_missing_issue"
     },
@@ -86378,6 +86459,30 @@
     {
       "evidence": [
         {
+          "display": "E:call_footprint::tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._issue_ids_from_commits",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_sppf_sync.py",
+              "qual": "test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders"
+            },
+            "targets": [
+              {
+                "path": "sppf_sync.py",
+                "qual": "scripts.sppf_sync._issue_ids_from_commits"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_sppf_sync.py",
+      "line": 40,
+      "status": "mapped",
+      "test_id": "tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:call_footprint::tests/test_sppf_sync.py::test_main_validate_mode_fails_with_clear_remediation::sppf_sync.py::scripts.sppf_sync.main",
           "key": {
             "k": "call_footprint",
@@ -86395,7 +86500,7 @@
         }
       ],
       "file": "tests/test_sppf_sync.py",
-      "line": 40,
+      "line": 76,
       "status": "mapped",
       "test_id": "tests/test_sppf_sync.py::test_main_validate_mode_fails_with_clear_remediation"
     },
@@ -86426,6 +86531,30 @@
     {
       "evidence": [
         {
+          "display": "E:call_footprint::tests/test_sppf_sync_cli.py::test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders::cli.py::gabion.cli._issue_ids_from_sppf_commits",
+          "key": {
+            "k": "call_footprint",
+            "site": {
+              "path": "tests/test_sppf_sync_cli.py",
+              "qual": "test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders"
+            },
+            "targets": [
+              {
+                "path": "cli.py",
+                "qual": "gabion.cli._issue_ids_from_sppf_commits"
+              }
+            ]
+          }
+        }
+      ],
+      "file": "tests/test_sppf_sync_cli.py",
+      "line": 94,
+      "status": "mapped",
+      "test_id": "tests/test_sppf_sync_cli.py::test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders"
+    },
+    {
+      "evidence": [
+        {
           "display": "E:call_footprint::tests/test_sppf_sync_cli.py::test_run_sppf_sync_compat_parses_and_forwards_flags::cli.py::gabion.cli.run_sppf_sync_compat",
           "key": {
             "k": "call_footprint",
@@ -86443,7 +86572,7 @@
         }
       ],
       "file": "tests/test_sppf_sync_cli.py",
-      "line": 190,
+      "line": 207,
       "status": "mapped",
       "test_id": "tests/test_sppf_sync_cli.py::test_run_sppf_sync_compat_parses_and_forwards_flags"
     },
@@ -86467,7 +86596,7 @@
         }
       ],
       "file": "tests/test_sppf_sync_cli.py",
-      "line": 94,
+      "line": 111,
       "status": "mapped",
       "test_id": "tests/test_sppf_sync_cli.py::test_script_sppf_sync_delegates_to_cli_compat"
     },
@@ -86571,7 +86700,7 @@
         }
       ],
       "file": "tests/test_sppf_sync_cli.py",
-      "line": 140,
+      "line": 157,
       "status": "mapped",
       "test_id": "tests/test_sppf_sync_cli.py::test_sppf_sync_gh_runner_and_empty_sync_paths"
     },
@@ -86603,7 +86732,7 @@
         }
       ],
       "file": "tests/test_sppf_sync_cli.py",
-      "line": 109,
+      "line": 126,
       "status": "mapped",
       "test_id": "tests/test_sppf_sync_cli.py::test_sppf_sync_git_helpers_and_commit_collection_edges"
     },

@@ -36,6 +36,42 @@ def test_validate_issue_lifecycle_reports_missing_labels_and_state() -> None:
     assert "scripts/sppf_sync.py --range <rev-range> --label status/pending-release" in violations[1]
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._issue_ids_from_commits
+def test_issue_ids_from_commits_normalizes_known_gh_0000_placeholders() -> None:
+    commits = [
+        sppf_sync.CommitInfo(
+            sha="683da24bd121524dc48c218d9771dfbdf181d6f0",
+            subject="SPPF: GH-0000",
+            body="",
+        ),
+        sppf_sync.CommitInfo(
+            sha="61c5d617e7b1d4e734a476adf69bc92c19f35e0f",
+            subject="GH-0000",
+            body="Refs #42",
+        ),
+    ]
+    assert sppf_sync._issue_ids_from_commits(commits) == {"42", "214"}
+
+
+# gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_build_issue_link_facet_normalizes_known_gh_0000_placeholders::sppf_sync.py::scripts.sppf_sync._build_issue_link_facet
+def test_build_issue_link_facet_normalizes_known_gh_0000_placeholders() -> None:
+    commits = [
+        sppf_sync.CommitInfo(
+            sha="683da24bd121524dc48c218d9771dfbdf181d6f0",
+            subject="SPPF: GH-0000",
+            body="",
+        ),
+        sppf_sync.CommitInfo(
+            sha="61c5d617e7b1d4e734a476adf69bc92c19f35e0f",
+            subject="GH-0000",
+            body="",
+        ),
+    ]
+    facet = sppf_sync._build_issue_link_facet(commits)
+    assert facet.issue_ids == ("214",)
+    assert facet.checklist_impact == (("214", 2),)
+
+
 # gabion:evidence E:call_footprint::tests/test_sppf_sync.py::test_main_validate_mode_fails_with_clear_remediation::sppf_sync.py::scripts.sppf_sync.main
 def test_main_validate_mode_fails_with_clear_remediation(
     capsys: pytest.CaptureFixture[str],

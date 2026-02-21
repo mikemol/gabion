@@ -90,6 +90,23 @@ def test_sppf_issue_id_extraction_matches_previous_patterns() -> None:
     assert cli._extract_sppf_issue_ids(text) == {"11", "12", "13", "14"}
 
 
+# gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders::cli.py::gabion.cli._issue_ids_from_sppf_commits
+def test_issue_ids_from_sppf_commits_normalizes_known_gh_0000_placeholders() -> None:
+    commits = [
+        cli.SppfSyncCommitInfo(
+            sha="683da24bd121524dc48c218d9771dfbdf181d6f0",
+            subject="SPPF: GH-0000",
+            body="",
+        ),
+        cli.SppfSyncCommitInfo(
+            sha="unknown-sha",
+            subject="GH-0000",
+            body="Refs #12",
+        ),
+    ]
+    assert cli._issue_ids_from_sppf_commits(commits) == {"0", "12", "214"}
+
+
 # gabion:evidence E:call_footprint::tests/test_sppf_sync_cli.py::test_script_sppf_sync_delegates_to_cli_compat::sppf_sync.py::scripts.sppf_sync.main
 def test_script_sppf_sync_delegates_to_cli_compat() -> None:
     captured: list[str] = []

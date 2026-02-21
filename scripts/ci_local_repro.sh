@@ -21,7 +21,7 @@ EOF
 run_checks=true
 run_dataflow=true
 run_sppf_sync_mode="auto"
-sppf_range="${GABION_LOCAL_SPPF_RANGE:-HEAD~20..HEAD}"
+sppf_range="${GABION_LOCAL_SPPF_RANGE:-origin/stage..HEAD}"
 
 while [ $# -gt 0 ]; do
   case "$1" in

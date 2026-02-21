@@ -87,6 +87,10 @@ _SPPF_GH_REF_RE = re.compile(r"\bGH-(\d+)\b", re.IGNORECASE)
 _SPPF_KEYWORD_REF_RE = re.compile(
     r"\b(?:Closes|Fixes|Resolves|Refs)\s+#(\d+)\b", re.IGNORECASE
 )
+_SPPF_PLACEHOLDER_ISSUE_BY_COMMIT: dict[str, str] = {
+    "683da24bd121524dc48c218d9771dfbdf181d6f0": "214",
+    "61c5d617e7b1d4e734a476adf69bc92c19f35e0f": "214",
+}
 
 _LSP_PROGRESS_NOTIFICATION_METHOD = "$/progress"
 _LSP_PROGRESS_TOKEN = "gabion.dataflowAudit/progress-v1"
@@ -336,17 +340,38 @@ def _collect_sppf_commits(
 
 
 def _extract_sppf_issue_ids(text: str) -> set[str]:
-    issues = set(match.group(1) for match in _SPPF_GH_REF_RE.finditer(text))
-    issues.update(match.group(1) for match in _SPPF_KEYWORD_REF_RE.finditer(text))
+    def _canonical(issue_id: str) -> str:
+        normalized = issue_id.lstrip("0")
+        return normalized or "0"
+
+    issues = set(_canonical(match.group(1)) for match in _SPPF_GH_REF_RE.finditer(text))
+    issues.update(_canonical(match.group(1)) for match in _SPPF_KEYWORD_REF_RE.finditer(text))
     return issues
+
+
+def _normalize_sppf_issue_ids_for_commit(
+    commit: SppfSyncCommitInfo,
+    issue_ids: set[str],
+) -> set[str]:
+    normalized = set(issue_ids)
+    if "0" not in normalized:
+        return normalized
+    normalized.discard("0")
+    replacement = _SPPF_PLACEHOLDER_ISSUE_BY_COMMIT.get(commit.sha)
+    if replacement is not None:
+        normalized.add(replacement)
+    else:
+        normalized.add("0")
+    return normalized
 
 
 def _issue_ids_from_sppf_commits(commits: list[SppfSyncCommitInfo]) -> set[str]:
     issues: set[str] = set()
     for commit in commits:
         check_deadline()
-        issues.update(_extract_sppf_issue_ids(commit.subject))
-        issues.update(_extract_sppf_issue_ids(commit.body))
+        commit_issue_ids = _extract_sppf_issue_ids(commit.subject)
+        commit_issue_ids.update(_extract_sppf_issue_ids(commit.body))
+        issues.update(_normalize_sppf_issue_ids_for_commit(commit, commit_issue_ids))
     return issues
 
 
