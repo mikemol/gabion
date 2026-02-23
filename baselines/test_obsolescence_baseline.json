@@ -2,11 +2,23 @@
   "version": 1,
   "summary": {
     "redundant_by_evidence": 209,
-    "equivalent_witness": 351,
-    "obsolete_candidate": 1362,
-    "unmapped": 37
+    "equivalent_witness": 349,
+    "obsolete_candidate": 1367,
+    "unmapped": 42
   },
   "tests": [
+    {
+      "test_id": "tests/test_agent_instruction_graph.py::test_agent_instruction_graph_allows_explicit_scoped_delta",
+      "class": "unmapped"
+    },
+    {
+      "test_id": "tests/test_agent_instruction_graph.py::test_agent_instruction_graph_reports_drift_categories",
+      "class": "unmapped"
+    },
+    {
+      "test_id": "tests/test_agent_instruction_graph.py::test_agent_instruction_graph_uses_anchor_revision_when_available",
+      "class": "unmapped"
+    },
     {
       "test_id": "tests/test_alias_attribute.py::test_alias_attribute_forwarding",
       "class": "redundant_by_evidence"
@@ -640,7 +652,7 @@
       "class": "obsolete_candidate"
     },
     {
-      "test_id": "tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_and_governance_helpers",
+      "test_id": "tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_helpers",
       "class": "obsolete_candidate"
     },
     {
@@ -836,6 +848,10 @@
       "class": "obsolete_candidate"
     },
     {
+      "test_id": "tests/test_cli_helpers.py::test_governance_commands_include_optional_cli_args",
+      "class": "obsolete_candidate"
+    },
+    {
       "test_id": "tests/test_cli_helpers.py::test_lint_parsing_and_writers",
       "class": "redundant_by_evidence"
     },
@@ -988,39 +1004,11 @@
       "class": "obsolete_candidate"
     },
     {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_cleans_import_state",
+      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_nonzero_short_circuits_sppf",
       "class": "obsolete_candidate"
     },
     {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_cleanup_ignores_missing_sys_path",
-      "class": "obsolete_candidate"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_creation_exception",
-      "class": "obsolete_candidate"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_exception_and_extra_path",
-      "class": "obsolete_candidate"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_keeps_existing_sys_path_entry",
-      "class": "obsolete_candidate"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_missing_script",
-      "class": "equivalent_witness"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags",
-      "class": "equivalent_witness"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_restores_previous_module",
-      "class": "obsolete_candidate"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf",
+      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags_to_governance_module",
       "class": "obsolete_candidate"
     },
     {
@@ -1028,11 +1016,7 @@
       "class": "obsolete_candidate"
     },
     {
-      "test_id": "tests/test_cli_helpers.py::test_run_docflow_audit_returns_two_when_loader_creation_fails",
-      "class": "obsolete_candidate"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_run_governance_cli_error_paths",
+      "test_id": "tests/test_cli_helpers.py::test_run_governance_runner_success_and_exception",
       "class": "obsolete_candidate"
     },
     {
@@ -1070,10 +1054,6 @@
     {
       "test_id": "tests/test_cli_helpers.py::test_split_csv_helpers",
       "class": "redundant_by_evidence"
-    },
-    {
-      "test_id": "tests/test_cli_helpers.py::test_sppf_graph_and_status_consistency_include_optional_cli_args",
-      "class": "obsolete_candidate"
     },
     {
       "test_id": "tests/test_cli_helpers.py::test_sppf_sync_command_handles_runner_errors",
@@ -3676,6 +3656,14 @@
       "class": "obsolete_candidate"
     },
     {
+      "test_id": "tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_satisfied_when_all_domains_declared",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_violation_when_domain_missing",
+      "class": "obsolete_candidate"
+    },
+    {
       "test_id": "tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_advisory_mode_reports_warning",
       "class": "obsolete_candidate"
     },
@@ -3964,8 +3952,36 @@
       "class": "redundant_by_evidence"
     },
     {
+      "test_id": "tests/test_governance_audit_adapter.py::test_adapter_wrappers_cover_parse_and_runner_paths",
+      "class": "obsolete_candidate"
+    },
+    {
       "test_id": "tests/test_governance_paths.py::test_governance_paths_resolve_root_relative_paths",
       "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_governance_rules_policy.py::test_governance_rules_define_required_gates",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_governance_rules_policy.py::test_governance_rules_validation_failures",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_governance_rules_policy.py::test_governance_severity_thresholds_are_monotonic",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_governance_telemetry_emit.py::test_emit_governance_telemetry_outputs_schema",
+      "class": "unmapped"
+    },
+    {
+      "test_id": "tests/test_governance_telemetry_emit.py::test_emit_governance_telemetry_sets_trends_from_history",
+      "class": "unmapped"
     },
     {
       "test_id": "tests/test_impact_index.py::test_build_graph_payload_handles_async_and_unparseable_files",
@@ -4049,6 +4065,10 @@
     },
     {
       "test_id": "tests/test_impact_select_tests.py::test_main_attempts_refresh_when_index_missing",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_impact_select_tests.py::test_main_falls_back_when_diff_unavailable",
       "class": "obsolete_candidate"
     },
     {
@@ -4996,6 +5016,14 @@
       "class": "obsolete_candidate"
     },
     {
+      "test_id": "tests/test_refresh_baselines.py::test_requires_block_allows_override_token_with_rationale",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_refresh_baselines.py::test_requires_block_is_monotonic_without_override",
+      "class": "obsolete_candidate"
+    },
+    {
       "test_id": "tests/test_refresh_baselines_failure_report.py::test_refresh_baselines_clears_stale_failure_artifact",
       "class": "obsolete_candidate"
     },
@@ -5233,6 +5261,10 @@
     },
     {
       "test_id": "tests/test_runtime_kernel_contracts.py::test_deadline_policy_budget_from_env_paths",
+      "class": "obsolete_candidate"
+    },
+    {
+      "test_id": "tests/test_runtime_kernel_contracts.py::test_delta_gate_error_and_ok_branches",
       "class": "obsolete_candidate"
     },
     {
@@ -8423,8 +8455,8 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._emit_docflow_compliance"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._emit_docflow_compliance"
           },
           {
             "path": "test_audit_tools_obligations.py",
@@ -8432,7 +8464,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_audit_tools_obligations.py::test_emit_docflow_compliance_includes_obligations::audit_tools.py::scripts.audit_tools._emit_docflow_compliance::test_audit_tools_obligations.py::tests.test_audit_tools_obligations._load_audit_tools",
+      "display": "E:call_footprint::tests/test_audit_tools_obligations.py::test_emit_docflow_compliance_includes_obligations::governance_audit.py::gabion.tooling.governance_audit._emit_docflow_compliance::test_audit_tools_obligations.py::tests.test_audit_tools_obligations._load_audit_tools",
       "witness_count": 1
     },
     {
@@ -9729,7 +9761,7 @@
         "k": "call_footprint",
         "site": {
           "path": "tests/test_cli_helpers.py",
-          "qual": "test_context_dependency_helpers_reject_noncallables_across_check_and_governance_helpers"
+          "qual": "test_context_dependency_helpers_reject_noncallables_across_check_helpers"
         },
         "targets": [
           {
@@ -9742,10 +9774,6 @@
           },
           {
             "path": "cli.py",
-            "qual": "gabion.cli._context_run_governance_cli"
-          },
-          {
-            "path": "cli.py",
             "qual": "gabion.cli._context_run_sppf_sync"
           },
           {
@@ -9754,7 +9782,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_and_governance_helpers::cli.py::gabion.cli._context_restore_resume_checkpoint::cli.py::gabion.cli._context_run_check::cli.py::gabion.cli._context_run_governance_cli::cli.py::gabion.cli._context_run_sppf_sync::cli.py::gabion.cli._context_run_with_timeout_retries",
+      "display": "E:call_footprint::tests/test_cli_helpers.py::test_context_dependency_helpers_reject_noncallables_across_check_helpers::cli.py::gabion.cli._context_restore_resume_checkpoint::cli.py::gabion.cli._context_run_check::cli.py::gabion.cli._context_run_sppf_sync::cli.py::gabion.cli._context_run_with_timeout_retries",
       "witness_count": 1
     },
     {
@@ -10286,6 +10314,23 @@
         ]
       },
       "display": "E:call_footprint::tests/test_cli_helpers.py::test_emit_timeout_progress_artifacts_no_progress_is_noop::cli.py::gabion.cli._emit_timeout_progress_artifacts",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_cli_helpers.py",
+          "qual": "test_governance_commands_include_optional_cli_args"
+        },
+        "targets": [
+          {
+            "path": "cli.py",
+            "qual": "gabion.cli.app"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_cli_helpers.py::test_governance_commands_include_optional_cli_args::cli.py::gabion.cli.app",
       "witness_count": 1
     },
     {
@@ -10887,7 +10932,7 @@
         "k": "call_footprint",
         "site": {
           "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_cleans_import_state"
+          "qual": "test_run_docflow_audit_nonzero_short_circuits_sppf"
         },
         "targets": [
           {
@@ -10896,7 +10941,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_cleans_import_state::cli.py::gabion.cli._run_docflow_audit",
+      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_nonzero_short_circuits_sppf::cli.py::gabion.cli._run_docflow_audit",
       "witness_count": 1
     },
     {
@@ -10904,7 +10949,7 @@
         "k": "call_footprint",
         "site": {
           "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_cleanup_ignores_missing_sys_path"
+          "qual": "test_run_docflow_audit_passes_flags_to_governance_module"
         },
         "targets": [
           {
@@ -10913,92 +10958,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_cleanup_ignores_missing_sys_path::cli.py::gabion.cli._run_docflow_audit",
-      "witness_count": 1
-    },
-    {
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_handles_loader_creation_exception"
-        },
-        "targets": [
-          {
-            "path": "cli.py",
-            "qual": "gabion.cli._run_docflow_audit"
-          }
-        ]
-      },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_creation_exception::cli.py::gabion.cli._run_docflow_audit",
-      "witness_count": 1
-    },
-    {
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_handles_loader_exception_and_extra_path"
-        },
-        "targets": [
-          {
-            "path": "cli.py",
-            "qual": "gabion.cli._run_docflow_audit"
-          }
-        ]
-      },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_handles_loader_exception_and_extra_path::cli.py::gabion.cli._run_docflow_audit",
-      "witness_count": 1
-    },
-    {
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_keeps_existing_sys_path_entry"
-        },
-        "targets": [
-          {
-            "path": "cli.py",
-            "qual": "gabion.cli._run_docflow_audit"
-          }
-        ]
-      },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_keeps_existing_sys_path_entry::cli.py::gabion.cli._run_docflow_audit",
-      "witness_count": 1
-    },
-    {
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_restores_previous_module"
-        },
-        "targets": [
-          {
-            "path": "cli.py",
-            "qual": "gabion.cli._run_docflow_audit"
-          }
-        ]
-      },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_restores_previous_module::cli.py::gabion.cli._run_docflow_audit",
-      "witness_count": 1
-    },
-    {
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf"
-        },
-        "targets": [
-          {
-            "path": "cli.py",
-            "qual": "gabion.cli._run_docflow_audit"
-          }
-        ]
-      },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_nonzero_docflow_status_without_sppf::cli.py::gabion.cli._run_docflow_audit",
+      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_passes_flags_to_governance_module::cli.py::gabion.cli._run_docflow_audit",
       "witness_count": 1
     },
     {
@@ -11023,33 +10983,16 @@
         "k": "call_footprint",
         "site": {
           "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_docflow_audit_returns_two_when_loader_creation_fails"
+          "qual": "test_run_governance_runner_success_and_exception"
         },
         "targets": [
           {
             "path": "cli.py",
-            "qual": "gabion.cli._run_docflow_audit"
+            "qual": "gabion.cli._run_governance_runner"
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_docflow_audit_returns_two_when_loader_creation_fails::cli.py::gabion.cli._run_docflow_audit",
-      "witness_count": 1
-    },
-    {
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_cli_helpers.py",
-          "qual": "test_run_governance_cli_error_paths"
-        },
-        "targets": [
-          {
-            "path": "cli.py",
-            "qual": "gabion.cli._run_governance_cli"
-          }
-        ]
-      },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_governance_cli_error_paths::cli.py::gabion.cli._run_governance_cli",
+      "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_governance_runner_success_and_exception::cli.py::gabion.cli._run_governance_runner",
       "witness_count": 1
     },
     {
@@ -11084,23 +11027,6 @@
         ]
       },
       "display": "E:call_footprint::tests/test_cli_helpers.py::test_run_sppf_sync_label_only_branch::cli.py::gabion.cli._run_sppf_sync",
-      "witness_count": 1
-    },
-    {
-      "key": {
-        "k": "call_footprint",
-        "site": {
-          "path": "tests/test_cli_helpers.py",
-          "qual": "test_sppf_graph_and_status_consistency_include_optional_cli_args"
-        },
-        "targets": [
-          {
-            "path": "cli.py",
-            "qual": "gabion.cli.app"
-          }
-        ]
-      },
-      "display": "E:call_footprint::tests/test_cli_helpers.py::test_sppf_graph_and_status_consistency_include_optional_cli_args::cli.py::gabion.cli.app",
       "witness_count": 1
     },
     {
@@ -11755,12 +11681,12 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._audit_gas_limit"
-          },
-          {
             "path": "env_helpers.py",
             "qual": "tests.env_helpers.env_scope"
+          },
+          {
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._audit_gas_limit"
           },
           {
             "path": "test_consolidation_forest_guardrail.py",
@@ -11768,7 +11694,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_override::audit_tools.py::scripts.audit_tools._audit_gas_limit::env_helpers.py::tests.env_helpers.env_scope::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools",
+      "display": "E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_override::env_helpers.py::tests.env_helpers.env_scope::governance_audit.py::gabion.tooling.governance_audit._audit_gas_limit::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools",
       "witness_count": 1
     },
     {
@@ -11780,12 +11706,12 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._audit_gas_limit"
-          },
-          {
             "path": "env_helpers.py",
             "qual": "tests.env_helpers.env_scope"
+          },
+          {
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._audit_gas_limit"
           },
           {
             "path": "test_consolidation_forest_guardrail.py",
@@ -11793,7 +11719,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_rejects_invalid::audit_tools.py::scripts.audit_tools._audit_gas_limit::env_helpers.py::tests.env_helpers.env_scope::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools",
+      "display": "E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_rejects_invalid::env_helpers.py::tests.env_helpers.env_scope::governance_audit.py::gabion.tooling.governance_audit._audit_gas_limit::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools",
       "witness_count": 1
     },
     {
@@ -21252,13 +21178,55 @@
       "key": {
         "k": "call_footprint",
         "site": {
+          "path": "tests/test_docflow_governance_control_loops.py",
+          "qual": "test_docflow_loop_registry_satisfied_when_all_domains_declared"
+        },
+        "targets": [
+          {
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._docflow_invariant_rows"
+          },
+          {
+            "path": "test_docflow_governance_control_loops.py",
+            "qual": "tests.test_docflow_governance_control_loops._load_audit_tools"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_satisfied_when_all_domains_declared::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_docflow_governance_control_loops.py",
+          "qual": "test_docflow_loop_registry_violation_when_domain_missing"
+        },
+        "targets": [
+          {
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._docflow_invariant_rows"
+          },
+          {
+            "path": "test_docflow_governance_control_loops.py",
+            "qual": "tests.test_docflow_governance_control_loops._load_audit_tools"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_docflow_governance_control_loops.py::test_docflow_loop_registry_violation_when_domain_missing::governance_audit.py::gabion.tooling.governance_audit._docflow_invariant_rows::test_docflow_governance_control_loops.py::tests.test_docflow_governance_control_loops._load_audit_tools",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
           "path": "tests/test_docflow_sppf_gh_refs.py",
           "qual": "test_sppf_gh_refs_advisory_mode_reports_warning"
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._sppf_sync_check"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._sppf_sync_check"
           },
           {
             "path": "test_docflow_sppf_gh_refs.py",
@@ -21266,7 +21234,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_advisory_mode_reports_warning::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
+      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_advisory_mode_reports_warning::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
       "witness_count": 1
     },
     {
@@ -21278,8 +21246,8 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._sppf_sync_check"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._sppf_sync_check"
           },
           {
             "path": "test_docflow_sppf_gh_refs.py",
@@ -21287,7 +21255,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_ignores_irrelevant_paths::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
+      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_ignores_irrelevant_paths::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
       "witness_count": 1
     },
     {
@@ -21299,8 +21267,8 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._sppf_sync_check"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._sppf_sync_check"
           },
           {
             "path": "test_docflow_sppf_gh_refs.py",
@@ -21308,7 +21276,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_passes_when_refs_present::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
+      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_passes_when_refs_present::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
       "witness_count": 1
     },
     {
@@ -21320,8 +21288,8 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._sppf_sync_check"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._sppf_sync_check"
           },
           {
             "path": "test_docflow_sppf_gh_refs.py",
@@ -21329,7 +21297,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_reports_violation::audit_tools.py::scripts.audit_tools._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
+      "display": "E:call_footprint::tests/test_docflow_sppf_gh_refs.py::test_sppf_gh_refs_required_mode_reports_violation::governance_audit.py::gabion.tooling.governance_audit._sppf_sync_check::test_docflow_sppf_gh_refs.py::tests.test_docflow_sppf_gh_refs._load_audit_tools",
       "witness_count": 1
     },
     {
@@ -21341,8 +21309,8 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._sppf_status_triplet_violations"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._sppf_status_triplet_violations"
           },
           {
             "path": "test_docflow_status_triplets.py",
@@ -21350,7 +21318,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_accept_mapped_statuses::audit_tools.py::scripts.audit_tools._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet",
+      "display": "E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_accept_mapped_statuses::governance_audit.py::gabion.tooling.governance_audit._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet",
       "witness_count": 1
     },
     {
@@ -21362,8 +21330,8 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._sppf_status_triplet_violations"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._sppf_status_triplet_violations"
           },
           {
             "path": "test_docflow_status_triplets.py",
@@ -21371,7 +21339,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_honor_override_marker::audit_tools.py::scripts.audit_tools._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet",
+      "display": "E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_honor_override_marker::governance_audit.py::gabion.tooling.governance_audit._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet",
       "witness_count": 1
     },
     {
@@ -21383,8 +21351,8 @@
         },
         "targets": [
           {
-            "path": "audit_tools.py",
-            "qual": "scripts.audit_tools._sppf_status_triplet_violations"
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._sppf_status_triplet_violations"
           },
           {
             "path": "test_docflow_status_triplets.py",
@@ -21392,7 +21360,7 @@
           }
         ]
       },
-      "display": "E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_report_all_three_records_on_conflict::audit_tools.py::scripts.audit_tools._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet",
+      "display": "E:call_footprint::tests/test_docflow_status_triplets.py::test_status_triplets_report_all_three_records_on_conflict::governance_audit.py::gabion.tooling.governance_audit._sppf_status_triplet_violations::test_docflow_status_triplets.py::tests.test_docflow_status_triplets._write_triplet",
       "witness_count": 1
     },
     {
@@ -21698,6 +21666,81 @@
         ]
       },
       "display": "E:call_footprint::tests/test_forest_spec.py::test_forest_spec_includes_wl_refinement_collector::forest_spec.py::gabion.analysis.forest_spec.build_forest_spec",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_governance_audit_adapter.py",
+          "qual": "test_adapter_wrappers_cover_parse_and_runner_paths"
+        },
+        "targets": [
+          {
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit._parse_frontmatter"
+          },
+          {
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit.run_decision_tiers_cli"
+          },
+          {
+            "path": "governance_audit.py",
+            "qual": "gabion.tooling.governance_audit.run_lint_summary_cli"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_governance_audit_adapter.py::test_adapter_wrappers_cover_parse_and_runner_paths::governance_audit.py::gabion.tooling.governance_audit._parse_frontmatter::governance_audit.py::gabion.tooling.governance_audit.run_decision_tiers_cli::governance_audit.py::gabion.tooling.governance_audit.run_lint_summary_cli",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_governance_rules_policy.py",
+          "qual": "test_governance_rules_loader_none_and_gate_filtering"
+        },
+        "targets": [
+          {
+            "path": "governance_rules.py",
+            "qual": "gabion.tooling.governance_rules._yaml_loader"
+          },
+          {
+            "path": "governance_rules.py",
+            "qual": "gabion.tooling.governance_rules.load_governance_rules"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_loader_none_and_gate_filtering::governance_rules.py::gabion.tooling.governance_rules._yaml_loader::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_governance_rules_policy.py",
+          "qual": "test_governance_rules_validation_failures"
+        },
+        "targets": [
+          {
+            "path": "governance_rules.py",
+            "qual": "gabion.tooling.governance_rules._as_int"
+          },
+          {
+            "path": "governance_rules.py",
+            "qual": "gabion.tooling.governance_rules._gate_from_mapping"
+          },
+          {
+            "path": "governance_rules.py",
+            "qual": "gabion.tooling.governance_rules._tuple_path"
+          },
+          {
+            "path": "governance_rules.py",
+            "qual": "gabion.tooling.governance_rules.load_governance_rules"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_governance_rules_policy.py::test_governance_rules_validation_failures::governance_rules.py::gabion.tooling.governance_rules._as_int::governance_rules.py::gabion.tooling.governance_rules._gate_from_mapping::governance_rules.py::gabion.tooling.governance_rules._tuple_path::governance_rules.py::gabion.tooling.governance_rules.load_governance_rules",
       "witness_count": 1
     },
     {
@@ -22171,6 +22214,23 @@
         ]
       },
       "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_attempts_refresh_when_index_missing::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_impact_select_tests.py",
+          "qual": "test_main_falls_back_when_diff_unavailable"
+        },
+        "targets": [
+          {
+            "path": "impact_select_tests.py",
+            "qual": "gabion.tooling.impact_select_tests.main"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_impact_select_tests.py::test_main_falls_back_when_diff_unavailable::impact_select_tests.py::gabion.tooling.impact_select_tests.main",
       "witness_count": 1
     },
     {
@@ -25900,6 +25960,31 @@
         ]
       },
       "display": "E:call_footprint::tests/test_runtime_kernel_contracts.py::test_deadline_policy_budget_from_env_paths::deadline_policy.py::gabion.runtime.deadline_policy.timeout_budget_from_lsp_env::env_helpers.py::tests.env_helpers.env_scope",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "call_footprint",
+        "site": {
+          "path": "tests/test_runtime_kernel_contracts.py",
+          "qual": "test_delta_gate_error_and_ok_branches"
+        },
+        "targets": [
+          {
+            "path": "delta_gate.py",
+            "qual": "gabion.tooling.delta_gate._check_standard_gate"
+          },
+          {
+            "path": "delta_gate.py",
+            "qual": "gabion.tooling.delta_gate._gate_id_for_env_flag"
+          },
+          {
+            "path": "delta_gate.py",
+            "qual": "gabion.tooling.delta_gate._policy_spec"
+          }
+        ]
+      },
+      "display": "E:call_footprint::tests/test_runtime_kernel_contracts.py::test_delta_gate_error_and_ok_branches::delta_gate.py::gabion.tooling.delta_gate._check_standard_gate::delta_gate.py::gabion.tooling.delta_gate._gate_id_for_env_flag::delta_gate.py::gabion.tooling.delta_gate._policy_spec",
       "witness_count": 1
     },
     {
@@ -33627,19 +33712,6 @@
         "m": "direct",
         "site": {
           "path": "cli.py",
-          "qual": "gabion.cli._run_docflow_audit"
-        },
-        "param": "fail_on_violations"
-      },
-      "display": "E:decision_surface/direct::cli.py::gabion.cli._run_docflow_audit::fail_on_violations",
-      "witness_count": 2
-    },
-    {
-      "key": {
-        "k": "decision_surface",
-        "m": "direct",
-        "site": {
-          "path": "cli.py",
           "qual": "gabion.cli._run_refactor_protocol"
         },
         "param": "input_path,output_path"
@@ -38168,6 +38240,50 @@
         }
       },
       "display": "E:function_site::tests/test_delta_gates.py::test_gate_fails_when_payload_missing",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "tests/test_governance_rules_policy.py",
+          "qual": "test_governance_rules_define_required_gates"
+        }
+      },
+      "display": "E:function_site::tests/test_governance_rules_policy.py::test_governance_rules_define_required_gates",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "tests/test_governance_rules_policy.py",
+          "qual": "test_governance_severity_thresholds_are_monotonic"
+        }
+      },
+      "display": "E:function_site::tests/test_governance_rules_policy.py::test_governance_severity_thresholds_are_monotonic",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "tests/test_refresh_baselines.py",
+          "qual": "test_requires_block_allows_override_token_with_rationale"
+        }
+      },
+      "display": "E:function_site::tests/test_refresh_baselines.py::test_requires_block_allows_override_token_with_rationale",
+      "witness_count": 1
+    },
+    {
+      "key": {
+        "k": "function_site",
+        "site": {
+          "path": "tests/test_refresh_baselines.py",
+          "qual": "test_requires_block_is_monotonic_without_override"
+        }
+      },
+      "display": "E:function_site::tests/test_refresh_baselines.py::test_requires_block_is_monotonic_without_override",
       "witness_count": 1
     },
     {
