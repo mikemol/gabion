@@ -31,6 +31,7 @@ def _timeout_context(
     *,
     tmp_path: Path,
     deps: server.ExecuteCommandDeps,
+    last_collection_resume_payload: dict[str, object] | None = None,
 ) -> orchestrator._TimeoutCleanupContext:
     return orchestrator._TimeoutCleanupContext(
         timeout_hard_deadline_ns=time.monotonic_ns() + 1_000_000_000,
@@ -39,7 +40,7 @@ def _timeout_context(
         analysis_window_ns=900_000_000,
         analysis_resume_checkpoint_path=tmp_path / "resume.json",
         analysis_resume_input_manifest_digest="digest",
-        last_collection_resume_payload=None,
+        last_collection_resume_payload=last_collection_resume_payload,
         execute_deps=deps,
         analysis_resume_input_witness=None,
         emit_checkpoint_intro_timeline=False,
@@ -64,6 +65,71 @@ def _timeout_context(
         execution_plan=ExecutionPlan(),
         ensure_report_sections_cache_fn=None,
         emit_lsp_progress_fn=lambda **_kwargs: None,
+    )
+
+
+def _analysis_context(
+    *,
+    tmp_path: Path,
+    deps: server.ExecuteCommandDeps,
+    source_path: Path,
+    emit_checkpoint_intro_timeline: bool,
+    emitted_events: list[dict[str, object]],
+) -> orchestrator._AnalysisExecutionContext:
+    return orchestrator._AnalysisExecutionContext(
+        execute_deps=deps,
+        runtime_state=orchestrator.CommandRuntimeState(latest_collection_progress={}),
+        forest=Forest(),
+        paths=[source_path],
+        no_recursive=False,
+        type_audit=False,
+        type_audit_report=False,
+        type_audit_max=100,
+        report_path=False,
+        include_coherence=False,
+        include_rewrite_plans=False,
+        include_exception_obligations=False,
+        include_handledness_witnesses=False,
+        include_never_invariants=False,
+        include_wl_refinement=False,
+        include_decisions=False,
+        lint=False,
+        include_ambiguities=False,
+        config=orchestrator.AuditConfig(project_root=tmp_path),
+        needs_analysis=True,
+        file_paths_for_run=[source_path],
+        analysis_resume_intro_payload=None,
+        analysis_resume_reused_files=0,
+        analysis_resume_total_files=1,
+        analysis_resume_checkpoint_path=tmp_path / "resume.json",
+        analysis_resume_checkpoint_status="checkpoint_seeded",
+        analysis_resume_input_manifest_digest="digest",
+        analysis_resume_input_witness=None,
+        analysis_resume_intro_timeline_header=None,
+        analysis_resume_intro_timeline_row=None,
+        checkpoint_intro_timeline_path=tmp_path / "timeline.md",
+        emit_checkpoint_intro_timeline=emit_checkpoint_intro_timeline,
+        enable_phase_projection_checkpoints=False,
+        report_output_path=None,
+        projection_rows=[],
+        report_section_journal_path=tmp_path / "sections.json",
+        report_section_witness_digest=None,
+        report_phase_checkpoint_path=tmp_path / "phase.json",
+        phase_checkpoint_state={},
+        profile_enabled=False,
+        emit_phase_progress_events=False,
+        fingerprint_deadness_json=None,
+        emit_lsp_progress_fn=lambda **kwargs: emitted_events.append(
+            {str(key): kwargs[key] for key in kwargs}
+        ),
+        ensure_report_sections_cache_fn=lambda: ({}, None),
+        clear_report_sections_cache_reason_fn=lambda: None,
+        check_deadline_fn=lambda: None,
+        profiling_stage_ns={"server.analysis_call": 0, "server.projection_emit": 0},
+        profiling_counters={
+            "server.collection_resume_persist_calls": 0,
+            "server.projection_emit_calls": 0,
+        },
     )
 
 
@@ -299,3 +365,134 @@ def test_render_timeout_partial_report_handles_non_callable_cache_loader(
     )
     assert outcome.partial_report_written is True
     assert "intro" in outcome.resolved_sections
+
+
+def test_prepare_analysis_resume_state_skips_intro_timeline_when_disabled(
+    tmp_path: Path,
+) -> None:
+    orchestrator._bind_server_symbols()
+    source_path = tmp_path / "module.py"
+    source_path.write_text("def f() -> None:\n    return None\n", encoding="utf-8")
+    checkpoint_writes: list[dict[str, object]] = []
+    deps = server._default_execute_command_deps().with_overrides(
+        load_analysis_resume_checkpoint_manifest_fn=lambda **_kwargs: None,
+        write_analysis_resume_checkpoint_fn=lambda **kwargs: checkpoint_writes.append(
+            {str(key): kwargs[key] for key in kwargs}
+        ),
+    )
+    state = orchestrator._AnalysisResumePreparationState(
+        analysis_resume_checkpoint_path=None,
+        analysis_resume_input_witness=None,
+        analysis_resume_input_manifest_digest=None,
+        analysis_resume_total_files=0,
+        analysis_resume_reused_files=0,
+        analysis_resume_checkpoint_status=None,
+        analysis_resume_checkpoint_compatibility_status=None,
+        analysis_resume_intro_payload=None,
+        analysis_resume_intro_timeline_header=None,
+        analysis_resume_intro_timeline_row=None,
+        report_section_witness_digest=None,
+        phase_checkpoint_state={},
+        semantic_progress_cumulative=None,
+        last_collection_resume_payload=None,
+    )
+    runtime_state = orchestrator.CommandRuntimeState(latest_collection_progress={})
+    _file_paths_for_run, collection_resume_payload = orchestrator._prepare_analysis_resume_state(
+        execute_deps=deps,
+        needs_analysis=True,
+        paths=[source_path],
+        root=str(tmp_path),
+        payload={"resume_checkpoint": str(tmp_path / "resume.json")},
+        no_recursive=False,
+        report_path=False,
+        include_wl_refinement=False,
+        config=orchestrator.AuditConfig(project_root=tmp_path),
+        explicit_resume_checkpoint=False,
+        emit_checkpoint_intro_timeline=False,
+        checkpoint_intro_timeline_path=tmp_path / "timeline.md",
+        report_output_path=None,
+        report_phase_checkpoint_path=tmp_path / "phase.json",
+        state=state,
+        runtime_state=runtime_state,
+    )
+    assert collection_resume_payload is not None
+    assert checkpoint_writes
+    assert state.analysis_resume_checkpoint_status == "checkpoint_seeded"
+    assert state.analysis_resume_intro_timeline_header is None
+    assert state.analysis_resume_intro_timeline_row is None
+
+
+def test_run_analysis_with_progress_skips_checkpoint_serialized_event_when_timeline_disabled(
+    tmp_path: Path,
+) -> None:
+    orchestrator._bind_server_symbols()
+    source_path = tmp_path / "module.py"
+    source_path.write_text("def f() -> int:\n    return 1\n", encoding="utf-8")
+    emitted_events: list[dict[str, object]] = []
+    checkpoint_writes: list[dict[str, object]] = []
+    deps = server._default_execute_command_deps().with_overrides(
+        analyze_paths_fn=lambda *_args, **_kwargs: _empty_analysis_result(),
+        collection_semantic_progress_fn=lambda **_kwargs: {
+            "substantive_progress": False,
+            "current_witness_digest": "digest-1",
+        },
+        collection_checkpoint_flush_due_fn=lambda **_kwargs: True,
+        write_analysis_resume_checkpoint_fn=lambda **kwargs: checkpoint_writes.append(
+            {str(key): kwargs[key] for key in kwargs}
+        ),
+    )
+    context = _analysis_context(
+        tmp_path=tmp_path,
+        deps=deps,
+        source_path=source_path,
+        emit_checkpoint_intro_timeline=False,
+        emitted_events=emitted_events,
+    )
+    state = orchestrator._AnalysisExecutionMutableState(
+        last_collection_resume_payload=None,
+        semantic_progress_cumulative=None,
+        latest_collection_progress={},
+    )
+    outcome = orchestrator._run_analysis_with_progress(
+        context=context,
+        state=state,
+        collection_resume_payload=None,
+    )
+    assert checkpoint_writes
+    assert outcome.latest_collection_progress["total_files"] == 1
+    assert not any(
+        event.get("analysis_state") == "analysis_collection_checkpoint_serialized"
+        for event in emitted_events
+    )
+
+
+def test_persist_timeout_resume_checkpoint_skips_checkpoint_event_when_timeline_disabled(
+    tmp_path: Path,
+) -> None:
+    orchestrator._bind_server_symbols()
+    checkpoint_writes: list[dict[str, object]] = []
+    emitted_events: list[dict[str, object]] = []
+    deps = server._default_execute_command_deps().with_overrides(
+        write_analysis_resume_checkpoint_fn=lambda **kwargs: checkpoint_writes.append(
+            {str(key): kwargs[key] for key in kwargs}
+        ),
+    )
+    context = _timeout_context(
+        tmp_path=tmp_path,
+        deps=deps,
+        last_collection_resume_payload={
+            "completed_paths": ["module.py"],
+            "in_progress_scan_by_path": {},
+        },
+    )
+    persisted_payload = orchestrator._persist_timeout_resume_checkpoint(
+        context=context,
+        timeout_collection_resume_payload=None,
+        mark_cleanup_timeout_fn=lambda _step: None,
+        emit_lsp_progress_fn=lambda **kwargs: emitted_events.append(
+            {str(key): kwargs[key] for key in kwargs}
+        ),
+    )
+    assert isinstance(persisted_payload, dict)
+    assert checkpoint_writes
+    assert emitted_events == []
