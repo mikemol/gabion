@@ -431,6 +431,15 @@ scripts/ci_local_repro.sh --pr-dataflow-only --pr-base-sha <base-sha> --pr-head-
 ```
 `--pr-base-sha`/`--pr-head-sha` are optional; when omitted, the script falls
 back to environment values or local branch ancestry.
+PR mode now also runs the governance template check and controller-drift audit.
+For stricter parity with `.github/workflows/pr-dataflow-grammar.yml`, use:
+```
+scripts/ci_local_repro.sh --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 45
+```
+When governance/template checks need PR body context, provide one with:
+```
+scripts/ci_local_repro.sh --pr-dataflow-only --pr-body-file <path-to-pr-body.md>
+```
 
 SPPF lifecycle validation in that script defaults to auto (run when GH auth is
 available); use `--skip-sppf-sync` to bypass or `--run-sppf-sync` to require it.

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only|--pr-dataflow-only] [--extended-checks] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--pr-base-sha <sha>] [--pr-head-sha <sha>] [--run-observability-guard] [--skip-step-timing|--run-step-timing]
+Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only|--pr-dataflow-only] [--extended-checks] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--pr-base-sha <sha>] [--pr-head-sha <sha>] [--pr-body-file <path>] [--verify-pr-stage-ci] [--pr-stage-ci-timeout-minutes <minutes>] [--run-observability-guard] [--skip-step-timing|--run-step-timing]
 
 Reproduces the .github/workflows/ci.yml command set locally.
 
@@ -22,6 +22,10 @@ Options:
                           Skip the dataflow run-dataflow-stage invocation (which wraps gabion check).
   --pr-base-sha SHA       Override PR base SHA for --pr-dataflow-only mode.
   --pr-head-sha SHA       Override PR head SHA for --pr-dataflow-only mode.
+  --pr-body-file PATH     Optional PR body file for governance template parity check.
+  --verify-pr-stage-ci    Require successful stage ci.yml run for PR head SHA.
+  --pr-stage-ci-timeout-minutes N
+                          Timeout in minutes for --verify-pr-stage-ci polling (default: 45).
   --run-observability-guard
                           Enable ci_observability_guard wrappers (off by default for parity).
   --skip-step-timing      Disable step timing capture (off by default for parity).
@@ -39,6 +43,9 @@ sppf_range="${GABION_LOCAL_SPPF_RANGE:-}"
 skip_gabion_check_step="${GABION_LOCAL_SKIP_GABION_CHECK_STEP:-0}"
 pr_base_sha="${GABION_LOCAL_PR_BASE_SHA:-${GITHUB_BASE_SHA:-}}"
 pr_head_sha="${GABION_LOCAL_PR_HEAD_SHA:-${GITHUB_HEAD_SHA:-}}"
+pr_body_file="${GABION_LOCAL_PR_BODY_FILE:-}"
+pr_verify_stage_ci="${GABION_LOCAL_PR_VERIFY_STAGE_CI:-0}"
+pr_stage_ci_timeout_minutes="${GABION_LOCAL_PR_STAGE_CI_TIMEOUT_MINUTES:-45}"
 step_timing_enabled="${GABION_CI_STEP_TIMING_CAPTURE:-0}"
 observability_enabled_flag="${GABION_OBSERVABILITY_GUARD:-0}"
 step_timing_artifact="${GABION_CI_STEP_TIMING_ARTIFACT:-artifacts/audit_reports/ci_step_timings.json}"
@@ -102,6 +109,25 @@ while [ $# -gt 0 ]; do
         exit 2
       fi
       pr_head_sha="$2"
+      shift
+      ;;
+    --pr-body-file)
+      if [ $# -lt 2 ]; then
+        echo "missing value for --pr-body-file" >&2
+        exit 2
+      fi
+      pr_body_file="$2"
+      shift
+      ;;
+    --verify-pr-stage-ci)
+      pr_verify_stage_ci="1"
+      ;;
+    --pr-stage-ci-timeout-minutes)
+      if [ $# -lt 2 ]; then
+        echo "missing value for --pr-stage-ci-timeout-minutes" >&2
+        exit 2
+      fi
+      pr_stage_ci_timeout_minutes="$2"
       shift
       ;;
     --run-observability-guard)
@@ -286,6 +312,93 @@ resolve_pr_base_sha() {
   printf '%s\n' "$head_sha"
 }
 
+resolve_pr_body_file() {
+  if [ -n "$pr_body_file" ] && [ -f "$pr_body_file" ]; then
+    printf '%s\n' "$pr_body_file"
+    return 0
+  fi
+
+  if ! command -v gh >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local fetched_path="$log_dir/pr_body.md"
+  if gh pr view --json body --jq .body >"$fetched_path" 2>/dev/null; then
+    printf '%s\n' "$fetched_path"
+    return 0
+  fi
+  return 1
+}
+
+verify_stage_ci_for_sha() {
+  local sha="$1"
+  local gh_token
+  if ! gh_token="$(resolve_gh_token)"; then
+    echo "GH auth token unavailable; cannot verify stage CI for SHA $sha." >&2
+    return 1
+  fi
+  local repo_name
+  repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+  if [ -z "$repo_name" ]; then
+    echo "Unable to resolve repository name for stage CI verification." >&2
+    return 1
+  fi
+
+  observed pr_dataflow_verify_stage_ci env \
+    GITHUB_TOKEN="$gh_token" \
+    REPO="$repo_name" \
+    SHA="$sha" \
+    TIMEOUT_MINUTES="$pr_stage_ci_timeout_minutes" \
+    "$PYTHON_BIN" - <<'PY'
+import json
+import os
+import time
+import urllib.request
+
+token = os.environ["GITHUB_TOKEN"]
+repo = os.environ["REPO"]
+sha = os.environ["SHA"]
+timeout_minutes = int(os.environ.get("TIMEOUT_MINUTES", "45"))
+deadline = time.time() + timeout_minutes * 60
+url = (
+    f"https://api.github.com/repos/{repo}/actions/workflows/ci.yml/runs"
+    f"?branch=stage&per_page=50"
+)
+
+while True:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    with urllib.request.urlopen(req) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+
+    runs = payload.get("workflow_runs", [])
+    match = next((r for r in runs if r.get("head_sha") == sha), None)
+    if match is None:
+        if time.time() > deadline:
+            raise SystemExit(f"Stage CI has not run for {sha}.")
+        time.sleep(15)
+        continue
+
+    status = match.get("status")
+    if status != "completed":
+        if time.time() > deadline:
+            raise SystemExit(f"Stage CI for {sha} not complete (status={status}).")
+        time.sleep(15)
+        continue
+
+    conclusion = match.get("conclusion")
+    if conclusion != "success":
+        raise SystemExit(f"Stage CI for {sha} not successful (conclusion={conclusion}).")
+    print(f"Stage CI OK for {sha}.")
+    break
+PY
+}
+
 run_checks_job() {
   step_timing_mode="checks"
 
@@ -349,6 +462,13 @@ run_checks_job() {
   step "checks: policy check (defensive fallback)"
   observed checks_defensive_fallback_policy "$PYTHON_BIN" scripts/defensive_fallback_policy_check.py --root .
 
+  step "checks: controller drift audit (advisory, ratchet-ready)"
+  local controller_args=(--out artifacts/out/controller_drift.json)
+  if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
+    controller_args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
+  fi
+  observed checks_controller_drift "$PYTHON_BIN" scripts/governance_controller_audit.py "${controller_args[@]}"
+
   step "checks: pytest --cov"
   mkdir -p artifacts/test_runs
   timed_observed checks_pytest env PYTHONUNBUFFERED=1 "$PYTHON_BIN" -m pytest \
@@ -367,6 +487,14 @@ run_checks_job() {
 
   step "checks: delta_triplets"
   timed_observed checks_delta_triplets env GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" -m gabion delta-triplets
+
+  step "checks: governance telemetry emit"
+  observed checks_governance_telemetry "$PYTHON_BIN" scripts/governance_telemetry_emit.py \
+    --run-id "$step_timing_run_id" \
+    --timings "$step_timing_artifact" \
+    --history artifacts/out/governance_telemetry_history.json \
+    --json-out artifacts/out/governance_telemetry.json \
+    --md-out artifacts/audit_reports/governance_telemetry.md
 
   if $run_extended_checks; then
     step "checks(ext): order_lifetime_check"
@@ -531,6 +659,13 @@ run_pr_dataflow_job() {
   pr_head="$(resolve_pr_head_sha)"
   step "pr-dataflow: using diff range base=$pr_base head=$pr_head"
 
+  if [ "$pr_verify_stage_ci" != "0" ]; then
+    step "pr-dataflow: verify stage CI succeeded for this SHA"
+    verify_stage_ci_for_sha "$pr_head"
+  else
+    step "pr-dataflow: stage CI verification skipped (enable with --verify-pr-stage-ci)"
+  fi
+
   step "pr-dataflow: policy check (no monkeypatch)"
   observed pr_dataflow_no_monkeypatch_policy "$PYTHON_BIN" scripts/no_monkeypatch_policy_check.py --root .
 
@@ -539,6 +674,26 @@ run_pr_dataflow_job() {
 
   step "pr-dataflow: policy check (defensive fallback)"
   observed pr_dataflow_defensive_fallback_policy "$PYTHON_BIN" scripts/defensive_fallback_policy_check.py --root .
+
+  step "pr-dataflow: governance PR template fields"
+  local pr_template_body_file
+  if pr_template_body_file="$(resolve_pr_body_file)"; then
+    observed pr_dataflow_governance_template "$PYTHON_BIN" scripts/check_pr_governance_template.py \
+      --base "$pr_base" \
+      --head "$pr_head" \
+      --body-file "$pr_template_body_file"
+  else
+    observed pr_dataflow_governance_template "$PYTHON_BIN" scripts/check_pr_governance_template.py \
+      --base "$pr_base" \
+      --head "$pr_head"
+  fi
+
+  step "pr-dataflow: controller drift audit (advisory)"
+  local pr_controller_args=(--out artifacts/out/controller_drift.json)
+  if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
+    pr_controller_args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
+  fi
+  observed pr_dataflow_controller_drift "$PYTHON_BIN" scripts/governance_controller_audit.py "${pr_controller_args[@]}"
 
   step "pr-dataflow: select impacted tests"
   mkdir -p artifacts/audit_reports artifacts/test_runs
