@@ -1,5 +1,5 @@
 ---
-doc_revision: 156
+doc_revision: 157
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: sppf_checklist
 doc_role: checklist
@@ -219,6 +219,7 @@ trailers or run `scripts/sppf_sync.py --comment` after adding references.
 - <a id="in-35-dict-key-carrier-tracking"></a>[~] Dict carrier tracking beyond literal subscript aliases (name-bound constant keys + unknown-key carrier evidence). (in-35) sppf{doc=partial; impl=done; doc_ref=in-35@1}
 - <a id="in-36-starred-dataclass-call-bundles"></a>[x] Conservative starred dataclass constructor argument handling (`*` list/tuple/set, `**` dict literal) with unresolved-starred witnesses for dynamic payloads. (in-36) sppf{doc=done; impl=done; doc_ref=in-36@1}
 - <a id="in-37-dynamic-dispatch-uncertainty"></a>[x] Dynamic-dispatch uncertainty classification in call resolution (`unresolved_dynamic`) plus dedicated call-resolution obligation kind. (in-37) sppf{doc=done; impl=done; doc_ref=in-37@1}
+- <a id="in-38-aspf-log-structured-archive-projection"></a>[ ] ASPF mutation log-structured archive projection (protobuf payload records + protobuf-defined filesystem envelope projection + tar-packaged transport container + snapshot/tail replay). (in-38, GH-196) sppf{doc=done; impl=planned; doc_ref=in-38@1}
 
 ## Reporting & visualization nodes
 - [x] Component isolation (connected components in bundle graph).
