@@ -196,6 +196,17 @@ class DocflowObligationResult:
     violations: list[str]
 
 
+@dataclass(frozen=True)
+class AgentDirective:
+    source: str
+    scope_root: str
+    line: int
+    text: str
+    normalized: str
+    mandatory: bool
+    delta_marked: bool
+
+
 def _coerce_argv(argv: list[str] | None) -> list[str]:
     return argv if argv is not None else sys.argv[1:]
 
@@ -2238,6 +2249,331 @@ def _load_docflow_docs(
     return docs
 
 
+_MANDATORY_HINT_RE = re.compile(r"\b(must|shall|required|never|do not|must not|keep|preserve|use|run)\b", re.IGNORECASE)
+_TOGGLE_TOKEN_RE = re.compile(r"`(?P<token>--[a-z0-9-]+|[A-Z][A-Z0-9_]{2,})`")
+
+
+def _directive_normalized(text: str) -> str:
+    lowered = text.strip().lower()
+    lowered = re.sub(r"[`*_]", "", lowered)
+    lowered = re.sub(r"\s+", " ", lowered)
+    return lowered
+
+
+def _directive_is_mandatory(text: str) -> bool:
+    return bool(_MANDATORY_HINT_RE.search(text))
+
+
+def _directive_is_negative(text: str) -> bool:
+    lowered = text.lower()
+    return "do not" in lowered or "must not" in lowered or "never" in lowered
+
+
+def _directive_stem(text: str) -> str:
+    lowered = text.lower()
+    lowered = re.sub(r"\b(do not|must not|never|must|shall|required)\b", " ", lowered)
+    lowered = re.sub(r"[^a-z0-9\s]", " ", lowered)
+    lowered = re.sub(r"\s+", " ", lowered).strip()
+    return lowered
+
+
+def _agent_scope_root(path: str) -> str:
+    parent = Path(path).parent.as_posix()
+    return "." if parent in {"", "."} else parent
+
+
+def _extract_mandatory_directives(path: str, doc: Doc) -> list[AgentDirective]:
+    lines = doc.body.splitlines()
+    directives: list[AgentDirective] = []
+    in_required_behavior = False
+    for line_no, raw in enumerate(lines, start=1):
+        check_deadline()
+        line = raw.strip()
+        if line.startswith("## "):
+            in_required_behavior = line.lower() == "## required behavior"
+            continue
+        if not line.startswith("-"):
+            continue
+        text = line[1:].strip()
+        if not text:
+            continue
+        mandatory = in_required_behavior or _directive_is_mandatory(text)
+        directives.append(
+            AgentDirective(
+                source=path,
+                scope_root=_agent_scope_root(path),
+                line=line_no,
+                text=text,
+                normalized=_directive_normalized(text),
+                mandatory=mandatory,
+                delta_marked=("delta:" in text.lower() or "[delta]" in text.lower()),
+            )
+        )
+    return directives
+
+
+def _directive_reference_entries(path: str, doc: Doc) -> list[tuple[str, int]]:
+    refs: list[tuple[str, int]] = []
+    for line_no, raw in enumerate(doc.body.splitlines(), start=1):
+        check_deadline()
+        match = re.search(r"`([^`]+\.md#[^`]+)`", raw)
+        if match:
+            refs.append((match.group(1), line_no))
+    return refs
+
+
+def _agent_instruction_graph(
+    *,
+    root: Path,
+    docs: dict[str, Doc],
+    json_output: Path,
+    md_output: Path,
+) -> tuple[list[str], list[str]]:
+    required_docs = ["AGENTS.md", "CONTRIBUTING.md", "POLICY_SEED.md"]
+    scoped_agent_paths = sorted(path for path in docs if path.endswith("/AGENTS.md"))
+    included_docs = [path for path in required_docs if path in docs] + scoped_agent_paths
+    directives: list[AgentDirective] = []
+    reference_rows: list[dict[str, object]] = []
+    for path in included_docs:
+        check_deadline()
+        doc = docs[path]
+        directives.extend(_extract_mandatory_directives(path, doc))
+        reference_rows.extend(
+            {
+                "source": path,
+                "reference": ref,
+                "line": line,
+            }
+            for ref, line in _directive_reference_entries(path, doc)
+        )
+
+    canonical_directives = [
+        directive for directive in directives if directive.source == "AGENTS.md" and directive.mandatory
+    ]
+    canonical_norms = {directive.normalized for directive in canonical_directives}
+
+    duplicate_mandatory: list[dict[str, object]] = []
+    directive_groups: dict[str, list[AgentDirective]] = defaultdict(list)
+    for directive in directives:
+        check_deadline()
+        if directive.mandatory:
+            directive_groups[directive.normalized].append(directive)
+    for norm, group in sorted(directive_groups.items()):
+        check_deadline()
+        if len(group) > 1:
+            duplicate_mandatory.append(
+                {
+                    "normalized": norm,
+                    "occurrences": [
+                        {
+                            "source": item.source,
+                            "scope_root": item.scope_root,
+                            "line": item.line,
+                            "text": item.text,
+                        }
+                        for item in group
+                    ],
+                }
+            )
+
+    precedence_conflicts: list[dict[str, object]] = []
+    by_stem: dict[str, list[AgentDirective]] = defaultdict(list)
+    for directive in directives:
+        check_deadline()
+        if directive.mandatory:
+            stem = _directive_stem(directive.text)
+            if stem:
+                by_stem[stem].append(directive)
+    for stem, group in sorted(by_stem.items()):
+        check_deadline()
+        negatives = [item for item in group if _directive_is_negative(item.text)]
+        positives = [item for item in group if not _directive_is_negative(item.text)]
+        if negatives and positives:
+            precedence_conflicts.append(
+                {
+                    "stem": stem,
+                    "positive": [
+                        {"source": item.source, "line": item.line, "text": item.text}
+                        for item in positives
+                    ],
+                    "negative": [
+                        {"source": item.source, "line": item.line, "text": item.text}
+                        for item in negatives
+                    ],
+                }
+            )
+
+    stale_dependency_revisions: list[dict[str, object]] = []
+    revisions = {
+        path: int(doc.frontmatter.get("doc_revision"))
+        for path, doc in docs.items()
+        if isinstance(doc.frontmatter.get("doc_revision"), int)
+    }
+    for path in included_docs:
+        check_deadline()
+        reviewed = docs[path].frontmatter.get("doc_reviewed_as_of", {})
+        if not isinstance(reviewed, dict):
+            continue
+        for dep_ref, pinned in reviewed.items():
+            check_deadline()
+            if not isinstance(dep_ref, str) or not isinstance(pinned, int):
+                continue
+            dep_doc = _doc_ref_base(dep_ref)
+            actual = revisions.get(dep_doc)
+            if actual is not None and actual != pinned:
+                stale_dependency_revisions.append(
+                    {
+                        "source": path,
+                        "dependency": dep_ref,
+                        "pinned": pinned,
+                        "actual": actual,
+                    }
+                )
+
+    hidden_operational_toggles: list[dict[str, object]] = []
+    agent_toggle_sources = ["AGENTS.md"] + scoped_agent_paths
+    agent_toggle_docs = [docs[path] for path in agent_toggle_sources if path in docs]
+    visible_tokens = {
+        match.group("token")
+        for doc in agent_toggle_docs
+        for match in _TOGGLE_TOKEN_RE.finditer(doc.body)
+    }
+    for path in ["POLICY_SEED.md", "CONTRIBUTING.md"]:
+        check_deadline()
+        if path not in docs:
+            continue
+        for match in _TOGGLE_TOKEN_RE.finditer(docs[path].body):
+            check_deadline()
+            token = match.group("token")
+            if token not in visible_tokens:
+                hidden_operational_toggles.append(
+                    {
+                        "source": path,
+                        "token": token,
+                    }
+                )
+
+    scoped_delta_violations: list[dict[str, object]] = []
+    for directive in directives:
+        check_deadline()
+        if directive.source == "AGENTS.md" or not directive.mandatory:
+            continue
+        if directive.source.endswith("/AGENTS.md"):
+            if directive.normalized not in canonical_norms and not directive.delta_marked:
+                scoped_delta_violations.append(
+                    {
+                        "source": directive.source,
+                        "line": directive.line,
+                        "text": directive.text,
+                        "reason": "scoped mandatory directive must be canonical or explicitly marked as delta",
+                    }
+                )
+
+    payload = {
+        "root": str(root),
+        "included_docs": included_docs,
+        "summary": {
+            "mandatory_directives": sum(1 for item in directives if item.mandatory),
+            "duplicate_mandatory": len(duplicate_mandatory),
+            "precedence_conflicts": len(precedence_conflicts),
+            "stale_dependency_revisions": len(stale_dependency_revisions),
+            "hidden_operational_toggles": len(hidden_operational_toggles),
+            "scoped_delta_violations": len(scoped_delta_violations),
+        },
+        "canonical": {
+            "source": "AGENTS.md",
+            "directives": [
+                {
+                    "line": item.line,
+                    "text": item.text,
+                    "normalized": item.normalized,
+                }
+                for item in canonical_directives
+            ],
+        },
+        "directive_references": reference_rows,
+        "duplicate_mandatory": duplicate_mandatory,
+        "precedence_conflicts": precedence_conflicts,
+        "stale_dependency_revisions": stale_dependency_revisions,
+        "hidden_operational_toggles": hidden_operational_toggles,
+        "scoped_delta_violations": scoped_delta_violations,
+    }
+    json_output.parent.mkdir(parents=True, exist_ok=True)
+    json_output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    md_lines = [
+        "# Agent Instruction Graph",
+        "",
+        f"- canonical source: `AGENTS.md`",
+        f"- mandatory directives: {payload['summary']['mandatory_directives']}",
+        f"- duplicates: {payload['summary']['duplicate_mandatory']}",
+        f"- precedence conflicts: {payload['summary']['precedence_conflicts']}",
+        f"- stale dependency revisions: {payload['summary']['stale_dependency_revisions']}",
+        f"- hidden operational toggles: {payload['summary']['hidden_operational_toggles']}",
+        f"- scoped delta violations: {payload['summary']['scoped_delta_violations']}",
+        "",
+    ]
+    if duplicate_mandatory:
+        md_lines.extend(["## Duplicate Mandatory Directives", ""])
+        for entry in duplicate_mandatory:
+            check_deadline()
+            md_lines.append(f"- `{entry['normalized']}`")
+            for occurrence in entry["occurrences"]:
+                md_lines.append(f"  - {occurrence['source']}:{occurrence['line']} — {occurrence['text']}")
+        md_lines.append("")
+    if precedence_conflicts:
+        md_lines.extend(["## Conflicting Precedence", ""])
+        for entry in precedence_conflicts:
+            check_deadline()
+            md_lines.append(f"- stem: `{entry['stem']}`")
+            for occurrence in entry["positive"]:
+                md_lines.append(f"  - positive: {occurrence['source']}:{occurrence['line']} — {occurrence['text']}")
+            for occurrence in entry["negative"]:
+                md_lines.append(f"  - negative: {occurrence['source']}:{occurrence['line']} — {occurrence['text']}")
+        md_lines.append("")
+    if stale_dependency_revisions:
+        md_lines.extend(["## Stale Dependency Revisions", ""])
+        for entry in stale_dependency_revisions:
+            check_deadline()
+            md_lines.append(
+                f"- {entry['source']}: `{entry['dependency']}` pinned `{entry['pinned']}` but current revision is `{entry['actual']}`"
+            )
+        md_lines.append("")
+    if hidden_operational_toggles:
+        md_lines.extend(["## Hidden Operational Toggles", ""])
+        for entry in hidden_operational_toggles:
+            check_deadline()
+            md_lines.append(f"- `{entry['token']}` appears in {entry['source']} but not in AGENTS docs")
+        md_lines.append("")
+    if scoped_delta_violations:
+        md_lines.extend(["## Scoped Delta Violations", ""])
+        for entry in scoped_delta_violations:
+            check_deadline()
+            md_lines.append(f"- {entry['source']}:{entry['line']} — {entry['text']}")
+        md_lines.append("")
+    if not any((duplicate_mandatory, precedence_conflicts, stale_dependency_revisions, hidden_operational_toggles, scoped_delta_violations)):
+        md_lines.extend(["No instruction drift detected.", ""])
+    md_output.parent.mkdir(parents=True, exist_ok=True)
+    md_output.write_text("\n".join(md_lines), encoding="utf-8")
+
+    warnings: list[str] = []
+    if hidden_operational_toggles:
+        warnings.append(
+            "agent instruction graph: hidden operational toggles detected; see "
+            f"{md_output.as_posix()}"
+        )
+    violations: list[str] = []
+    if duplicate_mandatory:
+        violations.append("agent instruction graph: duplicate mandatory directives detected")
+    if precedence_conflicts:
+        violations.append("agent instruction graph: conflicting precedence directives detected")
+    if stale_dependency_revisions:
+        violations.append("agent instruction graph: stale dependency revisions detected")
+    if scoped_delta_violations:
+        violations.append("agent instruction graph: scoped AGENTS directives must be canonical or explicit deltas")
+    return warnings, violations
+
+
 def _glossary_section_headings(doc: Doc) -> dict[str, str]:
     lines = doc.body.splitlines()
     anchor_re = re.compile(r'^\s*<a id="([^"]+)"></a>\s*$')
@@ -4075,6 +4411,14 @@ def _docflow_command(args: argparse.Namespace) -> int:
         json_output=args.section_reviews_json,
         md_output=args.section_reviews_md,
     )
+    graph_warnings, graph_violations = _agent_instruction_graph(
+        root=root,
+        docs=docs,
+        json_output=args.agent_instruction_graph_json,
+        md_output=args.agent_instruction_graph_md,
+    )
+    warnings = warnings + graph_warnings
+    violations = violations + graph_violations
 
     print("Docflow audit summary")
     if warnings:
@@ -4359,6 +4703,18 @@ def _add_docflow_args(parser: argparse.ArgumentParser) -> None:
         type=Path,
         default=Path("artifacts/audit_reports/docflow_section_reviews.md"),
         help="Output path for docflow anchor review markdown.",
+    )
+    parser.add_argument(
+        "--agent-instruction-graph-json",
+        type=Path,
+        default=Path("artifacts/out/agent_instruction_drift.json"),
+        help="Output path for the agent instruction graph drift JSON.",
+    )
+    parser.add_argument(
+        "--agent-instruction-graph-md",
+        type=Path,
+        default=Path("artifacts/audit_reports/agent_instruction_drift.md"),
+        help="Output path for the agent instruction graph drift markdown.",
     )
     parser.set_defaults(func=_docflow_command)
 
