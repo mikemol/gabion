@@ -1,5 +1,5 @@
 ---
-doc_revision: 72
+doc_revision: 73
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -107,6 +107,14 @@ Bottom-up convergence targets live in `docs/sppf_checklist.md`.
 
 ## Governance addenda (optional)
 See `docs/doer_judge_witness.md` for optional role framing.
+
+## Agent Control Surface
+The canonical agent instruction graph is emitted by docflow at:
+- `artifacts/out/agent_instruction_drift.json` (machine-readable)
+- `artifacts/audit_reports/agent_instruction_drift.md` (human-readable)
+
+Use this graph as the single source of truth for mandatory directive deduping,
+scoped-delta validation, and precedence/conflict checks.
 
 ## Non-goals (for now)
 - Docflow is a repo-local convenience feature, not a Gabion product feature.
