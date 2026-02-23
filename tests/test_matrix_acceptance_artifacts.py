@@ -2,16 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit
 
     return dataflow_audit
-
 
 def _write_sample_module(path: Path) -> None:
     path.write_text(
@@ -45,8 +41,15 @@ def _write_sample_module(path: Path) -> None:
         "    except Exception:\n"
         "        return 0\n"
         "    return 1\n"
+        "\n"
+        "def typed_mismatch(x: int) -> int:\n"
+        "    try:\n"
+        "        if x:\n"
+        "            raise ValueError('boom')\n"
+        "    except CustomError:\n"
+        "        return 0\n"
+        "    return 1\n"
     )
-
 
 def _write_config(path: Path) -> None:
     # Two identical glossary entries (pair_a/pair_b) create an ambiguity witness,
@@ -58,7 +61,6 @@ def _write_config(path: Path) -> None:
         "user_context = [\"int\"]\n"
         "synth_min_occurrences = 2\n"
     )
-
 
 def _run_with_artifacts(
     dataflow_audit,
@@ -108,7 +110,7 @@ def _run_with_artifacts(
         assert path.exists()
     return paths
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._glossary_match_strata::matches E:decision_surface/direct::evidence.py::gabion.analysis.evidence.Site.from_payload::payload E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.verify_rewrite_plan::post_exception_obligations
 def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: Path) -> None:
     dataflow_audit = _load()
     module_path = tmp_path / "sample.py"
@@ -175,7 +177,7 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
     handledness = json.loads(bytes_a["handledness"])
     assert isinstance(handledness, list) and handledness
     handled_entry = handledness[0]
-    for field in ("handledness_id", "exception_path_id", "site", "handler_kind", "handler_boundary", "environment", "core", "result"):
+    for field in ("handledness_id", "exception_path_id", "site", "handler_kind", "handler_boundary", "handler_types", "type_compatibility", "environment", "core", "result"):
         assert field in handled_entry
 
     # Evidence linkage: IDs referenced by higher-level artifacts must exist.
@@ -207,8 +209,15 @@ def test_matrix_artifacts_are_deterministic_and_have_required_fields(tmp_path: P
         assert exception_id in exception_ids
         obligation = obligations_by_id.get(exception_id)
         assert obligation is not None
-        assert obligation.get("status") == "HANDLED"
         assert str(obligation.get("witness_ref")) == str(witness.get("handledness_id"))
+        if witness.get("result") == "HANDLED":
+            assert obligation.get("status") == "HANDLED"
+        else:
+            assert witness.get("result") == "UNKNOWN"
+            assert obligation.get("status") == "UNKNOWN"
+
+    assert any(witness.get("result") == "HANDLED" for witness in handledness)
+    assert any(witness.get("result") == "UNKNOWN" for witness in handledness)
 
     dead = [entry for entry in exception_obligations if entry.get("status") == "DEAD"]
     assert dead

@@ -1,9 +1,12 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import re
 from typing import Iterable
 
 from gabion.synthesis.model import NamingContext
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import sort_once
 
 
 def _camelize(value: str) -> str:
@@ -21,6 +24,7 @@ def _normalize_identifier(value: str, fallback: str) -> str:
 
 
 def suggest_name(fields: Iterable[str], context: NamingContext | None = None) -> str:
+    check_deadline()
     context = context or NamingContext()
     field_list = [f for f in fields if f]
     if not field_list:
@@ -28,7 +32,10 @@ def suggest_name(fields: Iterable[str], context: NamingContext | None = None) ->
     else:
         frequency = context.frequency
         anchor = max(
-            sorted(field_list),
+            sort_once(
+                field_list,
+                source="suggest_name.field_list",
+            ),
             key=lambda name: (frequency.get(name, 0), len(name)),
         )
         base = _camelize(anchor) or context.fallback_prefix
@@ -40,6 +47,7 @@ def suggest_name(fields: Iterable[str], context: NamingContext | None = None) ->
     counter = 2
     existing = set(context.existing_names)
     while name in existing:
+        check_deadline()
         name = f"{base}{counter}"
         counter += 1
     return name

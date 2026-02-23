@@ -10,8 +10,161 @@ permissions:
   contents: read
 
 jobs:
-  audit:
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/stage'
+  dataflow-grammar:
+    permissions:
+      contents: read
+      actions: read
+    if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+      # ~= 1 hour at current CI throughput (~18k ticks/ms in timeout profiles).
+      GABION_LSP_TIMEOUT_TICKS: "65000000"
+      GABION_LSP_TIMEOUT_TICK_NS: "1000000"
+      # Emit periodic debug state dumps during long-running dataflow stages.
+      GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS: "60"
+    steps:
+      # Allow-listed actions: actions/checkout, jdx/mise-action
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+      - name: Install mise
+        uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
+      - name: Install toolchain
+        run: mise install
+      - name: Create venv
+        run: |
+          mise exec -- python -m venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - name: Install dependencies (locked)
+        run: |
+          .venv/bin/python -m pip install --upgrade pip uv
+          .venv/bin/uv pip sync requirements.lock
+          .venv/bin/uv pip install -e .
+      - name: Seed version-controlled dataflow resume checkpoint (best effort)
+        run: |
+          target_dir="artifacts/audit_reports"
+          seed_checkpoint="baselines/dataflow_resume_checkpoint_ci.json"
+          seed_chunks="baselines/dataflow_resume_checkpoint_ci.json.chunks"
+          mkdir -p "$target_dir"
+          restored=0
+          if [ -f "$seed_checkpoint" ]; then
+            cp "$seed_checkpoint" "$target_dir/dataflow_resume_checkpoint_ci.json"
+            restored=1
+          fi
+          if [ -d "$seed_chunks" ]; then
+            rm -rf "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
+            mkdir -p "$target_dir/dataflow_resume_checkpoint_ci.json.chunks"
+            cp -R "$seed_chunks"/. "$target_dir/dataflow_resume_checkpoint_ci.json.chunks/"
+            restored=1
+          fi
+          if [ "$restored" = "1" ]; then
+            echo "Seeded checkpoint from version-controlled baseline."
+          else
+            echo "No version-controlled checkpoint seed found; continuing."
+          fi
+      - name: Restore previous dataflow resume checkpoint (best effort)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_RUN_ID: ${{ github.run_id }}
+        run: |
+          .venv/bin/python -m gabion restore-resume-checkpoint \
+            --output-dir artifacts/audit_reports \
+            --artifact-name dataflow-report \
+            --checkpoint-name dataflow_resume_checkpoint_ci.json
+      - name: Dataflow audit invocation
+        id: dataflow_stage
+        env:
+          GABION_DIRECT_RUN: "1"
+        run: |
+          .venv/bin/python -m gabion run-dataflow-stage \
+            --stage-strictness-profile "run=high"
+      - name: Finalize dataflow audit outcome
+        if: always()
+        env:
+          TERMINAL_EXIT: ${{ steps.dataflow_stage.outputs.exit_code }}
+          TERMINAL_STATE: ${{ steps.dataflow_stage.outputs.analysis_state }}
+          TERMINAL_STAGE: ${{ steps.dataflow_stage.outputs.terminal_stage }}
+          TERMINAL_STATUS: ${{ steps.dataflow_stage.outputs.terminal_status }}
+          ATTEMPTS_RUN: ${{ steps.dataflow_stage.outputs.attempts_run }}
+        run: |
+          terminal_stage="${TERMINAL_STAGE:-none}"
+          terminal_exit="${TERMINAL_EXIT:-}"
+          terminal_state="${TERMINAL_STATE:-none}"
+          terminal_status="${TERMINAL_STATUS:-unknown}"
+          attempts_run="${ATTEMPTS_RUN:-0}"
+          if [ -z "$terminal_exit" ]; then
+            echo "No dataflow audit stage produced an exit code."
+            exit 1
+          fi
+          if [ "$terminal_status" = "unknown" ]; then
+            if [ "$terminal_exit" = "0" ]; then
+              terminal_status="success"
+            elif [ "$terminal_state" = "timed_out_progress_resume" ]; then
+              terminal_status="timeout_resume"
+            else
+              terminal_status="hard_failure"
+            fi
+          fi
+          echo "terminal_stage=$terminal_stage attempts=$attempts_run exit_code=$terminal_exit analysis_state=$terminal_state status=$terminal_status"
+          if [ "$terminal_status" = "success" ]; then
+            exit 0
+          fi
+          if [ -f artifacts/audit_reports/dataflow_report.md ]; then
+            echo "===== dataflow report ====="
+            cat artifacts/audit_reports/dataflow_report.md
+          fi
+          if [ -f artifacts/audit_reports/timeout_progress.md ]; then
+            echo "===== timeout progress ====="
+            cat artifacts/audit_reports/timeout_progress.md
+          fi
+          if [ "$terminal_status" = "timeout_resume" ]; then
+            echo "Dataflow audit invocation timed out with resumable progress."
+            exit 1
+          fi
+          echo "Dataflow audit failed for a non-timeout reason."
+          exit 1
+      - name: Deadline profile summary
+        if: always()
+        run: |
+          if [ -f artifacts/out/deadline_profile.json ]; then
+            .venv/bin/python scripts/deadline_profile_ci_summary.py \
+              --allow-missing-local \
+              --step-summary "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Skipping deadline profile summary (missing artifacts/out/deadline_profile.json)." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload dataflow report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dataflow-report
+          path: |
+            artifacts/audit_reports/dataflow_report.md
+            artifacts/audit_reports/dataflow_report_stage_*.md
+            artifacts/audit_reports/timeout_progress.md
+            artifacts/audit_reports/timeout_progress.json
+            artifacts/audit_reports/timeout_progress_stage_*.md
+            artifacts/audit_reports/timeout_progress_stage_*.json
+            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json
+            artifacts/audit_reports/dataflow_resume_checkpoint_ci.json.chunks/**
+            artifacts/audit_reports/dataflow_checkpoint_intro_timeline.md
+            artifacts/out/deadline_profile.json
+            artifacts/out/deadline_profile.md
+            artifacts/out/deadline_profile_stage_*.json
+            artifacts/out/deadline_profile_stage_*.md
+            artifacts/out/deadline_profile_ci_summary.json
+            artifacts/out/deadline_profile_ci_summary.md
+
+  checks:
+    name: audit
+    if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
     runs-on: ubuntu-latest
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
@@ -19,6 +172,8 @@ jobs:
       # Allow-listed actions: actions/checkout, jdx/mise-action
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
       - name: Install mise
         uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
       - name: Install toolchain
@@ -45,24 +200,70 @@ jobs:
             exit 0
           fi
           .venv/bin/python scripts/policy_check.py --posture
-      - name: Dataflow audit
-        run: |
-          mkdir -p artifacts/audit_reports
-          .venv/bin/python -m gabion check \
-            --report artifacts/audit_reports/dataflow_report.md \
-            --baseline baselines/dataflow_baseline.txt \
-            || (cat artifacts/audit_reports/dataflow_report.md; exit 1)
       - name: Docflow audit
-        run: .venv/bin/python scripts/docflow_audit.py --root . --fail-on-violations
+        run: .venv/bin/python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
+      - name: SPPF status drift audit
+        run: .venv/bin/python scripts/sppf_status_audit.py --root .
+      - name: SPPF issue lifecycle validation (non-mutating)
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "GH_TOKEN is unavailable; skipping SPPF issue lifecycle validation."
+            exit 0
+          fi
+          if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            rev_range="HEAD~20..HEAD"
+          else
+            if ! git cat-file -e "${AFTER_SHA}^{commit}" 2>/dev/null || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              git fetch --no-tags origin "$BEFORE_SHA" "$AFTER_SHA" || true
+            fi
+
+            if git cat-file -e "${AFTER_SHA}^{commit}" 2>/dev/null && git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              rev_range="$BEFORE_SHA..$AFTER_SHA"
+            else
+              echo "Push SHAs unavailable locally; falling back to safe local range."
+              rev_range="HEAD~20..HEAD"
+            fi
+          fi
+          .venv/bin/python scripts/sppf_sync.py \
+            --validate \
+            --only-when-relevant \
+            --range "$rev_range" \
+            --require-state open \
+            --require-label done-on-stage \
+            --require-label status/pending-release
       - name: Test evidence index
+        env:
+          GABION_LSP_TIMEOUT_TICKS: "300000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: |
           .venv/bin/python scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
           git diff --exit-code out/test_evidence.json
+      - name: Policy check (no monkeypatch)
+        run: .venv/bin/python scripts/no_monkeypatch_policy_check.py --root .
+      - name: Policy check (branchless)
+        run: .venv/bin/python scripts/branchless_policy_check.py --root .
+      - name: Policy check (defensive fallback)
+        run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
+      - name: Controller drift audit (advisory, ratchet-ready)
+        env:
+          CONTROLLER_DRIFT_FAIL_ON: ${{ vars.CONTROLLER_DRIFT_FAIL_ON || '' }}
+        run: |
+          args=(--out artifacts/out/controller_drift.json)
+          if [ -n "${CONTROLLER_DRIFT_FAIL_ON:-}" ]; then
+            args+=(--fail-on-severity "$CONTROLLER_DRIFT_FAIL_ON")
+          fi
+          .venv/bin/python scripts/governance_controller_audit.py "${args[@]}"
       - name: Tests
         run: |
           mkdir -p artifacts/test_runs
           .venv/bin/python -m pytest \
             --cov=src/gabion \
+            --cov-branch \
             --cov-report=term-missing \
             --cov-report=xml:artifacts/test_runs/coverage.xml \
             --cov-report=html:artifacts/test_runs/htmlcov \
@@ -70,15 +271,33 @@ jobs:
             --junitxml artifacts/test_runs/junit.xml \
             --log-file artifacts/test_runs/pytest.log \
             --log-file-level=INFO
+      - name: Delta state emit
+        env:
+          GABION_DIRECT_RUN: "1"
+          GABION_LSP_TIMEOUT_TICKS: "65000000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
+        run: .venv/bin/python -m gabion delta-state-emit
+      - name: Delta triplets (default-on burn-down gates)
+        env:
+          GABION_DIRECT_RUN: "1"
+          GABION_LSP_TIMEOUT_TICKS: "65000000"
+          GABION_LSP_TIMEOUT_TICK_NS: "1000000"
+        run: .venv/bin/python -m gabion delta-triplets
+      - name: Governance telemetry emit
+        run: |
+          .venv/bin/python scripts/governance_telemetry_emit.py \
+            --run-id "${{ github.run_id }}-${{ github.run_attempt }}" \
+            --timings artifacts/audit_reports/ci_step_timings.json \
+            --history artifacts/out/governance_telemetry_history.json \
+            --json-out artifacts/out/governance_telemetry.json \
+            --md-out artifacts/audit_reports/governance_telemetry.md
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: test-runs
-          path: artifacts/test_runs
-      - name: Upload dataflow report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: dataflow-report
-          path: artifacts/audit_reports/dataflow_report.md
+          path: |
+            artifacts/test_runs
+            artifacts/out/governance_telemetry.json
+            artifacts/out/governance_telemetry_history.json
+            artifacts/audit_reports/governance_telemetry.md

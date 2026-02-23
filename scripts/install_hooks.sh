@@ -9,7 +9,7 @@ if [ ! -d "$hooks_dir" ]; then
   exit 1
 fi
 
-cat > "$hooks_dir/pre-commit" <<'EOF'
+cat > "$hooks_dir/pre-commit" <<'HOOK'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -20,9 +20,9 @@ fi
 
 repo_root=$(git rev-parse --show-toplevel)
 "$repo_root/scripts/checks.sh" --dataflow-only
-EOF
+HOOK
 
-cat > "$hooks_dir/pre-push" <<'EOF'
+cat > "$hooks_dir/pre-push" <<'HOOK'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -34,13 +34,27 @@ fi
 repo_root=$(git rev-parse --show-toplevel)
 "$repo_root/scripts/checks.sh" --no-docflow
 
-if [ -n "${GABION_SPPF_SYNC:-}" ]; then
-  current_branch=$(git rev-parse --abbrev-ref HEAD)
-  if [ "$current_branch" = "stage" ]; then
-    "$repo_root/scripts/sppf_sync.py" --comment --label done-on-stage --range origin/stage..HEAD || true
-  fi
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+rev_range="origin/stage..HEAD"
+
+if [ "$current_branch" = "stage" ]; then
+  "$repo_root/scripts/sppf_sync.py" \
+    --validate \
+    --only-when-relevant \
+    --range "$rev_range" \
+    --require-state open \
+    --require-label done-on-stage \
+    --require-label status/pending-release
 fi
-EOF
+
+if [ -n "${GABION_SPPF_SYNC:-}" ] && [ "$current_branch" = "stage" ]; then
+  "$repo_root/scripts/sppf_sync.py" \
+    --comment \
+    --range "$rev_range" \
+    --label done-on-stage \
+    --label status/pending-release || true
+fi
+HOOK
 
 chmod +x "$hooks_dir/pre-commit" "$hooks_dir/pre-push"
 

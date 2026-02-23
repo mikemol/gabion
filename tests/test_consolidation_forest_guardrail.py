@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import sys
 
 import pytest
 
+from gabion.exceptions import NeverThrown
+from tests.env_helpers import env_scope
 
 def _load_audit_tools():
-    repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "scripts"))
-    import audit_tools
+    from gabion.tooling import governance_audit as audit_tools
 
     return audit_tools
-
 
 def _write_decision_snapshot(path: Path, *, include_forest: bool = False) -> None:
     payload = {
@@ -27,7 +25,7 @@ def _write_decision_snapshot(path: Path, *, include_forest: bool = False) -> Non
         payload["forest"] = {"format_version": 1, "nodes": [], "alts": []}
     path.write_text(json.dumps(payload))
 
-
+# gabion:evidence E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._write_decision_snapshot
 def test_consolidation_requires_forest_in_strict_mode(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     (tmp_path / "gabion.toml").write_text("[consolidation]\nrequire_forest = true\n")
@@ -52,7 +50,7 @@ def test_consolidation_requires_forest_in_strict_mode(tmp_path: Path) -> None:
         )
     assert "forest-only mode enabled" in str(exc.value)
 
-
+# gabion:evidence E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools E:function_site::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._write_decision_snapshot
 def test_consolidation_allows_fallback_in_permissive_mode(tmp_path: Path) -> None:
     audit_tools = _load_audit_tools()
     (tmp_path / "gabion.toml").write_text("[consolidation]\nrequire_forest = false\n")
@@ -77,3 +75,20 @@ def test_consolidation_allows_fallback_in_permissive_mode(tmp_path: Path) -> Non
     assert result == 0
     report_text = output_path.read_text()
     assert "FOREST_FALLBACK_USED" in report_text
+
+# gabion:evidence E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_override::governance_audit.py::gabion.tooling.governance_audit._audit_gas_limit::env_helpers.py::tests.env_helpers.env_scope::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools
+def test_audit_tools_gas_limit_env_override() -> None:
+    audit_tools = _load_audit_tools()
+    with env_scope({"GABION_AUDIT_GAS_LIMIT": "12345"}):
+        assert audit_tools._audit_gas_limit() == 12345
+
+# gabion:evidence E:call_footprint::tests/test_consolidation_forest_guardrail.py::test_audit_tools_gas_limit_env_rejects_invalid::governance_audit.py::gabion.tooling.governance_audit._audit_gas_limit::env_helpers.py::tests.env_helpers.env_scope::test_consolidation_forest_guardrail.py::tests.test_consolidation_forest_guardrail._load_audit_tools
+@pytest.mark.parametrize("value", ["", "0", "-1", "bad"])
+def test_audit_tools_gas_limit_env_rejects_invalid(value: str) -> None:
+    audit_tools = _load_audit_tools()
+    with env_scope({"GABION_AUDIT_GAS_LIMIT": value}):
+        if value == "":
+            assert audit_tools._audit_gas_limit() == audit_tools._DEFAULT_AUDIT_GAS_LIMIT
+        else:
+            with pytest.raises(NeverThrown):
+                audit_tools._audit_gas_limit()

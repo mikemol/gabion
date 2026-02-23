@@ -1,21 +1,48 @@
 ---
 doc_revision: 1
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+doc_change_protocol: POLICY_SEED.md#change_protocol
+doc_requires:
+  - POLICY_SEED.md#policy_seed
+doc_reviewed_as_of:
+  POLICY_SEED.md#policy_seed: 1
+doc_review_notes:
+  POLICY_SEED.md#policy_seed: Scoped delta reviewed against POLICY_SEED policy section semantics.
+doc_id: in_agents
+doc_role: agent
+doc_scope:
+  - repo
+  - governance
+  - agents
+doc_authority: normative
+doc_sections:
+  in_agents: 1
+doc_section_requires:
+  in_agents:
+    - POLICY_SEED.md#policy_seed
+doc_section_reviews:
+  in_agents:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 38
+      self_version_at_review: 1
+      outcome: no_change
+      note: Agent guardrails remain consistent with POLICY_SEED execution policy requirements.
 ---
 
-# AGENTS.md
+<a id="in_agents"></a>
 
-This repository is governed by `POLICY_SEED.md`. Treat it as authoritative.
+# AGENTS.md#agent_obligations
+
+This repository is governed by `POLICY_SEED.md#policy_seed`. Treat it as authoritative.
 
 ## Required behavior
-- Read `POLICY_SEED.md` before proposing or applying changes.
-- Do not weaken or bypass self-hosted runner protections.
-- Keep workflow actions pinned to full commit SHAs and allow-listed.
-- Run `python scripts/policy_check.py --workflows` when changing workflows.
+- [delta] Read root `AGENTS.md#agent_obligations` and apply canonical directives before any in-scope changes.
+- [delta] Run `mise exec -- python scripts/policy_check.py --workflows` for workflow edits touching `in/` support tooling.
+- [delta] When adding scoped obligations, mark them with `[delta]` and avoid repeating canonical directives verbatim.
 
 ## Local guardrails
 - Install advisory hooks: `scripts/install_policy_hooks.sh`.
 - Hooks are advisory; CI policy checks are authoritative.
-- Use `mise exec -- python` for policy tooling so dependencies resolve as expected.
+- [delta] Use `mise exec -- python` for policy tooling so dependencies resolve as expected.
 
-If any request conflicts with `POLICY_SEED.md`, stop and ask for guidance.
+If any request conflicts with `POLICY_SEED.md#policy_seed`, stop and ask for guidance.

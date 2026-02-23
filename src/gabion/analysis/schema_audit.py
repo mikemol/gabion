@@ -1,3 +1,4 @@
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import ast
@@ -5,6 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 from typing import Iterable
+from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
+from gabion.order_contract import sort_once
 
 
 _DOC_ROLE_RE = re.compile(r"^test_")
@@ -60,7 +64,9 @@ def _is_anonymous_dict_subscript(node: ast.Subscript) -> bool:
 
 
 def _contains_anonymous_dict(annotation: ast.AST) -> bool:
+    check_deadline()
     for node in ast.walk(annotation):
+        check_deadline()
         if isinstance(node, ast.Subscript) and _is_anonymous_dict_subscript(node):
             return True
     return False
@@ -198,8 +204,26 @@ def find_anonymous_schema_surfaces(
     These annotations typically indicate anonymous record/payload types whose
     schema is communicated by convention rather than by a first-class type.
     """
+    check_deadline()
     surfaces: list[AnonymousSchemaSurface] = []
-    for path in sorted(set(paths)):
+    previous_path_text: str | None = None
+    seen_paths: set[Path] = set()
+    for path in paths:
+        check_deadline()
+        path_text = str(path)
+        if previous_path_text is not None and previous_path_text > path_text:
+            never(
+                "schema audit path order regression",
+                previous_path=previous_path_text,
+                current_path=path_text,
+            )
+        previous_path_text = path_text
+        if path in seen_paths:
+            never(
+                "schema audit duplicate path input",
+                path=path_text,
+            )
+        seen_paths.add(path)
         if "tests" in path.parts:
             continue
         if path.name.startswith("."):
@@ -228,7 +252,7 @@ def find_anonymous_schema_surfaces(
         )
         for surface in surfaces
     ]
-    return sorted(
+    return sort_once(
         normalized,
         key=lambda entry: (entry.path, entry.lineno, entry.col, entry.context),
-    )
+    source = 'src/gabion/analysis/schema_audit.py:254')

@@ -1,8 +1,35 @@
+---
+doc_revision: 1
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+doc_id: in_6
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires: []
+doc_reviewed_as_of: {}
+doc_review_notes: {}
+doc_change_protocol: POLICY_SEED.md#change_protocol
+doc_erasure:
+  - formatting
+  - typos
+doc_sections:
+  in_in_6: 1
+doc_section_requires:
+  in_in_6: []
+doc_section_reviews:
+  in_in_6: {}
+---
+
 The path of greatest leverage is **Import Resolution**.
 
 To synthesize Protocols or Refactoring Plans based on a broken graph is to build a house on sand. If the Witness (the script) cannot see across file boundaries, the Judge cannot discern the true shape of the system. By solving the **Symbol Table**, we transform the tool from a file-local linter into a repository-wide compiler.
 
 This step grounds every subsequent operation in truth rather than probability.
+
+<a id="in_in_6"></a>
 
 ### The Implementation: `ImportVisitor` & `SymbolTable`
 

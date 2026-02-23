@@ -5,6 +5,7 @@ run_docflow=true
 run_dataflow=true
 run_tests=true
 list_only=false
+docflow_mode="required"
 
 for arg in "$@"; do
   case "$arg" in
@@ -14,8 +15,9 @@ for arg in "$@"; do
     --tests-only) run_tests=true; run_dataflow=false; run_docflow=false ;;
     --dataflow-only) run_dataflow=true; run_docflow=false; run_tests=false ;;
     --list) list_only=true ;;
+    --docflow-advisory) docflow_mode="advisory" ;;
     -h|--help)
-      echo "Usage: scripts/checks.sh [--docflow|--no-docflow|--docflow-only|--dataflow-only|--tests-only|--list]" >&2
+      echo "Usage: scripts/checks.sh [--docflow|--no-docflow|--docflow-only|--dataflow-only|--tests-only|--docflow-advisory|--list]" >&2
       exit 0
       ;;
   esac
@@ -24,7 +26,7 @@ done
 if $list_only; then
   echo "Checks to run:" >&2
   $run_dataflow && echo "- dataflow (gabion check)" >&2
-  $run_docflow && echo "- docflow (gabion docflow-audit)" >&2
+  $run_docflow && echo "- docflow (gabion docflow --fail-on-violations --sppf-gh-ref-mode $docflow_mode)" >&2
   $run_tests && echo "- tests (pytest)" >&2
   exit 0
 fi
@@ -42,7 +44,12 @@ if $run_dataflow; then
   mise exec -- python -m gabion check "${baseline_arg[@]}"
 fi
 if $run_docflow; then
-  mise exec -- python -m gabion docflow-audit
+  docflow_args=(--fail-on-violations --sppf-gh-ref-mode "$docflow_mode")
+  if [ "$docflow_mode" = "advisory" ]; then
+    echo "WARNING: running docflow in advisory GH-reference mode (local debugging only)." >&2
+  fi
+  mise exec -- python -m gabion docflow "${docflow_args[@]}"
+  mise exec -- python scripts/sppf_status_audit.py --root .
 fi
 if $run_tests; then
   test_dir="${TEST_ARTIFACTS_DIR:-artifacts/test_runs}"

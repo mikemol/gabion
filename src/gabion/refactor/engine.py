@@ -1,10 +1,23 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import libcst as cst
 
-from gabion.refactor.model import FieldSpec, RefactorPlan, RefactorRequest, TextEdit
+from gabion.refactor.model import (
+    CompatibilityShimConfig,
+    FieldSpec,
+    RefactorPlan,
+    RefactorRequest,
+    RewritePlanEntry,
+    TextEdit,
+    normalize_compatibility_shim,
+)
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import sort_once
 
 
 class RefactorEngine:
@@ -12,6 +25,7 @@ class RefactorEngine:
         self.project_root = project_root
 
     def plan_protocol_extraction(self, request: RefactorRequest) -> RefactorPlan:
+        check_deadline()
         path = Path(request.target_path)
         if self.project_root and not path.is_absolute():
             path = self.project_root / path
@@ -30,6 +44,7 @@ class RefactorEngine:
         field_specs: list[FieldSpec] = []
         seen_fields: set[str] = set()
         for spec in request.fields or []:
+            check_deadline()
             name = (spec.name or "").strip()
             if not name or name in seen_fields:
                 continue
@@ -37,6 +52,7 @@ class RefactorEngine:
             field_specs.append(spec)
         if bundle:
             for name in bundle:
+                check_deadline()
                 if name in seen_fields:
                     continue
                 seen_fields.add(name)
@@ -70,6 +86,7 @@ class RefactorEngine:
             [cst.Expr(cst.SimpleString('"""' + "\\n".join(doc_lines) + '"""'))]
         )
         warnings: list[str] = []
+        rewrite_plans: list[RewritePlanEntry] = []
 
         def _annotation_for(hint: str | None) -> cst.BaseExpression:
             if not hint:
@@ -82,6 +99,7 @@ class RefactorEngine:
 
         field_lines = []
         for spec in field_specs:
+            check_deadline()
             field_lines.append(
                 cst.SimpleStatementLine(
                     [
@@ -104,9 +122,8 @@ class RefactorEngine:
         if import_stmt is not None:
             new_body.insert(insert_idx, import_stmt)
             insert_idx += 1
-        if insert_idx > 0 and not isinstance(new_body[insert_idx - 1], cst.EmptyLine):
-            new_body.insert(insert_idx, cst.EmptyLine())
-            insert_idx += 1
+        new_body.insert(insert_idx, cst.EmptyLine())
+        insert_idx += 1
         new_body.insert(insert_idx, class_def)
 
         new_module = module.with_changes(body=new_body)
@@ -115,18 +132,37 @@ class RefactorEngine:
         bundle_fields = [spec.name for spec in field_specs]
         protocol_hint = protocol
         if targets:
-            compat_shim = bool(request.compatibility_shim)
-            if compat_shim:
-                new_module = _ensure_compat_imports(new_module)
-            transformer = _RefactorTransformer(
-                targets=targets,
-                bundle_fields=bundle_fields,
-                protocol_hint=protocol_hint,
-                compat_shim=compat_shim,
-            )
-            new_module = new_module.visit(transformer)
-            warnings.extend(transformer.warnings)
-        if targets:
+            compat_shim = normalize_compatibility_shim(request.compatibility_shim)
+            if compat_shim.enabled:
+                new_module = _ensure_compat_imports(new_module, compat_shim)
+            if request.ambient_rewrite:
+                ambient_transformer = _AmbientRewriteTransformer(
+                    targets=targets,
+                    bundle_fields=bundle_fields,
+                    protocol_hint=protocol_hint,
+                )
+                rewritten_module = new_module.visit(ambient_transformer)
+                rewrite_plans.extend(ambient_transformer.plan_entries)
+                warnings.extend(ambient_transformer.warnings)
+                if ambient_transformer.changed:
+                    new_module = _ensure_ambient_scaffolding(
+                        rewritten_module,
+                        context_names=ambient_transformer.rewritten_context_names,
+                        protocol_hint=protocol_hint,
+                    )
+                else:
+                    new_module = rewritten_module
+            else:
+                transformer = _RefactorTransformer(
+                    targets=targets,
+                    bundle_fields=bundle_fields,
+                    protocol_hint=protocol_hint,
+                    compat_shim=compat_shim,
+                )
+                new_module = new_module.visit(transformer)
+                warnings.extend(transformer.warnings)
+
+        if targets and not request.ambient_rewrite:
             target_module = _module_name(path, self.project_root)
             call_warnings, call_edits = _rewrite_call_sites(
                 new_module,
@@ -158,7 +194,7 @@ class RefactorEngine:
             )
         ]
 
-        if targets and self.project_root:
+        if targets and self.project_root and not request.ambient_rewrite:
             extra_edits, extra_warnings = _rewrite_call_sites_in_project(
                 project_root=self.project_root,
                 target_path=path,
@@ -169,7 +205,7 @@ class RefactorEngine:
             )
             edits.extend(extra_edits)
             warnings.extend(extra_warnings)
-        return RefactorPlan(edits=edits, warnings=warnings)
+        return RefactorPlan(edits=edits, rewrite_plans=rewrite_plans, warnings=warnings)
 
 
 def _module_name(path: Path, project_root: Path | None) -> str:
@@ -199,15 +235,18 @@ def _is_import(stmt: cst.CSTNode) -> bool:
 
 
 def _find_import_insert_index(body: list[cst.CSTNode]) -> int:
+    check_deadline()
     insert_idx = 0
     if body and _is_docstring(body[0]):
         insert_idx = 1
     while insert_idx < len(body) and _is_import(body[insert_idx]):
+        check_deadline()
         insert_idx += 1
     return insert_idx
 
 
 def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
+    check_deadline()
     if expr is None:
         return None
     if isinstance(expr, cst.Name):
@@ -216,8 +255,8 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
         parts = []
         current: cst.BaseExpression | None = expr
         while isinstance(current, cst.Attribute):
-            if isinstance(current.attr, cst.Name):
-                parts.append(current.attr.value)
+            check_deadline()
+            parts.append(current.attr.value)
             current = current.value
         if isinstance(current, cst.Name):
             parts.append(current.value)
@@ -227,12 +266,16 @@ def _module_expr_to_str(expr: cst.BaseExpression | None) -> str | None:
 
 
 def _has_typing_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if isinstance(item, cst.Import):
                 for alias in item.names:
+                    check_deadline()
                     if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                         if alias.name.value == "typing":
                             return True
@@ -245,16 +288,22 @@ def _has_typing_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if not isinstance(item, cst.ImportFrom):
                 continue
             module = _module_expr_to_str(item.module)
             if module != "typing":
                 continue
+            if not isinstance(item.names, Sequence):
+                continue
             for alias in item.names:
+                check_deadline()
                 if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                     if alias.name.value == "Protocol":
                         return True
@@ -262,16 +311,22 @@ def _has_typing_protocol_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if not isinstance(item, cst.ImportFrom):
                 continue
             module = _module_expr_to_str(item.module)
             if module != "typing":
                 continue
+            if not isinstance(item.names, Sequence):
+                continue
             for alias in item.names:
+                check_deadline()
                 if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                     if alias.name.value == "overload":
                         return True
@@ -279,22 +334,28 @@ def _has_typing_overload_import(body: list[cst.CSTNode]) -> bool:
 
 
 def _has_warnings_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
     for stmt in body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if isinstance(item, cst.Import):
                 for alias in item.names:
+                    check_deadline()
                     if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
                         if alias.name.value == "warnings":
                             return True
     return False
 
 
-def _ensure_compat_imports(module: cst.Module) -> cst.Module:
+def _ensure_compat_imports(
+    module: cst.Module, shim: CompatibilityShimConfig
+) -> cst.Module:
     body = list(module.body)
     insert_idx = _find_import_insert_index(body)
-    if not _has_warnings_import(body):
+    if shim.emit_deprecation_warning and not _has_warnings_import(body):
         body.insert(
             insert_idx,
             cst.SimpleStatementLine(
@@ -302,7 +363,7 @@ def _ensure_compat_imports(module: cst.Module) -> cst.Module:
             ),
         )
         insert_idx += 1
-    if not _has_typing_overload_import(body):
+    if shim.emit_overload_stubs and not _has_typing_overload_import(body):
         body.insert(
             insert_idx,
             cst.SimpleStatementLine(
@@ -324,15 +385,19 @@ def _collect_import_context(
     target_module: str,
     protocol_name: str,
 ) -> tuple[dict[str, str], dict[str, str], str | None]:
+    check_deadline()
     module_aliases: dict[str, str] = {}
     imported_targets: dict[str, str] = {}
     protocol_alias: str | None = None
     for stmt in module.body:
+        check_deadline()
         if not isinstance(stmt, cst.SimpleStatementLine):
             continue
         for item in stmt.body:
+            check_deadline()
             if isinstance(item, cst.Import):
                 for alias in item.names:
+                    check_deadline()
                     if not isinstance(alias, cst.ImportAlias):  # pragma: no cover
                         continue
                     module_name = _module_expr_to_str(alias.name)
@@ -346,7 +411,10 @@ def _collect_import_context(
                 module_name = _module_expr_to_str(item.module)
                 if module_name != target_module:
                     continue
+                if not isinstance(item.names, Sequence):
+                    continue
                 for alias in item.names:
+                    check_deadline()
                     if not isinstance(alias, cst.ImportAlias):
                         continue
                     if not isinstance(alias.name, cst.Name):
@@ -368,6 +436,7 @@ def _rewrite_call_sites(
     bundle_fields: list[str],
     targets: set[str],
 ) -> tuple[list[str], cst.Module | None]:
+    check_deadline()
     warnings: list[str] = []
     file_is_target = file_path == target_path
     if not targets:
@@ -375,6 +444,7 @@ def _rewrite_call_sites(
     target_simple = {name for name in targets if "." not in name}
     target_methods: dict[str, set[str]] = {}
     for name in targets:
+        check_deadline()
         if "." not in name:
             continue
         parts = name.split(".")
@@ -397,7 +467,10 @@ def _rewrite_call_sites(
         if protocol_alias:
             constructor_expr = cst.Name(protocol_alias)
         elif module_aliases:
-            alias = sorted(module_aliases.keys())[0]
+            alias = sort_once(
+                module_aliases.keys(),
+                source="_rewrite_call_sites.module_aliases",
+            )[0]
             constructor_expr = cst.Attribute(cst.Name(alias), cst.Name(protocol_name))
         else:
             constructor_expr = cst.Name(protocol_name)
@@ -450,12 +523,18 @@ def _rewrite_call_sites_in_project(
     bundle_fields: list[str],
     targets: set[str],
 ) -> tuple[list[TextEdit], list[str]]:
+    check_deadline()
     edits: list[TextEdit] = []
     warnings: list[str] = []
     scan_root = project_root / "src"
     if not scan_root.exists():
         scan_root = project_root
-    for path in sorted(scan_root.rglob("*.py")):
+    for path in sort_once(
+        scan_root.rglob("*.py"),
+        source="_rewrite_call_sites_in_project.scan_root",
+        key=lambda item: str(item),
+    ):
+        check_deadline()
         if path == target_path:
             continue
         try:
@@ -495,6 +574,277 @@ def _rewrite_call_sites_in_project(
     return edits, warnings
 
 
+
+
+def _ensure_ambient_scaffolding(
+    module: cst.Module,
+    *,
+    context_names: set[str],
+    protocol_hint: str,
+) -> cst.Module:
+    if not context_names:
+        return module
+    body = list(module.body)
+    insert_idx = _find_import_insert_index(body)
+    if not _has_contextvars_import(body):
+        body.insert(
+            insert_idx,
+            cst.SimpleStatementLine(
+                [
+                    cst.ImportFrom(
+                        module=cst.Name("contextvars"),
+                        names=[cst.ImportAlias(name=cst.Name("ContextVar"))],
+                    )
+                ]
+            ),
+        )
+        insert_idx += 1
+
+    existing_top_level = {
+        node.name.value
+        for node in body
+        if isinstance(node, cst.FunctionDef) and isinstance(node.name, cst.Name)
+    }
+    for context_name in sort_once(
+        context_names,
+        source="_ensure_ambient_scaffolding.context_names",
+    ):
+        check_deadline()
+        ambient_name = _ambient_var_name(context_name)
+        getter = _ambient_getter_name(context_name)
+        setter = _ambient_setter_name(context_name)
+        if getter in existing_top_level and setter in existing_top_level:
+            continue
+        annotation = protocol_hint or "object"
+        statements = cst.parse_module(
+            f"""
+{ambient_name}: ContextVar[{annotation} | None] = ContextVar("{ambient_name}", default=None)
+
+def {getter}() -> {annotation}:
+    value = {ambient_name}.get()
+    if value is None:
+        raise RuntimeError("Ambient context '{context_name}' is not set.")
+    return value
+
+def {setter}(value: {annotation}) -> None:
+    {ambient_name}.set(value)
+"""
+        ).body
+        body[insert_idx:insert_idx] = statements
+        insert_idx += len(statements)
+    return module.with_changes(body=body)
+
+
+def _has_contextvars_import(body: list[cst.CSTNode]) -> bool:
+    check_deadline()
+    for stmt in body:
+        check_deadline()
+        if not isinstance(stmt, cst.SimpleStatementLine):
+            continue
+        for item in stmt.body:
+            check_deadline()
+            if not isinstance(item, cst.ImportFrom):
+                continue
+            if _module_expr_to_str(item.module) != "contextvars":
+                continue
+            if not isinstance(item.names, Sequence):
+                continue
+            for alias in item.names:
+                if isinstance(alias, cst.ImportAlias) and isinstance(alias.name, cst.Name):
+                    if alias.name.value == "ContextVar":
+                        return True
+    return False
+
+
+def _ambient_var_name(name: str) -> str:
+    return f"_AMBIENT_{name.upper()}"
+
+
+def _ambient_getter_name(name: str) -> str:
+    return f"_ambient_get_{name}"
+
+
+def _ambient_setter_name(name: str) -> str:
+    return f"_ambient_set_{name}"
+
+
+class _AmbientArgThreadingRewriter(cst.CSTTransformer):
+    def __init__(self, *, targets: set[str], context_name: str, current: str) -> None:
+        self.targets = {name.split(".")[-1] for name in targets}
+        self.context_name = context_name
+        self.current = current
+        self.changed = False
+        self.skipped_reasons: list[str] = []
+
+    def leave_Call(self, original_node: cst.Call, updated_node: cst.Call) -> cst.CSTNode:
+        func = updated_node.func
+        target_name: str | None = None
+        if isinstance(func, cst.Name):
+            target_name = func.value
+        elif isinstance(func, cst.Attribute) and isinstance(func.attr, cst.Name):
+            target_name = func.attr.value
+        if target_name not in self.targets:
+            return updated_node
+        if target_name == self.current:
+            return updated_node
+        if any(arg.star in {"*", "**"} for arg in updated_node.args):
+            self.skipped_reasons.append(
+                f"{self.current}: skipped call rewrite with dynamic star args for ambient parameter '{self.context_name}'."
+            )
+            return updated_node
+        new_args: list[cst.Arg] = []
+        removed = False
+        for arg in updated_node.args:
+            check_deadline()
+            is_name = isinstance(arg.value, cst.Name) and arg.value.value == self.context_name
+            if arg.keyword is not None and isinstance(arg.keyword, cst.Name):
+                if arg.keyword.value == self.context_name and is_name:
+                    removed = True
+                    continue
+            if arg.keyword is None and is_name and len(updated_node.args) == 1:
+                removed = True
+                continue
+            if arg.keyword is None and is_name and len(updated_node.args) > 1:
+                self.skipped_reasons.append(
+                    f"{self.current}: skipped positional ambient argument rewrite for '{self.context_name}' due to ambiguous arity."
+                )
+            new_args.append(arg)
+        if removed:
+            self.changed = True
+            return updated_node.with_changes(args=new_args)
+        return updated_node
+
+
+class _AmbientSafetyVisitor(cst.CSTVisitor):
+    def __init__(self, context_name: str) -> None:
+        self.context_name = context_name
+        self.reasons: list[str] = []
+
+    def visit_AssignTarget(self, node: cst.AssignTarget) -> None:
+        if isinstance(node.target, cst.Name) and node.target.value == self.context_name:
+            self.reasons.append(
+                f"writes to parameter '{self.context_name}' prevent a safe ambient rewrite"
+            )
+
+
+class _AmbientRewriteTransformer(cst.CSTTransformer):
+    def __init__(self, *, targets: set[str], bundle_fields: list[str], protocol_hint: str) -> None:
+        self.targets = targets
+        self.bundle_fields = bundle_fields
+        self.protocol_hint = protocol_hint
+        self.changed = False
+        self.warnings: list[str] = []
+        self.plan_entries: list[RewritePlanEntry] = []
+        self.rewritten_context_names: set[str] = set()
+
+    def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef) -> cst.CSTNode:
+        return self._rewrite_function(updated_node)
+
+    def leave_AsyncFunctionDef(
+        self, original_node: cst.AsyncFunctionDef, updated_node: cst.AsyncFunctionDef
+    ) -> cst.CSTNode:
+        return self._rewrite_function(updated_node)
+
+    def _rewrite_function(self, node: cst.FunctionDef | cst.AsyncFunctionDef) -> cst.CSTNode:
+        check_deadline()
+        name = node.name.value
+        if name not in self.targets:
+            return node
+        if not self.bundle_fields:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="skipped",
+                target=name,
+                summary="No bundle fields were provided.",
+                non_rewrite_reasons=["missing bundle field context parameter"],
+            ))
+            return node
+        context_name = self.bundle_fields[0]
+        params = list(node.params.params)
+        match_param = next((param for param in params if param.name.value == context_name), None)
+        if match_param is None:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="noop",
+                target=name,
+                summary=f"No threaded context parameter '{context_name}' found.",
+            ))
+            return node
+        if node.params.star_arg is not cst.MaybeSentinel.DEFAULT or node.params.star_kwarg is not None:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="skipped",
+                target=name,
+                summary="Dynamic argument capture prevents safe ambient rewrite.",
+                non_rewrite_reasons=["function uses *args or **kwargs"],
+            ))
+            return node
+        safety = _AmbientSafetyVisitor(context_name)
+        node.body.visit(safety)
+        if safety.reasons:
+            self.plan_entries.append(RewritePlanEntry(
+                kind="AMBIENT_REWRITE",
+                status="skipped",
+                target=name,
+                summary="Aliasing/dynamic writes prevent safe ambient rewrite.",
+                non_rewrite_reasons=safety.reasons,
+            ))
+            return node
+
+        rewriter = _AmbientArgThreadingRewriter(targets=self.targets, context_name=context_name, current=name)
+        updated_body = node.body.visit(rewriter)
+        preamble = list(
+            cst.parse_module(
+                f"""if {context_name} is None:
+    {context_name} = {_ambient_getter_name(context_name)}()
+else:
+    {_ambient_setter_name(context_name)}({context_name})
+"""
+            ).body
+        )
+        if isinstance(updated_body, cst.IndentedBlock):
+            existing = list(updated_body.body)
+            insert_at = 0
+            if existing:
+                first = existing[0]
+                if isinstance(first, cst.SimpleStatementLine) and first.body:
+                    expr = first.body[0]
+                    if isinstance(expr, cst.Expr) and isinstance(expr.value, cst.SimpleString):
+                        insert_at = 1
+            updated_body = updated_body.with_changes(body=existing[:insert_at] + preamble + existing[insert_at:])
+
+        updated_params: list[cst.Param] = []
+        for param in node.params.params:
+            if param.name.value != context_name:
+                updated_params.append(param)
+                continue
+            annotation = param.annotation
+            if annotation is None:
+                try:
+                    annotation = cst.Annotation(cst.parse_expression(f"{self.protocol_hint} | None"))
+                except Exception:
+                    annotation = cst.Annotation(cst.parse_expression("object | None"))
+            updated_params.append(param.with_changes(default=cst.Name("None"), annotation=annotation))
+
+        updated_node = node.with_changes(
+            params=node.params.with_changes(params=updated_params),
+            body=updated_body,
+        )
+        self.changed = True
+        self.rewritten_context_names.add(context_name)
+        reasons = rewriter.skipped_reasons
+        summary = f"Migrated threaded parameter '{context_name}' to ambient accessor scaffold."
+        self.plan_entries.append(RewritePlanEntry(
+            kind="AMBIENT_REWRITE",
+            status="applied",
+            target=name,
+            summary=summary,
+            non_rewrite_reasons=reasons,
+        ))
+        if reasons:
+            self.warnings.extend(reasons)
+        return updated_node
+
 class _RefactorTransformer(cst.CSTTransformer):
     def __init__(
         self,
@@ -502,7 +852,7 @@ class _RefactorTransformer(cst.CSTTransformer):
         targets: set[str],
         bundle_fields: list[str],
         protocol_hint: str,
-        compat_shim: bool = False,
+        compat_shim: CompatibilityShimConfig = CompatibilityShimConfig(enabled=False),
     ) -> None:
         # dataflow-bundle: bundle_fields, compat_shim, protocol_hint, targets
         self.targets = targets
@@ -579,7 +929,7 @@ class _RefactorTransformer(cst.CSTTransformer):
             updated_node.body, bundle_param_name, target_fields
         )
         updated_impl = updated_node.with_changes(params=new_params, body=new_body)
-        if not self.compat_shim:
+        if not self.compat_shim.enabled:
             return updated_impl
         impl_name = f"_{name}_bundle"
         impl_node = updated_impl.with_changes(
@@ -606,16 +956,6 @@ class _RefactorTransformer(cst.CSTTransformer):
         overload_decorators = [cst.Decorator(cst.Name("overload")), *decorators]
         bundle_params = self._build_parameters(self_param, bundle_param)
         legacy_params = original_node.params
-        bundle_stub = self._build_overload_stub(
-            original_node=original_node,
-            params=bundle_params,
-            decorators=overload_decorators,
-        )
-        legacy_stub = self._build_overload_stub(
-            original_node=original_node,
-            params=legacy_params,
-            decorators=overload_decorators,
-        )
         wrapper_params = self._build_shim_parameters(self_param)
         wrapper_body = self._build_shim_body(
             impl_name=impl_name,
@@ -630,7 +970,21 @@ class _RefactorTransformer(cst.CSTTransformer):
             body=wrapper_body,
             decorators=decorators,
         )
-        return [bundle_stub, legacy_stub, wrapper]
+        shim_nodes: list[cst.CSTNode] = []
+        if self.compat_shim.emit_overload_stubs:
+            bundle_stub = self._build_overload_stub(
+                original_node=original_node,
+                params=bundle_params,
+                decorators=overload_decorators,
+            )
+            legacy_stub = self._build_overload_stub(
+                original_node=original_node,
+                params=legacy_params,
+                decorators=overload_decorators,
+            )
+            shim_nodes.extend([bundle_stub, legacy_stub])
+        shim_nodes.append(wrapper)
+        return shim_nodes
 
     def _build_overload_stub(
         self,
@@ -693,48 +1047,54 @@ class _RefactorTransformer(cst.CSTTransformer):
             f"        raise TypeError(\"{public_name}() bundle call expects a single {bundle_type} argument\")\n"
             f"    {return_prefix} {impl_call}(args[0])\n"
         )
-        warn = (
-            f"warnings.warn(\"{public_name}() is deprecated; use {public_name}({bundle_type}(...))\", "
-            "DeprecationWarning, stacklevel=2)"
-        )
         build = f"bundle = {bundle_type}(*args, **kwargs)"
         tail = f"{return_prefix} {impl_call}(bundle)"
-        return cst.IndentedBlock(
-            body=[
-                cst.parse_statement(guard),
-                cst.parse_statement(warn),
-                cst.parse_statement(build),
-                cst.parse_statement(tail),
-            ]
-        )
+        body: list[cst.BaseStatement] = [cst.parse_statement(guard)]
+        if self.compat_shim.emit_deprecation_warning:
+            warn = (
+                f"warnings.warn(\"{public_name}() is deprecated; use {public_name}({bundle_type}(...))\", "
+                "DeprecationWarning, stacklevel=2)"
+            )
+            body.append(cst.parse_statement(warn))
+        body.extend([cst.parse_statement(build), cst.parse_statement(tail)])
+        return cst.IndentedBlock(body=body)
 
     def _ordered_param_names(self, params: cst.Parameters) -> list[str]:
+        check_deadline()
         names: list[str] = []
         for param in params.posonly_params:
+            check_deadline()
             names.append(param.name.value)
         for param in params.params:
+            check_deadline()
             names.append(param.name.value)
         for param in params.kwonly_params:
+            check_deadline()
             names.append(param.name.value)
         return names
 
     def _find_self_param(
         self, params: cst.Parameters, name: str
     ) -> cst.Param | None:
+        check_deadline()
         for param in params.posonly_params:
+            check_deadline()
             if param.name.value == name:
                 return param
         for param in params.params:
+            check_deadline()
             if param.name.value == name:
                 return param
         return None
 
     def _choose_bundle_name(self, existing: list[str]) -> str:
+        check_deadline()
         candidate = "bundle"
         if candidate not in existing:
             return candidate
         idx = 1
         while f"bundle_{idx}" in existing:
+            check_deadline()
             idx += 1
         return f"bundle_{idx}"
 
@@ -885,6 +1245,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
         return False
 
     def _build_bundle_args(self, call: cst.Call) -> list[cst.Arg] | None:
+        check_deadline()
         if any(arg.star in {"*", "**"} for arg in call.args):
             self.warnings.append("Skipped call with star args/kwargs during refactor.")
             return None
@@ -895,6 +1256,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
             if arg.keyword is not None and isinstance(arg.keyword, cst.Name)
         }
         for key in keyword_args:
+            check_deadline()
             if key not in self.bundle_fields:
                 self.warnings.append(
                     f"Skipped call with unknown keyword '{key}' during refactor."
@@ -907,6 +1269,7 @@ class _CallSiteTransformer(cst.CSTTransformer):
             self.warnings.append("Skipped call with extra positional args during refactor.")
             return None
         for field, arg in zip(remaining, positional):
+            check_deadline()
             mapping[field] = arg.value
         if len(mapping) != len(self.bundle_fields):
             self.warnings.append("Skipped call with missing bundle fields during refactor.")

@@ -2,22 +2,55 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-import sys
 
+import pytest
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
-    from gabion.analysis.dataflow_audit import CallArgs, ParamUse, _call_context, _callee_name, _const_repr
+    from gabion.analysis.dataflow_audit import (
+        CallArgs,
+        ParamUse,
+        _call_context,
+        _callee_name,
+        _const_repr,
+        _normalize_key_expr,
+    )
     from gabion.analysis.visitors import ParentAnnotator, UseVisitor
 
-    return CallArgs, ParamUse, _call_context, _callee_name, _const_repr, ParentAnnotator, UseVisitor
+    return CallArgs, ParamUse, _call_context, _callee_name, _const_repr, _normalize_key_expr, ParentAnnotator, UseVisitor
 
-
-def _call_args_factory(**kwargs):
+def _call_args_factory(
+    *,
+    callee: str,
+    pos_map: dict[str, str],
+    kw_map: dict[str, str],
+    const_pos: dict[str, str],
+    const_kw: dict[str, str],
+    non_const_pos: set[str],
+    non_const_kw: set[str],
+    star_pos: list[tuple[int, str]],
+    star_kw: list[str],
+    is_test: bool,
+    span: tuple[int, int, int, int] | None = None,
+    callable_kind: str = "function",
+    callable_source: str = "symbol",
+):
     CallArgs, *_ = _load()
-    return CallArgs(**kwargs)
-
+    return CallArgs(
+        callee=callee,
+        pos_map=pos_map,
+        kw_map=kw_map,
+        const_pos=const_pos,
+        const_kw=const_kw,
+        non_const_pos=non_const_pos,
+        non_const_kw=non_const_kw,
+        star_pos=star_pos,
+        star_kw=star_kw,
+        is_test=is_test,
+        span=span,
+        callable_kind=callable_kind,
+        callable_source=callable_source,
+    )
 
 def _make_visitor(
     tree: ast.AST,
@@ -25,7 +58,7 @@ def _make_visitor(
     *,
     return_aliases: dict[str, tuple[list[str], list[str]]] | None = None,
 ):
-    CallArgs, ParamUse, _call_context, _callee_name, _const_repr, ParentAnnotator, UseVisitor = _load()
+    CallArgs, ParamUse, _call_context, _callee_name, _const_repr, _normalize_key_expr, ParentAnnotator, UseVisitor = _load()
     annotator = ParentAnnotator()
     annotator.visit(tree)
     use_map = {
@@ -52,10 +85,11 @@ def _make_visitor(
         call_args_factory=_call_args_factory,
         call_context=_call_context,
         return_aliases=return_aliases,
+        normalize_key_expr=_normalize_key_expr,
     )
     return visitor, use_map, alias_to_param, call_args
 
-
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_star_forwarding_low_strictness() -> None:
     tree = ast.parse(
         "def f(a, b, *args, **kwargs):\n"
@@ -67,7 +101,7 @@ def test_usevisitor_star_forwarding_low_strictness() -> None:
     assert ("args[*]", "arg[*]") in use_map["args"].direct_forward
     assert ("kwargs[*]", "kw[*]") in use_map["kwargs"].direct_forward
 
-
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_span_adjusts_zero_width_call() -> None:
     tree = ast.parse("def f(a, b, *args, **kwargs):\n    g(a)\n")
     call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
@@ -85,12 +119,12 @@ def test_usevisitor_span_adjusts_zero_width_call() -> None:
         call.col_offset + 1,
     )
 
-
+# gabion:evidence E:decision_surface/direct::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node E:decision_surface/value_encoded::visitors.py::gabion.analysis.visitors.UseVisitor._node_span::node
 def test_usevisitor_node_span_none_without_locations() -> None:
     *_, UseVisitor = _load()
     assert UseVisitor._node_span(ast.AST()) is None
 
-
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_usevisitor_alias_binding_and_non_forward::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_usevisitor_alias_binding_and_non_forward() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
@@ -126,7 +160,7 @@ def test_usevisitor_alias_binding_and_non_forward() -> None:
     assert use_map["args"].non_forward is True
     assert use_map["kwargs"].non_forward is True
 
-
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_return_alias_binding_tuple_and_rejects_mismatch::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     tree = ast.parse("def f(a, b):\n    return a, b\n")
     visitor, _, alias_to_param, _ = _make_visitor(tree, strictness="high")
@@ -136,7 +170,7 @@ def test_return_alias_binding_tuple_and_rejects_mismatch() -> None:
     assert alias_to_param["y"] == "b"
     assert visitor._bind_return_alias(targets, ["a"]) is False
 
-
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_alias_from_call_rejects_starred::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_alias_from_call_rejects_starred() -> None:
     tree = ast.parse(
         "def ret(a, b):\n"
@@ -152,7 +186,7 @@ def test_alias_from_call_rejects_starred() -> None:
     call = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
     assert visitor._alias_from_call(call) is None
 
-
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_attribute_and_subscript_forwarding() -> None:
     tree = ast.parse(
         "def f(a):\n"
@@ -169,7 +203,7 @@ def test_attribute_and_subscript_forwarding() -> None:
     assert ("h", "arg[0]") in use_map["a"].direct_forward
     assert use_map["a"].non_forward is True
 
-
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
 def test_bind_sequence_mismatch_marks_non_forward() -> None:
     tree = ast.parse("def f(a, b):\n    pass\n")
     visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
@@ -182,10 +216,9 @@ def test_bind_sequence_mismatch_marks_non_forward() -> None:
     assert use_map["a"].non_forward is False
     assert use_map["b"].non_forward is False
 
-
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_import_visitor_basic_and_relative::dataflow_audit.py::gabion.analysis.dataflow_audit.SymbolTable::visitors.py::gabion.analysis.visitors.ImportVisitor
 def test_import_visitor_basic_and_relative() -> None:
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import SymbolTable
     from gabion.analysis.visitors import ImportVisitor
 
@@ -208,3 +241,80 @@ def test_import_visitor_basic_and_relative() -> None:
     deep = ImportVisitor("a.b", table)
     deep.visit(ast.parse("from ..... import Nope\n"))
     assert dict(table.imports) == before
+
+    before = dict(table.imports)
+    visitor.visit_ImportFrom(
+        ast.ImportFrom(
+            module=None,
+            names=[ast.alias(name="Thing", asname=None)],
+            level=0,
+        )
+    )
+    assert dict(table.imports) == before
+
+# gabion:evidence E:call_footprint::tests/test_visitors_unit.py::test_project_visitor_node_entry_respects_gas_meter::timeout_context.py::gabion.analysis.timeout_context.Deadline.from_timeout_ms::timeout_context.py::gabion.analysis.timeout_context.deadline_clock_scope::timeout_context.py::gabion.analysis.timeout_context.deadline_scope::timeout_context.py::gabion.analysis.timeout_context.forest_scope
+def test_project_visitor_node_entry_respects_gas_meter() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    from gabion.analysis.aspf import Forest
+    from gabion.analysis.timeout_context import (
+        Deadline,
+        TimeoutExceeded,
+        deadline_clock_scope,
+        deadline_scope,
+        forest_scope,
+    )
+    from gabion.analysis.visitors import ParentAnnotator
+    from gabion.deadline_clock import GasMeter
+
+    tree = ast.parse("def f(x):\n    return x\n")
+    with forest_scope(Forest()):
+        with deadline_scope(Deadline.from_timeout_ms(1_000)):
+            meter = GasMeter(limit=1)
+            with deadline_clock_scope(meter):
+                with pytest.raises(TimeoutExceeded):
+                    ParentAnnotator().visit(tree)
+    assert meter.current == 1
+
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+def test_subscript_forwarding_normalizes_const_keys() -> None:
+    tree = ast.parse(
+        "def f(a, b):\n"
+        "    record = a\n"
+        "    KEY = 'key'\n"
+        "    IDX = 1\n"
+        "    PAIR = ('x', 1)\n"
+        "    record[KEY] = b\n"
+        "    record[IDX] = b\n"
+        "    record[PAIR] = b\n"
+        "    g(record['key'])\n"
+        "    h(record[1])\n"
+        "    i(record[('x', 1)])\n"
+    )
+    visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
+    visitor.visit(tree)
+    assert ("g", "arg[0]") in use_map["b"].direct_forward
+    assert ("h", "arg[0]") in use_map["b"].direct_forward
+    assert ("i", "arg[0]") in use_map["b"].direct_forward
+
+
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+def test_subscript_dynamic_key_marks_uncertainty() -> None:
+    tree = ast.parse(
+        "def f(a, b, k):\n"
+        "    record = a\n"
+        "    record[k] = b\n"
+        "    g(record[k])\n"
+    )
+    visitor, use_map, _, _ = _make_visitor(tree, strictness="high")
+    visitor.visit(tree)
+    assert ("g", "arg[0]") not in use_map["b"].direct_forward
+    assert use_map["b"].unknown_key_carrier is True
+    assert use_map["b"].unknown_key_sites
+
+
+# gabion:evidence E:function_site::test_visitors_unit.py::tests.test_visitors_unit._make_visitor
+def test_normalize_key_returns_none_without_normalizer() -> None:
+    tree = ast.parse("def f(a):\n    return a\n")
+    visitor, _, _, _ = _make_visitor(tree, strictness="high")
+    visitor.normalize_key_expr = None
+    assert visitor._normalize_key(ast.Constant(value="k")) is None

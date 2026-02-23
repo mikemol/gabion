@@ -1,9 +1,14 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from gabion.analysis.json_types import JSONValue
+from gabion.analysis.timeout_context import check_deadline
+from gabion.order_contract import sort_once
+
 
 def normalize_bundle_key(bundle: object) -> str:
     """Canonicalize a bundle payload into a stable join key.
@@ -11,10 +16,16 @@ def normalize_bundle_key(bundle: object) -> str:
     This intentionally ignores non-string entries because bundles are defined
     over symbol names.
     """
+    check_deadline()
     if not isinstance(bundle, (list, tuple, set)):
         return ""
     values = {item.strip() for item in bundle if isinstance(item, str) and item.strip()}
-    return ",".join(sorted(values))
+    return ",".join(
+        sort_once(
+            values,
+            source="normalize_bundle_key.values",
+        )
+    )
 
 
 def normalize_string_list(value: object) -> list[str]:
@@ -23,6 +34,7 @@ def normalize_string_list(value: object) -> list[str]:
     The intent is to accept schema-level payloads coming from JSON where these
     fields can be absent, malformed, or represented as comma-separated strings.
     """
+    check_deadline()
     raw: list[str] = []
     if value is None:
         return raw
@@ -35,8 +47,12 @@ def normalize_string_list(value: object) -> list[str]:
 
     parts: list[str] = []
     for item in raw:
+        check_deadline()
         parts.extend([part.strip() for part in item.split(",") if part.strip()])
-    return sorted(set(parts))
+    return sort_once(
+        set(parts),
+        source="normalize_string_list.parts",
+    )
 
 
 @dataclass(frozen=True)
@@ -55,9 +71,11 @@ class Site:
         return cls(path=path, function=function, bundle=tuple(bundle))
 
     def bundle_key(self) -> str:
+        check_deadline()
         return normalize_bundle_key(list(self.bundle))
 
     def key(self) -> tuple[str, str, str]:
+        check_deadline()
         return (self.path, self.function, self.bundle_key())
 
 
@@ -66,9 +84,11 @@ def exception_obligation_summary_for_site(
     *,
     site: Site,
 ) -> dict[str, int]:
+    check_deadline()
     summary = {"UNKNOWN": 0, "DEAD": 0, "HANDLED": 0, "total": 0}
     bundle_key = site.bundle_key()
     for entry in obligations:
+        check_deadline()
         raw_site = entry.get("site", {}) or {}
         if not isinstance(raw_site, Mapping):
             continue

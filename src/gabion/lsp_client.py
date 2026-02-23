@@ -1,13 +1,35 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 import json
+import select
 import subprocess
 import sys
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
-from dataclasses import dataclass
-from typing import Callable
+from types import SimpleNamespace
+from typing import Callable, Mapping
 
+from gabion.commands import (
+    boundary_order,
+    command_envelope,
+    command_ids,
+    direct_dispatch,
+    payload_codec,
+)
+from gabion import server
+from gabion.analysis.timeout_context import (
+    Deadline,
+    check_deadline,
+    deadline_clock_scope,
+    deadline_scope,
+)
+from gabion.deadline_clock import GasMeter
+from gabion.invariants import never
 from gabion.json_types import JSONObject
+from gabion.runtime import env_policy
 
 
 class LspClientError(RuntimeError):
@@ -17,12 +39,97 @@ class LspClientError(RuntimeError):
 @dataclass(frozen=True)
 class CommandRequest:
     command: str
-    arguments: list[JSONObject] | None = None
+    arguments: list[JSONObject] = field(default_factory=list)
 
 
-def _read_rpc(stream) -> JSONObject:
+def _normalized_command_payload(
+    request: CommandRequest,
+) -> tuple[list[JSONObject], dict[str, object]]:
+    envelope = command_envelope.command_payload_envelope(
+        command=request.command,
+        arguments=request.arguments,
+    )
+    return list(envelope.command_args), envelope.payload
+
+
+def _has_env_timeout() -> bool:
+    return env_policy.lsp_timeout_env_present()
+
+
+def _env_timeout_ticks() -> tuple[int, int]:
+    return env_policy.timeout_ticks_from_env()
+
+
+def _has_analysis_timeout(payload: Mapping[str, object]) -> bool:
+    return payload_codec.has_analysis_timeout(payload)
+
+
+def _analysis_timeout_total_ns(payload: Mapping[str, object]) -> int:
+    return payload_codec.analysis_timeout_total_ns(
+        payload,
+        source="_analysis_timeout_ns.payload_keys",
+        reject_sub_millisecond_seconds=False,
+    )
+
+
+def _analysis_timeout_slack_ns(total_ns: int) -> int:
+    slack_ns = total_ns // 3
+    if slack_ns < 2_000_000_000:
+        slack_ns = 2_000_000_000
+    if slack_ns > 120_000_000_000:
+        slack_ns = 120_000_000_000
+    return slack_ns
+
+
+def _wait_readable(stream, deadline_ns: int) -> None:
+    read = getattr(stream, "read", None)
+    fileno = getattr(stream, "fileno", None)
+    if fileno is None:
+        if read is None:
+            raise LspClientError("LSP stream does not expose fileno")
+        if time.monotonic_ns() >= deadline_ns:
+            raise LspClientError("LSP response timed out")
+        return
+    try:
+        fd = fileno()
+    except (OSError, ValueError) as exc:
+        if read is None:
+            raise LspClientError("LSP stream fileno failed") from exc
+        if time.monotonic_ns() >= deadline_ns:
+            raise LspClientError("LSP response timed out")
+        return
+    remaining_ns = deadline_ns - time.monotonic_ns()
+    timeout = max(0.0, remaining_ns / 1_000_000_000)
+    ready, _, _ = select.select([fd], [], [], timeout)
+    if not ready:
+        raise LspClientError("LSP response timed out")
+
+
+def _read_exact(stream, length: int, deadline_ns: int) -> bytes:
+    body = bytearray()
+    while len(body) < length:
+        check_deadline()
+        _wait_readable(stream, deadline_ns)
+        chunk = stream.read(length - len(body))
+        if not chunk:
+            raise LspClientError("LSP stream closed")
+        body.extend(chunk)
+    return bytes(body)
+
+
+def _remaining_deadline_ns(deadline_ns: int) -> int:
+    remaining_ns = deadline_ns - time.monotonic_ns()
+    if remaining_ns <= 0:
+        never("lsp deadline already expired")
+    return remaining_ns
+
+
+def _read_rpc(stream, deadline_ns: int) -> JSONObject:
+    check_deadline()
     header = b""
     while b"\r\n\r\n" not in header:
+        check_deadline()
+        _wait_readable(stream, deadline_ns)
         chunk = stream.read(1)
         if not chunk:
             raise LspClientError("LSP stream closed")
@@ -30,6 +137,7 @@ def _read_rpc(stream) -> JSONObject:
     head, _, rest = header.partition(b"\r\n\r\n")
     length = 0
     for line in head.split(b"\r\n"):
+        check_deadline()
         if line.lower().startswith(b"content-length:"):
             length = int(line.split(b":", 1)[1].strip())
             break
@@ -37,7 +145,9 @@ def _read_rpc(stream) -> JSONObject:
         raise LspClientError("Invalid LSP Content-Length")
     body = rest
     if len(body) < length:
-        body += stream.read(length - len(body))
+        body += _read_exact(stream, length - len(body), deadline_ns)
+    elif len(body) > length:
+        body = body[:length]
     message = json.loads(body.decode("utf-8"))
     if not isinstance(message, dict):
         raise LspClientError("Invalid LSP message payload")
@@ -45,15 +155,31 @@ def _read_rpc(stream) -> JSONObject:
 
 
 def _write_rpc(stream, message: JSONObject) -> None:
-    payload = json.dumps(message).encode("utf-8")
+    ordered_message = boundary_order.normalize_boundary_mapping_once(
+        message,
+        source="lsp_client._write_rpc.message",
+    )
+    payload = json.dumps(ordered_message, sort_keys=False).encode("utf-8")
     header = f"Content-Length: {len(payload)}\r\n\r\n".encode("utf-8")
     stream.write(header + payload)
     stream.flush()
 
 
-def _read_response(stream, request_id: int) -> JSONObject:
+def _read_response(
+    stream,
+    request_id: int,
+    deadline_ns: int,
+    *,
+    notification_callback: Callable[[JSONObject], None] | None = None,
+) -> JSONObject:
+    check_deadline()
     while True:
-        message = _read_rpc(stream)
+        check_deadline()
+        message = _read_rpc(stream, deadline_ns)
+        if "id" not in message:
+            if notification_callback is not None:
+                notification_callback(message)
+            continue
         if message.get("id") == request_id:
             return message
 
@@ -62,59 +188,184 @@ def run_command(
     request: CommandRequest,
     *,
     root: Path | None = None,
-    timeout: float = 5.0,
+    timeout_ticks: int | None = None,
+    timeout_tick_ns: int = 1_000_000,
     process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
+    remaining_deadline_ns_fn: Callable[[int], int] | None = None,
+    notification_callback: Callable[[JSONObject], None] | None = None,
 ) -> JSONObject:
+    if _has_env_timeout():
+        timeout_ticks, timeout_tick_ns = _env_timeout_ticks()
+    if timeout_ticks is None:
+        timeout_ticks = 100
+    ticks_value = int(timeout_ticks)
+    tick_ns_value = int(timeout_tick_ns)
+    if ticks_value <= 0:
+        never("invalid lsp timeout ticks", ticks=timeout_ticks)
+    if tick_ns_value <= 0:
+        never("invalid lsp timeout tick_ns", tick_ns=timeout_tick_ns)
+
+    command_args, payload = _normalized_command_payload(request)
+
+    base_total_ns = ticks_value * tick_ns_value
+    has_existing_analysis_timeout = _has_analysis_timeout(payload)
+    analysis_target_ns = (
+        _analysis_timeout_total_ns(payload)
+        if has_existing_analysis_timeout
+        else base_total_ns
+    )
+    slack_ns = _analysis_timeout_slack_ns(analysis_target_ns)
+    lsp_total_ns = max(base_total_ns, analysis_target_ns + slack_ns)
+    lsp_ticks = max(1, (lsp_total_ns + tick_ns_value - 1) // tick_ns_value)
+
+    deadline = Deadline.from_timeout_ticks(lsp_ticks, tick_ns_value)
+    deadline_ns = deadline.deadline_ns
     proc = process_factory(
         [sys.executable, "-m", "gabion.server"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        bufsize=0,
     )
     assert proc.stdin is not None
     assert proc.stdout is not None
 
     root_uri = (root or Path.cwd()).resolve().as_uri()
-    initialize_id = 1
-    _write_rpc(
-        proc.stdin,
-        {
-            "jsonrpc": "2.0",
-            "id": initialize_id,
-            "method": "initialize",
-            "params": {"rootUri": root_uri, "capabilities": {}},
-        },
-    )
-    _read_response(proc.stdout, initialize_id)
-    _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
+    logical_limit = max(10_000, int(lsp_ticks) * 1_000)
+    remaining_deadline_ns = remaining_deadline_ns_fn or _remaining_deadline_ns
+    with deadline_scope(deadline):
+        with deadline_clock_scope(GasMeter(limit=logical_limit)):
+            initialize_id = 1
+            _write_rpc(
+                proc.stdin,
+                {
+                    "id": initialize_id,
+                    "jsonrpc": "2.0",
+                    "method": "initialize",
+                    "params": {"capabilities": {}, "rootUri": root_uri},
+                },
+            )
+            _read_response(
+                proc.stdout,
+                initialize_id,
+                deadline_ns,
+                notification_callback=notification_callback,
+            )
+            _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "initialized", "params": {}})
 
-    cmd_id = 2
-    _write_rpc(
-        proc.stdin,
-        {
-            "jsonrpc": "2.0",
-            "id": cmd_id,
-            "method": "workspace/executeCommand",
-            "params": {"command": request.command, "arguments": request.arguments or []},
-        },
-    )
-    response = _read_response(proc.stdout, cmd_id)
+            cmd_id = 2
+            remaining_ns = remaining_deadline_ns(deadline_ns)
+            if not has_existing_analysis_timeout or analysis_target_ns > remaining_ns:
+                target_ns = min(analysis_target_ns, remaining_ns)
+                tick_ns_value = min(tick_ns_value, target_ns)
+                ticks_value = max(1, target_ns // tick_ns_value)
+                payload = boundary_order.apply_boundary_updates_once(
+                    payload,
+                    {
+                        "analysis_timeout_tick_ns": int(tick_ns_value),
+                        "analysis_timeout_ticks": int(ticks_value),
+                    },
+                    source=f"lsp_client.run_command.{request.command}.timeout_payload_update",
+                )
+                command_args[0] = payload
+            _write_rpc(
+                proc.stdin,
+                {
+                    "id": cmd_id,
+                    "jsonrpc": "2.0",
+                    "method": "workspace/executeCommand",
+                    "params": {"arguments": command_args, "command": request.command},
+                },
+            )
+            response = _read_response(
+                proc.stdout,
+                cmd_id,
+                deadline_ns,
+                notification_callback=notification_callback,
+            )
 
-    shutdown_id = 3
-    _write_rpc(proc.stdin, {"jsonrpc": "2.0", "id": shutdown_id, "method": "shutdown"})
-    _read_response(proc.stdout, shutdown_id)
-    _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
-    out, err = proc.communicate(timeout=timeout)
-    if response.get("error"):
-        raise LspClientError(f"LSP error: {response['error']}")
-    if proc.returncode not in (0, None):
-        detail = err.decode("utf-8", errors="replace").strip()
-        raise LspClientError(f"LSP server failed (exit {proc.returncode}): {detail}")
-    if err:
-        detail = err.decode("utf-8", errors="replace").strip()
-        if detail:
-            raise LspClientError(f"LSP server error output: {detail}")
-    result = response.get("result", {})
-    if not isinstance(result, dict):
-        raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
-    return result
+            shutdown_id = 3
+            _write_rpc(
+                proc.stdin,
+                {"id": shutdown_id, "jsonrpc": "2.0", "method": "shutdown"},
+            )
+            _read_response(
+                proc.stdout,
+                shutdown_id,
+                deadline_ns,
+                notification_callback=notification_callback,
+            )
+            _write_rpc(proc.stdin, {"jsonrpc": "2.0", "method": "exit"})
+            remaining_ns = remaining_deadline_ns(deadline_ns)
+            remaining = max(1.0, remaining_ns / 1_000_000_000)
+            try:
+                out, err = proc.communicate(timeout=remaining)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out, err = proc.communicate(timeout=1.0)
+            if response.get("error"):
+                raise LspClientError(f"LSP error: {response['error']}")
+            if proc.returncode not in (0, None):
+                detail = err.decode("utf-8", errors="replace").strip()
+                raise LspClientError(f"LSP server failed (exit {proc.returncode}): {detail}")
+            if err:
+                detail = err.decode("utf-8", errors="replace").strip()
+                if detail:
+                    raise LspClientError(f"LSP server error output: {detail}")
+            result = response.get("result", {})
+            if not isinstance(result, Mapping):
+                raise LspClientError(f"Unexpected LSP result payload: {type(result).__name__}")
+            return boundary_order.normalize_boundary_mapping_once(
+                result,
+                source=f"lsp_client.run_command.{request.command}.result",
+            )
+
+
+def run_command_direct(
+    request: CommandRequest,
+    *,
+    root: Path | None = None,
+    notification_callback: Callable[[JSONObject], None] | None = None,
+    execute_dataflow_fn: Callable[[object, JSONObject], JSONObject] | None = None,
+) -> JSONObject:
+    _, payload = _normalized_command_payload(request)
+    if (
+        "analysis_timeout_ticks" not in payload
+        and "analysis_timeout_ms" not in payload
+        and "analysis_timeout_seconds" not in payload
+    ):
+        never("missing analysis timeout in direct command payload")
+    workspace = SimpleNamespace(root_path=str((root or Path.cwd()).resolve()))
+
+    def _send_notification(method: str, params: object) -> None:
+        if notification_callback is None:
+            return
+        if not isinstance(params, Mapping):
+            return
+        ordered_params = boundary_order.normalize_boundary_mapping_once(
+            params,
+            source=f"lsp_client.run_command_direct.{request.command}.notification",
+        )
+        notification_callback(
+            {
+                "jsonrpc": "2.0",
+                "method": str(method),
+                "params": ordered_params,
+            }
+        )
+
+    ls = SimpleNamespace(workspace=workspace, send_notification=_send_notification)
+    execute_fn = direct_dispatch.direct_executor(request.command)
+    if request.command in {command_ids.CHECK_COMMAND, command_ids.DATAFLOW_COMMAND}:
+        execute_fn = execute_dataflow_fn or execute_fn
+    if execute_fn is None:
+        raise LspClientError(f"Unsupported direct command: {request.command}")
+    raw_result = execute_fn(ls, payload)
+    if not isinstance(raw_result, Mapping):
+        raise LspClientError(
+            f"Unexpected direct command payload: {type(raw_result).__name__}"
+        )
+    return boundary_order.normalize_boundary_mapping_once(
+        raw_result,
+        source=f"lsp_client.run_command_direct.{request.command}.result",
+    )

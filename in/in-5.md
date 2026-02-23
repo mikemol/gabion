@@ -1,8 +1,35 @@
+---
+doc_revision: 1
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+doc_id: in_5
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires: []
+doc_reviewed_as_of: {}
+doc_review_notes: {}
+doc_change_protocol: POLICY_SEED.md#change_protocol
+doc_erasure:
+  - formatting
+  - typos
+doc_sections:
+  in_in_5: 1
+doc_section_requires:
+  in_in_5: []
+doc_section_reviews:
+  in_in_5: {}
+---
+
 This aligns with the mandate to consider what is **valuable**, **novel**, and **complete**. We have tightened the knot on local aliasing (Identity), but the lattice still has gaps at the boundaries of modules and in the presence of higher-order flows.
 
 Here are the high-value extensions that transform this from a "heuristic scanner" to a "structural compiler."
 
 ---
+
+<a id="in_in_5"></a>
 
 ### 1. The "Wildcard" Bridge (`*args` & `**kwargs`)
 

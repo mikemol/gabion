@@ -1,6 +1,6 @@
 ---
-doc_revision: 2
-reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
+doc_revision: 4
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: pinning_actions
 doc_role: guide
 doc_scope:
@@ -9,13 +9,31 @@ doc_scope:
   - tooling
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-doc_change_protocol: "POLICY_SEED.md §6"
+  - POLICY_SEED.md#policy_seed
+doc_reviewed_as_of:
+  POLICY_SEED.md#policy_seed: 1
+doc_review_notes:
+  POLICY_SEED.md#policy_seed: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
+doc_change_protocol: POLICY_SEED.md#change_protocol
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
+doc_sections:
+  pinning_actions: 1
+doc_section_requires:
+  pinning_actions:
+    - POLICY_SEED.md#policy_seed
+doc_section_reviews:
+  pinning_actions:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
 ---
+
+<a id="pinning_actions"></a>
 
 # Pinning GitHub Actions (SHA)
 

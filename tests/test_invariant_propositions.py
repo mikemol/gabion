@@ -1,24 +1,22 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 import textwrap
-
+from gabion.analysis.aspf import Forest
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis.dataflow_audit import analyze_paths, AuditConfig
 
     return analyze_paths, AuditConfig
-
 
 def _analyze(tmp_path: Path, source: str):
     analyze_paths, AuditConfig = _load()
     path = tmp_path / "mod.py"
     path.write_text(source)
     analysis = analyze_paths(
-        [path],
+        forest=Forest(),
+        paths=[path],
         recursive=True,
         type_audit=False,
         type_audit_report=False,
@@ -30,7 +28,7 @@ def _analyze(tmp_path: Path, source: str):
     )
     return analysis
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
 def test_invariant_extracts_len_equality(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """
@@ -44,7 +42,7 @@ def test_invariant_extracts_len_equality(tmp_path: Path) -> None:
         for prop in analysis.invariant_propositions
     )
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
 def test_invariant_extracts_param_equality(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """
@@ -58,7 +56,7 @@ def test_invariant_extracts_param_equality(tmp_path: Path) -> None:
         for prop in analysis.invariant_propositions
     )
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit.analyze_paths::config,include_bundle_forest,include_coherence_witnesses,include_constant_smells,include_deadness_witnesses,include_decision_surfaces,include_exception_obligations,include_handledness_witnesses,include_invariant_propositions,include_lint_lines,include_never_invariants,include_rewrite_plans,include_unused_arg_smells,include_value_decision_surfaces,type_audit,type_audit_report
 def test_invariant_ignores_non_param_asserts(tmp_path: Path) -> None:
     source = textwrap.dedent(
         """

@@ -34,7 +34,7 @@ lint_report="${artifacts_dir}/lint.txt"
 lint_jsonl="${artifacts_dir}/lint.jsonl"
 lint_sarif="${artifacts_dir}/lint.sarif"
 
-mise exec -- python -m gabion dataflow-audit "$root" \
+mise exec -- python -m gabion check --profile raw "$root" \
   --root "$root" \
   --report "$dataflow_report" \
   --dot "$dataflow_dot" \
@@ -51,15 +51,15 @@ mise exec -- python -m gabion dataflow-audit "$root" \
   --fingerprint-rewrite-plans-json "$dataflow_fingerprint_rewrite_plans" \
   --fingerprint-exception-obligations-json "$dataflow_fingerprint_exception_obligations" \
   --fingerprint-handledness-json "$dataflow_fingerprint_handledness" \
-  --emit-decision-snapshot "$decision_snapshot" \
+  --decision-snapshot "$decision_snapshot" \
   --lint \
   --lint-jsonl "$lint_jsonl" \
   --lint-sarif "$lint_sarif" > "$lint_report"
 
-mise exec -- python scripts/audit_tools.py docflow --root "$root" > "$docflow_report"
-mise exec -- python scripts/audit_tools.py decision-tiers --root "$root" \
+mise exec -- python -m gabion docflow --root "$root" > "$docflow_report"
+mise exec -- python -m gabion decision-tiers --root "$root" \
   --lint "$lint_report" > "$decision_tier_candidates"
-mise exec -- python scripts/audit_tools.py consolidation --root "$root" \
+mise exec -- python -m gabion consolidation --root "$root" \
   --decision "$decision_snapshot" \
   --lint "$lint_report" \
   --output "$consolidation_report" \

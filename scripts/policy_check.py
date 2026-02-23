@@ -3,11 +3,20 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+try:  # pragma: no cover - import form depends on invocation mode
+    from scripts.deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+except ModuleNotFoundError:  # pragma: no cover - direct script execution path
+    from deadline_runtime import DeadlineBudget, deadline_scope_from_ticks
+from gabion.analysis.timeout_context import check_deadline
+from gabion.invariants import never
+from gabion.order_contract import ordered_or_sorted
 
 try:
     import yaml
@@ -30,6 +39,58 @@ CONTENT_WRITE_WORKFLOWS = {
 
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
+_DEFAULT_POLICY_TIMEOUT_TICKS = 120_000
+_DEFAULT_POLICY_TIMEOUT_TICK_NS = 1_000_000
+_DEFAULT_POLICY_TIMEOUT_BUDGET = DeadlineBudget(
+    ticks=_DEFAULT_POLICY_TIMEOUT_TICKS,
+    tick_ns=_DEFAULT_POLICY_TIMEOUT_TICK_NS,
+)
+
+
+def _policy_timeout_budget() -> DeadlineBudget:
+    raw_ticks = os.getenv("GABION_POLICY_TIMEOUT_TICKS", "").strip()
+    raw_tick_ns = os.getenv("GABION_POLICY_TIMEOUT_TICK_NS", "").strip()
+    if raw_ticks or raw_tick_ns:
+        if not raw_ticks:
+            never("missing policy timeout ticks", tick_ns=raw_tick_ns)
+        if not raw_tick_ns:
+            never("missing policy timeout tick_ns", ticks=raw_ticks)
+        try:
+            ticks_value = int(raw_ticks)
+        except ValueError:
+            ticks_value = -1
+        try:
+            tick_ns_value = int(raw_tick_ns)
+        except ValueError:
+            tick_ns_value = -1
+        if ticks_value <= 0:
+            never("invalid policy timeout ticks", ticks=raw_ticks)
+        if tick_ns_value <= 0:
+            never("invalid policy timeout tick_ns", tick_ns=raw_tick_ns)
+        return DeadlineBudget(
+            ticks=ticks_value,
+            tick_ns=tick_ns_value,
+        )
+    return DeadlineBudget(
+        ticks=_DEFAULT_POLICY_TIMEOUT_BUDGET.ticks,
+        tick_ns=_DEFAULT_POLICY_TIMEOUT_BUDGET.tick_ns,
+    )
+
+
+def _policy_deadline_scope():
+    return deadline_scope_from_ticks(
+        budget=_policy_timeout_budget(),
+    )
+
+
+def _sorted(values, *, key=None, reverse: bool = False):
+    return ordered_or_sorted(
+        values,
+        source="scripts.policy_check",
+        key=key,
+        reverse=reverse,
+    )
+
 
 @dataclass(frozen=True)
 class JobContext:
@@ -39,6 +100,7 @@ class JobContext:
 
 def _fail(errors):
     for err in errors:
+        check_deadline()
         print(f"policy-check: {err}", file=sys.stderr)
     raise SystemExit(2)
 
@@ -52,6 +114,7 @@ def _load_allowed_actions(path: Path) -> set[str]:
         return set()
     allowed: set[str] = set()
     for line in raw.splitlines():
+        check_deadline()
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -68,6 +131,7 @@ def _yaml_loader():
 
     # Treat "on"/"off"/"yes"/"no" as strings, not booleans (YAML 1.1 quirk).
     for key, values in list(Loader.yaml_implicit_resolvers.items()):
+        check_deadline()
         Loader.yaml_implicit_resolvers[key] = [
             (tag, regexp) for tag, regexp in values if tag != "tag:yaml.org,2002:bool"
         ]
@@ -134,6 +198,111 @@ def _has_tag_push(on_block) -> bool:
     return False
 
 
+def _workflow_run_names(on_block) -> set[str]:
+    if not isinstance(on_block, dict):
+        return set()
+    workflow_run = on_block.get("workflow_run")
+    if not isinstance(workflow_run, dict):
+        return set()
+    workflows = workflow_run.get("workflows")
+    if isinstance(workflows, list):
+        return {str(item) for item in workflows}
+    if isinstance(workflows, str):
+        return {workflows}
+    return set()
+
+
+def _push_branches(on_block) -> set[str]:
+    if not isinstance(on_block, dict):
+        return set()
+    push_block = on_block.get("push")
+    if not isinstance(push_block, dict):
+        return set()
+    branches = push_block.get("branches")
+    if isinstance(branches, list):
+        return {str(item) for item in branches}
+    if isinstance(branches, str):
+        return {branches}
+    return set()
+
+
+def _push_tags(on_block) -> set[str]:
+    if not isinstance(on_block, dict):
+        return set()
+    push_block = on_block.get("push")
+    if not isinstance(push_block, dict):
+        return set()
+    tags = push_block.get("tags")
+    if isinstance(tags, list):
+        return {str(item) for item in tags}
+    if isinstance(tags, str):
+        return {tags}
+    return set()
+
+
+def _is_tag_only_push(on_block) -> bool:
+    if not isinstance(on_block, dict):
+        return False
+    if _event_names(on_block) != {"push"}:
+        return False
+    push_block = on_block.get("push")
+    if not isinstance(push_block, dict):
+        return False
+    tags = push_block.get("tags")
+    if not tags:
+        return False
+    branches = push_block.get("branches")
+    if branches:
+        return False
+    return True
+
+
+def _has_actor_guard(cond: str) -> bool:
+    return (
+        "github.actor==github.repository_owner" in cond
+        or "github.actor=='" in cond
+        or "github.actor==\"" in cond
+    )
+
+
+def _has_ref_guard(cond: str) -> bool:
+    return (
+        "github.ref=='refs/heads/" in cond
+        or "github.ref==\"refs/heads/" in cond
+        or "github.ref=='refs/tags/" in cond
+        or "github.ref==\"refs/tags/" in cond
+        or "startswith(github.ref,'refs/heads/')" in cond
+        or "startsWith(github.ref,'refs/heads/')" in cond
+        or "startswith(github.ref,'refs/tags/')" in cond
+        or "startsWith(github.ref,'refs/tags/')" in cond
+    )
+
+
+def _check_workflow_dispatch_guards(doc, path, errors):
+    events = _event_names(doc.get("on"))
+    if "workflow_dispatch" not in events:
+        return
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    for name, job in jobs.items():
+        check_deadline()
+        cond = _normalize_if(job.get("if"))
+        if not cond:
+            errors.append(
+                f"{path}:{name}: workflow_dispatch jobs must guard on actor and ref"
+            )
+            continue
+        if not _has_actor_guard(cond):
+            errors.append(
+                f"{path}:{name}: workflow_dispatch jobs must guard on actor"
+            )
+        if not _has_ref_guard(cond):
+            errors.append(
+                f"{path}:{name}: workflow_dispatch jobs must guard on ref"
+            )
+
+
 def _check_permissions(
     doc,
     path,
@@ -142,6 +311,8 @@ def _check_permissions(
     allow_pr_write=False,
     allow_id_token=False,
     allow_contents_write=False,
+    require_id_token=False,
+    require_actions_read=False,
 ):
     # dataflow-bundle: doc, errors
     permissions = doc.get("permissions")
@@ -157,7 +328,12 @@ def _check_permissions(
             errors.append(f"{path}: permissions.contents must be 'write'")
     elif contents != "read":
         errors.append(f"{path}: permissions.contents must be 'read'")
+    if require_id_token and permissions.get("id-token") != "write":
+        errors.append(f"{path}: permissions.id-token must be 'write'")
+    if require_actions_read and permissions.get("actions") != "read":
+        errors.append(f"{path}: permissions.actions must be 'read'")
     for key, value in permissions.items():
+        check_deadline()
         if key == "contents":
             continue
         if value in ("read", "none"):
@@ -179,6 +355,8 @@ def _check_job_permissions(
     allow_pr_write=False,
     allow_id_token=False,
     allow_contents_write=False,
+    require_id_token=False,
+    require_actions_read=False,
 ):
     # dataflow-bundle: errors, job, job_ctx
     permissions = job.get("permissions")
@@ -199,8 +377,17 @@ def _check_job_permissions(
         errors.append(
             f"{job_ctx.path}:{job_ctx.job_name}: permissions.contents must be 'read'"
         )
+    if require_id_token and permissions.get("id-token") != "write":
+        errors.append(
+            f"{job_ctx.path}:{job_ctx.job_name}: permissions.id-token must be 'write'"
+        )
+    if require_actions_read and permissions.get("actions") != "read":
+        errors.append(
+            f"{job_ctx.path}:{job_ctx.job_name}: permissions.actions must be 'read'"
+        )
     is_self_hosted = _is_self_hosted(job.get("runs-on"))
     for key, value in permissions.items():
+        check_deadline()
         if key == "contents":
             continue
         if value in ("read", "none"):
@@ -229,6 +416,7 @@ def _check_release_tag_workflow(doc, path, errors):
     if not isinstance(jobs, dict):
         return
     for name, job in jobs.items():
+        check_deadline()
         if _is_self_hosted(job.get("runs-on")):
             errors.append(f"{path}:{name}: release tag workflow must not use self-hosted")
         cond = _normalize_if(job.get("if"))
@@ -243,24 +431,45 @@ def _check_release_tag_workflow(doc, path, errors):
             errors.append(
                 f"{path}:{name}: release tag workflow must guard on repository owner"
             )
+        steps = job.get("steps", [])
+        if not _step_run_contains_any(steps, {"scripts/release_tag.py"}):
+            errors.append(
+                f"{path}:{name}: release tag workflow must use scripts/release_tag.py"
+            )
+    script_path = REPO_ROOT / "scripts" / "release_tag.py"
+    if script_path.exists():
+        script_text = script_path.read_text(encoding="utf-8")
+        required_tokens = [
+            "Next branch must mirror main",
+            "Release branch must mirror next",
+            "Tag already exists",
+            "Test tags must be created from next",
+            "Release tags must be created from release",
+            "tag_target",
+        ]
+        missing = [token for token in required_tokens if token not in script_text]
+        if missing:
+            errors.append(
+                f"{path}: release_tag.py missing required guard tokens: {missing}"
+            )
+    else:
+        errors.append(f"{path}: release_tag.py missing (required for release tagging)")
 
 
 def _check_auto_test_tag_workflow(doc, path, errors):
     events = _event_names(doc.get("on"))
     if events != {"workflow_run"}:
         errors.append(f"{path}: auto test tag workflow must use workflow_run only")
-    workflow_run = None
-    if isinstance(doc.get("on"), dict):
-        workflow_run = doc.get("on").get("workflow_run")
-    workflows = None
-    if isinstance(workflow_run, dict):
-        workflows = workflow_run.get("workflows")
+    workflows = _workflow_run_names(doc.get("on"))
     if not workflows:
         errors.append(f"{path}: auto test tag workflow must specify workflows")
+    elif "mirror-next" not in workflows:
+        errors.append(f"{path}: auto test tag workflow must target mirror-next")
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
     for name, job in jobs.items():
+        check_deadline()
         if _is_self_hosted(job.get("runs-on")):
             errors.append(f"{path}:{name}: auto test tag workflow must not use self-hosted")
         cond = _normalize_if(job.get("if"))
@@ -273,24 +482,44 @@ def _check_auto_test_tag_workflow(doc, path, errors):
             and "github.event.workflow_run.actor.login=='github-actions[bot]'" not in cond
         ):
             errors.append(f"{path}:{name}: auto test tag workflow must guard on actor")
+        steps = job.get("steps", [])
+        if not _step_run_contains_tokens(
+            steps, {"origin/main", "origin/next", "Next must mirror main"}
+        ):
+            errors.append(
+                f"{path}:{name}: auto test tag workflow must verify next mirrors main"
+            )
+        if not _step_run_contains_any(steps, {"scripts/release_read_project_version.py"}):
+            errors.append(
+                f"{path}:{name}: auto test tag workflow must derive tag from pyproject.toml"
+            )
+        if not _step_run_contains_any(steps, {"steps.verify.outputs.target_sha"}):
+            errors.append(
+                f"{path}:{name}: auto test tag workflow must tag verified target_sha"
+            )
+        if not _step_run_contains_tokens(steps, {"rev-parse", "-q", "--verify", "refs/tags"}):
+            errors.append(
+                f"{path}:{name}: auto test tag workflow must guard against existing tags"
+            )
+        if not _step_run_contains_any(steps, {"test-v"}):
+            errors.append(f"{path}:{name}: auto test tag workflow must create test-v tags")
 
 
 def _check_mirror_next_workflow(doc, path, errors):
     events = _event_names(doc.get("on"))
     if events != {"push"}:
         errors.append(f"{path}: mirror workflow must use push only")
-    push_block = None
-    if isinstance(doc.get("on"), dict):
-        push_block = doc.get("on").get("push")
-    branches = None
-    if isinstance(push_block, dict):
-        branches = push_block.get("branches")
-    if not branches or ("main" not in branches):
+    branches = _push_branches(doc.get("on"))
+    if branches != {"main"}:
         errors.append(f"{path}: mirror workflow must target main branch pushes")
+    tags = _push_tags(doc.get("on"))
+    if tags:
+        errors.append(f"{path}: mirror workflow must not trigger on tags")
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
     for name, job in jobs.items():
+        check_deadline()
         if _is_self_hosted(job.get("runs-on")):
             errors.append(f"{path}:{name}: mirror workflow must not use self-hosted")
         cond = _normalize_if(job.get("if"))
@@ -300,24 +529,39 @@ def _check_mirror_next_workflow(doc, path, errors):
             errors.append(
                 f"{path}:{name}: mirror workflow must guard on repository owner"
             )
+        steps = job.get("steps", [])
+        if not _step_run_contains_tokens(
+            steps, {"merge-base", "--is-ancestor", "origin/next", "origin/main"}
+        ):
+            errors.append(
+                f"{path}:{name}: mirror workflow must verify next is ancestor of main"
+            )
+        if not _step_run_contains_tokens(
+            steps, {"--force-with-lease=refs/heads/next:", "refs/heads/next"}
+        ):
+            errors.append(
+                f"{path}:{name}: mirror workflow must use --force-with-lease for branch update"
+            )
+        if not _step_run_contains_any(steps, {"HEAD_SHA\":refs/heads/next", "HEAD_SHA:refs/heads/next"}):
+            errors.append(
+                f"{path}:{name}: mirror workflow must push explicit HEAD_SHA to next"
+            )
 
 
 def _check_promote_release_workflow(doc, path, errors):
     events = _event_names(doc.get("on"))
     if events != {"workflow_run"}:
         errors.append(f"{path}: promote workflow must use workflow_run only")
-    workflow_run = None
-    if isinstance(doc.get("on"), dict):
-        workflow_run = doc.get("on").get("workflow_run")
-    workflows = None
-    if isinstance(workflow_run, dict):
-        workflows = workflow_run.get("workflows")
+    workflows = _workflow_run_names(doc.get("on"))
     if not workflows:
         errors.append(f"{path}: promote workflow must specify workflows")
+    elif "release-testpypi" not in workflows:
+        errors.append(f"{path}: promote workflow must target release-testpypi")
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
     for name, job in jobs.items():
+        check_deadline()
         if _is_self_hosted(job.get("runs-on")):
             errors.append(f"{path}:{name}: promote workflow must not use self-hosted")
         cond = _normalize_if(job.get("if"))
@@ -327,6 +571,7 @@ def _check_promote_release_workflow(doc, path, errors):
         has_tag_artifact = False
         if isinstance(steps, list):
             for step in steps:
+                check_deadline()
                 uses = step.get("uses", "")
                 if uses.startswith("actions/download-artifact@"):
                     with_block = step.get("with", {}) or {}
@@ -350,10 +595,34 @@ def _check_promote_release_workflow(doc, path, errors):
             errors.append(
                 f"{path}:{name}: promote workflow must guard on repository owner or github-actions[bot]"
             )
+        steps = job.get("steps", [])
+        if not _step_run_contains_tokens(
+            steps, {"merge-base", "--is-ancestor", "origin/main"}
+        ):
+            errors.append(
+                f"{path}:{name}: promote workflow must verify tested commit is ancestor of main"
+            )
+        if not _step_run_contains_tokens(
+            steps, {"NEXT_SHA", "HEAD_SHA", "Next must mirror tested commit"}
+        ):
+            errors.append(
+                f"{path}:{name}: promote workflow must verify tested commit matches next"
+            )
+        if not _step_run_contains_tokens(
+            steps, {"--force-with-lease=refs/heads/release:", "refs/heads/release"}
+        ):
+            errors.append(
+                f"{path}:{name}: promote workflow must use --force-with-lease for branch update"
+            )
+        if not _step_run_contains_any(steps, {"HEAD_SHA\":refs/heads/release", "HEAD_SHA:refs/heads/release"}):
+            errors.append(
+                f"{path}:{name}: promote workflow must push explicit HEAD_SHA to release"
+            )
 
 
 def _step_run_contains_tokens(steps, tokens: set[str]) -> bool:
     for step in steps:
+        check_deadline()
         if not isinstance(step, dict):
             continue
         run = step.get("run")
@@ -366,6 +635,7 @@ def _step_run_contains_tokens(steps, tokens: set[str]) -> bool:
 
 def _step_run_contains_any(steps, tokens: set[str]) -> bool:
     for step in steps:
+        check_deadline()
         if not isinstance(step, dict):
             continue
         run = step.get("run")
@@ -377,6 +647,15 @@ def _step_run_contains_any(steps, tokens: set[str]) -> bool:
 
 
 def _check_release_testpypi_workflow(doc, path, errors):
+    on_block = doc.get("on")
+    workflows = _workflow_run_names(on_block)
+    if workflows and "auto-test-tag" not in workflows:
+        errors.append(f"{path}: release-testpypi workflow_run must target auto-test-tag")
+    tags = _push_tags(on_block)
+    if "push" in _event_names(on_block) and not tags:
+        errors.append(f"{path}: release-testpypi push trigger must include tag patterns")
+    if tags and not any("test-v" in tag for tag in tags):
+        errors.append(f"{path}: release-testpypi push tags must include test-v*")
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
@@ -390,6 +669,19 @@ def _check_release_testpypi_workflow(doc, path, errors):
         "scripts/release_verify_test_tag.py",
     }
     for name, job in jobs.items():
+        check_deadline()
+        cond = _normalize_if(job.get("if"))
+        if "github.event.workflow_run.conclusion=='success'" not in cond:
+            errors.append(
+                f"{path}:{name}: release-testpypi workflow_run must guard on success"
+            )
+        if (
+            "github.event.workflow_run.actor.login==github.repository_owner" not in cond
+            and "github.event.workflow_run.actor.login=='github-actions[bot]'" not in cond
+        ):
+            errors.append(
+                f"{path}:{name}: release-testpypi workflow_run must guard on actor"
+            )
         steps = job.get("steps", [])
         if not (
             _step_run_contains_tokens(steps, required_tokens)
@@ -401,6 +693,17 @@ def _check_release_testpypi_workflow(doc, path, errors):
 
 
 def _check_release_pypi_workflow(doc, path, errors):
+    on_block = doc.get("on")
+    workflows = _workflow_run_names(on_block)
+    if workflows and "release-tag" not in workflows:
+        errors.append(f"{path}: release-pypi workflow_run must target release-tag")
+    tags = _push_tags(on_block)
+    if "push" in _event_names(on_block) and not tags:
+        errors.append(f"{path}: release-pypi push trigger must include tag patterns")
+    if tags and not any(tag == "v*" or tag.startswith("v") for tag in tags):
+        errors.append(f"{path}: release-pypi push tags must include v*")
+    if tags and not any("!test-v" in tag for tag in tags):
+        errors.append(f"{path}: release-pypi push tags must exclude test-v*")
     jobs = doc.get("jobs", {})
     if not isinstance(jobs, dict):
         return
@@ -414,6 +717,19 @@ def _check_release_pypi_workflow(doc, path, errors):
         "scripts/release_verify_pypi_tag.py",
     }
     for name, job in jobs.items():
+        check_deadline()
+        cond = _normalize_if(job.get("if"))
+        if "github.event.workflow_run.conclusion=='success'" not in cond:
+            errors.append(
+                f"{path}:{name}: release-pypi workflow_run must guard on success"
+            )
+        if (
+            "github.event.workflow_run.actor.login==github.repository_owner" not in cond
+            and "github.event.workflow_run.actor.login=='github-actions[bot]'" not in cond
+        ):
+            errors.append(
+                f"{path}:{name}: release-pypi workflow_run must guard on actor"
+            )
         steps = job.get("steps", [])
         if not (
             _step_run_contains_tokens(steps, required_tokens)
@@ -424,10 +740,84 @@ def _check_release_pypi_workflow(doc, path, errors):
             )
 
 
+def _job_uses_action(job, action_prefix: str) -> bool:
+    steps = job.get("steps", [])
+    for step in steps:
+        check_deadline()
+        if not isinstance(step, dict):
+            continue
+        uses = step.get("uses")
+        if isinstance(uses, str) and uses.startswith(action_prefix):
+            return True
+    return False
+
+
+def _job_has_same_repo_pr_guard(job) -> bool:
+    guard_tokens = {
+        "github.event.pull_request.head.repo.full_name==github.repository",
+        "github.event.pull_request.head.repo.fork==false",
+    }
+    cond = _normalize_if(job.get("if"))
+    if any(token in cond for token in guard_tokens):
+        return True
+    for step in job.get("steps", []):
+        check_deadline()
+        if not isinstance(step, dict):
+            continue
+        cond = _normalize_if(step.get("if"))
+        if any(token in cond for token in guard_tokens):
+            return True
+    return False
+
+
+def _check_pr_comment_guard(doc, path, errors):
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    for name, job in jobs.items():
+        check_deadline()
+        permissions = job.get("permissions")
+        if not isinstance(permissions, dict):
+            continue
+        if permissions.get("pull-requests") != "write":
+            continue
+        if not _job_has_same_repo_pr_guard(job):
+            errors.append(
+                f"{path}:{name}: pull-requests write requires same-repo PR guard"
+            )
+
+
+def _check_id_token_scoping(doc, path, errors):
+    jobs = doc.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return
+    if len(jobs) <= 1:
+        return
+    top_perms = doc.get("permissions")
+    if isinstance(top_perms, dict) and top_perms.get("id-token") == "write":
+        errors.append(
+            f"{path}: id-token write must be scoped to publishing jobs when multiple jobs are present"
+        )
+    for name, job in jobs.items():
+        check_deadline()
+        permissions = job.get("permissions")
+        has_id_token = isinstance(permissions, dict) and permissions.get("id-token") == "write"
+        uses_publish = _job_uses_action(job, "pypa/gh-action-pypi-publish@")
+        if uses_publish and not has_id_token:
+            errors.append(
+                f"{path}:{name}: publishing job must request id-token: write"
+            )
+        if has_id_token and not uses_publish:
+            errors.append(
+                f"{path}:{name}: only publishing jobs may request id-token: write"
+            )
+
+
 def _check_actions(job, job_ctx: JobContext, errors, allowed_actions: set[str]):
     # dataflow-bundle: errors, job, job_ctx
     steps = job.get("steps", [])
     for idx, step in enumerate(steps):
+        check_deadline()
         uses = step.get("uses")
         if not uses:
             continue
@@ -463,6 +853,7 @@ def _check_self_hosted_constraints(doc, path, errors):
         return
     self_hosted_jobs = []
     for name, job in jobs.items():
+        check_deadline()
         if _is_self_hosted(job.get("runs-on")):
             self_hosted_jobs.append((name, job))
 
@@ -479,23 +870,27 @@ def _check_self_hosted_constraints(doc, path, errors):
     branches = None
     if isinstance(push_block, dict):
         branches = push_block.get("branches")
+        tags = push_block.get("tags")
+        if tags:
+            errors.append(f"{path}: self-hosted workflow must not trigger on tags")
     if not branches:
         errors.append(f"{path}: push trigger must restrict branches")
     else:
         branch_set = {str(item) for item in branches}
         if not branch_set.issubset(TRUSTED_BRANCHES):
             errors.append(
-                f"{path}: push branches must be subset of {sorted(TRUSTED_BRANCHES)}"
+                f"{path}: push branches must be subset of {_sorted(TRUSTED_BRANCHES)}"
             )
 
     for name, job in self_hosted_jobs:
+        check_deadline()
         runs_on = job.get("runs-on")
         labels = set(_runs_on_labels(runs_on))
         if not labels:
             errors.append(f"{path}:{name}: runs-on must be explicit labels")
         if not REQUIRED_RUNNER_LABELS.issubset(labels):
             errors.append(
-                f"{path}:{name}: runs-on must include {sorted(REQUIRED_RUNNER_LABELS)}"
+                f"{path}:{name}: runs-on must include {_sorted(REQUIRED_RUNNER_LABELS)}"
             )
         cond = _normalize_if(job.get("if"))
         if "github.actor==github.repository_owner" not in cond:
@@ -509,20 +904,28 @@ def check_workflows():
     if not allowed_actions:
         _fail([f"allowed actions list is empty or missing: {ALLOWED_ACTIONS_FILE}"])
     errors = []
-    for path in sorted(WORKFLOW_DIR.glob("*.yml")):
+    for path in _sorted(WORKFLOW_DIR.glob("*.yml")):
+        check_deadline()
         doc = _load_yaml(path)
         jobs = doc.get("jobs", {})
         has_self_hosted = False
         if isinstance(jobs, dict):
             for name, job in jobs.items():
+                check_deadline()
                 if _is_self_hosted(job.get("runs-on")):
                     has_self_hosted = True
         events = _event_names(doc.get("on"))
-        allow_id_token = _has_tag_push(doc.get("on")) and (not has_self_hosted)
+        allow_id_token = _is_tag_only_push(doc.get("on")) and (not has_self_hosted)
         allow_pr_write = (("pull_request" in events) or ("pull_request_target" in events)) and (
             not has_self_hosted
         )
         allow_contents_write = path.name in CONTENT_WRITE_WORKFLOWS
+        require_id_token = False
+        require_actions_read = False
+        if path.name in {"release-testpypi.yml", "release-pypi.yml"} and not has_self_hosted:
+            allow_id_token = True
+            require_id_token = True
+            require_actions_read = True
         if allow_contents_write:
             if path.name == "release-tag.yml":
                 _check_release_tag_workflow(doc, path, errors)
@@ -534,8 +937,11 @@ def check_workflows():
                 _check_promote_release_workflow(doc, path, errors)
         if path.name == "release-testpypi.yml":
             _check_release_testpypi_workflow(doc, path, errors)
+            _check_id_token_scoping(doc, path, errors)
         if path.name == "release-pypi.yml":
             _check_release_pypi_workflow(doc, path, errors)
+            _check_id_token_scoping(doc, path, errors)
+        _check_workflow_dispatch_guards(doc, path, errors)
         _check_permissions(
             doc,
             path,
@@ -543,10 +949,15 @@ def check_workflows():
             allow_pr_write=allow_pr_write,
             allow_id_token=allow_id_token,
             allow_contents_write=allow_contents_write,
+            require_id_token=require_id_token,
+            require_actions_read=require_actions_read,
         )
         _check_self_hosted_constraints(doc, path, errors)
+        if allow_pr_write:
+            _check_pr_comment_guard(doc, path, errors)
         if isinstance(jobs, dict):
             for name, job in jobs.items():
+                check_deadline()
                 job_ctx = JobContext(job_name=str(name), path=path)
                 _check_job_permissions(
                     job,
@@ -555,6 +966,8 @@ def check_workflows():
                     allow_pr_write=allow_pr_write,
                     allow_id_token=allow_id_token,
                     allow_contents_write=allow_contents_write,
+                    require_id_token=require_id_token,
+                    require_actions_read=require_actions_read,
                 )
                 _check_actions(job, job_ctx, errors, allowed_actions)
     if errors:
@@ -572,13 +985,38 @@ def _api_json(url, token):
         return json.loads(response.read().decode("utf-8"))
 
 
+def _gh_auth_token() -> str | None:
+    try:
+        proc = subprocess.run(
+            ["gh", "auth", "token"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    token = proc.stdout.strip()
+    if not token:
+        return None
+    return token
+
+
 def check_posture():
     policy_token = os.environ.get("POLICY_GITHUB_TOKEN")
-    token = policy_token or os.environ.get("GITHUB_TOKEN")
+    env_token = os.environ.get("GITHUB_TOKEN")
+    gh_token = _gh_auth_token()
+    token = policy_token or env_token or gh_token
     using_policy_token = policy_token is not None
     repo = os.environ.get("GITHUB_REPOSITORY")
     if not token:
-        _fail(["missing GITHUB_TOKEN or POLICY_GITHUB_TOKEN for posture check"])
+        _fail(
+            [
+                "missing GITHUB_TOKEN or POLICY_GITHUB_TOKEN for posture check "
+                "(or ensure `gh auth token` is available)"
+            ]
+        )
     if policy_token is not None and len(policy_token) < 20:
         _fail(
             [
@@ -641,6 +1079,7 @@ def check_posture():
     normalized = []
     invalid_patterns = []
     for pattern in patterns:
+        check_deadline()
         if "@" in pattern:
             name, ref = pattern.split("@", 1)
             if ref != "*":
@@ -651,12 +1090,12 @@ def check_posture():
             normalized.append(pattern)
     if invalid_patterns:
         errors.append(
-            f"invalid action patterns (must end with @* or be bare): {sorted(invalid_patterns)}"
+            f"invalid action patterns (must end with @* or be bare): {_sorted(invalid_patterns)}"
         )
     allowed_actions = _load_allowed_actions(ALLOWED_ACTIONS_FILE)
     if set(normalized) != set(allowed_actions):
         errors.append(
-            f"allowed action patterns must match {sorted(allowed_actions)}"
+            f"allowed action patterns must match {_sorted(allowed_actions)}"
         )
 
     if errors:
@@ -672,10 +1111,11 @@ def main():
     if not args.workflows and not args.posture:
         args.workflows = True
 
-    if args.workflows:
-        check_workflows()
-    if args.posture:
-        check_posture()
+    with _policy_deadline_scope():
+        if args.workflows:
+            check_workflows()
+        if args.posture:
+            check_posture()
     return 0
 
 

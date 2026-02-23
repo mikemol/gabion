@@ -1,5 +1,5 @@
 ---
-doc_revision: 58
+doc_revision: 73
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: readme
 doc_role: readme
@@ -9,27 +9,58 @@ doc_scope:
   - tooling
 doc_authority: informative
 doc_requires:
-  - POLICY_SEED.md
-  - glossary.md
-  - AGENTS.md
-  - CONTRIBUTING.md
+  - POLICY_SEED.md#policy_seed
+  - glossary.md#contract
+  - AGENTS.md#agent_obligations
+  - CONTRIBUTING.md#contributing_contract
 doc_reviewed_as_of:
-  POLICY_SEED.md: 29
-  glossary.md: 22
-  AGENTS.md: 13
-  CONTRIBUTING.md: 72
+  POLICY_SEED.md#policy_seed: 1
+  glossary.md#contract: 1
+  AGENTS.md#agent_obligations: 1
+  CONTRIBUTING.md#contributing_contract: 1
 doc_review_notes:
-  POLICY_SEED.md: "Reviewed for review-discipline invariant; aligns with README scope."
-  glossary.md: "Higher-order bundle definition adds consolidation semantics; README claims unchanged."
-  AGENTS.md: "Agent obligations updated; README references remain valid."
-  CONTRIBUTING.md: "Contributor workflow updates reflected; no README changes needed."
-doc_change_protocol: "POLICY_SEED.md §6"
+  POLICY_SEED.md#policy_seed: "Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope."
+  glossary.md#contract: "Reviewed glossary.md#contract rev1 (glossary contract + semantic typing discipline)."
+  AGENTS.md#agent_obligations: "Agent obligations updated; README references remain valid."
+  CONTRIBUTING.md#contributing_contract: "Reviewed CONTRIBUTING.md rev1 (docflow now fails on missing GH references for SPPF-relevant changes); no conflicts with this document's scope."
+doc_sections:
+  repo_contract: 1
+doc_section_requires:
+  repo_contract:
+    - POLICY_SEED.md#policy_seed
+    - glossary.md#contract
+    - AGENTS.md#agent_obligations
+    - CONTRIBUTING.md#contributing_contract
+doc_section_reviews:
+  repo_contract:
+    POLICY_SEED.md#policy_seed:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Policy seed reviewed; repo contract unchanged."
+    glossary.md#contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Glossary contract reviewed; repo contract semantics unchanged."
+    AGENTS.md#agent_obligations:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Agent obligations aligned with repo contract."
+    CONTRIBUTING.md#contributing_contract:
+      dep_version: 1
+      self_version_at_review: 1
+      outcome: no_change
+      note: "Contributor contract reviewed; repo contract unchanged."
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_erasure:
   - formatting
   - typos
 doc_owner: maintainer
 ---
 
+<a id="repo_contract"></a>
 # Gabion
 
 [![CI](https://github.com/mikemol/gabion/actions/workflows/ci.yml/badge.svg)](https://github.com/mikemol/gabion/actions/workflows/ci.yml)
@@ -77,12 +108,22 @@ Bottom-up convergence targets live in `docs/sppf_checklist.md`.
 ## Governance addenda (optional)
 See `docs/doer_judge_witness.md` for optional role framing.
 
+## Agent Control Surface
+The canonical agent instruction graph is emitted by docflow at:
+- `artifacts/out/agent_instruction_drift.json` (machine-readable)
+- `artifacts/audit_reports/agent_instruction_drift.md` (human-readable)
+
+Use this graph as the single source of truth for mandatory directive deduping,
+scoped-delta validation, and precedence/conflict checks.
+
 ## Non-goals (for now)
 - Docflow is a repo-local convenience feature, not a Gabion product feature.
 - Public-API compatibility shims for refactors are not yet implemented.
 - Multi-language support is out of scope (Python-first).
 
 ## Quick start
+Need practical remediation loops? See `docs/user_workflows.md#user_workflows`.
+
 Install toolchain with `mise` (once):
 ```
 mise install
@@ -106,13 +147,92 @@ Run the dataflow grammar audit (strict defaults):
 ```
 mise exec -- python -m gabion check
 ```
-`gabion check` enforces violations even without `--report` output.
+`gabion check` writes a Markdown report to
+`artifacts/audit_reports/dataflow_report.md` by default.
+Violation enforcement remains independent of report generation.
 Use `--baseline path/to/baseline.txt` to ratchet existing violations and
 `--baseline-write` to generate/update the baseline file.
 
-Run the dataflow grammar audit (prototype):
+For iterative local cleanup, keep a warm resume checkpoint between runs:
 ```
-mise exec -- python -m gabion dataflow-audit path/to/project
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 1
+```
+Recommended iterative loop (especially on larger repos):
+```
+mise exec -- python -m gabion check \
+  --resume-checkpoint artifacts/audit_reports/dataflow_resume_checkpoint_local.json \
+  --resume-on-timeout 2 \
+  --emit-timeout-progress-report
+```
+This keeps retry behavior local to one command invocation while preserving a
+single checkpoint file for cache hydration.
+
+### Timeout/resume quick guide (`gabion check`)
+
+When a run times out, read `analysis_state` and timeout `classification`
+together:
+
+- `timed_out_progress_resume`: Gabion observed resumable progress and the
+  checkpoint can continue useful work; retries are usually worthwhile.
+- `timed_out_no_progress`: timeout happened without useful resumable progress;
+  repeating the exact same attempt is unlikely to help.
+
+Timeout artifacts and their purposes:
+
+- `artifacts/audit_reports/timeout_progress.json` (written when
+  `--emit-timeout-progress-report` is set): machine-readable timeout payload
+  (`analysis_state` + `progress`) for automation and scripts.
+- `artifacts/audit_reports/timeout_progress.md` (written when
+  `--emit-timeout-progress-report` is set): human-readable timeout summary,
+  including retry hints and resume token details.
+- `artifacts/out/deadline_profile.json` (written on timeout): raw deadline
+  telemetry/profile data.
+- `artifacts/out/deadline_profile.md` (written on timeout): markdown rendering
+  of the deadline profile for quick diagnosis.
+
+Concise retry decision tree:
+
+1. Start by keeping the same `--resume-checkpoint` and the same identity knobs
+   (`--strictness`, `--allow-external`/external-filter mode,
+   `--ignore-params`, `--transparent-decorators`, and any fingerprint/forest
+   config inputs) to maximize warm-cache reuse.
+2. Only relax or tighten knobs when timeout artifacts indicate why:
+   - tighten (`--strictness high`, stricter filtering) for final verification;
+   - relax (`--strictness low`, broader excludes/filtering) when you need faster
+     incremental progress before tightening again.
+3. Intentionally rotate `--resume-checkpoint` to a new path when switching to a
+   materially different audit mode (large semantic/config changes) so each loop
+   keeps a coherent hot cache.
+
+Use the same checkpoint path across runs while tuning issues.
+Cache reuse is strongest when audit identity inputs stay stable (for example:
+strictness, external-filter mode, fingerprint seed revision, and forest spec).
+Change those knobs only when needed; otherwise you can invalidate hydration
+reuse and force larger reparse/index work.
+
+Gabion's resume loader checks both `index_cache_identity` and
+`projection_cache_identity` before accepting hydrated data from a checkpoint.
+This means incompatible settings are rejected safely by default: if identity
+inputs differ, the run falls back to a cold parse/index instead of reusing
+possibly-invalid cached state.
+
+Compatibility-first guidance (to maximize warm-cache reuse):
+- Reuse the same `--resume-checkpoint` path.
+- Keep `external_filter` and `decision_require_tiers` stable while iterating.
+- Keep `ignore_params` / `decision_ignore_params` / `transparent_decorators`
+  stable while iterating.
+- `strictness` can now alternate safely on the same checkpoint: Gabion keeps a
+  bounded set of recent analysis-index resume variants keyed by cache identity,
+  so switching back to a prior strictness level can reuse previously hydrated
+  index data instead of forcing a cold reparse.
+- If you intentionally change many semantics at once, consider separate
+  checkpoint files to keep each loop's cache hot.
+
+Run the dataflow grammar audit in raw profile mode (prototype):
+```
+mise exec -- python -m gabion check --profile raw path/to/project
 ```
 Repo defaults are driven by `gabion.toml` (see `[dataflow]`).
 By default, `in/` (inspiration) is excluded from enforcement there.
@@ -137,9 +257,14 @@ Run audit + synthesis in one step (timestamped output under `artifacts/synthesis
 mise exec -- python -m gabion synth path/to/project
 ```
 
-Run the docflow audit (governance docs only):
+Run the docflow audit (governance docs; `in/` is included for dependency resolution):
 ```
-mise exec -- python -m gabion docflow-audit
+mise exec -- python -m gabion docflow
+```
+Run governance graph/status checks through the same CLI entrypoint:
+```
+mise exec -- python -m gabion sppf-graph
+mise exec -- python -m gabion status-consistency --fail-on-violations
 ```
 
 Note: docflow is a repo-local convenience feature. It is not a core Gabion
@@ -176,6 +301,8 @@ scripts/latest_snapshot.sh
 ## Editor integration
 The VS Code extension stub lives in `extensions/vscode` and launches the
 Gabion LSP server over stdio. It is a thin wrapper only.
+For end-to-end editor + CLI iteration guidance, see
+`docs/user_workflows.md#user_workflows`.
 
 ## Quick commands (make)
 ```
@@ -197,6 +324,24 @@ GitHub-hosted CI runs `gabion check`, docflow audit, and pytest using `mise`
 as defined in `.github/workflows/ci.yml`.
 If `POLICY_GITHUB_TOKEN` is set, the posture check also runs on pushes.
 
+The `dataflow-grammar` job now performs a best-effort warm-cache restore of
+`dataflow_resume_checkpoint_ci.json` from a prior same-branch push artifact
+before running a single `gabion run-dataflow-stage` invocation (`run=high`
+strictness profile). When available, this primes Gabion's resume mechanism and
+reduces repeated parsing/indexing of unchanged paths.
+
+Cache effectiveness can be audited in CI logs and step summaries via
+`completed_paths`, `hydrated_paths`, and `paths_parsed_after_resume` emitted by
+`gabion run-dataflow-stage`. Unified all-phase progress telemetry is also
+persisted to:
+- `artifacts/audit_reports/dataflow_phase_timeline.md`
+- `artifacts/audit_reports/dataflow_phase_timeline.jsonl`
+
+Because restore is constrained to a same-branch prior push artifact, teams can
+reuse one default checkpoint artifact safely even when each run touches a
+different chunk of the repository. The loader only hydrates paths present in
+the current run's file set *and* only when cache identities match.
+
 Allow-listed actions are defined in `docs/allowed_actions.txt`.
 
 Pull requests also get a dataflow-grammar report artifact (and a comment on
@@ -205,7 +350,7 @@ same-repo PRs) via `.github/workflows/pr-dataflow-grammar.yml`.
 ## GitHub Action (redistributable)
 A composite action wrapper lives at `.github/actions/gabion`.
 It installs Gabion via pip and runs `gabion check` (or another subcommand).
-See `.github/actions/gabion/README.md` for usage and pinning guidance.
+See `.github/actions/gabion/README.md#repo_contract` for usage and pinning guidance.
 Example workflow (with pinned SHA placeholders):
 `docs/workflows/gabion_action_example.yml`.
 Pinning guide: `docs/pinning_actions.md`.
@@ -225,16 +370,17 @@ See `in/` for design notes and the prototype audit script.
 
 ## Governance
 This repository is governed by two co-equal contracts:
-- `POLICY_SEED.md` (execution and CI safety)
-- `glossary.md` (semantic meanings and commutation obligations)
+- `POLICY_SEED.md#policy_seed` (execution and CI safety)
+- `[glossary.md#contract](glossary.md#contract)` (semantic meanings and commutation obligations)
 
-LLM/agent behavior is governed by `AGENTS.md`.
+LLM/agent behavior is governed by `AGENTS.md#agent_obligations`.
 
 ## Cross-references
-- `CONTRIBUTING.md` defines workflow guardrails and dataflow grammar rules.
-- `AGENTS.md` defines LLM/agent obligations.
-- `POLICY_SEED.md` defines execution and CI safety constraints.
-- `glossary.md` defines semantic meanings, axes, and commutation obligations.
+- `CONTRIBUTING.md#contributing_contract` defines workflow guardrails and dataflow grammar rules.
+- `AGENTS.md#agent_obligations` defines LLM/agent obligations.
+- `POLICY_SEED.md#policy_seed` defines execution and CI safety constraints.
+- `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
+- `docs/enforceable_rules_cheat_sheet.md#enforceable_rules_cheat_sheet` provides an authoritative-by-proxy operator reference with clause-level source links.
 
 ## License
 Apache-2.0. See `LICENSE`.

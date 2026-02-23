@@ -1,9 +1,12 @@
+# gabion:boundary_normalization_module
+# gabion:decision_protocol_module
 from __future__ import annotations
 
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import TypeAlias
 import tomllib
+from gabion.analysis.timeout_context import check_deadline
 
 DEFAULT_CONFIG_NAME = "gabion.toml"
 
@@ -74,6 +77,7 @@ def fingerprint_defaults(
 
 
 def _normalize_name_list(value: TomlValue) -> list[str]:
+    check_deadline()
     items: list[str] = []
     if value is None:
         return items
@@ -81,6 +85,7 @@ def _normalize_name_list(value: TomlValue) -> list[str]:
         items = [part.strip() for part in value.split(",") if part.strip()]
     elif isinstance(value, (list, tuple, set)):
         for item in value:
+            check_deadline()
             if isinstance(item, str):
                 items.extend([part.strip() for part in item.split(",") if part.strip()])
     return [item for item in items if item]
@@ -97,13 +102,16 @@ def _as_bool(value: TomlValue) -> bool:
 
 
 def decision_tier_map(section: TomlTable | None) -> dict[str, int]:
+    check_deadline()
     if section is None:
         return {}
     if not isinstance(section, dict):
         return {}
     tiers: dict[str, int] = {}
     for tier, key in ((1, "tier1"), (2, "tier2"), (3, "tier3")):
+        check_deadline()
         for name in _normalize_name_list(section.get(key)):
+            check_deadline()
             tiers[name] = tier
     return tiers
 
@@ -132,9 +140,19 @@ def exception_never_list(section: TomlTable | None) -> list[str]:
     return _normalize_name_list(section.get("never"))
 
 
+def dataflow_deadline_roots(section: TomlTable | None) -> list[str]:
+    if section is None:
+        return []
+    if not isinstance(section, dict):
+        return []
+    return _normalize_name_list(section.get("deadline_roots"))
+
+
 def merge_payload(payload: TomlTable, defaults: TomlTable) -> TomlTable:
+    check_deadline()
     merged = dict(defaults)
     for key, value in payload.items():
+        check_deadline()
         if value is None:
             continue
         merged[key] = value

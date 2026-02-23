@@ -1,6 +1,33 @@
+---
+doc_revision: 1
+reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
+doc_id: in_3
+doc_role: inbox
+doc_scope:
+  - repo
+  - inbox
+doc_authority: informative
+doc_owner: maintainer
+doc_requires: []
+doc_reviewed_as_of: {}
+doc_review_notes: {}
+doc_change_protocol: POLICY_SEED.md#change_protocol
+doc_erasure:
+  - formatting
+  - typos
+doc_sections:
+  in_in_3: 1
+doc_section_requires:
+  in_in_3: []
+doc_section_reviews:
+  in_in_3: {}
+---
+
 This analysis from the previous session aligns well with the "Judge" role in your required triad (`Doer`, `Judge`, `Witness`). It correctly identifies that the script is an attempt to cool the "heat" of loose parameters into the "crystal" of formal structure.
 
 Here is the concurrent consideration of that analysis against your specific constraints and the script's reality.
+
+<a id="in_in_3"></a>
 
 ### 1. Novelty (The "New Notion")
 

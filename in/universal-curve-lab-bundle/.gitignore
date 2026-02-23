@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+*.agdai
+.MAlonzo/
+dist/
+
+artifacts/out/
+artifacts/tmp/
+
+.DS_Store
+.idea/
+.vscode/

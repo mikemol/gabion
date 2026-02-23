@@ -1,0 +1,113 @@
+version: 1
+override_token_env: GABION_POLICY_OVERRIDE_TOKEN
+gates:
+  obsolescence_opaque:
+    env_flag: GABION_GATE_OPAQUE_DELTA
+    enabled_mode: default_true
+    delta_keys: [summary, opaque_evidence, delta]
+    before_keys: [summary, opaque_evidence, baseline]
+    after_keys: [summary, opaque_evidence, current]
+    severity:
+      warning_threshold: 0
+      blocking_threshold: 1
+    correction:
+      mode: hard-fail
+      transitions: [advisory->ratchet, ratchet->hard-fail]
+      bounded_steps:
+        - baseline_write_requires_explicit_flag
+        - strictness_reduction_requires_override_token_and_rationale
+    disabled_message: Opaque obsolescence gate disabled by override; set GABION_GATE_OPAQUE_DELTA=1 to enforce.
+    missing_message: Test obsolescence delta missing; gate failed.
+    unreadable_message: Test obsolescence delta unreadable; gate failed.
+    warning_prefix: Opaque evidence delta warning
+    blocking_prefix: Opaque evidence delta increased
+    ok_prefix: Opaque evidence delta OK
+
+  obsolescence_unmapped:
+    env_flag: GABION_GATE_UNMAPPED_DELTA
+    enabled_mode: default_true
+    delta_keys: [summary, counts, delta, unmapped]
+    before_keys: [summary, counts, baseline, unmapped]
+    after_keys: [summary, counts, current, unmapped]
+    severity:
+      warning_threshold: 0
+      blocking_threshold: 1
+    correction:
+      mode: ratchet
+      transitions: [advisory->ratchet, ratchet->hard-fail]
+      bounded_steps:
+        - baseline_write_requires_explicit_flag
+        - strictness_reduction_requires_override_token_and_rationale
+    disabled_message: Unmapped delta gate disabled by override; set GABION_GATE_UNMAPPED_DELTA=1 to enforce.
+    missing_message: Test obsolescence delta missing; gate failed.
+    unreadable_message: Test obsolescence delta unreadable; gate failed.
+    warning_prefix: Unmapped evidence delta warning
+    blocking_prefix: Unmapped evidence delta increased
+    ok_prefix: Unmapped evidence delta OK
+
+  annotation_orphaned:
+    env_flag: GABION_GATE_ORPHANED_DELTA
+    enabled_mode: default_true
+    delta_keys: [summary, delta, orphaned]
+    before_keys: [summary, baseline, orphaned]
+    after_keys: [summary, current, orphaned]
+    severity:
+      warning_threshold: 0
+      blocking_threshold: 1
+    correction:
+      mode: ratchet
+      transitions: [advisory->ratchet, ratchet->hard-fail]
+      bounded_steps:
+        - baseline_write_requires_explicit_flag
+        - strictness_reduction_requires_override_token_and_rationale
+    disabled_message: Annotation drift gate disabled by override; set GABION_GATE_ORPHANED_DELTA=1 to enforce.
+    missing_message: Annotation drift delta missing; gate failed.
+    unreadable_message: Annotation drift delta unreadable; gate failed.
+    warning_prefix: Orphaned annotation delta warning
+    blocking_prefix: Orphaned annotation delta increased
+    ok_prefix: Orphaned annotation delta OK
+
+  ambiguity:
+    env_flag: GABION_GATE_AMBIGUITY_DELTA
+    enabled_mode: default_true
+    delta_keys: [summary, total, delta]
+    before_keys: [summary, total, baseline]
+    after_keys: [summary, total, current]
+    severity:
+      warning_threshold: 0
+      blocking_threshold: 1
+    correction:
+      mode: hard-fail
+      transitions: [advisory->ratchet, ratchet->hard-fail]
+      bounded_steps:
+        - baseline_write_requires_explicit_flag
+        - strictness_reduction_requires_override_token_and_rationale
+    disabled_message: Ambiguity delta gate disabled by override; set GABION_GATE_AMBIGUITY_DELTA=1 to enforce.
+    missing_message: Ambiguity delta missing; gate failed.
+    unreadable_message: Ambiguity delta unreadable; gate failed.
+    warning_prefix: Ambiguity delta warning
+    blocking_prefix: Ambiguity delta increased
+    ok_prefix: Ambiguity delta OK
+
+  docflow:
+    env_flag: GABION_GATE_DOCFLOW_DELTA
+    enabled_mode: truthy_only
+    delta_keys: [summary, delta, contradicts]
+    before_keys: [summary, baseline, contradicts]
+    after_keys: [summary, current, contradicts]
+    baseline_missing_key: [baseline_missing]
+    severity:
+      warning_threshold: 0
+      blocking_threshold: 1
+    correction:
+      mode: advisory
+      transitions: [advisory->ratchet]
+      bounded_steps:
+        - baseline_write_requires_explicit_flag
+        - strictness_reduction_requires_override_token_and_rationale
+    disabled_message: Docflow delta gate disabled; set GABION_GATE_DOCFLOW_DELTA=1 to enable.
+    missing_message: Docflow delta missing; gate skipped.
+    unreadable_message: Docflow delta unreadable; gate skipped.
+    warning_prefix: Docflow contradictions warning
+    blocking_prefix: Docflow contradictions increased
+    ok_prefix: Docflow delta OK

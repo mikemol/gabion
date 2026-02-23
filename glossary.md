@@ -1,5 +1,5 @@
 ---
-doc_revision: 22
+doc_revision: 43
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: glossary
 doc_role: glossary
@@ -8,24 +8,49 @@ doc_scope:
   - semantics
   - tooling
 doc_authority: normative
-doc_requires:
-  - README.md
-  - CONTRIBUTING.md
-  - AGENTS.md
-  - POLICY_SEED.md
+doc_dependency_projection: glossary_root
+doc_requires: []
 doc_reviewed_as_of:
-  README.md: 58
-  CONTRIBUTING.md: 72
-  AGENTS.md: 13
-  POLICY_SEED.md: 29
 doc_review_notes:
-  README.md: "Reviewed for subsystem-interface terminology; no conflicts."
-  CONTRIBUTING.md: "No workflow conflicts with subsystem-interface definition."
-  AGENTS.md: "Agent obligations unchanged; subsystem-interface is semantic only."
-  POLICY_SEED.md: "No policy conflicts with subsystem-interface definition."
+doc_sections:
+  contract: 1
+  rule_of_polysemy: 1
+  bundle: 1
+  tier: 1
+  decision_table: 1
+  decision_bundle: 1
+  decision_protocol: 1
+  decision_surface: 1
+  value_encoded_decision: 1
+  aspf: 1
+  forest: 1
+  suite_site: 1
+  hash_consing: 1
+  never_throw_exception_protocol: 1
+  deadness_witness: 1
+  coherence_witness: 1
+  rewrite_plan: 1
+  exception_path: 1
+  handledness_witness: 1
+  exception_obligation: 1
+  attribute_carrier: 1
+  attribute_transport: 1
+  evidence_id: 1
+  witness: 1
+  evidence_surface: 1
+  evidence_dominance: 1
+  equivalent_witness: 1
+  test_obsolescence_projection: 1
+  test_evidence_suggestions_projection: 1
+  evidence_key: 1
+  ambiguity_set: 2
+  partition_witness: 2
+  annotation_drift: 1
+  grothendieck_analysis: 1
+  self_review: 1
 doc_commutes_with:
-  - POLICY_SEED.md
-doc_change_protocol: "POLICY_SEED.md §6"
+  - POLICY_SEED.md#policy_seed
+doc_change_protocol: "POLICY_SEED.md#change_protocol"
 doc_invariants:
   - rule_of_polysemy
   - tier2_reification
@@ -36,6 +61,7 @@ doc_erasure:
 doc_owner: maintainer
 ---
 
+<a id="contract"></a>
 # Glossary (Normative)
 
 > **Glossary Contract (Normative):**
@@ -45,21 +71,21 @@ doc_owner: maintainer
 > what is erased by aliasing or projection.
 >
 > **Security Contract (Normative Pointer):**
-> Execution and CI safety are governed by `POLICY_SEED.md`.
+> Execution and CI safety are governed by `POLICY_SEED.md#policy_seed`.
 > The semantic obligations in this glossary are enforced only when execution
 > complies with that policy. Both contracts are required for validity.
 >
 > **Dataflow Grammar Invariant (Normative Pointer):**
-> The dataflow grammar audit in `POLICY_SEED.md` treats recurring parameter
+> The dataflow grammar audit in `POLICY_SEED.md#policy_seed` treats recurring parameter
 > bundles as type-level obligations. Any bundle that crosses function
 > boundaries must be promoted to a Protocol (dataclass config/local bundle)
 > or explicitly documented with a `# dataflow-bundle:` marker. Enforcement is
 > via `gabion check`.
 >
 > **Repository Cross-References (Normative Pointers):**
-> `README.md` defines project scope and status.
-> `CONTRIBUTING.md` defines workflow guardrails and required checks.
-> `AGENTS.md` defines LLM/agent obligations and refusal rules.
+> `README.md#repo_contract` defines project scope and status.
+> `CONTRIBUTING.md#contributing_contract` defines workflow guardrails and required checks.
+> `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
 >
 > **Reserved Notation (Normative):**
 > `alias(·)` denotes a bijective renaming of symbols within a signature scope.
@@ -68,6 +94,7 @@ doc_owner: maintainer
 > `tier(·, scope)` denotes the evidence-based classification of a bundle in a
 > declared observation scope.
 
+<a id="rule_of_polysemy"></a>
 ## 0. Rule of Polysemy
 
 Polysemy is permitted only when:
@@ -80,6 +107,7 @@ If any of (1-3) are absent, the reuse is invalid.
 
 Goal: engineer convergence, not avoid ambiguity.
 
+<a id="bundle"></a>
 ## 1. Bundle
 
 ### Meaning
@@ -129,6 +157,7 @@ Renaming variables erases the symbol but preserves the bundle identity.
 
 ---
 
+<a id="tier"></a>
 ## 2. Tier
 
 ### Meaning
@@ -303,7 +332,7 @@ set and declared scope counts remain.
   implemented as a dataclass (config/local bundle) or an explicit
   `# dataflow-bundle:` marker.
 - **Protocol (change):** an ordered, enforceable procedure for modifying
-  policy (e.g. the change protocol in `POLICY_SEED.md`).
+  policy (e.g. the change protocol in `POLICY_SEED.md#policy_seed`).
 
 ### Axes
 
@@ -323,7 +352,7 @@ Statements about Protocol (dataflow) must not imply anything about Protocol
 ### Normative Rule
 
 > Qualify the meaning of Protocol in every normative statement.
-> In `POLICY_SEED.md` §1.1, "Protocols" refers to Protocol (dataflow).
+> In `POLICY_SEED.md#policy_seed` §1.1, "Protocols" refers to Protocol (dataflow).
 
 ### Erasure
 
@@ -658,6 +687,7 @@ Layout choices, rendering engines, and styling are erased.
 
 ---
 
+<a id="decision_table"></a>
 ## 12. Decision Table (Control-Flow Documentation)
 
 ### Meaning
@@ -698,6 +728,7 @@ Row order, formatting, and whitespace are erased.
 
 ---
 
+<a id="decision_bundle"></a>
 ## 13. Decision Bundle (Control-Flow Structural)
 
 ### Meaning
@@ -740,6 +771,7 @@ Predicate names and order are erased if semantics are preserved.
 
 ---
 
+<a id="decision_protocol"></a>
 ## 14. Decision Protocol (Control-Flow Explicit)
 
 ### Meaning
@@ -782,6 +814,7 @@ equivalent.
 
 ---
 
+<a id="decision_surface"></a>
 ## 15. Decision Surface (Control-Flow Boundary)
 
 ### Meaning
@@ -820,6 +853,7 @@ Predicate naming and formatting are erased if semantics are preserved.
 
 ---
 
+<a id="value_encoded_decision"></a>
 ## 16. Value-Encoded Decision (Branchless Control)
 
 ### Meaning
@@ -1073,6 +1107,7 @@ Lemma naming and placement are erased if semantics are preserved.
 
 ---
 
+<a id="aspf"></a>
 ## 23. ASPF (Algebraic Structural Prime Fingerprint)
 
 ### Meaning
@@ -1258,6 +1293,7 @@ Syntactic formatting is erased; derivation identity is not.
 
 ---
 
+<a id="never_throw_exception_protocol"></a>
 ## 28. Never‑Throw Exception Protocol
 
 ### Meaning
@@ -1299,6 +1335,7 @@ identity and reachability obligation are not.
 
 ---
 
+<a id="deadness_witness"></a>
 ## 29. Deadness Witness
 
 ### Meaning
@@ -1336,6 +1373,7 @@ Formatting and ordering are erased; environment assumptions are **not**.
 
 ---
 
+<a id="coherence_witness"></a>
 ## 30. Coherence Witness
 
 ### Meaning
@@ -1373,6 +1411,7 @@ Ordering of alternatives is erased; boundary and fork identity are **not**.
 
 ---
 
+<a id="rewrite_plan"></a>
 ## 31. Rewrite Plan (Proof‑Carrying Refactor)
 
 ### Meaning
@@ -1410,6 +1449,7 @@ Formatting is erased; plan identity and evidence links are **not**.
 
 ---
 
+<a id="exception_path"></a>
 ## 32. Exception Path
 
 ### Meaning
@@ -1445,6 +1485,7 @@ Exception message text is erased; path identity is **not**.
 
 ---
 
+<a id="handledness_witness"></a>
 ## 33. Handledness Witness
 
 ### Meaning
@@ -1481,6 +1522,7 @@ Formatting is erased; handler boundary is **not**.
 
 ---
 
+<a id="exception_obligation"></a>
 ## 34. Exception Obligation
 
 ### Meaning
@@ -1516,6 +1558,7 @@ Ordering is erased; obligation identity is **not**.
 
 ---
 
+<a id="attribute_carrier"></a>
 ## 35. Attribute Carrier
 
 ### Meaning
@@ -1558,6 +1601,7 @@ Transport mechanism is erased; carrier shape and values are **not**.
 
 ---
 
+<a id="attribute_transport"></a>
 ## 36. Attribute Transport (ContextVar)
 
 ### Meaning
@@ -1596,3 +1640,675 @@ ContextVar identity is erased; carrier content is **not**.
 ### Test Obligations (to be mapped)
 
 - Access is centralized (single module); no direct reads/writes elsewhere.
+
+---
+
+<a id="evidence_id"></a>
+## 37. Evidence ID
+
+### Meaning
+
+**Definition:** A canonical identifier naming a specific obligation, invariant,
+or graph-anchored entity that a test discharges (e.g., `E:bundle/alias_invariance`).
+Evidence IDs have a structured **Evidence Key** as their canonical identity;
+string forms are renderings for humans.
+
+### Axis
+
+**Axis:** Semantic (evidence labeling).
+
+### Desired Commutation (Rename/Refactor Stability)
+
+Evidence IDs must commute with unrelated renames or file moves:
+
+```
+rename(test) ⟹ same Evidence ID
+```
+
+### Failure Modes
+
+- IDs are ad-hoc strings without stable structure.
+- Evidence IDs change when tests are renamed.
+- Multiple string forms refer to the same obligation.
+
+### Normative Rule
+
+> Evidence IDs must be stable, deterministic, and machine-readable. The
+> **Evidence Key** is canonical; string IDs are presentation only. Evidence
+> tags use the `# gabion:evidence ...` marker in tests.
+
+### Erasure
+
+Tag placement and formatting are erased; only the ID values persist.
+
+### Test Obligations (to be mapped)
+
+- Evidence extraction is deterministic and stable across re-runs.
+
+---
+
+<a id="witness"></a>
+## 38. Witness
+
+### Meaning
+
+**Definition:** A test instance that discharges one or more Evidence IDs.
+
+### Axis
+
+**Axis:** Evidence (test obligation).
+
+### Desired Commutation (Order Independence)
+
+Witness sets are invariant to test ordering.
+
+### Failure Modes
+
+- Tests execute without evidence linkage (silent witnesses).
+- Multiple tests collapse into a single witness due to ID collisions.
+
+### Normative Rule
+
+> Each test must be a witness to at least one Evidence ID or be explicitly
+> recorded as unmapped.
+
+### Erasure
+
+Test ordering is erased; witness identity is not.
+
+### Test Obligations (to be mapped)
+
+- Unmapped tests are explicitly surfaced in evidence artifacts.
+
+---
+
+<a id="evidence_surface"></a>
+## 39. Evidence Surface
+
+### Meaning
+
+**Definition:** The set of all Evidence IDs discharged by the test suite.
+
+### Axis
+
+**Axis:** Evidence (coverage surface).
+
+### Desired Commutation (Idempotence)
+
+Duplicate witnesses do not change the surface:
+
+```
+E ∪ E = E
+```
+
+### Failure Modes
+
+- Surface depends on duplicate counts rather than set membership.
+- Evidence surface is inferred from execution alone.
+
+### Normative Rule
+
+> The evidence surface is defined by explicit Evidence IDs, not coverage
+> percentages.
+
+### Erasure
+
+Multiplicity of witnesses is erased; set membership remains.
+
+### Test Obligations (to be mapped)
+
+- Evidence surface remains stable under deterministic re-extraction.
+
+---
+
+<a id="evidence_dominance"></a>
+## 40. Evidence Dominance (Strict)
+
+### Meaning
+
+**Definition:** A strict partial order over tests where `A` dominates `B` iff
+`E(B) ⊂ E(A)` (proper subset).
+
+### Axis
+
+**Axis:** Evidence (ordering).
+
+### Desired Commutation (Equivalence Preservation)
+
+If `E(A) = E(B)`, neither dominates the other.
+
+### Failure Modes
+
+- Treating equal evidence sets as redundant.
+- Allowing dominance to depend on non-evidence signals by default.
+
+### Normative Rule
+
+> Redundancy requires strict dominance. Equal evidence sets are classified as
+> equivalent witnesses, not redundant.
+
+### Erasure
+
+Ordering of Evidence IDs is erased; set inclusion is not.
+
+### Test Obligations (to be mapped)
+
+- Dominance results are stable under deterministic ordering.
+
+---
+
+<a id="equivalent_witness"></a>
+## 41. Equivalent Witness
+
+### Meaning
+
+**Definition:** A group of tests that share identical evidence sets.
+
+### Axis
+
+**Axis:** Evidence (equivalence class).
+
+### Desired Commutation (Permutation Invariance)
+
+Permutation of equivalent witnesses does not change classification.
+
+### Failure Modes
+
+- Equivalent witnesses are treated as redundant by default.
+- Equivalence classes are hidden or unstable.
+
+### Normative Rule
+
+> Equivalent witnesses are a distinct class and require secondary signals
+> before removal.
+
+### Erasure
+
+Within-class ordering is erased.
+
+### Test Obligations (to be mapped)
+
+- Equivalent witness classes are reported deterministically.
+
+---
+
+<a id="test_obsolescence_projection"></a>
+## 42. Test Obsolescence Projection
+
+### Meaning
+
+**Definition:** A deterministic projection that classifies tests using the
+evidence carrier and guardrails (e.g., `artifacts/out/test_obsolescence_report.json`,
+with Markdown projections under `out/test_obsolescence_report.md`).
+
+### Axis
+
+**Axis:** Evidence (projection).
+
+### Desired Commutation (Determinism)
+
+Projection output must be invariant to ordering and run time.
+
+### Failure Modes
+
+- Non-deterministic report ordering.
+- Obsolescence classification bypasses guardrails.
+
+### Normative Rule
+
+> Obsolescence is computed from the evidence carrier with strict dominance and
+> risk guardrails. The projection is advisory unless explicitly gated.
+
+### Erasure
+
+Formatting is erased; class assignments are not.
+
+### Test Obligations (to be mapped)
+
+- Obsolescence reports are stable across re-runs.
+
+---
+
+<a id="test_evidence_suggestions_projection"></a>
+## 43. Test Evidence Suggestions Projection
+
+### Meaning
+
+**Definition:** A deterministic projection that proposes evidence tags for
+tests based on graph resolution (with heuristic fallback as needed).
+
+### Axis
+
+**Axis:** Evidence (projection).
+
+### Desired Commutation (Resolution Stability)
+
+Graph-resolved suggestions must be stable under reordering and equivalent
+call-graph construction.
+
+### Failure Modes
+
+- Suggestions derived only from filename heuristics.
+- Heuristics override graph-resolved mappings.
+
+### Normative Rule
+
+> Suggestions must prefer graph-derived evidence and only fall back to
+> heuristics when graph resolution fails.
+
+### Erasure
+
+Suggestion ordering is erased; evidence IDs are not.
+
+### Test Obligations (to be mapped)
+
+- Suggestions include provenance (graph vs heuristic).
+
+---
+
+<a id="evidence_key"></a>
+## 44. Evidence Key
+
+### Meaning
+
+**Definition:** The canonical, structured identity for evidence items, derived
+from the graph carrier. Display strings are renderings of the key.
+Examples of key kinds include `paramset`, `decision_surface`, `never_sink`,
+`function_site`, `call_footprint`, and `call_cluster`.
+
+### Axis
+
+**Axis:** Evidence (identity).
+
+### Desired Commutation (Graph Derivation)
+
+Evidence keys must commute with presentation changes:
+
+```
+render(key) ⇒ key
+```
+
+### Failure Modes
+
+- Keys authored manually without graph derivation.
+- Display strings treated as canonical identity.
+
+### Normative Rule
+
+> Evidence keys are graph-derived and stable; display strings are presentation
+> only and must round-trip to the same key when possible.
+
+### Erasure
+
+Display formatting is erased; key identity is not.
+
+### Test Obligations (to be mapped)
+
+- Key rendering/parsing is deterministic and stable.
+
+---
+
+<a id="ambiguity_set"></a>
+## 45. Ambiguity Set
+
+### Meaning
+
+**Definition:** An emergent, order-independent set of candidate carriers when
+resolution is not unique. Ambiguity sets are **not** first-class nodes; they
+are derived from the graph carrier as the **set of CallCandidate alts** attached
+to a call SuiteSite.
+
+### Axis
+
+**Axis:** Resolution (ambiguity carrier).
+
+### Desired Commutation (Candidate Order)
+
+Let `A` be an ambiguity set with candidate list `C`.
+
+```
+permute(C) ⇒ same Ambiguity Set
+```
+
+### Failure Modes
+
+- Ambiguity erased or silently resolved without recording candidates.
+- Candidate ordering treated as identity.
+- Ambiguity reified as a node rather than a derived property of topology.
+
+### Normative Rule
+
+> Ambiguity Sets must be **derived** from CallCandidate alts on a call SuiteSite.
+> Candidate ordering is erased; resolution must not drop candidates unless the
+> corresponding CallCandidate alt is removed.
+
+### Erasure
+
+Candidate ordering is erased; candidate identity is not.
+
+### Test Obligations (to be mapped)
+
+- Ambiguity sets are deterministic and order-independent.
+
+---
+
+<a id="partition_witness"></a>
+## 46. Partition Witness
+
+### Meaning
+
+**Definition:** A structured certificate explaining why an ambiguity exists
+and what would collapse it, anchored to the call SuiteSite exhibiting the
+ambiguity.
+
+### Axis
+
+**Axis:** Resolution (witness).
+
+### Desired Commutation (Witness Stability)
+
+```
+permute(candidates) ⇒ same Partition Witness
+```
+
+### Failure Modes
+
+- Ambiguity recorded without a witness.
+- Witness depends on non-semantic presentation details.
+
+### Normative Rule
+
+> Each ambiguous call SuiteSite must have at least one Partition Witness that
+> records the resolution phase and a minimal collapse hint. The witness must
+> be stable under candidate-order permutation.
+
+### Erasure
+
+Formatting of witness details is erased; witness identity is not.
+
+### Test Obligations (to be mapped)
+
+- Witness emission is deterministic and stable.
+
+---
+
+<a id="annotation_drift"></a>
+## 47. Annotation Drift
+
+### Meaning
+
+**Definition:** Evidence tags that no longer resolve to the current evidence
+universe (or fail to parse), indicating stale or orphaned annotations.
+
+### Axis
+
+**Axis:** Evidence (hygiene).
+
+### Desired Commutation (Presentation)
+
+```
+render(key) changes ⇒ no drift
+```
+
+### Failure Modes
+
+- Orphaned tags remain undetected.
+- Drift is computed from display strings rather than keys.
+
+### Normative Rule
+
+> Annotation drift is defined by Evidence Key identity, not display. Orphaned
+> tags must be reported via an advisory projection before any ratchet.
+
+### Erasure
+
+Display formatting is erased; key identity is not.
+
+### Test Obligations (to be mapped)
+
+- Drift audit detects orphaned tags deterministically.
+
+---
+
+<a id="grothendieck_analysis"></a>
+## 48. Grothendieck Analysis (Doc Review Cofibration)
+
+### Meaning
+
+**Definition:** A structured self-audit that co‑fibrates a document against
+itself (normalize and align internal structure), deduplicates observations, and
+contrasts the result against the document’s semantics and completeness.
+
+### Axis
+
+**Axis:** Documentation (review discipline).
+
+### Desired Commutation (Idempotence)
+
+```
+analyze(doc) = analyze(normalize(doc))
+```
+
+### Failure Modes
+
+- Mechanical review stamps without structural alignment.
+- Deduplication removed without validating semantic completeness.
+
+### Normative Rule
+
+> Self‑review is valid only when a Grothendieck analysis is performed and the
+> result is recorded in `doc_review_notes`.
+
+### Erasure
+
+Formatting and ordering of notes are erased; semantic contrasts are not.
+
+### Test Obligations (to be mapped)
+
+- Docflow audit rejects self‑review entries without explicit analysis notes.
+
+---
+
+<a id="self_review"></a>
+## 49. Self‑Review (Docflow Exception)
+
+### Meaning
+
+**Definition:** A document review performed by the author of the document,
+permitted only with a Grothendieck analysis.
+
+### Axis
+
+**Axis:** Documentation (review discipline).
+
+### Desired Commutation (Reviewer Identity)
+
+Self‑review does not commute with normal review; it requires explicit evidence.
+
+### Failure Modes
+
+- Self‑review used to bypass review discipline.
+- `doc_reviewed_as_of` bumped without substantive notes.
+
+### Normative Rule
+
+> Self‑review must cite a Grothendieck analysis in `doc_review_notes`. Absent
+> that evidence, the review is invalid.
+
+### Erasure
+
+Formatting of notes is erased; evidence of analysis is not.
+
+### Test Obligations (to be mapped)
+
+- Self‑review without analysis evidence is rejected.
+
+---
+
+## 50. Mirror Branch (Fast‑Forward Equivalence)
+
+### Meaning
+
+**Definition:** Branch `A` mirrors branch `B` iff `A` has no unique commits
+relative to `B` (i.e., `A` is an ancestor of `B`), and mirror updates are
+fast‑forward only. After a mirror update, `A` and `B` are equal by commit SHA.
+
+### Axis
+
+**Axis:** Governance (branch integrity).
+
+### Desired Commutation (Fast‑Forward Stability)
+
+```
+mirror(A, B) and fast_forward(A ← B) ⇒ mirror(A, B)
+```
+
+### Failure Modes
+
+- Mirror branch diverges (unique commits).
+- Check‑before‑use race between verification and update.
+
+### Normative Rule
+
+> Mirror updates must verify ancestry, use explicit commit SHAs, and employ
+> compare‑and‑swap (`--force-with-lease`) to prevent TOCTOU races.
+
+### Erasure
+
+Remote alias names are erased; commit‑graph relations are not.
+
+### Test Obligations (to be mapped)
+
+- Policy checker enforces ancestor checks and explicit SHA updates.
+
+---
+
+<a id="forest"></a>
+## 50. Forest (Interned Carrier Graph)
+
+### Meaning
+
+**Definition:** The Forest is the materialized, interned carrier graph for ASPF.
+It stores nodes, alternatives, and metadata such that ASPF semantics are
+queryable and auditable. Forest does not add semantics; it **materializes**
+ASPF structure for ProjectionSpec and evidence emission.
+
+### Axis
+
+**Axis:** Structural (carrier graph / provenance materialization).
+
+### Desired Commutation (Internment ↔ Queryability)
+
+```
+intern(x) ⇒ node(x) with stable identity and queryable provenance
+```
+
+### Failure Modes
+
+- Forest treated as an ephemeral runtime cache (identity not preserved).
+- Forest nodes emitted without stable span/qual keys (non‑semantic edits break identity).
+- Facets attached to functions rather than SuiteSites (locality lost).
+
+### Normative Rule
+
+> Forest nodes are interned into ASPF and must preserve identity across
+> re‑audits. SuiteSites are Forest nodes; locality facets attach to SuiteSites.
+> Function‑level evidence is an aggregation over SuiteSites.
+
+### Erasure
+
+Ordering of node emission is erased; canonical keys are not.
+
+### Test Obligations (to be mapped)
+
+- Forest emission is deterministic across re‑audits.
+- Forest identity is stable under non‑semantic edits.
+
+---
+
+<a id="suite_site"></a>
+## 51. SuiteSite
+
+### Meaning
+
+**Definition:** A SuiteSite is the canonical locality carrier: a contiguous
+executable block (code suite) or logical suite (docflow / issue metadata) with
+stable identity keyed by `(domain, kind, path, qual, span)`.
+
+### Axis
+
+**Axis:** Structural (locality carrier / suite containment).
+
+### Desired Commutation (Projection Stability)
+
+Let `suite_id` be derived from the canonical key.
+
+```
+alias(suite_id) with identical key ⇒ projections invariant
+```
+
+### Failure Modes
+
+- Suite identity changes under non‑semantic edits (span instability).
+- Facets attach to function scope instead of the enclosing suite.
+- Mixed domains (`docflow` vs `github`) without explicit links.
+
+### Normative Rule
+
+> All locality‑bound facets attach to SuiteSite.
+> FunctionSite is a projection over contained SuiteSites.
+> Suite identity must remain stable under non‑semantic edits; spans and domain
+> are not erased. Docflow and GitHub suites follow `in/in-30.md`.
+
+### Erasure
+
+Suite alias names may be erased; canonical key fields are not.
+
+### Test Obligations (to be mapped)
+
+- Suite emission is deterministic across re‑audits.
+- Suite→function aggregation matches legacy function‑level reports.
+
+---
+
+<a id="hash_consing"></a>
+## 52. Hash‑Consing (Internment)
+
+### Meaning
+
+**Definition:** Internment is hash‑consing: `hash(x)` *is* normalization and
+returns the canonical normalized representative. Hashes are addresses of
+normalized forms only; raw objects are not separately addressable.
+
+### Axis
+
+**Axis:** Identity (canonicalization / ledger address).
+
+### Desired Commutation (Normalization ↔ Hash)
+
+```
+hash(normalize(x)) == normalize(hash(x))
+hash(hash(x)) == hash(x)
+```
+
+### Failure Modes
+
+- Hash used as a lossy digest (information loss).
+- Hash computed on raw/un‑normalized forms.
+- Multiple hashes for equivalent normalized structures.
+
+### Normative Rule
+
+> `hash()` must not lose information. It returns the normalized form and is
+> idempotent. Any intrinsic computation (e.g., β‑reduction or substitution)
+> must be defined as a normalization rule prior to internment.
+> Because internment is hash‑consing, β‑reduction is intrinsic and automatic
+> to internment whenever it is part of the normalization system.
+
+### Erasure
+
+Formatting differences are erased; semantic structure is not.
+
+### Test Obligations (to be mapped)
+
+- Hash idempotence and normalization commutation.

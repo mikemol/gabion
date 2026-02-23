@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-
 
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._union_groups::groups
 def test_group_by_signature_and_union_groups() -> None:
     da = _load()
     use_map = {
@@ -27,7 +24,7 @@ def test_group_by_signature_and_union_groups() -> None:
     assert any(group == {"a", "b", "c"} for group in merged)
     assert any(group == {"d"} for group in merged)
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::callee_groups,opaque_callees,strictness
 def test_propagate_groups_low_strictness_star() -> None:
     da = _load()
     call = da.CallArgs(
@@ -53,7 +50,7 @@ def test_propagate_groups_low_strictness_star() -> None:
     )
     assert any(group == {"x", "args"} for group in groups)
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._propagate_groups::callee_groups,opaque_callees,strictness
 def test_propagate_groups_skips_opaque() -> None:
     da = _load()
     call = da.CallArgs(
@@ -77,7 +74,7 @@ def test_propagate_groups_skips_opaque() -> None:
     )
     assert groups == []
 
-
+# gabion:evidence E:decision_surface/direct::dataflow_audit.py::gabion.analysis.dataflow_audit._analyze_file_internal::config,recursive
 def test_analyze_file_ambiguous_local_callee(tmp_path: Path) -> None:
     da = _load()
     code = (

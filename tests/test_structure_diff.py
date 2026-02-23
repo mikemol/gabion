@@ -2,23 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-import sys
 
 import pytest
 
-
 def _load():
     repo_root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(repo_root / "src"))
     from gabion.analysis import dataflow_audit as da
 
     return da
 
-
 def _write_snapshot(path: Path, snapshot: dict) -> None:
     path.write_text(json.dumps(snapshot))
 
-
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
 def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "bad.json"
@@ -26,7 +22,7 @@ def test_load_structure_snapshot_invalid_json(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         da.load_structure_snapshot(target)
 
-
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.load_structure_snapshot
 def test_load_structure_snapshot_non_object(tmp_path: Path) -> None:
     da = _load()
     target = tmp_path / "list.json"
@@ -34,7 +30,7 @@ def test_load_structure_snapshot_non_object(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         da.load_structure_snapshot(target)
 
-
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit._bundle_counts_from_snapshot
 def test_bundle_counts_skips_invalid_entries() -> None:
     da = _load()
     snapshot = {
@@ -54,7 +50,7 @@ def test_bundle_counts_skips_invalid_entries() -> None:
     counts = da._bundle_counts_from_snapshot(snapshot)
     assert counts == {("a", "b"): 1, ("c",): 1}
 
-
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshots
 def test_diff_structure_snapshots_counts_and_summary() -> None:
     da = _load()
     baseline = {
@@ -73,11 +69,15 @@ def test_diff_structure_snapshots_counts_and_summary() -> None:
         "baseline_total": 2,
         "current_total": 3,
     }
+    assert diff["baseline_forest_signature_partial"] is True
+    assert diff["baseline_forest_signature_basis"] == "missing"
+    assert diff["current_forest_signature_partial"] is True
+    assert diff["current_forest_signature_basis"] == "missing"
     assert diff["added"][0]["bundle"] == ["d"]
     assert diff["removed"][0]["bundle"] == ["c"]
     assert diff["changed"][0]["bundle"] == ["a", "b"]
 
-
+# gabion:evidence E:function_site::dataflow_audit.py::gabion.analysis.dataflow_audit.diff_structure_snapshot_files
 def test_diff_structure_snapshot_files(tmp_path: Path) -> None:
     da = _load()
     baseline = tmp_path / "baseline.json"
@@ -90,5 +90,7 @@ def test_diff_structure_snapshot_files(tmp_path: Path) -> None:
         current,
         {"root": "cur", "files": [{"functions": [{"bundles": [["x"], ["y"]]}]}]},
     )
-    diff = da.diff_structure_snapshot_files(baseline, current)
+    diff = da.diff_structure_snapshot_files(
+        da.StructureSnapshotDiffRequest(baseline_path=baseline, current_path=current)
+    )
     assert diff["summary"]["added"] == 1
