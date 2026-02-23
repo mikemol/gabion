@@ -250,6 +250,14 @@ resolve_gh_token() {
     printf '%s\n' "$GITHUB_TOKEN"
     return 0
   fi
+  if command -v gh >/dev/null 2>&1; then
+    local gh_token
+    gh_token="$(gh auth token 2>/dev/null || true)"
+    if [ -n "$gh_token" ]; then
+      printf '%s\n' "$gh_token"
+      return 0
+    fi
+  fi
   return 1
 }
 

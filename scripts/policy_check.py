@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -984,13 +985,38 @@ def _api_json(url, token):
         return json.loads(response.read().decode("utf-8"))
 
 
+def _gh_auth_token() -> str | None:
+    try:
+        proc = subprocess.run(
+            ["gh", "auth", "token"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    token = proc.stdout.strip()
+    if not token:
+        return None
+    return token
+
+
 def check_posture():
     policy_token = os.environ.get("POLICY_GITHUB_TOKEN")
-    token = policy_token or os.environ.get("GITHUB_TOKEN")
+    env_token = os.environ.get("GITHUB_TOKEN")
+    gh_token = _gh_auth_token()
+    token = policy_token or env_token or gh_token
     using_policy_token = policy_token is not None
     repo = os.environ.get("GITHUB_REPOSITORY")
     if not token:
-        _fail(["missing GITHUB_TOKEN or POLICY_GITHUB_TOKEN for posture check"])
+        _fail(
+            [
+                "missing GITHUB_TOKEN or POLICY_GITHUB_TOKEN for posture check "
+                "(or ensure `gh auth token` is available)"
+            ]
+        )
     if policy_token is not None and len(policy_token) < 20:
         _fail(
             [
