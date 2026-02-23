@@ -88,6 +88,9 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
     )
     assert "--no-fail-on-violations" in command
     assert "--no-fail-on-type-ambiguities" in command
+    assert "--emit-test-obsolescence-delta" in command
+    assert "--emit-test-annotation-drift-delta" in command
+    assert "--emit-ambiguity-delta" in command
     assert "--strictness" in command
     assert "low" in command
 
