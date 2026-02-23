@@ -163,6 +163,7 @@ jobs:
             artifacts/out/deadline_profile_ci_summary.md
 
   checks:
+    name: audit
     if: github.event_name != 'workflow_dispatch' || (github.ref == 'refs/heads/stage' && github.actor == github.repository_owner)
     runs-on: ubuntu-latest
     env:
