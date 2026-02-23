@@ -28,6 +28,7 @@ def cluster_identity_from_key(key: Mapping[str, object]) -> ClusterIdentity:
 
 
 def sorted_unique_strings(values: Iterable[object], *, source: str) -> tuple[str, ...]:
+    # dataflow-bundle: source, values
     check_deadline()
     return tuple(
         sort_once(

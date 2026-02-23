@@ -244,6 +244,7 @@ def _regression_messages(
     current: dict[str, object],
     baseline: dict[str, object],
 ) -> list[str]:
+    # dataflow-bundle: baseline, current
     messages: list[str] = []
 
     comparisons = (

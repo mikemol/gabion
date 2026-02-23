@@ -104,6 +104,7 @@ def _append_entry(
     started_at_utc: str,
     ended_at_utc: str,
 ) -> None:
+    # dataflow-bundle: ended_at_utc, exit_code, label, mode, started_at_utc
     runs = payload.get("runs")
     if not isinstance(runs, list):
         runs = []

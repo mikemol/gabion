@@ -252,6 +252,7 @@ def _violation_payload(
     next_line: str | None,
     cwd: Path,
 ) -> dict[str, Any]:
+    # dataflow-bundle: max_gap_seconds, measured_gap_seconds, wall_seconds
     return {
         "ts_utc": _now_utc(),
         "label": label,
