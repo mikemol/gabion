@@ -52,9 +52,10 @@ jobs:
           token = os.environ["GITHUB_TOKEN"]
           repo = os.environ["REPO"]
           sha = os.environ["SHA"]
-          # Stage CI can now run resumable dataflow retries (~30m budget), so
-          # wait longer before failing this gate.
-          deadline = time.time() + 45 * 60
+          # Stage CI can approach the workflow timeout budget under
+          # delta-triplets + resumable dataflow retries, so keep this gate
+          # comfortably above the observed ~45 minute path.
+          deadline = time.time() + 70 * 60
           url = (
               f"https://api.github.com/repos/{repo}/actions/workflows/ci.yml/runs"
               f"?branch=stage&per_page=50"

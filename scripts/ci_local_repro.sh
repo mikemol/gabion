@@ -25,7 +25,7 @@ Options:
   --pr-body-file PATH     Optional PR body file for governance template parity check.
   --verify-pr-stage-ci    Require successful stage ci.yml run for PR head SHA.
   --pr-stage-ci-timeout-minutes N
-                          Timeout in minutes for --verify-pr-stage-ci polling (default: 45).
+                          Timeout in minutes for --verify-pr-stage-ci polling (default: 70).
   --run-observability-guard
                           Enable ci_observability_guard wrappers (off by default for parity).
   --skip-step-timing      Disable step timing capture (off by default for parity).
@@ -45,7 +45,7 @@ pr_base_sha="${GABION_LOCAL_PR_BASE_SHA:-${GITHUB_BASE_SHA:-}}"
 pr_head_sha="${GABION_LOCAL_PR_HEAD_SHA:-${GITHUB_HEAD_SHA:-}}"
 pr_body_file="${GABION_LOCAL_PR_BODY_FILE:-}"
 pr_verify_stage_ci="${GABION_LOCAL_PR_VERIFY_STAGE_CI:-0}"
-pr_stage_ci_timeout_minutes="${GABION_LOCAL_PR_STAGE_CI_TIMEOUT_MINUTES:-45}"
+pr_stage_ci_timeout_minutes="${GABION_LOCAL_PR_STAGE_CI_TIMEOUT_MINUTES:-70}"
 step_timing_enabled="${GABION_CI_STEP_TIMING_CAPTURE:-0}"
 observability_enabled_flag="${GABION_OBSERVABILITY_GUARD:-0}"
 step_timing_artifact="${GABION_CI_STEP_TIMING_ARTIFACT:-artifacts/audit_reports/ci_step_timings.json}"
@@ -366,7 +366,7 @@ import urllib.request
 token = os.environ["GITHUB_TOKEN"]
 repo = os.environ["REPO"]
 sha = os.environ["SHA"]
-timeout_minutes = int(os.environ.get("TIMEOUT_MINUTES", "45"))
+timeout_minutes = int(os.environ.get("TIMEOUT_MINUTES", "70"))
 deadline = time.time() + timeout_minutes * 60
 url = (
     f"https://api.github.com/repos/{repo}/actions/workflows/ci.yml/runs"

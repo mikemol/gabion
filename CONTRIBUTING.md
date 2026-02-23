@@ -434,7 +434,7 @@ back to environment values or local branch ancestry.
 PR mode now also runs the governance template check and controller-drift audit.
 For stricter parity with `.github/workflows/pr-dataflow-grammar.yml`, use:
 ```
-scripts/ci_local_repro.sh --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 45
+scripts/ci_local_repro.sh --pr-dataflow-only --verify-pr-stage-ci --pr-stage-ci-timeout-minutes 70
 ```
 When governance/template checks need PR body context, provide one with:
 ```
