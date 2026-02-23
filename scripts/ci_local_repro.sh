@@ -16,7 +16,8 @@ Options:
   --extended-checks       Run additional local hardening checks not present in ci.yml
                           (order_lifetime_check, structural_hash_policy_check, complexity_audit).
   --skip-sppf-sync        Skip scripts/sppf_sync.py validation.
-  --run-sppf-sync         Force scripts/sppf_sync.py validation (requires GH auth token).
+  --run-sppf-sync         Force scripts/sppf_sync.py validation (requires gh auth
+                          login or GH_TOKEN/GITHUB_TOKEN).
   --sppf-range R          Override revision range passed to scripts/sppf_sync.py.
   --skip-gabion-check-step
                           Skip the dataflow run-dataflow-stage invocation (which wraps gabion check).
@@ -241,7 +242,14 @@ timed_observed() {
   fi
 }
 
-resolve_gh_token() {
+gh_auth_available() {
+  if ! command -v gh >/dev/null 2>&1; then
+    return 1
+  fi
+  gh auth status >/dev/null 2>&1
+}
+
+resolve_env_gh_token() {
   if [ -n "${GH_TOKEN:-}" ]; then
     printf '%s\n' "$GH_TOKEN"
     return 0
@@ -250,14 +258,46 @@ resolve_gh_token() {
     printf '%s\n' "$GITHUB_TOKEN"
     return 0
   fi
+  return 1
+}
+
+resolve_repo_name() {
+  if [ -n "${GH_REPO:-}" ]; then
+    printf '%s\n' "$GH_REPO"
+    return 0
+  fi
+
   if command -v gh >/dev/null 2>&1; then
-    local gh_token
-    gh_token="$(gh auth token 2>/dev/null || true)"
-    if [ -n "$gh_token" ]; then
-      printf '%s\n' "$gh_token"
+    local gh_repo_name
+    gh_repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+    if [ -n "$gh_repo_name" ]; then
+      printf '%s\n' "$gh_repo_name"
       return 0
     fi
   fi
+
+  local remote_url repo_name
+  remote_url="$(git config --get remote.origin.url 2>/dev/null || true)"
+  case "$remote_url" in
+    git@github.com:*)
+      repo_name="${remote_url#git@github.com:}"
+      ;;
+    ssh://git@github.com/*)
+      repo_name="${remote_url#ssh://git@github.com/}"
+      ;;
+    https://github.com/*)
+      repo_name="${remote_url#https://github.com/}"
+      ;;
+    *)
+      repo_name=""
+      ;;
+  esac
+  repo_name="${repo_name%.git}"
+  if [ -n "$repo_name" ]; then
+    printf '%s\n' "$repo_name"
+    return 0
+  fi
+
   return 1
 }
 
@@ -340,15 +380,67 @@ resolve_pr_body_file() {
 
 verify_stage_ci_for_sha() {
   local sha="$1"
-  local gh_token
-  if ! gh_token="$(resolve_gh_token)"; then
-    echo "GH auth token unavailable; cannot verify stage CI for SHA $sha." >&2
-    return 1
-  fi
   local repo_name
-  repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+  repo_name="$(resolve_repo_name || true)"
   if [ -z "$repo_name" ]; then
     echo "Unable to resolve repository name for stage CI verification." >&2
+    return 1
+  fi
+
+  if gh_auth_available; then
+    observed pr_dataflow_verify_stage_ci env \
+      REPO="$repo_name" \
+      SHA="$sha" \
+      TIMEOUT_MINUTES="$pr_stage_ci_timeout_minutes" \
+      "$PYTHON_BIN" - <<'PY'
+import json
+import os
+import subprocess
+import time
+
+repo = os.environ["REPO"]
+sha = os.environ["SHA"]
+timeout_minutes = int(os.environ.get("TIMEOUT_MINUTES", "70"))
+deadline = time.time() + timeout_minutes * 60
+endpoint = f"repos/{repo}/actions/workflows/ci.yml/runs?branch=stage&per_page=50"
+
+while True:
+    proc = subprocess.run(
+        ["gh", "api", endpoint],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(proc.stderr.strip() or "gh api failed while verifying stage CI")
+    payload = json.loads(proc.stdout)
+    runs = payload.get("workflow_runs", [])
+    match = next((r for r in runs if r.get("head_sha") == sha), None)
+    if match is None:
+        if time.time() > deadline:
+            raise SystemExit(f"Stage CI has not run for {sha}.")
+        time.sleep(15)
+        continue
+
+    status = match.get("status")
+    if status != "completed":
+        if time.time() > deadline:
+            raise SystemExit(f"Stage CI for {sha} not complete (status={status}).")
+        time.sleep(15)
+        continue
+
+    conclusion = match.get("conclusion")
+    if conclusion != "success":
+        raise SystemExit(f"Stage CI for {sha} not successful (conclusion={conclusion}).")
+    print(f"Stage CI OK for {sha}.")
+    break
+PY
+    return 0
+  fi
+
+  local gh_token
+  if ! gh_token="$(resolve_env_gh_token)"; then
+    echo "GitHub auth unavailable; use 'gh auth login' or set GH_TOKEN/GITHUB_TOKEN." >&2
     return 1
   fi
 
@@ -436,7 +528,17 @@ run_checks_job() {
       step "checks: sppf_sync --validate"
       if [ "$ci_event_name" != "push" ]; then
         echo "event '$ci_event_name' is not push; skipping sppf_sync validation (matches CI skip path)."
-      elif gh_token="$(resolve_gh_token)"; then
+      elif gh_auth_available; then
+        local rev_range
+        rev_range="$(resolve_sppf_range)"
+        observed checks_sppf_sync_validate "$PYTHON_BIN" scripts/sppf_sync.py \
+          --validate \
+          --only-when-relevant \
+          --range "$rev_range" \
+          --require-state open \
+          --require-label done-on-stage \
+          --require-label status/pending-release
+      elif gh_token="$(resolve_env_gh_token)"; then
         local rev_range
         rev_range="$(resolve_sppf_range)"
         observed checks_sppf_sync_validate env GH_TOKEN="$gh_token" "$PYTHON_BIN" scripts/sppf_sync.py \
@@ -540,9 +642,10 @@ seed_dataflow_checkpoint() {
 }
 
 restore_dataflow_checkpoint() {
-  if gh_token="$(resolve_gh_token)"; then
+  local gh_token
+  if gh_token="$(resolve_env_gh_token)"; then
     local repo_name
-    repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+    repo_name="$(resolve_repo_name || true)"
     if [ -z "$repo_name" ]; then
       step "dataflow: restore-resume-checkpoint skipped (unable to resolve repo name)"
       return 0
@@ -556,7 +659,7 @@ restore_dataflow_checkpoint() {
       --artifact-name dataflow-report \
       --checkpoint-name dataflow_resume_checkpoint_ci.json || true
   else
-    step "dataflow: restore-resume-checkpoint skipped (GH token unavailable)"
+    step "dataflow: restore-resume-checkpoint skipped (GH_TOKEN/GITHUB_TOKEN unavailable)"
   fi
 }
 

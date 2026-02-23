@@ -443,8 +443,10 @@ scripts/ci_local_repro.sh --pr-dataflow-only --pr-body-file <path-to-pr-body.md>
 
 SPPF lifecycle validation in that script defaults to auto (run when GH auth is
 available); use `--skip-sppf-sync` to bypass or `--run-sppf-sync` to require it.
-When `GH_TOKEN` / `GITHUB_TOKEN` are unset, local repro will also try
-`gh auth token` for GitHub-interactive steps.
+GitHub-interactive steps prefer authenticated `gh` API calls (`gh auth status`).
+If `gh` auth is unavailable, set `GH_TOKEN` or `GITHUB_TOKEN` explicitly for
+non-interactive fallback paths.
+`gh` does not mint a new ephemeral PAT here; it uses your existing local auth.
 For long-running dataflow reproductions, set
 `GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS=<seconds>` to emit periodic
 state dumps; you can also send `SIGUSR1` to `gabion run-dataflow-stage`
