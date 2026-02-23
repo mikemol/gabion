@@ -107,3 +107,29 @@ def test_main_uses_cli_timeout_overrides_for_refresh_operations() -> None:
     assert captured
     assert captured[0].ticks == 222
     assert captured[0].tick_ns == 333
+
+
+# gabion:evidence E:function_site::tests/test_refresh_baselines.py::test_requires_block_is_monotonic_without_override
+def test_requires_block_is_monotonic_without_override() -> None:
+    module = _load_refresh_baselines()
+    with _env_scope(
+        {
+            "GABION_POLICY_OVERRIDE_TOKEN": None,
+            "GABION_POLICY_OVERRIDE_RATIONALE": None,
+        }
+    ):
+        assert module._requires_block("obsolescence_opaque", 0) is False
+        assert module._requires_block("obsolescence_opaque", 1) is True
+        assert module._requires_block("obsolescence_opaque", 2) is True
+
+
+# gabion:evidence E:function_site::tests/test_refresh_baselines.py::test_requires_block_allows_override_token_with_rationale
+def test_requires_block_allows_override_token_with_rationale() -> None:
+    module = _load_refresh_baselines()
+    with _env_scope(
+        {
+            "GABION_POLICY_OVERRIDE_TOKEN": "policy-override-123",
+            "GABION_POLICY_OVERRIDE_RATIONALE": "temporary strictness reduction for controlled migration",
+        }
+    ):
+        assert module._requires_block("obsolescence_opaque", 1) is False
