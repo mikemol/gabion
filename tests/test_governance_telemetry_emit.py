@@ -11,7 +11,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_emit_governance_telemetry_outputs_schema(tmp_path: Path, monkeypatch) -> None:
+def test_emit_governance_telemetry_outputs_schema(tmp_path: Path) -> None:
     docflow = tmp_path / "artifacts/out/docflow_compliance_delta.json"
     obsolescence = tmp_path / "artifacts/out/test_obsolescence_delta.json"
     annotation = tmp_path / "artifacts/out/test_annotation_drift_delta.json"
@@ -37,34 +37,33 @@ def test_emit_governance_telemetry_outputs_schema(tmp_path: Path, monkeypatch) -
     _write_json(branchless, {"violations": [{"id": 1}, {"id": 2}]})
     _write_json(defensive, {"violations": [{"id": 1}]})
 
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "governance_telemetry_emit.py",
-            "--run-id",
-            "run-1",
-            "--docflow-delta",
-            str(docflow),
-            "--obsolescence-delta",
-            str(obsolescence),
-            "--annotation-delta",
-            str(annotation),
-            "--ambiguity-delta",
-            str(ambiguity),
-            "--branchless-baseline",
-            str(branchless),
-            "--defensive-baseline",
-            str(defensive),
-            "--json-out",
-            str(telemetry),
-            "--history",
-            str(history),
-            "--md-out",
-            str(markdown),
-        ],
+    assert (
+        governance_telemetry_emit.main(
+            [
+                "--run-id",
+                "run-1",
+                "--docflow-delta",
+                str(docflow),
+                "--obsolescence-delta",
+                str(obsolescence),
+                "--annotation-delta",
+                str(annotation),
+                "--ambiguity-delta",
+                str(ambiguity),
+                "--branchless-baseline",
+                str(branchless),
+                "--defensive-baseline",
+                str(defensive),
+                "--json-out",
+                str(telemetry),
+                "--history",
+                str(history),
+                "--md-out",
+                str(markdown),
+            ]
+        )
+        == 0
     )
-
-    assert governance_telemetry_emit.main() == 0
     payload = json.loads(telemetry.read_text(encoding="utf-8"))
     assert payload["schema_version"] == 1
     loops = {entry["loop_id"]: entry for entry in payload["loops"]}
@@ -74,7 +73,7 @@ def test_emit_governance_telemetry_outputs_schema(tmp_path: Path, monkeypatch) -
     assert "Convergence SLOs" in markdown.read_text(encoding="utf-8")
 
 
-def test_emit_governance_telemetry_sets_trends_from_history(tmp_path: Path, monkeypatch) -> None:
+def test_emit_governance_telemetry_sets_trends_from_history(tmp_path: Path) -> None:
     docflow = tmp_path / "docflow_delta.json"
     branchless = tmp_path / "branchless.json"
     defensive = tmp_path / "defensive.json"
@@ -101,28 +100,27 @@ def test_emit_governance_telemetry_sets_trends_from_history(tmp_path: Path, monk
         },
     )
 
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "governance_telemetry_emit.py",
-            "--run-id",
-            "run-2",
-            "--docflow-delta",
-            str(docflow),
-            "--branchless-baseline",
-            str(branchless),
-            "--defensive-baseline",
-            str(defensive),
-            "--history",
-            str(history),
-            "--json-out",
-            str(out_json),
-            "--md-out",
-            str(out_md),
-        ],
+    assert (
+        governance_telemetry_emit.main(
+            [
+                "--run-id",
+                "run-2",
+                "--docflow-delta",
+                str(docflow),
+                "--branchless-baseline",
+                str(branchless),
+                "--defensive-baseline",
+                str(defensive),
+                "--history",
+                str(history),
+                "--json-out",
+                str(out_json),
+                "--md-out",
+                str(out_md),
+            ]
+        )
+        == 0
     )
-
-    assert governance_telemetry_emit.main() == 0
     payload = json.loads(out_json.read_text(encoding="utf-8"))
     loops = {entry["loop_id"]: entry for entry in payload["loops"]}
     assert loops["docflow.contradictions"]["trend_delta"] == -2

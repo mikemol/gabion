@@ -24,7 +24,7 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Emit governance telemetry JSON/markdown from policy/docflow/delta/baseline artifacts."
@@ -53,7 +53,7 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("artifacts/audit_reports/governance_telemetry.md"),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def _load_json_object(path: Path) -> dict[str, Any]:
@@ -319,8 +319,8 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def main() -> int:
-    args = _parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
     generated_at_utc = _now_utc()
     run_id = args.run_id or generated_at_utc.replace(":", "").replace("-", "")
     history = _load_history(args.history)
