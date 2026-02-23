@@ -96,6 +96,14 @@ jobs:
         run: mise exec -- python scripts/branchless_policy_check.py --root .
       - name: Policy check (defensive fallback)
         run: mise exec -- python scripts/defensive_fallback_policy_check.py --root .
+      - name: Governance PR template fields
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: mise exec -- python scripts/check_pr_governance_template.py
+      - name: Controller drift audit (advisory)
+        run: mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
       - name: Select impacted tests
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}

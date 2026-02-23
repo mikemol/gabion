@@ -1,5 +1,5 @@
 ---
-doc_revision: 41
+doc_revision: 42
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: policy_seed
 doc_role: policy
@@ -34,7 +34,7 @@ doc_review_notes:
   docs/coverage_semantics.md#coverage_semantics: "Reviewed docs/coverage_semantics.md#coverage_semantics v1 (glossary-lifted projection + explicit core anchors); policy references remain accurate."
 doc_sections:
   policy_seed: 1
-  change_protocol: 1
+  change_protocol: 2
 doc_section_requires:
   policy_seed:
     - README.md#repo_contract
@@ -161,6 +161,7 @@ The governance layer is a bundle of documents that must remain coherent:
 - `AGENTS.md#agent_obligations` defines LLM/agent obligations and refusal rules.
 - `[glossary.md#contract](glossary.md#contract)` defines semantic meanings, axes, and commutation obligations.
 - `docs/publishing_practices.md#publishing_practices` reifies release best practices (advisory).
+- `docs/governance_control_loops.md#governance_control_loops` defines the normalized governance control-loop registry and required loop fields.
 
 Any change to one must be checked for consistency with the others.
 
@@ -656,6 +657,43 @@ Any proposed change to this file must:
    * how regressions are prevented.
 
 Repo-native agents must **refuse** to auto-apply changes that weaken this file.
+
+### 6.4 Controller Drift (Normative)
+
+Controller drift is any mismatch between governance text and enforcement code.
+This control loop MUST continuously detect and resolve drift.
+
+**Detection cycle (normative):**
+- Run `mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`.
+- Emit a machine-readable report at `artifacts/out/controller_drift.json`.
+- Treat detected drift as policy-relevant evidence and surface it in CI logs.
+
+**Resolution cycle (normative):**
+1. If normative text has no enforcement, add/update the enforcing check before merge.
+2. If a check has no normative anchor, add an explicit anchor in governance docs or remove the orphaned check.
+3. If anchors contradict across normative docs, reconcile docs in one change-set and restamp review notes.
+4. If command references are stale, update both docs and automation in the same change-set.
+
+**Second-order sensors (normative):**
+- Policy clauses with no enforcing check.
+- Checks with no normative anchor.
+- Contradictory anchors across normative docs.
+- Stale command references (e.g. renamed CLI/script entry points).
+
+**Controller registry (machine-readable markers):**
+- `controller-anchor: CD-001 | doc: POLICY_SEED.md#change_protocol | sensor: policy_clauses_without_enforcing_check | check: scripts/governance_controller_audit.py | severity: high`
+- `controller-anchor: CD-002 | doc: POLICY_SEED.md#change_protocol | sensor: checks_without_normative_anchor | check: scripts/governance_controller_audit.py | severity: high`
+- `controller-anchor: CD-003 | doc: POLICY_SEED.md#change_protocol | sensor: contradictory_anchors_across_normative_docs | check: scripts/governance_controller_audit.py | severity: high`
+- `controller-anchor: CD-004 | doc: POLICY_SEED.md#change_protocol | sensor: stale_command_references | check: scripts/governance_controller_audit.py | severity: medium`
+
+**Controller command references (machine-readable markers):**
+- `controller-command: mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json`
+- `controller-command: mise exec -- python scripts/check_pr_governance_template.py`
+
+**CI ratchet policy (normative):**
+- Phase A (advisory): report high-severity drift but do not fail the pipeline.
+- Phase B (ratcheted): fail CI on any high-severity drift.
+- Ratchet enablement MUST be explicit (CI flag or workflow change); silent ratchets are forbidden.
 
 ---
 
