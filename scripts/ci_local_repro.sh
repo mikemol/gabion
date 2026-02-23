@@ -189,8 +189,8 @@ resolve_gh_token() {
     printf '%s\n' "$GH_TOKEN"
     return 0
   fi
-  if gh_token="$(gh auth token 2>/dev/null)"; then
-    printf '%s\n' "$gh_token"
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    printf '%s\n' "$GITHUB_TOKEN"
     return 0
   fi
   return 1
