@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+"""Detect controller drift between normative governance docs and enforcing checks."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+POLICY_PATH = REPO_ROOT / "POLICY_SEED.md"
+DEFAULT_OUT = REPO_ROOT / "artifacts" / "out" / "controller_drift.json"
+NORMATIVE_DOCS = (
+    "POLICY_SEED.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "AGENTS.md",
+    "glossary.md",
+)
+
+ANCHOR_RE = re.compile(
+    r"controller-anchor:\s*(?P<id>CD-\d+)\s*\|\s*"
+    r"doc:\s*(?P<doc>[^|]+)\|\s*"
+    r"sensor:\s*(?P<sensor>[^|]+)\|\s*"
+    r"check:\s*(?P<check>[^|]+)\|\s*"
+    r"severity:\s*(?P<severity>[^`]+)"
+)
+COMMAND_RE = re.compile(r"controller-command:\s*(?P<command>[^`]+)")
+SCRIPT_IN_WORKFLOW_RE = re.compile(r"scripts/[A-Za-z0-9_\-./]+\.py")
+
+SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+
+
+@dataclass(frozen=True)
+class ControllerAnchor:
+    anchor_id: str
+    doc: str
+    sensor: str
+    check: str
+    severity: str
+
+
+def _relative(path: Path) -> str:
+    return str(path.resolve().relative_to(REPO_ROOT))
+
+
+def _load_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _parse_policy(policy_text: str) -> tuple[list[ControllerAnchor], list[str]]:
+    anchors: list[ControllerAnchor] = []
+    commands: list[str] = []
+    for match in ANCHOR_RE.finditer(policy_text):
+        anchors.append(
+            ControllerAnchor(
+                anchor_id=match.group("id").strip(),
+                doc=match.group("doc").strip(),
+                sensor=match.group("sensor").strip(),
+                check=match.group("check").strip(),
+                severity=match.group("severity").strip(),
+            )
+        )
+    for match in COMMAND_RE.finditer(policy_text):
+        commands.append(match.group("command").strip())
+    return anchors, commands
+
+
+def _collect_normative_anchor_signatures() -> dict[str, set[str]]:
+    signatures: dict[str, set[str]] = {}
+    for rel in NORMATIVE_DOCS:
+        path = REPO_ROOT / rel
+        if not path.exists():
+            continue
+        text = _load_text(path)
+        for match in ANCHOR_RE.finditer(text):
+            key = match.group("id").strip()
+            signature = "|".join(
+                (
+                    match.group("doc").strip(),
+                    match.group("sensor").strip(),
+                    match.group("check").strip(),
+                    match.group("severity").strip(),
+                )
+            )
+            signatures.setdefault(key, set()).add(signature)
+    return signatures
+
+
+def _governance_checks_from_workflows() -> set[str]:
+    discovered: set[str] = set()
+    workflow_dir = REPO_ROOT / ".github" / "workflows"
+    if not workflow_dir.exists():
+        return discovered
+    for workflow in workflow_dir.glob("*.yml"):
+        text = _load_text(workflow)
+        for script_path in SCRIPT_IN_WORKFLOW_RE.findall(text):
+            if "governance" in script_path or "policy" in script_path or "template" in script_path:
+                discovered.add(script_path)
+    return discovered
+
+
+def _classify_command_staleness(command: str) -> str | None:
+    parts = command.split()
+    if not parts:
+        return "empty command reference"
+    if "scripts/" in command:
+        for token in parts:
+            if token.startswith("scripts/") and token.endswith(".py"):
+                if not (REPO_ROOT / token).exists():
+                    return f"missing script path: {token}"
+    return None
+
+
+def _severity_at_least(value: str, threshold: str) -> bool:
+    return SEVERITY_RANK.get(value.lower(), 0) >= SEVERITY_RANK.get(threshold.lower(), 99)
+
+
+def run(policy_path: Path, out_path: Path, fail_on_severity: str | None) -> int:
+    policy_text = _load_text(policy_path)
+    anchors, commands = _parse_policy(policy_text)
+
+    findings: list[dict[str, object]] = []
+
+    # Sensor 1: policy clauses with no enforcing check.
+    for anchor in anchors:
+        check_path = (REPO_ROOT / anchor.check).resolve()
+        if anchor.check in {"", "none", "tbd"} or not check_path.exists():
+            findings.append(
+                {
+                    "sensor": "policy_clauses_without_enforcing_check",
+                    "severity": "high",
+                    "anchor": anchor.anchor_id,
+                    "detail": f"Anchor {anchor.anchor_id} references missing check `{anchor.check}`.",
+                }
+            )
+
+    # Sensor 2: checks with no normative anchor.
+    anchored_checks = {anchor.check for anchor in anchors}
+    discovered_checks = _governance_checks_from_workflows()
+    for check in sorted(discovered_checks - anchored_checks):
+        findings.append(
+            {
+                "sensor": "checks_without_normative_anchor",
+                "severity": "high",
+                "anchor": None,
+                "detail": f"Enforcement script `{check}` is referenced by workflow but missing a controller anchor.",
+            }
+        )
+
+    # Sensor 3: contradictory anchors across normative docs.
+    signatures = _collect_normative_anchor_signatures()
+    for anchor_id, variants in sorted(signatures.items()):
+        if len(variants) > 1:
+            findings.append(
+                {
+                    "sensor": "contradictory_anchors_across_normative_docs",
+                    "severity": "high",
+                    "anchor": anchor_id,
+                    "detail": f"Anchor {anchor_id} has contradictory signatures across normative docs.",
+                    "variants": sorted(variants),
+                }
+            )
+
+    # Sensor 4: stale command references.
+    for command in commands:
+        stale_reason = _classify_command_staleness(command)
+        if stale_reason:
+            findings.append(
+                {
+                    "sensor": "stale_command_references",
+                    "severity": "medium",
+                    "anchor": None,
+                    "detail": f"Command `{command}` is stale: {stale_reason}.",
+                }
+            )
+
+    summary = {
+        "total_findings": len(findings),
+        "high_severity_findings": sum(1 for item in findings if str(item.get("severity")) == "high"),
+        "sensors": sorted({str(item.get("sensor")) for item in findings}),
+    }
+
+    payload = {
+        "policy": _relative(policy_path),
+        "anchors_scanned": len(anchors),
+        "commands_scanned": len(commands),
+        "normative_docs": list(NORMATIVE_DOCS),
+        "findings": findings,
+        "summary": summary,
+    }
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    if fail_on_severity is not None:
+        for finding in findings:
+            sev = str(finding.get("severity", ""))
+            if _severity_at_least(sev, fail_on_severity):
+                print(
+                    f"controller-drift: failing due to {sev} finding: {finding.get('detail')}",
+                    file=sys.stderr,
+                )
+                return 2
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--policy", type=Path, default=POLICY_PATH)
+    parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument(
+        "--fail-on-severity",
+        choices=["low", "medium", "high", "critical"],
+        default=None,
+        help="Optional severity threshold that turns findings into a failing exit code.",
+    )
+    args = parser.parse_args()
+    return run(policy_path=args.policy, out_path=args.out, fail_on_severity=args.fail_on_severity)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
