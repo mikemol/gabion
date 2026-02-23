@@ -138,7 +138,7 @@ def _check_standard_gate(
         after = _nested_int(payload, spec.after_keys)
         print(f"{spec.blocking_prefix}: {before} -> {after} (+{delta_value}).")
         return 1
-    if delta_value > gate_policy.severity.warning_threshold:
+    if delta_value >= gate_policy.severity.warning_threshold:
         before = _nested_int(payload, spec.before_keys)
         after = _nested_int(payload, spec.after_keys)
         print(f"{spec.warning_prefix}: {before} -> {after} (+{delta_value}).")
