@@ -1,5 +1,5 @@
 ---
-doc_revision: 96
+doc_revision: 97
 reader_reintern: "Reader-only: re-intern if doc_revision changed since you last read this doc."
 doc_id: contributing
 doc_role: guide
@@ -262,8 +262,13 @@ advisory outside this repo until the convergence checklist says otherwise.
 Local environment (via `mise`):
 ```
 mise install
+mise trust --yes
 mise exec -- python -m pip install -e .
 ```
+
+Trusting the repo config keeps local runs aligned with CI. In GitHub Actions we
+set `MISE_TRUSTED_CONFIG_PATHS=${{ github.workspace }}`, which pre-trusts the
+checked-out workspace for non-interactive `mise` execution.
 
 Bootstrap everything (toolchain + deps + smoke test):
 ```
