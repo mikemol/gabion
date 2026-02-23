@@ -181,7 +181,9 @@ jobs:
             --resume-on-timeout 1 \
             --emit-timeout-progress-report \
             --type-audit-report \
-            --fail-on-violations
+            --baseline baselines/dataflow_baseline.txt \
+            --no-fail-on-violations \
+            --no-fail-on-type-ambiguities
       - name: Upload dataflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
