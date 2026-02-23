@@ -283,9 +283,21 @@ jobs:
           GABION_LSP_TIMEOUT_TICKS: "65000000"
           GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: .venv/bin/python -m gabion delta-triplets
+      - name: Governance telemetry emit
+        run: |
+          .venv/bin/python scripts/governance_telemetry_emit.py \
+            --run-id "${{ github.run_id }}-${{ github.run_attempt }}" \
+            --timings artifacts/audit_reports/ci_step_timings.json \
+            --history artifacts/out/governance_telemetry_history.json \
+            --json-out artifacts/out/governance_telemetry.json \
+            --md-out artifacts/audit_reports/governance_telemetry.md
       - name: Upload test artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: test-runs
-          path: artifacts/test_runs
+          path: |
+            artifacts/test_runs
+            artifacts/out/governance_telemetry.json
+            artifacts/out/governance_telemetry_history.json
+            artifacts/audit_reports/governance_telemetry.md

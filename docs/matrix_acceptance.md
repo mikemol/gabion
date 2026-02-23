@@ -1,5 +1,5 @@
 ---
-doc_revision: 10
+doc_revision: 11
 reader_reintern: Reader-only: re-intern if doc_revision changed since you last read this doc.
 doc_id: matrix_acceptance
 doc_role: reference
@@ -40,7 +40,7 @@ doc_review_notes:
   in/in-26.md#in_in_26: Reviewed in/in-26.md rev8 (rewrite-plan verification predicates match matrix obligations).
   in/in-27.md#in_in_27: Reviewed in/in-27.md rev6 (exception obligation mapping aligns with handledness/deadness requirements).
 doc_sections:
-  matrix_acceptance: 1
+  matrix_acceptance: 2
 doc_section_requires:
   matrix_acceptance:
     - POLICY_SEED.md#policy_seed
@@ -56,7 +56,7 @@ doc_section_reviews:
   matrix_acceptance:
     POLICY_SEED.md#policy_seed:
       dep_version: 1
-      self_version_at_review: 1
+      self_version_at_review: 2
       outcome: no_change
       note: Reviewed POLICY_SEED.md rev1 (mechanized governance default; branch/tag CAS + check-before-use constraints); no conflicts with this document's scope.
     glossary.md#contract:
@@ -299,3 +299,45 @@ If any of the above checks are missing:
 * ensure artifacts emit `UNKNOWN` rather than asserted success.
 
 This preserves honesty under the governance contract.
+
+
+---
+
+## 7. Governance telemetry acceptance (convergence-aware)
+
+Point-in-time checks are necessary but insufficient. Acceptance must include
+telemetry trend checks emitted by `scripts/governance_telemetry_emit.py`.
+
+Artifacts:
+- `artifacts/out/governance_telemetry.json`
+- `artifacts/audit_reports/governance_telemetry.md`
+
+Minimum checks:
+
+1) **Stable schema contract**
+   - JSON payload includes `schema_version`, run identity, per-loop metrics,
+     trend deltas, recurrence rates, false-positive overrides,
+     and `convergence_slos`.
+
+2) **Per-loop recurrence visibility**
+   - Every governance loop reports:
+     - `violation_count`
+     - `trend_delta`
+     - `recurrence_rate`
+     - `false_positive_overrides`
+     - `time_to_correction_runs` (nullable until correction)
+
+3) **Recent-run trend deltas**
+   - Markdown summary presents per-loop trend deltas against recent history,
+     not only current counts.
+
+4) **Convergence SLO evaluation per domain**
+   - Security domain objective example:
+     - *No repeated SEC-* violation for N runs*.
+   - Governance/ratchet domains must also expose explicit objective, window,
+     and pass/fail status.
+
+5) **Acceptance gating discipline**
+   - A domain with failing convergence SLO status is treated as
+     non-converged and must be tracked as partial in checklist/status docs
+     until recurrence is eliminated.
