@@ -299,6 +299,15 @@ def test_annassign_edges() -> None:
             simple=0,
         )
     )
+    visitor.visit_AnnAssign(
+        ast.AnnAssign(
+            target=ast.Name(id="const_name", ctx=ast.Store()),
+            annotation=ast.Name(id="int", ctx=ast.Load()),
+            value=ast.Constant(value=1),
+            simple=1,
+        )
+    )
+    assert "const_name" in visitor._const_bindings
 
 # gabion:evidence E:call_cluster::test_visitors_edges.py::tests.test_visitors_edges._make_use_visitor
 def test_visit_name_attribute_subscript_edges() -> None:

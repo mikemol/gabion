@@ -4066,6 +4066,21 @@ def test_additional_dataflow_helper_branch_edges(tmp_path: Path) -> None:
     assert top_level_lambda_infos
     assert ".outer." not in top_level_lambda_infos[0].qual
 
+    closure_tree = ast.parse(
+        "def outer():\n"
+        "    annotation_only: int\n"
+        "    return annotation_only\n"
+    )
+    closure_parent_annotator = da.ParentAnnotator()
+    closure_parent_annotator.visit(closure_tree)
+    closure_factories = da._collect_closure_lambda_factories(
+        closure_tree,
+        module="pkg.closure_mod",
+        parent_map=closure_parent_annotator.parents,
+        lambda_qual_by_span={},
+    )
+    assert closure_factories == {}
+
     caller = da.FunctionInfo(
         name="caller",
         qual="pkg.caller",

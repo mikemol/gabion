@@ -3930,6 +3930,18 @@ def test_governance_commands_include_optional_cli_args(tmp_path: Path) -> None:
             cli.app,
             ["lint-summary", "--root", str(tmp_path), "--lint", str(tmp_path / "lint.txt"), "--json", "--top", "7"],
         ).exit_code == 0
+        assert runner.invoke(
+            cli.app,
+            ["decision-tiers", "--root", str(tmp_path)],
+        ).exit_code == 0
+        assert runner.invoke(
+            cli.app,
+            ["consolidation", "--root", str(tmp_path)],
+        ).exit_code == 0
+        assert runner.invoke(
+            cli.app,
+            ["lint-summary", "--root", str(tmp_path)],
+        ).exit_code == 0
     finally:
         cli.tooling_governance_audit.run_sppf_graph_cli = orig_sppf
         cli.tooling_governance_audit.run_status_consistency_cli = orig_status
@@ -3940,5 +3952,15 @@ def test_governance_commands_include_optional_cli_args(tmp_path: Path) -> None:
     assert any(name == "sppf" and "--dot-output" in argv and "--issues-json" in argv for name, argv in calls)
     assert any(name == "status" and "--extra-path" in argv and "--fail-on-violations" in argv for name, argv in calls)
     assert any(name == "tiers" and "--format" in argv and "lines" in argv for name, argv in calls)
+    assert any(name == "tiers" and "--lint" not in argv for name, argv in calls)
     assert any(name == "consolidation" and "--json-output" in argv for name, argv in calls)
+    assert any(
+        name == "consolidation"
+        and "--decision" not in argv
+        and "--lint" not in argv
+        and "--output" not in argv
+        and "--json-output" not in argv
+        for name, argv in calls
+    )
     assert any(name == "lint" and "--json" in argv and "--top" in argv for name, argv in calls)
+    assert any(name == "lint" and "--lint" not in argv and "--json" not in argv for name, argv in calls)

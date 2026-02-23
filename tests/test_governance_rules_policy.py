@@ -69,7 +69,7 @@ def test_governance_rules_validation_failures(tmp_path: Path) -> None:
         )
 
     root_bad = tmp_path / "root_bad.yaml"
-    root_bad.write_text("[]\n", encoding="utf-8")
+    root_bad.write_text("- 1\n", encoding="utf-8")
     governance_rules.load_governance_rules.cache_clear()
     with pytest.raises(ValueError):
         governance_rules.load_governance_rules(root_bad)
