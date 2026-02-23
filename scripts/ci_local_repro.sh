@@ -2,41 +2,42 @@
 set -euo pipefail
 
 usage() {
-  cat <<'EOF'
-Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--allow-evidence-drift] [--skip-step-timing|--run-step-timing]
+  cat <<'USAGE'
+Usage: scripts/ci_local_repro.sh [--all|--checks-only|--dataflow-only] [--extended-checks] [--skip-sppf-sync|--run-sppf-sync] [--sppf-range <rev-range>] [--skip-gabion-check-step] [--run-observability-guard] [--skip-step-timing|--run-step-timing]
 
 Reproduces the .github/workflows/ci.yml command set locally.
 
 Options:
-  --all             Run checks + dataflow reproduction (default).
-  --checks-only     Run only the checks job commands.
-  --dataflow-only   Run only the dataflow-grammar job commands.
-  --skip-sppf-sync  Skip scripts/sppf_sync.py validation.
-  --run-sppf-sync   Force scripts/sppf_sync.py validation (requires GH auth token).
-  --sppf-range R    Override revision range passed to scripts/sppf_sync.py.
+  --all                   Run checks + dataflow reproduction (default).
+  --checks-only           Run only the checks job commands.
+  --dataflow-only         Run only the dataflow-grammar job commands.
+  --extended-checks       Run additional local hardening checks not present in ci.yml
+                          (order_lifetime_check, structural_hash_policy_check, complexity_audit).
+  --skip-sppf-sync        Skip scripts/sppf_sync.py validation.
+  --run-sppf-sync         Force scripts/sppf_sync.py validation (requires GH auth token).
+  --sppf-range R          Override revision range passed to scripts/sppf_sync.py.
   --skip-gabion-check-step
-                    Skip the dataflow run-dataflow-stage invocation (which wraps gabion check).
-  --allow-evidence-drift
-                    Keep strict extraction but do not fail on out/test_evidence.json drift.
-                    Writes artifacts/audit_reports/test_evidence_drift.patch when drift exists.
-  --skip-step-timing
-                    Disable step timing capture (enabled by default).
-  --run-step-timing
-                    Force-enable step timing capture.
-  -h, --help        Show this help text.
-EOF
+                          Skip the dataflow run-dataflow-stage invocation (which wraps gabion check).
+  --run-observability-guard
+                          Enable ci_observability_guard wrappers (off by default for parity).
+  --skip-step-timing      Disable step timing capture (off by default for parity).
+  --run-step-timing       Enable step timing capture.
+  -h, --help              Show this help text.
+USAGE
 }
 
 run_checks=true
 run_dataflow=true
+run_extended_checks=false
 run_sppf_sync_mode="auto"
-sppf_range="${GABION_LOCAL_SPPF_RANGE:-origin/stage..HEAD}"
+sppf_range="${GABION_LOCAL_SPPF_RANGE:-}"
 skip_gabion_check_step="${GABION_LOCAL_SKIP_GABION_CHECK_STEP:-0}"
-allow_evidence_drift="${GABION_LOCAL_ALLOW_EVIDENCE_DRIFT:-0}"
-step_timing_enabled="${GABION_CI_STEP_TIMING_CAPTURE:-1}"
+step_timing_enabled="${GABION_CI_STEP_TIMING_CAPTURE:-0}"
+observability_enabled_flag="${GABION_OBSERVABILITY_GUARD:-0}"
 step_timing_artifact="${GABION_CI_STEP_TIMING_ARTIFACT:-artifacts/audit_reports/ci_step_timings.json}"
 step_timing_run_id="${GABION_CI_STEP_TIMING_RUN_ID:-local-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 step_timing_mode="all"
+ci_event_name="${GABION_LOCAL_EVENT_NAME:-push}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -51,6 +52,9 @@ while [ $# -gt 0 ]; do
     --dataflow-only)
       run_checks=false
       run_dataflow=true
+      ;;
+    --extended-checks)
+      run_extended_checks=true
       ;;
     --skip-sppf-sync)
       run_sppf_sync_mode="skip"
@@ -69,8 +73,8 @@ while [ $# -gt 0 ]; do
     --skip-gabion-check-step)
       skip_gabion_check_step="1"
       ;;
-    --allow-evidence-drift)
-      allow_evidence_drift="1"
+    --run-observability-guard)
+      observability_enabled_flag="1"
       ;;
     --skip-step-timing)
       step_timing_enabled="0"
@@ -102,17 +106,33 @@ cd "$repo_root"
 log_dir="${CI_LOCAL_LOG_DIR:-artifacts/test_runs/local_ci}"
 mkdir -p "$log_dir"
 
+VENV_DIR="$repo_root/.venv"
+PYTHON_BIN="$VENV_DIR/bin/python"
+
 step() {
   echo
   echo "[ci-local] $*"
 }
 
 observability_enabled() {
-  [ "${GABION_OBSERVABILITY_GUARD:-1}" != "0" ]
+  [ "$observability_enabled_flag" != "0" ]
 }
 
 timing_enabled() {
   [ "$step_timing_enabled" != "0" ]
+}
+
+bootstrap_ci_env() {
+  step "bootstrap: mise install"
+  mise install
+
+  step "bootstrap: create .venv"
+  mise exec -- python -m venv "$VENV_DIR"
+
+  step "bootstrap: install dependencies (locked)"
+  "$PYTHON_BIN" -m pip install --upgrade pip uv
+  "$PYTHON_BIN" -m uv pip sync requirements.lock
+  "$PYTHON_BIN" -m uv pip install -e .
 }
 
 observed() {
@@ -121,7 +141,7 @@ observed() {
   if observability_enabled; then
     local max_gap="${GABION_OBSERVABILITY_MAX_GAP_SECONDS:-5}"
     local max_wall="${GABION_OBSERVABILITY_MAX_WALL_SECONDS:-1200}"
-    mise exec -- python scripts/ci_observability_guard.py \
+    "$PYTHON_BIN" scripts/ci_observability_guard.py \
       --label "$label" \
       --max-gap-seconds "$max_gap" \
       --max-wall-seconds "$max_wall" \
@@ -139,20 +159,20 @@ timed_observed() {
     if observability_enabled; then
       local max_gap="${GABION_OBSERVABILITY_MAX_GAP_SECONDS:-5}"
       local max_wall="${GABION_OBSERVABILITY_MAX_WALL_SECONDS:-1200}"
-      mise exec -- python scripts/ci_step_timing_capture.py \
+      "$PYTHON_BIN" scripts/ci_step_timing_capture.py \
         --label "$label" \
         --mode "$step_timing_mode" \
         --run-id "$step_timing_run_id" \
         --artifact-path "$step_timing_artifact" \
         -- \
-        mise exec -- python scripts/ci_observability_guard.py \
+        "$PYTHON_BIN" scripts/ci_observability_guard.py \
           --label "$label" \
           --max-gap-seconds "$max_gap" \
           --max-wall-seconds "$max_wall" \
           --artifact-path "artifacts/audit_reports/observability_violations.json" \
           -- "$@"
     else
-      mise exec -- python scripts/ci_step_timing_capture.py \
+      "$PYTHON_BIN" scripts/ci_step_timing_capture.py \
         --label "$label" \
         --mode "$step_timing_mode" \
         --run-id "$step_timing_run_id" \
@@ -176,42 +196,54 @@ resolve_gh_token() {
   return 1
 }
 
+resolve_sppf_range() {
+  if [ -n "$sppf_range" ]; then
+    printf '%s\n' "$sppf_range"
+    return 0
+  fi
+
+  local before_sha after_sha
+  before_sha="${BEFORE_SHA:-${GABION_LOCAL_BEFORE_SHA:-}}"
+  after_sha="${AFTER_SHA:-$(git rev-parse HEAD)}"
+
+  if [ -z "$before_sha" ] || [ "$before_sha" = "0000000000000000000000000000000000000000" ]; then
+    printf '%s\n' "HEAD~20..HEAD"
+    return 0
+  fi
+
+  if ! git cat-file -e "${after_sha}^{commit}" 2>/dev/null || ! git cat-file -e "${before_sha}^{commit}" 2>/dev/null; then
+    git fetch --no-tags origin "$before_sha" "$after_sha" || true
+  fi
+
+  if git cat-file -e "${after_sha}^{commit}" 2>/dev/null && git cat-file -e "${before_sha}^{commit}" 2>/dev/null; then
+    printf '%s\n' "$before_sha..$after_sha"
+    return 0
+  fi
+
+  echo "Push SHAs unavailable locally; falling back to safe local range."
+  printf '%s\n' "HEAD~20..HEAD"
+}
+
 run_checks_job() {
   step_timing_mode="checks"
 
   step "checks: policy_check --workflows"
-  timed_observed checks_policy_workflows mise exec -- python scripts/policy_check.py --workflows
+  timed_observed checks_policy_workflows "$PYTHON_BIN" scripts/policy_check.py --workflows
 
   step "checks: policy_check --posture"
-  if [ -z "${POLICY_GITHUB_TOKEN:-}" ]; then
+  if [ "$ci_event_name" != "push" ]; then
+    echo "event '$ci_event_name' is not push; skipping posture check (matches CI skip path)."
+  elif [ -z "${POLICY_GITHUB_TOKEN:-}" ]; then
     echo "POLICY_GITHUB_TOKEN not set; skipping posture check (matches CI skip path)."
   else
-    observed checks_policy_posture env POLICY_GITHUB_TOKEN="$POLICY_GITHUB_TOKEN" mise exec -- python scripts/policy_check.py --posture
+    observed checks_policy_posture env POLICY_GITHUB_TOKEN="$POLICY_GITHUB_TOKEN" "$PYTHON_BIN" scripts/policy_check.py --posture
   fi
 
   step "checks: docflow"
-  timed_observed checks_docflow mise exec -- python -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
-
-  step "checks: order_lifetime_check"
-  observed checks_order_lifetime mise exec -- python scripts/order_lifetime_check.py --root .
-
-  step "checks: structural_hash_policy_check"
-  observed checks_structural_hash_policy mise exec -- python scripts/structural_hash_policy_check.py --root .
-
-  step "checks: no_monkeypatch_policy_check"
-  observed checks_no_monkeypatch_policy mise exec -- python scripts/no_monkeypatch_policy_check.py --root .
-
-  step "checks: branchless_policy_check"
-  observed checks_branchless_policy mise exec -- python scripts/branchless_policy_check.py --root .
-
-  step "checks: defensive_fallback_policy_check"
-  observed checks_defensive_fallback_policy mise exec -- python scripts/defensive_fallback_policy_check.py --root .
-
-  step "checks: complexity_audit --fail-on-regression"
-  timed_observed checks_complexity_audit mise exec -- python scripts/complexity_audit.py --root . --fail-on-regression
+  timed_observed checks_docflow "$PYTHON_BIN" -m gabion docflow --root . --fail-on-violations --sppf-gh-ref-mode required
 
   step "checks: sppf_status_audit"
-  observed checks_sppf_status_audit mise exec -- python scripts/sppf_status_audit.py --root .
+  observed checks_sppf_status_audit "$PYTHON_BIN" scripts/sppf_status_audit.py --root .
 
   case "$run_sppf_sync_mode" in
     skip)
@@ -219,11 +251,15 @@ run_checks_job() {
       ;;
     auto|force)
       step "checks: sppf_sync --validate"
-      if gh_token="$(resolve_gh_token)"; then
-        observed checks_sppf_sync_validate env GH_TOKEN="$gh_token" mise exec -- python scripts/sppf_sync.py \
+      if [ "$ci_event_name" != "push" ]; then
+        echo "event '$ci_event_name' is not push; skipping sppf_sync validation (matches CI skip path)."
+      elif gh_token="$(resolve_gh_token)"; then
+        local rev_range
+        rev_range="$(resolve_sppf_range)"
+        observed checks_sppf_sync_validate env GH_TOKEN="$gh_token" "$PYTHON_BIN" scripts/sppf_sync.py \
           --validate \
           --only-when-relevant \
-          --range "$sppf_range" \
+          --range "$rev_range" \
           --require-state open \
           --require-label done-on-stage \
           --require-label status/pending-release
@@ -237,53 +273,49 @@ run_checks_job() {
   esac
 
   step "checks: extract_test_evidence"
-  observed checks_extract_test_evidence env GABION_LSP_TIMEOUT_TICKS=300000 GABION_LSP_TIMEOUT_TICK_NS=1000000 mise exec -- python scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
-  if [ "$allow_evidence_drift" = "1" ]; then
-    step "checks: evidence drift diff (allow-evidence-drift enabled)"
-  else
-    step "checks: evidence drift diff (strict)"
-  fi
-  observed checks_git_diff_test_evidence env GABION_LOCAL_ALLOW_EVIDENCE_DRIFT="$allow_evidence_drift" bash -lc '
-    patch_path="artifacts/audit_reports/test_evidence_drift.patch"
-    mkdir -p "$(dirname "$patch_path")"
-    if git diff --quiet -- out/test_evidence.json; then
-      : > "$patch_path"
-      exit 0
-    fi
-    git diff -- out/test_evidence.json > "$patch_path"
-    if [ "${GABION_LOCAL_ALLOW_EVIDENCE_DRIFT:-0}" = "1" ]; then
-      echo "WARNING: out/test_evidence.json drift detected (explicit bypass enabled)."
-      echo "WARNING: drift patch written to $patch_path"
-      exit 0
-    fi
-    echo "out/test_evidence.json drift detected; see $patch_path" >&2
-    exit 1
-  '
+  observed checks_extract_test_evidence env GABION_LSP_TIMEOUT_TICKS=300000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" scripts/extract_test_evidence.py --root . --tests tests --out out/test_evidence.json
+
+  step "checks: evidence drift diff (strict)"
+  observed checks_git_diff_test_evidence git diff --exit-code out/test_evidence.json
+
+  step "checks: policy check (no monkeypatch)"
+  observed checks_no_monkeypatch_policy "$PYTHON_BIN" scripts/no_monkeypatch_policy_check.py --root .
+
+  step "checks: policy check (branchless)"
+  observed checks_branchless_policy "$PYTHON_BIN" scripts/branchless_policy_check.py --root .
+
+  step "checks: policy check (defensive fallback)"
+  observed checks_defensive_fallback_policy "$PYTHON_BIN" scripts/defensive_fallback_policy_check.py --root .
 
   step "checks: pytest --cov"
   mkdir -p artifacts/test_runs
-  timed_observed checks_pytest env PYTHONUNBUFFERED=1 mise exec -- python -m pytest \
+  timed_observed checks_pytest env PYTHONUNBUFFERED=1 "$PYTHON_BIN" -m pytest \
     --cov=src/gabion \
     --cov-branch \
-    --cov-report= \
+    --cov-report=term-missing \
+    --cov-report=xml:artifacts/test_runs/coverage.xml \
+    --cov-report=html:artifacts/test_runs/htmlcov \
+    --cov-fail-under=100 \
     --junitxml artifacts/test_runs/junit.xml \
     --log-file artifacts/test_runs/pytest.log \
     --log-file-level=INFO
 
-  step "checks: coverage xml"
-  observed checks_coverage_xml mise exec -- python -m coverage xml -o artifacts/test_runs/coverage.xml
-
-  step "checks: coverage html"
-  observed checks_coverage_html mise exec -- python -m coverage html -d artifacts/test_runs/htmlcov
-
-  step "checks: coverage term + threshold"
-  timed_observed checks_coverage_term mise exec -- python -m coverage report --show-missing --fail-under=100
-
   step "checks: delta_state_emit"
-  timed_observed checks_delta_state_emit env GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 mise exec -- python -m gabion delta-state-emit
+  timed_observed checks_delta_state_emit env GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" -m gabion delta-state-emit
 
   step "checks: delta_triplets"
-  timed_observed checks_delta_triplets env GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 mise exec -- python -m gabion delta-triplets
+  timed_observed checks_delta_triplets env GABION_DIRECT_RUN=1 GABION_LSP_TIMEOUT_TICKS=65000000 GABION_LSP_TIMEOUT_TICK_NS=1000000 "$PYTHON_BIN" -m gabion delta-triplets
+
+  if $run_extended_checks; then
+    step "checks(ext): order_lifetime_check"
+    observed checks_order_lifetime "$PYTHON_BIN" scripts/order_lifetime_check.py --root .
+
+    step "checks(ext): structural_hash_policy_check"
+    observed checks_structural_hash_policy "$PYTHON_BIN" scripts/structural_hash_policy_check.py --root .
+
+    step "checks(ext): complexity_audit --fail-on-regression"
+    timed_observed checks_complexity_audit "$PYTHON_BIN" scripts/complexity_audit.py --root . --fail-on-regression
+  fi
 }
 
 seed_dataflow_checkpoint() {
@@ -311,11 +343,17 @@ seed_dataflow_checkpoint() {
 
 restore_dataflow_checkpoint() {
   if gh_token="$(resolve_gh_token)"; then
+    local repo_name
+    repo_name="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+    if [ -z "$repo_name" ]; then
+      step "dataflow: restore-resume-checkpoint skipped (unable to resolve repo name)"
+      return 0
+    fi
     step "dataflow: restore-resume-checkpoint (best effort)"
-    observed dataflow_restore_resume_checkpoint env GH_TOKEN="$gh_token" GH_REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" \
+    observed dataflow_restore_resume_checkpoint env GH_TOKEN="$gh_token" GH_REPO="$repo_name" \
       GH_REF_NAME="${GABION_LOCAL_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}" \
       GH_RUN_ID="${GABION_LOCAL_RUN_ID:-0}" \
-      mise exec -- python -m gabion restore-resume-checkpoint \
+      "$PYTHON_BIN" -m gabion restore-resume-checkpoint \
       --output-dir artifacts/audit_reports \
       --artifact-name dataflow-report \
       --checkpoint-name dataflow_resume_checkpoint_ci.json || true
@@ -340,18 +378,24 @@ run_dataflow_job() {
   step "dataflow: run-dataflow-stage (single invocation)"
   local outputs_file="$log_dir/dataflow_stage_outputs.env"
   local summary_file="$log_dir/dataflow_stage_summary.md"
+  local dataflow_stage_rc=0
+  local dataflow_failed=0
   rm -f "$outputs_file"
   touch "$outputs_file"
   : > "$summary_file"
+
+  set +e
   observed dataflow_run_dataflow_stage env \
+    GITHUB_OUTPUT="$outputs_file" \
+    GITHUB_STEP_SUMMARY="$summary_file" \
     GABION_DIRECT_RUN=1 \
     GABION_LSP_TIMEOUT_TICKS="${GABION_LSP_TIMEOUT_TICKS:-65000000}" \
     GABION_LSP_TIMEOUT_TICK_NS="${GABION_LSP_TIMEOUT_TICK_NS:-1000000}" \
     GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS="${GABION_DATAFLOW_DEBUG_DUMP_INTERVAL_SECONDS:-60}" \
-    mise exec -- python -m gabion run-dataflow-stage \
-    --stage-strictness-profile "run=high" \
-    --github-output "$outputs_file" \
-    --step-summary "$summary_file"
+    "$PYTHON_BIN" -m gabion run-dataflow-stage \
+    --stage-strictness-profile "run=high"
+  dataflow_stage_rc=$?
+  set -e
 
   step "dataflow: finalize outcome"
   local terminal_stage terminal_exit terminal_state terminal_status attempts_run
@@ -367,10 +411,10 @@ run_dataflow_job() {
 
   if [ -z "${terminal_exit:-}" ]; then
     echo "No dataflow audit stage produced an exit code." >&2
-    return 1
+    dataflow_failed=1
   fi
 
-  if [ "$terminal_status" = "unknown" ]; then
+  if [ "$dataflow_failed" != "1" ] && [ "$terminal_status" = "unknown" ]; then
     if [ "$terminal_exit" = "0" ]; then
       terminal_status="success"
     elif [ "$terminal_state" = "timed_out_progress_resume" ]; then
@@ -383,6 +427,7 @@ run_dataflow_job() {
   echo "terminal_stage=$terminal_stage attempts=$attempts_run exit_code=$terminal_exit analysis_state=$terminal_state status=$terminal_status"
 
   if [ "$terminal_status" != "success" ]; then
+    dataflow_failed=1
     if [ -f artifacts/audit_reports/dataflow_report.md ]; then
       echo "===== dataflow report ====="
       cat artifacts/audit_reports/dataflow_report.md
@@ -396,18 +441,27 @@ run_dataflow_job() {
     else
       echo "Dataflow audit failed for a non-timeout reason." >&2
     fi
-    return 1
   fi
 
   step "dataflow: deadline profile summary"
   if [ -f artifacts/out/deadline_profile.json ]; then
-    mise exec -- python scripts/deadline_profile_ci_summary.py \
+    "$PYTHON_BIN" scripts/deadline_profile_ci_summary.py \
       --allow-missing-local \
       --step-summary "$log_dir/deadline_profile_summary.md"
   else
     echo "Skipping deadline profile summary (missing artifacts/out/deadline_profile.json)."
   fi
+
+  if [ "$dataflow_stage_rc" -ne 0 ]; then
+    dataflow_failed=1
+  fi
+
+  if [ "$dataflow_failed" != "0" ]; then
+    return 1
+  fi
 }
+
+bootstrap_ci_env
 
 if $run_checks; then
   run_checks_job
