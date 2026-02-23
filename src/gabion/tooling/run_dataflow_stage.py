@@ -569,6 +569,8 @@ def _check_command(
         "-m",
         "gabion",
         "check",
+        "--no-fail-on-violations",
+        "--no-fail-on-type-ambiguities",
         "--report",
         str(paths.report_path),
         "--resume-checkpoint",

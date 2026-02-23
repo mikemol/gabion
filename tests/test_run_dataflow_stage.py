@@ -86,6 +86,8 @@ def test_check_command_includes_strictness_when_provided(tmp_path: Path) -> None
         resume_on_timeout=1,
         strictness="low",
     )
+    assert "--no-fail-on-violations" in command
+    assert "--no-fail-on-type-ambiguities" in command
     assert "--strictness" in command
     assert "low" in command
 
