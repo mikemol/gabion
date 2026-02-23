@@ -55,6 +55,14 @@ def _obligation_trace_path(paths: dict[str, Path]) -> Path:
 def test_stage_ids_are_bounded_and_ordered() -> None:
     assert run_dataflow_stage._stage_ids("run", 3) == ["run", "retry1", "retry2"]
     assert run_dataflow_stage._stage_ids("x", 2) == ["run", "retry1"]
+    assert run_dataflow_stage._stage_ids("run", 6) == [
+        "run",
+        "retry1",
+        "retry2",
+        "retry3",
+        "retry4",
+        "retry5",
+    ]
     assert run_dataflow_stage._stage_ids("run", 0) == []
 
 

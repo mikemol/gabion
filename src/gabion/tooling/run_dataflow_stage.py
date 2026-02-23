@@ -24,7 +24,14 @@ from gabion.runtime import env_policy, json_io
 from gabion.tooling import tool_specs
 from gabion.tooling.deadline_runtime import deadline_scope_from_lsp_env
 
-_STAGE_SEQUENCE: tuple[str, ...] = ("run", "retry1", "retry2")
+_STAGE_SEQUENCE: tuple[str, ...] = (
+    "run",
+    "retry1",
+    "retry2",
+    "retry3",
+    "retry4",
+    "retry5",
+)
 _DELTA_GATE_STEPS: tuple[tool_specs.ToolSpec, ...] = tool_specs.dataflow_stage_gate_specs()
 _DELTA_GATE_REGISTRY: dict[str, Callable[[], int]] = {
     spec.id: spec.run for spec in _DELTA_GATE_STEPS
