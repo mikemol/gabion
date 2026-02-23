@@ -331,23 +331,30 @@ def main() -> int:
             _append_violation_artifact(args.artifact_path, violation)
             _terminate_process_group(proc)
 
+    def _record_wall_timeout(now_ts: float) -> None:
+        nonlocal violation
+        if max_wall_seconds <= 0 or violation is not None:
+            return
+        wall_seconds = now_ts - started
+        if wall_seconds <= max_wall_seconds:
+            return
+        violation = _violation_payload(
+            label=str(args.label),
+            command=command,
+            reason="max_wall_timeout",
+            wall_seconds=wall_seconds,
+            max_gap_seconds=max_gap_seconds,
+            measured_gap_seconds=wall_seconds,
+            previous_line=last_meaningful_line,
+            next_line=None,
+            cwd=cwd,
+        )
+        _append_violation_artifact(args.artifact_path, violation)
+        _terminate_process_group(proc)
+
     while True:
         now = time.monotonic()
-        wall_seconds = now - started
-        if max_wall_seconds > 0 and wall_seconds > max_wall_seconds and violation is None:
-            violation = _violation_payload(
-                label=str(args.label),
-                command=command,
-                reason="max_wall_timeout",
-                wall_seconds=wall_seconds,
-                max_gap_seconds=max_gap_seconds,
-                measured_gap_seconds=wall_seconds,
-                previous_line=last_meaningful_line,
-                next_line=None,
-                cwd=cwd,
-            )
-            _append_violation_artifact(args.artifact_path, violation)
-            _terminate_process_group(proc)
+        _record_wall_timeout(now)
         select_timeout = 0.5
         if max_gap_seconds > 0 and violation is None and not terminal_progress_seen:
             reference_ts = last_meaningful_ts
@@ -421,6 +428,7 @@ def main() -> int:
                     _append_violation_artifact(args.artifact_path, violation)
                     _terminate_process_group(proc)
 
+        _record_wall_timeout(time.monotonic())
         if proc.poll() is not None:
             break
 

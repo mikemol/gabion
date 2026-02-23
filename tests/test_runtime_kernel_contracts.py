@@ -12,7 +12,7 @@ from gabion.runtime import (
     path_policy,
     stable_encode,
 )
-from gabion.tooling import delta_gate, tool_specs
+from gabion.tooling import delta_gate, governance_rules, tool_specs
 from tests.env_helpers import env_scope
 
 
@@ -123,6 +123,60 @@ def test_delta_gate_load_payload_handles_unicode_error(tmp_path: Path) -> None:
     payload, decode_error = delta_gate._load_payload(invalid_utf)
     assert payload is None
     assert decode_error is None
+
+
+# gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_delta_gate_error_and_ok_branches::delta_gate.py::gabion.tooling.delta_gate._policy_spec::delta_gate.py::gabion.tooling.delta_gate._gate_id_for_env_flag::delta_gate.py::gabion.tooling.delta_gate._check_standard_gate
+def test_delta_gate_error_and_ok_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    original_loader = delta_gate.load_governance_rules
+    try:
+        delta_gate.load_governance_rules = lambda: governance_rules.GovernanceRules(
+            override_token_env="TOKEN",
+            gates={},
+        )
+        with pytest.raises(ValueError):
+            delta_gate._policy_spec("missing_gate")
+    finally:
+        delta_gate.load_governance_rules = original_loader
+
+    with pytest.raises(ValueError):
+        delta_gate._gate_id_for_env_flag("UNSUPPORTED_ENV")
+
+    policy = governance_rules.GatePolicy(
+        gate_id="obsolescence_opaque",
+        env_flag=delta_gate.OBSOLESCENCE_OPAQUE_ENV_FLAG,
+        enabled_mode="default_true",
+        delta_keys=("summary", "opaque_evidence", "delta"),
+        before_keys=("summary", "opaque_evidence", "baseline"),
+        after_keys=("summary", "opaque_evidence", "current"),
+        baseline_missing_key=None,
+        severity=governance_rules.SeverityPolicy(warning_threshold=2, blocking_threshold=3),
+        correction=governance_rules.CorrectionPolicy(
+            mode="hard-fail",
+            transitions=("advisory->ratchet",),
+            bounded_steps=("baseline_write_requires_explicit_flag",),
+        ),
+        disabled_message="disabled",
+        missing_message="missing",
+        unreadable_message="unreadable",
+        warning_prefix="warn",
+        blocking_prefix="block",
+        ok_prefix="ok-prefix",
+    )
+    path = tmp_path / "delta.json"
+    path.write_text(
+        '{"summary":{"opaque_evidence":{"delta":0,"baseline":1,"current":1}}}\n',
+        encoding="utf-8",
+    )
+    spec = delta_gate._standard_spec_from_policy(policy)
+    try:
+        delta_gate.load_governance_rules = lambda: governance_rules.GovernanceRules(
+            override_token_env="TOKEN",
+            gates={"obsolescence_opaque": policy},
+        )
+        assert delta_gate._check_standard_gate(spec, path, enabled=True) == 0
+    finally:
+        delta_gate.load_governance_rules = original_loader
+    assert "ok-prefix" in capsys.readouterr().out
 
 
 # gabion:evidence E:call_footprint::tests/test_runtime_kernel_contracts.py::test_tool_specs_triplet_map_sorted_and_filtered::tool_specs.py::gabion.tooling.tool_specs.triplet_specs_map::tool_specs.py::gabion.tooling.tool_specs.dataflow_stage_gate_specs
