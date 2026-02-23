@@ -14,6 +14,7 @@ try:  # pragma: no cover - import form depends on invocation mode
 except ModuleNotFoundError:  # pragma: no cover - direct script execution path
     from deadline_runtime import DeadlineBudget, deadline_scope_from_lsp_env
 from gabion.analysis.timeout_context import check_deadline
+from gabion.tooling.governance_rules import load_governance_rules
 
 
 OBSOLESCENCE_DELTA_PATH = Path("artifacts/out/test_obsolescence_delta.json")
@@ -31,9 +32,6 @@ DEFAULT_DEADLINE_PROFILE_PATH = Path("artifacts/out/deadline_profile.json")
 DEFAULT_RESUME_CHECKPOINT_PATH = Path("artifacts/out/refresh_baselines_resume.json")
 FAILURE_ARTIFACT_PATH = Path("artifacts/out/refresh_baselines_failure.json")
 
-ENV_GATE_UNMAPPED = "GABION_GATE_UNMAPPED_DELTA"
-ENV_GATE_ORPHANED = "GABION_GATE_ORPHANED_DELTA"
-ENV_GATE_AMBIGUITY = "GABION_GATE_AMBIGUITY_DELTA"
 _DEFAULT_TIMEOUT_TICKS = 120_000
 _DEFAULT_TIMEOUT_TICK_NS = 1_000_000
 _DEFAULT_TIMEOUT_BUDGET = DeadlineBudget(
@@ -250,9 +248,26 @@ def _state_args(path: Path, flag: str) -> list[str]:
     return []
 
 
-def _gate_enabled(env_flag: str) -> bool:
-    value = os.getenv(env_flag, "").strip().lower()
-    return value in {"1", "true", "yes", "on"}
+def _gate_enabled(*, gate_id: str) -> bool:
+    policy = load_governance_rules().gates[gate_id]
+    value = os.getenv(policy.env_flag, "").strip().lower()
+    if policy.enabled_mode == "truthy_only":
+        return value in {"1", "true", "yes", "on"}
+    return value not in {"0", "false", "no", "off"}
+
+
+def _policy_override_present() -> bool:
+    rules = load_governance_rules()
+    override_token = os.getenv(rules.override_token_env, "").strip()
+    rationale = os.getenv("GABION_POLICY_OVERRIDE_RATIONALE", "").strip()
+    return bool(override_token and rationale)
+
+
+def _requires_block(gate_id: str, delta_value: int) -> bool:
+    policy = load_governance_rules().gates[gate_id]
+    if delta_value >= policy.severity.blocking_threshold:
+        return not _policy_override_present()
+    return False
 
 
 def _load_json(path: Path) -> dict[str, object]:
@@ -346,13 +361,13 @@ def _guard_obsolescence_delta(
         extra=_state_args(OBSOLESCENCE_STATE_PATH, "--test-obsolescence-state"),
     )
     opaque_delta = _get_nested(payload, ["summary", "opaque_evidence", "delta"])
-    if opaque_delta > 0:
+    if _requires_block("obsolescence_opaque", opaque_delta):
         raise SystemExit(
             "Refusing to refresh obsolescence baseline: opaque evidence delta > 0."
         )
-    if _gate_enabled(ENV_GATE_UNMAPPED):
+    if _gate_enabled(gate_id="obsolescence_unmapped"):
         unmapped_delta = _get_nested(payload, ["summary", "counts", "delta", "unmapped"])
-        if unmapped_delta > 0:
+        if _requires_block("obsolescence_unmapped", unmapped_delta):
             raise SystemExit(
                 "Refusing to refresh obsolescence baseline: unmapped delta > 0."
             )
@@ -365,7 +380,7 @@ def _guard_annotation_drift_delta(
     resume_on_timeout: int,
     resume_checkpoint: Path | None,
 ) -> None:
-    if not _gate_enabled(ENV_GATE_ORPHANED):
+    if not _gate_enabled(gate_id="annotation_orphaned"):
         return
     payload = _ensure_delta(
         "--emit-test-annotation-drift-delta",
@@ -377,7 +392,7 @@ def _guard_annotation_drift_delta(
         extra=_state_args(ANNOTATION_DRIFT_STATE_PATH, "--test-annotation-drift-state"),
     )
     orphaned_delta = _get_nested(payload, ["summary", "delta", "orphaned"])
-    if orphaned_delta > 0:
+    if _requires_block("annotation_orphaned", orphaned_delta):
         raise SystemExit(
             "Refusing to refresh annotation drift baseline: orphaned delta > 0."
         )
@@ -390,7 +405,7 @@ def _guard_ambiguity_delta(
     resume_on_timeout: int,
     resume_checkpoint: Path | None,
 ) -> None:
-    if not _gate_enabled(ENV_GATE_AMBIGUITY):
+    if not _gate_enabled(gate_id="ambiguity"):
         return
     payload = _ensure_delta(
         "--emit-ambiguity-delta",
@@ -402,7 +417,7 @@ def _guard_ambiguity_delta(
         extra=_state_args(AMBIGUITY_STATE_PATH, "--ambiguity-state"),
     )
     total_delta = _get_nested(payload, ["summary", "total", "delta"])
-    if total_delta > 0:
+    if _requires_block("ambiguity", total_delta):
         raise SystemExit(
             "Refusing to refresh ambiguity baseline: ambiguity delta > 0."
         )
@@ -421,7 +436,7 @@ def _guard_docflow_delta(
     if payload.get("baseline_missing"):
         return
     contradicts = _get_nested(payload, ["summary", "delta", "contradicts"])
-    if contradicts > 0:
+    if _requires_block("docflow", contradicts):
         raise SystemExit(
             "Refusing to refresh docflow baseline: contradictions delta > 0."
         )

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Mapping
 
 from gabion.runtime import env_policy, json_io
+from gabion.tooling.governance_rules import GatePolicy, load_governance_rules
 
 OBSOLESCENCE_OPAQUE_ENV_FLAG = "GABION_GATE_OPAQUE_DELTA"
 OBSOLESCENCE_UNMAPPED_ENV_FLAG = "GABION_GATE_UNMAPPED_DELTA"
@@ -28,69 +29,31 @@ class StandardGateSpec:
     delta_keys: tuple[str, ...]
     before_keys: tuple[str, ...]
     after_keys: tuple[str, ...]
-    increased_prefix: str
+    warning_prefix: str
+    blocking_prefix: str
     ok_prefix: str
 
 
-_OBSOLESCENCE_OPAQUE_SPEC = StandardGateSpec(
-    env_flag=OBSOLESCENCE_OPAQUE_ENV_FLAG,
-    disabled_message=(
-        "Opaque obsolescence gate disabled by override; "
-        f"set {OBSOLESCENCE_OPAQUE_ENV_FLAG}=1 to enforce."
-    ),
-    missing_message="Test obsolescence delta missing; gate failed.",
-    unreadable_message="Test obsolescence delta unreadable; gate failed.",
-    delta_keys=("summary", "opaque_evidence", "delta"),
-    before_keys=("summary", "opaque_evidence", "baseline"),
-    after_keys=("summary", "opaque_evidence", "current"),
-    increased_prefix="Opaque evidence delta increased",
-    ok_prefix="Opaque evidence delta OK",
-)
+def _standard_spec_from_policy(policy: GatePolicy) -> StandardGateSpec:
+    return StandardGateSpec(
+        env_flag=policy.env_flag,
+        disabled_message=policy.disabled_message,
+        missing_message=policy.missing_message,
+        unreadable_message=policy.unreadable_message,
+        delta_keys=policy.delta_keys,
+        before_keys=policy.before_keys,
+        after_keys=policy.after_keys,
+        warning_prefix=policy.warning_prefix,
+        blocking_prefix=policy.blocking_prefix,
+        ok_prefix=policy.ok_prefix,
+    )
 
-_OBSOLESCENCE_UNMAPPED_SPEC = StandardGateSpec(
-    env_flag=OBSOLESCENCE_UNMAPPED_ENV_FLAG,
-    disabled_message=(
-        "Unmapped delta gate disabled by override; "
-        f"set {OBSOLESCENCE_UNMAPPED_ENV_FLAG}=1 to enforce."
-    ),
-    missing_message="Test obsolescence delta missing; gate failed.",
-    unreadable_message="Test obsolescence delta unreadable; gate failed.",
-    delta_keys=("summary", "counts", "delta", "unmapped"),
-    before_keys=("summary", "counts", "baseline", "unmapped"),
-    after_keys=("summary", "counts", "current", "unmapped"),
-    increased_prefix="Unmapped evidence delta increased",
-    ok_prefix="Unmapped evidence delta OK",
-)
 
-_ANNOTATION_ORPHANED_SPEC = StandardGateSpec(
-    env_flag=ANNOTATION_ORPHANED_ENV_FLAG,
-    disabled_message=(
-        "Annotation drift gate disabled by override; "
-        f"set {ANNOTATION_ORPHANED_ENV_FLAG}=1 to enforce."
-    ),
-    missing_message="Annotation drift delta missing; gate failed.",
-    unreadable_message="Annotation drift delta unreadable; gate failed.",
-    delta_keys=("summary", "delta", "orphaned"),
-    before_keys=("summary", "baseline", "orphaned"),
-    after_keys=("summary", "current", "orphaned"),
-    increased_prefix="Orphaned annotation delta increased",
-    ok_prefix="Orphaned annotation delta OK",
-)
-
-_AMBIGUITY_SPEC = StandardGateSpec(
-    env_flag=AMBIGUITY_DELTA_ENV_FLAG,
-    disabled_message=(
-        "Ambiguity delta gate disabled by override; "
-        f"set {AMBIGUITY_DELTA_ENV_FLAG}=1 to enforce."
-    ),
-    missing_message="Ambiguity delta missing; gate failed.",
-    unreadable_message="Ambiguity delta unreadable; gate failed.",
-    delta_keys=("summary", "total", "delta"),
-    before_keys=("summary", "total", "baseline"),
-    after_keys=("summary", "total", "current"),
-    increased_prefix="Ambiguity delta increased",
-    ok_prefix="Ambiguity delta OK",
-)
+def _policy_spec(gate_id: str) -> StandardGateSpec:
+    policy = load_governance_rules().gates.get(gate_id)
+    if policy is None:
+        raise ValueError(f"governance policy missing gate: {gate_id}")
+    return _standard_spec_from_policy(policy)
 
 
 def _enabled_default_true(env_flag: str, value: str | None = None) -> bool:
@@ -134,6 +97,20 @@ def _load_payload(path: Path) -> tuple[Mapping[str, object] | None, str | None]:
     return None, None
 
 
+def _gate_id_for_env_flag(env_flag: str) -> str:
+    mapping = {
+        OBSOLESCENCE_OPAQUE_ENV_FLAG: "obsolescence_opaque",
+        OBSOLESCENCE_UNMAPPED_ENV_FLAG: "obsolescence_unmapped",
+        ANNOTATION_ORPHANED_ENV_FLAG: "annotation_orphaned",
+        AMBIGUITY_DELTA_ENV_FLAG: "ambiguity",
+        DOCFLOW_DELTA_ENV_FLAG: "docflow",
+    }
+    gate_id = mapping.get(env_flag)
+    if gate_id is None:
+        raise ValueError(f"unsupported env flag for governance mapping: {env_flag}")
+    return gate_id
+
+
 def _check_standard_gate(
     spec: StandardGateSpec,
     path: Path,
@@ -154,12 +131,18 @@ def _check_standard_gate(
         else:
             print(spec.unreadable_message)
         return 2
+    gate_policy = load_governance_rules().gates[_gate_id_for_env_flag(spec.env_flag)]
     delta_value = _nested_int(payload, spec.delta_keys)
-    if delta_value > 0:
+    if delta_value >= gate_policy.severity.blocking_threshold:
         before = _nested_int(payload, spec.before_keys)
         after = _nested_int(payload, spec.after_keys)
-        print(f"{spec.increased_prefix}: {before} -> {after} (+{delta_value}).")
+        print(f"{spec.blocking_prefix}: {before} -> {after} (+{delta_value}).")
         return 1
+    if delta_value >= gate_policy.severity.warning_threshold:
+        before = _nested_int(payload, spec.before_keys)
+        after = _nested_int(payload, spec.after_keys)
+        print(f"{spec.warning_prefix}: {before} -> {after} (+{delta_value}).")
+        return 0
     print(f"{spec.ok_prefix} ({delta_value}).")
     return 0
 
@@ -185,19 +168,19 @@ def docflow_enabled(value: str | None = None) -> bool:
 
 
 def obsolescence_opaque_delta_value(payload: Mapping[str, object]) -> int:
-    return _nested_int(payload, _OBSOLESCENCE_OPAQUE_SPEC.delta_keys)
+    return _nested_int(payload, _policy_spec("obsolescence_opaque").delta_keys)
 
 
 def obsolescence_unmapped_delta_value(payload: Mapping[str, object]) -> int:
-    return _nested_int(payload, _OBSOLESCENCE_UNMAPPED_SPEC.delta_keys)
+    return _nested_int(payload, _policy_spec("obsolescence_unmapped").delta_keys)
 
 
 def annotation_orphaned_delta_value(payload: Mapping[str, object]) -> int:
-    return _nested_int(payload, _ANNOTATION_ORPHANED_SPEC.delta_keys)
+    return _nested_int(payload, _policy_spec("annotation_orphaned").delta_keys)
 
 
 def ambiguity_delta_value(payload: Mapping[str, object]) -> int:
-    return _nested_int(payload, _AMBIGUITY_SPEC.delta_keys)
+    return _nested_int(payload, _policy_spec("ambiguity").delta_keys)
 
 
 def docflow_delta_value(payload: Mapping[str, object], key: str) -> int:
@@ -205,35 +188,36 @@ def docflow_delta_value(payload: Mapping[str, object], key: str) -> int:
 
 
 def check_obsolescence_opaque_gate(path: Path, *, enabled: bool | None = None) -> int:
-    return _check_standard_gate(_OBSOLESCENCE_OPAQUE_SPEC, path, enabled=enabled)
+    return _check_standard_gate(_policy_spec("obsolescence_opaque"), path, enabled=enabled)
 
 
 def check_obsolescence_unmapped_gate(path: Path, *, enabled: bool | None = None) -> int:
-    return _check_standard_gate(_OBSOLESCENCE_UNMAPPED_SPEC, path, enabled=enabled)
+    return _check_standard_gate(_policy_spec("obsolescence_unmapped"), path, enabled=enabled)
 
 
 def check_annotation_orphaned_gate(path: Path, *, enabled: bool | None = None) -> int:
-    return _check_standard_gate(_ANNOTATION_ORPHANED_SPEC, path, enabled=enabled)
+    return _check_standard_gate(_policy_spec("annotation_orphaned"), path, enabled=enabled)
 
 
 def check_ambiguity_gate(path: Path, *, enabled: bool | None = None) -> int:
-    return _check_standard_gate(_AMBIGUITY_SPEC, path, enabled=enabled)
+    return _check_standard_gate(_policy_spec("ambiguity"), path, enabled=enabled)
 
 
 def check_docflow_gate(path: Path, *, enabled: bool | None = None) -> int:
+    policy = load_governance_rules().gates["docflow"]
     gate_enabled = docflow_enabled() if enabled is None else enabled
     if not gate_enabled:
-        print(f"Docflow delta gate disabled; set {DOCFLOW_DELTA_ENV_FLAG}=1 to enable.")
+        print(policy.disabled_message)
         return 0
     if not path.exists():
-        print("Docflow delta missing; gate skipped.")
+        print(policy.missing_message)
         return 0
     payload, decode_error = _load_payload(path)
     if payload is None:
         if isinstance(decode_error, str) and decode_error:
-            print(f"Docflow delta unreadable; gate skipped: {decode_error}")
+            print(f"{policy.unreadable_message}: {decode_error}")
         else:
-            print("Docflow delta unreadable; gate skipped.")
+            print(policy.unreadable_message)
         return 0
     baseline_missing = bool(payload.get("baseline_missing"))
     if baseline_missing:
@@ -242,16 +226,16 @@ def check_docflow_gate(path: Path, *, enabled: bool | None = None) -> int:
     contradicts_delta = docflow_delta_value(payload, "contradicts")
     excess_delta = docflow_delta_value(payload, "excess")
     proposed_delta = docflow_delta_value(payload, "proposed")
-    if contradicts_delta > 0:
+    if contradicts_delta >= policy.severity.blocking_threshold:
         before = _nested_int(payload, ("summary", "baseline", "contradicts"))
         after = _nested_int(payload, ("summary", "current", "contradicts"))
         print(
-            "Docflow contradictions increased: "
+            f"{policy.blocking_prefix}: "
             f"{before} -> {after} (+{contradicts_delta})."
         )
         return 1
     print(
-        "Docflow delta OK "
+        f"{policy.ok_prefix} "
         f"(contradicts {contradicts_delta}, excess {excess_delta}, proposed {proposed_delta})."
     )
     return 0
