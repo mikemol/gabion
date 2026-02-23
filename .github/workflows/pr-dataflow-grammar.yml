@@ -26,6 +26,16 @@ jobs:
         uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8
       - name: Install toolchain
         run: mise install
+      - name: Create venv
+        run: |
+          mise exec -- python -m venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - name: Install dependencies (locked)
+        run: |
+          .venv/bin/python -m pip install --upgrade pip uv
+          .venv/bin/uv pip sync requirements.lock
+          .venv/bin/uv pip install -e .
       - name: Verify stage CI succeeded for this SHA
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,7 +43,7 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          python - <<'PY'
+          .venv/bin/python - <<'PY'
           import json
           import os
           import time
@@ -88,29 +98,27 @@ jobs:
               print(f"Stage CI OK for {sha}.")
               break
           PY
-      - name: Install package
-        run: mise exec -- python -m pip install -e .
       - name: Policy check (no monkeypatch)
-        run: mise exec -- python scripts/no_monkeypatch_policy_check.py --root .
+        run: .venv/bin/python scripts/no_monkeypatch_policy_check.py --root .
       - name: Policy check (branchless)
-        run: mise exec -- python scripts/branchless_policy_check.py --root .
+        run: .venv/bin/python scripts/branchless_policy_check.py --root .
       - name: Policy check (defensive fallback)
-        run: mise exec -- python scripts/defensive_fallback_policy_check.py --root .
+        run: .venv/bin/python scripts/defensive_fallback_policy_check.py --root .
       - name: Governance PR template fields
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: mise exec -- python scripts/check_pr_governance_template.py
+        run: .venv/bin/python scripts/check_pr_governance_template.py
       - name: Controller drift audit (advisory)
-        run: mise exec -- python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
+        run: .venv/bin/python scripts/governance_controller_audit.py --out artifacts/out/controller_drift.json
       - name: Select impacted tests
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           mkdir -p artifacts/audit_reports artifacts/test_runs
-          mise exec -- python -m gabion impact-select-tests \
+          .venv/bin/python -m gabion impact-select-tests \
             --root . \
             --diff-base "$GITHUB_BASE_SHA" \
             --diff-head "$GITHUB_HEAD_SHA" \
@@ -121,7 +129,7 @@ jobs:
           IMPACT_GATE_MUST_RUN: ${{ vars.IMPACT_GATE_MUST_RUN || 'false' }}
         run: |
           set -euo pipefail
-          python - <<'PY'
+          .venv/bin/python - <<'PY'
           import json
           import os
           import pathlib
@@ -138,10 +146,7 @@ jobs:
           must_run = [str(item) for item in selection.get("must_run_impacted_tests", []) if str(item).strip()]
           gate_must_run = os.environ.get("IMPACT_GATE_MUST_RUN", "false").lower() in {"1", "true", "yes"}
           pytest_base = [
-              "mise",
-              "exec",
-              "--",
-              "python",
+              ".venv/bin/python",
               "-m",
               "pytest",
               "--cov=src/gabion",
@@ -181,7 +186,7 @@ jobs:
           GABION_LSP_TIMEOUT_TICK_NS: "1000000"
         run: |
           mkdir -p artifacts/dataflow_grammar artifacts/audit_reports
-          mise exec -- python -m gabion check --profile raw . \
+          .venv/bin/python -m gabion check --profile raw . \
             --root . \
             --report artifacts/dataflow_grammar/report.md \
             --dot artifacts/dataflow_grammar/dataflow_graph.dot \
@@ -211,7 +216,7 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          python - <<'PY'
+          .venv/bin/python - <<'PY'
           import json
           import os
           import pathlib
@@ -302,7 +307,7 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          python - <<'PY'
+          .venv/bin/python - <<'PY'
           import json
           import os
           import pathlib
